@@ -43,6 +43,12 @@ export const prismaWriteFieldMetadata = {
       isRequired: true,
       isList: false,
     },
+    linkType: {
+      kind: "enum",
+      enumName: "CuratedSourceLinkType",
+      isRequired: true,
+      isList: false,
+    },
     enabled: {
       kind: "scalar",
       type: "Boolean",

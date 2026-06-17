@@ -12,6 +12,7 @@ import { buildWriteBodySchema } from "../../lib/prisma-write-schema/build-write-
 const curatedSourceWriteFields = [
   "name",
   "listingUrl",
+  "linkType",
   "enabled",
   "maxItems",
 ] as const;

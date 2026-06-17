@@ -37,11 +37,14 @@ export const postPageCollectionResolveSourcesBodySchema = z.object({
   listingUrls: z.array(z.string().url()),
 });
 
+export const curatedSourceLinkTypeSchema = z.enum(["page", "listing"]);
+
 export const postPageCollectionResolveSourcesResponseSchema = z.object({
   sources: z.array(
     z.object({
       listingUrl: z.string().url(),
       curatedSourceId: z.string().uuid(),
+      linkType: curatedSourceLinkTypeSchema,
       maxItems: z.number().int().positive().nullable(),
     }),
   ),

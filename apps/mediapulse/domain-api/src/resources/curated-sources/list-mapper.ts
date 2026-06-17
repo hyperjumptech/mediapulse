@@ -14,6 +14,7 @@ export const mapRowToListItem = (row: CuratedSource) => ({
   id: row.id,
   name: row.name ?? "",
   listingUrl: row.listingUrl,
+  linkType: row.linkType === "page" ? "Page" : "Listing",
   enabled: row.enabled ? "Yes" : "No",
   maxItems: row.maxItems == null ? "" : String(row.maxItems),
   createdAt: row.createdAt.toISOString(),

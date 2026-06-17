@@ -48,6 +48,7 @@ describe("curatedSourcesRoutes", () => {
         id: "source-1",
         name: "Example feed",
         listingUrl: "https://example.com/feed.xml",
+        linkType: "listing",
         enabled: true,
         maxItems: 25,
         createdAt: new Date("2026-06-17T10:00:00.000Z"),
@@ -109,6 +110,7 @@ describe("curatedSourcesRoutes", () => {
       id: "source-new",
       name: null,
       listingUrl: "https://example.com/rss",
+      linkType: "listing",
       enabled: true,
       maxItems: null,
       createdAt: new Date("2026-06-17T10:00:00.000Z"),
@@ -120,11 +122,55 @@ describe("curatedSourcesRoutes", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         listingUrl: "https://example.com/rss",
+        linkType: "listing",
         enabled: true,
       }),
     });
 
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ id: "source-new" });
+    expect(prisma.curatedSource.create).toHaveBeenCalledWith({
+      data: {
+        name: null,
+        listingUrl: "https://example.com/rss",
+        linkType: "listing",
+        enabled: true,
+        maxItems: null,
+      },
+    });
+  });
+
+  it("creates a page-type curated source", async () => {
+    vi.mocked(prisma.curatedSource.create).mockResolvedValue({
+      id: "source-page",
+      name: "Single article",
+      listingUrl: "https://example.com/article/one",
+      linkType: "page",
+      enabled: true,
+      maxItems: null,
+      createdAt: new Date("2026-06-17T10:00:00.000Z"),
+      updatedAt: new Date("2026-06-17T10:00:00.000Z"),
+    } as never);
+
+    const res = await curatedSourcesRoutes.request("http://localhost/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        listingUrl: "https://example.com/article/one",
+        linkType: "page",
+        enabled: true,
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(prisma.curatedSource.create).toHaveBeenCalledWith({
+      data: {
+        name: null,
+        listingUrl: "https://example.com/article/one",
+        linkType: "page",
+        enabled: true,
+        maxItems: null,
+      },
+    });
   });
 });
