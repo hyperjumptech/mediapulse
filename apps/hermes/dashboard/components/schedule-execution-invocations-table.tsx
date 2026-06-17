@@ -48,6 +48,7 @@ import { isActivityRowInProgress } from "@/lib/derive-activity-row-durations";
 
 import { useAgentActivityModal } from "./use-agent-activity-modal";
 import { LiveElapsed } from "./live-elapsed";
+import { InvocationOutcomeDetail } from "./invocation-outcome-detail";
 
 /**
  * Pretty-prints JSON for read-only display in the modal.
@@ -242,8 +243,16 @@ export const ScheduleExecutionInvocationsTable = ({
                     <TableCell className="text-sm tabular-nums text-muted-foreground">
                       {durationLabel}
                     </TableCell>
-                    <TableCell className="max-w-md whitespace-normal wrap-break-word text-sm text-muted-foreground">
-                      {j.errorSummary ?? "—"}
+                    <TableCell
+                      className={`max-w-md whitespace-normal wrap-break-word text-sm ${
+                        outcome === "failure"
+                          ? "text-destructive"
+                          : j.outcomeSummary?.includes("Partial")
+                            ? "text-amber-700 dark:text-amber-400"
+                            : "text-muted-foreground"
+                      }`}
+                    >
+                      {j.outcomeSummary ?? "—"}
                     </TableCell>
                     <TableCell>
                       <Button
@@ -280,6 +289,10 @@ export const ScheduleExecutionInvocationsTable = ({
           </DialogHeader>
           {selected ? (
             <div className="flex flex-col gap-4">
+              <InvocationOutcomeDetail
+                transportError={selected.transportError}
+                agentResponse={selected.agentResponse}
+              />
               <div>
                 <h3 className="mb-2 text-sm font-medium text-foreground">
                   Input

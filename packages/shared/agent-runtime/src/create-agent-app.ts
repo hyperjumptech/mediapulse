@@ -219,6 +219,9 @@ export function createAgentApp<
           status: "success",
           ...(result.message !== undefined ? { message: result.message } : {}),
           ...(result.details !== undefined ? { details: result.details } : {}),
+          ...(result.logs !== undefined && result.logs.length > 0
+            ? { logs: result.logs }
+            : {}),
         };
         return context.json(envelope, 200);
       }
@@ -228,6 +231,9 @@ export function createAgentApp<
         status: "failure",
         message: result.message,
         ...(result.details !== undefined ? { details: result.details } : {}),
+        ...(result.logs !== undefined && result.logs.length > 0
+          ? { logs: result.logs }
+          : {}),
       };
       return context.json(envelope, 200);
     } catch (error) {

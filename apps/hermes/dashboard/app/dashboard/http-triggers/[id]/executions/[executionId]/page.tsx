@@ -17,7 +17,7 @@ import {
   computePipelineWallElapsed,
   formatPipelineElapsedLabel,
 } from "@/lib/compute-execution-elapsed";
-import { formatInvocationErrorSummary } from "@/lib/format-invocation-error";
+import { formatInvocationOutcomeSummary } from "@/lib/format-invocation-outcome-summary";
 import { getHttpTriggerExecutionDetail } from "@/lib/http-triggers";
 import { getHermesExecutionInvokeTransportBlurb } from "@/lib/hermes-execution-invoke-transport";
 import { maskHttpTriggerExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
@@ -188,7 +188,11 @@ export default async function HttpTriggerExecutionDetailPage({
             jobId: job.jobId,
             status: job.status,
             semanticStatus: job.semanticStatus,
-            errorSummary: formatInvocationErrorSummary(job.error) ?? null,
+            outcomeSummary:
+              formatInvocationOutcomeSummary(job.error, job.agentResponse) ??
+              null,
+            transportError: job.error,
+            agentResponse: job.agentResponse,
             inputMasked: job.params,
             configMasked: job.invocationConfig,
             agentId: job.agentId,

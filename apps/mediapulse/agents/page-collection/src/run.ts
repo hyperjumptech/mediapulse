@@ -1,5 +1,9 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
+import {
+  createActivityReporter,
+  createRunLogBuffer,
+} from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-page-collection";
 import { logger } from "@workspace/logger";
 import got from "got";
@@ -47,7 +51,6 @@ export async function runPageCollection(
   const runId = crypto.randomUUID();
   const scheduleExecutionId =
     hermesCorrelation?.scheduleExecutionId ?? undefined;
-  const outcomes: CollectionUrlOutcomeInput[] = [];
 
   const log = logger.child({
     component: "page-collection",
@@ -60,34 +63,122 @@ export async function runPageCollection(
       : {}),
   });
 
-  const runPolicy = config.runPolicy;
-  const webFetchConfig = config.providers.fetch;
-  const deadUrlCacheConfig = config.resilience.deadUrlCache;
-  const hostErrorBreakerConfig = config.resilience.hostErrorBreaker;
-  const hostErrorTracker = new HostErrorTracker(hostErrorBreakerConfig);
-
   const dataApiClient = createAgentDataApiClient({
     baseUrl: env.AGENT_DATA_API_URL,
     version: "v1",
     token,
   });
 
-  const report = (
-    title: string,
-    description?: string,
-    status: "processing" | "completed" = "processing",
-  ) => {
-    const jobId = hermesCorrelation?.jobId;
-    if (jobId && token) {
-      void fetch(`${env.AGENT_REGISTRY_URL}/api/agent-activity`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: token },
-        body: JSON.stringify({ jobId, title, description, status }),
-      }).catch(() => {});
+  const runLogBuffer = createRunLogBuffer();
+  const report = createActivityReporter({
+    registryUrl: env.AGENT_REGISTRY_URL,
+    jobId: hermesCorrelation?.jobId,
+    token,
+  });
+
+  try {
+    return await executePageCollectionRun({
+      input,
+      config,
+      startedAt,
+      runId,
+      scheduleExecutionId,
+      log,
+      runLogBuffer,
+      report,
+      dataApiClient,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Page collection run failed unexpectedly";
+    log.error({ err: error }, "page collection run failed before completion");
+    runLogBuffer.append({
+      level: "error",
+      message,
+    });
+
+    try {
+      await dataApiClient.dataCollectionRun.create({
+        id: runId,
+        scheduleExecutionId,
+        startedAt: startedAt.toISOString(),
+        completedAt: new Date().toISOString(),
+        status: "failed",
+        counters: {
+          queriesTotal: 0,
+          urlsTotal: 0,
+          searchSuccess: 0,
+          searchFailed: 0,
+          fetchSuccess: 0,
+          fetchFailed: 0,
+          retryCount: 0,
+          droppedByRelevance: 0,
+          throttleEvents: 0,
+          durationMs: Date.now() - startedAt.getTime(),
+          agentId: "page-collection",
+        },
+      });
+    } catch (persistError) {
+      log.warn({ err: persistError }, "failed to persist crash run record");
     }
-  };
+
+    report("Page collection failed", message, "completed");
+
+    const logs = runLogBuffer.toArray();
+    return {
+      success: false,
+      message: `Page collection run failed: ${message}`,
+      details: { failureReason: "unexpected_error" as const },
+      ...(logs.length > 0 ? { logs } : {}),
+    };
+  }
+}
+
+type PageCollectionLogger = {
+  info: (obj: unknown, msg?: string) => void;
+  warn: (obj: unknown, msg?: string) => void;
+  error: (obj: unknown, msg?: string) => void;
+};
+
+type PageCollectionRunDeps = {
+  input: BodySchemaType;
+  config: ConfigSchemaType;
+  startedAt: Date;
+  runId: string;
+  scheduleExecutionId: string | undefined;
+  log: PageCollectionLogger;
+  runLogBuffer: ReturnType<typeof createRunLogBuffer>;
+  report: ReturnType<typeof createActivityReporter>;
+  dataApiClient: ReturnType<typeof createAgentDataApiClient>;
+};
+
+/**
+ * Core page-collection pipeline (invoked inside error handling wrapper).
+ */
+async function executePageCollectionRun(
+  deps: PageCollectionRunDeps,
+): Promise<AgentRunResult> {
+  const {
+    input,
+    config,
+    startedAt,
+    runId,
+    scheduleExecutionId,
+    log,
+    runLogBuffer,
+    report,
+    dataApiClient,
+  } = deps;
+  const outcomes: CollectionUrlOutcomeInput[] = [];
 
   const listingUrl = input.listingUrl;
+  const runPolicy = config.runPolicy;
+  const webFetchConfig = config.providers.fetch;
+  const deadUrlCacheConfig = config.resilience.deadUrlCache;
+  const hostErrorBreakerConfig = config.resilience.hostErrorBreaker;
+  const hostErrorTracker = new HostErrorTracker(hostErrorBreakerConfig);
 
   report("Resolving curated source", listingUrl);
 
@@ -127,6 +218,15 @@ export async function runPageCollection(
     ...(meta?.curatedSourceId ? { curatedSourceId: meta.curatedSourceId } : {}),
     ...(item.publishedAt ? { publishedAt: item.publishedAt } : {}),
   }));
+
+  if (allCandidates.length === 0) {
+    log.warn({ listingUrl }, "page collection discovered zero candidate URLs");
+    runLogBuffer.append({
+      level: "warn",
+      message: "Zero candidate URLs discovered",
+      context: { listingUrl },
+    });
+  }
 
   const collectionConfig = config.collection;
   const runConfig = config.run;
@@ -386,6 +486,27 @@ export async function runPageCollection(
     createdAt: new Date().toISOString(),
   }));
 
+  for (const failure of fetchFailures) {
+    if (failure.url) {
+      const item = canonicalItemMap.get(failure.url);
+      outcomes.push(
+        makeFailedOutcome(
+          {
+            id: crypto.randomUUID(),
+            scheduleExecutionId,
+            runId,
+            agent: "page-collection",
+            url: failure.url,
+            source: item?.sourceListingUrl,
+            createdAt: new Date().toISOString(),
+          },
+          failure.errorCategory,
+          failure.httpStatus,
+        ),
+      );
+    }
+  }
+
   const totalSources = persistedCount;
   const derivedStatus = deriveRunStatus({
     totalSources,
@@ -440,6 +561,10 @@ export async function runPageCollection(
   });
 
   if (failuresPayload.length > 0) {
+    log.warn(
+      { failureRecords: failuresPayload.length, fetchFailed: fetchFailedCount },
+      "recording page collection fetch failures",
+    );
     await dataApiClient.dataCollectionFailure.create(failuresPayload);
   }
 
@@ -458,21 +583,85 @@ export async function runPageCollection(
     status,
     discoveredCount: allCandidates.length,
     fetchSuccess: fetchSuccessCount,
+    fetchFailed: fetchFailedCount,
     droppedByContentQuality,
     droppedByDeadUrlCache,
     droppedByFetchBudget,
     deadlineHit,
   };
 
+  const durationMs = Date.now() - startedAt.getTime();
+
   if (status === "failed") {
+    const minRequired = runPolicy.minSuccessfulSources;
+    const message =
+      totalSources === 0
+        ? `Page collection run failed: no sources were successfully collected, but the run policy requires at least ${minRequired} successful source${minRequired === 1 ? "" : "s"}.`
+        : `Page collection run failed: only ${totalSources} successful source${totalSources === 1 ? "" : "s"} collected, but the run policy requires at least ${minRequired}.`;
+
+    log.warn(
+      {
+        status,
+        durationMs,
+        totalSources,
+        minRequired,
+        failureCount: failuresPayload.length,
+      },
+      "page collection run completed with policy failure",
+    );
+
+    report(
+      "Page collection complete",
+      `${totalSources} persisted, policy failure`,
+      "completed",
+    );
+
     return {
       success: false,
-      message: `Page collection run failed: ${totalSources} sources persisted.`,
-      details: { summary, failureReason: "insufficient_successful_sources" },
+      message,
+      details: {
+        summary,
+        failureReason: "insufficient_successful_sources" as const,
+        requiredSuccessfulSources: minRequired,
+        collectedSuccessfulSources: totalSources,
+      },
+      ...(runLogBuffer.toArray().length > 0
+        ? { logs: runLogBuffer.toArray() }
+        : {}),
     };
   }
 
-  return { success: true, details: { summary } };
+  const completionMessage =
+    status === "partial_success"
+      ? "page collection run completed with partial success"
+      : "page collection run completed successfully";
+
+  log.info(
+    {
+      status,
+      durationMs,
+      totalSources,
+      failureCount: failuresPayload.length,
+    },
+    completionMessage,
+  );
+
+  if (fetchFailedCount > 0 || status === "partial_success") {
+    runLogBuffer.append({
+      level: "warn",
+      message: completionMessage,
+      context: { fetchFailed: fetchFailedCount, persisted: totalSources },
+    });
+  }
+
+  report("Page collection complete", `${totalSources} persisted`, "completed");
+
+  const completionLogs = runLogBuffer.toArray();
+  return {
+    success: true,
+    details: { summary },
+    ...(completionLogs.length > 0 ? { logs: completionLogs } : {}),
+  };
 }
 
 /**

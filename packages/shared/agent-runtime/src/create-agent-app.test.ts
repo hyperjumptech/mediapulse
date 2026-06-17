@@ -104,6 +104,35 @@ describe("createAgentApp", () => {
     expect(body.message).toBe("Nothing to do");
   });
 
+  it("forwards logs from run result into the envelope", async () => {
+    const app = createAgentApp<Input, typeof schema>(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        run: async () => ({
+          success: true,
+          logs: [{ level: "warn", message: "partial fetch failures" }],
+        }),
+      },
+      { verifyToken: async () => true },
+    );
+
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify(validBody),
+    });
+    const body = (await res.json()) as {
+      logs?: Array<{ level: string; message: string }>;
+    };
+
+    expect(res.status).toBe(200);
+    expect(body.logs).toEqual([
+      { level: "warn", message: "partial fetch failures" },
+    ]);
+  });
+
   it("returns 400 when body fails validation", async () => {
     // Setup
     const run = vi.fn();

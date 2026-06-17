@@ -18,7 +18,7 @@ import {
   computePipelineWallElapsed,
   formatPipelineElapsedLabel,
 } from "@/lib/compute-execution-elapsed";
-import { formatInvocationErrorSummary } from "@/lib/format-invocation-error";
+import { formatInvocationOutcomeSummary } from "@/lib/format-invocation-outcome-summary";
 import { getHermesExecutionInvokeTransportBlurb } from "@/lib/hermes-execution-invoke-transport";
 import { maskScheduleExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
 import { getScheduleExecutionDetail } from "@/lib/schedules";
@@ -187,7 +187,10 @@ export default async function ScheduleExecutionDetailPage({
             jobId: j.jobId,
             status: j.status,
             semanticStatus: j.semanticStatus,
-            errorSummary: formatInvocationErrorSummary(j.error) ?? null,
+            outcomeSummary:
+              formatInvocationOutcomeSummary(j.error, j.agentResponse) ?? null,
+            transportError: j.error,
+            agentResponse: j.agentResponse,
             inputMasked: j.params,
             configMasked: j.invocationConfig,
             agentId: j.agentId,
