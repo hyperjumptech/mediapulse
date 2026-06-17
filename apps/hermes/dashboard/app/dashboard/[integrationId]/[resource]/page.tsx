@@ -5,6 +5,7 @@ import DomainContentViewPage from "@/app/dashboard/domain-content-view-page";
 import { withAuthProtection } from "@/components/with-auth-protection";
 import { getDomainIntegrationByIntegrationId } from "@/lib/domain-integrations";
 import type { DomainTableSearchParams } from "@/lib/domain-table-list-params";
+import { mergeDomainIntegrationNavViews } from "@/lib/merge-domain-integration-nav-pages";
 
 /**
  * Domain integration dashboard view. Dispatches by manifest `kind` for sidebar views.
@@ -22,8 +23,8 @@ const IntegrationDashboardViewPage = async ({
     notFound();
   }
 
-  const view = integration.dashboard.views.find(
-    (entry) => entry.placement === "sidebar" && entry.pathSegment === resource,
+  const view = mergeDomainIntegrationNavViews(integration).find(
+    (entry) => entry.pathSegment === resource,
   );
 
   if (!view) {

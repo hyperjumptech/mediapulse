@@ -50,6 +50,7 @@ describe("IntegrationDashboardViewPage", () => {
 
   it("renders resource-table view via DomainTablePage", async () => {
     getDomainIntegrationByIntegrationIdMock.mockResolvedValue({
+      capabilities: [],
       dashboard: {
         views: [
           {
@@ -90,6 +91,7 @@ describe("IntegrationDashboardViewPage", () => {
 
   it("renders html content view via DomainContentViewPage", async () => {
     getDomainIntegrationByIntegrationIdMock.mockResolvedValue({
+      capabilities: [],
       dashboard: {
         views: [
           {
@@ -116,6 +118,48 @@ describe("IntegrationDashboardViewPage", () => {
 
     expect(screen.getByTestId("domain-content-view-page")).toBeInTheDocument();
     expect(domainContentViewPageMock).toHaveBeenCalled();
+  });
+
+  it("renders synthetic data-source-expansions when manifest omits it but capability is present", async () => {
+    getDomainIntegrationByIntegrationIdMock.mockResolvedValue({
+      id: "i1",
+      integrationId: "mediapulse",
+      capabilities: ["expand-step-inputs", "preview-expansion"],
+      dashboard: {
+        views: [
+          {
+            id: "tickers",
+            kind: "resource-table",
+            placement: "sidebar",
+            pathSegment: "tickers",
+            label: "Tickers",
+            order: 1,
+            apiPrefix: "/v1/tickers",
+            columns: [],
+            searchableFields: [],
+            sortableFields: [],
+            actions: {},
+          },
+        ],
+      },
+    });
+
+    const component = await IntegrationDashboardViewPage({
+      params: Promise.resolve({
+        integrationId: "mediapulse",
+        resource: "data-source-expansions",
+      }),
+      searchParams: {},
+    });
+    render(component);
+
+    expect(screen.getByTestId("domain-table-page")).toBeInTheDocument();
+    expect(domainTablePageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        integrationId: "mediapulse",
+        resource: "data-source-expansions",
+      }),
+    );
   });
 
   it("calls notFound when integration is missing", async () => {
