@@ -106,6 +106,9 @@ export const computeDailyQueryYieldCounts = async (
   } satisfies Prisma.DataSourceFindManyArgs);
 
   for (const row of allSourcesForTicker) {
+    if (row.searchQueryId === null) {
+      continue;
+    }
     if (!earliestByUrl.has(row.url)) {
       earliestByUrl.set(row.url, {
         searchQueryId: row.searchQueryId,
@@ -120,6 +123,9 @@ export const computeDailyQueryYieldCounts = async (
   >();
 
   for (const source of sources) {
+    if (source.searchQueryId === null) {
+      continue;
+    }
     const bucket = counts.get(source.searchQueryId) ?? {
       articleCount: 0,
       novelArticleCount: 0,

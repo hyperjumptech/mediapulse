@@ -86,7 +86,7 @@ export const lookupGlobalExistingUrls = async (
   body: PostPageCollectionExistingUrlsBody,
   deps: { db?: Pick<typeof prisma.dataSource, "findMany"> } = {},
 ): Promise<string[]> => {
-  const db = deps.db ?? prisma;
+  const dataSource = deps.db ?? prisma.dataSource;
   const uniqueRequested = [...new Set(body.urls)];
 
   if (uniqueRequested.length === 0) {
@@ -109,8 +109,8 @@ export const lookupGlobalExistingUrls = async (
     select: { canonicalUrl: true },
   } satisfies Prisma.DataSourceFindManyArgs;
 
-  const rows = await db.dataSource.findMany(findArgs);
-  return rows.map((r) => r.canonicalUrl);
+  const rows = await dataSource.findMany(findArgs);
+  return rows.map((r: { canonicalUrl: string }) => r.canonicalUrl);
 };
 
 /**
@@ -123,14 +123,19 @@ export const resolveCuratedSourcesByListingUrls = async (
   body: PostPageCollectionResolveSourcesBody,
   deps: { db?: Pick<typeof prisma.curatedSource, "findMany"> } = {},
 ) => {
-  const db = deps.db ?? prisma;
-  const rows = await db.curatedSource.findMany({
+  const curatedSource = deps.db ?? prisma.curatedSource;
+  const rows = await curatedSource.findMany({
     where: { listingUrl: { in: body.listingUrls }, enabled: true },
     select: { id: true, listingUrl: true, maxItems: true },
   } satisfies Prisma.CuratedSourceFindManyArgs);
 
   return {
-    sources: rows.map((row) => ({
+    sources: rows.map(
+      (row: {
+        listingUrl: string;
+        id: string;
+        maxItems: number | null;
+      }) => ({
       listingUrl: row.listingUrl,
       curatedSourceId: row.id,
       maxItems: row.maxItems,
@@ -148,7 +153,7 @@ export const listPageCollectionArticles = async (
   query: GetPageCollectionArticlesQuery,
   deps: { db?: Pick<typeof prisma.dataSource, "findMany" | "count"> } = {},
 ): Promise<GetPageCollectionArticlesResponse> => {
-  const db = deps.db ?? prisma;
+  const dataSource = deps.db ?? prisma.dataSource;
   const page = query.page;
   const pageSize = query.pageSize;
   const skip = (page - 1) * pageSize;
@@ -183,12 +188,13 @@ export const listPageCollectionArticles = async (
   const countArgs = { where } satisfies Prisma.DataSourceCountArgs;
 
   const [rows, total] = await Promise.all([
-    db.dataSource.findMany(findArgs),
-    db.dataSource.count(countArgs),
+    dataSource.findMany(findArgs),
+    dataSource.count(countArgs),
   ]);
 
   return {
-    items: rows.map((row) => ({
+    items: rows.map(
+      (row: (typeof rows)[number]) => ({
       id: row.id,
       url: row.url,
       title: row.title,

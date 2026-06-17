@@ -20,7 +20,7 @@ const WINDOW_MS: Record<"24h" | "7d" | "30d", number> = {
 };
 
 type RunRow = {
-  tickerId: string;
+  tickerId: string | null;
   startedAt: Date;
   status: string;
   fetchSuccess: number;
@@ -37,11 +37,11 @@ type SourceHealthRow = {
 };
 
 type DataSourceRow = {
-  tickerId: string;
+  tickerId: string | null;
   url: string;
   createdAt: Date;
   metadata: Prisma.JsonValue | null;
-  ticker: { symbol: string };
+  ticker: { symbol: string } | null;
 };
 
 type PageCollectionInsightsDeps = {
@@ -564,6 +564,9 @@ export function createPageCollectionInsightsProvider(
       // Who — per-ticker bar
       const tickerArticleCounts = new Map<string, number>();
       for (const source of dataSources) {
+        if (source.ticker === null) {
+          continue;
+        }
         const symbol = source.ticker.symbol;
         tickerArticleCounts.set(
           symbol,
