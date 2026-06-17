@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-import type { DashboardPageInput } from "@hermes/domain-contract";
+import type { DashboardViewInput } from "@hermes/domain-contract";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { defineHermesDashboardResource } from "./hermes-dashboard-resource-types";
@@ -13,23 +13,25 @@ const pageA = {
   id: "seg-a",
   label: "A",
   pathSegment: "seg-a",
-  template: "table-v1" as const,
+  kind: "resource-table",
+  placement: "sidebar" as const,
   apiPrefix: "/v1/hermes-dashboard/seg-a",
   order: 0,
   columns: [],
   actions: { create: false, update: false, delete: false, view: false },
-} satisfies DashboardPageInput;
+} satisfies DashboardViewInput;
 
 const pageB = {
   id: "seg-b",
   label: "B",
   pathSegment: "seg-b",
-  template: "table-v1" as const,
+  kind: "resource-table",
+  placement: "sidebar" as const,
   apiPrefix: "/v1/hermes-dashboard/seg-b",
   order: 0,
   columns: [],
   actions: { create: false, update: false, delete: false, view: false },
-} satisfies DashboardPageInput;
+} satisfies DashboardViewInput;
 
 describe("buildHermesDashboardResourceConst", () => {
   it("builds a segment map from definitions", () => {

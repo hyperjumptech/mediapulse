@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   callDomainCustomPost,
-  fetchAllTickersForPipelineRun,
+  fetchAllDomainTableIdsForPipelineRun,
   getDomainTableItemById,
   getDomainTableList,
   getDomainTableMeta,
@@ -40,12 +40,13 @@ describe("getDomainTableMeta", () => {
       capabilities: ["expand-step-inputs", "preview-expansion"],
       dashboard: {
         templateVersion: 1,
-        pages: [
+        views: [
           {
             id: "tickers",
             label: "Tickers",
             pathSegment: "tickers",
-            template: "table-v1",
+            kind: "resource-table",
+            placement: "sidebar",
             apiPrefix: "/v1/hermes-dashboard/tickers",
             columns: [],
             searchableFields: [],
@@ -98,12 +99,13 @@ describe("getDomainTableMeta", () => {
       capabilities: [],
       dashboard: {
         templateVersion: 1,
-        pages: [
+        views: [
           {
             id: "newsletters",
             label: "Newsletters",
             pathSegment: "newsletters",
-            template: "table-v1",
+            kind: "resource-table",
+            placement: "sidebar",
             apiPrefix: "/v1/hermes-dashboard/newsletters",
             columns: [],
             searchableFields: [],
@@ -136,10 +138,12 @@ describe("getDomainTableMeta", () => {
       pageSize: 15,
       sortBy: "createdAt",
       sortDir: "desc",
-      tickerId: "11111111-1111-4111-a111-111111111111",
-      typeId: "22222222-2222-4222-a222-222222222222",
-      from: "2026-05-01",
-      to: "2026-05-31",
+      filters: {
+        tickerId: "11111111-1111-4111-a111-111111111111",
+        typeId: "22222222-2222-4222-a222-222222222222",
+        from: "2026-05-01",
+        to: "2026-05-31",
+      },
     });
 
     const calledUrl = String(fetchMock.mock.calls[0]?.[0]);
@@ -160,7 +164,7 @@ describe("getDomainTableMeta", () => {
       name: "Mediapulse",
       baseUrl: "http://localhost:3001",
       version: null,
-      dashboard: { templateVersion: 1, pages: [] },
+      dashboard: { templateVersion: 1, views: [] },
       capabilities: ["expand-step-inputs", "preview-expansion"],
     });
 
@@ -450,12 +454,13 @@ describe("getDomainTableItemById", () => {
       capabilities: ["preview-expansion", "expand-step-inputs"],
       dashboard: {
         templateVersion: 1,
-        pages: [
+        views: [
           {
             id: "tickers",
             label: "Tickers",
             pathSegment: "tickers",
-            template: "table-v1",
+            kind: "resource-table",
+            placement: "sidebar",
             apiPrefix: "/v1/hermes-dashboard/tickers",
             columns: [],
             searchableFields: [],
@@ -493,12 +498,13 @@ describe("getDomainTableItemById", () => {
       capabilities: ["preview-expansion", "expand-step-inputs"],
       dashboard: {
         templateVersion: 1,
-        pages: [
+        views: [
           {
             id: "tickers",
             label: "Tickers",
             pathSegment: "tickers",
-            template: "table-v1",
+            kind: "resource-table",
+            placement: "sidebar",
             apiPrefix: "/v1/hermes-dashboard/tickers",
             columns: [],
             searchableFields: [],
@@ -532,7 +538,7 @@ describe("previewDomainExpansion", () => {
       baseUrl: "http://localhost",
       version: null,
       capabilities: ["expand-step-inputs"],
-      dashboard: { templateVersion: 1, pages: [] },
+      dashboard: { templateVersion: 1, views: [] },
     });
 
     await expect(
@@ -552,7 +558,7 @@ describe("previewDomainExpansion", () => {
       baseUrl: "http://localhost",
       version: null,
       capabilities: ["preview-expansion"],
-      dashboard: { templateVersion: 1, pages: [] },
+      dashboard: { templateVersion: 1, views: [] },
     });
 
     const result = await previewDomainExpansion("k", "db:ticker:id", {
@@ -567,7 +573,7 @@ describe("previewDomainExpansion", () => {
   });
 });
 
-describe("fetchAllTickersForPipelineRun", () => {
+describe("fetchAllDomainTableIdsForPipelineRun", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -580,12 +586,12 @@ describe("fetchAllTickersForPipelineRun", () => {
     vi.unstubAllGlobals();
   });
 
-  it("throws when mediapulse domain integration is not registered", async () => {
+  it("throws when domain integration is not registered", async () => {
     getDomainIntegrationByIntegrationId.mockResolvedValue(null);
 
-    await expect(fetchAllTickersForPipelineRun()).rejects.toThrow(
-      'Domain integration "mediapulse"',
-    );
+    await expect(
+      fetchAllDomainTableIdsForPipelineRun("acme", "tickers"),
+    ).rejects.toThrow('Domain integration "acme"');
   });
 
   const injectedResolve = async () => ({
@@ -605,9 +611,11 @@ describe("fetchAllTickersForPipelineRun", () => {
       }),
     });
 
-    const result = await fetchAllTickersForPipelineRun({
-      resolveUrl: injectedResolve,
-    });
+    const result = await fetchAllDomainTableIdsForPipelineRun(
+      "acme",
+      "tickers",
+      { resolveUrl: injectedResolve },
+    );
 
     expect(result).toEqual([{ id: "a1" }, { id: "a2" }]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -641,9 +649,11 @@ describe("fetchAllTickersForPipelineRun", () => {
       };
     });
 
-    const result = await fetchAllTickersForPipelineRun({
-      resolveUrl: injectedResolve,
-    });
+    const result = await fetchAllDomainTableIdsForPipelineRun(
+      "acme",
+      "tickers",
+      { resolveUrl: injectedResolve },
+    );
 
     expect(result).toHaveLength(150);
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -660,9 +670,11 @@ describe("fetchAllTickersForPipelineRun", () => {
       }),
     });
 
-    const result = await fetchAllTickersForPipelineRun({
-      resolveUrl: injectedResolve,
-    });
+    const result = await fetchAllDomainTableIdsForPipelineRun(
+      "acme",
+      "tickers",
+      { resolveUrl: injectedResolve },
+    );
 
     expect(result).toEqual([{ id: "bad" }]);
   });
@@ -678,9 +690,11 @@ describe("fetchAllTickersForPipelineRun", () => {
       }),
     });
 
-    const result = await fetchAllTickersForPipelineRun({
-      resolveUrl: injectedResolve,
-    });
+    const result = await fetchAllDomainTableIdsForPipelineRun(
+      "acme",
+      "tickers",
+      { resolveUrl: injectedResolve },
+    );
 
     expect(result).toEqual([]);
   });

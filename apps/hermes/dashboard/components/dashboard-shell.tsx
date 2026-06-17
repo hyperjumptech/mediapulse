@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import type { DashboardPage } from "@hermes/domain-contract";
+import type { DashboardView } from "@hermes/domain-contract";
 
 import {
   SidebarInset,
@@ -84,7 +84,7 @@ const getDomainIntegrationsSubLabel = (
 export type DomainIntegrationNav = {
   integrationId: string;
   name: string;
-  pages: DashboardPage[];
+  views: DashboardView[];
 };
 
 /**
@@ -94,26 +94,28 @@ export const DashboardShell = ({
   children,
   user,
   domainIntegrations = [],
-  showCgaDiagnostics = false,
 }: {
   children: React.ReactNode;
   user?: DashboardUser | null;
   domainIntegrations?: DomainIntegrationNav[];
-  /** Whether to show the CGA diagnostics nav link in the sidebar. */
-  showCgaDiagnostics?: boolean;
 }) => {
   const pathname = usePathname();
   const segments = pathname?.split("/").filter(Boolean) ?? [];
   const first = segments[1];
   const second = segments[2];
+  const domainResourcePath = segments.slice(2).join("/");
 
   const domainIntegration =
     first && domainIntegrations.find((i) => i.integrationId === first);
   const isDomainKeyedRoute = Boolean(domainIntegration && second);
 
-  const domainPageLabel =
-    domainIntegration && second
-      ? domainIntegration.pages.find((p) => p.pathSegment === second)?.label
+  const domainViewLabel =
+    domainIntegration && domainResourcePath
+      ? domainIntegration.views.find(
+          (view) =>
+            view.pathSegment === domainResourcePath ||
+            view.pathSegment === second,
+        )?.label
       : undefined;
 
   const pipelinesSubLabel =
@@ -141,7 +143,7 @@ export const DashboardShell = ({
     first && !isDomainKeyedRoute ? SEGMENT_LABELS[first] : undefined;
 
   const currentLabel = isDomainKeyedRoute
-    ? (domainPageLabel ?? second ?? "Dashboard")
+    ? (domainViewLabel ?? second ?? "Dashboard")
     : (pipelinesSubLabel ??
       contentGenerationRunsSubLabel ??
       cgaDiagnosticsLabel ??
@@ -163,7 +165,6 @@ export const DashboardShell = ({
       <AppSidebar
         user={user ?? null}
         domainIntegrations={domainIntegrations}
-        showCgaDiagnostics={showCgaDiagnostics}
         variant="inset"
       />
       <SidebarInset>

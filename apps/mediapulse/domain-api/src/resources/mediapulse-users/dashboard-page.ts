@@ -2,7 +2,7 @@
  * Hermes `table-v1` manifest slice for Mediapulse end users and exported `*HermesPathSegment` for routing.
  */
 
-import { type DashboardPageInput } from "@hermes/domain-contract";
+import { type DashboardViewInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
@@ -24,7 +24,8 @@ export const mediapulseUsersDashboardPage = {
   description:
     "End-user newsletter subscribers; admin-created in Hermes (distinct from dashboard admins).",
   pathSegment: mediapulseUsersHermesPathSegment,
-  template: "table-v1" as const,
+  kind: "resource-table" as const,
+  placement: "sidebar" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(mediapulseUsersHermesPathSegment),
   order: 15,
   columns: columnsFor<ListItem>()([
@@ -37,4 +38,4 @@ export const mediapulseUsersDashboardPage = {
   actions: { create: true, update: true, delete: true, view: false },
   createSchema: mediapulseUserCreateFormJsonSchema,
   updateSchema: mediapulseUserUpdateFormJsonSchema,
-} satisfies DashboardPageInput;
+} satisfies DashboardViewInput;

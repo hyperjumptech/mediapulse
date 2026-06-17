@@ -58,7 +58,8 @@ export const buildSyntheticDataSourceExpansionsDashboardPage =
       description:
         "Manage reusable db: expansion aliases used in pipeline inputs.",
       pathSegment: DATA_SOURCE_EXPANSIONS_PATH_SEGMENT,
-      template: "table-v1",
+      kind: "resource-table",
+      placement: "sidebar",
       apiPrefix: hermesDataSourceExpansionsManifestApiPrefix(),
       order: 50,
       columns: [

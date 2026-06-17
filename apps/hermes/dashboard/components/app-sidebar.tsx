@@ -2,12 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { DashboardPage } from "@hermes/domain-contract";
+import type { DashboardView } from "@hermes/domain-contract";
 import {
-  Activity,
   Bot,
   Calendar,
-  ChartBar,
   Database,
   FileJson,
   FileText,
@@ -39,14 +37,12 @@ import type { DashboardUser } from "./dashboard-shell";
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   user?: DashboardUser | null;
-  /** Active domain integrations and their manifest pages (integration id in URL). */
+  /** Active domain integrations and their sidebar manifest views. */
   domainIntegrations?: Array<{
     integrationId: string;
     name: string;
-    pages: DashboardPage[];
+    views: DashboardView[];
   }>;
-  /** Whether to show the CGA diagnostics nav link. */
-  showCgaDiagnostics?: boolean;
 };
 
 const mainNavGroups = [
@@ -76,11 +72,6 @@ const mainNavGroups = [
         icon: FileText,
         label: "Agent contracts",
       },
-      {
-        href: "/dashboard/section-coverage",
-        icon: ChartBar,
-        label: "Section coverage",
-      },
       { href: "/dashboard/variables", icon: Variable, label: "Variables" },
     ],
   },
@@ -107,7 +98,6 @@ const mainNavGroups = [
 export const AppSidebar = ({
   user,
   domainIntegrations = [],
-  showCgaDiagnostics = false,
   ...props
 }: AppSidebarProps) => {
   const pathname = usePathname();
@@ -149,23 +139,6 @@ export const AppSidebar = ({
                     </SidebarMenuItem>
                   );
                 })}
-                {group.label === "Agents" && showCgaDiagnostics && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={
-                        pathname?.startsWith(
-                          "/dashboard/agents/content-generation-runs",
-                        ) ?? false
-                      }
-                    >
-                      <Link href="/dashboard/agents/content-generation-runs">
-                        <Activity className="size-4" />
-                        <span>CGA diagnostics</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -176,11 +149,11 @@ export const AppSidebar = ({
             <SidebarGroupLabel>{integration.name}</SidebarGroupLabel>
             <SidebarGroupContent className="flex flex-col gap-2">
               <SidebarMenu>
-                {integration.pages.map((page) => {
-                  const href = `/dashboard/${integration.integrationId}/${page.pathSegment}`;
+                {integration.views.map((view) => {
+                  const href = `/dashboard/${integration.integrationId}/${view.pathSegment}`;
                   return (
                     <SidebarMenuItem
-                      key={`${integration.integrationId}-${page.id}`}
+                      key={`${integration.integrationId}-${view.id}`}
                     >
                       <SidebarMenuButton
                         asChild
@@ -191,7 +164,7 @@ export const AppSidebar = ({
                       >
                         <Link href={href}>
                           <Database className="size-4" />
-                          <span>{page.label}</span>
+                          <span>{view.label}</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

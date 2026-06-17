@@ -45,19 +45,6 @@ vi.mock("../json-pretty", () => ({
   ),
 }));
 
-vi.mock("./insights/insights-tab", () => ({
-  InsightsTab: ({
-    window: insightsWindow,
-  }: {
-    payload: unknown;
-    window: string;
-  }) => (
-    <div data-testid="insights-tab" data-window={insightsWindow}>
-      Insights
-    </div>
-  ),
-}));
-
 const createMockAgent = () => ({
   id: "agent-123",
   domainIntegrationId: "di-1",
@@ -71,7 +58,7 @@ const createMockAgent = () => ({
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),
   domainIntegration: {
-    integrationId: "mediapulse-local",
+    integrationId: "acme-local",
   },
 });
 
@@ -109,37 +96,31 @@ describe("AgentDetailsContent", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("tab order is Insights, Schema, Info when insights present", () => {
-    // Setup
+  it("tab order is Insights, Schema, Info when domain tabs present", () => {
     const agent = createMockAgent();
-    const payload = {
-      agentId: "test-agent",
-      window: "7d" as const,
-      generatedAt: "2024-06-01T00:00:00.000Z",
-      kpis: [],
-      alerts: [],
-      sections: [],
-    };
+    const agentTabContents = [
+      {
+        view: {
+          id: "operator-agent-insights",
+          label: "Insights",
+          tabLabel: "Insights",
+          kind: "html" as const,
+          placement: "agent-tab" as const,
+          apiPrefix: "/v1/hermes-dashboard/content/agent-insights",
+          order: 10,
+        },
+        content: { body: "<p>Insights</p>", title: "Insights" },
+      },
+    ];
 
-    // Act
     render(
-      <AgentDetailsContent
-        agent={agent}
-        insightsPayload={payload}
-        insightsWindow="7d"
-      />,
+      <AgentDetailsContent agent={agent} agentTabContents={agentTabContents} />,
     );
 
-    // Assert tabs present
-    expect(screen.getByTestId("tab-trigger-insights")).toHaveTextContent(
-      "Insights",
-    );
-    expect(screen.getByTestId("tab-trigger-schema")).toHaveTextContent(
-      "Schema",
-    );
-    expect(screen.getByTestId("tab-trigger-general")).toHaveTextContent("Info");
+    expect(
+      screen.getByTestId("tab-trigger-operator-agent-insights"),
+    ).toHaveTextContent("Insights");
 
-    // Assert order: Insights before Schema before Info
     const list = screen.getByTestId("tabs-list");
     const triggers = within(list).getAllByRole("button");
     const labels = triggers.map((button) => button.textContent);
@@ -206,7 +187,7 @@ describe("AgentDetailsContent", () => {
     expect(details.getByText("Last updated")).toBeInTheDocument();
     expect(details.getByText("Feb 20, 2024")).toBeInTheDocument();
     expect(details.getByText("Domain integration id")).toBeInTheDocument();
-    expect(details.getByText("mediapulse-local")).toBeInTheDocument();
+    expect(details.getByText("acme-local")).toBeInTheDocument();
   });
 
   it("renders Endpoint section via EndpointDisplay in Info tab", () => {
@@ -242,51 +223,39 @@ describe("AgentDetailsContent", () => {
     expect(screen.getByText("No")).toBeInTheDocument();
   });
 
-  it("Insights tab is hidden when insightsPayload is null", () => {
-    // Setup
+  it("domain tab is hidden when agentTabContents is empty", () => {
     const agent = createMockAgent();
 
-    // Act
-    render(
-      <AgentDetailsContent
-        agent={agent}
-        insightsPayload={null}
-        insightsWindow="7d"
-      />,
-    );
+    render(<AgentDetailsContent agent={agent} agentTabContents={[]} />);
 
-    // Assert
     expect(
-      screen.queryByTestId("tab-trigger-insights"),
+      screen.queryByTestId("tab-trigger-operator-agent-insights"),
     ).not.toBeInTheDocument();
-    expect(screen.queryByTestId("insights-tab")).not.toBeInTheDocument();
   });
 
-  it("Insights tab appears when insightsPayload is provided", () => {
-    // Setup
+  it("domain tab appears when agentTabContents is provided", () => {
     const agent = createMockAgent();
-    const payload = {
-      agentId: "test-agent",
-      window: "7d" as const,
-      generatedAt: "2024-06-01T00:00:00.000Z",
-      kpis: [],
-      alerts: [],
-      sections: [],
-    };
+    const agentTabContents = [
+      {
+        view: {
+          id: "operator-agent-insights",
+          label: "Insights",
+          tabLabel: "Insights",
+          kind: "html" as const,
+          placement: "agent-tab" as const,
+          apiPrefix: "/v1/hermes-dashboard/content/agent-insights",
+          order: 10,
+        },
+        content: { body: "<p>Insights</p>", title: "Insights" },
+      },
+    ];
 
-    // Act
     render(
-      <AgentDetailsContent
-        agent={agent}
-        insightsPayload={payload}
-        insightsWindow="7d"
-      />,
+      <AgentDetailsContent agent={agent} agentTabContents={agentTabContents} />,
     );
 
-    // Assert
-    expect(screen.getByTestId("tab-trigger-insights")).toHaveTextContent(
-      "Insights",
-    );
-    expect(screen.getByTestId("insights-tab")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("tab-trigger-operator-agent-insights"),
+    ).toHaveTextContent("Insights");
   });
 });

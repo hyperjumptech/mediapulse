@@ -127,11 +127,13 @@ dataSourcesRoutes.get("/meta", async (c) => {
 
   return c.json({
     ...base,
-    tickerOptions: tickerOptions.map((ticker) => ({
-      value: ticker.id,
-      label: `${ticker.symbol} — ${ticker.name}`,
-    })),
-    collectionSourceOptions: COLLECTION_SOURCE_OPTIONS,
+    filterOptions: {
+      tickerOptions: tickerOptions.map((ticker) => ({
+        value: ticker.id,
+        label: `${ticker.symbol} — ${ticker.name}`,
+      })),
+      collectionSourceOptions: COLLECTION_SOURCE_OPTIONS,
+    },
   });
 });
 

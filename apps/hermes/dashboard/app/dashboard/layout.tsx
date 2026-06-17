@@ -1,5 +1,4 @@
-import type { DashboardPage } from "@hermes/domain-contract";
-import { env } from "@hermes/env";
+import type { DashboardView } from "@hermes/domain-contract";
 import { redirect } from "next/navigation";
 
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -9,7 +8,7 @@ import {
   resolveHermesActiveAdminDashboardAccess,
 } from "@/lib/auth-dashboard";
 import { getActiveDomainIntegrations } from "@/lib/domain-integrations";
-import { mergeDomainIntegrationNavPages } from "@/lib/merge-domain-integration-nav-pages";
+import { mergeDomainIntegrationNavViews } from "@/lib/merge-domain-integration-nav-pages";
 
 /**
  * Dashboard layout: sidebar, header with breadcrumb, and main content area.
@@ -30,24 +29,20 @@ export default async function DashboardLayout({
   let domainIntegrations: Array<{
     integrationId: string;
     name: string;
-    pages: DashboardPage[];
+    views: DashboardView[];
   }> = [];
   try {
     const integrations = await getActiveDomainIntegrations();
     domainIntegrations = integrations.map((i) => ({
       integrationId: i.integrationId,
       name: i.name,
-      pages: mergeDomainIntegrationNavPages(i),
+      views: mergeDomainIntegrationNavViews(i),
     }));
   } catch {
     domainIntegrations = [];
   }
   return (
-    <DashboardShell
-      user={user}
-      domainIntegrations={domainIntegrations}
-      showCgaDiagnostics={env.HERMES_CGA_DIAGNOSTICS_ENABLED === "true"}
-    >
+    <DashboardShell user={user} domainIntegrations={domainIntegrations}>
       {children}
     </DashboardShell>
   );

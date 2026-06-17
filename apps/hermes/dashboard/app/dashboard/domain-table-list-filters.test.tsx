@@ -24,51 +24,67 @@ vi.mock("@workspace/ui/components/button", () => ({
 }));
 
 describe("DomainTableListFilters", () => {
-  it("renders a type dropdown when listFilters includes typeId", () => {
-    // Act
+  it("renders a select filter from manifest definitions and meta options", () => {
     render(
       <DomainTableListFilters
         basePath="/dashboard/mediapulse/entities"
-        listFilters={["typeId"]}
-        entityTypeOptions={[
-          { value: "type-1", label: "Company" },
-          { value: "type-2", label: "Person" },
+        listFilters={[
+          {
+            key: "typeId",
+            label: "Type",
+            ui: "select",
+            placeholderAll: "All types",
+            optionsMetaKey: "entityTypeOptions",
+          },
         ]}
-        typeId="type-1"
+        filterOptions={{
+          entityTypeOptions: [
+            { value: "type-1", label: "Company" },
+            { value: "type-2", label: "Person" },
+          ],
+        }}
+        filterValues={{ typeId: "type-1" }}
         preserveParams={{}}
       />,
     );
 
-    // Assert
     expect(screen.getByLabelText("Type")).toBeTruthy();
     expect(screen.getByRole("option", { name: "Company" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "Person" })).toBeTruthy();
   });
 
-  it("returns null when no supported filters are declared", () => {
-    // Act
+  it("returns null when no filters are declared", () => {
     const { container } = render(
       <DomainTableListFilters
         basePath="/dashboard/mediapulse/tickers"
         listFilters={[]}
+        filterValues={{}}
         preserveParams={{}}
       />,
     );
 
-    // Assert
     expect(container.firstChild).toBeNull();
   });
 
-  it("renders collected-by filter when listFilters includes collectionSource", () => {
+  it("renders domain-owned select filters generically", () => {
     render(
       <DomainTableListFilters
         basePath="/dashboard/mediapulse/data-sources"
-        listFilters={["collectionSource"]}
-        collectionSourceOptions={[
-          { value: "page-collection", label: "Page Collection" },
-          { value: "data-collection", label: "Data Collection" },
+        listFilters={[
+          {
+            key: "collectionSource",
+            label: "Collected by",
+            ui: "select",
+            optionsMetaKey: "collectionSourceOptions",
+          },
         ]}
-        collectionSource="page-collection"
+        filterOptions={{
+          collectionSourceOptions: [
+            { value: "page-collection", label: "Page Collection" },
+            { value: "data-collection", label: "Data Collection" },
+          ],
+        }}
+        filterValues={{ collectionSource: "page-collection" }}
         preserveParams={{}}
       />,
     );
@@ -83,22 +99,42 @@ describe("DomainTableListFilters", () => {
     expect(screen.getByRole("link", { name: /Clear filters/i })).toBeTruthy();
   });
 
-  it("renders intent, source, and active set filters when declared", () => {
-    // Act
+  it("renders boolean-select filters when declared", () => {
     render(
       <DomainTableListFilters
         basePath="/dashboard/mediapulse/search-queries"
-        listFilters={["isActive", "intent", "source"]}
-        intentOptions={[{ value: "breaking", label: "breaking" }]}
-        sourceOptions={[{ value: "llm", label: "llm" }]}
-        intent="breaking"
-        source="llm"
-        isActive="true"
+        listFilters={[
+          {
+            key: "isActive",
+            label: "Active set",
+            ui: "boolean-select",
+          },
+          {
+            key: "intent",
+            label: "Intent",
+            ui: "select",
+            optionsMetaKey: "intentOptions",
+          },
+          {
+            key: "source",
+            label: "Source",
+            ui: "select",
+            optionsMetaKey: "sourceOptions",
+          },
+        ]}
+        filterOptions={{
+          intentOptions: [{ value: "breaking", label: "breaking" }],
+          sourceOptions: [{ value: "llm", label: "llm" }],
+        }}
+        filterValues={{
+          intent: "breaking",
+          source: "llm",
+          isActive: "true",
+        }}
         preserveParams={{}}
       />,
     );
 
-    // Assert
     expect(screen.getByLabelText("Active set")).toBeTruthy();
     expect(screen.getByLabelText("Intent")).toBeTruthy();
     expect(screen.getByLabelText("Source")).toBeTruthy();

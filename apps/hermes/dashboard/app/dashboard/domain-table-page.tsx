@@ -41,7 +41,7 @@ import {
 } from "@/lib/domain-table-list-params";
 
 type DomainTablePageProps = {
-  /** Registered domain integration id (e.g. "mediapulse", URL segment). */
+  /** Registered domain integration id (URL segment). */
   integrationId: string;
   /** Manifest path segment for this table (e.g. "tickers"). */
   resource: string;
@@ -106,7 +106,7 @@ export const DomainTablePage = async ({
   const params = buildDomainTableListParams(resolved, meta);
   const list = await getDomainTableList(integrationId, resource, params);
   const preserveParams = buildDomainTablePreserveParams(params);
-  const filterExtraParams = buildDomainTableFilterExtraParams(params);
+  const filterExtraParams = buildDomainTableFilterExtraParams(params.filters);
   const listFilters = meta.listFilters ?? [];
   const showListFilters = listFilters.length > 0;
   const createFields = parseDomainTableFormFieldsFromJsonSchema(
@@ -223,19 +223,8 @@ export const DomainTablePage = async ({
         <DomainTableListFilters
           basePath={basePath}
           listFilters={listFilters}
-          tickerOptions={meta.tickerOptions}
-          entityTypeOptions={meta.entityTypeOptions}
-          intentOptions={meta.intentOptions}
-          sourceOptions={meta.sourceOptions}
-          collectionSourceOptions={meta.collectionSourceOptions}
-          tickerId={params.tickerId}
-          typeId={params.typeId}
-          intent={params.intent}
-          source={params.source}
-          collectionSource={params.collectionSource}
-          isActive={params.isActive}
-          from={params.from}
-          to={params.to}
+          filterOptions={meta.filterOptions}
+          filterValues={params.filters}
           preserveParams={preserveParams}
         />
       ) : null}

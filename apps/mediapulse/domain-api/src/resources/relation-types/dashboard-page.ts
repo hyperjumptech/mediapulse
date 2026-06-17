@@ -2,7 +2,7 @@
  * Hermes `table-v1` manifest slice for relation-types: UI metadata for the dashboard table and exported path segment.
  */
 
-import { type DashboardPageInput } from "@hermes/domain-contract";
+import { type DashboardViewInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   columnsFor,
@@ -25,7 +25,8 @@ export const relationTypesDashboardPage = {
   description:
     "Admin-managed relation classification vocabulary used by the analysis agent extraction prompts.",
   pathSegment: relationTypesHermesPathSegment,
-  template: "table-v1" as const,
+  kind: "resource-table" as const,
+  placement: "sidebar" as const,
   apiPrefix: hermesDashboardManifestApiPrefix(relationTypesHermesPathSegment),
   order: 30,
   columns: columnsFor<ListItem>()([
@@ -39,4 +40,4 @@ export const relationTypesDashboardPage = {
   createSchema: relationTypeCreateFormJsonSchema,
   updateSchema: relationTypeUpdateFormJsonSchema,
   customActions: relationTypesCustomActionsForManifest,
-} satisfies DashboardPageInput;
+} satisfies DashboardViewInput;

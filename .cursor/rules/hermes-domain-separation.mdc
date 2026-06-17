@@ -1,0 +1,28 @@
+---
+description: Hermes must not encode product-domain vocabulary; use manifest-driven domain contracts
+globs: packages/hermes/**/*.{ts,tsx},apps/hermes/**/*
+alwaysApply: false
+---
+
+# Hermes / domain separation
+
+Hermes orchestrates pipelines, schedules, and domain integrations. **Product domains** own business models, filters, and operator diagnostics.
+
+## Do
+
+- Declare dashboard **views** in the domain integration manifest (`resource-table`, `markdown`, `html`, `text`) with `placement: sidebar` or `agent-tab`.
+- Keep domain-specific HTTP semantics in **domain-api** (or product integration packages).
+- Serve operator UI via domain HTTP (`GET {baseUrl}{apiPrefix}` → `contentViewResponseSchema` for content views).
+- Pass `isDefault: true` on domain registration when an integration should be the default expansion target.
+
+## Do not
+
+- Add closed enums or hardcoded UI branches in `@hermes/domain-contract` or Hermes dashboard for domain field names (`tickerId`, `collectionSource`, etc.).
+- Hardcode integration slugs or vendor names (e.g. product codenames) in Hermes production code.
+- Import `@mediapulse/*` or any product package from `apps/hermes` or `packages/hermes`.
+- Put agent-data-api / CGA / section-coverage logic in `packages/hermes` or `apps/hermes/dashboard/lib`.
+- Use build-time npm plugins or env vars to load product React into Hermes (`HERMES_DASHBOARD_EXTENSIONS` and similar).
+
+## Review checklist
+
+Before merging Hermes changes: does the diff add domain vocabulary or product imports to Hermes? If yes, move it to the domain manifest or domain-api HTTP handlers.

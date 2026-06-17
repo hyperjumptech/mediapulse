@@ -9,8 +9,8 @@ The CGA diagnostics page provides a read-only view of content-generation run his
 
 ## Route
 
-- **List page:** `/dashboard/agents/content-generation-runs`
-- **Detail page:** `/dashboard/agents/content-generation-runs/[id]`
+- **List page:** `/dashboard/{integrationId}/diagnostics/content-generation-runs` (legacy `/dashboard/agents/content-generation-runs` redirects)
+- **Detail page:** `/dashboard/{integrationId}/diagnostics/content-generation-runs/[id]`
 
 Both routes are nested under the Agents nav group in the Hermes sidebar.
 
@@ -35,14 +35,14 @@ The SDK client requires:
 
 The list page supports URL query-param filters for shareability:
 
-| Param       | Type   | Description                                  |
-|-------------|--------|----------------------------------------------|
-| `outcome`   | enum   | `success`, `skipped`, or `failed`            |
-| `tickerId`  | string | Non-empty ticker id string to filter by      |
-| `startTime` | date   | ISO date string for start of time range      |
-| `endTime`   | date   | ISO date string for end of time range        |
-| `cursor`    | string | Cursor for pagination (from `nextCursor`)    |
-| `limit`     | number | Page size (1–100, default 20)                |
+| Param       | Type   | Description                               |
+| ----------- | ------ | ----------------------------------------- |
+| `outcome`   | enum   | `success`, `skipped`, or `failed`         |
+| `tickerId`  | string | Non-empty ticker id string to filter by   |
+| `startTime` | date   | ISO date string for start of time range   |
+| `endTime`   | date   | ISO date string for end of time range     |
+| `cursor`    | string | Cursor for pagination (from `nextCursor`) |
+| `limit`     | number | Page size (1–100, default 20)             |
 
 A "Clear filters" link resets all active filters.
 
@@ -54,11 +54,11 @@ Pagination is cursor-based (not offset-based), matching the `contentGenerationRu
 
 The `AgentRunOutcomeBadge` shared component maps outcomes to color-coded badges:
 
-| Outcome  | Badge variant | Color       |
-|----------|---------------|-------------|
-| success  | `success`     | Green       |
-| skipped  | `warning`     | Amber/Yellow|
-| failed   | `destructive` | Red         |
+| Outcome | Badge variant | Color        |
+| ------- | ------------- | ------------ |
+| success | `success`     | Green        |
+| skipped | `warning`     | Amber/Yellow |
+| failed  | `destructive` | Red          |
 
 This component is designed for reuse across future agent diagnostics pages and lives at `apps/hermes/dashboard/components/agent-run-outcome-badge.tsx`.
 
@@ -77,12 +77,12 @@ When `newsletterId` is present, it renders as a link to `/dashboard/{integration
 
 ## Components
 
-| Component                      | Location                                                        | Description                          |
-|-------------------------------|-----------------------------------------------------------------|--------------------------------------|
-| `AgentRunOutcomeBadge`        | `components/agent-run-outcome-badge.tsx`                        | Shared outcome badge                 |
-| `CursorPagination`            | `components/cursor-pagination.tsx`                              | Cursor-based pagination              |
-| `ContentGenerationRunsTable`  | `app/dashboard/agents/content-generation-runs/`                 | Run list table                       |
-| `ContentGenerationRunsFilters`| `app/dashboard/agents/content-generation-runs/`                 | Filter controls (form-based GET)     |
-| `ContentGenerationRunDetail`  | `app/dashboard/agents/content-generation-runs/[id]/`            | Detail view for a single run         |
-| `useContentGenerationRunsFilters` | `app/dashboard/agents/content-generation-runs/`             | Custom hook for filter state          |
-| `useCopyToClipboard`          | `hooks/use-copy-to-clipboard.ts`                                | Copy-to-clipboard hook               |
+| Component                         | Location                                             | Description                      |
+| --------------------------------- | ---------------------------------------------------- | -------------------------------- |
+| `AgentRunOutcomeBadge`            | `components/agent-run-outcome-badge.tsx`             | Shared outcome badge             |
+| `CursorPagination`                | `components/cursor-pagination.tsx`                   | Cursor-based pagination          |
+| `ContentGenerationRunsTable`      | `app/dashboard/agents/content-generation-runs/`      | Run list table                   |
+| `ContentGenerationRunsFilters`    | `app/dashboard/agents/content-generation-runs/`      | Filter controls (form-based GET) |
+| `ContentGenerationRunDetail`      | `app/dashboard/agents/content-generation-runs/[id]/` | Detail view for a single run     |
+| `useContentGenerationRunsFilters` | `app/dashboard/agents/content-generation-runs/`      | Custom hook for filter state     |
+| `useCopyToClipboard`              | `hooks/use-copy-to-clipboard.ts`                     | Copy-to-clipboard hook           |

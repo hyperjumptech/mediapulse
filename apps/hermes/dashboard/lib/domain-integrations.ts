@@ -1,5 +1,6 @@
 import {
   dashboardManifestSchema,
+  domainIntegrationCapabilitySchema,
   type DashboardManifest,
   type RegisterDomainIntegrationRequest,
   type RegisterDomainIntegrationResponse,
@@ -23,11 +24,13 @@ const parseCapabilities = (
   raw: Prisma.JsonValue | null,
 ): RegisterDomainIntegrationResponse["capabilities"] => {
   if (!Array.isArray(raw)) return [...defaultCapabilities];
+  const allowed = domainIntegrationCapabilitySchema.options;
   const parsed = raw.filter(
     (
       entry,
     ): entry is RegisterDomainIntegrationResponse["capabilities"][number] =>
-      entry === "expand-step-inputs" || entry === "preview-expansion",
+      typeof entry === "string" &&
+      (allowed as readonly string[]).includes(entry),
   );
   return parsed.length > 0 ? parsed : [...defaultCapabilities];
 };
@@ -44,7 +47,7 @@ const parseDashboardManifest = (
   return dashboardManifestSchema
     .catch({
       templateVersion: 1,
-      pages: [],
+      views: [],
     })
     .parse(raw);
 };
@@ -84,13 +87,13 @@ export const registerDomainIntegration = async (
   const capabilities = [...payload.capabilities];
   const dashboard = {
     templateVersion: payload.dashboard.templateVersion,
-    pages: payload.dashboard.pages,
+    views: payload.dashboard.views,
   };
   const dashboardManifest = JSON.parse(
     JSON.stringify(dashboard),
   ) as Prisma.InputJsonValue;
 
-  if (payload.integrationId === "mediapulse") {
+  if (payload.isDefault === true) {
     await prisma.domainIntegration.updateMany({
       where: { integrationId: { not: payload.integrationId } },
       data: { isDefault: false },
@@ -106,7 +109,7 @@ export const registerDomainIntegration = async (
       version: payload.version,
       capabilities,
       dashboardManifest,
-      isDefault: payload.integrationId === "mediapulse",
+      isDefault: payload.isDefault === true,
       isActive: true,
       status: DomainIntegrationStatus.active,
       lastSeenAt: new Date(),
@@ -120,7 +123,7 @@ export const registerDomainIntegration = async (
       isActive: true,
       status: DomainIntegrationStatus.active,
       lastSeenAt: new Date(),
-      ...(payload.integrationId === "mediapulse" ? { isDefault: true } : {}),
+      ...(payload.isDefault === true ? { isDefault: true } : {}),
     },
   });
 
@@ -311,7 +314,7 @@ export const getActiveDomainIntegrations = async (
 };
 
 /**
- * Loads a single active domain integration by integration id (stable slug, e.g. `mediapulse`).
+ * Loads a single active domain integration by integration id (stable slug).
  *
  * @param integrationId - Stable id from registration.
  * @param db - Prisma delegate (injectable for tests).
@@ -344,12 +347,14 @@ export const getDomainIntegrationByIntegrationId = async (
 };
 
 export type CreatePendingDomainIntegrationInput = {
-  /** Unique integration id (e.g. `mediapulse`). */
+  /** Unique integration id (URL segment for `/dashboard/{integrationId}/…`). */
   integrationId: string;
   /** Human-readable name. */
   name: string;
   /** Orchestration user id recorded on `domain_integration.created_by_id`. */
   userId: string;
+  /** When true, marks this integration as the default for expansion and templates. */
+  isDefault?: boolean;
 };
 
 export type CreatePendingDomainIntegrationResult = {
@@ -386,7 +391,7 @@ export const createPendingDomainIntegration = async (
         status: DomainIntegrationStatus.pending,
         isActive: false,
         createdById: input.userId,
-        ...(input.integrationId === "mediapulse" ? { isDefault: true } : {}),
+        ...(input.isDefault === true ? { isDefault: true } : {}),
         encryptedPayload: {
           create: {
             ciphertext: encrypted,

@@ -2,6 +2,10 @@
 
 import { format } from "date-fns";
 
+import type {
+  ContentViewResponse,
+  DashboardView,
+} from "@hermes/domain-contract";
 import { Badge } from "@workspace/ui/components/badge";
 import {
   Tabs,
@@ -10,12 +14,10 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/tabs";
 
-import type { InsightsPayload } from "@workspace/agent-data-api-contract";
-
+import { DomainContentView } from "@/components/domain-content-view";
 import { EndpointDisplay } from "../endpoint-display";
 import { JsonPretty } from "../json-pretty";
 import type { AgentDetail } from "@/lib/agents";
-import { InsightsTab } from "./insights/insights-tab";
 
 const ROW_CLASS =
   "flex items-center justify-between gap-8 py-4 px-6 sm:px-7 border-b border-border/60 last:border-b-0 first:pt-6 last:pb-6";
@@ -24,24 +26,44 @@ const LABEL_CLASS =
 const VALUE_CLASS =
   "min-w-0 flex-1 text-sm font-medium text-foreground text-right";
 
+type AgentTabContent = {
+  view: DashboardView;
+  content: ContentViewResponse;
+};
+
 type AgentDetailsContentProps = {
   /** Agent from getAgentById (registry row with domain integration id). */
   agent: AgentDetail;
-  insightsPayload?: InsightsPayload | null;
-  insightsWindow?: "24h" | "7d" | "30d";
+  /** Domain manifest agent-tab views fetched from the integration API. */
+  agentTabContents?: AgentTabContent[];
 };
 
 /**
- * Renders agent details in a tabbed layout: Insights (when available), Schema (input + config), and Info (details).
+ * Renders agent details with dynamic domain tabs, schema, and info sections.
  */
 export const AgentDetailsContent = ({
   agent,
-  insightsPayload,
-  insightsWindow,
+  agentTabContents = [],
 }: AgentDetailsContentProps) => {
-  const showInsights = insightsPayload != null;
-  const tabColsClass = showInsights ? "grid-cols-3" : "grid-cols-2";
-  const defaultTab = showInsights ? "insights" : "schema";
+  const domainTabs = agentTabContents.filter(
+    (
+      entry,
+    ): entry is AgentTabContent & {
+      view: Extract<DashboardView, { kind: "markdown" | "html" | "text" }>;
+    } =>
+      entry.view.kind === "markdown" ||
+      entry.view.kind === "html" ||
+      entry.view.kind === "text",
+  );
+
+  const tabCount = domainTabs.length + 2;
+  const tabColsClass =
+    tabCount >= 4
+      ? "grid-cols-4"
+      : tabCount === 3
+        ? "grid-cols-3"
+        : "grid-cols-2";
+  const defaultTab = domainTabs[0]?.view.id ?? "schema";
 
   return (
     <div className="flex flex-col gap-6">
@@ -50,18 +72,23 @@ export const AgentDetailsContent = ({
       </h1>
       <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className={`grid w-full ${tabColsClass}`}>
-          {showInsights && <TabsTrigger value="insights">Insights</TabsTrigger>}
+          {domainTabs.map(({ view }) => (
+            <TabsTrigger key={view.id} value={view.id}>
+              {view.tabLabel ?? view.label}
+            </TabsTrigger>
+          ))}
           <TabsTrigger value="schema">Schema</TabsTrigger>
           <TabsTrigger value="general">Info</TabsTrigger>
         </TabsList>
-        {showInsights && (
-          <TabsContent value="insights" className="pt-6">
-            <InsightsTab
-              payload={insightsPayload}
-              window={insightsWindow ?? "7d"}
+        {domainTabs.map(({ view, content }) => (
+          <TabsContent key={view.id} value={view.id} className="pt-6">
+            <DomainContentView
+              kind={view.kind}
+              body={content.body}
+              title={content.title}
             />
           </TabsContent>
-        )}
+        ))}
         <TabsContent value="schema" className="space-y-8 pt-6">
           <JsonPretty value={agent.inputSchema} title="Input schema" />
           <JsonPretty value={agent.configSchema} title="Config schema" />

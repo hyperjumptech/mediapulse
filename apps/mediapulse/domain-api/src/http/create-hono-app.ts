@@ -1,6 +1,7 @@
 import { env } from "@mediapulse/env";
 import { logger, slimPinoLogger } from "@workspace/logger";
 import { Hono } from "hono";
+import { hermesDashboardContentViewRoutes } from "../hermes-dashboard/content-views/routes";
 import {
   HERMES_DASHBOARD_V1_MOUNT_PATH,
   hermesDashboardTableMountPath,
@@ -59,6 +60,10 @@ export const createDomainApiServer = (): {
 
   api.route("/hermes-dashboard/processed-urls", processedUrlsRoutes);
   api.route(HERMES_DASHBOARD_V1_MOUNT_PATH, hermesDashboardManifestRoutes);
+  api.route(
+    `${HERMES_DASHBOARD_V1_MOUNT_PATH}/content`,
+    hermesDashboardContentViewRoutes,
+  );
   api.route("/", stepInputExpansionRoutes);
 
   return {

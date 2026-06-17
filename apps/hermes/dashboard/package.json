@@ -16,7 +16,6 @@
     "create:route": "route-action-gen create",
     "create:admin": "tsx scripts/create-admin.ts",
     "seed-local-domain-integration": "tsx scripts/seed-local-domain-integration.ts",
-    "seed-kg-pipelines": "tsx scripts/seed-kg-pipelines.ts",
     "simulate:api-keys-ui": "node scripts/capture-hermes-mcp-api-keys-screenshots.mjs",
     "test": "pnpm generate && vitest --run",
     "test:coverage": "pnpm generate && vitest --run --coverage"

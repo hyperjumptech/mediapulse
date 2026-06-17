@@ -35,7 +35,7 @@ export const CreateDomainIntegrationForm = () => {
           <code className="rounded bg-muted px-1">
             DOMAIN_INTEGRATION_API_KEY
           </code>{" "}
-          in Mediapulse/agent env and{" "}
+          in your domain-api/agent env and{" "}
           <code className="rounded bg-muted px-1">DOMAIN_INTEGRATION_ID</code>{" "}
           to <strong>{state.integrationId}</strong>.
         </p>
@@ -54,7 +54,7 @@ export const CreateDomainIntegrationForm = () => {
           id="integrationId"
           name="integrationId"
           required
-          placeholder="Stable id for env and URLs, e.g. 'mediapulse'"
+          placeholder="Stable id for env and URLs, e.g. 'acme-crm'"
           disabled={pending}
           autoComplete="off"
         />
@@ -69,7 +69,7 @@ export const CreateDomainIntegrationForm = () => {
           id="name"
           name="name"
           required
-          placeholder="Name of your system, e.g. 'Mediapulse'"
+          placeholder="Name of your system, e.g. 'Acme CRM'"
           disabled={pending}
         />
       </div>

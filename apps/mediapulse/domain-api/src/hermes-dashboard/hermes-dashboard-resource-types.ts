@@ -1,4 +1,4 @@
-import type { DashboardPageInput } from "@hermes/domain-contract";
+import type { DashboardViewInput } from "@hermes/domain-contract";
 import type { Hono } from "hono";
 
 /**
@@ -15,12 +15,12 @@ export type HermesDashboardResourceDefinition<
   readonly resourceKey: K;
   /** URL path segment (kebab-case) under `/v1/hermes-dashboard/`. */
   readonly pathSegment: S;
-  /** Sort key for manifest `pages` order (must match {@link DashboardPageInput.order} on `dashboardPage`). */
+  /** Sort key for manifest `pages` order (must match {@link DashboardViewInput.order} on `dashboardPage`). */
   readonly order: number;
   /** Hono sub-app mounted at `/v1/hermes-dashboard/<segment>/` (list, CRUD, resource-specific routes). */
   readonly routes: Hono;
-  /** Hermes manifest page for `table-v1` (columns, search/sort fields, form JSON Schema, actions). */
-  readonly dashboardPage: DashboardPageInput;
+  /** Hermes manifest view for `resource-table` (columns, search/sort fields, form JSON Schema, actions). */
+  readonly dashboardPage: DashboardViewInput;
 };
 
 /**

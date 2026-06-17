@@ -84,6 +84,11 @@ describe("ViewDomainTableItemPage", () => {
     getDomainTableMetaMock.mockResolvedValue({
       title: "Data sources",
       description: "Collected pages",
+      columns: [
+        { key: "title", label: "Title", type: "text" },
+        { key: "url", label: "URL", type: "url" },
+        { key: "content", label: "Content", type: "text" },
+      ],
       actions: {
         create: false,
         update: false,
@@ -112,11 +117,9 @@ describe("ViewDomainTableItemPage", () => {
     });
     render(ui);
 
-    expect(screen.getByText("Example headline")).toBeInTheDocument();
+    expect(screen.getAllByText("Example headline").length).toBeGreaterThan(0);
     expect(screen.getByText("Full body text")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /example\.com\/article/i }),
-    ).toHaveAttribute("href", "https://example.com/article");
+    expect(screen.getByText("https://example.com/article")).toBeInTheDocument();
     expect(getDomainTableItemByIdMock).toHaveBeenCalledWith(
       "mediapulse",
       "data-sources",

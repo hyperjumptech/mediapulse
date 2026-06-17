@@ -7,14 +7,12 @@ export default defineConfig({
     // Defaults so importing @hermes/env validates in CI.
     env: {
       ORCHESTRATION_DATABASE_URL:
-        "postgresql://mediapulse:mediapulse@localhost:5432/mediapulse?schema=orchestration",
+        "postgresql://postgres:postgres@localhost:5432/hermes?schema=orchestration",
       TEMP_ADMIN_USERNAME: "test",
       TEMP_ADMIN_PASSWORD: "testtest",
       HERMES_DATA_SOURCE_MAX_TAKE: "5000",
       HERMES_INTERNAL_API_KEY: "test-hermes-internal-api-key",
       HERMES_MCP_API_KEY_PEPPER: "test-mcp-api-key-pepper",
-      AGENT_DATA_API_URL: "http://localhost:8081",
-      HERMES_CGA_DIAGNOSTICS_ENABLED: "true",
     },
     testTimeout: 10_000,
     hookTimeout: 30_000,

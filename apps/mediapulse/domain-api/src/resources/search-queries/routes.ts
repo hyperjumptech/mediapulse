@@ -109,18 +109,20 @@ searchQueriesRoutes.get("/meta", async (c) => {
 
   return c.json({
     ...base,
-    tickerOptions: tickerOptions.map((ticker) => ({
-      value: ticker.id,
-      label: `${ticker.symbol} — ${ticker.name}`,
-    })),
-    intentOptions: QUERY_ANALYSIS_INTENTS.map((intent) => ({
-      value: intent,
-      label: formatSearchQueryEnumLabel(intent),
-    })),
-    sourceOptions: queryAnalysisSourceSchema.options.map((source) => ({
-      value: source,
-      label: formatSearchQueryEnumLabel(source),
-    })),
+    filterOptions: {
+      tickerOptions: tickerOptions.map((ticker) => ({
+        value: ticker.id,
+        label: `${ticker.symbol} — ${ticker.name}`,
+      })),
+      intentOptions: QUERY_ANALYSIS_INTENTS.map((intent) => ({
+        value: intent,
+        label: formatSearchQueryEnumLabel(intent),
+      })),
+      sourceOptions: queryAnalysisSourceSchema.options.map((source) => ({
+        value: source,
+        label: formatSearchQueryEnumLabel(source),
+      })),
+    },
   });
 });
 

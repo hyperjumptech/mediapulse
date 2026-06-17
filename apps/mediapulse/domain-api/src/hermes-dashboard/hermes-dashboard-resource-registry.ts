@@ -1,6 +1,7 @@
 import { dashboardManifestSchema } from "@hermes/domain-contract";
-import type { DashboardPageInput } from "@hermes/domain-contract";
+import type { DashboardViewInput } from "@hermes/domain-contract";
 import type { Hono } from "hono";
+import { buildMediapulseOperatorContentViews } from "./extra-manifest-views";
 import { dataSourcesHermesDashboardResource } from "../resources/data-sources/resource-definition";
 import { deliveryRunsHermesDashboardResource } from "../resources/delivery-runs/resource-definition";
 import { entitiesHermesDashboardResource } from "../resources/entities/resource-definition";
@@ -55,7 +56,10 @@ export const HermesDashboardResource = buildHermesDashboardResourceConst(
  */
 export const dashboardManifest = dashboardManifestSchema.parse({
   templateVersion: 1,
-  pages: buildDashboardManifestPages(hermesDashboardResources),
+  views: [
+    ...buildDashboardManifestViews(hermesDashboardResources),
+    ...buildMediapulseOperatorContentViews(),
+  ],
 });
 
 /**
@@ -102,12 +106,19 @@ export function buildHermesDashboardResourceConst<
  *
  * @param resources - Registered resource definitions.
  */
-export function buildDashboardManifestPages(
+export function buildDashboardManifestViews(
   resources: readonly HermesDashboardResourceDefinition<string, string>[],
-): DashboardPageInput[] {
+): DashboardViewInput[] {
   return [...resources]
     .sort((a, b) => a.order - b.order)
     .map((r) => r.dashboardPage);
+}
+
+/** @deprecated Use {@link buildDashboardManifestViews}. */
+export function buildDashboardManifestPages(
+  resources: readonly HermesDashboardResourceDefinition<string, string>[],
+): DashboardViewInput[] {
+  return buildDashboardManifestViews(resources);
 }
 
 /**
