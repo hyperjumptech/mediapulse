@@ -18,13 +18,13 @@ const scoringCtx = {
 };
 
 describe("scoreLengthFit", () => {
-  it("returns 0 at 8 and 70 characters and peaks at 42", () => {
+  it("returns 0 at 8 and 58 characters and peaks at 34", () => {
     // Assert
     expect(scoreLengthFit("x".repeat(8))).toBe(0);
-    expect(scoreLengthFit("x".repeat(70))).toBe(0);
-    expect(scoreLengthFit("x".repeat(42))).toBe(1);
-    expect(scoreLengthFit("x".repeat(25))).toBeCloseTo(17 / 34, 5);
-    expect(scoreLengthFit("x".repeat(56))).toBeCloseTo(14 / 28, 5);
+    expect(scoreLengthFit("x".repeat(58))).toBe(0);
+    expect(scoreLengthFit("x".repeat(34))).toBe(1);
+    expect(scoreLengthFit("x".repeat(25))).toBeCloseTo(17 / 26, 5);
+    expect(scoreLengthFit("x".repeat(56))).toBeCloseTo(2 / 24, 5);
   });
 });
 

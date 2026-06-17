@@ -125,6 +125,7 @@ const testSources = [
 const testContext = {
   tickerId: "ticker-123",
   date: "2026-04-21",
+  tickerSymbol: "BBCA",
 };
 
 // ---------------------------------------------------------------------------
@@ -148,7 +149,7 @@ describe("generateNewsletterWithLlm — happy path", () => {
     );
 
     // Assert
-    expect(result.subject).toBe("Market Rally Continues");
+    expect(result.subject).toBe("BBCA Pulse: Market Rally Continues");
     expect(result.content).toContain("MP_NEWSLETTER");
     expect(result.content).toContain("Stocks rose for the third day.");
     expect(result.content).toContain("BEGIN quick-hits");
@@ -173,7 +174,7 @@ describe("generateNewsletterWithLlm — happy path", () => {
     );
 
     // Assert
-    expect(result.subject).toBe("Your daily briefing");
+    expect(result.subject).toBe("BBCA Pulse: Your daily briefing");
   });
 
   it("slices sources to output.topNewsCount when building the user prompt", async () => {
@@ -561,7 +562,7 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
     );
 
     // Assert
-    expect(result.subject).toBe("Recovery");
+    expect(result.subject).toBe("BBCA Pulse: Recovery");
     expect(generateObjectFn).toHaveBeenCalledTimes(2);
   });
 

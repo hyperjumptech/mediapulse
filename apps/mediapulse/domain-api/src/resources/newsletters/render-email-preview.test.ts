@@ -28,6 +28,29 @@ describe("renderEmailPreview", () => {
     });
   });
 
+  it("strips the Pulse prefix from the stored subject for the email body title", async () => {
+    const renderHtml = vi
+      .fn()
+      .mockResolvedValue({ html: "<html><body>Preview</body></html>" });
+
+    await renderEmailPreview(
+      {
+        newsletterId: "nl-1",
+        subject: "AAPL Pulse: Apple weekly digest",
+        bodyText: "Hello",
+        tickerSymbol: "AAPL",
+      },
+      { renderHtml },
+    );
+
+    expect(renderHtml).toHaveBeenCalledWith({
+      title: "Apple weekly digest",
+      bodyText: "Hello",
+      tickerSymbol: "AAPL",
+      unsubscribeUrl: "https://example.com/preview/unsubscribe",
+    });
+  });
+
   it("returns a safe placeholder on render error and logs a warning", async () => {
     const renderHtml = vi
       .fn()

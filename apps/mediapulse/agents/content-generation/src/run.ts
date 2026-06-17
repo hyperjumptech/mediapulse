@@ -1,6 +1,7 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-content-generation";
+import { parseNewsletterEmailSubject } from "@workspace/email-templates";
 import { logger } from "@workspace/logger";
 
 import { AGENT_VERSION } from "./agent-version.js";
@@ -388,7 +389,9 @@ export async function run({
           days: 7,
         },
       );
-      recentSubjects = recent.items.map((item) => item.subject);
+      recentSubjects = recent.items.map(
+        (item) => parseNewsletterEmailSubject(item.subject).title,
+      );
     } catch (recentErr) {
       logger.warn(
         {
