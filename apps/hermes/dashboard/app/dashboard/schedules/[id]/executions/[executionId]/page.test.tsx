@@ -29,8 +29,8 @@ vi.mock("@/lib/compute-execution-elapsed", () => ({
   formatPipelineElapsedLabel: vi.fn().mockReturnValue("—"),
 }));
 
-vi.mock("@/lib/format-invocation-error", () => ({
-  formatInvocationErrorSummary: vi.fn().mockReturnValue(null),
+vi.mock("@/lib/format-invocation-outcome-summary", () => ({
+  formatInvocationOutcomeSummary: vi.fn().mockReturnValue(null),
 }));
 
 vi.mock("@/components/schedule-execution-invocations-table", () => ({

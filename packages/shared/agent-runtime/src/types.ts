@@ -1,6 +1,8 @@
 import type { FetchLike } from "@workspace/agent-auth-client";
 import type { z } from "zod";
 
+import type { AgentRunLogEntry } from "./create-run-log-buffer.js";
+
 /** Minimal logger interface (e.g. pino Logger) for DI. */
 export type LoggerLike = {
   error: (obj: unknown, msg?: string) => void;
@@ -15,8 +17,18 @@ export type LoggerLike = {
  * Use **throw** for unexpected errors (agent returns 500).
  */
 export type AgentRunResult =
-  | { success: true; message?: string; details?: Record<string, any> }
-  | { success: false; message: string; details?: Record<string, any> };
+  | {
+      success: true;
+      message?: string;
+      details?: Record<string, any>;
+      logs?: AgentRunLogEntry[];
+    }
+  | {
+      success: false;
+      message: string;
+      details?: Record<string, any>;
+      logs?: AgentRunLogEntry[];
+    };
 
 /**
  * Hermes orchestration ids from invoke headers (`X-Job-Id`, `X-Schedule-Id`, etc.), grouped for `run` context.

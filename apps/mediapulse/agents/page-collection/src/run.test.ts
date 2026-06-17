@@ -62,7 +62,7 @@ vi.mock("@mediapulse/env/agents-page-collection", () => ({
 
 vi.mock("@workspace/logger", () => ({
   logger: {
-    child: vi.fn(() => ({ info: vi.fn(), warn: vi.fn() })),
+    child: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() })),
   },
 }));
 
@@ -185,5 +185,45 @@ describe("runPageCollection", () => {
 
     expect(runPayload.tickerId).toBeUndefined();
     expect(runPayload.status).toBe("success");
+  });
+
+  it("returns semantic failure with descriptive message when policy is not met", async () => {
+    vi.mocked(performWebFetch).mockResolvedValue([
+      {
+        success: null,
+        failures: [
+          {
+            provider: "jina",
+            url: SOURCE_URL,
+            errorCategory: "network_error",
+            retryable: true,
+            message: "timeout",
+            queryId: "",
+            tickerId: "",
+          },
+        ],
+      },
+    ]);
+
+    const result = await runPageCollection(createContext());
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.message).toContain(
+        "no sources were successfully collected",
+      );
+    }
+    expect(failureCreateMock).toHaveBeenCalledOnce();
+    expect(outcomeCreateMock).toHaveBeenCalled();
+  });
+
+  it("persists a failed run record when resolve-sources throws", async () => {
+    resolveSourcesCreateMock.mockRejectedValue(new Error("API unavailable"));
+
+    const result = await runPageCollection(createContext());
+
+    expect(result.success).toBe(false);
+    expect(runCreateMock).toHaveBeenCalledOnce();
+    expect(runCreateMock.mock.calls[0]![0].status).toBe("failed");
   });
 });

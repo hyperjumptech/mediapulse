@@ -1,4 +1,15 @@
 export { applyContractBrief } from "./apply-contract-brief.js";
+export {
+  createActivityReporter,
+  type ActivityReporter,
+  type ActivityReporterOptions,
+  type AgentActivityStatus,
+} from "./create-activity-reporter.js";
+export {
+  createRunLogBuffer,
+  type AgentRunLogEntry,
+  type RunLogBuffer,
+} from "./create-run-log-buffer.js";
 export { createAgentApp } from "./create-agent-app.js";
 export { enrichConfigSchemaForHermesUi } from "./enrich-config-schema-for-hermes-ui.js";
 export {

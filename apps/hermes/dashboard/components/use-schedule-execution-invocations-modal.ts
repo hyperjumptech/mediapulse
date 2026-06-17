@@ -7,7 +7,12 @@ export type ScheduleExecutionInvocationRow = {
   jobId: string;
   status: string;
   semanticStatus: string | null;
-  errorSummary: string | null;
+  /** Unified Reason column text (transport + semantic + run warnings). */
+  outcomeSummary: string | null;
+  /** Raw transport/HTTP error JSON for the detail modal. */
+  transportError: unknown | null;
+  /** Parsed agent envelope stored on the job execution row. */
+  agentResponse: unknown | null;
   inputMasked: unknown;
   configMasked: unknown | null;
   /** Agent package id for this job. */
