@@ -111,7 +111,7 @@ function createContext(
   overrides?: Partial<AgentRunContext<BodySchemaType, ConfigSchemaType>>,
 ): AgentRunContext<BodySchemaType, ConfigSchemaType> {
   return {
-    input: { sourceUrls: [SOURCE_URL] },
+    input: { listingUrl: SOURCE_URL },
     config: baseConfig,
     token: "Bearer test-token",
     ...overrides,

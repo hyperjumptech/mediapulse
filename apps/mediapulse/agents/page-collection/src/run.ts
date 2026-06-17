@@ -36,7 +36,7 @@ import {
  * Executes the page-collection pipeline: expand curated source URLs, fetch article
  * content, apply the content quality gate, and persist ticker-agnostic articles.
  *
- * @param context - Validated input (`sourceUrls`) and config, plus bearer token.
+ * @param context - Validated input (`listingUrl`) and config, plus bearer token.
  * @returns Success with summary counts, or semantic failure when run policy is not met.
  */
 export async function runPageCollection(
@@ -87,16 +87,16 @@ export async function runPageCollection(
     }
   };
 
-  report("Resolving curated sources", `${input.sourceUrls.length} URLs`);
+  const listingUrl = input.listingUrl;
+
+  report("Resolving curated source", listingUrl);
 
   const { sources: resolvedSources } =
     await dataApiClient.pageCollectionResolveSources.create({
-      listingUrls: input.sourceUrls,
+      listingUrls: [listingUrl],
     });
 
-  const sourceMetaByUrl = new Map(
-    resolvedSources.map((s) => [s.listingUrl, s]),
-  );
+  const meta = resolvedSources.find((s) => s.listingUrl === listingUrl);
 
   const discoveryDeps = {
     gotClient: got,
@@ -107,7 +107,7 @@ export async function runPageCollection(
     concurrency: config.discovery.concurrency,
   };
 
-  report("Expanding source URLs", `${input.sourceUrls.length} sources`);
+  report("Expanding source URL", listingUrl);
 
   type CandidateItem = {
     url: string;
@@ -116,25 +116,17 @@ export async function runPageCollection(
     publishedAt?: string;
   };
 
-  const allCandidates: CandidateItem[] = [];
+  const expanded = await expandSourceUrl(listingUrl, discoveryDeps, {
+    maxItems: meta?.maxItems ?? undefined,
+    linkType: meta?.linkType,
+  });
 
-  for (const sourceUrl of input.sourceUrls) {
-    const meta = sourceMetaByUrl.get(sourceUrl);
-    const expanded = await expandSourceUrl(sourceUrl, discoveryDeps, {
-      maxItems: meta?.maxItems ?? undefined,
-      linkType: meta?.linkType,
-    });
-    for (const item of expanded) {
-      allCandidates.push({
-        url: item.url,
-        sourceListingUrl: sourceUrl,
-        ...(meta?.curatedSourceId
-          ? { curatedSourceId: meta.curatedSourceId }
-          : {}),
-        ...(item.publishedAt ? { publishedAt: item.publishedAt } : {}),
-      });
-    }
-  }
+  const allCandidates: CandidateItem[] = expanded.map((item) => ({
+    url: item.url,
+    sourceListingUrl: listingUrl,
+    ...(meta?.curatedSourceId ? { curatedSourceId: meta.curatedSourceId } : {}),
+    ...(item.publishedAt ? { publishedAt: item.publishedAt } : {}),
+  }));
 
   const collectionConfig = config.collection;
   const runConfig = config.run;
@@ -406,7 +398,7 @@ export async function runPageCollection(
       : derivedStatus;
 
   const counters: RunCounters = {
-    queriesTotal: input.sourceUrls.length,
+    queriesTotal: 1,
     urlsTotal: cappedCandidates.length,
     searchSuccess: allCandidates.length,
     searchFailed: 0,
