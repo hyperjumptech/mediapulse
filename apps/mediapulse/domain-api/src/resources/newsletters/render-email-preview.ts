@@ -1,4 +1,7 @@
-import { renderNewsletterEmail } from "@workspace/email-templates";
+import {
+  parseNewsletterEmailSubject,
+  renderNewsletterEmail,
+} from "@workspace/email-templates";
 
 import type { Logger } from "@workspace/logger";
 
@@ -69,8 +72,9 @@ export const renderEmailPreview = async (
     });
 
   try {
+    const emailTitle = parseNewsletterEmailSubject(input.subject).title;
     const { html } = await renderHtml({
-      title: input.subject,
+      title: emailTitle,
       bodyText: input.bodyText,
       tickerSymbol: input.tickerSymbol,
       unsubscribeUrl: PREVIEW_UNSUBSCRIBE_URL,

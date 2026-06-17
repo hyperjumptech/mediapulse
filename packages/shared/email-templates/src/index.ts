@@ -5,6 +5,11 @@ export {
   DEFAULT_HYPERJUMP_SITE_URL,
 } from "./newsletter/default-newsletter.js";
 export {
+  formatNewsletterEmailSubject,
+  parseNewsletterEmailSubject,
+  type ParsedNewsletterEmailSubject,
+} from "./newsletter/newsletter-email-subject.js";
+export {
   parseNewsletterBody,
   type LegacyParsedNewsletterBody,
   type ParsedNewsletterBody,

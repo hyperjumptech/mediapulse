@@ -7,6 +7,7 @@ import {
   type NewsletterSectionId,
 } from "@workspace/agent-data-api-contract";
 import { applyContractBrief } from "@workspace/agent-runtime";
+import { formatNewsletterEmailSubject } from "@workspace/email-templates";
 import { logger } from "@workspace/logger";
 
 import type { ResolvedContentGenerationConfig } from "./config-schema.js";
@@ -551,7 +552,7 @@ Focus on what is happening outside the company — macro forces, regulatory shif
 You receive exactly {{topNewsCount}} numbered articles (Article 1 … Article {{topNewsCount}}). Ground claims in those articles. When a bullet or quick hit should link to a source in the final email, set "articleIndex" to the 1-based article number from that list. Never output URLs in JSON; the system injects them. Never write "(Article N)" or bare article numbers inside any "text" or "prose" field; citations are expressed only via "articleIndex", and the system renders the visible link.
 
 Return JSON matching this shape (camelCase keys):
-- "subject": short email subject (under ~60 chars), sector-relevant, may mention {{tickerName}} or {{tickerSymbol}} once if natural.
+- "subject": short email subject title only (under ~48 chars), sector-relevant headline text. Do not include a "SYMBOL Pulse:" prefix — the system adds that automatically. Avoid repeating {{tickerSymbol}} in the title when the prefix already identifies the ticker.
 - "industryPulse": { "displayHeading", "prose", "articleIndex" } — short lead framing the industry story (no bullet characters in prose). Set "articleIndex" to the single most representative article the lead summarizes; use null when the lead does not lean on a specific article.
 - "competitiveLandscape": { "displayHeading", "bullets" } — 2–3 bullets about {{tickerName}}'s COMPETITORS, not {{tickerName}} itself — peer positioning, rival launches, share shifts, competitive threats. Each bullet should name a competitor. Each bullet { "title", "text", "articleIndex" } where "title" is a short headline (under 60 chars) naming the story, "text" is the full bullet sentence, and articleIndex is a 1-based article number or null when uncited.
 - "dealsAndMovements": { "displayHeading", "bullets" } — 1–3 bullets; each bullet { "title", "text", "articleIndex" } with the same title and articleIndex rules.
@@ -1512,12 +1513,18 @@ export async function generateNewsletterWithLlm(
 
   const content = formatIndustryNewsletterWire(resolved);
 
+  const rawTitle =
+    finalStructure.subject !== undefined &&
+    finalStructure.subject.trim().length > 0
+      ? finalStructure.subject.trim()
+      : "Your daily briefing";
+  const subject = formatNewsletterEmailSubject(
+    context.tickerSymbol ?? "",
+    rawTitle,
+  );
+
   return {
-    subject:
-      finalStructure.subject !== undefined &&
-      finalStructure.subject.trim().length > 0
-        ? finalStructure.subject.trim()
-        : "Your daily briefing",
+    subject,
     content,
     // Reads the pre-prune finalStructure, so this is safe even when the resolved
     // lead was later removed by the require-citation pass.

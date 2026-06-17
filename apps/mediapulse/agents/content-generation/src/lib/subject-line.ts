@@ -83,7 +83,7 @@ export const subjectCandidateStyleSchema = z.enum([
 ]);
 
 export const subjectCandidateSchema = z.object({
-  subject: z.string().min(1).max(60),
+  subject: z.string().min(1).max(48),
   style: subjectCandidateStyleSchema,
   preheader: z.string().min(1).max(110),
 });
@@ -100,9 +100,9 @@ const CLICKBAIT_PATTERN = /\b(shocking|unbelievable|mind-blowing)\b/i;
 const GENERIC_TICKER_REFERENCE_PATTERN =
   /\b(the bank|the conglomerate|the group|the company|perusahaan|grup|bank tersebut)\b/i;
 
-const LENGTH_PEAK = 42;
+const LENGTH_PEAK = 34;
 const LENGTH_MIN = 8;
-const LENGTH_MAX = 70;
+const LENGTH_MAX = 58;
 
 const NOVELTY_FLOOR = 0.6;
 
@@ -365,11 +365,12 @@ export const buildSubjectCandidateSystemPrompt = (
 ): string =>
   [
     "You write email subject lines for an industry briefing.",
-    `Produce exactly ${String(candidateCount)} candidate subjects, each at most 60 characters,`,
+    `Produce exactly ${String(candidateCount)} candidate subject titles, each at most 48 characters,`,
     "plus a 50–110 character preheader (preview line shown after the subject in most inboxes).",
+    "The delivery system adds a SYMBOL Pulse: prefix automatically — do not include that prefix in subject titles.",
     "Avoid clickbait, exclamation marks, ALL-CAPS, and emoji.",
     "Style mix: at least one declarative, one with a number, one curiosity-gap, one with a contrast.",
-    "Cite the ticker name or symbol naturally when it fits — never twice in one subject.",
+    "Avoid repeating the ticker symbol in the title when the prefix already identifies it.",
     'Return JSON: { "candidates": [ { "subject", "style", "preheader" }, ... ] }.',
     "style must be one of: declarative, question, curiosity, numeric, contrast.",
   ].join(" ");

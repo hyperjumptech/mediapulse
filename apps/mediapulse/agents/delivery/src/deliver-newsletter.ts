@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 
-import { renderNewsletterEmail } from "@workspace/email-templates";
+import {
+  parseNewsletterEmailSubject,
+  renderNewsletterEmail,
+} from "@workspace/email-templates";
 import type { LoggerLike } from "@workspace/agent-runtime";
 import { createUnsubscribeToken, formatResendSender } from "@workspace/utils";
 import { Resend } from "resend";
@@ -135,8 +138,9 @@ export async function deliverNewsletterToSubscribers(
     const unsubscribeUrl = `${config.unsubscribe.baseUrl}/api/unsubscribe?token=${unsubscribeToken}`;
 
     const renderStart = Date.now();
+    const emailTitle = parseNewsletterEmailSubject(newsletter.subject).title;
     const { html, text } = await renderNewsletterEmail({
-      title: newsletter.subject,
+      title: emailTitle,
       bodyText: newsletter.content,
       variant: config.template.newsletterVariant,
       unsubscribeUrl,

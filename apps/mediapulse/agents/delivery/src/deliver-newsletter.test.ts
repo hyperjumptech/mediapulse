@@ -36,7 +36,7 @@ vi.mock("@workspace/email-templates", async () => {
 
 const newsletter = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-  subject: "Subject",
+  subject: "AAPL Pulse: Subject",
   content: "Body",
   symbol: "AAPL",
 } as const;
@@ -81,7 +81,7 @@ describe("deliverNewsletterToSubscribers", () => {
 
     const renderCall = vi.mocked(renderNewsletterEmail).mock.calls[0]?.[0];
     expect(renderCall).toMatchObject({
-      title: newsletter.subject,
+      title: "Subject",
       bodyText: newsletter.content,
       variant: "default",
       unsubscribeUrl: expect.stringContaining(
