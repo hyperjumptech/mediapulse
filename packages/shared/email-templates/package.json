@@ -19,6 +19,10 @@
     "./parse-industry-newsletter-wire": {
       "types": "./src/newsletter/parse-industry-newsletter-wire.ts",
       "default": "./src/newsletter/parse-industry-newsletter-wire.ts"
+    },
+    "./newsletter-email-subject": {
+      "types": "./src/newsletter/newsletter-email-subject.ts",
+      "default": "./src/newsletter/newsletter-email-subject.ts"
     }
   },
   "scripts": {

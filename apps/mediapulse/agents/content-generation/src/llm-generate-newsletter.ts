@@ -7,7 +7,7 @@ import {
   type NewsletterSectionId,
 } from "@workspace/agent-data-api-contract";
 import { applyContractBrief } from "@workspace/agent-runtime";
-import { formatNewsletterEmailSubject } from "@workspace/email-templates";
+import { formatNewsletterEmailSubject } from "@workspace/email-templates/newsletter-email-subject";
 import { logger } from "@workspace/logger";
 
 import type { ResolvedContentGenerationConfig } from "./config-schema.js";

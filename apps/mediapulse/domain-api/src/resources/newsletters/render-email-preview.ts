@@ -1,7 +1,5 @@
-import {
-  parseNewsletterEmailSubject,
-  renderNewsletterEmail,
-} from "@workspace/email-templates";
+import { parseNewsletterEmailSubject } from "@workspace/email-templates/newsletter-email-subject";
+import { renderNewsletterEmail } from "@workspace/email-templates";
 
 import type { Logger } from "@workspace/logger";
 
