@@ -75,6 +75,12 @@ db:ticker:id?where.id=123
 
 Single row: ticker where `id` equals `123`.
 
+```text
+db:curatedSource:listingUrl?where.enabled=true
+```
+
+One enabled curated source listing URL per expanded run for `page-collection@2.0.0`.
+
 ## Validation
 
 When saving a pipeline step (add or update step in Hermes), Hermes validates the step input (including data-source expressions) against the agent’s **input schema**. Data-source strings are also validated for:

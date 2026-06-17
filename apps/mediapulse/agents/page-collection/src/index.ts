@@ -15,7 +15,7 @@ const app = createAgentApp<
     agentId: "page-collection",
     agentVersion: "2.0.0",
     description:
-      "Discovers and fetches article pages from curated listing sources for a ticker.",
+      "Discovers and fetches article pages from one curated listing source per run; use data-source expansion on listingUrl to fan out across enabled curated sources.",
     inputSchema: BodySchema,
     configSchema: ConfigSchema,
     run: runPageCollection,
