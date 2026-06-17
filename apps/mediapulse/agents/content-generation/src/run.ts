@@ -1,7 +1,7 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-content-generation";
-import { parseNewsletterEmailSubject } from "@workspace/email-templates";
+import { parseNewsletterEmailSubject } from "@workspace/email-templates/newsletter-email-subject";
 import { logger } from "@workspace/logger";
 
 import { AGENT_VERSION } from "./agent-version.js";
