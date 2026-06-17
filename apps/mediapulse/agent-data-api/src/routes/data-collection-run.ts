@@ -54,6 +54,7 @@ export async function postDataCollectionRun(
       data: {
         id: data.id,
         tickerId: data.tickerId,
+        scheduleExecutionId: data.scheduleExecutionId ?? null,
         startedAt: new Date(data.startedAt),
         completedAt: data.completedAt ? new Date(data.completedAt) : null,
         status: data.status,

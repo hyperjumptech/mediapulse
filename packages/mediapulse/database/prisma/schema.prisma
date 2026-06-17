@@ -380,10 +380,11 @@ model Ticker {
   articleRelevances      ArticleRelevance[]
   entityEvidence         EntityEvidence[]
   entityRelationEvidence EntityRelationEvidence[]
-  dataCollectionRuns     DataCollectionRun[]
-  dataCollectionFailures DataCollectionFailure[]
-  deliveryRuns           DeliveryRun[]
-  contentGenerationRuns  ContentGenerationRun[]
+  dataCollectionRuns      DataCollectionRun[]
+  dataCollectionFailures  DataCollectionFailure[]
+  collectionUrlOutcomes   CollectionUrlOutcome[]
+  deliveryRuns            DeliveryRun[]
+  contentGenerationRuns   ContentGenerationRun[]
 
   @@map("ticker")
 }
@@ -535,11 +536,12 @@ enum DataCollectionErrorCategory {
 }
 
 model DataCollectionRun {
-  id          String                  @id @default(uuid())
-  tickerId    String                  @map("ticker_id")
-  startedAt   DateTime                @map("started_at")
-  completedAt DateTime?               @map("completed_at")
-  status      DataCollectionRunStatus
+  id                  String                  @id @default(uuid())
+  tickerId            String                  @map("ticker_id")
+  scheduleExecutionId String?                 @map("schedule_execution_id")
+  startedAt           DateTime                @map("started_at")
+  completedAt         DateTime?               @map("completed_at")
+  status              DataCollectionRunStatus
 
   queriesTotal  Int @default(0) @map("queries_total")
   urlsTotal     Int @default(0) @map("urls_total")
@@ -553,7 +555,9 @@ model DataCollectionRun {
 
   ticker   Ticker                  @relation(fields: [tickerId], references: [id])
   failures DataCollectionFailure[]
+  outcomes CollectionUrlOutcome[]
 
+  @@index([scheduleExecutionId])
   @@map("data_collection_run")
 }
 
@@ -578,6 +582,46 @@ model DataCollectionFailure {
   searchQuery SearchQuery?      @relation(fields: [searchQueryId], references: [id])
 
   @@map("data_collection_failure")
+}
+
+enum CollectionAgent {
+  data_collection @map("data-collection")
+  page_collection @map("page-collection")
+}
+
+enum CollectionUrlStatus {
+  collected
+  dropped
+  failed
+}
+
+/// Per-URL outcome record for a single collection agent run, linked to a ScheduleExecution.
+model CollectionUrlOutcome {
+  id                  String              @id @default(uuid())
+  scheduleExecutionId String?             @map("schedule_execution_id")
+  runId               String              @map("run_id")
+  tickerId            String              @map("ticker_id")
+  agent               CollectionAgent
+  status              CollectionUrlStatus
+
+  url           String
+  /// Stable machine token (e.g. "relevance_no_match", "freshness_too_old"). Null when collected.
+  reason        String?
+  /// Human-readable sentence built at the drop moment (e.g. "Published 2019-03-12, older than the 30-day window"). Null when collected.
+  reasonDetail  String?  @map("reason_detail")
+  /// Discovery listing/RSS URL (page-collection) or search query text (data-collection).
+  source        String?
+  searchQueryId String?  @map("search_query_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  run    DataCollectionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  ticker Ticker            @relation(fields: [tickerId], references: [id])
+
+  @@index([scheduleExecutionId])
+  @@index([runId, status])
+  @@index([tickerId, createdAt])
+  @@map("collection_url_outcome")
 }
 
 enum ContentGenerationRunOutcome {

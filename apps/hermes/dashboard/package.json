@@ -28,7 +28,7 @@
     "@hermes/scheduler": "workspace:*",
     "@hermes/step-input-syntax": "workspace:*",
     "@next/env": "catalog:",
-    "@nicnocquee/dataqueue": "^1.39.0",
+    "@nicnocquee/dataqueue": "^1.40.1",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/json-schema-form": "workspace:*",

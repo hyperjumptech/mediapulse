@@ -15,7 +15,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@nicnocquee/dataqueue": "^1.39.0",
+    "@nicnocquee/dataqueue": "^1.40.1",
     "@workspace/agent-auth-client": "workspace:*",
     "@hermes/env": "workspace:*",
     "@hermes/domain-contract": "workspace:*",

@@ -115,3 +115,14 @@ export {
   type DiscoveryDeps,
   type DiscoveryLogger,
 } from "./discovery/types";
+
+export {
+  describeOutcomeReason,
+  makeCollectedOutcome,
+  makeDroppedOutcome,
+  makeFailedOutcome,
+  postOutcomesInChunks,
+  REASON_LABELS,
+  type CollectionUrlOutcomeInput,
+  type CollectionUrlOutcomeReason,
+} from "./collection-url-outcome";

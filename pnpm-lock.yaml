@@ -100,11 +100,6 @@ catalogs:
       specifier: ^3
       version: 3.25.76
 
-patchedDependencies:
-  '@nicnocquee/dataqueue@1.39.0':
-    hash: f113eb2707567ba904a1ade4726137c12c52e6049db3eb31f273747bf9311d5c
-    path: patches/@nicnocquee__dataqueue@1.39.0.patch
-
 importers:
 
   .:
@@ -256,8 +251,8 @@ importers:
         specifier: 'catalog:'
         version: 16.2.3
       '@nicnocquee/dataqueue':
-        specifier: ^1.39.0
-        version: 1.39.0(patch_hash=f113eb2707567ba904a1ade4726137c12c52e6049db3eb31f273747bf9311d5c)(pg@8.18.0)
+        specifier: ^1.40.1
+        version: 1.40.1(pg@8.18.0)
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-auth-client
@@ -401,8 +396,8 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/hermes/step-input-syntax
       '@nicnocquee/dataqueue':
-        specifier: ^1.39.0
-        version: 1.39.0(patch_hash=f113eb2707567ba904a1ade4726137c12c52e6049db3eb31f273747bf9311d5c)(pg@8.18.0)
+        specifier: ^1.40.1
+        version: 1.40.1(pg@8.18.0)
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-auth-client
@@ -1329,8 +1324,8 @@ importers:
         specifier: workspace:*
         version: link:../orchestration-database
       '@nicnocquee/dataqueue':
-        specifier: ^1.39.0
-        version: 1.39.0(patch_hash=f113eb2707567ba904a1ade4726137c12c52e6049db3eb31f273747bf9311d5c)(pg@8.18.0)
+        specifier: ^1.40.1
+        version: 1.40.1(pg@8.18.0)
       ajv:
         specifier: ^8.17.1
         version: 8.17.1
@@ -3430,8 +3425,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@nicnocquee/dataqueue@1.39.0':
-    resolution: {integrity: sha512-V1CaskiyroLk9qavjxWrUAaNCJTYY6eKnHUJgyXpnNcJWRgN/Yg4xf4vHrJsY3vebwtD32Y8JgH/CHmDaWYAOA==}
+  '@nicnocquee/dataqueue@1.40.1':
+    resolution: {integrity: sha512-Q4mhibX1kHdPermGDUAzt8zswyjblrFSHD5YDchiMux4esuI861YzU5rDrApg8rZG644XSKtDRfdgOAlpk3A/g==}
     hasBin: true
     peerDependencies:
       ioredis: ^5.0.0
@@ -11970,7 +11965,7 @@ snapshots:
   '@next/swc-win32-x64-msvc@16.2.3':
     optional: true
 
-  '@nicnocquee/dataqueue@1.39.0(patch_hash=f113eb2707567ba904a1ade4726137c12c52e6049db3eb31f273747bf9311d5c)(pg@8.18.0)':
+  '@nicnocquee/dataqueue@1.40.1(pg@8.18.0)':
     dependencies:
       '@modelcontextprotocol/sdk': 1.27.1(zod@3.25.76)
       croner: 10.0.1
