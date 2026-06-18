@@ -12,6 +12,7 @@ import crypto from "node:crypto";
 import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
 import { expandSourceUrl } from "./utilities/expand-source-urls";
+import { withApiStep } from "./utilities/with-api-step";
 import {
   performWebFetch,
   createEmptyQualityCounters,
@@ -100,26 +101,28 @@ export async function runPageCollection(
     });
 
     try {
-      await dataApiClient.dataCollectionRun.create({
-        id: runId,
-        scheduleExecutionId,
-        startedAt: startedAt.toISOString(),
-        completedAt: new Date().toISOString(),
-        status: "failed",
-        counters: {
-          queriesTotal: 0,
-          urlsTotal: 0,
-          searchSuccess: 0,
-          searchFailed: 0,
-          fetchSuccess: 0,
-          fetchFailed: 0,
-          retryCount: 0,
-          droppedByRelevance: 0,
-          throttleEvents: 0,
-          durationMs: Date.now() - startedAt.getTime(),
-          agentId: "page-collection",
-        },
-      });
+      await withApiStep("persist crash run record", () =>
+        dataApiClient.dataCollectionRun.create({
+          id: runId,
+          scheduleExecutionId,
+          startedAt: startedAt.toISOString(),
+          completedAt: new Date().toISOString(),
+          status: "failed",
+          counters: {
+            queriesTotal: 0,
+            urlsTotal: 0,
+            searchSuccess: 0,
+            searchFailed: 0,
+            fetchSuccess: 0,
+            fetchFailed: 0,
+            retryCount: 0,
+            droppedByRelevance: 0,
+            throttleEvents: 0,
+            durationMs: Date.now() - startedAt.getTime(),
+            agentId: "page-collection",
+          },
+        }),
+      );
     } catch (persistError) {
       log.warn({ err: persistError }, "failed to persist crash run record");
     }
@@ -182,10 +185,13 @@ async function executePageCollectionRun(
 
   report("Resolving curated source", listingUrl);
 
-  const { sources: resolvedSources } =
-    await dataApiClient.pageCollectionResolveSources.create({
-      listingUrls: [listingUrl],
-    });
+  const { sources: resolvedSources } = await withApiStep(
+    "resolve curated sources",
+    () =>
+      dataApiClient.pageCollectionResolveSources.create({
+        listingUrls: [listingUrl],
+      }),
+  );
 
   const meta = resolvedSources.find((s) => s.listingUrl === listingUrl);
 
@@ -302,9 +308,9 @@ async function executePageCollectionRun(
       index,
       index + PAGE_COLLECTION_EXISTING_URLS_MAX,
     );
-    const response = await dataApiClient.pageCollectionExistingUrls.create({
-      urls: chunk,
-    });
+    const response = await withApiStep("lookup existing canonical URLs", () =>
+      dataApiClient.pageCollectionExistingUrls.create({ urls: chunk }),
+    );
     for (const url of response.existingUrls) {
       existingUrlSet.add(url);
     }
@@ -320,7 +326,10 @@ async function executePageCollectionRun(
   if (deadUrlCacheConfig.enabled) {
     const deadUrlSet = await resolveDeadUrlsGlobal(
       candidatesAfterExisting,
-      (body) => dataApiClient.dataCollectionDeadUrlsLookup.create(body),
+      (body) =>
+        withApiStep("lookup dead URLs", () =>
+          dataApiClient.dataCollectionDeadUrlsLookup.create(body),
+        ),
       deadUrlCacheConfig.skipLookupBatchSize,
     );
     if (deadUrlSet.size > 0) {
@@ -454,7 +463,9 @@ async function executePageCollectionRun(
   }
 
   if (sourcesToPersist.length > 0) {
-    const result = await dataApiClient.pageCollection.create(sourcesToPersist);
+    const result = await withApiStep("persist articles", () =>
+      dataApiClient.pageCollection.create(sourcesToPersist),
+    );
     persistedCount += result.persistedCount;
   }
 
@@ -466,7 +477,9 @@ async function executePageCollectionRun(
     );
     if (deadUrlRecords.length > 0) {
       try {
-        await dataApiClient.dataCollectionDeadUrlsRecord.create(deadUrlRecords);
+        await withApiStep("record dead URLs", () =>
+          dataApiClient.dataCollectionDeadUrlsRecord.create(deadUrlRecords),
+        );
       } catch (recordError) {
         log.warn({ err: recordError }, "failed to record dead URLs");
       }
@@ -551,27 +564,33 @@ async function executePageCollectionRun(
     agentId: "page-collection",
   };
 
-  await dataApiClient.dataCollectionRun.create({
-    id: runId,
-    scheduleExecutionId,
-    startedAt: startedAt.toISOString(),
-    completedAt: new Date().toISOString(),
-    status,
-    counters,
-  });
+  await withApiStep("persist run record", () =>
+    dataApiClient.dataCollectionRun.create({
+      id: runId,
+      scheduleExecutionId,
+      startedAt: startedAt.toISOString(),
+      completedAt: new Date().toISOString(),
+      status,
+      counters,
+    }),
+  );
 
   if (failuresPayload.length > 0) {
     log.warn(
       { failureRecords: failuresPayload.length, fetchFailed: fetchFailedCount },
       "recording page collection fetch failures",
     );
-    await dataApiClient.dataCollectionFailure.create(failuresPayload);
+    await withApiStep("record fetch failures", () =>
+      dataApiClient.dataCollectionFailure.create(failuresPayload),
+    );
   }
 
   if (outcomes.length > 0) {
     try {
       await postOutcomesInChunks(outcomes, (batch) =>
-        dataApiClient.collectionUrlOutcome.create(batch),
+        withApiStep("post collection URL outcomes", () =>
+          dataApiClient.collectionUrlOutcome.create(batch),
+        ),
       );
     } catch (outcomeError) {
       log.warn({ err: outcomeError }, "failed to post collection URL outcomes");
