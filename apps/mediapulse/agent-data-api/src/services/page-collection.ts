@@ -11,7 +11,10 @@ import { prisma } from "@mediapulse/database";
 
 import { insertDataSourcesIdempotently } from "./insert-data-sources-idempotently.js";
 
-type PageCollectionDb = Pick<typeof prisma, "curatedSource" | "dataSource">;
+type PageCollectionDb = {
+  curatedSource: Pick<typeof prisma.curatedSource, "findMany">;
+  dataSource: Pick<typeof prisma.dataSource, "create">;
+};
 
 const defaultDb: PageCollectionDb = prisma;
 
