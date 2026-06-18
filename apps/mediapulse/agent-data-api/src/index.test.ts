@@ -79,6 +79,7 @@ vi.mock("@mediapulse/database", () => ({
       findMany: vi.fn(),
     },
     dataSource: {
+      create: vi.fn(),
       createMany: vi.fn(),
       findMany: vi.fn().mockResolvedValue([]),
     },
@@ -751,7 +752,9 @@ describe("agent-data-api", () => {
   describe(`POST ${dataCollectionPath}`, () => {
     it("returns 200 when body is valid array with tickerId + searchQueryId per item", async () => {
       const { prisma } = await getDatabase();
-      vi.mocked(prisma.dataSource.createMany).mockResolvedValue({ count: 1 });
+      vi.mocked(prisma.dataSource.create).mockResolvedValue({
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      } as never);
 
       const { app } = await import("./index.js");
       const res = await app.request(`http://localhost${dataCollectionPath}`, {
@@ -771,18 +774,15 @@ describe("agent-data-api", () => {
 
       expect(res.status).toBe(200);
       expect(body.message).toBe("Success");
-      expect(prisma.dataSource.createMany).toHaveBeenCalledWith({
-        data: [
-          {
-            url: "https://example.com",
-            canonicalUrl: "https://example.com",
-            title: "Example",
-            content: "Content",
-            tickerId: TICKER_ID,
-            searchQueryId: SEARCH_QUERY_ID,
-          },
-        ],
-        skipDuplicates: true,
+      expect(prisma.dataSource.create).toHaveBeenCalledWith({
+        data: {
+          url: "https://example.com",
+          canonicalUrl: "https://example.com",
+          title: "Example",
+          content: "Content",
+          tickerId: TICKER_ID,
+          searchQueryId: SEARCH_QUERY_ID,
+        },
       });
     });
   });
