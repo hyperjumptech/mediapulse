@@ -9,10 +9,9 @@ import type {
 import { canonicalizeUrl } from "@workspace/utils";
 import { prisma } from "@mediapulse/database";
 
-type PageCollectionDb = Pick<
-  typeof prisma,
-  "dataSource" | "curatedSource" | "$transaction"
->;
+import { insertDataSourcesIdempotently } from "./insert-data-sources-idempotently.js";
+
+type PageCollectionDb = Pick<typeof prisma, "curatedSource" | "dataSource">;
 
 const defaultDb: PageCollectionDb = prisma;
 
@@ -68,12 +67,9 @@ export const persistPageCollectionArticles = async (
     } satisfies Prisma.DataSourceCreateManyInput;
   });
 
-  const result = await db.dataSource.createMany({
-    data: createData,
-    skipDuplicates: true,
+  return insertDataSourcesIdempotently(createData, {
+    dataSource: db.dataSource,
   });
-
-  return result.count;
 };
 
 /**

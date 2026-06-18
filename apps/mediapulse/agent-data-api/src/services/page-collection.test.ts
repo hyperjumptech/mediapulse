@@ -5,7 +5,10 @@ vi.mock("@mediapulse/database", () => ({
   prisma: {},
 }));
 
-import { resolveCuratedSourcesByListingUrls } from "./page-collection";
+import {
+  persistPageCollectionArticles,
+  resolveCuratedSourcesByListingUrls,
+} from "./page-collection";
 
 describe("resolveCuratedSourcesByListingUrls", () => {
   it("returns linkType with resolved curated sources", async () => {
@@ -64,5 +67,61 @@ describe("resolveCuratedSourcesByListingUrls", () => {
         },
       ],
     });
+  });
+});
+
+describe("persistPageCollectionArticles", () => {
+  it("inserts rows idempotently via dataSource.create", async () => {
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce({ id: "ds-1" })
+      .mockResolvedValueOnce({ id: "ds-2" });
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        id: "curated-1",
+        listingUrl: "https://example.com/news",
+      },
+    ]);
+
+    const count = await persistPageCollectionArticles(
+      [
+        {
+          url: "https://example.com/article/1",
+          title: "One",
+          content: "Body one",
+          curatedSourceListingUrl: "https://example.com/news",
+          collectionGateStatus: "passed",
+        },
+        {
+          url: "https://example.com/article/2",
+          title: "Two",
+          content: "Body two",
+          curatedSourceListingUrl: "https://example.com/news",
+          collectionGateStatus: "passed",
+        },
+      ],
+      { db: { curatedSource: { findMany }, dataSource: { create } } },
+    );
+
+    expect(count).toBe(2);
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(create.mock.calls[0]?.[0]?.data).toMatchObject({
+      canonicalUrl: "https://example.com/article/1",
+      curatedSourceId: "curated-1",
+      tickerId: null,
+      searchQueryId: null,
+      collectionGateStatus: "passed",
+    });
+  });
+
+  it("returns zero for an empty payload", async () => {
+    const create = vi.fn();
+
+    const count = await persistPageCollectionArticles([], {
+      db: { curatedSource: { findMany: vi.fn() }, dataSource: { create } },
+    });
+
+    expect(count).toBe(0);
+    expect(create).not.toHaveBeenCalled();
   });
 });

@@ -8,6 +8,7 @@ import { internalError } from "@workspace/api-utils";
 import { canonicalizeUrl } from "@workspace/utils";
 import { prisma } from "@mediapulse/database";
 
+import { insertDataSourcesIdempotently } from "../services/insert-data-sources-idempotently.js";
 import { aggregateSearchQueryYieldForTicker } from "../services/search-query-yield.js";
 
 export async function getDataCollection(context: Context): Promise<Response> {
@@ -39,8 +40,8 @@ export async function postDataCollection(context: Context): Promise<Response> {
   try {
     const body = await context.req.json();
     const data = await dataCollectionBodySchema.parseAsync(body);
-    await prisma.dataSource.createMany({
-      data: data.map((row) => {
+    await insertDataSourcesIdempotently(
+      data.map((row) => {
         let canonicalUrl: string;
         try {
           canonicalUrl = canonicalizeUrl(row.url);
@@ -55,8 +56,8 @@ export async function postDataCollection(context: Context): Promise<Response> {
             : {}),
         };
       }),
-      skipDuplicates: true,
-    });
+      { dataSource: prisma.dataSource },
+    );
 
     const tickerIds = [...new Set(data.map((row) => row.tickerId))];
     await Promise.all(
