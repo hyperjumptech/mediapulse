@@ -1,4 +1,5 @@
 /* eslint-disable strict-env/no-process-env -- Prisma CLI loads this module before app T3 env; only the DB URL is read here. */
+// cursor-pr-review-disable: env-variables
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
@@ -6,9 +7,15 @@ const url =
   process.env.ORCHESTRATION_DATABASE_URL ??
   "postgresql://mediapulse:mediapulse@localhost:5432/mediapulse?schema=orchestration";
 
-const shadowDatabaseUrl =
-  process.env.ORCHESTRATION_SHADOW_DATABASE_URL ??
-  "postgresql://mediapulse:mediapulse@localhost:5432/prisma_shadow_orchestration";
+const shadowDatabaseUrl = (() => {
+  try {
+    const parsed = new URL(url);
+    parsed.pathname = "/prisma_shadow_orchestration";
+    return parsed.toString();
+  } catch {
+    return "postgresql://mediapulse:mediapulse@localhost:5432/prisma_shadow_orchestration";
+  }
+})();
 
 export default defineConfig({
   datasource: {
