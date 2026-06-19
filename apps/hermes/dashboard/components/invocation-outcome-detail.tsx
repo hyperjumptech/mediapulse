@@ -65,11 +65,16 @@ const RunSummaryCounters = ({ summary }: RunSummaryCountersProps) => {
 
   pushNumber("Run status", "status");
   pushNumber("Discovered", "discoveredCount");
-  pushNumber("Persisted", "totalSources");
+  pushNumber("Dropped (run item cap)", "droppedByRunItemCap");
+  pushNumber("Dropped (URL noise)", "droppedByUrlNoise");
+  pushNumber("Dropped (duplicate URL)", "droppedByDuplicateCanonicalUrl");
+  pushNumber("Dropped (already collected)", "droppedByExistingCanonicalUrl");
+  pushNumber("Dropped (dead URL cache)", "droppedByDeadUrlCache");
+  pushNumber("Dropped (host error rate)", "droppedByHostErrorRate");
+  pushNumber("Dropped (fetch budget)", "droppedByFetchBudget");
   pushNumber("Fetch success", "fetchSuccess");
   pushNumber("Fetch failed", "fetchFailed");
-  pushNumber("Dropped (dead URL cache)", "droppedByDeadUrlCache");
-  pushNumber("Dropped (fetch budget)", "droppedByFetchBudget");
+  pushNumber("Persisted", "totalSources");
 
   if (summary.deadlineHit === true) {
     rows.push({ label: "Deadline hit", value: "yes" });
