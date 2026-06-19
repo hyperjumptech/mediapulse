@@ -132,6 +132,7 @@ jobs:
     if: needs.changes.outputs.run_heavy_jobs == 'true'
     env:
       MEDIAPULSE_DATABASE_URL: postgresql://mediapulse:mediapulse@localhost:5432/mediapulse?schema=mediapulse
+      ORCHESTRATION_DATABASE_URL: postgresql://mediapulse:mediapulse@localhost:5432/mediapulse?schema=orchestration
       MEDIAPULSE_API_URL: http://localhost:8090
       HERMES_API_URL: http://localhost:3001
       DOMAIN_INTEGRATION_API_KEY: ci-domain-integration-key
@@ -162,6 +163,10 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-monorepo
+
+      - name: Check Prisma schema drift
+        if: needs.changes.outputs.turbo_scope != 'ci_infra'
+        run: bash .github/scripts/check-prisma-schema-drift.sh
 
       - name: Generate route actions
         if: needs.changes.outputs.turbo_scope != 'ci_infra'

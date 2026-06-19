@@ -40,6 +40,7 @@ jobs:
     env:
       ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
       MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
+      PG_DATAQUEUE_DATABASE: ${{ secrets.PG_DATAQUEUE_DATABASE }}
     steps:
       - uses: actions/checkout@v6
 
@@ -53,11 +54,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Migrate deploy (orchestration)
-        run: pnpm --filter=@hermes/orchestration-database run db:migrate:deploy
-
-      - name: Migrate deploy (mediapulse)
-        run: pnpm --filter=@mediapulse/database run db:migrate:deploy
+      - name: Apply production database migrations
+        run: bash .github/scripts/run-production-migrations.sh
 
   publish-and-deploy:
     name: Publish & deploy ${{ matrix.service }}
