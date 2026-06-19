@@ -1,0 +1,40 @@
+name: Database Migrations
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - packages/mediapulse/database/**
+      - packages/hermes/orchestration-database/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  db-migrate:
+    name: Apply production database migrations
+    runs-on: ubuntu-latest
+    concurrency:
+      group: prisma-migrate-production
+      cancel-in-progress: false
+    env:
+      ORCHESTRATION_DATABASE_URL: ${{ secrets.ORCHESTRATION_DATABASE_URL }}
+      MEDIAPULSE_DATABASE_URL: ${{ secrets.MEDIAPULSE_DATABASE_URL }}
+      PG_DATAQUEUE_DATABASE: ${{ secrets.PG_DATAQUEUE_DATABASE }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply production database migrations
+        run: bash .github/scripts/run-production-migrations.sh
