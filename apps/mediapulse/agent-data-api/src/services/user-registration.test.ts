@@ -26,6 +26,7 @@ const USER = {
   id: "user-uuid-1",
   email: "alice@example.com",
   name: "alice",
+  enabled: true,
   createdAt: new Date(),
   updatedAt: new Date(),
 };

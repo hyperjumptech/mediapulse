@@ -105,7 +105,11 @@ export async function buildDeliveryAggregateMap(
 
   const userTickerGroupArgs: Prisma.UserTickerGroupByArgs = {
     by: ["tickerId"],
-    where: { tickerId: { in: tickerIds }, enabled: true },
+    where: {
+      tickerId: { in: tickerIds },
+      enabled: true,
+      user: { enabled: true },
+    },
     _count: { _all: true },
   };
   const userTickerGroups = (await deps.userTicker.groupBy(

@@ -15,6 +15,7 @@ type UserTickerWithUserRow = {
     id: string;
     email: string;
     name: string | null;
+    enabled: boolean;
     createdAt: Date;
     updatedAt: Date;
   };
@@ -94,6 +95,7 @@ describe("getDeliveryData", () => {
           id: "u1",
           email: "a@example.com",
           name: "A",
+          enabled: true,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -109,6 +111,7 @@ describe("getDeliveryData", () => {
           id: "u2",
           email: "b@example.com",
           name: null,
+          enabled: true,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -121,6 +124,11 @@ describe("getDeliveryData", () => {
     const { getDeliveryData } = await import("./delivery.js");
     const result = await getDeliveryData("t1");
 
+    expect(prisma.userTicker.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tickerId: "t1", enabled: true, user: { enabled: true } },
+      }),
+    );
     expect(result).toEqual({
       newsletter: {
         id: "n1",
@@ -176,6 +184,7 @@ describe("getDeliveryData", () => {
           id: "u1",
           email: "",
           name: null,
+          enabled: true,
           createdAt: new Date(),
           updatedAt: new Date(),
         },

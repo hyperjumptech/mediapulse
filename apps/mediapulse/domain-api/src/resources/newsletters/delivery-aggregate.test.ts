@@ -121,4 +121,22 @@ describe("buildDeliveryAggregateMap", () => {
       newsletterId: { in: [newsletterId, otherId] },
     });
   });
+
+  it("counts only user tickers whose user account is enabled", async () => {
+    const deps = makeDeps({
+      userTickers: [{ tickerId, _count: { _all: 4 } }],
+    });
+
+    await buildDeliveryAggregateMap([{ id: newsletterId, tickerId }], deps);
+
+    expect(deps.userTicker.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tickerId: { in: [tickerId] },
+          enabled: true,
+          user: { enabled: true },
+        },
+      }),
+    );
+  });
 });

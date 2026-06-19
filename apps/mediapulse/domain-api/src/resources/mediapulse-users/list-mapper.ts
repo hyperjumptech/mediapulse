@@ -14,6 +14,7 @@ export const mapRowToListItem = (row: MediapulseUser) => ({
   id: row.id,
   email: row.email,
   name: row.name,
+  enabled: row.enabled ? "Yes" : "No",
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
 });

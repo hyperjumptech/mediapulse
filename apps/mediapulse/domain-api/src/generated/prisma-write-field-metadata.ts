@@ -157,6 +157,12 @@ export const prismaWriteFieldMetadata = {
       isRequired: false,
       isList: false,
     },
+    enabled: {
+      kind: "scalar",
+      type: "Boolean",
+      isRequired: true,
+      isList: false,
+    },
     createdAt: {
       kind: "scalar",
       type: "DateTime",

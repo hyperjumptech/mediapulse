@@ -321,4 +321,19 @@ describe("buildRecipients", () => {
     expect(result.recipients).toHaveLength(NEWSLETTER_DETAIL_RECIPIENTS_CAP);
     expect(result.totalCount).toBe(total);
   });
+
+  it("loads enabled subscribers with user.enabled true filter", async () => {
+    const findMany = vi.fn().mockResolvedValue([enabled("ut-1")]);
+    const deps = makeDeps({
+      userTicker: { findMany },
+    });
+
+    await buildRecipients("nl-1", "tk-1", deps);
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tickerId: "tk-1", enabled: true, user: { enabled: true } },
+      }),
+    );
+  });
 });
