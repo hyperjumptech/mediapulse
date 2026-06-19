@@ -104,6 +104,7 @@ vi.mock("@workspace/agent-ingestion", async (importOriginal) => {
 });
 
 import { performWebFetch } from "@workspace/agent-ingestion";
+import { expandSourceUrl } from "./utilities/expand-source-urls";
 import { runPageCollection } from "./run";
 
 /** Builds a minimal run context for page-collection v2 tests. */
@@ -225,5 +226,46 @@ describe("runPageCollection", () => {
     expect(result.success).toBe(false);
     expect(runCreateMock).toHaveBeenCalledOnce();
     expect(runCreateMock.mock.calls[0]![0].status).toBe("failed");
+  });
+
+  it("includes pre-fetch drop counters in the agent response summary", async () => {
+    const existingUrl = "https://example.com/existing-article";
+    const newUrl = "https://example.com/new-article";
+
+    vi.mocked(expandSourceUrl).mockResolvedValue([
+      { url: existingUrl },
+      { url: newUrl },
+      { url: newUrl },
+    ]);
+
+    existingUrlsCreateMock.mockResolvedValue({ existingUrls: [existingUrl] });
+
+    vi.mocked(performWebFetch).mockResolvedValue([
+      mockFetchSuccess({
+        url: newUrl,
+        title: validArticleTitle,
+        content: validArticleContent,
+        tickerId: "",
+        searchQueryId: "",
+        searchQueryText: "",
+        serpIndex: 0,
+      }),
+    ]);
+
+    const result = await runPageCollection(createContext());
+
+    expect(result.success).toBe(true);
+    expect(result.details?.summary).toEqual(
+      expect.objectContaining({
+        discoveredCount: 3,
+        droppedByExistingCanonicalUrl: 1,
+        droppedByDuplicateCanonicalUrl: 1,
+        droppedByUrlNoise: 0,
+        droppedByHostErrorRate: 0,
+        droppedByRunItemCap: 0,
+        fetchSuccess: 1,
+        totalSources: 1,
+      }),
+    );
   });
 });

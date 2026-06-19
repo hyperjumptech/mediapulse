@@ -22,6 +22,11 @@ type RunSummary = {
   droppedByContentQuality?: Record<string, number>;
   droppedByDeadUrlCache?: number;
   droppedByFetchBudget?: number;
+  droppedByExistingCanonicalUrl?: number;
+  droppedByDuplicateCanonicalUrl?: number;
+  droppedByUrlNoise?: number;
+  droppedByHostErrorRate?: number;
+  droppedByRunItemCap?: number;
   deadlineHit?: boolean;
 };
 

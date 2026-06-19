@@ -42,4 +42,33 @@ describe("InvocationOutcomeDetailView", () => {
     expect(screen.getByText("Agent HTTP 500")).toBeInTheDocument();
     expect(screen.getByText("Page collection run failed")).toBeInTheDocument();
   });
+
+  it("renders pre-fetch drop counters in run summary", () => {
+    const model = buildInvocationOutcomeDetailModel(null, {
+      status: "success",
+      details: {
+        summary: {
+          discoveredCount: 6,
+          droppedByExistingCanonicalUrl: 4,
+          droppedByDuplicateCanonicalUrl: 0,
+          droppedByUrlNoise: 0,
+          droppedByHostErrorRate: 0,
+          droppedByRunItemCap: 0,
+          droppedByDeadUrlCache: 0,
+          droppedByFetchBudget: 0,
+          fetchSuccess: 0,
+          fetchFailed: 0,
+          droppedByContentQuality: { content_too_short: 2 },
+          totalSources: 0,
+        },
+      },
+    });
+
+    render(<InvocationOutcomeDetailView model={model} transportError={null} />);
+
+    expect(screen.getByText("Dropped (already collected)")).toBeInTheDocument();
+    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(screen.getByText("Content quality drops")).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
+  });
 });

@@ -606,6 +606,14 @@ async function executePageCollectionRun(
     droppedByContentQuality,
     droppedByDeadUrlCache,
     droppedByFetchBudget,
+    droppedByExistingCanonicalUrl,
+    droppedByDuplicateCanonicalUrl,
+    droppedByUrlNoise: Object.values(droppedByUrlReason).reduce(
+      (sum, n) => sum + n,
+      0,
+    ),
+    droppedByHostErrorRate,
+    droppedByRunItemCap,
     deadlineHit,
   };
 
