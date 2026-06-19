@@ -7,20 +7,9 @@ const url =
   process.env.MEDIAPULSE_DATABASE_URL ??
   "postgresql://mediapulse:mediapulse@localhost:5432/mediapulse?schema=mediapulse";
 
-const shadowDatabaseUrl = (() => {
-  try {
-    const parsed = new URL(url);
-    parsed.pathname = "/prisma_shadow_mediapulse";
-    return parsed.toString();
-  } catch {
-    return "postgresql://mediapulse:mediapulse@localhost:5432/prisma_shadow_mediapulse";
-  }
-})();
-
 export default defineConfig({
   datasource: {
     // This should be the direct connection to the database. Don't use the pooling connection.
     url,
-    shadowDatabaseUrl,
   },
 });
