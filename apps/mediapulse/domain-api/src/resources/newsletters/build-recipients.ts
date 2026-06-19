@@ -82,7 +82,7 @@ export const buildRecipients = async (
   deps: BuildRecipientsDeps,
 ): Promise<BuildRecipientsResult> => {
   const enabledArgs = {
-    where: { tickerId, enabled: true },
+    where: { tickerId, enabled: true, user: { enabled: true } },
     select: {
       id: true,
       user: { select: { email: true, name: true } },

@@ -18,6 +18,50 @@ import {
  */
 export const mediapulseUsersRoutes = new Hono();
 
+/**
+ * Parses the optional enabled boolean filter from the query string.
+ *
+ * @param raw - Raw `enabled` query parameter.
+ * @returns `true`, `false`, or `undefined` when unset or invalid.
+ */
+const parseEnabledFilter = (raw: string | undefined): boolean | undefined => {
+  const trimmed = raw?.trim();
+  if (trimmed === "true") return true;
+  if (trimmed === "false") return false;
+  return undefined;
+};
+
+/**
+ * Builds the Prisma `where` clause for the mediapulse-users list endpoint.
+ *
+ * @param query - Optional search string for email/name.
+ * @param enabled - Optional enabled filter from query params.
+ * @returns Combined where input or `undefined` when no filters apply.
+ */
+const buildMediapulseUserListWhere = (
+  query: string | undefined,
+  enabled: boolean | undefined,
+): Prisma.MediapulseUserWhereInput | undefined => {
+  const parts: Prisma.MediapulseUserWhereInput[] = [];
+
+  if (query) {
+    parts.push({
+      OR: [
+        { email: { contains: query, mode: "insensitive" as const } },
+        { name: { contains: query, mode: "insensitive" as const } },
+      ],
+    });
+  }
+
+  if (enabled !== undefined) {
+    parts.push({ enabled });
+  }
+
+  if (parts.length === 0) return undefined;
+  if (parts.length === 1) return parts[0];
+  return { AND: parts };
+};
+
 /** Paginated list of Mediapulse end users for the Hermes dashboard table (search `q`, `sortBy`, `sortDir`). */
 mediapulseUsersRoutes.get("/", async (c) => {
   const { page, pageSize } = parsePagination(
@@ -30,16 +74,16 @@ mediapulseUsersRoutes.get("/", async (c) => {
     c.req.query("sortDir") === "desc" ? "desc" : "asc";
   const skip = (page - 1) * pageSize;
 
-  const where = query
-    ? ({
-        OR: [
-          { email: { contains: query, mode: "insensitive" as const } },
-          { name: { contains: query, mode: "insensitive" as const } },
-        ],
-      } satisfies Prisma.MediapulseUserWhereInput)
-    : undefined;
+  const where = buildMediapulseUserListWhere(
+    query,
+    parseEnabledFilter(c.req.query("enabled")),
+  );
   const orderBy =
-    sortBy === "createdAt" ? { createdAt: sortDir } : { email: sortDir };
+    sortBy === "createdAt"
+      ? { createdAt: sortDir }
+      : sortBy === "enabled"
+        ? { enabled: sortDir }
+        : { email: sortDir };
 
   const [rows, total] = await Promise.all([
     prisma.mediapulseUser.findMany({
@@ -73,6 +117,7 @@ mediapulseUsersRoutes.post("/", async (c) => {
       data: {
         email: body.data.email.trim().toLowerCase(),
         name: nullableText(body.data.name),
+        enabled: body.data.enabled,
       },
     });
     return c.json({ id: created.id }, 201);
@@ -102,6 +147,7 @@ mediapulseUsersRoutes.patch("/:id", async (c) => {
       data: {
         email: body.data.email.trim().toLowerCase(),
         name: nullableText(body.data.name),
+        enabled: body.data.enabled,
       },
     });
     return c.json({ id: updated.id });

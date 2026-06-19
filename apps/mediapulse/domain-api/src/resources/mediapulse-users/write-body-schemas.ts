@@ -15,6 +15,7 @@ import type { ListItem } from "./list-mapper";
 const mediapulseUserWriteFields = [
   "email",
   "name",
+  "enabled",
 ] as const satisfies ReadonlyArray<keyof ListItem>;
 
 const mediapulseUserWriteBodySchemaBuilt = buildWriteBodySchema({

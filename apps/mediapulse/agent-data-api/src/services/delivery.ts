@@ -25,7 +25,7 @@ export async function getDeliveryData(tickerId: string) {
       select: { userTickerId: true },
     }),
     mediapulsePrisma.userTicker.findMany({
-      where: { tickerId, enabled: true },
+      where: { tickerId, enabled: true, user: { enabled: true } },
       include: { user: true },
     }),
   ]);

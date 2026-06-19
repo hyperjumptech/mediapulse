@@ -434,6 +434,8 @@ model MediapulseUser {
   id        String   @id @default(uuid())
   email     String   @unique
   name      String?
+  /// When false, the user must not receive newsletters (admin master switch).
+  enabled   Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

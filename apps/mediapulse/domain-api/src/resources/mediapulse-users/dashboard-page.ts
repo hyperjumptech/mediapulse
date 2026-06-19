@@ -2,8 +2,9 @@
  * Hermes `table-v1` manifest slice for Mediapulse end users and exported `*HermesPathSegment` for routing.
  */
 
-import { type DashboardViewInput } from "@hermes/domain-contract";
+import type { DashboardViewInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
+import { enabledBooleanSelectListFilter } from "../../hermes-dashboard/templates/table-v1/list-filter-definitions";
 import {
   columnsFor,
   rowFieldKeysFor,
@@ -31,10 +32,16 @@ export const mediapulseUsersDashboardPage = {
   columns: columnsFor<ListItem>()([
     { key: "email", label: "Email", type: "text" },
     { key: "name", label: "Name", type: "text" },
+    { key: "enabled", label: "Enabled", type: "text" },
     { key: "createdAt", label: "Created", type: "date-time" },
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()(["email", "name"]),
-  sortableFields: rowFieldKeysFor<ListItem>()(["email", "createdAt"]),
+  sortableFields: rowFieldKeysFor<ListItem>()([
+    "email",
+    "enabled",
+    "createdAt",
+  ]),
+  listFilters: [enabledBooleanSelectListFilter],
   actions: { create: true, update: true, delete: true, view: false },
   createSchema: mediapulseUserCreateFormJsonSchema,
   updateSchema: mediapulseUserUpdateFormJsonSchema,
