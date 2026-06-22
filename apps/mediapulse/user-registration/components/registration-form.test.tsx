@@ -35,7 +35,7 @@ describe("RegistrationForm", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders the name and ticker search inputs", () => {
+  it("renders the name, language, and ticker search inputs", () => {
     // Act
     render(<RegistrationForm tickers={sampleTickers} openMailto={vi.fn()} />);
 
@@ -44,6 +44,13 @@ describe("RegistrationForm", () => {
       screen.getByLabelText(/What should we call you\?/i),
     ).toBeInTheDocument();
     expect(screen.getByLabelText(/Stock ticker/i)).toBeInTheDocument();
+
+    const languageSelect = screen.getByLabelText(
+      /Newsletter language/i,
+    ) as HTMLSelectElement;
+
+    expect(languageSelect).toBeInTheDocument();
+    expect(languageSelect.value).toBe("en");
   });
 
   it("renders the subscribe button as disabled when no ticker is selected", () => {
@@ -102,11 +109,41 @@ describe("RegistrationForm", () => {
     );
     expect(calledUrl).toContain(encodeURIComponent("Name: John Doe"));
     expect(calledUrl).toContain(encodeURIComponent("Ticker: BBCA"));
+    expect(calledUrl).toContain(encodeURIComponent("Language: en"));
 
     // Assert Success screen rendered
     expect(screen.getByText(/Almost done/i)).toBeInTheDocument();
     expect(screen.getByText(/tap/i)).toBeInTheDocument();
     expect(screen.getByText(/Send/i)).toBeInTheDocument();
+  });
+
+  it("encodes the selected Indonesian language in the mailto URL", async () => {
+    // Setup
+    const user = userEvent.setup();
+    const mockOpenMailto = vi.fn();
+    render(
+      <RegistrationForm tickers={sampleTickers} openMailto={mockOpenMailto} />,
+    );
+
+    // Act
+    await user.type(
+      screen.getByLabelText(/What should we call you\?/i),
+      "John Doe",
+    );
+    await user.selectOptions(
+      screen.getByLabelText(/Newsletter language/i),
+      "id",
+    );
+    await user.click(screen.getByLabelText(/Stock ticker/i));
+    await user.click(screen.getByText(/Bank Central Asia Tbk/i));
+    await user.click(
+      screen.getByRole("button", { name: /Open email app to subscribe/i }),
+    );
+
+    // Assert
+    const calledUrl = mockOpenMailto.mock.calls[0]![0]!;
+
+    expect(calledUrl).toContain(encodeURIComponent("Language: id"));
   });
 
   it("shows spam/junk reassurance text and download contact card button after submit", async () => {

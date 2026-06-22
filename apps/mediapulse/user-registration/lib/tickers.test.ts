@@ -5,6 +5,7 @@ import {
   formatTicker,
   buildMailtoUrl,
   MAILTO_BODY_SECTION_SEPARATOR,
+  REGISTRATION_LANGUAGE_OPTIONS,
   type Ticker,
 } from "./tickers";
 
@@ -100,7 +101,7 @@ describe("buildMailtoUrl", () => {
 
   it("targets the default registration email", () => {
     // Act
-    const url = buildMailtoUrl(ticker, "Jane Doe");
+    const url = buildMailtoUrl(ticker, "Jane Doe", "en");
 
     // Assert
     expect(url.startsWith(`mailto:${EXPECTED_REG_EMAIL}`)).toBe(true);
@@ -114,7 +115,7 @@ describe("buildMailtoUrl", () => {
     };
 
     // Act
-    const url = buildMailtoUrl(t, "Jane Doe");
+    const url = buildMailtoUrl(t, "Jane Doe", "en");
 
     // Assert
     expect(url).toContain("subject=");
@@ -122,7 +123,7 @@ describe("buildMailtoUrl", () => {
   });
 
   it("joins body sections with spaced pipes for single-line mail clients", () => {
-    const url = buildMailtoUrl(ticker, "Jane Doe");
+    const url = buildMailtoUrl(ticker, "Jane Doe", "en");
     expect(url).toContain(encodeURIComponent(MAILTO_BODY_SECTION_SEPARATOR));
   });
 
@@ -134,7 +135,7 @@ describe("buildMailtoUrl", () => {
     };
 
     // Act
-    const url = buildMailtoUrl(t, "Jane Doe");
+    const url = buildMailtoUrl(t, "Jane Doe", "en");
 
     // Assert
     expect(url).toContain(encodeURIComponent("Name: Jane Doe"));
@@ -144,5 +145,24 @@ describe("buildMailtoUrl", () => {
     );
     expect(url).not.toContain(encodeURIComponent("Subscriber Name:"));
     expect(url).not.toContain(encodeURIComponent("Subscriber Email:"));
+  });
+
+  it("encodes the chosen language code in the body", () => {
+    // Act
+    const englishUrl = buildMailtoUrl(ticker, "Jane Doe", "en");
+    const indonesianUrl = buildMailtoUrl(ticker, "Jane Doe", "id");
+
+    // Assert
+    expect(englishUrl).toContain(encodeURIComponent("Language: en"));
+    expect(indonesianUrl).toContain(encodeURIComponent("Language: id"));
+  });
+});
+
+describe("REGISTRATION_LANGUAGE_OPTIONS", () => {
+  it("offers English first then Indonesian", () => {
+    expect(REGISTRATION_LANGUAGE_OPTIONS).toEqual([
+      { value: "en", label: "English" },
+      { value: "id", label: "Indonesian" },
+    ]);
   });
 });

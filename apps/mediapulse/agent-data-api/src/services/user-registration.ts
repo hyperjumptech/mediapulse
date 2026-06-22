@@ -1,6 +1,7 @@
 import { prisma as mediapulsePrisma } from "@mediapulse/database";
 import { verifyUnsubscribeToken } from "@workspace/utils";
 import type {
+  UserRegistrationLanguage,
   UserRegistrationUnsubscribeMethod,
   UserRegistrationUnsubscribeResponse,
 } from "@workspace/agent-data-api-contract";
@@ -9,6 +10,9 @@ import type {
  * Processes a new or returning user registration for a given ticker.
  * Creates or updates the user and their subscription, then returns outcome flags
  * that the agent uses to decide whether to send an opt-in email.
+ *
+ * Language is per-subscription, so a user may hold separate subscriptions for the same
+ * ticker in different languages. The lookup and create are therefore keyed by language.
  *
  * @returns `tickerKnown` – whether the symbol exists in the database.
  * @returns `userTickerId` – the UserTicker row id (undefined when ticker is unknown).
@@ -19,11 +23,13 @@ export async function processRegistration({
   email,
   tickerSymbol,
   name,
+  language = "en",
   confirmed,
 }: {
   email: string;
   tickerSymbol: string;
   name?: string | null;
+  language?: UserRegistrationLanguage;
   confirmed?: boolean;
 }) {
   const normalizedSymbol = tickerSymbol.trim().toUpperCase();
@@ -51,9 +57,10 @@ export async function processRegistration({
   // Find existing subscription explicitly first to determine `subscriptionChanged` properly
   const existingSubscription = await mediapulsePrisma.userTicker.findUnique({
     where: {
-      userId_tickerId: {
+      userId_tickerId_language: {
         userId: user.id,
         tickerId: ticker.id,
+        language,
       },
     },
   });
@@ -92,6 +99,7 @@ export async function processRegistration({
         userId: user.id,
         tickerId: ticker.id,
         enabled: true,
+        language,
         registrationConfirmedAt: confirmed ? new Date() : null,
       },
     });

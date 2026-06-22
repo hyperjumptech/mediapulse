@@ -126,10 +126,83 @@ describe("processRegistration", () => {
         userId: USER.id,
         tickerId: TICKER.id,
         enabled: true,
+        language: "en",
         registrationConfirmedAt: null,
       },
     });
     expect(prisma.userTicker.update).not.toHaveBeenCalled();
+  });
+
+  it("defaults the subscription lookup to English when no language is provided", async () => {
+    const { prisma } = await import("@mediapulse/database");
+    vi.mocked(prisma.ticker.findUnique).mockResolvedValue(TICKER);
+    vi.mocked(prisma.mediapulseUser.upsert).mockResolvedValue(USER);
+    vi.mocked(prisma.userTicker.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.userTicker.create).mockResolvedValue(
+      makeUserTicker({ registrationConfirmedAt: null }) as unknown as Awaited<
+        ReturnType<typeof prisma.userTicker.create>
+      >,
+    );
+
+    const { processRegistration } = await import("./user-registration.js");
+    await processRegistration({
+      email: "alice@example.com",
+      tickerSymbol: "BBCA",
+    });
+
+    expect(prisma.userTicker.findUnique).toHaveBeenCalledWith({
+      where: {
+        userId_tickerId_language: {
+          userId: USER.id,
+          tickerId: TICKER.id,
+          language: "en",
+        },
+      },
+    });
+  });
+
+  it("creates a separate Indonesian subscription keyed by language", async () => {
+    const { prisma } = await import("@mediapulse/database");
+    vi.mocked(prisma.ticker.findUnique).mockResolvedValue(TICKER);
+    vi.mocked(prisma.mediapulseUser.upsert).mockResolvedValue(USER);
+    vi.mocked(prisma.userTicker.findUnique).mockResolvedValue(null);
+    const indonesianUserTicker = makeUserTicker({
+      id: "ut-uuid-id",
+      registrationConfirmedAt: null,
+    });
+    vi.mocked(prisma.userTicker.create).mockResolvedValue(
+      indonesianUserTicker as unknown as Awaited<
+        ReturnType<typeof prisma.userTicker.create>
+      >,
+    );
+
+    const { processRegistration } = await import("./user-registration.js");
+    const result = await processRegistration({
+      email: "alice@example.com",
+      tickerSymbol: "BBCA",
+      name: "alice",
+      language: "id",
+    });
+
+    expect(result.userTickerId).toBe("ut-uuid-id");
+    expect(prisma.userTicker.findUnique).toHaveBeenCalledWith({
+      where: {
+        userId_tickerId_language: {
+          userId: USER.id,
+          tickerId: TICKER.id,
+          language: "id",
+        },
+      },
+    });
+    expect(prisma.userTicker.create).toHaveBeenCalledWith({
+      data: {
+        userId: USER.id,
+        tickerId: TICKER.id,
+        enabled: true,
+        language: "id",
+        registrationConfirmedAt: null,
+      },
+    });
   });
 
   it("returns isNewSubscription: false and subscriptionChanged: false when subscription already exists and is enabled and confirmed", async () => {
@@ -297,6 +370,7 @@ describe("processRegistration with immediate confirmation", () => {
         userId: USER.id,
         tickerId: TICKER.id,
         enabled: true,
+        language: "en",
         registrationConfirmedAt: expect.any(Date),
       },
     });

@@ -24,8 +24,16 @@ export async function getDeliveryData(tickerId: string) {
       where: { newsletterId: newsletter.id },
       select: { userTickerId: true },
     }),
+    // Indonesian newsletters are not generated yet, so only English subscriptions are
+    // delivered for now. This also avoids duplicate sends to a subscriber who registered
+    // the same ticker in both languages (each row has its own delivery checkpoint).
     mediapulsePrisma.userTicker.findMany({
-      where: { tickerId, enabled: true, user: { enabled: true } },
+      where: {
+        tickerId,
+        enabled: true,
+        language: "en",
+        user: { enabled: true },
+      },
       include: { user: true },
     }),
   ]);

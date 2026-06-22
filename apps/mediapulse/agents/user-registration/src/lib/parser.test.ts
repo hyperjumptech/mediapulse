@@ -5,6 +5,7 @@ import {
   deriveNameFromEmailLocalPart,
   extractSenderEmail,
   extractTickerSymbol,
+  extractLanguage,
   extractSubscriberName,
   extractUsableFromDisplayName,
   resolveSubscriberDisplayName,
@@ -154,6 +155,40 @@ describe("Parser Helpers", () => {
         extractTickerSymbol("Random email", "Just saying hello"),
       ).toBeNull();
       expect(extractTickerSymbol(null, null)).toBeNull();
+    });
+  });
+
+  describe("extractLanguage", () => {
+    it("defaults to English when no language line is present", () => {
+      expect(extractLanguage(undefined)).toBe("en");
+      expect(extractLanguage(null)).toBe("en");
+      expect(extractLanguage("")).toBe("en");
+      expect(extractLanguage("Name: Jane\nTicker: BBCA")).toBe("en");
+    });
+
+    it("parses the English code", () => {
+      const body = "Name: Jane  |  Ticker: BBCA  |  Language: en  |  ---";
+      expect(extractLanguage(body)).toBe("en");
+    });
+
+    it("parses the Indonesian code", () => {
+      const body = "Name: Jane  |  Ticker: BBCA  |  Language: id  |  ---";
+      expect(extractLanguage(body)).toBe("id");
+    });
+
+    it("accepts full language words case-insensitively", () => {
+      expect(extractLanguage("Language: Indonesian")).toBe("id");
+      expect(extractLanguage("Language: ENGLISH")).toBe("en");
+    });
+
+    it("parses the language from HTML body content", () => {
+      const body =
+        "<div>Ticker: BBCA</div><div>Language: id</div><div>---</div>";
+      expect(extractLanguage(body)).toBe("id");
+    });
+
+    it("defaults to English for an unrecognized language value", () => {
+      expect(extractLanguage("Language: french")).toBe("en");
     });
   });
 

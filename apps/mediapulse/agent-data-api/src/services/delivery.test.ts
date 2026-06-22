@@ -126,7 +126,12 @@ describe("getDeliveryData", () => {
 
     expect(prisma.userTicker.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { tickerId: "t1", enabled: true, user: { enabled: true } },
+        where: {
+          tickerId: "t1",
+          enabled: true,
+          language: "en",
+          user: { enabled: true },
+        },
       }),
     );
     expect(result).toEqual({

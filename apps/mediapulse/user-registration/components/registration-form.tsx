@@ -6,7 +6,11 @@ import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/ui/lib/utils";
-import { type Ticker } from "@/lib/tickers";
+import {
+  type Ticker,
+  type RegistrationLanguage,
+  REGISTRATION_LANGUAGE_OPTIONS,
+} from "@/lib/tickers";
 import { useRegistrationForm } from "@/hooks/use-registration-form";
 import { env } from "@mediapulse/env/app-user-registration";
 import { buildVCard } from "@workspace/utils";
@@ -49,6 +53,8 @@ const RegistrationForm = ({
   const {
     name,
     setName,
+    language,
+    setLanguage,
     query,
     handleQueryChange,
     selectedTicker,
@@ -114,6 +120,26 @@ const RegistrationForm = ({
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="language">Newsletter language</Label>
+          <select
+            id="language"
+            value={language}
+            onChange={(e) =>
+              setLanguage(e.target.value as RegistrationLanguage)
+            }
+            className={cn(
+              "border-input dark:bg-input/30 h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none md:text-sm",
+              "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+            )}
+          >
+            {REGISTRATION_LANGUAGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="ticker-search">Stock ticker</Label>

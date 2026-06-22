@@ -335,6 +335,54 @@ describe("createRunHandler", () => {
         email: "k@run-test.example",
         tickerSymbol: "BBCA",
         name: "Kevin Hermawan",
+        language: "en",
+      }),
+    );
+  });
+
+  it("passes the chosen Indonesian language to userRegistrationRegister", async () => {
+    const registerCreate = vi.fn().mockResolvedValue({
+      tickerKnown: true,
+      isNewSubscription: false,
+    });
+
+    const run = createRunHandler({
+      createInbox: () => ({
+        listMessages: async () =>
+          makeListResult([
+            makeMessage({
+              subject: "[MediaPulse] Newsletter Subscription - BBCA",
+              body: {
+                content:
+                  "Name: Kevin Hermawan  |  Ticker: BBCA  |  Language: id  |  ---",
+                contentType: "text",
+              },
+              from: { emailAddress: { address: "k@run-test.example" } },
+            }),
+          ]),
+        archiveMessage: vi.fn().mockResolvedValue(undefined),
+        markMessageRead: vi.fn(),
+        processMessages: vi.fn(),
+        deleteMessage: vi.fn(),
+      }),
+      ResendClient: class {
+        emails = { send: vi.fn() };
+        constructor() {}
+      } as any,
+      createDataApi: () =>
+        ({
+          userRegistrationRegister: { create: registerCreate },
+          userRegistrationConfirm: { create: vi.fn() },
+        }) as any,
+    });
+
+    await run(makeCtx() as any);
+
+    expect(registerCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "k@run-test.example",
+        tickerSymbol: "BBCA",
+        language: "id",
       }),
     );
   });

@@ -238,3 +238,28 @@ export function extractTickerSymbol(
 
   return null;
 }
+
+/** Newsletter delivery language extracted from a registration email (`en` = English, `id` = Indonesian). */
+export type SubscriberLanguage = "en" | "id";
+
+/**
+ * Extracts the requested newsletter language from the email body.
+ * Matches a `Language:` segment, accepting both codes (`en`/`id`) and words
+ * (`English`/`Indonesian`). Defaults to English when absent or unrecognized.
+ *
+ * @param bodyContent - Optional `body.content` from Graph (plain or HTML).
+ * @returns The resolved language, defaulting to `"en"`.
+ */
+export function extractLanguage(
+  bodyContent?: string | null,
+): SubscriberLanguage {
+  const normalized = normalizeGraphBodyContentForLineParsing(bodyContent);
+  if (!normalized) return "en";
+
+  const match = normalized.match(/Language:\s*(en|id|english|indonesian)/i);
+  if (!match || !match[1]) return "en";
+
+  const value = match[1].toLowerCase();
+
+  return value === "id" || value === "indonesian" ? "id" : "en";
+}

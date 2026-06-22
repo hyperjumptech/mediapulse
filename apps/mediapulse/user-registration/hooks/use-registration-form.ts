@@ -7,6 +7,7 @@ import {
   formatTicker,
   buildMailtoUrl,
   type Ticker,
+  type RegistrationLanguage,
 } from "@/lib/tickers";
 
 /**
@@ -21,6 +22,7 @@ export const useRegistrationForm = (
   openMailto: (url: string) => void,
 ) => {
   const [name, setName] = useState("");
+  const [language, setLanguage] = useState<RegistrationLanguage>("en");
   const [query, setQuery] = useState("");
   const [selectedTicker, setSelectedTicker] = useState<Ticker | null>(null);
   const [open, setOpen] = useState(false);
@@ -76,6 +78,7 @@ export const useRegistrationForm = (
     const mailtoUrl = buildMailtoUrl(
       selectedTicker,
       trimmedName,
+      language,
       env.NEXT_PUBLIC_REGISTRATION_EMAIL,
     );
 
@@ -89,6 +92,7 @@ export const useRegistrationForm = (
   const resetForm = () => {
     setSubmitted(false);
     setName("");
+    setLanguage("en");
     setQuery("");
     setSelectedTicker(null);
   };
@@ -96,6 +100,8 @@ export const useRegistrationForm = (
   return {
     name,
     setName,
+    language,
+    setLanguage,
     query,
     handleQueryChange,
     selectedTicker,
