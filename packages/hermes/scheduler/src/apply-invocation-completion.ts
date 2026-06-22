@@ -18,6 +18,10 @@ import {
   resolveRunStatusForSettledCancelledExecution,
   resolveStepRollupPrismaAfterInvocation,
 } from "./cancel-execution";
+import {
+  countInvocationOutcomesFromTerminalJobs,
+  resolveParentRunStatusWhenStepRowsMissing,
+} from "./finalize-parent-from-terminal-jobs";
 
 export type InvocationCompletionInput = {
   jobId: string;
@@ -292,6 +296,57 @@ export const applyInvocationCompletion = async (
               },
             });
     if (!stepRow) {
+      const jobsWithoutStepRollup =
+        executionKind === "schedule"
+          ? await tx.agentJobExecution.findMany({
+              where: { scheduleExecutionId: input.scheduleExecutionId! },
+              select: { status: true, error: true },
+            })
+          : executionKind === "httpTrigger"
+            ? await tx.agentJobExecution.findMany({
+                where: {
+                  httpTriggerExecutionId: input.httpTriggerExecutionId!,
+                },
+                select: { status: true, error: true },
+              })
+            : await tx.agentJobExecution.findMany({
+                where: { manualExecutionId: input.manualExecutionId! },
+                select: { status: true, error: true },
+              });
+
+      const runWithoutStepRollup = resolveParentRunStatusWhenStepRowsMissing(
+        jobsWithoutStepRollup,
+      );
+      if (runWithoutStepRollup == null) {
+        return;
+      }
+
+      const counts = countInvocationOutcomesFromTerminalJobs(
+        jobsWithoutStepRollup,
+      );
+      const parentWhere = {
+        runStatus: {
+          in: [ScheduleRunStatus.pending, ScheduleRunStatus.running],
+        },
+      };
+
+      if (executionKind === "schedule") {
+        await tx.scheduleExecution.updateMany({
+          where: { id: input.scheduleExecutionId, ...parentWhere },
+          data: { runStatus: runWithoutStepRollup, ...counts },
+        });
+      } else if (executionKind === "httpTrigger") {
+        await tx.httpTriggerExecution.updateMany({
+          where: { id: input.httpTriggerExecutionId, ...parentWhere },
+          data: { runStatus: runWithoutStepRollup, ...counts },
+        });
+      } else {
+        await tx.manualPipelineExecution.updateMany({
+          where: { id: input.manualExecutionId, ...parentWhere },
+          data: { runStatus: runWithoutStepRollup, ...counts },
+        });
+      }
+
       return;
     }
 
