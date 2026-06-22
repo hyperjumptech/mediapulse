@@ -14,11 +14,16 @@ export const getUserRegistrationTickersResponseSchema = z.object({
   tickers: z.array(userRegistrationTickerListItemSchema),
 });
 
+/** Newsletter delivery language for a subscription (`en` = English, `id` = Indonesian). */
+export const userRegistrationLanguageSchema = z.enum(["en", "id"]);
+
 // Request schemas
 export const postUserRegistrationRegisterBodySchema = z.object({
   email: z.string().email(),
   tickerSymbol: z.string(),
   name: z.string().nullable().optional(),
+  /** Preferred newsletter language; omitted requests default to English on the server. */
+  language: userRegistrationLanguageSchema.optional(),
   confirmed: z.boolean().optional(),
   audit: z
     .object({
@@ -73,6 +78,9 @@ export const userRegistrationUnsubscribeResponseSchema = z.object({
   displaySymbol: z.string().optional(),
 });
 
+export type UserRegistrationLanguage = z.infer<
+  typeof userRegistrationLanguageSchema
+>;
 export type PostUserRegistrationRegisterBody = z.infer<
   typeof postUserRegistrationRegisterBodySchema
 >;

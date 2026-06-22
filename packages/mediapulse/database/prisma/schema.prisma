@@ -449,6 +449,8 @@ model UserTicker {
   userId                  String    @map("user_id")
   tickerId                String    @map("ticker_id")
   enabled                 Boolean   @default(true)
+  /// Newsletter language for this subscription (en = English, id = Indonesian).
+  language                Language  @default(en)
   registrationConfirmedAt DateTime? @map("registration_confirmed_at")
   /// When the user voluntarily unsubscribed (null for admin/manual disables).
   unsubscribedAt          DateTime? @map("unsubscribed_at")
@@ -461,8 +463,14 @@ model UserTicker {
   ticker              Ticker                         @relation(fields: [tickerId], references: [id], onDelete: Cascade)
   deliveryCheckpoints NewsletterDeliveryCheckpoint[]
 
-  @@unique([userId, tickerId])
+  @@unique([userId, tickerId, language])
   @@map("user_ticker")
+}
+
+/// Newsletter delivery language for a subscription (en = English, id = Indonesian).
+enum Language {
+  en
+  id
 }
 
 /// Idempotent record that a newsletter was delivered to a subscriber (avoids duplicate sends on job replay).

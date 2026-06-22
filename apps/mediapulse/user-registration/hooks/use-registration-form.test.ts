@@ -21,6 +21,7 @@ describe("useRegistrationForm", () => {
     );
 
     expect(result.current.name).toBe("");
+    expect(result.current.language).toBe("en");
     expect(result.current.query).toBe("");
     expect(result.current.selectedTicker).toBeNull();
     expect(result.current.open).toBe(false);
@@ -81,6 +82,30 @@ describe("useRegistrationForm", () => {
     expect(result.current.submitted).toBe(true);
   });
 
+  it("includes the chosen language in the mailto URL on submit", async () => {
+    const mockOpenMailto = vi.fn();
+    const { result } = renderHook(() =>
+      useRegistrationForm(sampleTickers, mockOpenMailto),
+    );
+
+    act(() => {
+      result.current.setName("Test User");
+      result.current.setLanguage("id");
+      result.current.handleTickerSelect(sampleTickers[1]!);
+    });
+
+    await act(async () => {
+      const e = {
+        preventDefault: vi.fn(),
+      } as unknown as React.FormEvent<HTMLFormElement>;
+      await result.current.handleSubmit(e);
+    });
+
+    const mailtoUrl = mockOpenMailto.mock.calls[0]?.[0] as string;
+
+    expect(mailtoUrl).toContain(encodeURIComponent("Language: id"));
+  });
+
   it("does not submit if name or ticker are missing", async () => {
     const mockOpenMailto = vi.fn();
     const { result } = renderHook(() =>
@@ -128,10 +153,12 @@ describe("useRegistrationForm", () => {
 
     act(() => {
       result.current.setName("Test");
+      result.current.setLanguage("id");
       result.current.handleTickerSelect(sampleTickers[1]!);
     });
 
     expect(result.current.name).toBe("Test");
+    expect(result.current.language).toBe("id");
     expect(result.current.selectedTicker).not.toBeNull();
 
     act(() => {
@@ -139,6 +166,7 @@ describe("useRegistrationForm", () => {
     });
 
     expect(result.current.name).toBe("");
+    expect(result.current.language).toBe("en");
     expect(result.current.query).toBe("");
     expect(result.current.selectedTicker).toBeNull();
     expect(result.current.submitted).toBe(false);

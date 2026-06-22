@@ -23,6 +23,7 @@ import type { UserRegistrationConfig } from "./config-schema.js";
 import {
   extractSenderEmail,
   extractTickerSymbol,
+  extractLanguage,
   resolveSubscriberDisplayName,
 } from "./lib/parser.js";
 
@@ -552,6 +553,7 @@ async function processMessage({
   }
 
   const name = resolveSubscriberDisplayName(msg, senderEmail);
+  const language = extractLanguage(msg.body?.content);
 
   try {
     // Step 2: Register via API
@@ -561,6 +563,7 @@ async function processMessage({
           email: senderEmail,
           tickerSymbol,
           name,
+          language,
           audit: {
             graphMessageId: msg.id,
             receivedAt: msg.receivedDateTime,
