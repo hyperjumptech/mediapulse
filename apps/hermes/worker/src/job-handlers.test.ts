@@ -8,6 +8,7 @@ import {
   getDueSchedules,
   invokeAgentPost,
   parseAgentResponseEnvelope,
+  reconcileZombieExecutions,
 } from "@hermes/scheduler";
 import { logger } from "@workspace/logger";
 import { executeHttpTrigger } from "./execute-http-trigger";
@@ -98,6 +99,7 @@ vi.mock("@hermes/scheduler", async (importOriginal) => {
     invokeAgentPost: vi.fn(),
     parseAgentResponseEnvelope: vi.fn(),
     applyInvocationCompletion: vi.fn().mockResolvedValue(undefined),
+    reconcileZombieExecutions: vi.fn().mockResolvedValue(0),
   };
 });
 
@@ -1064,6 +1066,7 @@ describe("jobHandlers", () => {
         reEnqueued: 2,
         settled: 1,
       });
+      vi.mocked(reconcileZombieExecutions).mockResolvedValue(4);
 
       // Act
       await jobHandlers.cleanup_orphaned_executions(
@@ -1084,8 +1087,14 @@ describe("jobHandlers", () => {
           dataQueuePool: expect.any(Object),
         }),
       );
+      expect(reconcileZombieExecutions).toHaveBeenCalledTimes(1);
       expect(logger.info).toHaveBeenCalledWith(
-        { resolved: 3, reEnqueued: 2, reconciledSettled: 1 },
+        {
+          resolved: 3,
+          reEnqueued: 2,
+          reconciledSettled: 1,
+          zombiesFinalized: 4,
+        },
         "cleanup_orphaned_executions: sweep complete",
       );
     });

@@ -84,6 +84,18 @@ export {
   type ReconcileSchedulesDb,
   type ScheduleForRecovery,
 } from "./reconcile-overdue-schedules";
+export {
+  reconcileZombieExecutions,
+  type ReconcileZombieExecutionsDeps,
+  type ReconcileZombieExecutionsLogger,
+} from "./reconcile-zombie-executions";
+export {
+  areAllAgentJobsTerminal,
+  countInvocationOutcomesFromTerminalJobs,
+  resolveParentRunStatusWhenStepRowsMissing,
+  resolveRunStatusFromTerminalJobs,
+  type TerminalJobRow,
+} from "./finalize-parent-from-terminal-jobs";
 export { willRetryAfterTransientFailure } from "./will-retry-after-transient-failure";
 export {
   applyHermesInvokeCorrelationHeaders,

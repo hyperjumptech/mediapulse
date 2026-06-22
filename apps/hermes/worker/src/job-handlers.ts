@@ -22,6 +22,7 @@ import {
   invokeAgentPost,
   parseAgentResponseEnvelope,
   parseHttpErrorBodyMessage,
+  reconcileZombieExecutions,
   resolveInvokeAgentJobTimeoutMs,
   willRetryAfterTransientFailure,
   type ExpandStepInputs,
@@ -746,7 +747,7 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
   cleanup_orphaned_executions: async () => {
     const jobQueue = getJobQueue();
     const pool = jobQueue.getPool?.();
-    const [resolved, reconciled] = await Promise.all([
+    const [resolved, reconciled, zombiesFinalized] = await Promise.all([
       cleanupOrphanedExecutions({ db: orchestrationPrisma, logger }),
       pool
         ? reconcileOrphanedPendingExecutions({
@@ -755,12 +756,14 @@ export const jobHandlers: JobHandlers<JobPayloadMap> = {
             logger,
           })
         : Promise.resolve({ reEnqueued: 0, settled: 0 }),
+      reconcileZombieExecutions({ db: orchestrationPrisma, logger }),
     ]);
     logger.info(
       {
         resolved,
         reEnqueued: reconciled.reEnqueued,
         reconciledSettled: reconciled.settled,
+        zombiesFinalized,
       },
       "cleanup_orphaned_executions: sweep complete",
     );
