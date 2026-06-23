@@ -33,6 +33,11 @@ export type ListMessagesOptions = {
   orderBy?: string;
   /** Runaway-pagination backstop (default 20). */
   maxPages?: number;
+  /**
+   * OData `$select` field list. When set, Graph returns only these fields, so
+   * include every field you read (plus extras like `internetMessageHeaders`).
+   */
+  select?: string[];
 };
 
 /**
@@ -77,6 +82,7 @@ export function createOutlookInboxClient(
         orderBy: listOptions?.orderBy,
         maxPages: listOptions?.maxPages,
         mailFolder,
+        select: listOptions?.select,
       });
     },
 

@@ -14,6 +14,7 @@ export const MEDIAPULSE_ENV_BUILD_TARGET_ORDER = [
   "agents.article-analysis",
   "agents.ticker-echo",
   "agents.user-registration",
+  "agents.newsletter-feedback",
   "app.user-registration",
   "agents.page-collection",
 ] as const;

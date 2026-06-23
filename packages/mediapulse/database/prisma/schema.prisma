@@ -168,6 +168,7 @@ model Newsletter {
   ticker              Ticker                         @relation(fields: [tickerId], references: [id])
   deliveryCheckpoints NewsletterDeliveryCheckpoint[]
   deliveryRuns        DeliveryRun[]
+  feedback            NewsletterFeedback[]
 
   @@map("newsletter")
 }
@@ -440,6 +441,7 @@ model MediapulseUser {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   userTickers UserTicker[]
+  feedback    NewsletterFeedback[]
 
   @@map("mediapulse_user")
 }
@@ -462,6 +464,7 @@ model UserTicker {
   user                MediapulseUser                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   ticker              Ticker                         @relation(fields: [tickerId], references: [id], onDelete: Cascade)
   deliveryCheckpoints NewsletterDeliveryCheckpoint[]
+  feedback            NewsletterFeedback[]
 
   @@unique([userId, tickerId, language])
   @@map("user_ticker")
@@ -486,6 +489,57 @@ model NewsletterDeliveryCheckpoint {
 
   @@unique([newsletterId, userTickerId])
   @@map("newsletter_delivery_checkpoint")
+}
+
+/// Sentiment label assigned to a newsletter reply by the classifier.
+enum FeedbackSentiment {
+  positive
+  negative
+  neutral
+  mixed
+}
+
+/// Category label assigned to a newsletter reply by the classifier.
+enum FeedbackCategory {
+  praise
+  complaint
+  feature_request
+  bug
+  question
+  other
+}
+
+/// A reply to a delivered newsletter, captured as raw text and classified by the LLM.
+model NewsletterFeedback {
+  id             String   @id @default(uuid())
+  senderEmail    String   @map("sender_email")
+  subject        String?
+  rawBody        String   @map("raw_body")
+  receivedAt     DateTime @map("received_at")
+  /// Outlook Graph message id; unique so re-processing the same reply is idempotent.
+  graphMessageId String   @unique @map("graph_message_id")
+  /// Raw `In-Reply-To` header value used to correlate the reply to a sent newsletter.
+  inReplyTo      String?  @map("in_reply_to")
+
+  sentiment       FeedbackSentiment?
+  category        FeedbackCategory?
+  classifierModel String?            @map("classifier_model")
+  classifiedAt    DateTime?          @map("classified_at")
+
+  userId       String? @map("user_id")
+  userTickerId String? @map("user_ticker_id")
+  newsletterId String? @map("newsletter_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user       MediapulseUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userTicker UserTicker?     @relation(fields: [userTickerId], references: [id], onDelete: SetNull)
+  newsletter Newsletter?     @relation(fields: [newsletterId], references: [id], onDelete: SetNull)
+
+  @@index([senderEmail])
+  @@index([newsletterId])
+  @@map("newsletter_feedback")
 }
 
 enum DeliveryRunOutcome {

@@ -89,6 +89,10 @@ import {
   userRegistrationUnsubscribeResponseSchema,
 } from "./user-registration.js";
 import {
+  postNewsletterFeedbackRecordBodySchema,
+  postNewsletterFeedbackRecordResponseSchema,
+} from "./newsletter-feedback.js";
+import {
   contentGenerationRunQuerySchema,
   getContentGenerationRunResponseSchema,
   postContentGenerationRunBodySchema,
@@ -527,6 +531,20 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postUserRegistrationRegisterBodySchema,
         response: postUserRegistrationRegisterResponseSchema,
+      },
+    },
+  },
+  newsletterFeedbackRecord: {
+    v1: {
+      post: {
+        body: postNewsletterFeedbackRecordBodySchema,
+        response: postNewsletterFeedbackRecordResponseSchema,
+      },
+    },
+    v2: {
+      post: {
+        body: postNewsletterFeedbackRecordBodySchema,
+        response: postNewsletterFeedbackRecordResponseSchema,
       },
     },
   },

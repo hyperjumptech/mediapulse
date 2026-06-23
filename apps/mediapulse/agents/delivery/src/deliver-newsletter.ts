@@ -52,6 +52,35 @@ export function recipientLogRef(userTickerId: string): string {
 }
 
 /**
+ * Extracts the domain from a sender string (`"Name <user@domain>"` or `"user@domain"`),
+ * falling back to a fixed label when no domain is present.
+ *
+ * @param fromAddress - Resend `from` value.
+ */
+function senderDomain(fromAddress: string): string {
+  const match = /@([^>\s]+)/.exec(fromAddress);
+
+  return match?.[1] ?? "mediapulse";
+}
+
+/**
+ * Builds a self-describing RFC `Message-ID` for a delivered newsletter so that a
+ * reply's `In-Reply-To` header carries the newsletter and subscriber ids back to
+ * the feedback agent. UUIDs contain no dots, so the ids parse unambiguously.
+ *
+ * @param newsletterId - Newsletter row id.
+ * @param userTickerId - Subscriber join id.
+ * @param fromAddress - Sender used for the domain part.
+ */
+export function buildNewsletterMessageId(
+  newsletterId: string,
+  userTickerId: string,
+  fromAddress: string,
+): string {
+  return `<nl.${newsletterId}.${userTickerId}@${senderDomain(fromAddress)}>`;
+}
+
+/**
  * Maps Resend / transport failure to a stable analytics category for delivery runs.
  *
  * @param api - Parsed Resend API error when present.
@@ -172,6 +201,14 @@ export async function deliverNewsletterToSubscribers(
       headers: {
         "List-Unsubscribe": `<${unsubscribeUrl}>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        // Self-describing Message-ID so a reply's In-Reply-To header lets the
+        // newsletter-feedback agent correlate the reply to this newsletter and
+        // subscriber without any extra storage or lookup.
+        "Message-ID": buildNewsletterMessageId(
+          newsletter.id,
+          sub.userTickerId,
+          from,
+        ),
       },
     };
 

@@ -57,6 +57,7 @@ import {
   postUserRegistrationUnsubscribeHandler,
   getUserRegistrationTickersHandler,
 } from "./routes/user-registration.js";
+import { postNewsletterFeedbackRecordHandler } from "./routes/newsletter-feedback.js";
 import { getTicker } from "./routes/ticker.js";
 import {
   getQueryAnalysis,
@@ -171,6 +172,9 @@ const routeHandlers = {
   deliveryRun: {
     get: getDeliveryRun,
     post: postDeliveryRun,
+  },
+  newsletterFeedbackRecord: {
+    post: postNewsletterFeedbackRecordHandler,
   },
   userRegistrationRegister: {
     post: postUserRegistrationRegisterHandler,

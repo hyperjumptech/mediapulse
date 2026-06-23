@@ -56,6 +56,13 @@ export type ListMessagesPaging = {
    * lists from the whole mailbox `/messages`.
    */
   mailFolder?: string;
+  /**
+   * OData `$select` field list. When set, Graph returns only these fields, so
+   * the list MUST include every field the caller reads. Use this to request
+   * fields Graph omits by default (e.g. `internetMessageHeaders`,
+   * `internetMessageId`). When omitted, Graph returns its default projection.
+   */
+  select?: string[];
 };
 
 /** Result returned by listMessages including pagination metadata. */
@@ -134,6 +141,9 @@ export function createGraphClient(
       const initialUrl = new URL(`${baseUrl}${messagesPath}`);
       if (filterStr) initialUrl.searchParams.set("$filter", filterStr);
       initialUrl.searchParams.set("$top", String(pageSize));
+      if (paging?.select && paging.select.length > 0) {
+        initialUrl.searchParams.set("$select", paging.select.join(","));
+      }
       if (useSearch) {
         // Graph rejects $search + $orderby on messages; sort client-side instead.
         initialUrl.searchParams.set(

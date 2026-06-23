@@ -46,6 +46,7 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | POST   | `/api/v1/user-registration-confirm`             | Confirm a pending subscription (double opt-in)                             |
 | GET    | `/api/v1/user-registration-unsubscribe`         | Resolve an unsubscribe token status for the user-registration UI           |
 | POST   | `/api/v1/user-registration-unsubscribe`         | Apply one-click unsubscribe from the user-registration app                 |
+| POST   | `/api/v1/newsletter-feedback-record`            | Record a classified newsletter reply (idempotent on `graphMessageId`)      |
 | GET    | `/api/v1/query-analysis`                        | Get query-analysis context by ticker                                       |
 | POST   | `/api/v1/query-analysis`                        | Store and activate a versioned query set                                   |
 | GET    | `/api/v1/section-coverage-rollup`               | Per-section average query coverage and newsletter fill by contract version |
@@ -307,6 +308,14 @@ Implemented in `apps/mediapulse/agent-data-api/src/routes/page-collection.ts`. S
 - **POST `/api/v1/page-collection`** — Persist ticker-agnostic articles collected from curated sources.
 - **POST `/api/v1/page-collection-existing-urls`** — Global dedup lookup for candidate article URLs.
 - **GET `/api/v1/page-collection-articles`** — Paginated list of page-collection articles with optional gate and analysis filters.
+
+### Newsletter feedback (`POST /api/v1/newsletter-feedback-record`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/newsletter-feedback.ts` and `services/newsletter-feedback.ts`. Schemas live in `@workspace/agent-data-api-contract` (`newsletter-feedback.ts`). Consumed by the [newsletter-feedback agent](/mediapulse/apps/agents/newsletter-feedback).
+
+- **Body:** `graphMessageId`, `senderEmail`, `subject?`, `rawBody`, `receivedAt`, `inReplyToMessageId?`, `sentiment` (`positive | negative | neutral | mixed`), `category` (`praise | complaint | feature_request | bug | question | other`), `classifierModel?`.
+- **Behavior:** Idempotent on `graphMessageId` (`created: false` on replay). Correlates the reply to a subscriber/newsletter by parsing the self-describing newsletter Message-ID out of `inReplyToMessageId`, falling back to a `senderEmail` match against `mediapulse_user`. The raw body is always stored, even when correlation is empty.
+- **Response:** `feedbackId`, `created`, and `correlated` (`{ userId?, userTickerId?, newsletterId? }`).
 
 ## Versioning
 
