@@ -83,6 +83,7 @@ import { createDataCollectionInsightsProvider } from "./services/insights/data-c
 import { createDeliveryInsightsProvider } from "./services/insights/delivery-insights-provider.js";
 import { createQueryAnalysisInsightsProvider } from "./services/insights/query-analysis-insights-provider.js";
 import { createArticleAnalysisInsightsProvider } from "./services/insights/article-analysis-insights-provider.js";
+import { createNewsletterFeedbackInsightsProvider } from "./services/insights/newsletter-feedback-insights-provider.js";
 import { registerInsightsProvider } from "./services/agent-insights-registry.js";
 import {
   registerAgentDataApiRoutes,
@@ -296,6 +297,12 @@ registerInsightsProvider(
     searchQuerySet: prisma.searchQuerySet,
     searchQuery: prisma.searchQuery,
     searchQueryYield: prisma.searchQueryYield,
+  }),
+);
+
+registerInsightsProvider(
+  createNewsletterFeedbackInsightsProvider({
+    newsletterFeedback: prisma.newsletterFeedback,
   }),
 );
 
