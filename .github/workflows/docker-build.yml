@@ -17,77 +17,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
       - name: Detect which services changed
         id: detect
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -eu
-
-          ALL_SERVICES='["user-registration","domain-api","agent-data-api","agent-auth-api","agent-registry-api","hermes","hermes-worker","data-collection","content-generation","delivery","ticker-echo","article-analysis","query-analysis","agent-user-registration","agent-newsletter-feedback","page-collection"]'
-
-          changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
-
-          if [ -z "$changed_files" ]; then
-            echo "services=[]" >> "$GITHUB_OUTPUT"
-            echo "any=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Shared changes mean all images must be rebuilt
-          shared_changed=false
-          while IFS= read -r f; do
-            [ -z "$f" ] && continue
-            case "$f" in
-              packages/*|pnpm-lock.yaml|pnpm-workspace.yaml|turbo.json)
-                shared_changed=true
-                break
-                ;;
-            esac
-          done <<< "$changed_files"
-
-          if [ "$shared_changed" = "true" ]; then
-            echo "services=$ALL_SERVICES" >> "$GITHUB_OUTPUT"
-            echo "any=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Collect per-service changes
-          services_list=""
-          while IFS= read -r f; do
-            [ -z "$f" ] && continue
-            case "$f" in
-              apps/mediapulse/user-registration/*)   services_list+=$'user-registration\n' ;;
-              apps/mediapulse/domain-api/*)           services_list+=$'domain-api\n' ;;
-              apps/mediapulse/agent-data-api/*)       services_list+=$'agent-data-api\n' ;;
-              apps/hermes/agent-auth-api/*)           services_list+=$'agent-auth-api\n' ;;
-              apps/hermes/agent-registry-api/*)       services_list+=$'agent-registry-api\n' ;;
-              apps/hermes/dashboard/*)                services_list+=$'hermes\n' ;;
-              apps/hermes/worker/*)                   services_list+=$'hermes-worker\n' ;;
-              apps/mediapulse/agents/data-collection/*)   services_list+=$'data-collection\n' ;;
-              apps/mediapulse/agents/content-generation/*) services_list+=$'content-generation\n' ;;
-              apps/mediapulse/agents/delivery/*)      services_list+=$'delivery\n' ;;
-              apps/mediapulse/agents/ticker-echo/*)   services_list+=$'ticker-echo\n' ;;
-              apps/mediapulse/agents/article-analysis/*)  services_list+=$'article-analysis\n' ;;
-              apps/mediapulse/agents/query-analysis/*)    services_list+=$'query-analysis\n' ;;
-              apps/mediapulse/agents/user-registration/*)  services_list+=$'agent-user-registration\n' ;;
-              apps/mediapulse/agents/newsletter-feedback/*)  services_list+=$'agent-newsletter-feedback\n' ;;
-              apps/mediapulse/agents/page-collection/*)   services_list+=$'page-collection\n' ;;
-            esac
-          done <<< "$changed_files"
-
-          services_list="$(echo "$services_list" | sort -u | grep -v '^$' || true)"
-
-          if [ -z "$services_list" ]; then
-            echo "services=[]" >> "$GITHUB_OUTPUT"
-            echo "any=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          json="$(echo "$services_list" | jq -R . | jq -sc . | tr -d '\n')"
-          echo "services=$json" >> "$GITHUB_OUTPUT"
-          echo "any=true" >> "$GITHUB_OUTPUT"
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/detect-pr-changes.mjs --base "$PR_BASE_SHA" --head "$PR_HEAD_SHA"
 
   docker-build:
     name: Build ${{ matrix.service }}
