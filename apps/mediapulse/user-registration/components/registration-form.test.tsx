@@ -125,6 +125,34 @@ describe("RegistrationForm", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps name and language when subscribing to another ticker", async () => {
+    const user = userEvent.setup();
+    render(<RegistrationForm tickers={sampleTickers} />);
+
+    await user.type(
+      screen.getByLabelText(/What should we call you\?/i),
+      "John Doe",
+    );
+    await user.selectOptions(
+      screen.getByLabelText(/Newsletter language/i),
+      "id",
+    );
+    await user.click(screen.getByLabelText(/Stock ticker/i));
+    await user.click(screen.getByText(/Bank Central Asia Tbk/i));
+    await user.click(screen.getByRole("button", { name: /^Subscribe$/i }));
+    await user.click(screen.getByRole("button", { name: /Apple Mail/i }));
+
+    await user.click(
+      screen.getByRole("button", { name: /Subscribe to another ticker/i }),
+    );
+
+    expect(screen.getByLabelText(/What should we call you\?/i)).toHaveValue(
+      "John Doe",
+    );
+    expect(screen.getByLabelText(/Newsletter language/i)).toHaveValue("id");
+    expect(screen.getByLabelText(/Stock ticker/i)).toHaveValue("");
+  });
+
   it("triggers a vCard download when download contact card is clicked", async () => {
     const user = userEvent.setup();
     render(<RegistrationForm tickers={sampleTickers} />);
