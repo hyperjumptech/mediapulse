@@ -48,6 +48,10 @@ const TARGET_SPECS: Readonly<
     input: "env.agents.user-registration.example",
     output: "src/agents-user-registration.ts",
   },
+  "agents.newsletter-feedback": {
+    input: "env.agents.newsletter-feedback.example",
+    output: "src/agents-newsletter-feedback.ts",
+  },
   "app.user-registration": {
     input: "env.app.user-registration.example",
     output: "src/app-user-registration.ts",
