@@ -161,7 +161,7 @@ For repeat runs (already installed + migrated):
 
 - **`pnpm code-quality:affected`** — run before opening a PR when you only changed part of the monorepo. Uses Turbo `--affected` for build, lint, type-check, and tests, then merges coverage and runs Prettier on changed files (`pnpm run format:check:changed -- --base origin/main --head HEAD`). Set `TURBO_SCM_BASE=origin/main` (or your PR base) if Turbo cannot infer the comparison ref locally.
 - **`pnpm code-quality`** — full workspace type-check, lint, tests with coverage, merged coverage report, and Prettier check. CI runs this scope on **push to `main`** and **`workflow_dispatch`**; PR CI uses affected checks instead (see [Production](/guide/production)).
-- **CI-only PRs** (workflows, scripts, root `package.json` scripts, docs — no lockfile or app code changes) run a lighter **`ci_infra`** scope in CI: `@workspace/cursor-pr-review-tests` plus changed-file Prettier only (no Postgres, no Prisma drift).
+- **CI-only PRs** (workflows, scripts, root `package.json` scripts, docs — no lockfile or app code changes) run a lighter **`ci_infra`** scope in CI: `@workspace/cursor-pr-review-tests` plus changed-file Prettier only (no Prisma drift step or Turbo affected builds).
 - **Docs-only PRs** skip code quality, Docker builds, and both Cursor review workflows.
 - **Single-app PRs** run Turbo affected checks and Docker builds for that service only; Prisma drift runs only when `packages/*/database` schema paths change.
 - **`pnpm format:check:changed -- --base origin/main --head HEAD`** — Prettier on changed files only (what PR CI uses for formatting).
