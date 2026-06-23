@@ -15,6 +15,8 @@ export default defineConfig({
       DOMAIN_INTEGRATION_ID: "mediapulse",
       DOMAIN_INTEGRATION_API_KEY: "vitest-placeholder-domain-integration-key",
       UNSUBSCRIBE_SECRET: "vitest-placeholder-unsubscribe-secret",
+      REGISTRATION_CONFIRM_SECRET:
+        "vitest-placeholder-registration-confirm-secret",
     },
   },
 });

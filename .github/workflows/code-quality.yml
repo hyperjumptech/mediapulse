@@ -139,6 +139,7 @@ jobs:
       DOMAIN_INTEGRATION_ID: local-domain
       AGENT_AUTH_API_URL: http://localhost:8080
       UNSUBSCRIBE_SECRET: ci-unsubscribe-secret
+      REGISTRATION_CONFIRM_SECRET: ci-registration-confirm-secret
       AGENT_DATA_API_URL: http://localhost:8081
       MEDIAPULSE_CGA_DIAGNOSTICS_ENABLED: "false"
 
