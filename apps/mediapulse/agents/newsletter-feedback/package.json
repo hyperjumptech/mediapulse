@@ -1,0 +1,37 @@
+{
+  "type": "module",
+  "name": "@mediapulse/newsletter-feedback",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "dotenv -e .env.local -e .env -- bun run --no-env-file --hot src/index.ts",
+    "build": "bun build src/index.ts --outfile=./dist/server.js --target=bun",
+    "type:check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^3.0.49",
+    "@workspace/agent-auth-client": "workspace:*",
+    "@workspace/agent-data-api-client": "workspace:*",
+    "@workspace/agent-data-api-contract": "workspace:*",
+    "@workspace/agent-runtime": "workspace:*",
+    "@workspace/agent-types": "workspace:*",
+    "@workspace/utils": "workspace:*",
+    "@mediapulse/outlook-inbox": "workspace:*",
+    "@mediapulse/env": "workspace:*",
+    "@workspace/logger": "workspace:*",
+    "ai": "^6.0.142",
+    "hono": "catalog:",
+    "hono-pino": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@workspace/typescript-config": "workspace:*",
+    "dotenv-cli": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

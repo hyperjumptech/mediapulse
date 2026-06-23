@@ -759,6 +759,67 @@ importers:
         specifier: 'catalog:'
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
+  apps/mediapulse/agents/newsletter-feedback:
+    dependencies:
+      '@ai-sdk/openai':
+        specifier: ^3.0.49
+        version: 3.0.49(zod@3.25.76)
+      '@mediapulse/env':
+        specifier: workspace:*
+        version: link:../../../../packages/mediapulse/env
+      '@mediapulse/outlook-inbox':
+        specifier: workspace:*
+        version: link:../../../../packages/mediapulse/outlook-inbox
+      '@workspace/agent-auth-client':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-auth-client
+      '@workspace/agent-data-api-client':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-data-api-client
+      '@workspace/agent-data-api-contract':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-data-api-contract
+      '@workspace/agent-runtime':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-runtime
+      '@workspace/agent-types':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-types
+      '@workspace/logger':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/logger
+      '@workspace/utils':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/utils
+      ai:
+        specifier: ^6.0.142
+        version: 6.0.142(zod@3.25.76)
+      hono:
+        specifier: 'catalog:'
+        version: 4.11.9
+      hono-pino:
+        specifier: 'catalog:'
+        version: 0.6.0(hono@4.11.9)(pino@10.3.1)
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
+    devDependencies:
+      '@types/bun':
+        specifier: latest
+        version: 1.3.14
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/typescript-config
+      dotenv-cli:
+        specifier: 'catalog:'
+        version: 7.4.4
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
+
   apps/mediapulse/agents/page-collection:
     dependencies:
       '@mediapulse/env':

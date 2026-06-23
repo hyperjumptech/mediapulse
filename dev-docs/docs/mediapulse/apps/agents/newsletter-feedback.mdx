@@ -1,0 +1,61 @@
+---
+title: Newsletter Feedback Agent
+description: Agent that collects and classifies replies subscribers send to newsletter emails
+icon: MessageSquare
+---
+
+## Purpose
+
+The newsletter-feedback agent reads **replies that subscribers send back to newsletter emails**, classifies each reply's **sentiment** and **category** with an LLM, and records the feedback (raw text plus classification) through agent-data-api. It sends **no** outbound email.
+
+It shares the **same Outlook mailbox** as the user-registration agent and reuses the same polling pattern (oldest-first, paginated, watermarked, archive-on-success) from `@mediapulse/outlook-inbox`.
+
+## How it works
+
+- **Input:** `maxMessagesPerRun` (default 20, floored at 10) and an optional `watermark` ISO timestamp. Receives a bearer token from Hermes.
+- **Lists** unread inbox messages oldest-first, requesting `internetMessageHeaders` via Graph `$select` so reply correlation headers are available.
+- **Identifies genuine replies** by the `In-Reply-To` header: the delivery agent stamps each newsletter with a self-describing `Message-ID` of the form `<nl.{newsletterId}.{userTickerId}@domain>`, which reply clients echo back. Messages without that marker (registration mail, human correspondence) are left **untouched** (`skipped_not_feedback`) for the registration agent or a person to handle. The watermark prevents re-scanning them.
+- **Classifies** the de-quoted reply text into `sentiment` (`positive | negative | neutral | mixed`) and `category` (`praise | complaint | feature_request | bug | question | other`) via the Vercel AI SDK (`@ai-sdk/openai` provider, structured `generateObject`).
+- **Records** the feedback via agent-data-api `POST /newsletter-feedback-record`. The server correlates the reply back to the subscriber/newsletter from the `In-Reply-To` header, falling back to a sender-email match, and stores the **raw body** regardless of correlation. The endpoint is idempotent on the Outlook `graphMessageId`.
+- **Archives** the reply only after it is recorded.
+- **Watermark** advances over the longest contiguous prefix of terminal results (`classified_archived`, `skipped_not_feedback`, `archived_unparseable`, `dead_lettered`); a `failed_retry` at the head holds the cursor so nothing is skipped.
+
+## Hermes config (`config` JSON)
+
+Two grouped objects, supplied via Hermes variables:
+
+```json
+{
+  "config": {
+    "outlook": {
+      "userId": "{{OUTLOOK_USER_ID}}",
+      "clientId": "{{OUTLOOK_CLIENT_ID}}",
+      "tenantId": "{{OUTLOOK_TENANT_ID}}",
+      "clientSecret": "{{OUTLOOK_CLIENT_SECRET}}"
+    },
+    "model": {
+      "apiKey": "{{AI_API_KEY}}",
+      "model": "{{AI_MODEL}}"
+    }
+  }
+}
+```
+
+- `model.baseUrl` is optional — set it to point the OpenAI-compatible provider at a gateway/proxy.
+- Operational values (mail folder `inbox`, batch size 5, page size, retry, dead-letter threshold) use in-code defaults and are not configurable.
+
+## Data model
+
+Replies are stored in the `newsletter_feedback` table (`NewsletterFeedback` model): raw body, sender, subject, `graphMessageId` (unique idempotency key), `inReplyTo`, classified `sentiment`/`category`/`classifierModel`, and best-effort `userId` / `userTickerId` / `newsletterId` correlation links (nullable, `onDelete: SetNull`).
+
+## Deployment
+
+- **Image:** built from `apps/mediapulse/agents/newsletter-feedback/Dockerfile` (Node builder → Bun runtime), listening on **port 4012**.
+- **CI build:** `agent-newsletter-feedback` is part of the change-detection matrix in `.github/workflows/docker-build.yml` and `.github/scripts/detect-changed-services.sh`; pushing changes under `apps/mediapulse/agents/newsletter-feedback/**` (or any shared package) triggers a build.
+- **CI deploy:** `.github/workflows/app-deploy.yml` builds and pushes `ghcr.io/<owner>/agent-newsletter-feedback` and triggers the Coolify webhook secret `COOLIFY_WEBHOOK_AGENT_NEWSLETTER_FEEDBACK`. Add that secret in the repo and point it at the deployed service.
+- **Local (compose):** the `agent-newsletter-feedback` service in `docker-compose-all.yml` runs the agent on `4012`, depending on `agent-auth-api` and `agent-data-api`.
+- **Env:** wired via `@mediapulse/env/agents-newsletter-feedback` from `packages/mediapulse/env/env.agents.newsletter-feedback.example` (`PORT`, `AGENT_AUTH_API_URL`, `AGENT_DATA_API_URL`, registry/auto-register vars). Outlook and model credentials come from Hermes **config**, not env.
+
+## Prerequisite: newsletter Message-ID
+
+Correlation depends on the delivery agent stamping the self-describing `Message-ID` header (see `buildNewsletterMessageId` in the delivery agent). If a future provider change strips or rewrites that header, fall back to storing the RFC Message-ID on `NewsletterDeliveryCheckpoint` and matching the reply's `In-Reply-To` against it.

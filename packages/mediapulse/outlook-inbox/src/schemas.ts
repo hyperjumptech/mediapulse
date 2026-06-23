@@ -12,6 +12,12 @@ const messageBodySchema = z.object({
   contentType: z.string().optional(),
 });
 
+/** Zod schema for a single RFC 2822 internet message header (name/value pair). */
+const internetMessageHeaderSchema = z.object({
+  name: z.string().optional(),
+  value: z.string().optional(),
+});
+
 /** Zod schema for Graph API message (minimal shape for list/move). */
 export const graphMessageSchema = z.object({
   id: z.string(),
@@ -23,6 +29,10 @@ export const graphMessageSchema = z.object({
   toRecipients: z
     .array(z.object({ emailAddress: emailAddressSchema.optional() }))
     .optional(),
+  /** RFC Message-ID of this message; only present when explicitly `$select`ed. */
+  internetMessageId: z.string().optional(),
+  /** Raw RFC 2822 headers (e.g. In-Reply-To, References); only present when `$select`ed. */
+  internetMessageHeaders: z.array(internetMessageHeaderSchema).optional(),
 });
 
 /** Zod schema for Graph API list messages response. */

@@ -1,0 +1,56 @@
+/**
+ * Statuses that count as fully handled for watermark advancement. A reply that
+ * was classified and archived, identified as not-feedback and skipped, archived
+ * as unparseable, or dead-lettered is terminal — the cursor may move past it.
+ * `skipped_not_feedback` is terminal but intentionally NOT archived (it belongs
+ * to the registration agent or a human), so the watermark is what prevents it
+ * from being re-scanned every run.
+ */
+const TERMINAL_STATUSES = new Set([
+  "classified_archived",
+  "skipped_not_feedback",
+  "archived_unparseable",
+  "dead_lettered",
+]);
+
+export type ProcessResult = {
+  status: string;
+  receivedDateTime?: string;
+};
+
+/**
+ * Returns the safe watermark boundary after a batch run.
+ *
+ * Sorts results oldest-first, then walks the longest contiguous prefix where
+ * every result is terminal with a known timestamp. The boundary is the
+ * timestamp of the last message in that prefix. Results with no
+ * `receivedDateTime` sort last and stop the prefix walk.
+ *
+ * - If no prefix exists (oldest result is `failed_retry` or has no timestamp),
+ *   returns `previousWatermark` unchanged so no already-seen messages are skipped.
+ * - Returns `undefined` when `previousWatermark` is `undefined` and no prefix exists.
+ */
+export function computeSafeWatermark(
+  results: ProcessResult[],
+  previousWatermark: string | undefined,
+): string | undefined {
+  const sorted = [...results].sort((a, b) => {
+    if (!a.receivedDateTime && !b.receivedDateTime) return 0;
+    if (!a.receivedDateTime) return 1;
+    if (!b.receivedDateTime) return -1;
+
+    return (
+      new Date(a.receivedDateTime).getTime() -
+      new Date(b.receivedDateTime).getTime()
+    );
+  });
+
+  let boundary: string | undefined;
+  for (const result of sorted) {
+    if (!result.receivedDateTime) break;
+    if (!TERMINAL_STATUSES.has(result.status)) break;
+    boundary = new Date(result.receivedDateTime).toISOString();
+  }
+
+  return boundary ?? previousWatermark;
+}

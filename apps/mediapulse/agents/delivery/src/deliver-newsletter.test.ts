@@ -9,7 +9,32 @@ import {
 } from "@workspace/email-templates";
 
 import { DeliveryConfigSchema } from "./config-schema.js";
-import { deliverNewsletterToSubscribers } from "./deliver-newsletter.js";
+import {
+  buildNewsletterMessageId,
+  deliverNewsletterToSubscribers,
+} from "./deliver-newsletter.js";
+
+describe("buildNewsletterMessageId", () => {
+  it("embeds the newsletter and userTicker ids using the sender domain", () => {
+    // Act
+    const messageId = buildNewsletterMessageId(
+      "news-1",
+      "ut-1",
+      '"MediaPulse" <news@mp.example.com>',
+    );
+
+    // Assert
+    expect(messageId).toBe("<nl.news-1.ut-1@mp.example.com>");
+  });
+
+  it("falls back to a fixed domain when the sender has none", () => {
+    // Act
+    const messageId = buildNewsletterMessageId("news-1", "ut-1", "no-domain");
+
+    // Assert
+    expect(messageId).toBe("<nl.news-1.ut-1@mediapulse>");
+  });
+});
 
 /**
  * Builds a test double for {@link SlidingWindowRateLimiter}.
@@ -105,6 +130,7 @@ describe("deliverNewsletterToSubscribers", () => {
           "https://example.com/api/unsubscribe",
         ),
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        "Message-ID": `<nl.${newsletter.id}.${userTickerId}@example.com>`,
       },
     });
     expect(results).toEqual([

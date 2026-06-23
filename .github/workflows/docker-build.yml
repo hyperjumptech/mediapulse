@@ -25,7 +25,7 @@ jobs:
         run: |
           set -eu
 
-          ALL_SERVICES='["user-registration","domain-api","agent-data-api","agent-auth-api","agent-registry-api","hermes","hermes-worker","data-collection","content-generation","delivery","ticker-echo","article-analysis","query-analysis","agent-user-registration","page-collection"]'
+          ALL_SERVICES='["user-registration","domain-api","agent-data-api","agent-auth-api","agent-registry-api","hermes","hermes-worker","data-collection","content-generation","delivery","ticker-echo","article-analysis","query-analysis","agent-user-registration","agent-newsletter-feedback","page-collection"]'
 
           changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
 
@@ -72,6 +72,7 @@ jobs:
               apps/mediapulse/agents/article-analysis/*)  services_list+=$'article-analysis\n' ;;
               apps/mediapulse/agents/query-analysis/*)    services_list+=$'query-analysis\n' ;;
               apps/mediapulse/agents/user-registration/*)  services_list+=$'agent-user-registration\n' ;;
+              apps/mediapulse/agents/newsletter-feedback/*)  services_list+=$'agent-newsletter-feedback\n' ;;
               apps/mediapulse/agents/page-collection/*)   services_list+=$'page-collection\n' ;;
             esac
           done <<< "$changed_files"
@@ -118,6 +119,7 @@ jobs:
             article-analysis)   echo "dockerfile=apps/mediapulse/agents/article-analysis/Dockerfile" >> "$GITHUB_OUTPUT" ;;
             query-analysis)          echo "dockerfile=apps/mediapulse/agents/query-analysis/Dockerfile" >> "$GITHUB_OUTPUT" ;;
             agent-user-registration) echo "dockerfile=apps/mediapulse/agents/user-registration/Dockerfile" >> "$GITHUB_OUTPUT" ;;
+            agent-newsletter-feedback) echo "dockerfile=apps/mediapulse/agents/newsletter-feedback/Dockerfile" >> "$GITHUB_OUTPUT" ;;
             page-collection)        echo "dockerfile=apps/mediapulse/agents/page-collection/Dockerfile" >> "$GITHUB_OUTPUT" ;;
           esac
 

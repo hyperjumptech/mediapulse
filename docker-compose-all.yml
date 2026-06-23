@@ -142,6 +142,19 @@ services:
       - agent-data-api
     restart: unless-stopped
 
+  agent-newsletter-feedback:
+    build:
+      context: .
+      dockerfile: apps/mediapulse/agents/newsletter-feedback/Dockerfile
+    ports:
+      - 4012:4012
+    env_file:
+      - packages/mediapulse/env/.env
+    depends_on:
+      - agent-auth-api
+      - agent-data-api
+    restart: unless-stopped
+
   # Worker (no HTTP port)
   hermes-worker:
     build:

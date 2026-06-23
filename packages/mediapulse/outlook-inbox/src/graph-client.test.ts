@@ -84,6 +84,53 @@ describe("createGraphClient", () => {
       expect(url).toContain("/users/me/mailFolders/inbox/messages");
     });
 
+    it("sets $select when paging.select is provided", async () => {
+      // Setup
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+      const getFn = vi.fn().mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({ value: [] }),
+      });
+      const client = createGraphClient(getAccessToken, {
+        getFn,
+        postFn: vi.fn(),
+      });
+
+      // Act
+      await client.listMessages(
+        "me",
+        { isUnread: true },
+        { select: ["id", "subject", "internetMessageHeaders"] },
+      );
+
+      // Assert
+      const [url] = getFn.mock.calls[0] as [string];
+      const select = new URL(url).searchParams.get("$select");
+
+      expect(select).toBe("id,subject,internetMessageHeaders");
+    });
+
+    it("omits $select when paging.select is not provided", async () => {
+      // Setup
+      const getAccessToken = vi.fn().mockResolvedValue("t");
+      const getFn = vi.fn().mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({ value: [] }),
+      });
+      const client = createGraphClient(getAccessToken, {
+        getFn,
+        postFn: vi.fn(),
+      });
+
+      // Act
+      await client.listMessages("me", { isUnread: true });
+
+      // Assert
+      const [url] = getFn.mock.calls[0] as [string];
+
+      expect(new URL(url).searchParams.has("$select")).toBe(false);
+    });
+
     it("queries the whole mailbox when mailFolder is omitted", async () => {
       // Setup
       const getAccessToken = vi.fn().mockResolvedValue("t");

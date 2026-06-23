@@ -229,6 +229,7 @@ export {
   type GetTickerResponse,
 } from "./ticker.js";
 export * from "./user-registration.js";
+export * from "./newsletter-feedback.js";
 export {
   getSectionCoverageRollupQuerySchema,
   getSectionCoverageRollupResponseSchema,
