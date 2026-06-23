@@ -85,18 +85,14 @@ export const buildOutlookComposeUrl = (
     registrationEmail,
   });
 
-  const params = new URLSearchParams({
-    to: registrationEmail,
-    subject,
-    body,
-  });
-
   const composePath =
     options.userAgent && detectIsIosUserAgent(options.userAgent)
       ? "emails/new"
       : "compose";
 
-  return `ms-outlook://${composePath}?${params.toString()}`;
+  // Use encodeURIComponent (not URLSearchParams) so spaces become %20 instead of +.
+  // Outlook on iOS displays literal + signs when + is used for whitespace.
+  return `ms-outlook://${composePath}?to=${encodeURIComponent(registrationEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 };
 
 /**
