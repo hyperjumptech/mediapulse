@@ -55,17 +55,17 @@ const SubscribeMailAppModal = ({
             you a confirmation link.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-3">
           {options.map((option) => (
             <Button
               key={option.id}
               type="button"
               variant="outline"
-              className="h-auto flex-col items-start gap-1 px-4 py-3 text-left"
+              className="h-auto w-full min-w-0 shrink whitespace-normal flex-col items-start gap-1 px-4 py-3 text-left"
               onClick={() => handleSelect(option)}
             >
-              <span className="font-medium">{option.title}</span>
-              <span className="text-sm font-normal text-muted-foreground">
+              <span className="w-full font-medium">{option.title}</span>
+              <span className="w-full text-balance text-sm font-normal text-muted-foreground">
                 {option.description}
               </span>
             </Button>
