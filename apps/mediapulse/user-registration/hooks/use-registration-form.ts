@@ -1,35 +1,69 @@
 import * as React from "react";
 import { useState, useRef, useEffect } from "react";
-import { toast } from "sonner";
-import { env } from "@mediapulse/env/app-user-registration";
 import {
   filterTickers,
   formatTicker,
-  buildMailtoUrl,
   type Ticker,
   type RegistrationLanguage,
 } from "@/lib/tickers";
+import {
+  useSubscribeMailAppModal,
+  type SubmissionMode,
+} from "@/hooks/use-subscribe-mail-app-modal";
 
 /**
  * Custom hook to manage state and logic for the registration form.
  *
- * @param {Ticker[]} tickers - List of available tickers to filter.
- * @param {(url: string) => void} openMailto - Callback to open the constructed mailto URL.
- * @returns {object} The form state and event handlers.
+ * @param tickers - List of available tickers to filter.
+ * @returns The form state, modal handlers, and event handlers.
  */
-export const useRegistrationForm = (
-  tickers: Ticker[],
-  openMailto: (url: string) => void,
-) => {
+export const useRegistrationForm = (tickers: Ticker[]) => {
   const [name, setName] = useState("");
   const [language, setLanguage] = useState<RegistrationLanguage>("en");
   const [query, setQuery] = useState("");
   const [selectedTicker, setSelectedTicker] = useState<Ticker | null>(null);
   const [open, setOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submissionMode, setSubmissionMode] =
+    useState<SubmissionMode>("mailto");
+  const [confirmationEmail, setConfirmationEmailState] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
 
   const filtered = filterTickers(tickers, query);
+
+  const completeMailAppSubmission = () => {
+    setSubmissionMode("mailto");
+    setSubmitted(true);
+  };
+
+  const completeEmailSubmission = (email: string) => {
+    setSubmissionMode("email");
+    setConfirmationEmailState(email);
+    setSubmitted(true);
+  };
+
+  const {
+    mailChoiceOpen,
+    setMailChoiceOpen,
+    confirmEmailOpen,
+    setConfirmEmailOpen,
+    confirmationEmail: modalConfirmationEmail,
+    setConfirmationEmail,
+    sendingEmail,
+    mailAppOptions,
+    openMailChoiceModal,
+    handleSelectOutlook,
+    handleSelectNativeMail,
+    handleSelectOther,
+    handleSendConfirmationEmail,
+    resetSubscribeModals,
+  } = useSubscribeMailAppModal({
+    name,
+    language,
+    selectedTicker,
+    onMailAppComplete: completeMailAppSubmission,
+    onEmailComplete: completeEmailSubmission,
+  });
 
   useEffect(() => {
     /** Closes the ticker dropdown when clicking outside the container. */
@@ -46,7 +80,7 @@ export const useRegistrationForm = (
   /**
    * Selects a ticker, sets display string in the input, and closes the dropdown.
    *
-   * @param {Ticker} ticker - The selected ticker object.
+   * @param ticker - The selected ticker object.
    */
   const handleTickerSelect = (ticker: Ticker) => {
     setSelectedTicker(ticker);
@@ -57,7 +91,7 @@ export const useRegistrationForm = (
   /**
    * Updates search query, clears current selection, and opens the dropdown.
    *
-   * @param {React.ChangeEvent<HTMLInputElement>} e - The change event.
+   * @param e - The change event.
    */
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -66,35 +100,27 @@ export const useRegistrationForm = (
   };
 
   /**
-   * Submits the registration via mailto.
+   * Opens the subscribe mail-app choice modal when the form is valid.
    *
-   * @param {React.FormEvent<HTMLFormElement>} e - The form event.
+   * @param e - The form event.
    */
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const trimmedName = name.trim();
     if (!selectedTicker || !trimmedName) return;
 
-    const mailtoUrl = buildMailtoUrl(
-      selectedTicker,
-      trimmedName,
-      language,
-      env.NEXT_PUBLIC_REGISTRATION_EMAIL,
-    );
-
-    openMailto(mailtoUrl);
-    setSubmitted(true);
-    toast.success(
-      "Open your email app and send the draft message to finish subscribing.",
-    );
+    openMailChoiceModal();
   };
 
   const resetForm = () => {
     setSubmitted(false);
+    setSubmissionMode("mailto");
+    setConfirmationEmailState("");
     setName("");
     setLanguage("en");
     setQuery("");
     setSelectedTicker(null);
+    resetSubscribeModals();
   };
 
   return {
@@ -109,9 +135,23 @@ export const useRegistrationForm = (
     open,
     setOpen,
     submitted,
+    submissionMode,
+    confirmationEmail,
     containerRef,
     filtered,
     handleSubmit,
     resetForm,
+    mailChoiceOpen,
+    setMailChoiceOpen,
+    confirmEmailOpen,
+    setConfirmEmailOpen,
+    modalConfirmationEmail,
+    setConfirmationEmail,
+    sendingEmail,
+    mailAppOptions,
+    handleSelectOutlook,
+    handleSelectNativeMail,
+    handleSelectOther,
+    handleSendConfirmationEmail,
   };
 };

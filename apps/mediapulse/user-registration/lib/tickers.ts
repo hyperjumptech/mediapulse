@@ -53,36 +53,4 @@ export const REGISTRATION_LANGUAGE_OPTIONS: ReadonlyArray<{
   { value: "id", label: "Indonesian" },
 ];
 
-/**
- * Builds a mailto URL for newsletter subscription with a fixed subject and body.
- * The subscriber's address comes from the mail client's From field when they send.
- * Display name is included as `Name:` and the chosen language as `Language:` for the agent
- * to parse. Sections are joined with spaced pipes so Gmail and similar clients still show
- * separation when the draft is one line.
- *
- * @param ticker - Ticker the user wants to subscribe to.
- * @param name - Subscriber display name (included in the body for processing).
- * @param language - Preferred newsletter language code (included in the body for processing).
- * @param registrationEmail - The target email address for registration (defaults to mediapulse@hyperjump.tech).
- * @returns Encoded mailto: URL string.
- */
-export const buildMailtoUrl = (
-  ticker: Ticker,
-  name: string,
-  language: RegistrationLanguage,
-  registrationEmail: string = "mediapulse@hyperjump.tech",
-): string => {
-  const subject = `[MediaPulse] Newsletter Subscription - ${ticker.KodeEmiten}`;
-
-  const body = [
-    `Name: ${name.trim()}`,
-    `Ticker: ${ticker.KodeEmiten}`,
-    `Language: ${language}`,
-    "---",
-    "Please do not modify the subject or content of this email before sending.",
-  ].join(MAILTO_BODY_SECTION_SEPARATOR);
-
-  return `mailto:${registrationEmail}?subject=${encodeURIComponent(
-    subject,
-  )}&body=${encodeURIComponent(body)}`;
-};
+export { buildMailtoUrl } from "@/lib/mail-app-urls";

@@ -6,7 +6,7 @@ icon: Database
 
 ## Purpose
 
-agent-data-api is a Hono server that exposes data endpoints used by agents. **The agent gets data it needs and stores output data it produces to this API via the agent-data-api-client SDK.** Versioned routes are protected by bearer auth (verified via `@workspace/agent-auth-client` against agent-auth-api), except **user-registration unsubscribe** (GET/POST) and **`GET /api/<version>/user-registration-tickers`**, which skip bearer verification so the user-registration Next app can call them server-side with only `AGENT_DATA_API_URL` configured.
+agent-data-api is a Hono server that exposes data endpoints used by agents. **The agent gets data it needs and stores output data it produces to this API via the agent-data-api-client SDK.** Versioned routes are protected by bearer auth (verified via `@workspace/agent-auth-client` against agent-auth-api), except **user-registration unsubscribe** (GET/POST), **`GET /api/<version>/user-registration-tickers`**, **`POST /api/<version>/user-registration-web-signup`**, and **`GET /api/<version>/user-registration-confirm-subscription`**, which skip bearer verification so the user-registration Next app can call them server-side with only `AGENT_DATA_API_URL` configured.
 
 ## Features
 
@@ -25,31 +25,33 @@ agent-data-api is the **HTTP persistence layer between agents and the database**
 
 Agents should not call these HTTP paths directly. In agent code, use `@workspace/agent-data-api-client` and call SDK namespaces such as `contentGeneration`, `dataCollection`, `dataCollectionExistingUrls`, `analysis`, and `delivery`. The SDK provides typed methods for each endpoint and validates responses with shared schemas.
 
-| Method | Path                                            | Description                                                                |
-| ------ | ----------------------------------------------- | -------------------------------------------------------------------------- |
-| GET    | `/api/v1/content-generation`                    | Get content-generation data (e.g. by tickerId)                             |
-| POST   | `/api/v1/content-generation`                    | Store content-generation payload                                           |
-| GET    | `/api/v1/content-generation-newsletters-latest` | Check if a fresh newsletter exists for a ticker in a time window           |
-| GET    | `/api/v1/data-collection`                       | Get data-collection data                                                   |
-| POST   | `/api/v1/data-collection`                       | Store data-collection payload                                              |
-| GET    | `/api/v1/analysis`                              | Get analysis context (sources + KG vocabulary) for a ticker                |
-| POST   | `/api/v1/analysis`                              | Persist analysis results (entities, relations, mentions, relevance)        |
-| POST   | `/api/v1/analysis-data-source-delete`           | Hard-delete one data source row for a ticker                               |
-| GET    | `/api/v1/delivery`                              | Get delivery payload (nullable newsletter, subscribers + checkpoints)      |
-| POST   | `/api/v1/delivery`                              | Upsert delivery checkpoint after successful send                           |
-| GET    | `/api/v1/delivery-run`                          | List delivery diagnostic runs (filters optional)                           |
-| POST   | `/api/v1/delivery-run`                          | Persist one delivery run + recipient outcomes                              |
-| GET    | `/api/v1/content-generation-runs`               | List content-generation diagnostic runs (filters optional)                 |
-| POST   | `/api/v1/content-generation-runs`               | Persist one content-generation run record                                  |
-| GET    | `/api/v1/user-registration-tickers`             | List all `ticker` symbol/name rows for the user-registration signup picker |
-| POST   | `/api/v1/user-registration-register`            | Process a new or returning subscription                                    |
-| POST   | `/api/v1/user-registration-confirm`             | Confirm a pending subscription (double opt-in)                             |
-| GET    | `/api/v1/user-registration-unsubscribe`         | Resolve an unsubscribe token status for the user-registration UI           |
-| POST   | `/api/v1/user-registration-unsubscribe`         | Apply one-click unsubscribe from the user-registration app                 |
-| POST   | `/api/v1/newsletter-feedback-record`            | Record a classified newsletter reply (idempotent on `graphMessageId`)      |
-| GET    | `/api/v1/query-analysis`                        | Get query-analysis context by ticker                                       |
-| POST   | `/api/v1/query-analysis`                        | Store and activate a versioned query set                                   |
-| GET    | `/api/v1/section-coverage-rollup`               | Per-section average query coverage and newsletter fill by contract version |
+| Method | Path                                             | Description                                                                |
+| ------ | ------------------------------------------------ | -------------------------------------------------------------------------- |
+| GET    | `/api/v1/content-generation`                     | Get content-generation data (e.g. by tickerId)                             |
+| POST   | `/api/v1/content-generation`                     | Store content-generation payload                                           |
+| GET    | `/api/v1/content-generation-newsletters-latest`  | Check if a fresh newsletter exists for a ticker in a time window           |
+| GET    | `/api/v1/data-collection`                        | Get data-collection data                                                   |
+| POST   | `/api/v1/data-collection`                        | Store data-collection payload                                              |
+| GET    | `/api/v1/analysis`                               | Get analysis context (sources + KG vocabulary) for a ticker                |
+| POST   | `/api/v1/analysis`                               | Persist analysis results (entities, relations, mentions, relevance)        |
+| POST   | `/api/v1/analysis-data-source-delete`            | Hard-delete one data source row for a ticker                               |
+| GET    | `/api/v1/delivery`                               | Get delivery payload (nullable newsletter, subscribers + checkpoints)      |
+| POST   | `/api/v1/delivery`                               | Upsert delivery checkpoint after successful send                           |
+| GET    | `/api/v1/delivery-run`                           | List delivery diagnostic runs (filters optional)                           |
+| POST   | `/api/v1/delivery-run`                           | Persist one delivery run + recipient outcomes                              |
+| GET    | `/api/v1/content-generation-runs`                | List content-generation diagnostic runs (filters optional)                 |
+| POST   | `/api/v1/content-generation-runs`                | Persist one content-generation run record                                  |
+| GET    | `/api/v1/user-registration-tickers`              | List all `ticker` symbol/name rows for the user-registration signup picker |
+| POST   | `/api/v1/user-registration-web-signup`           | Create an unconfirmed subscription from the web signup path                |
+| GET    | `/api/v1/user-registration-confirm-subscription` | Confirm a subscription from a signed email link                            |
+| POST   | `/api/v1/user-registration-register`             | Process a new or returning subscription                                    |
+| POST   | `/api/v1/user-registration-confirm`              | Confirm a pending subscription (double opt-in)                             |
+| GET    | `/api/v1/user-registration-unsubscribe`          | Resolve an unsubscribe token status for the user-registration UI           |
+| POST   | `/api/v1/user-registration-unsubscribe`          | Apply one-click unsubscribe from the user-registration app                 |
+| POST   | `/api/v1/newsletter-feedback-record`             | Record a classified newsletter reply (idempotent on `graphMessageId`)      |
+| GET    | `/api/v1/query-analysis`                         | Get query-analysis context by ticker                                       |
+| POST   | `/api/v1/query-analysis`                         | Store and activate a versioned query set                                   |
+| GET    | `/api/v1/section-coverage-rollup`                | Per-section average query coverage and newsletter fill by contract version |
 
 ### Content generation (`/api/v1/content-generation`)
 

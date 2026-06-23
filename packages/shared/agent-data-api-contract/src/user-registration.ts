@@ -55,6 +55,18 @@ export const postUserRegistrationUnsubscribeBodySchema = z.object({
   token: z.string().min(1),
 });
 
+/** Body for web signup from the user-registration Next.js app (no bearer auth). */
+export const postUserRegistrationWebSignupBodySchema = z.object({
+  email: z.string().email(),
+  tickerSymbol: z.string(),
+  name: z.string().nullable().optional(),
+  language: userRegistrationLanguageSchema.optional(),
+});
+
+export const userRegistrationConfirmSubscriptionQuerySchema = z.object({
+  token: z.string().min(1),
+});
+
 // Response schemas
 export const postUserRegistrationRegisterResponseSchema = z.object({
   tickerKnown: z.boolean(),
@@ -76,6 +88,21 @@ export const userRegistrationUnsubscribeResponseSchema = z.object({
     "expired",
   ]),
   displaySymbol: z.string().optional(),
+});
+
+/** Server-to-server web signup outcome (browser-facing route returns `{ ok: true }` only). */
+export const postUserRegistrationWebSignupResponseSchema = z.object({
+  ok: z.literal(true),
+  tickerKnown: z.boolean(),
+  userTickerId: z.string().uuid().optional(),
+  isNewSubscription: z.boolean(),
+});
+
+export const userRegistrationConfirmSubscriptionResponseSchema = z.object({
+  status: z.enum(["confirmed", "already_confirmed", "invalid", "expired"]),
+  displaySymbol: z.string().optional(),
+  /** Present when status is `confirmed` so the app can send the welcome email. */
+  email: z.string().email().optional(),
 });
 
 export type UserRegistrationLanguage = z.infer<
@@ -110,4 +137,16 @@ export type GetUserRegistrationTickersQuery = z.infer<
 >;
 export type GetUserRegistrationTickersResponse = z.infer<
   typeof getUserRegistrationTickersResponseSchema
+>;
+export type PostUserRegistrationWebSignupBody = z.infer<
+  typeof postUserRegistrationWebSignupBodySchema
+>;
+export type PostUserRegistrationWebSignupResponse = z.infer<
+  typeof postUserRegistrationWebSignupResponseSchema
+>;
+export type UserRegistrationConfirmSubscriptionQuery = z.infer<
+  typeof userRegistrationConfirmSubscriptionQuerySchema
+>;
+export type UserRegistrationConfirmSubscriptionResponse = z.infer<
+  typeof userRegistrationConfirmSubscriptionResponseSchema
 >;

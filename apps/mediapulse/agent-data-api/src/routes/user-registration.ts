@@ -7,6 +7,10 @@ import {
   postUserRegistrationConfirmBodySchema,
   postUserRegistrationConfirmResponseSchema,
   postUserRegistrationUnsubscribeBodySchema,
+  postUserRegistrationWebSignupBodySchema,
+  postUserRegistrationWebSignupResponseSchema,
+  userRegistrationConfirmSubscriptionQuerySchema,
+  userRegistrationConfirmSubscriptionResponseSchema,
   userRegistrationUnsubscribeQuerySchema,
   userRegistrationUnsubscribeResponseSchema,
   getUserRegistrationTickersQuerySchema,
@@ -16,6 +20,8 @@ import {
   processRegistration,
   confirmRegistration,
   processUnsubscribe,
+  processWebSignup,
+  processConfirmSubscription,
 } from "../services/user-registration.js";
 import { listTickersForUserRegistration } from "../services/user-registration-tickers.js";
 
@@ -98,6 +104,39 @@ export async function getUserRegistrationTickersHandler(
     getUserRegistrationTickersQuerySchema.parse(context.req.query());
     const data = await listTickersForUserRegistration();
     const response = getUserRegistrationTickersResponseSchema.parse(data);
+    return context.json(response, 200);
+  } catch (error) {
+    return internalError(context, error);
+  }
+}
+
+export async function postUserRegistrationWebSignupHandler(
+  context: Context,
+): Promise<Response> {
+  try {
+    const body = await context.req.json();
+    const data = await postUserRegistrationWebSignupBodySchema.parseAsync(body);
+    const result = await processWebSignup(data);
+    const response = postUserRegistrationWebSignupResponseSchema.parse(result);
+    return context.json(response, 200);
+  } catch (error) {
+    return internalError(context, error);
+  }
+}
+
+export async function getUserRegistrationConfirmSubscriptionHandler(
+  context: Context,
+): Promise<Response> {
+  try {
+    const query = userRegistrationConfirmSubscriptionQuerySchema.parse(
+      context.req.query(),
+    );
+    const result = await processConfirmSubscription({
+      token: query.token,
+      secret: env.REGISTRATION_CONFIRM_SECRET,
+    });
+    const response =
+      userRegistrationConfirmSubscriptionResponseSchema.parse(result);
     return context.json(response, 200);
   } catch (error) {
     return internalError(context, error);

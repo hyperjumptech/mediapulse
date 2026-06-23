@@ -1,6 +1,10 @@
 import { prisma as mediapulsePrisma } from "@mediapulse/database";
-import { verifyUnsubscribeToken } from "@workspace/utils";
+import {
+  verifyRegistrationConfirmToken,
+  verifyUnsubscribeToken,
+} from "@workspace/utils";
 import type {
+  UserRegistrationConfirmSubscriptionResponse,
   UserRegistrationLanguage,
   UserRegistrationUnsubscribeMethod,
   UserRegistrationUnsubscribeResponse,
@@ -133,6 +137,86 @@ export async function confirmRegistration({
     },
   });
   return { success: true };
+}
+
+/**
+ * Processes a web signup from the user-registration Next.js app.
+ * Creates an unconfirmed subscription when the ticker is known.
+ *
+ * @param params - Signup fields from the public registration form.
+ * @returns Outcome flags for the server-side confirm email flow.
+ */
+export async function processWebSignup({
+  email,
+  tickerSymbol,
+  name,
+  language = "en",
+}: {
+  email: string;
+  tickerSymbol: string;
+  name?: string | null;
+  language?: UserRegistrationLanguage;
+}) {
+  const result = await processRegistration({
+    email,
+    tickerSymbol,
+    name,
+    language,
+    confirmed: false,
+  });
+
+  return {
+    ok: true as const,
+    tickerKnown: result.tickerKnown,
+    userTickerId: result.userTickerId,
+    isNewSubscription: result.isNewSubscription,
+  };
+}
+
+/**
+ * Confirms a subscription using a signed registration confirmation token.
+ *
+ * @param params - Token verification inputs.
+ * @param params.token - Signed confirmation token from the email link.
+ * @param params.secret - Shared HMAC secret.
+ * @returns Normalized confirmation outcome for API callers.
+ */
+export async function processConfirmSubscription({
+  token,
+  secret,
+}: {
+  token: string;
+  secret: string;
+}): Promise<UserRegistrationConfirmSubscriptionResponse> {
+  const result = verifyRegistrationConfirmToken(token, secret);
+  if (!result.valid) {
+    if (result.reason === "expired") {
+      return { status: "expired" };
+    }
+    return { status: "invalid" };
+  }
+
+  const userTicker = await mediapulsePrisma.userTicker.findUnique({
+    where: { id: result.userTickerId },
+    include: { ticker: true, user: true },
+  });
+  const displaySymbol = userTicker?.ticker?.symbol ?? result.tickerSymbol;
+
+  if (!userTicker) {
+    return { status: "invalid", displaySymbol };
+  }
+
+  if (userTicker.registrationConfirmedAt != null) {
+    return { status: "already_confirmed", displaySymbol };
+  }
+
+  await confirmRegistration({ userTickerId: result.userTickerId });
+
+  return {
+    status: "confirmed",
+    displaySymbol,
+    email: userTicker.user.email,
+  };
 }
 
 /**

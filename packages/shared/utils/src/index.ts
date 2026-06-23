@@ -7,6 +7,10 @@ export {
   createUnsubscribeToken,
   verifyUnsubscribeToken,
 } from "./unsubscribe-token.js";
+export {
+  createRegistrationConfirmToken,
+  verifyRegistrationConfirmToken,
+} from "./registration-confirm-token.js";
 export { sleep } from "./sleep.js";
 export {
   withRetry,

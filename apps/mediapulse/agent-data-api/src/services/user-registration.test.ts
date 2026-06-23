@@ -407,6 +407,122 @@ describe("processRegistration with immediate confirmation", () => {
   });
 });
 
+describe("processWebSignup", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("delegates to processRegistration without confirming", async () => {
+    const { prisma } = await import("@mediapulse/database");
+    vi.mocked(prisma.ticker.findUnique).mockResolvedValue(TICKER);
+    vi.mocked(prisma.mediapulseUser.upsert).mockResolvedValue(USER);
+    vi.mocked(prisma.userTicker.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.userTicker.create).mockResolvedValue(
+      makeUserTicker({ registrationConfirmedAt: null }) as never,
+    );
+
+    const { processWebSignup } = await import("./user-registration.js");
+    const result = await processWebSignup({
+      email: "alice@example.com",
+      tickerSymbol: "BBCA",
+      name: "Alice",
+      language: "en",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      tickerKnown: true,
+      userTickerId: "ut-uuid-1",
+      isNewSubscription: true,
+    });
+  });
+});
+
+describe("processConfirmSubscription", () => {
+  const SECRET = "test-registration-confirm-secret";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns invalid when token is malformed", async () => {
+    const { processConfirmSubscription } =
+      await import("./user-registration.js");
+    const result = await processConfirmSubscription({
+      token: "bad-token",
+      secret: SECRET,
+    });
+    expect(result).toEqual({ status: "invalid" });
+  });
+
+  it("returns already_confirmed when subscription was confirmed", async () => {
+    const { createRegistrationConfirmToken } = await import("@workspace/utils");
+    const token = createRegistrationConfirmToken({
+      userTickerId: "11111111-1111-4111-a111-111111111111",
+      tickerSymbol: "BBCA",
+      secret: SECRET,
+    });
+    const { prisma } = await import("@mediapulse/database");
+    vi.mocked(prisma.userTicker.findUnique).mockResolvedValue({
+      ...makeUserTicker(),
+      ticker: { symbol: "BBCA" },
+    } as never);
+
+    const { processConfirmSubscription } =
+      await import("./user-registration.js");
+    const result = await processConfirmSubscription({ token, secret: SECRET });
+
+    expect(result).toEqual({
+      status: "already_confirmed",
+      displaySymbol: "BBCA",
+    });
+    expect(prisma.userTicker.update).not.toHaveBeenCalled();
+  });
+
+  it("confirms an unconfirmed subscription", async () => {
+    const { createRegistrationConfirmToken } = await import("@workspace/utils");
+    const token = createRegistrationConfirmToken({
+      userTickerId: "11111111-1111-4111-a111-111111111111",
+      tickerSymbol: "BBCA",
+      secret: SECRET,
+    });
+    const { prisma } = await import("@mediapulse/database");
+    vi.mocked(prisma.userTicker.findUnique).mockResolvedValue({
+      ...makeUserTicker({ registrationConfirmedAt: null }),
+      ticker: { symbol: "BBCA" },
+      user: { email: "alice@example.com" },
+    } as never);
+    vi.mocked(prisma.userTicker.update).mockResolvedValue(
+      makeUserTicker() as never,
+    );
+
+    const { processConfirmSubscription } =
+      await import("./user-registration.js");
+    const result = await processConfirmSubscription({ token, secret: SECRET });
+
+    expect(result).toEqual({
+      status: "confirmed",
+      displaySymbol: "BBCA",
+      email: "alice@example.com",
+    });
+    expect(prisma.userTicker.update).toHaveBeenCalledWith({
+      where: { id: "11111111-1111-4111-a111-111111111111" },
+      data: {
+        registrationConfirmedAt: expect.any(Date),
+        enabled: true,
+      },
+    });
+  });
+});
+
 describe("processUnsubscribe", () => {
   const SECRET = "test-unsubscribe-secret";
 
