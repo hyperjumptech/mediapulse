@@ -13,7 +13,7 @@ import {
 } from "@/lib/tickers";
 import { useRegistrationForm } from "@/hooks/use-registration-form";
 import { env } from "@mediapulse/env/app-user-registration";
-import { buildVCard } from "@workspace/utils";
+import { buildVCard } from "@workspace/utils/build-vcard";
 import { SubscribeMailAppModal } from "@/components/subscribe-mail-app-modal";
 import { SendConfirmationEmailModal } from "@/components/send-confirmation-email-modal";
 

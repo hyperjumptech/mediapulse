@@ -27,7 +27,7 @@ vi.mock("@/lib/detect-mail-platform", async (importOriginal) => {
   };
 });
 
-vi.mock("@workspace/utils", () => ({
+vi.mock("@workspace/utils/build-vcard", () => ({
   buildVCard: vi.fn(
     ({ name, email }: { name: string; email: string }) =>
       `BEGIN:VCARD\r\nFN:${name}\r\nEMAIL:${email}\r\nEND:VCARD`,

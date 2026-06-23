@@ -1,6 +1,5 @@
 import { render } from "@react-email/render";
 import type { ReactElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 
 import DefaultNewsletterEmail from "./newsletter/default-newsletter.js";
 import type { DefaultNewsletterEmailProps } from "./newsletter/default-newsletter.js";
@@ -134,8 +133,6 @@ export async function renderNewsletterEmail(
   const renderHtml = dependencies.renderHtml ?? ((el) => render(el));
   const renderText =
     dependencies.renderText ?? ((el) => render(el, { plainText: true }));
-  const fallbackRenderHtml =
-    dependencies.fallbackRenderHtml ?? renderToStaticMarkup;
 
   try {
     const [html, text] = await Promise.all([
@@ -148,7 +145,9 @@ export async function renderNewsletterEmail(
       throw error;
     }
 
-    const html = fallbackRenderHtml(element);
+    const html = dependencies.fallbackRenderHtml
+      ? dependencies.fallbackRenderHtml(element)
+      : (await import("react-dom/server")).renderToStaticMarkup(element);
     const text = htmlToPlainText(html);
     return { html, text };
   }

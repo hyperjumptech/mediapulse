@@ -9,6 +9,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./build-vcard": {
+      "import": "./dist/build-vcard.js",
+      "types": "./dist/build-vcard.d.ts"
     }
   },
   "scripts": {
