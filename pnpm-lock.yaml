@@ -315,7 +315,7 @@ importers:
         version: 6.9.2(@react-email/render@1.4.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
       route-action-gen:
         specifier: 'catalog:'
-        version: 0.0.10(next@16.2.3(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(zod@3.25.76)
+        version: 0.0.10(next@16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(zod@3.25.76)
       sonner:
         specifier: 'catalog:'
         version: 2.0.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1127,6 +1127,9 @@ importers:
       '@workspace/agent-data-api-client':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-data-api-client
+      '@workspace/email-templates':
+        specifier: workspace:*
+        version: link:../../../packages/shared/email-templates
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../packages/shared/logger
@@ -1154,6 +1157,9 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.2.4(react@19.2.4)
+      resend:
+        specifier: ^6.9.1
+        version: 6.9.2(@react-email/render@1.4.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
       sonner:
         specifier: 'catalog:'
         version: 2.0.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -18601,7 +18607,7 @@ snapshots:
       '@rollup/rollup-win32-x64-msvc': 4.57.1
       fsevents: 2.3.3
 
-  route-action-gen@0.0.10(next@16.2.3(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(zod@3.25.76):
+  route-action-gen@0.0.10(next@16.2.3(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(zod@3.25.76):
     dependencies:
       glob: 13.0.2
       zod: 3.25.76

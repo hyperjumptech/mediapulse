@@ -17,6 +17,7 @@ export const env = createEnv({
     PORT: z.number({ coerce: true }).optional(),
     AGENT_AUTH_API_URL: z.string().min(1),
     UNSUBSCRIBE_SECRET: z.string().min(1),
+    REGISTRATION_CONFIRM_SECRET: z.string().min(1),
     AGENT_DATA_API_URL: z.string().optional(),
     MEDIAPULSE_CGA_DIAGNOSTICS_ENABLED: z.string().optional(),
   },

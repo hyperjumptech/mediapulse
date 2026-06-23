@@ -13,31 +13,30 @@ When you implement real signups, create **`MediapulseUser`** rows (and `user_tic
 ## Key routes / entrypoints
 
 - Home: `/` — landing page for user registration flow.
+- `POST /api/confirm/request` — sends a pending confirmation email for the **Other** signup path (rate-limited; always returns `{ ok: true }` on valid input).
+- `GET /api/confirm?token=…` — browser confirmation link from outbound email; confirms the subscription and sends the welcome email.
 
-## Port
+## Signup UX
 
-- Default dev port: **3002** (Hermes is 3001).
+After the user fills in name, language, and ticker and clicks **Subscribe**, a modal offers platform-aware mail-app choices:
 
-## Workspace dependencies
+- **Microsoft Outlook** — opens an `ms-outlook:compose` draft (Outlook must be installed).
+- **Apple Mail / Windows Mail / Default mail app** — opens the existing `mailto:` draft flow.
+- **Other** — second modal collects the user's email address; MediaPulse sends a confirmation link via Resend.
 
-- `@workspace/env` — Environment variables.
-- `@workspace/logger` — Logging.
-- `@workspace/ui` — Shared UI components.
-
-## Related docs
-
-- [Shared: @workspace/ui](/shared/ui).
+Both paths converge on the same `user_ticker` rows in the Mediapulse database.
 
 ## Ingesting Registrations (Agent)
 
 Signups are processed asynchronously through a dedicated Hermes-scheduled backend agent, `user-registration`.
 Because MediaPulse supports login-less registration over email, the flow works like this:
 
-1. The `@mediapulse/user-registration` home page loads the ticker list from **agent-data-api** (`GET /api/v1/user-registration-tickers`, no bearer token—same as the unsubscribe routes) so choices stay aligned with the Mediapulse `ticker` table.
-2. The front-end generates a `mailto:` link allowing the user to send their subscription choice.
-3. The `user-registration` agent reads a shared Microsoft Outlook inbox via `@mediapulse/outlook-inbox`.
-4. The agent parses the desired ticker. Waitlist / Unknown tickers trigger an outbound email.
-5. On successful registration for a known ticker, the agent always sends a Resend email: first-time or still-unconfirmed rows get a confirmation email plus `user-registration-confirm`; already-confirmed rows get an acknowledgment only (no confirm call), so repeat signup messages still show up in Resend without changing the stored confirmation time.
+1. The `@mediapulse/user-registration` home page loads the ticker list from **agent-data-api** (`GET /api/v1/user-registration-tickers`, no bearer token—same as the unsubscribe and web-signup routes) so choices stay aligned with the Mediapulse `ticker` table.
+2. For the mail-app path, the front-end opens a mail draft (`mailto:` or Outlook compose) for the user to send from their own address.
+3. For the **Other** path, the app calls `POST /api/confirm/request`, which registers an unconfirmed row via `POST /api/v1/user-registration-web-signup` and emails a signed link to `GET /api/confirm`.
+4. The `user-registration` agent reads a shared Microsoft Outlook inbox via `@mediapulse/outlook-inbox` for mail-app signups.
+5. The agent parses the desired ticker. Waitlist / Unknown tickers trigger an outbound email.
+6. On successful registration for a known ticker, the agent sends a Resend confirmation email plus `user-registration-confirm` for mail-app signups; the web path confirms via the link and sends the same welcome email from the Next.js app.
 
 ### Inbox hygiene (archiving + retries)
 

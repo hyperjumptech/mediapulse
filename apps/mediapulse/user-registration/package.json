@@ -30,7 +30,9 @@
     "sonner": "catalog:",
     "zod": "catalog:",
     "@workspace/agent-data-api-client": "workspace:*",
-    "@workspace/utils": "workspace:*"
+    "@workspace/email-templates": "workspace:*",
+    "@workspace/utils": "workspace:*",
+    "resend": "^6.9.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",

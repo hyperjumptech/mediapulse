@@ -6,6 +6,8 @@ import DefaultNewsletterEmail from "./newsletter/default-newsletter.js";
 import type { DefaultNewsletterEmailProps } from "./newsletter/default-newsletter.js";
 import RegistrationConfirmationEmail from "./registration/registration-confirmation.js";
 import type { RegistrationConfirmationEmailProps } from "./registration/registration-confirmation.js";
+import RegistrationPendingConfirmationEmail from "./registration/registration-pending-confirmation.js";
+import type { RegistrationPendingConfirmationEmailProps } from "./registration/registration-pending-confirmation.js";
 import InvalidTickerEmail from "./registration/invalid-ticker.js";
 import type { InvalidTickerEmailProps } from "./registration/invalid-ticker.js";
 
@@ -13,6 +15,7 @@ import type { InvalidTickerEmailProps } from "./registration/invalid-ticker.js";
 export type NewsletterTemplateVariant =
   | "default"
   | "registration-confirmation"
+  | "registration-pending-confirmation"
   | "invalid-ticker";
 
 export type RenderNewsletterEmailInput =
@@ -26,6 +29,9 @@ export type RenderNewsletterEmailInput =
       variant: "registration-confirmation";
       nextDeliveryLabel?: string;
     } & RegistrationConfirmationEmailProps)
+  | ({
+      variant: "registration-pending-confirmation";
+    } & RegistrationPendingConfirmationEmailProps)
   | ({ variant: "invalid-ticker" } & InvalidTickerEmailProps);
 
 type RenderEmailToHtml = (element: ReactElement) => Promise<string>;
@@ -95,6 +101,14 @@ function newsletterElementForVariant(
         <RegistrationConfirmationEmail
           tickerSymbol={input.tickerSymbol}
           nextDeliveryLabel={input.nextDeliveryLabel}
+        />
+      );
+    case "registration-pending-confirmation":
+      return (
+        <RegistrationPendingConfirmationEmail
+          tickerSymbol={input.tickerSymbol}
+          name={input.name}
+          confirmUrl={input.confirmUrl}
         />
       );
     case "invalid-ticker":

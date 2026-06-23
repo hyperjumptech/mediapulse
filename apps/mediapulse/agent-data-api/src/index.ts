@@ -56,6 +56,8 @@ import {
   getUserRegistrationUnsubscribeHandler,
   postUserRegistrationUnsubscribeHandler,
   getUserRegistrationTickersHandler,
+  postUserRegistrationWebSignupHandler,
+  getUserRegistrationConfirmSubscriptionHandler,
 } from "./routes/user-registration.js";
 import { postNewsletterFeedbackRecordHandler } from "./routes/newsletter-feedback.js";
 import { getTicker } from "./routes/ticker.js";
@@ -190,6 +192,12 @@ const routeHandlers = {
   userRegistrationTickers: {
     get: getUserRegistrationTickersHandler,
   },
+  userRegistrationWebSignup: {
+    post: postUserRegistrationWebSignupHandler,
+  },
+  userRegistrationConfirmSubscription: {
+    get: getUserRegistrationConfirmSubscriptionHandler,
+  },
   contentGenerationRuns: {
     get: getContentGenerationRuns,
     post: postContentGenerationRun,
@@ -234,6 +242,8 @@ for (const version of AGENT_DATA_API_LIVE_VERSIONS) {
   const bearerAuthExemptPathnames = new Set([
     `${AGENT_DATA_API_PREFIX}/${version}${camelCaseResourceKeyToPathSegment("userRegistrationUnsubscribe")}`,
     `${AGENT_DATA_API_PREFIX}/${version}${camelCaseResourceKeyToPathSegment("userRegistrationTickers")}`,
+    `${AGENT_DATA_API_PREFIX}/${version}${camelCaseResourceKeyToPathSegment("userRegistrationWebSignup")}`,
+    `${AGENT_DATA_API_PREFIX}/${version}${camelCaseResourceKeyToPathSegment("userRegistrationConfirmSubscription")}`,
   ]);
   versionApi.use("*", async (context, next) => {
     const pathname = new URL(context.req.url).pathname;

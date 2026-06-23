@@ -10,6 +10,9 @@ export default defineConfig({
       AGENT_AUTH_API_URL: "http://127.0.0.1:8080",
       DOMAIN_INTEGRATION_ID: "mediapulse",
       DOMAIN_INTEGRATION_API_KEY: "vitest-placeholder-domain-integration-key",
+      REGISTRATION_CONFIRM_SECRET:
+        "vitest-placeholder-registration-confirm-secret",
+      UNSUBSCRIBE_SECRET: "vitest-placeholder-unsubscribe-secret",
     },
   },
 });

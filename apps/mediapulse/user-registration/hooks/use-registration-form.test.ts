@@ -1,12 +1,28 @@
 import * as React from "react";
 import { renderHook, act } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { useRegistrationForm } from "./use-registration-form";
 import type { Ticker } from "@/lib/tickers";
+import { openMailClientUrl } from "@/lib/mail-app-urls";
 
 vi.mock("@mediapulse/env/app-user-registration", () => ({
   env: { NEXT_PUBLIC_REGISTRATION_EMAIL: "registration@test.example" },
 }));
+
+vi.mock("@/lib/mail-app-urls", () => ({
+  buildMailtoUrl: vi.fn(() => "mailto:test@example.com"),
+  buildOutlookComposeUrl: vi.fn(() => "ms-outlook:compose?test=1"),
+  openMailClientUrl: vi.fn(),
+}));
+
+vi.mock("@/lib/detect-mail-platform", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/detect-mail-platform")>();
+  return {
+    ...actual,
+    detectMailPlatform: () => "macos" as const,
+  };
+});
 
 const sampleTickers: Ticker[] = [
   { KodeEmiten: "AADI", NamaEmiten: "PT Adaro Andalan Indonesia Tbk" },
@@ -14,11 +30,12 @@ const sampleTickers: Ticker[] = [
 ];
 
 describe("useRegistrationForm", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("initializes with default state", () => {
-    const mockOpenMailto = vi.fn();
-    const { result } = renderHook(() =>
-      useRegistrationForm(sampleTickers, mockOpenMailto),
-    );
+    const { result } = renderHook(() => useRegistrationForm(sampleTickers));
 
     expect(result.current.name).toBe("");
     expect(result.current.language).toBe("en");
@@ -26,45 +43,11 @@ describe("useRegistrationForm", () => {
     expect(result.current.selectedTicker).toBeNull();
     expect(result.current.open).toBe(false);
     expect(result.current.submitted).toBe(false);
+    expect(result.current.mailChoiceOpen).toBe(false);
   });
 
-  it("handles query changes and toggles dropdown", () => {
-    const mockOpenMailto = vi.fn();
-    const { result } = renderHook(() =>
-      useRegistrationForm(sampleTickers, mockOpenMailto),
-    );
-
-    act(() => {
-      result.current.handleQueryChange({
-        target: { value: "Bank" },
-      } as React.ChangeEvent<HTMLInputElement>);
-    });
-
-    expect(result.current.query).toBe("Bank");
-    expect(result.current.open).toBe(true);
-    expect(result.current.selectedTicker).toBeNull();
-  });
-
-  it("selects a ticker and formats the query", () => {
-    const mockOpenMailto = vi.fn();
-    const { result } = renderHook(() =>
-      useRegistrationForm(sampleTickers, mockOpenMailto),
-    );
-
-    act(() => {
-      result.current.handleTickerSelect(sampleTickers[1]!); // BBCA
-    });
-
-    expect(result.current.selectedTicker).toEqual(sampleTickers[1]);
-    expect(result.current.query).toBe("BBCA - Bank Central Asia Tbk");
-    expect(result.current.open).toBe(false);
-  });
-
-  it("submits the form if both name and ticker exist", async () => {
-    const mockOpenMailto = vi.fn();
-    const { result } = renderHook(() =>
-      useRegistrationForm(sampleTickers, mockOpenMailto),
-    );
+  it("opens the mail choice modal on submit when form is valid", async () => {
+    const { result } = renderHook(() => useRegistrationForm(sampleTickers));
 
     act(() => {
       result.current.setName("Test User");
@@ -78,88 +61,51 @@ describe("useRegistrationForm", () => {
       await result.current.handleSubmit(e);
     });
 
-    expect(mockOpenMailto).toHaveBeenCalledTimes(1);
+    expect(result.current.mailChoiceOpen).toBe(true);
+    expect(result.current.submitted).toBe(false);
+  });
+
+  it("does not open modal when name or ticker are missing", async () => {
+    const { result } = renderHook(() => useRegistrationForm(sampleTickers));
+
+    await act(async () => {
+      const e = {
+        preventDefault: vi.fn(),
+      } as unknown as React.FormEvent<HTMLFormElement>;
+      await result.current.handleSubmit(e);
+    });
+
+    expect(result.current.mailChoiceOpen).toBe(false);
+  });
+
+  it("completes mail-app path when native mail is selected", () => {
+    const { result } = renderHook(() => useRegistrationForm(sampleTickers));
+
+    act(() => {
+      result.current.setName("Test User");
+      result.current.handleTickerSelect(sampleTickers[1]!);
+    });
+
+    act(() => {
+      result.current.handleSelectNativeMail();
+    });
+
+    expect(vi.mocked(openMailClientUrl)).toHaveBeenCalledWith(
+      "mailto:test@example.com",
+    );
     expect(result.current.submitted).toBe(true);
-  });
-
-  it("includes the chosen language in the mailto URL on submit", async () => {
-    const mockOpenMailto = vi.fn();
-    const { result } = renderHook(() =>
-      useRegistrationForm(sampleTickers, mockOpenMailto),
-    );
-
-    act(() => {
-      result.current.setName("Test User");
-      result.current.setLanguage("id");
-      result.current.handleTickerSelect(sampleTickers[1]!);
-    });
-
-    await act(async () => {
-      const e = {
-        preventDefault: vi.fn(),
-      } as unknown as React.FormEvent<HTMLFormElement>;
-      await result.current.handleSubmit(e);
-    });
-
-    const mailtoUrl = mockOpenMailto.mock.calls[0]?.[0] as string;
-
-    expect(mailtoUrl).toContain(encodeURIComponent("Language: id"));
-  });
-
-  it("does not submit if name or ticker are missing", async () => {
-    const mockOpenMailto = vi.fn();
-    const { result } = renderHook(() =>
-      useRegistrationForm(sampleTickers, mockOpenMailto),
-    );
-
-    await act(async () => {
-      const e = {
-        preventDefault: vi.fn(),
-      } as unknown as React.FormEvent<HTMLFormElement>;
-      await result.current.handleSubmit(e);
-    });
-
-    expect(mockOpenMailto).not.toHaveBeenCalled();
-    expect(result.current.submitted).toBe(false);
-  });
-
-  it("does not submit when name is only whitespace", async () => {
-    const mockOpenMailto = vi.fn();
-    const { result } = renderHook(() =>
-      useRegistrationForm(sampleTickers, mockOpenMailto),
-    );
-
-    act(() => {
-      result.current.setName("   ");
-      result.current.handleTickerSelect(sampleTickers[1]!);
-    });
-
-    await act(async () => {
-      const e = {
-        preventDefault: vi.fn(),
-      } as unknown as React.FormEvent<HTMLFormElement>;
-      await result.current.handleSubmit(e);
-    });
-
-    expect(mockOpenMailto).not.toHaveBeenCalled();
-    expect(result.current.submitted).toBe(false);
+    expect(result.current.submissionMode).toBe("mailto");
   });
 
   it("resets form when resetForm is called", () => {
-    const mockOpenMailto = vi.fn();
-    const { result } = renderHook(() =>
-      useRegistrationForm(sampleTickers, mockOpenMailto),
-    );
+    const { result } = renderHook(() => useRegistrationForm(sampleTickers));
 
     act(() => {
       result.current.setName("Test");
       result.current.setLanguage("id");
       result.current.handleTickerSelect(sampleTickers[1]!);
+      result.current.handleSelectNativeMail();
     });
-
-    expect(result.current.name).toBe("Test");
-    expect(result.current.language).toBe("id");
-    expect(result.current.selectedTicker).not.toBeNull();
 
     act(() => {
       result.current.resetForm();
@@ -167,8 +113,7 @@ describe("useRegistrationForm", () => {
 
     expect(result.current.name).toBe("");
     expect(result.current.language).toBe("en");
-    expect(result.current.query).toBe("");
-    expect(result.current.selectedTicker).toBeNull();
     expect(result.current.submitted).toBe(false);
+    expect(result.current.mailChoiceOpen).toBe(false);
   });
 });

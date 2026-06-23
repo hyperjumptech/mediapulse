@@ -4,10 +4,28 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RegistrationForm } from "./registration-form";
 import type { Ticker } from "@/lib/tickers";
+import { openMailClientUrl } from "@/lib/mail-app-urls";
 
 vi.mock("@mediapulse/env/app-user-registration", () => ({
   env: { NEXT_PUBLIC_REGISTRATION_EMAIL: "registration@test.example" },
 }));
+
+vi.mock("@/lib/mail-app-urls", () => ({
+  buildMailtoUrl: vi.fn(
+    () => "mailto:registration@test.example?subject=test&body=test",
+  ),
+  buildOutlookComposeUrl: vi.fn(() => "ms-outlook:compose?test=1"),
+  openMailClientUrl: vi.fn(),
+}));
+
+vi.mock("@/lib/detect-mail-platform", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/detect-mail-platform")>();
+  return {
+    ...actual,
+    detectMailPlatform: () => "macos" as const,
+  };
+});
 
 vi.mock("@workspace/utils", () => ({
   buildVCard: vi.fn(
@@ -22,8 +40,19 @@ const sampleTickers: Ticker[] = [
   { KodeEmiten: "TLKM", NamaEmiten: "Telkom Indonesia Tbk" },
 ];
 
+const fillAndSubmitForm = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.type(
+    screen.getByLabelText(/What should we call you\?/i),
+    "John Doe",
+  );
+  await user.click(screen.getByLabelText(/Stock ticker/i));
+  await user.click(screen.getByText(/Bank Central Asia Tbk/i));
+  await user.click(screen.getByRole("button", { name: /^Subscribe$/i }));
+};
+
 describe("RegistrationForm", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.stubGlobal("URL", {
       createObjectURL: vi.fn(() => "blob:mock-url"),
       revokeObjectURL: vi.fn(),
@@ -36,10 +65,8 @@ describe("RegistrationForm", () => {
   });
 
   it("renders the name, language, and ticker search inputs", () => {
-    // Act
-    render(<RegistrationForm tickers={sampleTickers} openMailto={vi.fn()} />);
+    render(<RegistrationForm tickers={sampleTickers} />);
 
-    // Assert
     expect(
       screen.getByLabelText(/What should we call you\?/i),
     ).toBeInTheDocument();
@@ -54,114 +81,44 @@ describe("RegistrationForm", () => {
   });
 
   it("renders the subscribe button as disabled when no ticker is selected", () => {
-    // Act
-    render(<RegistrationForm tickers={sampleTickers} openMailto={vi.fn()} />);
+    render(<RegistrationForm tickers={sampleTickers} />);
 
-    // Assert
-    expect(
-      screen.getByRole("button", { name: /Open email app to subscribe/i }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Subscribe$/i })).toBeDisabled();
   });
 
   it("shows ticker dropdown when search input is focused", async () => {
-    // Setup
     const user = userEvent.setup();
-    render(<RegistrationForm tickers={sampleTickers} openMailto={vi.fn()} />);
+    render(<RegistrationForm tickers={sampleTickers} />);
 
-    // Act
     await user.click(screen.getByLabelText(/Stock ticker/i));
 
-    // Assert
     expect(screen.getByRole("listbox")).toBeInTheDocument();
   });
 
-  it("calls openMailto with formed URL when submitted and shows success", async () => {
-    // Setup
+  it("opens the mail choice modal on submit and completes native mail path", async () => {
     const user = userEvent.setup();
-    const mockOpenMailto = vi.fn();
-    render(
-      <RegistrationForm tickers={sampleTickers} openMailto={mockOpenMailto} />,
-    );
+    render(<RegistrationForm tickers={sampleTickers} />);
 
-    // Act
-    await user.type(
-      screen.getByLabelText(/What should we call you\?/i),
-      "John Doe",
-    );
+    await fillAndSubmitForm(user);
 
-    // Select Ticker
-    await user.click(screen.getByLabelText(/Stock ticker/i));
-    await user.click(screen.getByText(/Bank Central Asia Tbk/i));
+    expect(
+      screen.getByRole("dialog", { name: /Choose how to subscribe/i }),
+    ).toBeInTheDocument();
 
-    // Submit
-    const subscribeBtn = screen.getByRole("button", {
-      name: /Open email app to subscribe/i,
-    });
-    expect(subscribeBtn).not.toBeDisabled();
-    await user.click(subscribeBtn);
+    await user.click(screen.getByRole("button", { name: /Apple Mail/i }));
 
-    // Assert mailto was called
-    expect(mockOpenMailto).toHaveBeenCalledTimes(1);
-    const calledUrl = mockOpenMailto.mock.calls[0]![0]!;
-    expect(calledUrl).toContain("mailto:registration@test.example");
-    expect(calledUrl).toContain(
-      encodeURIComponent("[MediaPulse] Newsletter Subscription - BBCA"),
-    );
-    expect(calledUrl).toContain(encodeURIComponent("Name: John Doe"));
-    expect(calledUrl).toContain(encodeURIComponent("Ticker: BBCA"));
-    expect(calledUrl).toContain(encodeURIComponent("Language: en"));
-
-    // Assert Success screen rendered
+    expect(vi.mocked(openMailClientUrl)).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/Almost done/i)).toBeInTheDocument();
-    expect(screen.getByText(/tap/i)).toBeInTheDocument();
     expect(screen.getByText(/Send/i)).toBeInTheDocument();
   });
 
-  it("encodes the selected Indonesian language in the mailto URL", async () => {
-    // Setup
+  it("shows spam/junk reassurance text after mail-app submit", async () => {
     const user = userEvent.setup();
-    const mockOpenMailto = vi.fn();
-    render(
-      <RegistrationForm tickers={sampleTickers} openMailto={mockOpenMailto} />,
-    );
+    render(<RegistrationForm tickers={sampleTickers} />);
 
-    // Act
-    await user.type(
-      screen.getByLabelText(/What should we call you\?/i),
-      "John Doe",
-    );
-    await user.selectOptions(
-      screen.getByLabelText(/Newsletter language/i),
-      "id",
-    );
-    await user.click(screen.getByLabelText(/Stock ticker/i));
-    await user.click(screen.getByText(/Bank Central Asia Tbk/i));
-    await user.click(
-      screen.getByRole("button", { name: /Open email app to subscribe/i }),
-    );
+    await fillAndSubmitForm(user);
+    await user.click(screen.getByRole("button", { name: /Apple Mail/i }));
 
-    // Assert
-    const calledUrl = mockOpenMailto.mock.calls[0]![0]!;
-
-    expect(calledUrl).toContain(encodeURIComponent("Language: id"));
-  });
-
-  it("shows spam/junk reassurance text and download contact card button after submit", async () => {
-    // Setup
-    const user = userEvent.setup();
-    render(<RegistrationForm tickers={sampleTickers} openMailto={vi.fn()} />);
-
-    await user.type(
-      screen.getByLabelText(/What should we call you\?/i),
-      "Jane",
-    );
-    await user.click(screen.getByLabelText(/Stock ticker/i));
-    await user.click(screen.getByText(/Bank Central Asia Tbk/i));
-    await user.click(
-      screen.getByRole("button", { name: /Open email app to subscribe/i }),
-    );
-
-    // Assert
     expect(screen.getByText(/spam|junk/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Download contact card/i }),
@@ -169,34 +126,22 @@ describe("RegistrationForm", () => {
   });
 
   it("triggers a vCard download when download contact card is clicked", async () => {
-    // Setup
     const user = userEvent.setup();
-    render(<RegistrationForm tickers={sampleTickers} openMailto={vi.fn()} />);
+    render(<RegistrationForm tickers={sampleTickers} />);
 
-    await user.type(
-      screen.getByLabelText(/What should we call you\?/i),
-      "Jane",
-    );
-    await user.click(screen.getByLabelText(/Stock ticker/i));
-    await user.click(screen.getByText(/Bank Central Asia Tbk/i));
-    await user.click(
-      screen.getByRole("button", { name: /Open email app to subscribe/i }),
-    );
+    await fillAndSubmitForm(user);
+    await user.click(screen.getByRole("button", { name: /Apple Mail/i }));
 
-    // Spy on createElement after render so the mock only captures the anchor
-    // created by downloadVCard, not elements created by React during rendering.
     const anchorClickSpy = vi.fn();
     const mockAnchor = { href: "", download: "", click: anchorClickSpy };
     vi.spyOn(document, "createElement").mockReturnValueOnce(
       mockAnchor as unknown as HTMLElement,
     );
 
-    // Act
     await user.click(
       screen.getByRole("button", { name: /Download contact card/i }),
     );
 
-    // Assert
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
     expect(mockAnchor.download).toBe("MediaPulse.vcf");
     expect(anchorClickSpy).toHaveBeenCalledTimes(1);
