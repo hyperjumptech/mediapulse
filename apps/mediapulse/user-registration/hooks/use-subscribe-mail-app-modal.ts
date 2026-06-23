@@ -105,6 +105,7 @@ export const useSubscribeMailAppModal = ({
         name,
         language,
         env.NEXT_PUBLIC_REGISTRATION_EMAIL,
+        { userAgent: navigator.userAgent },
       ),
     );
     setMailChoiceOpen(false);
