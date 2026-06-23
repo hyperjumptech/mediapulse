@@ -141,6 +141,10 @@ jobs:
       UNSUBSCRIBE_SECRET: ci-unsubscribe-secret
       REGISTRATION_CONFIRM_SECRET: ci-registration-confirm-secret
       AGENT_DATA_API_URL: http://localhost:8081
+      NEXT_PUBLIC_REGISTRATION_EMAIL: registration@example.com
+      USER_REGISTRATION_RESEND_API_KEY: ci-user-registration-resend-api-key
+      USER_REGISTRATION_RESEND_FROM: "MediaPulse <registration@example.com>"
+      USER_REGISTRATION_PUBLIC_URL: http://localhost:3002
       MEDIAPULSE_CGA_DIAGNOSTICS_ENABLED: "false"
 
     services:
