@@ -40,7 +40,7 @@ describe("buildMailtoUrl", () => {
 });
 
 describe("buildOutlookComposeUrl", () => {
-  it("returns an ms-outlook compose URL", () => {
+  it("returns an ms-outlook compose URL with a valid authority", () => {
     const url = buildOutlookComposeUrl(
       ticker,
       "Jane Doe",
@@ -48,8 +48,23 @@ describe("buildOutlookComposeUrl", () => {
       "registration@test.example",
     );
 
-    expect(url.startsWith("ms-outlook:compose?")).toBe(true);
+    expect(url.startsWith("ms-outlook://compose?")).toBe(true);
     expect(url).toContain("to=registration%40test.example");
+  });
+
+  it("uses the iOS Outlook deep link path for iPhone user agents", () => {
+    const url = buildOutlookComposeUrl(
+      ticker,
+      "Jane Doe",
+      "en",
+      "registration@test.example",
+      {
+        userAgent:
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+      },
+    );
+
+    expect(url.startsWith("ms-outlook://emails/new?")).toBe(true);
   });
 });
 

@@ -1,8 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
+  detectIsIosUserAgent,
   detectMailPlatform,
   getMailAppChoiceOptions,
 } from "./detect-mail-platform";
+
+describe("detectIsIosUserAgent", () => {
+  it("detects iPhone user agents", () => {
+    expect(
+      detectIsIosUserAgent(
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+      ),
+    ).toBe(true);
+  });
+
+  it("returns false for macOS desktop user agents", () => {
+    expect(
+      detectIsIosUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"),
+    ).toBe(false);
+  });
+});
 
 describe("detectMailPlatform", () => {
   it("detects macOS user agents", () => {

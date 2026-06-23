@@ -20,7 +20,7 @@ When you implement real signups, create **`MediapulseUser`** rows (and `user_tic
 
 After the user fills in name, language, and ticker and clicks **Subscribe**, a modal offers platform-aware mail-app choices:
 
-- **Microsoft Outlook** — opens an `ms-outlook:compose` draft (Outlook must be installed).
+- **Microsoft Outlook** — opens an `ms-outlook://` compose draft (Outlook must be installed; iOS uses `ms-outlook://emails/new`).
 - **Apple Mail / Windows Mail / Default mail app** — opens the existing `mailto:` draft flow.
 - **Other** — second modal collects the user's email address; MediaPulse sends a confirmation link via Resend.
 

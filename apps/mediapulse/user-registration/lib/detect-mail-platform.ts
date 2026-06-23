@@ -2,6 +2,15 @@
 export type MailPlatform = "macos" | "windows" | "other";
 
 /**
+ * Returns whether the user agent belongs to an iOS device (iPhone, iPad, or iPod).
+ *
+ * @param userAgent - Browser user agent string.
+ * @returns True when the client is iOS Safari or another iOS browser.
+ */
+export const detectIsIosUserAgent = (userAgent: string): boolean =>
+  /iPhone|iPad|iPod/i.test(userAgent);
+
+/**
  * Detects the user's platform from the browser user agent for mail-app labels.
  *
  * @param userAgent - Browser user agent string.

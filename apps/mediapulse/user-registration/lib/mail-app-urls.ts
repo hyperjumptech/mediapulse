@@ -1,5 +1,10 @@
+import { detectIsIosUserAgent } from "@/lib/detect-mail-platform";
 import type { RegistrationLanguage, Ticker } from "@/lib/tickers";
 import { MAILTO_BODY_SECTION_SEPARATOR } from "@/lib/tickers";
+
+export type OutlookComposeUrlOptions = {
+  userAgent?: string;
+};
 
 type MailDraftInput = {
   ticker: Ticker;
@@ -63,6 +68,7 @@ export const buildMailtoUrl = (
  * @param name - Subscriber display name.
  * @param language - Preferred newsletter language code.
  * @param registrationEmail - Target inbox for registration.
+ * @param options - Optional client hints for platform-specific Outlook paths.
  * @returns Encoded ms-outlook compose URL string.
  */
 export const buildOutlookComposeUrl = (
@@ -70,6 +76,7 @@ export const buildOutlookComposeUrl = (
   name: string,
   language: RegistrationLanguage,
   registrationEmail: string = "mediapulse@hyperjump.tech",
+  options: OutlookComposeUrlOptions = {},
 ): string => {
   const { subject, body } = buildRegistrationMailDraft({
     ticker,
@@ -84,7 +91,12 @@ export const buildOutlookComposeUrl = (
     body,
   });
 
-  return `ms-outlook:compose?${params.toString()}`;
+  const composePath =
+    options.userAgent && detectIsIosUserAgent(options.userAgent)
+      ? "emails/new"
+      : "compose";
+
+  return `ms-outlook://${composePath}?${params.toString()}`;
 };
 
 /**
