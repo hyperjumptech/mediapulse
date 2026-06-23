@@ -112,14 +112,16 @@ export const useRegistrationForm = (tickers: Ticker[]) => {
     openMailChoiceModal();
   };
 
+  /**
+   * Returns to the registration form for another ticker while keeping name and language.
+   */
   const resetForm = () => {
     setSubmitted(false);
     setSubmissionMode("mailto");
     setConfirmationEmailState("");
-    setName("");
-    setLanguage("en");
     setQuery("");
     setSelectedTicker(null);
+    setOpen(false);
     resetSubscribeModals();
   };
 

@@ -97,7 +97,7 @@ describe("useRegistrationForm", () => {
     expect(result.current.submissionMode).toBe("mailto");
   });
 
-  it("resets form when resetForm is called", () => {
+  it("keeps name and language when resetForm is called after submit", () => {
     const { result } = renderHook(() => useRegistrationForm(sampleTickers));
 
     act(() => {
@@ -111,8 +111,10 @@ describe("useRegistrationForm", () => {
       result.current.resetForm();
     });
 
-    expect(result.current.name).toBe("");
-    expect(result.current.language).toBe("en");
+    expect(result.current.name).toBe("Test");
+    expect(result.current.language).toBe("id");
+    expect(result.current.query).toBe("");
+    expect(result.current.selectedTicker).toBeNull();
     expect(result.current.submitted).toBe(false);
     expect(result.current.mailChoiceOpen).toBe(false);
   });
