@@ -45,6 +45,25 @@ jobs:
     name: Code quality check (CI infra)
     needs: changes
     if: needs.changes.outputs.run_heavy_jobs == 'true' && needs.changes.outputs.turbo_scope == 'ci_infra'
+    env:
+      MEDIAPULSE_DATABASE_URL: postgresql://mediapulse:mediapulse@localhost:5432/mediapulse?schema=mediapulse
+      ORCHESTRATION_DATABASE_URL: postgresql://mediapulse:mediapulse@localhost:5432/mediapulse?schema=orchestration
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_USER: mediapulse
+          POSTGRES_PASSWORD: mediapulse
+          POSTGRES_DB: mediapulse
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
       - uses: actions/checkout@v6
         with:

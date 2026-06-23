@@ -33,7 +33,7 @@ Once an image is published, CI triggers a **Coolify deploy webhook** for each se
 Keep **branch protection** on **`main`** so **Code Quality Checks** stay green before merges. On **pull requests**, CI uses **`scripts/detect-pr-changes.mjs`** to skip unrelated jobs:
 
 - **Docs-only PRs** — skip code quality, Docker builds, Cursor review, and AI review.
-- **CI-infra PRs** (workflows, scripts, root `package.json` without lockfile changes) — light code quality only (`@workspace/cursor-pr-review-tests` plus changed-file Prettier); no Postgres service or Prisma drift.
+- **CI-infra PRs** (workflows, scripts, root `package.json` without lockfile changes) — light code quality (`@workspace/cursor-pr-review-tests` plus changed-file Prettier); no Prisma drift step or Turbo affected builds.
 - **Single-app PRs** — Turbo **`--affected`** build, lint, type-check, and tests; Docker matrix for changed services only; Prisma drift only when database schema paths change.
 - **Shared package / lockfile changes** — Turbo affected plus all Docker images (deploy safety).
 
