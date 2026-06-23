@@ -30,7 +30,14 @@ After migrations succeed, each workflow builds and pushes per-service images to 
 
 Once an image is published, CI triggers a **Coolify deploy webhook** for each service. Coolify pulls the new image from GHCR and rolls it out. A **cleanup job** runs after all deploys succeed and deletes older GHCR package versions, retaining the **five newest versions** per service for rollback.
 
-Keep **branch protection** on **`main`** so **Code Quality Checks** stay green before merges. On **pull requests**, that workflow runs Turbo **`--affected`** build, lint, type-check, and tests plus Prettier on changed files only; CI-only PRs (workflows, scripts, root `package.json` without lockfile changes, docs) use a lighter **`ci_infra`** scope (`@workspace/cursor-pr-review-tests` plus changed-file Prettier). On **push to `main`** and **`workflow_dispatch`**, it runs the full workspace. Deploy workflows start on the same **`push` to `main`** in parallel. If you need a strict "tests then deploy" order, add a **`workflow_run`**-triggered deploy after code quality succeeds.
+Keep **branch protection** on **`main`** so **Code Quality Checks** stay green before merges. On **pull requests**, CI uses **`scripts/detect-pr-changes.mjs`** to skip unrelated jobs:
+
+- **Docs-only PRs** — skip code quality, Docker builds, Cursor review, and AI review.
+- **CI-infra PRs** (workflows, scripts, root `package.json` without lockfile changes) — light code quality only (`@workspace/cursor-pr-review-tests` plus changed-file Prettier); no Postgres service or Prisma drift.
+- **Single-app PRs** — Turbo **`--affected`** build, lint, type-check, and tests; Docker matrix for changed services only; Prisma drift only when database schema paths change.
+- **Shared package / lockfile changes** — Turbo affected plus all Docker images (deploy safety).
+
+On **push to `main`** and **`workflow_dispatch`**, code quality runs the full workspace. Deploy workflows start on the same **`push` to `main`** in parallel. If you need a strict "tests then deploy" order, add a **`workflow_run`**-triggered deploy after code quality succeeds.
 
 ---
 

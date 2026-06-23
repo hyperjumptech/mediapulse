@@ -10,8 +10,31 @@ permissions:
   pull-requests: write
 
 jobs:
+  changes:
+    name: Detect whether review should run
+    runs-on: ubuntu-latest
+    outputs:
+      run_ai_review: ${{ steps.detect.outputs.run_ai_review }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Detect PR change scope
+        id: detect
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/detect-pr-changes.mjs --base "$PR_BASE_SHA" --head "$PR_HEAD_SHA"
+
   ai-review:
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.run_ai_review == 'true'
     steps:
       - uses: actions/checkout@v6
         with:
