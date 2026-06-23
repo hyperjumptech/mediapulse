@@ -50,6 +50,8 @@ describe("buildOutlookComposeUrl", () => {
 
     expect(url.startsWith("ms-outlook://compose?")).toBe(true);
     expect(url).toContain("to=registration%40test.example");
+    expect(url).toContain(encodeURIComponent("Name: Jane Doe"));
+    expect(url).not.toMatch(/[?&][^=]*\+/);
   });
 
   it("uses the iOS Outlook deep link path for iPhone user agents", () => {
