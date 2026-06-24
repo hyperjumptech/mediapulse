@@ -31,7 +31,7 @@ export interface WebSearchResult {
 
 export type WebFetchProviderName = Extract<
   DataCollectionFailure["provider"],
-  "serper" | "jina" | "firecrawl" | "diffbot"
+  "serper" | "jina" | "firecrawl" | "diffbot" | "tavily" | "exa"
 >;
 
 export type FetchedWebSearchResult = WebSearchResult & {
@@ -90,6 +90,8 @@ const WEB_FETCH_PROVIDER_NAMES = new Set<WebFetchProviderName>([
   "jina",
   "firecrawl",
   "diffbot",
+  "tavily",
+  "exa",
 ]);
 
 /**
@@ -150,15 +152,17 @@ const toWebFetchProviderName = (type: string): WebFetchProviderName => {
 };
 
 /**
- * Fetches one search hit through the ordered provider chain.
+ * Fetches one search hit through the provider pool with round-robin + failover.
  *
  * @param result - Search hit to fetch.
- * @param chain - Ordered provider adapters with per-provider rate limiters.
+ * @param chain - Provider adapters with per-provider rate limiters.
+ * @param startOffset - Rotating start index so each URL begins at a different provider.
  * @param deps - Shared dependencies for the fetch stage.
  */
 const fetchOneResult = async (
   result: WebSearchResult,
   chain: ProviderChainEntry[],
+  startOffset: number,
   deps: {
     gotClient: typeof got;
     log: WebFetchLogger;
@@ -168,7 +172,11 @@ const fetchOneResult = async (
   const { gotClient, log, hostErrorTracker } = deps;
   const failures: WebFetchFailure[] = [];
 
-  for (const entry of chain) {
+  const rotated = chain.map(
+    (_, index) => chain[(startOffset + index) % chain.length]!,
+  );
+
+  for (const entry of rotated) {
     const providerName = toWebFetchProviderName(entry.provider.type);
 
     try {
@@ -291,10 +299,21 @@ export async function performWebFetch(
     hostErrorTracker: deps.hostErrorTracker,
   };
 
+  // Rotate the starting provider per URL so load spreads across the pool
+  // instead of always hitting the first provider.
+  let dispatchIndex = 0;
+
   const results = await pMap(
     searchResults,
     async (result) => {
-      const outcome = await fetchOneResult(result, chain, sharedDeps);
+      const startOffset = dispatchIndex;
+      dispatchIndex += 1;
+      const outcome = await fetchOneResult(
+        result,
+        chain,
+        startOffset,
+        sharedDeps,
+      );
       if (onOutcome) {
         await onOutcome(outcome);
       }

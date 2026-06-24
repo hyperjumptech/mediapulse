@@ -1,7 +1,9 @@
 import { createDiffbotFetchProvider } from "./diffbot";
+import { createExaFetchProvider } from "./exa";
 import { createFirecrawlFetchProvider } from "./firecrawl";
 import { createJinaFetchProvider } from "./jina";
 import { createSerperFetchProvider } from "./serper";
+import { createTavilyFetchProvider } from "./tavily";
 
 import type { FetchProvider, FetchProviderConfig } from "./types";
 
@@ -24,6 +26,10 @@ export const createFetchProvider = (
       return createFirecrawlFetchProvider(config);
     case "diffbot":
       return createDiffbotFetchProvider(config);
+    case "tavily":
+      return createTavilyFetchProvider(config);
+    case "exa":
+      return createExaFetchProvider(config);
     default:
       throw new Error(`Unknown fetch provider type: ${config.type}`);
   }

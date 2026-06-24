@@ -4,33 +4,26 @@ import { describe, expect, it } from "vitest";
 
 import {
   dataCollectionAgentConfigSchema,
-  defaultDiffbotFetchProvider,
-  defaultFetchProviders,
-  defaultFirecrawlFetchProvider,
-  defaultJinaFetchProvider,
-  defaultSerperFetchProvider,
   getConfigSchema,
   isUnresolvedVariablePlaceholder,
 } from "./config-schema";
 
 describe("getConfigSchema", () => {
   it("returns wrapped JSON schema with agentId", () => {
-    // Act
     const result = getConfigSchema();
 
-    // Assert
     expect(result.agentId).toBe("data-collection");
     expect(result.schema).toHaveProperty("type", "object");
-    expect(result.schema).toHaveProperty("properties");
     const properties = (
       result.schema as { properties?: Record<string, unknown> }
     ).properties;
+
     expect(Object.keys(properties ?? {})).toEqual([
-      "providers",
+      "web_search",
+      "web_search_locales",
+      "web_fetch",
+      "relevance",
       "collection",
-      "gates",
-      "resilience",
-      "runPolicy",
     ]);
   });
 });
@@ -47,210 +40,88 @@ describe("isUnresolvedVariablePlaceholder", () => {
 
 describe("dataCollectionAgentConfigSchema", () => {
   it("parses an empty object into the full recommended config", () => {
-    // Act
     const parsed = dataCollectionAgentConfigSchema.parse({});
 
-    // Assert
-    expect(parsed.providers.search.baseUrl).toBe(
-      "https://google.serper.dev/search",
-    );
-    expect(parsed.providers.search.authentication.apiKey).toBe(
-      "{{SERPER_API_KEY}}",
-    );
-    expect(parsed.providers.search.authentication.type).toBe("none");
-    expect(parsed.providers.search.query).toEqual({
-      country: "id",
-      language: "auto",
-      dateRange: "past_week",
-      type: "news",
+    expect(parsed.web_search.map((entry) => entry.provider)).toEqual([
+      "serper",
+      "tavily",
+      "exa",
+    ]);
+    expect(parsed.web_search[0]?.apiKey).toBe("{{SERPER_API_KEY}}");
+    expect(parsed.web_fetch.map((entry) => entry.provider)).toEqual([
+      "serper",
+      "tavily",
+      "exa",
+    ]);
+    expect(parsed.web_search_locales).toEqual([{ gl: "id", hl: "id" }]);
+    expect(parsed.relevance).toEqual({
+      apiKey: "{{AI_API_KEY}}",
+      model: "{{AI_MODEL}}",
+      baseUrl: "{{AI_BASE_URL}}",
     });
-    expect(
-      parsed.providers.fetch.providers.map((provider) => provider.type),
-    ).toEqual(["serper", "diffbot", "firecrawl", "jina"]);
-    expect(parsed.providers.fetch.providers[0]).toMatchObject(
-      defaultSerperFetchProvider,
-    );
-    expect(parsed.providers.fetch.providers[1]).toMatchObject(
-      defaultDiffbotFetchProvider,
-    );
-    expect(parsed.providers.fetch.providers[2]).toMatchObject(
-      defaultFirecrawlFetchProvider,
-    );
-    expect(parsed.providers.fetch.providers[3]).toMatchObject(
-      defaultJinaFetchProvider,
-    );
     expect(parsed.collection).toEqual({
-      targetDailySuccessfulSources: 5,
-      maxRefillRounds: 3,
-    });
-    expect(parsed.gates.relevance).toEqual({
-      enabled: true,
-      headChars: 6000,
-      minMatches: 1,
-    });
-    expect(parsed.gates.freshness).toEqual({
-      enabled: true,
-      maxAgeDays: 14,
-      allowUnknown: true,
-    });
-    expect(parsed.resilience.deadUrlCache).toEqual({
-      enabled: true,
-      skipLookupBatchSize: 50,
-    });
-    expect(parsed.resilience.hostErrorBreaker).toEqual({
-      enabled: true,
-      minAttempts: 5,
-      errorRateThreshold: 0.5,
-    });
-    expect(parsed.runPolicy).toEqual({
-      minSuccessfulSources: 1,
-      failOnZeroSuccess: false,
+      targetSavedSources: 15,
+      maxRounds: 3,
     });
   });
 
   it("preserves Hermes variable placeholders verbatim", () => {
     const parsed = dataCollectionAgentConfigSchema.parse({});
 
-    expect(parsed.providers.search.authentication.apiKey).toBe(
-      "{{SERPER_API_KEY}}",
-    );
-    expect(parsed.providers.fetch.providers[0]?.authentication.apiKey).toBe(
-      "{{SERPER_API_KEY}}",
-    );
-    expect(parsed.providers.fetch.providers[1]?.authentication.apiKey).toBe(
-      "{{DIFFBOT_API_KEY}}",
-    );
-    expect(parsed.providers.fetch.providers[2]?.authentication.apiKey).toBe(
-      "{{FIRECRAWL_API_KEY}}",
-    );
-    expect(parsed.providers.fetch.providers[3]?.authentication.apiKey).toBe(
-      "{{JINA_API_KEY}}",
-    );
+    expect(parsed.web_search[1]?.apiKey).toBe("{{TAVILY_API_KEY}}");
+    expect(parsed.web_fetch[2]?.apiKey).toBe("{{EXA_API_KEY}}");
+    expect(parsed.relevance.apiKey).toBe("{{AI_API_KEY}}");
   });
 
   it("keeps other defaults when only one collection field is overridden", () => {
     const parsed = dataCollectionAgentConfigSchema.parse({
-      collection: {
-        maxRefillRounds: 5,
-      },
+      collection: { maxRounds: 5 },
     });
 
-    expect(parsed.collection.maxRefillRounds).toBe(5);
-    expect(parsed.collection.targetDailySuccessfulSources).toBe(5);
-    expect(parsed.providers.fetch.providers).toHaveLength(4);
-    expect(parsed.runPolicy.failOnZeroSuccess).toBe(false);
+    expect(parsed.collection.maxRounds).toBe(5);
+    expect(parsed.collection.targetSavedSources).toBe(15);
+    expect(parsed.web_fetch).toHaveLength(3);
   });
 
-  it("strips unknown collection fields like legacy budget keys", () => {
+  it("accepts a custom provider pool", () => {
     const parsed = dataCollectionAgentConfigSchema.parse({
-      collection: {
-        perQueryFetchBudget: 5,
-        perRunFetchBudget: 40,
-      },
+      web_search: [{ provider: "tavily", apiKey: "tav-key" }],
+      web_fetch: [{ provider: "exa", apiKey: "exa-key" }],
     });
 
-    expect(parsed.collection).not.toHaveProperty("perQueryFetchBudget");
-    expect(parsed.collection).not.toHaveProperty("perRunFetchBudget");
-  });
-
-  it("accepts ordered fetch providers under providers.fetch.providers", () => {
-    const parsed = dataCollectionAgentConfigSchema.parse({
-      providers: {
-        fetch: {
-          providers: [
-            {
-              type: "jina",
-              baseUrl: "https://r.jina.ai",
-              authentication: {
-                type: "bearer",
-                apiKey: "jina-key",
-                headerName: "Authorization",
-              },
-              rateLimit: {
-                requests: 100,
-                perSeconds: 60,
-              },
-            },
-            {
-              type: "firecrawl",
-              baseUrl: "https://api.firecrawl.dev",
-              authentication: {
-                type: "bearer",
-                apiKey: "fc-key",
-                headerName: "Authorization",
-              },
-              rateLimit: {
-                requests: 50,
-                perSeconds: 60,
-              },
-            },
-          ],
-        },
-      },
-    });
-
-    expect(
-      parsed.providers.fetch.providers.map((provider) => provider.type),
-    ).toEqual(["jina", "firecrawl"]);
-  });
-
-  it("rejects non-positive search rate limits", () => {
-    expect(() =>
-      dataCollectionAgentConfigSchema.parse({
-        providers: {
-          search: {
-            rateLimit: { requests: 0, perSeconds: 60 },
-          },
-        },
-      }),
-    ).toThrow();
-
-    expect(() =>
-      dataCollectionAgentConfigSchema.parse({
-        providers: {
-          search: {
-            rateLimit: { requests: 10, perSeconds: 0 },
-          },
-        },
-      }),
-    ).toThrow();
-  });
-
-  it("rejects empty fetch provider arrays", () => {
-    expect(() =>
-      dataCollectionAgentConfigSchema.parse({
-        providers: {
-          fetch: {
-            providers: [],
-          },
-        },
-      }),
-    ).toThrow();
-  });
-
-  it("rejects invalid collection refill values", () => {
-    expect(() =>
-      dataCollectionAgentConfigSchema.parse({
-        collection: {
-          targetDailySuccessfulSources: 0,
-        },
-      }),
-    ).toThrow();
-    expect(() =>
-      dataCollectionAgentConfigSchema.parse({
-        collection: {
-          maxRefillRounds: -1,
-        },
-      }),
-    ).toThrow();
-  });
-
-  it("exports the default fetch chain in recommended order", () => {
-    expect(defaultFetchProviders.map((provider) => provider.type)).toEqual([
-      "serper",
-      "diffbot",
-      "firecrawl",
-      "jina",
+    expect(parsed.web_search).toEqual([
+      { provider: "tavily", apiKey: "tav-key" },
     ]);
+    expect(parsed.web_fetch).toEqual([{ provider: "exa", apiKey: "exa-key" }]);
+  });
+
+  it("rejects empty provider pools", () => {
+    expect(() =>
+      dataCollectionAgentConfigSchema.parse({ web_search: [] }),
+    ).toThrow();
+    expect(() =>
+      dataCollectionAgentConfigSchema.parse({ web_fetch: [] }),
+    ).toThrow();
+  });
+
+  it("rejects unknown providers", () => {
+    expect(() =>
+      dataCollectionAgentConfigSchema.parse({
+        web_search: [{ provider: "bing", apiKey: "k" }],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects invalid collection values", () => {
+    expect(() =>
+      dataCollectionAgentConfigSchema.parse({
+        collection: { targetSavedSources: 0 },
+      }),
+    ).toThrow();
+    expect(() =>
+      dataCollectionAgentConfigSchema.parse({
+        collection: { maxRounds: 0 },
+      }),
+    ).toThrow();
   });
 });

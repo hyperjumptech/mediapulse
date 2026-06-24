@@ -219,7 +219,7 @@ describe("data-collection agent (HTTP)", () => {
           input: { tickerId: TICKER_ID },
           config: {
             collection: {
-              targetDailySuccessfulSources: 0,
+              targetSavedSources: 0,
             },
           },
         }),
@@ -232,14 +232,14 @@ describe("data-collection agent (HTTP)", () => {
     expect(runCreateMock).not.toHaveBeenCalled();
   }, 15000);
 
-  it("returns 200 and a Hermes failure envelope when the run is policy-failed", async () => {
-    // Setup
+  it("returns 200 and a Hermes success envelope when no sources are collected", async () => {
+    // Setup — the internal run policy does not fail on zero success.
     getMock.mockResolvedValue({
       data: [{ id: "sq-1", text: "test query", tickerId: TICKER_ID }],
     });
     postMock.mockResolvedValue("{}");
-    performWebSearchMock.mockResolvedValueOnce([]);
-    performWebFetchMock.mockResolvedValueOnce([]);
+    performWebSearchMock.mockResolvedValue([]);
+    performWebFetchMock.mockResolvedValue([]);
 
     // Act
     const { default: app } = await import("./index");
@@ -249,12 +249,7 @@ describe("data-collection agent (HTTP)", () => {
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({
           input: { tickerId: TICKER_ID },
-          config: {
-            runPolicy: {
-              minSuccessfulSources: 1,
-              failOnZeroSuccess: true,
-            },
-          },
+          config: {},
         }),
       }),
     );
@@ -265,12 +260,9 @@ describe("data-collection agent (HTTP)", () => {
       message?: string;
     };
 
-    // Assert — semantic failure must not use HTTP 500 so Hermes can surface `message` on the invocation
+    // Assert
     expect(res.status).toBe(200);
     expect(body.schemaVersion).toBe(1);
-    expect(body.status).toBe("failure");
-    expect(body.message).toBe(
-      "Data collection run failed: no sources were successfully collected, but the run policy requires at least 1 successful source.",
-    );
+    expect(body.status).toBe("success");
   }, 15000);
 });

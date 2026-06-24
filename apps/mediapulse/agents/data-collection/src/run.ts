@@ -20,7 +20,6 @@ import {
 import {
   performWebFetch,
   createEmptyQualityCounters,
-  runQualityGate,
   resolveExistingDataSourceUrls,
   resolveDeadUrls,
   buildDeadUrlRecords,
@@ -30,11 +29,9 @@ import {
   type FetchedWebSearchResult,
   buildTickerAliases,
   buildIndustryAliases,
-  isRelevant,
   deriveRunStatus,
   type RunCounters,
-  extractPublishedDate,
-  isFresh,
+  type RunPolicy,
   makeDroppedOutcome,
   makeCollectedOutcome,
   makeFailedOutcome,
@@ -46,7 +43,23 @@ import {
   type WebSearchEmptyResult,
   type WebSearchFailure,
 } from "./utilities/web-search";
+import { RoundRobinCursor } from "./utilities/provider-dispatch";
+import { buildFetchProviderConfigs } from "./utilities/fetch-provider-config";
+import {
+  checkContent,
+  checkFreshness,
+  judgeRelevance,
+} from "./utilities/filter";
 import { classifyNoisyUrl, type UrlNoiseReason } from "@workspace/utils";
+
+/** Run success criteria, formerly the configurable runPolicy section. */
+const RUN_POLICY: RunPolicy = {
+  minSuccessfulSources: 1,
+  failOnZeroSuccess: false,
+};
+
+/** Dead-URL negative-cache lookup batch size. */
+const DEAD_URL_LOOKUP_BATCH_SIZE = 50;
 
 /**
  * Executes the data-collection pipeline: load search queries, run web search and fetch,
@@ -60,7 +73,8 @@ import { classifyNoisyUrl, type UrlNoiseReason } from "@workspace/utils";
 export async function runDataCollection(
   context: AgentRunContext<BodySchemaType, ConfigSchemaType>,
 ): Promise<AgentRunResult> {
-  const { input, config, token, hermesCorrelation } = context;
+  const { input, config, token, hermesCorrelation, contract } = context;
+  const contractBrief = contract?.brief;
   const startedAt = new Date();
   const runId = crypto.randomUUID();
   const scheduleExecutionId =
@@ -83,16 +97,16 @@ export async function runDataCollection(
 
   log.info(
     {
-      runPolicy: config.runPolicy,
+      runPolicy: RUN_POLICY,
+      collection: config.collection,
     },
     "data collection run started",
   );
 
-  const runPolicy = config.runPolicy;
-  const targetDailySuccessfulSources =
-    config.collection.targetDailySuccessfulSources;
-  const maxRefillRounds = config.collection.maxRefillRounds;
-  const maxTotalRounds = 1 + maxRefillRounds;
+  const runPolicy = RUN_POLICY;
+  const targetSavedSources = config.collection.targetSavedSources;
+  const maxTotalRounds = config.collection.maxRounds;
+  const searchCursor = new RoundRobinCursor();
 
   const dataApiClient = createAgentDataApiClient({
     baseUrl: env.AGENT_DATA_API_URL,
@@ -131,13 +145,12 @@ export async function runDataCollection(
 
   report(...narrativeRunStart(subject));
 
-  const webSearchConfig = config.providers.search;
-  const webFetchConfig = config.providers.fetch;
-  const relevanceGateConfig = config.gates.relevance;
-  const deadUrlCacheConfig = config.resilience.deadUrlCache;
-  const hostErrorBreakerConfig = config.resilience.hostErrorBreaker;
-  const freshnessGateConfig = config.gates.freshness;
-  const hostErrorTracker = new HostErrorTracker(hostErrorBreakerConfig);
+  const fetchProviderConfigs = buildFetchProviderConfigs(config.web_fetch);
+  const hostErrorTracker = new HostErrorTracker({
+    enabled: true,
+    minAttempts: 5,
+    errorRateThreshold: 0.5,
+  });
 
   if (tickerAliases.length === 0 && industryAliases.length === 0) {
     log.warn(
@@ -189,7 +202,7 @@ export async function runDataCollection(
     ...narrativeDailyQuota(
       subject,
       existingTodaySourceCount,
-      targetDailySuccessfulSources,
+      targetSavedSources,
     ),
   );
 
@@ -238,10 +251,10 @@ export async function runDataCollection(
       "completed",
     );
     refillStopReason = "no_queries";
-  } else if (existingTodaySourceCount >= targetDailySuccessfulSources) {
+  } else if (existingTodaySourceCount >= targetSavedSources) {
     report(
       "Daily target already met",
-      `${subject.symbol} already has ${existingTodaySourceCount} saved source${existingTodaySourceCount === 1 ? "" : "s"} today, meeting the target of ${targetDailySuccessfulSources}. Skipping collection.`,
+      `${subject.symbol} already has ${existingTodaySourceCount} saved source${existingTodaySourceCount === 1 ? "" : "s"} today, meeting the target of ${targetSavedSources}. Skipping collection.`,
       "completed",
     );
     refillStopReason = "daily_target_met_before_start";
@@ -260,13 +273,13 @@ export async function runDataCollection(
         );
       }
       roundsExecuted += 1;
-      const searchThrottleStats = { throttleEvents: 0 };
       const searchAttemptResults = await performWebSearch(queries, {
-        config: webSearchConfig,
+        config: config.web_search,
+        locales: config.web_search_locales,
+        page: round - 1,
+        cursor: searchCursor,
         logger: log,
-        throttleStats: searchThrottleStats,
       });
-      throttleEvents += searchThrottleStats.throttleEvents;
       const roundSearchSuccesses = searchAttemptResults
         .filter((r) => r.success)
         .map((r) => r.data);
@@ -390,12 +403,12 @@ export async function runDataCollection(
       }
 
       let searchSuccessesAfterDeadUrl = searchSuccessesForFetch;
-      if (deadUrlCacheConfig.enabled) {
+      {
         const deadUrlSet = await resolveDeadUrls(
           input.tickerId,
           searchSuccessesForFetch.map((hit) => hit.url),
           (body) => dataApiClient.dataCollectionDeadUrlsLookup.create(body),
-          deadUrlCacheConfig.skipLookupBatchSize,
+          DEAD_URL_LOOKUP_BATCH_SIZE,
         );
         if (deadUrlSet.size > 0) {
           const beforeDeadUrlCount = searchSuccessesAfterDeadUrl.length;
@@ -524,7 +537,7 @@ export async function runDataCollection(
           return;
         }
 
-        const contentDecision = runQualityGate(
+        const contentDecision = checkContent(
           page.title,
           page.content,
           page.url,
@@ -549,83 +562,74 @@ export async function runDataCollection(
           return;
         }
 
-        if (relevanceGateConfig.enabled) {
-          const relevanceDecision = isRelevant(
-            {
-              title: page.title,
-              content: page.content,
-              aliases: tickerAliases,
-              industryAliases,
-            },
-            {
-              headChars: relevanceGateConfig.headChars,
-              minMatches: relevanceGateConfig.minMatches,
-            },
-          );
-          if (!relevanceDecision.relevant) {
-            droppedByRelevance += 1;
-            outcomes.push(
-              makeDroppedOutcome(
-                { ...outcomeBase, url: urlDecision.canonicalUrl },
-                {
-                  reason: "relevance_no_match",
-                  tickerSymbol: subject.symbol,
-                  headChars: relevanceGateConfig.headChars ?? 4000,
-                },
-              ),
-            );
-            log.info(
+        const relevanceDecision = await judgeRelevance({
+          title: page.title,
+          content: page.content,
+          tickerSymbol: subject.symbol,
+          tickerName: subject.name,
+          tickerAliases,
+          industryAliases,
+          contractBrief,
+          llm: config.relevance,
+          logger: log,
+        });
+        if (!relevanceDecision.keep) {
+          droppedByRelevance += 1;
+          outcomes.push(
+            makeDroppedOutcome(
+              { ...outcomeBase, url: urlDecision.canonicalUrl },
               {
-                round,
-                url: page.url.slice(0, 120),
-                reason: relevanceDecision.reason,
+                reason: "relevance_no_match",
+                tickerSymbol: subject.symbol,
+                headChars: 6000,
               },
-              "dropped page that did not mention the target ticker or industry",
-            );
-            return;
-          }
+            ),
+          );
+          log.info(
+            {
+              round,
+              url: page.url.slice(0, 120),
+              via: relevanceDecision.via,
+            },
+            "dropped page judged not relevant to the target ticker or industry",
+          );
+          return;
         }
 
-        const publishedAt = extractPublishedDate({
+        const { decision: freshnessDecision, publishedAt } = checkFreshness({
           fetchMetadata: page.fetchMetadata ?? page.jinaMetadata,
           content: page.content,
         });
 
-        if (freshnessGateConfig.enabled) {
-          const freshnessDecision = isFresh(publishedAt, {
-            maxAgeDays: freshnessGateConfig.maxAgeDays,
-            allowUnknown: freshnessGateConfig.allowUnknown,
-          });
-          if (!freshnessDecision.fresh) {
-            droppedByFreshnessReason[freshnessDecision.reason] =
-              (droppedByFreshnessReason[freshnessDecision.reason] ?? 0) + 1;
-            const freshnessContext =
-              freshnessDecision.reason === "too_old" && publishedAt
-                ? {
-                    reason: "freshness_too_old" as const,
-                    publishedAt,
-                    maxAgeDays: freshnessGateConfig.maxAgeDays ?? 14,
-                  }
-                : freshnessDecision.reason === "future_dated" && publishedAt
-                  ? { reason: "freshness_future_dated" as const, publishedAt }
-                  : { reason: "freshness_unknown_date" as const };
-            outcomes.push(
-              makeDroppedOutcome(
-                { ...outcomeBase, url: urlDecision.canonicalUrl },
-                freshnessContext,
-              ),
-            );
-            log.info(
-              {
-                round,
-                url: urlDecision.canonicalUrl.slice(0, 120),
-                publishedAt: publishedAt?.toISOString() ?? null,
-                reason: freshnessDecision.reason,
-              },
-              "dropped page outside freshness window",
-            );
-            return;
-          }
+        if (!freshnessDecision.fresh) {
+          droppedByFreshnessReason[freshnessDecision.reason] =
+            (droppedByFreshnessReason[freshnessDecision.reason] ?? 0) + 1;
+          const freshnessContext =
+            freshnessDecision.reason === "too_old" && publishedAt
+              ? {
+                  reason: "freshness_too_old" as const,
+                  publishedAt,
+                  maxAgeDays: 7,
+                }
+              : freshnessDecision.reason === "future_dated" && publishedAt
+                ? { reason: "freshness_future_dated" as const, publishedAt }
+                : { reason: "freshness_unknown_date" as const };
+          outcomes.push(
+            makeDroppedOutcome(
+              { ...outcomeBase, url: urlDecision.canonicalUrl },
+              freshnessContext,
+            ),
+          );
+          log.info(
+            {
+              round,
+              url: urlDecision.canonicalUrl.slice(0, 120),
+              publishedAt: publishedAt?.toISOString() ?? null,
+              reason: freshnessDecision.reason,
+            },
+            "dropped page outside freshness window",
+          );
+          return;
         }
 
         const source: DataCollectionInput = {
@@ -663,7 +667,7 @@ export async function runDataCollection(
       const fetchAttemptResults = await performWebFetch(
         searchSuccessesAfterHostBreaker,
         {
-          config: webFetchConfig,
+          config: { providers: fetchProviderConfigs },
           logger: log,
           throttleStats: fetchThrottleStats,
           hostErrorTracker,
@@ -706,7 +710,7 @@ export async function runDataCollection(
         "web fetch stage finished",
       );
 
-      if (deadUrlCacheConfig.enabled) {
+      {
         const deadUrlFetchFailures = fetchAttemptResults
           .filter((outcome) => outcome.success === null)
           .flatMap((outcome) => outcome.failures);
@@ -739,7 +743,7 @@ export async function runDataCollection(
 
       const effectiveTodayCount =
         existingTodaySourceCount + persistedThisRunCount;
-      if (effectiveTodayCount >= targetDailySuccessfulSources) {
+      if (effectiveTodayCount >= targetSavedSources) {
         refillStopReason = "daily_target_met";
         break;
       }
@@ -759,7 +763,7 @@ export async function runDataCollection(
       runId,
       tickerId: input.tickerId,
       stage: "web-search" as const,
-      provider: "serper" as const,
+      provider: f.provider,
       searchQueryId: f.queryId,
       errorCategory: f.errorCategory,
       retryable: f.retryable,
@@ -910,7 +914,7 @@ export async function runDataCollection(
     refill: {
       roundsExecuted,
       maxTotalRounds,
-      targetDailySuccessfulSources,
+      targetSavedSources,
       existingTodaySourceCount,
       effectiveTodayCount: existingTodaySourceCount + persistedThisRunCount,
       stopReason: refillStopReason,
@@ -947,7 +951,7 @@ export async function runDataCollection(
         failureCount: failuresPayload.length,
         stopReason: refillStopReason,
         roundsExecuted,
-        targetDailySuccessfulSources,
+        targetSavedSources,
       }),
       "completed",
     );
@@ -991,7 +995,7 @@ export async function runDataCollection(
       failureCount: failuresPayload.length,
       stopReason: refillStopReason,
       roundsExecuted,
-      targetDailySuccessfulSources,
+      targetSavedSources,
     }),
     "completed",
   );

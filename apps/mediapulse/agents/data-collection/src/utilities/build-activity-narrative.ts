@@ -100,7 +100,7 @@ export function narrativeRunComplete(
     failureCount: number;
     stopReason: string | null;
     roundsExecuted: number;
-    targetDailySuccessfulSources: number;
+    targetSavedSources: number;
   },
 ): [string, string] {
   const title =
@@ -132,7 +132,7 @@ export function narrativeRunComplete(
     opts.stopReason === "daily_target_met" ||
     opts.stopReason === "daily_target_met_before_start"
   ) {
-    stopClause = ` The daily target of ${opts.targetDailySuccessfulSources} was reached.`;
+    stopClause = ` The daily target of ${opts.targetSavedSources} was reached.`;
   } else if (opts.stopReason === "max_rounds_reached") {
     stopClause = ` The maximum number of search rounds was reached.`;
   } else if (opts.stopReason === "no_progress") {
