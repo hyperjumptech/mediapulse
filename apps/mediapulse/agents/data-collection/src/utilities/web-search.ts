@@ -1,25 +1,24 @@
 import got from "got";
-import { z } from "zod";
 import { logger as defaultLogger } from "@workspace/logger";
-import {
-  RateLimiter,
-  type StageThrottleStats,
-  withRetry,
-  classifyError,
-  isRetryableError,
-  pMap,
-} from "@workspace/agent-ingestion";
-import { buildSerperRequestBody, resolveSerperEndpoint } from "./serper-query";
-import type { ConfigSchemaType } from "./config-schema";
+import { pMap } from "@workspace/agent-ingestion";
+import type { FetchMetadata } from "@workspace/agent-ingestion";
 import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
+
+import type { SearchLocale, WebSearchConfig } from "./config-schema";
+import { createSearchProvider, type SearchProvider } from "./search-providers";
+import {
+  AllProvidersFailed,
+  dispatch,
+  RoundRobinCursor,
+  type DispatchProvider,
+} from "./provider-dispatch";
+import type { SearchHit } from "./search-providers/types";
 
 export interface SearchQuery {
   id: string;
   text: string;
   tickerId: string;
 }
-
-import type { FetchMetadata } from "@workspace/agent-ingestion";
 
 export interface WebSearchResult {
   url: string;
@@ -46,13 +45,14 @@ export interface WebSearchFailure {
   queryId: string;
   queryText: string;
   tickerId: string;
+  provider: DataCollectionFailure["provider"];
   errorCategory: DataCollectionFailure["errorCategory"];
   message: string;
   retryable: boolean;
   httpStatus?: number;
 }
 
-/** Serper returned a valid response but no items for this query — not a failure. */
+/** A provider returned a valid response but no items for this query — not a failure. */
 export interface WebSearchEmptyResult {
   success: false;
   empty: true;
@@ -73,100 +73,70 @@ export type WebSearchLogger = {
 };
 
 export interface WebSearchDeps {
-  config: ConfigSchemaType["providers"]["search"];
+  /** Round-robin search provider pool (one entry per configured provider). */
+  config: WebSearchConfig;
+  /** Locales the query fans out across. */
+  locales: SearchLocale[];
+  /** Zero-based round index; advances pagination on repeat rounds. */
+  page?: number;
+  /** Shared round-robin cursor so rotation persists across queries and rounds. */
+  cursor?: RoundRobinCursor;
   gotClient?: typeof got;
   /** Logger with run correlation; defaults to workspace logger. */
   logger?: WebSearchLogger;
-  /** Optional counter mutated with adaptive throttle events for this stage. */
-  throttleStats?: StageThrottleStats;
 }
 
-/** Zod schema for Serper.dev API organic search result item. */
-const serperOrganicItemSchema = z.object({
-  link: z.string().optional(),
-  title: z.string().optional(),
-  snippet: z.string().optional(),
-});
+const SEARCH_TIMEOUT_MS = 30_000;
 
-/** Zod schema for Serper.dev API news result item. */
-const serperNewsItemSchema = z.object({
-  link: z.string().optional(),
-  title: z.string().optional(),
-  snippet: z.string().optional(),
-  date: z.string().optional(),
-  source: z.string().optional(),
-});
-
-/** Zod schema for Serper.dev API search response. */
-export const serperResponseSchema = z.object({
-  organic: z.array(serperOrganicItemSchema).optional(),
-  news: z.array(serperNewsItemSchema).optional(),
-});
-
-export type SerperResponse = z.infer<typeof serperResponseSchema>;
+/** A built provider plus its display name, reused across all queries. */
+interface BuiltSearchProvider {
+  name: DataCollectionFailure["provider"];
+  provider: SearchProvider;
+}
 
 /**
- * Resolves effective mapper concurrency capped by the configured rate limit.
- *
- * @param config - Web search provider configuration.
- */
-const resolveSearchConcurrency = (
-  config: ConfigSchemaType["providers"]["search"],
-): number => Math.min(config.concurrency ?? 4, config.rateLimit.requests);
-
-/**
- * Executes one Serper query and returns attempt results for that query.
+ * Runs one query against one locale through the round-robin provider pool.
  *
  * @param query - Search query row from the Agent Data API.
- * @param deps - Shared dependencies for the search stage.
+ * @param locale - Locale for this fan-out request.
+ * @param deps - Shared search dependencies.
  */
-const searchOneQuery = async (
+const searchOne = async (
   query: SearchQuery,
+  locale: SearchLocale,
   deps: {
-    config: ConfigSchemaType["providers"]["search"];
+    providers: BuiltSearchProvider[];
+    page: number;
+    cursor: RoundRobinCursor;
     gotClient: typeof got;
     log: WebSearchLogger;
-    rateLimiter: RateLimiter;
-    authHeaders: Record<string, string>;
   },
 ): Promise<WebSearchAttemptResult[]> => {
-  const { config, gotClient, log, rateLimiter, authHeaders } = deps;
+  const { providers, page, cursor, gotClient, log } = deps;
+
+  const dispatchProviders: DispatchProvider<SearchHit[]>[] = providers.map(
+    (built) => ({
+      name: built.name,
+      run: () =>
+        built.provider.search(query.text, {
+          gotClient,
+          locale,
+          page,
+          timeoutMs: SEARCH_TIMEOUT_MS,
+          logger: log,
+        }),
+    }),
+  );
 
   try {
-    await rateLimiter.acquire();
+    const hits = await dispatch(
+      "search",
+      dispatchProviders,
+      (result) => result.length > 0,
+      cursor,
+    );
 
-    const fetchTask = async () => {
-      const endpoint = resolveSerperEndpoint(config.baseUrl, config.query.type);
-      const requestBody = buildSerperRequestBody(query.text, config.query);
-      const response = await gotClient.post(endpoint, {
-        json: requestBody,
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeaders,
-        },
-        timeout: config.timeoutMs ? { request: config.timeoutMs } : undefined,
-      });
-      rateLimiter.recordResponse(response.statusCode);
-      const raw = JSON.parse(response.body) as unknown;
-
-      const parsed = serperResponseSchema.safeParse(raw);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
-
-      const items =
-        config.query.type === "news"
-          ? (parsed.data.news ?? [])
-          : (parsed.data.organic ?? []);
-      return items;
-    };
-
-    const serpItems = config.retry
-      ? await withRetry(fetchTask, config.retry, isRetryableError)
-      : await fetchTask();
-
-    if (serpItems.length === 0) {
-      log.info({ queryId: query.id }, "web search: query returned no results");
+    if (hits.length === 0) {
       return [
         {
           success: false,
@@ -178,116 +148,96 @@ const searchOneQuery = async (
       ];
     }
 
-    const queryResults: WebSearchAttemptResult[] = [];
-    for (const [serpIndex, item] of serpItems.entries()) {
-      if (!item.link) {
-        continue;
-      }
-      queryResults.push({
-        success: true,
-        data: {
-          url: item.link,
-          title: item.title ?? "",
-          content: item.snippet ?? "",
-          tickerId: query.tickerId,
-          searchQueryId: query.id,
-          searchQueryText: query.text,
-          serpIndex,
-        },
-      });
-    }
-    return queryResults;
-  } catch (error) {
-    const classified = classifyError(error);
-    rateLimiter.recordResponse(classified.httpStatus);
-    log.warn(
-      {
-        queryId: query.id,
-        errorCategory: classified.category,
-        retryable: isRetryableError(error),
-        ...(classified.httpStatus !== undefined
-          ? { httpStatus: classified.httpStatus }
-          : {}),
+    return hits.map((hit, serpIndex) => ({
+      success: true,
+      data: {
+        url: hit.url,
+        title: hit.title,
+        content: hit.snippet,
+        tickerId: query.tickerId,
+        searchQueryId: query.id,
+        searchQueryText: query.text,
+        serpIndex,
       },
-      "web search: query failed",
+    }));
+  } catch (error) {
+    const failed = error instanceof AllProvidersFailed ? error : undefined;
+    const provider = failed?.errors[0]?.provider as
+      | DataCollectionFailure["provider"]
+      | undefined;
+    const message =
+      error instanceof Error ? error.message : "web search failed";
+    log.warn(
+      { queryId: query.id, gl: locale.gl, message },
+      "web search: all providers failed",
     );
+
     return [
       {
         success: false,
         queryId: query.id,
         queryText: query.text,
         tickerId: query.tickerId,
-        errorCategory: classified.category,
-        message: classified.message,
-        retryable: isRetryableError(error),
-        httpStatus: classified.httpStatus,
+        provider: provider ?? "serper",
+        errorCategory: "provider_http_error",
+        message,
+        retryable: true,
       },
     ];
   }
 };
 
 /**
- * Performs web search for each query using the configured provider.
- * Uses config-driven limits, retries, and yields partial success items.
+ * Performs web search for each query across every configured locale, using a
+ * round-robin provider pool with failover.
  *
  * @param queries - Search queries retrieved from the Agent Data API.
- * @param deps - Dependencies including runtime configuration and optional correlated `logger`.
- * @returns A list of web search attempt results.
+ * @param deps - Runtime configuration, locales, pagination, and shared cursor.
+ * @returns A flat list of web search attempt results across queries and locales.
  */
 export async function performWebSearch(
   queries: SearchQuery[],
   deps: WebSearchDeps,
 ): Promise<WebSearchAttemptResult[]> {
-  const { config, gotClient = got, logger: logOpt, throttleStats } = deps;
+  const { config, locales, gotClient = got, logger: logOpt } = deps;
   const log = logOpt ?? defaultLogger;
+  const page = deps.page ?? 0;
+  const cursor = deps.cursor ?? new RoundRobinCursor();
 
-  log.info({ queryCount: queries.length }, "web search: starting");
+  const providers: BuiltSearchProvider[] = config.map((entry) => ({
+    name: entry.provider,
+    provider: createSearchProvider(entry),
+  }));
 
-  try {
-    const hostname = new URL(config.baseUrl).hostname;
-    if (hostname === "r.jina.ai" || hostname.endsWith(".jina.ai")) {
-      log.warn(
-        {
-          baseUrl: config.baseUrl,
-          hint: "providers.search uses Serper-shaped POST { q }; Jina Reader belongs in providers.fetch.providers",
-        },
-        "data-collection search misconfiguration: Jina URL in providers.search.baseUrl",
-      );
+  log.info(
+    {
+      queryCount: queries.length,
+      localeCount: locales.length,
+      providers: providers.map((built) => built.name),
+      page,
+    },
+    "web search: starting",
+  );
+
+  const tasks: Array<{ query: SearchQuery; locale: SearchLocale }> = [];
+  for (const query of queries) {
+    for (const locale of locales) {
+      tasks.push({ query, locale });
     }
-  } catch {
-    // Invalid baseUrl: the HTTP client will fail with a clearer error.
   }
 
-  const rateLimiter = new RateLimiter(
-    config.rateLimit.requests,
-    config.rateLimit.perSeconds,
+  const perTaskResults = await pMap(
+    tasks,
+    (task) =>
+      searchOne(task.query, task.locale, {
+        providers,
+        page,
+        cursor,
+        gotClient,
+        log,
+      }),
+    { concurrency: 4 },
   );
 
-  const authHeaders: Record<string, string> = {};
-  if (config.authentication.apiKey && config.authentication.headerName) {
-    const prefix = config.authentication.type === "bearer" ? "Bearer " : "";
-    authHeaders[config.authentication.headerName] =
-      `${prefix}${config.authentication.apiKey}`;
-  }
-
-  const concurrency = resolveSearchConcurrency(config);
-  const sharedDeps = {
-    config,
-    gotClient,
-    log,
-    rateLimiter,
-    authHeaders,
-  };
-
-  const perQueryResults = await pMap(
-    queries,
-    (query) => searchOneQuery(query, sharedDeps),
-    { concurrency },
-  );
-
-  if (throttleStats) {
-    throttleStats.throttleEvents += rateLimiter.getThrottleEvents();
-  }
-
-  return perQueryResults.flat();
+  return perTaskResults.flat();
 }

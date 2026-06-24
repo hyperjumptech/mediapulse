@@ -1,44 +1,59 @@
 # Data collection agent
 
-Collects web sources for a ticker by running Serper search, fetching pages through an ordered provider chain, applying quality and relevance gates, and persisting results to the Agent Data API.
+Collects web sources for a ticker through one linear pipeline:
+
+```
+get queries → search → fetch → filter → save  (repeat until the daily target)
+```
+
+Search and fetch each run over a round-robin pool of providers (Serper, Tavily, Exa) with
+failover. The filter drops duplicates, thin content, and stale pages cheaply, then judges
+relevance with an LLM against the agent contract brief (falling back to keyword matching).
+Results are persisted to the Agent Data API.
 
 ## Configuration
 
-The agent config is grouped for the Hermes step form. An empty `{}` validates into the recommended end-to-end setup; override only the sections you need.
+An empty `{}` validates into the recommended end-to-end setup; override only what you need.
 
 ### Hermes variables
 
 Create these variables in Hermes so placeholder defaults resolve at run time:
 
-| Variable            | Used for                                  |
-| ------------------- | ----------------------------------------- |
-| `SERPER_API_KEY`    | Web search (`providers.search`)           |
-| `DIFFBOT_API_KEY`   | Primary fetch provider                    |
-| `FIRECRAWL_API_KEY` | Secondary fetch provider                  |
-| `JINA_API_KEY`      | Tertiary fetch provider                   |
-| `OPENAI_API_KEY`    | Semantic dedupe embeddings (when enabled) |
-| `EMBEDDING_MODEL`   | Embedding model name for semantic dedupe  |
+| Variable         | Used for                                        |
+| ---------------- | ----------------------------------------------- |
+| `SERPER_API_KEY` | Serper search and fetch provider                |
+| `TAVILY_API_KEY` | Tavily search and fetch provider                |
+| `EXA_API_KEY`    | Exa search and fetch provider                   |
+| `AI_API_KEY`     | LLM relevance filter (OpenAI-compatible key)    |
+| `AI_MODEL`       | LLM relevance filter model id                   |
+| `AI_BASE_URL`    | LLM relevance filter base URL (e.g. OpenRouter) |
 
-If a variable is missing, the literal `{{NAME}}` is passed through and the affected stage fails with a clear provider auth error.
+If a variable is missing, the literal `{{NAME}}` is passed through and the affected provider
+fails with a clear auth error.
 
-### Group overview
+### Sections
 
-1. **providers** — Serper search settings and the ordered fetch chain (`diffbot` → `firecrawl` → `jina` by default).
-2. **collection** — Daily target, refill rounds, and per-query/per-run fetch budgets.
-3. **gates** — Relevance and freshness filters before persistence.
-4. **resilience** — Dead-URL cache and per-host error breaker.
-5. **deduplication** — Optional semantic dedupe against recent corpus fingerprints.
-6. **runPolicy** — Minimum successful sources and zero-success failure behavior.
+1. **web_search** — round-robin search provider pool (`{ provider, apiKey }` entries).
+2. **web_search_locales** — `{ gl, hl }` locales the query fans out across. gl/hl steer Serper,
+   map to Tavily's country, and are ignored by Exa.
+3. **web_fetch** — round-robin fetch provider pool (`{ provider, apiKey }` entries).
+4. **relevance** — LLM filter credentials (`apiKey`, `model`, optional `baseUrl`).
+5. **collection** — `targetSavedSources` (default 15) and `maxRounds` (default 3) for the repeat loop.
+
+Freshness (7-day window), the dead-URL cache, and the per-host error breaker are always on with
+internal defaults and have no config knobs.
 
 ### Example
 
-Saving `{}` in Hermes runs the recommended pipeline. To tighten only the run budget:
+Saving `{}` runs the recommended pipeline. To search an extra country and lower the daily target:
 
 ```json
 {
-  "collection": {
-    "perRunFetchBudget": 20
-  }
+  "web_search_locales": [
+    { "gl": "id", "hl": "id" },
+    { "gl": "us", "hl": "en" }
+  ],
+  "collection": { "targetSavedSources": 8 }
 }
 ```
 
@@ -46,4 +61,6 @@ See `config.example.jsonc` for the full default shape with placeholders.
 
 ### Breaking change
 
-The previous flat config keys (`webSearch`, `webFetch`, top-level gate fields, and so on) are no longer accepted. Stale stored configs with unknown keys are stripped by Zod and fall back to defaults; re-enter any custom tuning in the grouped form.
+The previous config surface (`providers`, `gates`, `resilience`, `runPolicy`, per-provider transport
+knobs) is no longer accepted. Stored configs must be re-saved against the new schema; unknown keys are
+stripped by Zod and fall back to defaults.

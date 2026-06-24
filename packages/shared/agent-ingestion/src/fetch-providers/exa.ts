@@ -1,0 +1,96 @@
+import { z } from "zod";
+
+import { withRetry } from "../resilience";
+import { isRetryableError } from "../error-classification";
+
+import type {
+  FetchProvider,
+  FetchProviderConfig,
+  NormalizedFetchData,
+  ProviderRequestContext,
+} from "./types";
+
+/** Zod schema for the Exa contents API response. */
+const exaResponseSchema = z.object({
+  results: z
+    .array(
+      z.object({
+        text: z.string().optional(),
+        title: z.string().optional(),
+        publishedDate: z.string().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * Parses and validates an Exa contents response body into plain text content.
+ *
+ * @param raw - Parsed JSON body from the HTTP response.
+ */
+const parseExaResponse = (raw: unknown): NormalizedFetchData => {
+  const parsed = exaResponseSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw parsed.error;
+  }
+
+  const result = parsed.data.results?.[0];
+  const content = result?.text;
+  if (!content || content.trim() === "") {
+    throw new Error("Semantic validation failed");
+  }
+
+  return {
+    content,
+    ...(result.title ? { title: result.title } : {}),
+    ...(result.publishedDate ? { publishedTime: result.publishedDate } : {}),
+  };
+};
+
+/**
+ * Executes one Exa contents request for a URL.
+ *
+ * @param url - Target page URL.
+ * @param config - Exa provider configuration.
+ * @param ctx - Shared request context.
+ */
+const fetchOneExa = async (
+  url: string,
+  config: FetchProviderConfig,
+  ctx: ProviderRequestContext,
+): Promise<NormalizedFetchData> => {
+  await ctx.rateLimiter.acquire();
+
+  const fetchTask = async () => {
+    const response = await ctx.gotClient.post(config.baseUrl, {
+      json: { urls: [url], text: true },
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...(config.authentication.apiKey
+          ? { "x-api-key": config.authentication.apiKey }
+          : {}),
+      },
+      timeout: config.timeoutMs ? { request: config.timeoutMs } : undefined,
+    });
+    ctx.rateLimiter.recordResponse(response.statusCode);
+    const raw = JSON.parse(response.body) as unknown;
+    return parseExaResponse(raw);
+  };
+
+  return config.retry
+    ? await withRetry(fetchTask, config.retry, isRetryableError)
+    : await fetchTask();
+};
+
+/**
+ * Creates an Exa contents fetch provider adapter.
+ *
+ * @param config - Exa provider configuration.
+ */
+export const createExaFetchProvider = (
+  config: FetchProviderConfig,
+): FetchProvider => ({
+  type: "exa",
+  fetchOne: (url, ctx) => fetchOneExa(url, config, ctx),
+});

@@ -43,78 +43,36 @@ const longOffTopicArticle = (lead: string): string =>
   ].join(" ");
 
 const baseConfig = dataCollectionAgentConfigSchema.parse({
-  providers: {
-    search: {
-      baseUrl: "https://search.example",
-      authentication: { type: "bearer" },
-      rateLimit: { requests: 1, perSeconds: 1 },
-      concurrency: 4,
-    },
-    fetch: {
-      providers: [
-        {
-          type: "jina",
-          baseUrl: "https://fetch.example",
-          authentication: { type: "bearer" },
-          rateLimit: { requests: 1, perSeconds: 1 },
-          concurrency: 4,
-        },
-      ],
-    },
+  web_search: [{ provider: "serper", apiKey: "serper-key" }],
+  web_search_locales: [{ gl: "id", hl: "id" }],
+  web_fetch: [{ provider: "serper", apiKey: "serper-key" }],
+  relevance: {
+    apiKey: "ai-key",
+    model: "test-model",
+    baseUrl: "https://ai.example",
   },
   collection: {
-    targetDailySuccessfulSources: 1,
-    maxRefillRounds: 3,
-  },
-  runPolicy: {
-    minSuccessfulSources: 1,
-    failOnZeroSuccess: true,
+    targetSavedSources: 1,
+    maxRounds: 3,
   },
 });
 
 /**
- * Merges grouped config overrides onto the shared run test baseline.
+ * Merges collection config overrides onto the shared run test baseline.
  *
- * @param overrides - Partial grouped config fields to override.
+ * @param overrides - Partial collection config fields to override.
  */
 const withTestConfig = (
   overrides: {
     collection?: Partial<ConfigSchemaType["collection"]>;
-    runPolicy?: Partial<ConfigSchemaType["runPolicy"]>;
-    gates?: {
-      relevance?: Partial<ConfigSchemaType["gates"]["relevance"]>;
-      freshness?: Partial<ConfigSchemaType["gates"]["freshness"]>;
-    };
-    providers?: Partial<ConfigSchemaType["providers"]>;
   } = {},
 ): ConfigSchemaType =>
   dataCollectionAgentConfigSchema.parse({
-    providers: {
-      ...baseConfig.providers,
-      ...overrides.providers,
-      search: {
-        ...baseConfig.providers.search,
-        ...overrides.providers?.search,
-      },
-      fetch: {
-        ...baseConfig.providers.fetch,
-        ...overrides.providers?.fetch,
-      },
-    },
+    web_search: baseConfig.web_search,
+    web_search_locales: baseConfig.web_search_locales,
+    web_fetch: baseConfig.web_fetch,
+    relevance: baseConfig.relevance,
     collection: { ...baseConfig.collection, ...overrides.collection },
-    gates: {
-      ...baseConfig.gates,
-      relevance: {
-        ...baseConfig.gates.relevance,
-        ...overrides.gates?.relevance,
-      },
-      freshness: {
-        ...baseConfig.gates.freshness,
-        ...overrides.gates?.freshness,
-      },
-    },
-    runPolicy: { ...baseConfig.runPolicy, ...overrides.runPolicy },
-    resilience: baseConfig.resilience,
   });
 
 const searchSuccessPage = {
@@ -335,7 +293,7 @@ describe("runDataCollection", () => {
           fetchSuccess: 1,
           refill: {
             roundsExecuted: 1,
-            targetDailySuccessfulSources: 1,
+            targetSavedSources: 1,
             existingTodaySourceCount: 0,
             effectiveTodayCount: 1,
             stopReason: "daily_target_met",
@@ -384,12 +342,7 @@ describe("runDataCollection", () => {
 
     const result = await runDataCollection(
       createContext({
-        config: withTestConfig({
-          runPolicy: {
-            minSuccessfulSources: 0,
-            failOnZeroSuccess: false,
-          },
-        }),
+        config: withTestConfig(),
       }),
     );
 
@@ -418,12 +371,7 @@ describe("runDataCollection", () => {
 
     const result = await runDataCollection(
       createContext({
-        config: withTestConfig({
-          runPolicy: {
-            minSuccessfulSources: 0,
-            failOnZeroSuccess: false,
-          },
-        }),
+        config: withTestConfig(),
       }),
     );
 
@@ -465,12 +413,7 @@ describe("runDataCollection", () => {
 
     await runDataCollection(
       createContext({
-        config: withTestConfig({
-          runPolicy: {
-            minSuccessfulSources: 0,
-            failOnZeroSuccess: false,
-          },
-        }),
+        config: withTestConfig(),
       }),
     );
 
@@ -544,12 +487,7 @@ describe("runDataCollection", () => {
 
       const result = await runDataCollection(
         createContext({
-          config: withTestConfig({
-            runPolicy: {
-              minSuccessfulSources: 0,
-              failOnZeroSuccess: false,
-            },
-          }),
+          config: withTestConfig(),
         }),
       );
 
@@ -581,12 +519,7 @@ describe("runDataCollection", () => {
     // Act
     await runDataCollection(
       createContext({
-        config: withTestConfig({
-          runPolicy: {
-            minSuccessfulSources: 0,
-            failOnZeroSuccess: false,
-          },
-        }),
+        config: withTestConfig(),
       }),
     );
 
@@ -616,12 +549,7 @@ describe("runDataCollection", () => {
     // Act
     const result = await runDataCollection(
       createContext({
-        config: withTestConfig({
-          runPolicy: {
-            minSuccessfulSources: 0,
-            failOnZeroSuccess: false,
-          },
-        }),
+        config: withTestConfig(),
       }),
     );
 
@@ -648,95 +576,36 @@ describe("runDataCollection", () => {
     );
   });
 
-  it("returns semantic failure when run policy requires successes but none were collected", async () => {
-    // Setup
-    vi.mocked(performWebSearch).mockResolvedValueOnce([]);
-    vi.mocked(performWebFetch).mockImplementationOnce(fetchYielding([]));
+  it("reports a successful run with zero sources when search and fetch are empty", async () => {
+    // Setup — the internal run policy does not fail on zero success.
+    vi.mocked(performWebSearch).mockResolvedValue([]);
+    vi.mocked(performWebFetch).mockImplementation(fetchYielding([]));
 
     // Act
     const result = await runDataCollection(createContext());
 
-    // Assert — Hermes maps `success: false` to HTTP 200 + failure envelope (not 500), so pipeline UIs get the message
+    // Assert
     expect(result).toMatchObject({
-      success: false,
-      message:
-        "Data collection run failed: no sources were successfully collected, but the run policy requires at least 1 successful source.",
+      success: true,
       details: {
         summary: {
           totalSources: 0,
-          status: "failed",
+          status: "success",
           searchSuccess: 0,
           fetchSuccess: 0,
-          refill: {
-            roundsExecuted: 1,
-          },
         },
-        failureReason: "insufficient_successful_sources",
-        requiredSuccessfulSources: 1,
-        collectedSuccessfulSources: 0,
       },
     });
     expect(runCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        status: "failed",
+        status: "success",
       }),
     );
   });
 
-  it("returns semantic failure when collected sources are below the policy minimum (non-zero)", async () => {
+  it("drops noisy quote URLs before fetch and persists nothing", async () => {
     // Setup
-    vi.mocked(performWebSearch).mockResolvedValueOnce([
-      {
-        success: true,
-        data: searchSuccessPage,
-      },
-    ]);
-    vi.mocked(performWebFetch).mockImplementationOnce(
-      fetchYielding([
-        mockFetchSuccess({
-          ...searchSuccessPage,
-          content: validArticleContent,
-        }),
-      ]),
-    );
-
-    // Act
-    const result = await runDataCollection(
-      createContext({
-        config: withTestConfig({
-          runPolicy: {
-            minSuccessfulSources: 2,
-            failOnZeroSuccess: true,
-          },
-        }),
-      }),
-    );
-
-    // Assert
-    expect(result).toMatchObject({
-      success: false,
-      message:
-        "Data collection run failed: only 1 successful source collected, but the run policy requires at least 2.",
-      details: {
-        summary: {
-          totalSources: 1,
-          status: "failed",
-          searchSuccess: 1,
-          fetchSuccess: 1,
-          refill: {
-            roundsExecuted: 1,
-          },
-        },
-        failureReason: "insufficient_successful_sources",
-        requiredSuccessfulSources: 2,
-        collectedSuccessfulSources: 1,
-      },
-    });
-  });
-
-  it("drops noisy quote URLs before fetch and treats run as semantic failure when none remain", async () => {
-    // Setup
-    vi.mocked(performWebSearch).mockResolvedValueOnce([
+    vi.mocked(performWebSearch).mockResolvedValue([
       {
         success: true,
         data: {
@@ -745,14 +614,15 @@ describe("runDataCollection", () => {
         },
       },
     ]);
-    vi.mocked(performWebFetch).mockImplementationOnce(fetchYielding([]));
+    vi.mocked(performWebFetch).mockImplementation(fetchYielding([]));
 
     // Act
     const result = await runDataCollection(createContext());
 
     // Assert
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
     expect(performWebFetch).toHaveBeenCalledWith([], expect.anything());
+    expect(createMock).not.toHaveBeenCalled();
   });
 
   it("drops off-topic, quality-gated, and clean pages with separate counters", async () => {
@@ -813,9 +683,7 @@ describe("runDataCollection", () => {
     // Act
     const result = await runDataCollection(
       createContext({
-        config: withTestConfig({
-          runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
-        }),
+        config: withTestConfig(),
       }),
     );
 
@@ -916,9 +784,7 @@ describe("runDataCollection", () => {
     // Act
     const result = await runDataCollection(
       createContext({
-        config: withTestConfig({
-          runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
-        }),
+        config: withTestConfig(),
       }),
     );
 
@@ -974,7 +840,7 @@ describe("runDataCollection", () => {
     const result = await runDataCollection(createContext());
 
     // Assert
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
     expect(createMock).not.toHaveBeenCalled();
   });
 
@@ -996,9 +862,7 @@ describe("runDataCollection", () => {
     // Act
     const result = await runDataCollection(
       createContext({
-        config: withTestConfig({
-          runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
-        }),
+        config: withTestConfig(),
       }),
     );
 
@@ -1049,8 +913,8 @@ describe("runDataCollection", () => {
       createContext({
         config: withTestConfig({
           collection: {
-            targetDailySuccessfulSources: 2,
-            maxRefillRounds: 3,
+            targetSavedSources: 2,
+            maxRounds: 3,
           },
         }),
       }),
@@ -1075,8 +939,7 @@ describe("runDataCollection", () => {
     const result = await runDataCollection(
       createContext({
         config: withTestConfig({
-          collection: { targetDailySuccessfulSources: 5 },
-          runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
+          collection: { targetSavedSources: 5 },
         }),
       }),
     );
@@ -1112,16 +975,15 @@ describe("runDataCollection", () => {
       createContext({
         config: withTestConfig({
           collection: {
-            targetDailySuccessfulSources: 10,
-            maxRefillRounds: 3,
+            targetSavedSources: 10,
+            maxRounds: 3,
           },
-          runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
         }),
       }),
     );
 
     // Assert
-    expect(performWebSearch).toHaveBeenCalledTimes(4);
+    expect(performWebSearch).toHaveBeenCalledTimes(3);
     expect(
       (result.details?.summary as { refill?: { stopReason: string } }).refill
         ?.stopReason,
@@ -1161,9 +1023,7 @@ describe("runDataCollection", () => {
     // Act
     await runDataCollection(
       createContext({
-        config: withTestConfig({
-          runPolicy: { minSuccessfulSources: 0, failOnZeroSuccess: false },
-        }),
+        config: withTestConfig(),
       }),
     );
 

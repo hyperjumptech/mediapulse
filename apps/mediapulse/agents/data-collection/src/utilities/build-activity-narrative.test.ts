@@ -124,7 +124,7 @@ describe("narrativeRunComplete", () => {
       failureCount: 0,
       stopReason: null,
       roundsExecuted: 1,
-      targetDailySuccessfulSources: 5,
+      targetSavedSources: 5,
     });
     expect(description).toContain("BUVA");
     expect(description).toContain("5 new sources");
@@ -141,7 +141,7 @@ describe("narrativeRunComplete", () => {
       failureCount: 0,
       stopReason: null,
       roundsExecuted: 1,
-      targetDailySuccessfulSources: 5,
+      targetSavedSources: 5,
     });
     expect(description).toContain("No new sources");
   });
@@ -156,7 +156,7 @@ describe("narrativeRunComplete", () => {
       failureCount: 0,
       stopReason: "daily_target_met",
       roundsExecuted: 1,
-      targetDailySuccessfulSources: 10,
+      targetSavedSources: 10,
     });
     expect(description).toContain("10");
   });
@@ -171,7 +171,7 @@ describe("narrativeRunComplete", () => {
       failureCount: 2,
       stopReason: null,
       roundsExecuted: 1,
-      targetDailySuccessfulSources: 5,
+      targetSavedSources: 5,
     });
     expect(title).toBe("Collection failed");
   });
@@ -186,7 +186,7 @@ describe("narrativeRunComplete", () => {
       failureCount: 0,
       stopReason: null,
       roundsExecuted: 2,
-      targetDailySuccessfulSources: 5,
+      targetSavedSources: 5,
     });
     expect(title).not.toMatch(UUID_PATTERN);
     expect(description).not.toMatch(UUID_PATTERN);

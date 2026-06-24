@@ -266,7 +266,7 @@ describe("performWebFetch", () => {
     expect(getMock).not.toHaveBeenCalled();
   });
 
-  it("uses separate rate limiters per provider", async () => {
+  it("rotates the starting provider per URL via round-robin", async () => {
     // Setup
     const acquireCounts = { jina: 0, firecrawl: 0 };
     const postMock = vi.fn().mockImplementation((url: string) => {
@@ -296,8 +296,9 @@ describe("performWebFetch", () => {
       gotClient: fakeGot,
     });
 
-    // Assert — both providers were invoked once per URL through their own limiters
-    expect(acquireCounts.jina).toBe(2);
+    // Assert — URL 0 starts at jina (fails, falls back to firecrawl); URL 1
+    // starts at firecrawl (succeeds immediately), so jina is hit once.
+    expect(acquireCounts.jina).toBe(1);
     expect(acquireCounts.firecrawl).toBe(2);
   });
 

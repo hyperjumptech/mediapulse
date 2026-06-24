@@ -11,23 +11,14 @@ vi.mock("@workspace/logger", () => ({
 }));
 
 import { type SearchQuery, performWebSearch } from "./web-search";
+import type { WebSearchConfig, SearchLocale } from "./config-schema";
 
-const defaultConfig = {
-  baseUrl: "https://google.serper.dev/search",
-  query: {
-    country: "id",
-    language: "auto" as const,
-    dateRange: "past_week" as const,
-    type: "news" as const,
-  },
-  authentication: {
-    type: "none" as const,
-    apiKey: "serper-key",
-    headerName: "X-API-KEY",
-  },
-  rateLimit: { requests: 2, perSeconds: 1 },
-  concurrency: 4,
-};
+/** A single Serper provider pool used by most cases. */
+const defaultConfig: WebSearchConfig = [
+  { provider: "serper", apiKey: "serper-key" },
+];
+
+const defaultLocales: SearchLocale[] = [{ gl: "id", hl: "id" }];
 
 /** Builds a got POST response stub with HTTP status metadata. */
 const mockGotPostResponse = (jsonValue: unknown, statusCode = 200) => ({
@@ -45,43 +36,11 @@ describe("performWebSearch", () => {
     // Act
     const result = await performWebSearch([], {
       config: defaultConfig,
+      locales: defaultLocales,
     });
 
     // Assert
     expect(result).toEqual([]);
-  });
-
-  it("warns when webSearch.baseUrl is Jina (expects Serper for { q } POSTs)", async () => {
-    const warnMock = vi.fn();
-    const infoMock = vi.fn();
-    const postMock = vi.fn().mockReturnValue(
-      mockGotPostResponse({
-        organic: [{ link: "https://a.com", title: "t", snippet: "s" }],
-      }),
-    );
-    const fakeGot = { post: postMock } as unknown as typeof got;
-
-    await performWebSearch([{ id: "q1", text: "x", tickerId: "t-1" }], {
-      config: {
-        ...defaultConfig,
-        baseUrl: "https://r.jina.ai/",
-        authentication: {
-          type: "bearer",
-          apiKey: "k",
-          headerName: "Authorization",
-        },
-      },
-      gotClient: fakeGot,
-      logger: { info: infoMock, warn: warnMock },
-    });
-
-    expect(warnMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        baseUrl: "https://r.jina.ai/",
-        hint: expect.stringContaining("providers.fetch"),
-      }),
-      expect.stringContaining("misconfiguration"),
-    );
   });
 
   it("calls Serper news with Indonesia defaults and maps the first result", async () => {
@@ -106,6 +65,7 @@ describe("performWebSearch", () => {
     // Act
     const result = await performWebSearch(queries, {
       config: defaultConfig,
+      locales: defaultLocales,
       gotClient: fakeGot,
     });
 
@@ -113,12 +73,12 @@ describe("performWebSearch", () => {
     expect(postMock).toHaveBeenCalledWith(
       "https://google.serper.dev/news",
       expect.objectContaining({
-        json: {
+        json: expect.objectContaining({
           q: "search",
           gl: "id",
-          type: "news",
+          hl: "id",
           tbs: "qdr:w",
-        },
+        }),
         headers: expect.objectContaining({
           "X-API-KEY": "serper-key",
         }),
@@ -144,7 +104,7 @@ describe("performWebSearch", () => {
     // Setup
     const postMock = vi.fn().mockReturnValue(
       mockGotPostResponse({
-        organic: "not-an-array",
+        news: "not-an-array",
       }),
     );
 
@@ -156,6 +116,7 @@ describe("performWebSearch", () => {
     // Act
     const result = await performWebSearch(queries, {
       config: defaultConfig,
+      locales: defaultLocales,
       gotClient: fakeGot,
     });
 
@@ -165,7 +126,6 @@ describe("performWebSearch", () => {
       success: false,
       queryId: "q1",
       tickerId: "ticker-1",
-      errorCategory: "provider_schema_error",
     });
   });
 
@@ -175,7 +135,7 @@ describe("performWebSearch", () => {
     const infoMock = vi.fn();
     const postMock = vi.fn().mockReturnValue(
       mockGotPostResponse({
-        organic: "not-an-array",
+        news: "not-an-array",
       }),
     );
 
@@ -187,6 +147,7 @@ describe("performWebSearch", () => {
     // Act
     await performWebSearch(queries, {
       config: defaultConfig,
+      locales: defaultLocales,
       gotClient: fakeGot,
       logger: { info: infoMock, warn: warnMock },
     });
@@ -195,9 +156,8 @@ describe("performWebSearch", () => {
     expect(warnMock).toHaveBeenCalledWith(
       expect.objectContaining({
         queryId: "q1",
-        errorCategory: "provider_schema_error",
       }),
-      "web search: query failed",
+      "web search: all providers failed",
     );
   });
 });

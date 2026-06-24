@@ -1,110 +1,39 @@
 {
-  // Empty config — Hermes resolves {{NAME}} placeholders from Variables.
-  // Override only the groups or fields you want to change.
+  // Empty config ({}) runs the full pipeline with these defaults.
+  // Hermes resolves {{NAME}} placeholders from Variables.
+  // Override only the sections or fields you want to change.
 
-  "providers": {
-    "search": {
-      "baseUrl": "https://google.serper.dev/search",
-      "query": {
-        "country": "id",
-        "language": "auto",
-        "dateRange": "past_week",
-        "type": "news",
-      },
-      "authentication": {
-        "type": "none",
-        "apiKey": "{{SERPER_API_KEY}}",
-        "headerName": "X-API-KEY",
-      },
-      "rateLimit": { "requests": 100, "perSeconds": 60 },
-      "concurrency": 2,
-      "timeoutMs": 30000,
-    },
-    "fetch": {
-      "providers": [
-        {
-          "type": "diffbot",
-          "baseUrl": "https://api.diffbot.com",
-          "authentication": {
-            "type": "none",
-            "apiKey": "{{DIFFBOT_API_KEY}}",
-          },
-          "rateLimit": { "requests": 1, "perSeconds": 1 },
-          "concurrency": 1,
-          "timeoutMs": 45000,
-          "retry": {
-            "maxAttempts": 1,
-            "baseDelayMs": 1000,
-            "maxDelayMs": 10000,
-          },
-        },
-        {
-          "type": "firecrawl",
-          "baseUrl": "https://api.firecrawl.dev",
-          "authentication": {
-            "type": "bearer",
-            "apiKey": "{{FIRECRAWL_API_KEY}}",
-            "headerName": "Authorization",
-          },
-          "rateLimit": { "requests": 1, "perSeconds": 1 },
-          "concurrency": 1,
-          "timeoutMs": 45000,
-        },
-        {
-          "type": "jina",
-          "baseUrl": "https://r.jina.ai/",
-          "authentication": {
-            "type": "bearer",
-            "apiKey": "{{JINA_API_KEY}}",
-            "headerName": "Authorization",
-          },
-          "rateLimit": { "requests": 2, "perSeconds": 1 },
-          "concurrency": 1,
-          "timeoutMs": 45000,
-        },
-      ],
-    },
+  // Web-search provider pool. Each query rotates the starting provider
+  // (round-robin) and falls back to the rest on failure.
+  "web_search": [
+    { "provider": "serper", "apiKey": "{{SERPER_API_KEY}}" },
+    { "provider": "tavily", "apiKey": "{{TAVILY_API_KEY}}" },
+    { "provider": "exa", "apiKey": "{{EXA_API_KEY}}" },
+  ],
+
+  // Search localization. Each query fans out once per locale; results merge
+  // and dedup before fetch. gl/hl steer Serper; Exa ignores locale.
+  "web_search_locales": [{ "gl": "id", "hl": "id" }],
+
+  // Web-fetch provider pool. Same round-robin + failover behavior.
+  "web_fetch": [
+    { "provider": "serper", "apiKey": "{{SERPER_API_KEY}}" },
+    { "provider": "tavily", "apiKey": "{{TAVILY_API_KEY}}" },
+    { "provider": "exa", "apiKey": "{{EXA_API_KEY}}" },
+  ],
+
+  // LLM relevance filter (OpenAI-compatible). Judges each fetched page against
+  // the agent contract brief; falls back to keyword matching on error.
+  "relevance": {
+    "apiKey": "{{AI_API_KEY}}",
+    "model": "{{AI_MODEL}}",
+    "baseUrl": "{{AI_BASE_URL}}",
   },
+
+  // Repeat-loop targets: keep collecting until the ticker has this many saved
+  // sources today, or maxRounds is reached.
   "collection": {
-    "targetDailySuccessfulSources": 5,
-    "maxRefillRounds": 3,
-    "perQueryFetchBudget": 5,
-    "perRunFetchBudget": 40,
-  },
-  "gates": {
-    "relevance": {
-      "enabled": true,
-      "headChars": 3000,
-      "minMatches": 1,
-    },
-    "freshness": {
-      "enabled": true,
-      "maxAgeDays": 14,
-      "allowUnknown": true,
-    },
-  },
-  "resilience": {
-    "deadUrlCache": {
-      "enabled": true,
-      "skipLookupBatchSize": 50,
-    },
-    "hostErrorBreaker": {
-      "enabled": true,
-      "minAttempts": 5,
-      "errorRateThreshold": 0.5,
-    },
-  },
-  "deduplication": {
-    "semantic": {
-      "enabled": false,
-      "threshold": 0.88,
-      "windowDays": 7,
-      "embeddingModel": "{{EMBEDDING_MODEL}}",
-    },
-    "openaiApiKey": "{{OPENAI_API_KEY}}",
-  },
-  "runPolicy": {
-    "minSuccessfulSources": 1,
-    "failOnZeroSuccess": false,
+    "targetSavedSources": 15,
+    "maxRounds": 3,
   },
 }
