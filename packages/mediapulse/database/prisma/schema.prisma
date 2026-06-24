@@ -628,6 +628,8 @@ enum DataCollectionProvider {
   jina
   firecrawl
   diffbot
+  tavily
+  exa
 }
 
 enum DataCollectionErrorCategory {
