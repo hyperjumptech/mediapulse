@@ -52,6 +52,9 @@ describe("dataCollectionAgentConfigSchema", () => {
       "serper",
       "tavily",
       "exa",
+      "diffbot",
+      "firecrawl",
+      "jina",
     ]);
     expect(parsed.web_search_locales).toEqual([{ gl: "id", hl: "id" }]);
     expect(parsed.relevance).toEqual({
@@ -80,7 +83,7 @@ describe("dataCollectionAgentConfigSchema", () => {
 
     expect(parsed.collection.maxRounds).toBe(5);
     expect(parsed.collection.targetSavedSources).toBe(15);
-    expect(parsed.web_fetch).toHaveLength(3);
+    expect(parsed.web_fetch).toHaveLength(6);
   });
 
   it("accepts a custom provider pool", () => {
@@ -101,6 +104,30 @@ describe("dataCollectionAgentConfigSchema", () => {
     ).toThrow();
     expect(() =>
       dataCollectionAgentConfigSchema.parse({ web_fetch: [] }),
+    ).toThrow();
+  });
+
+  it("accepts the fetch-only providers in web_fetch", () => {
+    const parsed = dataCollectionAgentConfigSchema.parse({
+      web_fetch: [
+        { provider: "diffbot", apiKey: "diff-key" },
+        { provider: "firecrawl", apiKey: "fire-key" },
+        { provider: "jina", apiKey: "jina-key" },
+      ],
+    });
+
+    expect(parsed.web_fetch.map((entry) => entry.provider)).toEqual([
+      "diffbot",
+      "firecrawl",
+      "jina",
+    ]);
+  });
+
+  it("rejects fetch-only providers in web_search", () => {
+    expect(() =>
+      dataCollectionAgentConfigSchema.parse({
+        web_search: [{ provider: "jina", apiKey: "k" }],
+      }),
     ).toThrow();
   });
 
