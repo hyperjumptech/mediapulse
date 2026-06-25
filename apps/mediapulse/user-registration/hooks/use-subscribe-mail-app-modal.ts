@@ -145,6 +145,13 @@ export const useSubscribeMailAppModal = ({
   };
 
   /**
+   * Opens the email confirmation modal when the mail-app path did not launch.
+   */
+  const openEmailConfirmationFallback = () => {
+    setConfirmEmailOpen(true);
+  };
+
+  /**
    * Sends the confirmation email via the server route.
    */
   const handleSendConfirmationEmail = async () => {
@@ -192,6 +199,7 @@ export const useSubscribeMailAppModal = ({
     handleSelectOutlook,
     handleSelectNativeMail,
     handleSelectOther,
+    openEmailConfirmationFallback,
     handleSendConfirmationEmail,
     resetSubscribeModals,
   };

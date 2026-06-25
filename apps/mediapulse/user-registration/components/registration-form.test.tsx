@@ -109,7 +109,9 @@ describe("RegistrationForm", () => {
 
     expect(vi.mocked(openMailClientUrl)).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/Almost done/i)).toBeInTheDocument();
-    expect(screen.getByText(/Send/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/on the draft in your email app to subscribe/i),
+    ).toBeInTheDocument();
   });
 
   it("shows spam/junk reassurance text after mail-app submit", async () => {
@@ -122,6 +124,36 @@ describe("RegistrationForm", () => {
     expect(screen.getByText(/spam|junk/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Download contact card/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows email fallback when the mail app did not open", async () => {
+    const user = userEvent.setup();
+    render(<RegistrationForm tickers={sampleTickers} />);
+
+    await fillAndSubmitForm(user);
+    await user.click(screen.getByRole("button", { name: /Apple Mail/i }));
+
+    expect(
+      screen.getByText(/If your email app did not open/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Send confirmation email/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the confirmation email modal from the mail-app fallback", async () => {
+    const user = userEvent.setup();
+    render(<RegistrationForm tickers={sampleTickers} />);
+
+    await fillAndSubmitForm(user);
+    await user.click(screen.getByRole("button", { name: /Apple Mail/i }));
+    await user.click(
+      screen.getByRole("button", { name: /Send confirmation email/i }),
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: /Confirm by email/i }),
     ).toBeInTheDocument();
   });
 

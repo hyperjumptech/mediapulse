@@ -78,6 +78,7 @@ const RegistrationForm = ({ tickers }: Props) => {
     handleSelectOutlook,
     handleSelectNativeMail,
     handleSelectOther,
+    openEmailConfirmationFallback,
     handleSendConfirmationEmail,
   } = useRegistrationForm(tickers);
 
@@ -104,30 +105,59 @@ const RegistrationForm = ({ tickers }: Props) => {
     }
 
     return (
-      <div className="flex flex-col items-center gap-6 text-center">
-        <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Mail className="size-8" aria-hidden />
-        </div>
-        <div className="space-y-1">
-          <h1 className="text-xl font-bold">Almost done</h1>
-          <p className="text-sm text-muted-foreground">
-            Tap <strong>Send</strong> on the draft in your email app to
-            subscribe for <strong>{selectedTicker?.KodeEmiten}</strong>.
-          </p>
-        </div>
-        <div className="w-full rounded-lg border bg-muted/30 px-4 py-3 space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Save MediaPulse to your contacts so newsletters land in your inbox,
-            not spam or junk.
-          </p>
-          <Button variant="outline" className="w-full" onClick={downloadVCard}>
-            Download contact card
+      <>
+        <div className="flex flex-col items-center gap-6 text-center">
+          <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Mail className="size-8" aria-hidden />
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-xl font-bold">Almost done</h1>
+            <p className="text-sm text-muted-foreground">
+              Tap <strong>Send</strong> on the draft in your email app to
+              subscribe for <strong>{selectedTicker?.KodeEmiten}</strong>.
+            </p>
+          </div>
+          <div className="w-full rounded-lg border bg-muted/30 px-4 py-3 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Save MediaPulse to your contacts so newsletters land in your
+              inbox, not spam or junk.
+            </p>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={downloadVCard}
+            >
+              Download contact card
+            </Button>
+          </div>
+          <div className="w-full rounded-lg border border-dashed px-4 py-3 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              If your email app did not open, enter your email address and
+              MediaPulse will send you a confirmation link instead.
+            </p>
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={openEmailConfirmationFallback}
+            >
+              Send confirmation email
+            </Button>
+          </div>
+          <Button variant="ghost" size="sm" onClick={resetForm}>
+            Subscribe to another ticker
           </Button>
         </div>
-        <Button variant="ghost" size="sm" onClick={resetForm}>
-          Subscribe to another ticker
-        </Button>
-      </div>
+
+        <SendConfirmationEmailModal
+          open={confirmEmailOpen}
+          onOpenChange={setConfirmEmailOpen}
+          email={modalConfirmationEmail}
+          onEmailChange={setConfirmationEmail}
+          onSendEmail={handleSendConfirmationEmail}
+          sending={sendingEmail}
+          tickerSymbol={selectedTicker?.KodeEmiten}
+        />
+      </>
     );
   }
 

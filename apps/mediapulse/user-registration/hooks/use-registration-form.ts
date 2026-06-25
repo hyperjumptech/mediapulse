@@ -55,6 +55,7 @@ export const useRegistrationForm = (tickers: Ticker[]) => {
     handleSelectOutlook,
     handleSelectNativeMail,
     handleSelectOther,
+    openEmailConfirmationFallback,
     handleSendConfirmationEmail,
     resetSubscribeModals,
   } = useSubscribeMailAppModal({
@@ -154,6 +155,7 @@ export const useRegistrationForm = (tickers: Ticker[]) => {
     handleSelectOutlook,
     handleSelectNativeMail,
     handleSelectOther,
+    openEmailConfirmationFallback,
     handleSendConfirmationEmail,
   };
 };

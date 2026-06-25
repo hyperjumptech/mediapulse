@@ -97,6 +97,27 @@ describe("useRegistrationForm", () => {
     expect(result.current.submissionMode).toBe("mailto");
   });
 
+  it("opens email confirmation fallback from mail-app submit state", () => {
+    const { result } = renderHook(() => useRegistrationForm(sampleTickers));
+
+    act(() => {
+      result.current.setName("Test User");
+      result.current.handleTickerSelect(sampleTickers[1]!);
+    });
+
+    act(() => {
+      result.current.handleSelectNativeMail();
+    });
+
+    act(() => {
+      result.current.openEmailConfirmationFallback();
+    });
+
+    expect(result.current.confirmEmailOpen).toBe(true);
+    expect(result.current.submitted).toBe(true);
+    expect(result.current.submissionMode).toBe("mailto");
+  });
+
   it("keeps name and language when resetForm is called after submit", () => {
     const { result } = renderHook(() => useRegistrationForm(sampleTickers));
 
