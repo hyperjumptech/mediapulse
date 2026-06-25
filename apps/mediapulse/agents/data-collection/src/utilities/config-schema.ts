@@ -1,12 +1,24 @@
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
-/** Web providers that support both search and fetch in this agent. */
+/** Web providers that support search. Search adapters exist only for these. */
 export const providerNameSchema = z.enum(["serper", "tavily", "exa"]);
 
 export type ProviderName = z.infer<typeof providerNameSchema>;
 
-/** A single provider entry: the operator only picks a provider and pastes an API key. */
+/** Web providers usable for fetch. Diffbot, Firecrawl, and Jina are fetch-only. */
+export const fetchProviderNameSchema = z.enum([
+  "serper",
+  "tavily",
+  "exa",
+  "diffbot",
+  "firecrawl",
+  "jina",
+]);
+
+export type FetchProviderName = z.infer<typeof fetchProviderNameSchema>;
+
+/** A single search provider entry: the operator only picks a provider and pastes an API key. */
 const providerEntrySchema = z.object({
   provider: providerNameSchema.describe("Provider identifier."),
   apiKey: z
@@ -18,11 +30,33 @@ const providerEntrySchema = z.object({
 
 export type ProviderEntry = z.infer<typeof providerEntrySchema>;
 
-/** Default round-robin pool used for both web search and web fetch. */
+/** A single fetch provider entry: the operator only picks a provider and pastes an API key. */
+const fetchProviderEntrySchema = z.object({
+  provider: fetchProviderNameSchema.describe("Fetch provider identifier."),
+  apiKey: z
+    .string()
+    .describe(
+      "Provider API key or a Hermes variable placeholder such as {{SERPER_API_KEY}}.",
+    ),
+});
+
+export type FetchProviderEntry = z.infer<typeof fetchProviderEntrySchema>;
+
+/** Default round-robin pool used for web search (search-capable providers only). */
 const defaultProviderPool: ProviderEntry[] = [
   { provider: "serper", apiKey: "{{SERPER_API_KEY}}" },
   { provider: "tavily", apiKey: "{{TAVILY_API_KEY}}" },
   { provider: "exa", apiKey: "{{EXA_API_KEY}}" },
+];
+
+/** Default round-robin pool used for web fetch, including the fetch-only providers. */
+const defaultFetchProviderPool: FetchProviderEntry[] = [
+  { provider: "serper", apiKey: "{{SERPER_API_KEY}}" },
+  { provider: "tavily", apiKey: "{{TAVILY_API_KEY}}" },
+  { provider: "exa", apiKey: "{{EXA_API_KEY}}" },
+  { provider: "diffbot", apiKey: "{{DIFFBOT_API_KEY}}" },
+  { provider: "firecrawl", apiKey: "{{FIRECRAWL_API_KEY}}" },
+  { provider: "jina", apiKey: "{{JINA_API_KEY}}" },
 ];
 
 const webSearchSchema = z
@@ -34,9 +68,9 @@ const webSearchSchema = z
   );
 
 const webFetchSchema = z
-  .array(providerEntrySchema)
+  .array(fetchProviderEntrySchema)
   .min(1)
-  .default([...defaultProviderPool])
+  .default([...defaultFetchProviderPool])
   .describe(
     "Web-fetch provider pool. Each request rotates the starting provider (round-robin) and falls back to the rest on failure.",
   );

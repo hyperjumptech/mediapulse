@@ -6,10 +6,11 @@ Collects web sources for a ticker through one linear pipeline:
 get queries → search → fetch → filter → save  (repeat until the daily target)
 ```
 
-Search and fetch each run over a round-robin pool of providers (Serper, Tavily, Exa) with
-failover. The filter drops duplicates, thin content, and stale pages cheaply, then judges
-relevance with an LLM against the agent contract brief (falling back to keyword matching).
-Results are persisted to the Agent Data API.
+Search and fetch each run over a round-robin pool of providers with failover. Search uses
+Serper, Tavily, and Exa; fetch adds the fetch-only providers Diffbot, Firecrawl, and Jina.
+The filter drops duplicates, thin content, and stale pages cheaply, then judges relevance with
+an LLM against the agent contract brief (falling back to keyword matching). Results are
+persisted to the Agent Data API.
 
 ## Configuration
 
@@ -19,14 +20,17 @@ An empty `{}` validates into the recommended end-to-end setup; override only wha
 
 Create these variables in Hermes so placeholder defaults resolve at run time:
 
-| Variable         | Used for                                        |
-| ---------------- | ----------------------------------------------- |
-| `SERPER_API_KEY` | Serper search and fetch provider                |
-| `TAVILY_API_KEY` | Tavily search and fetch provider                |
-| `EXA_API_KEY`    | Exa search and fetch provider                   |
-| `AI_API_KEY`     | LLM relevance filter (OpenAI-compatible key)    |
-| `AI_MODEL`       | LLM relevance filter model id                   |
-| `AI_BASE_URL`    | LLM relevance filter base URL (e.g. OpenRouter) |
+| Variable            | Used for                                        |
+| ------------------- | ----------------------------------------------- |
+| `SERPER_API_KEY`    | Serper search and fetch provider                |
+| `TAVILY_API_KEY`    | Tavily search and fetch provider                |
+| `EXA_API_KEY`       | Exa search and fetch provider                   |
+| `DIFFBOT_API_KEY`   | Diffbot fetch provider (fetch-only)             |
+| `FIRECRAWL_API_KEY` | Firecrawl fetch provider (fetch-only)           |
+| `JINA_API_KEY`      | Jina Reader fetch provider (fetch-only)         |
+| `AI_API_KEY`        | LLM relevance filter (OpenAI-compatible key)    |
+| `AI_MODEL`          | LLM relevance filter model id                   |
+| `AI_BASE_URL`       | LLM relevance filter base URL (e.g. OpenRouter) |
 
 If a variable is missing, the literal `{{NAME}}` is passed through and the affected provider
 fails with a clear auth error.
@@ -36,7 +40,8 @@ fails with a clear auth error.
 1. **web_search** — round-robin search provider pool (`{ provider, apiKey }` entries).
 2. **web_search_locales** — `{ gl, hl }` locales the query fans out across. gl/hl steer Serper,
    map to Tavily's country, and are ignored by Exa.
-3. **web_fetch** — round-robin fetch provider pool (`{ provider, apiKey }` entries).
+3. **web_fetch** — round-robin fetch provider pool (`{ provider, apiKey }` entries). Accepts the
+   search providers plus the fetch-only Diffbot, Firecrawl, and Jina.
 4. **relevance** — LLM filter credentials (`apiKey`, `model`, optional `baseUrl`).
 5. **collection** — `targetSavedSources` (default 15) and `maxRounds` (default 3) for the repeat loop.
 

@@ -1,14 +1,14 @@
 import type { FetchProviderConfig } from "@workspace/agent-ingestion";
 
 import type {
-  ProviderEntry,
-  ProviderName,
+  FetchProviderEntry,
+  FetchProviderName,
   WebFetchConfig,
 } from "./config-schema";
 
 /** Per-provider fetch transport defaults. The config only supplies the API key. */
 const FETCH_PROVIDER_DEFAULTS: Record<
-  ProviderName,
+  FetchProviderName,
   Pick<FetchProviderConfig, "baseUrl" | "authentication">
 > = {
   serper: {
@@ -22,6 +22,18 @@ const FETCH_PROVIDER_DEFAULTS: Record<
   exa: {
     baseUrl: "https://api.exa.ai/contents",
     authentication: { type: "none", headerName: "x-api-key" },
+  },
+  diffbot: {
+    baseUrl: "https://api.diffbot.com",
+    authentication: { type: "none" },
+  },
+  firecrawl: {
+    baseUrl: "https://api.firecrawl.dev",
+    authentication: { type: "bearer", headerName: "Authorization" },
+  },
+  jina: {
+    baseUrl: "https://r.jina.ai/",
+    authentication: { type: "bearer", headerName: "Authorization" },
   },
 };
 
@@ -39,7 +51,9 @@ const FETCH_RETRY = {
  *
  * @param entry - Provider name and API key from agent config.
  */
-const toFetchProviderConfig = (entry: ProviderEntry): FetchProviderConfig => {
+const toFetchProviderConfig = (
+  entry: FetchProviderEntry,
+): FetchProviderConfig => {
   const defaults = FETCH_PROVIDER_DEFAULTS[entry.provider];
 
   return {
