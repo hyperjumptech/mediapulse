@@ -26,7 +26,6 @@
     "next": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "recharts": "^2.15.3",
     "zod": "catalog:"
   },
   "devDependencies": {

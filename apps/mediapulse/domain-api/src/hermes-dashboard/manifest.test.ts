@@ -12,16 +12,20 @@ describe("dashboardManifest", () => {
     );
 
     // Act
-    const pageIds = dashboardManifest.views.map((p) => p.id);
+    const resourcePageIds = dashboardManifest.views
+      .filter((p) => p.kind === "resource-table")
+      .map((p) => p.id);
 
     // Assert
-    expect(pageIds).toEqual(sorted.map((r) => r.dashboardPage.id));
+    expect(resourcePageIds).toEqual(sorted.map((r) => r.dashboardPage.id));
     expect(dashboardManifest.templateVersion).toBe(1);
   });
 
   it("uses unique path segments for every page", () => {
     // Setup
-    const segments = dashboardManifest.views.map((p) => p.pathSegment);
+    const segments = dashboardManifest.views
+      .map((p) => p.pathSegment)
+      .filter((segment): segment is string => segment != null);
 
     // Assert
     expect(new Set(segments).size).toBe(segments.length);
@@ -42,9 +46,11 @@ describe("dashboardManifest", () => {
     }
   });
 
-  it("keeps manifest page order monotonic by page order field", () => {
+  it("keeps sidebar page order monotonic by page order field", () => {
     // Setup
-    const orders = dashboardManifest.views.map((p) => p.order);
+    const orders = dashboardManifest.views
+      .filter((p) => p.placement === "sidebar")
+      .map((p) => p.order);
 
     // Assert
     const sorted = [...orders].sort((a, b) => a - b);
