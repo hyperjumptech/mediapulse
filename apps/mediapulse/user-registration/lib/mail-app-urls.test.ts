@@ -68,6 +68,22 @@ describe("buildOutlookComposeUrl", () => {
 
     expect(url.startsWith("ms-outlook://emails/new?")).toBe(true);
   });
+
+  it("uses mailto on macOS desktop because Outlook for Mac lacks ms-outlook://", () => {
+    const url = buildOutlookComposeUrl(
+      ticker,
+      "Jane Doe",
+      "en",
+      "registration@test.example",
+      {
+        userAgent:
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+      },
+    );
+
+    expect(url.startsWith("mailto:registration@test.example?")).toBe(true);
+    expect(url).not.toContain("ms-outlook://");
+  });
 });
 
 describe("openMailClientUrl", () => {

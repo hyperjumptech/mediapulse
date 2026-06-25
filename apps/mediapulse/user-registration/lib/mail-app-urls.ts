@@ -1,4 +1,7 @@
-import { detectIsIosUserAgent } from "@/lib/detect-mail-platform";
+import {
+  detectIsIosUserAgent,
+  detectIsMacOsUserAgent,
+} from "@/lib/detect-mail-platform";
 import type { RegistrationLanguage, Ticker } from "@/lib/tickers";
 import { MAILTO_BODY_SECTION_SEPARATOR } from "@/lib/tickers";
 
@@ -69,7 +72,7 @@ export const buildMailtoUrl = (
  * @param language - Preferred newsletter language code.
  * @param registrationEmail - Target inbox for registration.
  * @param options - Optional client hints for platform-specific Outlook paths.
- * @returns Encoded ms-outlook compose URL string.
+ * @returns Encoded ms-outlook compose URL string, or mailto on macOS desktop.
  */
 export const buildOutlookComposeUrl = (
   ticker: Ticker,
@@ -84,6 +87,11 @@ export const buildOutlookComposeUrl = (
     language,
     registrationEmail,
   });
+
+  // Outlook for Mac does not register ms-outlook://; mailto opens the default mail app.
+  if (options.userAgent && detectIsMacOsUserAgent(options.userAgent)) {
+    return buildMailtoUrl(ticker, name, language, registrationEmail);
+  }
 
   const composePath =
     options.userAgent && detectIsIosUserAgent(options.userAgent)
