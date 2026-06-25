@@ -36,9 +36,7 @@ export const formatUserLanguages = (
 ): string => {
   const uniqueLanguages = [
     ...new Set(userTickers.map((subscription) => subscription.language)),
-  ].sort(
-    (left, right) => languageSortOrder[left] - languageSortOrder[right],
-  );
+  ].sort((left, right) => languageSortOrder[left] - languageSortOrder[right]);
 
   if (uniqueLanguages.length === 0) {
     return "—";
