@@ -3,7 +3,7 @@
  */
 
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
-import { prisma, Prisma } from "@mediapulse/database";
+import { prisma, Prisma, type Language } from "@mediapulse/database";
 import { Hono } from "hono";
 import { parsePagination } from "../../lib/list-pagination";
 import { nullableText } from "../../lib/nullable-text";
@@ -32,15 +32,31 @@ const parseEnabledFilter = (raw: string | undefined): boolean | undefined => {
 };
 
 /**
+ * Parses the optional newsletter language filter from the query string.
+ *
+ * @param raw - Raw `language` query parameter.
+ * @returns `en`, `id`, or `undefined` when unset or invalid.
+ */
+const parseLanguageFilter = (raw: string | undefined): Language | undefined => {
+  const trimmed = raw?.trim();
+  if (trimmed === "en" || trimmed === "id") {
+    return trimmed;
+  }
+  return undefined;
+};
+
+/**
  * Builds the Prisma `where` clause for the mediapulse-users list endpoint.
  *
  * @param query - Optional search string for email/name.
  * @param enabled - Optional enabled filter from query params.
+ * @param language - Optional subscription language filter from query params.
  * @returns Combined where input or `undefined` when no filters apply.
  */
 const buildMediapulseUserListWhere = (
   query: string | undefined,
   enabled: boolean | undefined,
+  language: Language | undefined,
 ): Prisma.MediapulseUserWhereInput | undefined => {
   const parts: Prisma.MediapulseUserWhereInput[] = [];
 
@@ -55,6 +71,10 @@ const buildMediapulseUserListWhere = (
 
   if (enabled !== undefined) {
     parts.push({ enabled });
+  }
+
+  if (language !== undefined) {
+    parts.push({ userTickers: { some: { language } } });
   }
 
   if (parts.length === 0) return undefined;
@@ -77,6 +97,7 @@ mediapulseUsersRoutes.get("/", async (c) => {
   const where = buildMediapulseUserListWhere(
     query,
     parseEnabledFilter(c.req.query("enabled")),
+    parseLanguageFilter(c.req.query("language")),
   );
   const orderBy =
     sortBy === "createdAt"
@@ -85,13 +106,16 @@ mediapulseUsersRoutes.get("/", async (c) => {
         ? { enabled: sortDir }
         : { email: sortDir };
 
+  const findManyArgs = {
+    where,
+    include: { userTickers: { select: { language: true } } },
+    skip,
+    take: pageSize,
+    orderBy,
+  } satisfies Prisma.MediapulseUserFindManyArgs;
+
   const [rows, total] = await Promise.all([
-    prisma.mediapulseUser.findMany({
-      where,
-      skip,
-      take: pageSize,
-      orderBy,
-    }),
+    prisma.mediapulseUser.findMany(findManyArgs),
     prisma.mediapulseUser.count({ where }),
   ]);
 

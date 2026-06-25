@@ -40,6 +40,18 @@ export const enabledBooleanSelectListFilter = {
   ui: "boolean-select",
 } satisfies TableV1ListFilterDefinition;
 
+/** Newsletter language filter (`language` query param; matches users with any subscription in that language). */
+export const languageSelectListFilter = {
+  key: "language",
+  label: "Language",
+  ui: "select",
+  placeholderAll: "All languages",
+  staticOptions: [
+    { value: "en", label: "English" },
+    { value: "id", label: "Indonesian" },
+  ],
+} satisfies TableV1ListFilterDefinition;
+
 /** Intent dropdown filter for search queries. */
 export const intentSelectListFilter = {
   key: "intent",

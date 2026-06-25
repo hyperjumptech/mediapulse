@@ -40,6 +40,7 @@ describe("mediapulseUsersRoutes", () => {
         enabled: true,
         createdAt: new Date("2026-06-17T10:00:00.000Z"),
         updatedAt: new Date("2026-06-17T10:00:00.000Z"),
+        userTickers: [{ language: "en" }],
       },
     ] as never);
     vi.mocked(prisma.mediapulseUser.count).mockResolvedValue(1);
@@ -50,11 +51,17 @@ describe("mediapulseUsersRoutes", () => {
 
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      items: Array<{ id: string; enabled: string }>;
+      items: Array<{ id: string; enabled: string; languages: string }>;
     };
     expect(body.items).toHaveLength(1);
     expect(body.items[0]?.id).toBe("user-1");
     expect(body.items[0]?.enabled).toBe("Yes");
+    expect(body.items[0]?.languages).toBe("English");
+    expect(prisma.mediapulseUser.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: { userTickers: { select: { language: true } } },
+      }),
+    );
   });
 
   it("passes enabled filter to Prisma findMany", async () => {
@@ -70,6 +77,40 @@ describe("mediapulseUsersRoutes", () => {
     expect(prisma.mediapulseUser.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { enabled: false },
+      }),
+    );
+  });
+
+  it("passes language filter to Prisma findMany", async () => {
+    vi.mocked(prisma.mediapulseUser.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.mediapulseUser.count).mockResolvedValue(0);
+
+    const res = await mediapulseUsersRoutes.request(
+      "http://localhost/?language=en",
+      { method: "GET" },
+    );
+
+    expect(res.status).toBe(200);
+    expect(prisma.mediapulseUser.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userTickers: { some: { language: "en" } } },
+      }),
+    );
+  });
+
+  it("ignores invalid language filter values", async () => {
+    vi.mocked(prisma.mediapulseUser.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.mediapulseUser.count).mockResolvedValue(0);
+
+    const res = await mediapulseUsersRoutes.request(
+      "http://localhost/?language=fr",
+      { method: "GET" },
+    );
+
+    expect(res.status).toBe(200);
+    expect(prisma.mediapulseUser.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: undefined,
       }),
     );
   });

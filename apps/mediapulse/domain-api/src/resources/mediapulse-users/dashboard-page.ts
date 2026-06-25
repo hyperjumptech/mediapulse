@@ -4,7 +4,10 @@
 
 import type { DashboardViewInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
-import { enabledBooleanSelectListFilter } from "../../hermes-dashboard/templates/table-v1/list-filter-definitions";
+import {
+  enabledBooleanSelectListFilter,
+  languageSelectListFilter,
+} from "../../hermes-dashboard/templates/table-v1/list-filter-definitions";
 import {
   columnsFor,
   rowFieldKeysFor,
@@ -33,6 +36,7 @@ export const mediapulseUsersDashboardPage = {
     { key: "email", label: "Email", type: "text" },
     { key: "name", label: "Name", type: "text" },
     { key: "enabled", label: "Enabled", type: "text" },
+    { key: "languages", label: "Language", type: "text" },
     { key: "createdAt", label: "Created", type: "date-time" },
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()(["email", "name"]),
@@ -41,7 +45,7 @@ export const mediapulseUsersDashboardPage = {
     "enabled",
     "createdAt",
   ]),
-  listFilters: [enabledBooleanSelectListFilter],
+  listFilters: [enabledBooleanSelectListFilter, languageSelectListFilter],
   actions: { create: true, update: true, delete: true, view: false },
   createSchema: mediapulseUserCreateFormJsonSchema,
   updateSchema: mediapulseUserUpdateFormJsonSchema,
