@@ -45,6 +45,14 @@ vi.mock("../json-pretty", () => ({
   ),
 }));
 
+vi.mock("./agent-unregister-button", () => ({
+  AgentUnregisterButton: ({ agentLabel }: { agentLabel: string }) => (
+    <button data-testid="unregister-agent" type="button">
+      Unregister {agentLabel}
+    </button>
+  ),
+}));
+
 const createMockAgent = () => ({
   id: "agent-123",
   domainIntegrationId: "di-1",

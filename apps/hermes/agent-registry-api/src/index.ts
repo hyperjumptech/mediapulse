@@ -5,6 +5,7 @@ import { logger, slimPinoLogger } from "@workspace/logger";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { registerAgent } from "./routes/register-agent";
+import { unregisterAgent } from "./routes/unregister-agent";
 import { postAgentActivity } from "./routes/agent-activity";
 
 if (!env.AGENT_AUTH_API_URL) {
@@ -39,6 +40,7 @@ api.use(
 );
 
 api.post("/agents/register", registerAgent);
+api.post("/agents/unregister", unregisterAgent);
 api.post("/agent-activity", postAgentActivity);
 
 rootApp.route("/api", api);

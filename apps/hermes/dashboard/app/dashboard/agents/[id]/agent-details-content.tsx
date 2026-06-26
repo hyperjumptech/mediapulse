@@ -17,6 +17,7 @@ import {
 import { DomainContentView } from "@/components/domain-content-view";
 import { EndpointDisplay } from "../endpoint-display";
 import { JsonPretty } from "../json-pretty";
+import { AgentUnregisterButton } from "./agent-unregister-button";
 import type { AgentDetail } from "@/lib/agents";
 
 const ROW_CLASS =
@@ -152,6 +153,26 @@ export const AgentDetailsContent = ({
             </h2>
             <div className="rounded-lg bg-muted/25 border border-border/50 overflow-hidden">
               <EndpointDisplay endpoint={agent.endpoint} />
+            </div>
+          </section>
+          <section className="min-h-0">
+            <h2 className="text-xs font-semibold text-destructive uppercase tracking-wider mb-5">
+              Danger zone
+            </h2>
+            <div className="flex items-center justify-between gap-8 rounded-lg border border-destructive/40 bg-destructive/5 px-6 py-4">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">
+                  Unregister this agent
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Removes {agent.agentId}@{agent.agentVersion} from the
+                  registry. This cannot be undone.
+                </p>
+              </div>
+              <AgentUnregisterButton
+                agentId={agent.id}
+                agentLabel={`${agent.agentId}@${agent.agentVersion}`}
+              />
             </div>
           </section>
         </TabsContent>

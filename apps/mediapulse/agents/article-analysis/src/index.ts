@@ -20,9 +20,9 @@ const app = createAgentApp<
 >(
   {
     agentId: "article-analysis",
-    agentVersion: "2.0.0",
+    agentVersion: "3.0.0",
     description:
-      "Loads analysis context incrementally (ticker-scoped or global page-collection backlog), extracts KG entities/relations and per-article entity mentions via LLM with vocabulary constraints, infers ticker associations in global mode, canonicalizes against existing KG entities, scores article relevance with canonical breakdown v1, and persists entities/relations, articleEntities, and articleRelevances in chunked POSTs to agent-data-api. Supports configurable runPolicy for partial extraction failure, per-chunk POST error isolation with optional transient retries, structured diagnostics (MP-ART-ANALYSIS-007), and structured run-summary observability with safe log fields (MP-ART-ANALYSIS-008).",
+      "Loads unanalyzed articles and classifies each into exactly one newsletter section, or rejects it, with an AI fit score and reason, then persists section/sectionScore/sectionReason onto the data source and marks it analyzed.",
     inputSchema: articleAnalysisInputSchema,
     configSchema: articleAnalysisConfigSchema,
     run,
