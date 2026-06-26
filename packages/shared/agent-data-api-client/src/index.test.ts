@@ -237,21 +237,8 @@ describe("createAgentDataApiClient", () => {
   it("builds analysis GET with typed query and auth header", async () => {
     const getFn = vi.fn().mockResolvedValue({
       body: JSON.stringify({
-        ticker: {
-          id: "11111111-1111-4111-a111-111111111111",
-          symbol: "T1",
-          name: "Ticker One",
-        },
         dataSources: [],
         dataSourceTotalCount: 0,
-        entityTypes: [],
-        relationTypes: [],
-        existingEntities: [],
-        relevanceSelectionState: {
-          utcDayStartIso: "2026-04-09T00:00:00.000Z",
-          selectedCountToday: 0,
-        },
-        lastRelevanceScoredAtIso: null,
       }),
       statusCode: 200,
     });
@@ -262,70 +249,23 @@ describe("createAgentDataApiClient", () => {
     });
 
     await client.analysis.get({
-      tickerId: "11111111-1111-4111-a111-111111111111",
       unanalyzed: true,
+      limit: 5,
     });
 
     expect(getFn).toHaveBeenCalledWith(
-      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "analysis")}?tickerId=11111111-1111-4111-a111-111111111111&unanalyzed=true`,
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "analysis")}?unanalyzed=true&limit=5`,
       expect.objectContaining({
         headers: { Authorization: "Bearer sdk-token" },
       }),
     );
   });
 
-  it("serializes optional start and end on analysis GET", async () => {
-    const getFn = vi.fn().mockResolvedValue({
-      body: JSON.stringify({
-        ticker: {
-          id: "11111111-1111-4111-a111-111111111111",
-          symbol: "T1",
-          name: "Ticker One",
-        },
-        dataSources: [],
-        dataSourceTotalCount: 0,
-        entityTypes: [],
-        relationTypes: [],
-        existingEntities: [],
-        relevanceSelectionState: {
-          utcDayStartIso: "2026-01-01T00:00:00.000Z",
-          selectedCountToday: 0,
-        },
-        lastRelevanceScoredAtIso: null,
-      }),
-      statusCode: 200,
-    });
-    const client = createAgentDataApiClient({
-      baseUrl: "http://agent-data-api",
-      token: "Bearer sdk-token",
-      getFn,
-    });
-
-    await client.analysis.get({
-      tickerId: "11111111-1111-4111-a111-111111111111",
-      unanalyzed: true,
-      start: "2026-01-01T00:00:00.000Z",
-      end: "2026-01-31T00:00:00.000Z",
-    });
-
-    expect(getFn).toHaveBeenCalledWith(
-      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "analysis")}?tickerId=11111111-1111-4111-a111-111111111111&unanalyzed=true&start=2026-01-01T00%3A00%3A00.000Z&end=2026-01-31T00%3A00%3A00.000Z`,
-      expect.objectContaining({
-        headers: { Authorization: "Bearer sdk-token" },
-      }),
-    );
-  });
-
-  it("posts analysis payload and parses response", async () => {
+  it("posts analysis section payload and parses response", async () => {
     const postFn = vi.fn().mockResolvedValue({
       body: JSON.stringify({
-        entitiesCreated: 0,
-        entitiesReused: 0,
-        relationsCreated: 0,
-        articlesScored: 0,
-        articlesSelected: 0,
-        entityEvidenceUpserted: 0,
-        relationEvidenceUpserted: 0,
+        articlesScored: 1,
+        articlesRejected: 0,
       }),
       statusCode: 200,
     });
@@ -336,34 +276,34 @@ describe("createAgentDataApiClient", () => {
     });
 
     const result = await client.analysis.create({
-      tickerId: "11111111-1111-4111-a111-111111111111",
-      entities: [],
-      relations: [],
-      articleEntities: [],
-      articleRelevances: [],
-      analyzedDataSourceIds: [],
-      tickers: [],
-      entityEvidence: [],
-      relationEvidence: [],
+      articleSections: [
+        {
+          dataSourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          section: "competitiveLandscape",
+          score: 0.7,
+          reason: "Mentions a rival.",
+        },
+      ],
+      analyzedDataSourceIds: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
     });
 
     expect(postFn).toHaveBeenCalledWith(
       `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "analysis")}`,
       expect.objectContaining({
         json: {
-          tickerId: "11111111-1111-4111-a111-111111111111",
-          entities: [],
-          relations: [],
-          articleEntities: [],
-          articleRelevances: [],
-          analyzedDataSourceIds: [],
-          tickers: [],
-          entityEvidence: [],
-          relationEvidence: [],
+          articleSections: [
+            {
+              dataSourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              section: "competitiveLandscape",
+              score: 0.7,
+              reason: "Mentions a rival.",
+            },
+          ],
+          analyzedDataSourceIds: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
         },
       }),
     );
-    expect(result.entitiesCreated).toBe(0);
+    expect(result.articlesScored).toBe(1);
   });
 
   it("uses explicit version when provided", async () => {

@@ -14,9 +14,6 @@ export {
 export {
   ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX,
   analysisDataSourceSchema,
-  analysisEntityTypeSchema,
-  analysisExistingEntitySchema,
-  analysisRelationTypeSchema,
   getAnalysisQuerySchema,
   getAnalysisResponseSchema,
   postAnalysisBodySchema,

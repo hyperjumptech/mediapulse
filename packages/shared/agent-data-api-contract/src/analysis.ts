@@ -1,155 +1,52 @@
 import { z } from "zod";
 
+import { NEWSLETTER_SECTION_IDS } from "./newsletter-sections.js";
+
 /**
- * Max `limit` on analysis GET (query param). Primary article consumer (`analysisGetDataSourceLimitMax`
- * in Hermes config) should cap at this value so requests stay valid.
+ * Max `limit` on analysis GET (query param). The article consumer
+ * (`analysisGetDataSourceLimitMax` in Hermes config) should cap at this value so requests stay valid.
  */
 export const ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX = 10;
 
-const sentimentSchema = z.enum(["POSITIVE", "NEGATIVE", "NEUTRAL"]);
-const relevanceBreakdownSchema = z
-  .object({
-    _version: z.number().int().min(1),
-    breakingNews: z.number().min(0).max(1),
-    kgRelation: z.number().min(0).max(1),
-    fundamental: z.number().min(0).max(1),
-    tickerSalience: z.number().min(0).max(1),
-    sourceQuality: z.number().min(0).max(1),
-  })
-  .passthrough();
+const sectionEnum = z.enum(
+  NEWSLETTER_SECTION_IDS as unknown as [string, ...string[]],
+);
 
-export const getAnalysisQuerySchema = z
-  .object({
-    /** When omitted, returns global page-collection backlog (ticker-agnostic articles). */
-    tickerId: z.string().trim().min(1).optional(),
-    /** Omitted query param defaults to incremental unanalyzed-only runs (PRD FR2). */
-    unanalyzed: z
-      .enum(["true", "false"])
-      .default("true")
-      .transform((value) => value === "true"),
-    /** Inclusive lower bound on `DataSource.createdAt` (ISO 8601), FR1 eligibility window. */
-    start: z.preprocess(
-      (v) => (v === "" || v === undefined ? undefined : v),
-      z.string().datetime().optional(),
-    ),
-    /** Inclusive upper bound on `DataSource.createdAt` (ISO 8601), FR1 eligibility window. */
-    end: z.preprocess(
-      (v) => (v === "" || v === undefined ? undefined : v),
-      z.string().datetime().optional(),
-    ),
-    /**
-     * Max data sources returned (oldest first). Total matching rows (ignoring this cap) is
-     * `dataSourceTotalCount` on the response. Upper bound is {@link ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX}.
-     */
-    limit: z.preprocess(
-      (v) => (v === "" || v === undefined ? undefined : v),
-      z.coerce
-        .number()
-        .int()
-        .positive()
-        .max(ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX)
-        .optional(),
-    ),
-  })
-  .superRefine((data, ctx) => {
-    if (data.start !== undefined && data.end !== undefined) {
-      const startMs = new Date(data.start).getTime();
-      const endMs = new Date(data.end).getTime();
-      if (startMs > endMs) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "start must be before or equal to end",
-          path: ["start"],
-        });
-      }
-    }
-  });
+export const getAnalysisQuerySchema = z.object({
+  /** Omitted query param defaults to incremental unanalyzed-only runs. */
+  unanalyzed: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((value) => value === "true"),
+  /**
+   * Max data sources returned (oldest first). Total matching rows (ignoring this cap) is
+   * `dataSourceTotalCount` on the response. Upper bound is {@link ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX}.
+   */
+  limit: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX)
+      .optional(),
+  ),
+});
 
 export const postAnalysisBodySchema = z.object({
-  /** Required for legacy ticker-scoped runs; optional for global article processing. */
-  tickerId: z.string().trim().min(1).optional(),
-  entities: z
-    .array(
-      z.object({
-        canonicalName: z.string().trim().min(1),
-        typeId: z.string().uuid(),
-        /** `null` allowed for LLM structured outputs; omit when absent. */
-        description: z.string().nullish(),
-        aliases: z.array(z.string().trim().min(1)).default([]),
-      }),
-    )
-    .default([]),
-  relations: z
-    .array(
-      z.object({
-        fromEntityName: z.string().trim().min(1),
-        toEntityName: z.string().trim().min(1),
-        relationTypeId: z.string().uuid(),
-      }),
-    )
-    .default([]),
-  articleEntities: z
+  /** One classification row per scored article. `section: null` means the article was rejected. */
+  articleSections: z
     .array(
       z.object({
         dataSourceId: z.string().uuid(),
-        entityName: z.string().trim().min(1),
-        mentionCount: z.number().int().positive(),
-        confidence: z.number().min(0).max(1),
-        sentiment: sentimentSchema.nullish(),
-      }),
-    )
-    .default([]),
-  articleRelevances: z
-    .array(
-      z.object({
-        dataSourceId: z.string().uuid(),
-        tickerId: z.string().trim().min(1).optional(),
+        section: sectionEnum.nullable(),
         score: z.number().min(0).max(1),
-        scoreBreakdown: relevanceBreakdownSchema,
-        selected: z.boolean(),
-        associationReasoning: z.string().optional(),
-        associationSource: z.enum(["inferred", "manual"]).optional(),
+        reason: z.string().trim().min(1).max(2000),
       }),
     )
     .default([]),
-  /** Marks global articles as analyzed after processing. */
+  /** Marks the processed articles as analyzed (covers rejected rows too). */
   analyzedDataSourceIds: z.array(z.string().uuid()).default([]),
-  /** Active tickers for global inference mode (symbol, name, aliases). */
-  tickers: z
-    .array(
-      z.object({
-        id: z.string().uuid(),
-        symbol: z.string(),
-        name: z.string(),
-        aliases: z.array(z.string()).default([]),
-        sector: z.string().nullable().optional(),
-        industry: z.string().nullable().optional(),
-      }),
-    )
-    .default([]),
-  /** Provenance: entity observed in a data source for this ticker. */
-  entityEvidence: z
-    .array(
-      z.object({
-        dataSourceId: z.string().uuid(),
-        entityName: z.string().trim().min(1),
-        confidence: z.number().min(0).max(1).nullish(),
-      }),
-    )
-    .default([]),
-  /** Provenance: relation observed in a data source for this ticker. */
-  relationEvidence: z
-    .array(
-      z.object({
-        dataSourceId: z.string().uuid(),
-        fromEntityName: z.string().trim().min(1),
-        toEntityName: z.string().trim().min(1),
-        relationTypeId: z.string().uuid(),
-        confidence: z.number().min(0).max(1).nullish(),
-        evidenceSpan: z.string().max(280).nullish(),
-      }),
-    )
-    .default([]),
 });
 
 export const analysisDataSourceSchema = z.object({
@@ -157,69 +54,19 @@ export const analysisDataSourceSchema = z.object({
   url: z.string(),
   title: z.string(),
   content: z.string(),
-  tickerId: z.string().trim().min(1).nullable(),
   createdAt: z.coerce.date(),
 });
 
-export const analysisEntityTypeSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  description: z.string().nullable(),
-});
-
-export const analysisRelationTypeSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  description: z.string().nullable(),
-});
-
-export const analysisExistingEntitySchema = z.object({
-  id: z.string().uuid(),
-  canonicalName: z.string(),
-  typeId: z.string().uuid(),
-  aliases: z.array(z.string()),
-});
-
-export const analysisTickerSchema = z.object({
-  id: z.string().uuid(),
-  symbol: z.string(),
-  name: z.string(),
-});
-
-/** UTC-day selection budget for article relevance (see article-analysis agent). */
-export const analysisRelevanceSelectionStateSchema = z.object({
-  /** ISO 8601 instant for UTC midnight at the start of the scoring "today". */
-  utcDayStartIso: z.string(),
-  /** Count of `articleRelevance` rows with `selected: true` and `scoredAt` on or after `utcDayStartIso`. */
-  selectedCountToday: z.number().int().nonnegative(),
-});
-
 export const getAnalysisResponseSchema = z.object({
-  ticker: analysisTickerSchema.nullable(),
   dataSources: z.array(analysisDataSourceSchema),
   /** Count of data sources matching the GET filters (ignores `limit` on the request). */
   dataSourceTotalCount: z.number().int().nonnegative(),
-  entityTypes: z.array(analysisEntityTypeSchema),
-  relationTypes: z.array(analysisRelationTypeSchema),
-  existingEntities: z.array(analysisExistingEntitySchema),
-  relevanceSelectionState: analysisRelevanceSelectionStateSchema.nullable(),
-  /**
-   * ISO 8601 instant of the most recent `article_relevance.scored_at` for this ticker,
-   * or `null` if no relevance row exists (debounce support for article-analysis).
-   */
-  lastRelevanceScoredAtIso: z.string().datetime().nullable(),
-  /** All active tickers for global inference mode. */
-  tickers: z.array(analysisTickerSchema).default([]),
 });
 
 export const postAnalysisResponseSchema = z.object({
-  entitiesCreated: z.number().int().nonnegative(),
-  entitiesReused: z.number().int().nonnegative(),
-  relationsCreated: z.number().int().nonnegative(),
   articlesScored: z.number().int().nonnegative(),
-  articlesSelected: z.number().int().nonnegative(),
-  entityEvidenceUpserted: z.number().int().nonnegative(),
-  relationEvidenceUpserted: z.number().int().nonnegative(),
+  /** Rows posted with `section: null`. */
+  articlesRejected: z.number().int().nonnegative(),
 });
 
 export type GetAnalysisQuery = z.infer<typeof getAnalysisQuerySchema>;

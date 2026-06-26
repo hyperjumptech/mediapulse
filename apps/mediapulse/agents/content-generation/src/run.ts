@@ -335,6 +335,10 @@ export async function run({
     ...(typeof s.publishedAt === "string"
       ? { publishedAt: s.publishedAt }
       : {}),
+    ...(typeof s.section === "string" ? { section: s.section } : {}),
+    ...(typeof s.sectionScore === "number"
+      ? { sectionScore: s.sectionScore }
+      : {}),
   }));
 
   const { sources: sourcesForLlm, removedCount: dedupRemovedCount } =

@@ -91,6 +91,12 @@ model DataSource {
   collectionGateStatus CollectionGateStatus? @map("collection_gate_status")
   collectionGateReason String?               @map("collection_gate_reason")
   analyzedAt           DateTime?             @map("analyzed_at")
+  /// Newsletter section assigned by article-analysis 3.0.0; null = rejected / not classified.
+  section              String?               @map("section")
+  /// Section-fit score 0–1 from article-analysis 3.0.0.
+  sectionScore         Float?                @map("section_score")
+  /// AI reason for the section choice or rejection from article-analysis 3.0.0.
+  sectionReason        String?               @map("section_reason") @db.Text
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
 
@@ -104,6 +110,7 @@ model DataSource {
 
   @@index([curatedSourceId])
   @@index([collectionGateStatus, analyzedAt])
+  @@index([tickerId, section])
   @@map("data_source")
 }
 
@@ -201,6 +208,7 @@ model RelationType {
   @@map("relation_type")
 }
 
+/// NOTE (article-analysis 3.0.0): no longer populated by article-analysis; revisit for removal once the insights consumers are retired.
 /// Canonical representation of a real-world entity mentioned in financial articles.
 model Entity {
   id            String   @id @default(uuid())
@@ -254,6 +262,7 @@ model TickerEntity {
   @@map("ticker_entity")
 }
 
+/// NOTE (article-analysis 3.0.0): no longer populated by article-analysis; revisit for removal once the insights consumers are retired.
 /// Directed relationship edge between two entities with a typed semantic meaning.
 model EntityRelation {
   id             String   @id @default(uuid())
@@ -273,6 +282,7 @@ model EntityRelation {
   @@map("entity_relation")
 }
 
+/// NOTE (article-analysis 3.0.0): no longer populated by article-analysis; revisit for removal once the insights consumers are retired.
 /// Provenance link: a canonical entity was observed in a ticker-scoped data source.
 model EntityEvidence {
   id           String   @id @default(uuid())
@@ -293,6 +303,7 @@ model EntityEvidence {
   @@map("entity_evidence")
 }
 
+/// NOTE (article-analysis 3.0.0): no longer populated by article-analysis; revisit for removal once the insights consumers are retired.
 /// Provenance link: a canonical entity relation was observed in a ticker-scoped data source.
 model EntityRelationEvidence {
   id               String   @id @default(uuid())
@@ -314,6 +325,7 @@ model EntityRelationEvidence {
   @@map("entity_relation_evidence")
 }
 
+/// NOTE (article-analysis 3.0.0): no longer populated by article-analysis; revisit for removal once the insights consumers are retired.
 /// Join table connecting an article to entities it mentions with extraction metadata.
 model ArticleEntity {
   id           String     @id @default(uuid())
@@ -331,7 +343,8 @@ model ArticleEntity {
   @@map("article_entity")
 }
 
-/// Per-ticker relevance score for an article including selected state and breakdown.
+/// DEPRECATED (article-analysis 3.0.0): replaced by DataSource.section/sectionScore/sectionReason.
+/// No longer written or read. Remove once 3.0.0 section classification is validated in production.
 model ArticleRelevance {
   id                   String                   @id @default(uuid())
   dataSourceId         String                   @map("data_source_id")

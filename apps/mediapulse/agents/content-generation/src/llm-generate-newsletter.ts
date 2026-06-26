@@ -367,10 +367,12 @@ export const buildArticleSummariesBlock = (
   sources: readonly SourceForGeneration[],
 ): string => {
   return sources
-    .map(
-      (source, index) =>
-        `Article ${String(index + 1)}: ${source.title}\n${source.content}`,
-    )
+    .map((source, index) => {
+      const sectionLine = source.section
+        ? `\nAssigned section: ${source.section}`
+        : "";
+      return `Article ${String(index + 1)}: ${source.title}${sectionLine}\n${source.content}`;
+    })
     .join("\n\n---\n\n");
 };
 
@@ -561,6 +563,8 @@ Return JSON matching this shape (camelCase keys):
 - "quickHits": { "displayHeading", "items" } — 5–7 items; each item { "title", "text", "articleIndex" } where "title" is a short headline (under 60 chars), "text" is the sentence, and articleIndex is required.
 
 Headings ("displayHeading") are short subtitle phrases only — never repeat the section label or use "Label / Subtitle" format. Keep JSON valid; use null for optional blocks and uncited articleIndex values.
+
+When an article lists an "Assigned section", that assignment is authoritative — place that article in the named section (industryPulse, competitiveLandscape, dealsAndMovements, regulatoryPolicyWatch, disruptorsOrTech, or quickHits). Only fall back to your own judgement for articles with no assigned section.
 
 Every bullet and quick hit must summarize exactly one article and set articleIndex to that one article. Do not blend multiple articles into one bullet, and do not reuse the same article for two bullets in a section.
 

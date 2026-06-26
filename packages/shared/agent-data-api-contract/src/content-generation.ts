@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { NEWSLETTER_SECTION_IDS } from "./newsletter-sections.js";
+
 export const getContentGenerationQuerySchema = z.object({
   tickerId: z.string().trim().min(1),
 });
@@ -29,6 +31,12 @@ export const contentGenerationDataSourceSchema = z
     tickerId: z.string().trim().min(1),
     searchQueryId: z.string().uuid(),
     description: z.string().nullable().optional(),
+    /** Newsletter section assigned by article-analysis 3.0.0 (used to group sources at generation time). */
+    section: z.enum(NEWSLETTER_SECTION_IDS as unknown as [string, ...string[]]),
+    /** Section-fit score 0–1 (used for ordering within a section). */
+    sectionScore: z.number().min(0).max(1).nullable().optional(),
+    /** AI reason for the section assignment. */
+    sectionReason: z.string().nullable().optional(),
   })
   .passthrough();
 

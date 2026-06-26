@@ -191,6 +191,9 @@ describe("agent-data-api", () => {
             collectionGateStatus: null,
             collectionGateReason: null,
             analyzedAt: null,
+            section: "competitiveLandscape",
+            sectionScore: 0.8,
+            sectionReason: "Mentions a rival.",
             createdAt: new Date("2026-03-19T00:00:00.000Z"),
             updatedAt: new Date("2026-03-19T00:00:00.000Z"),
           },
@@ -474,32 +477,21 @@ describe("agent-data-api", () => {
     it("returns 200 with analysis context when service returns data", async () => {
       const mod = await getAnalysisService();
       vi.mocked(mod.loadAnalysisContext).mockResolvedValue({
-        ticker: { id: TICKER_ID, symbol: "T1", name: "Ticker One" },
-        tickers: [],
         dataSources: [
           {
             id: "33333333-3333-4333-a333-333333333333",
             url: "https://example.com",
             title: "Example",
             content: "Body",
-            tickerId: TICKER_ID,
             createdAt: new Date("2026-03-19T00:00:00.000Z"),
           },
         ],
         dataSourceTotalCount: 1,
-        entityTypes: [],
-        relationTypes: [],
-        existingEntities: [],
-        relevanceSelectionState: {
-          utcDayStartIso: "2026-03-19T00:00:00.000Z",
-          selectedCountToday: 0,
-        },
-        lastRelevanceScoredAtIso: null,
       });
 
       const { app } = await import("./index.js");
       const res = await app.request(
-        `http://localhost${analysisPath}?tickerId=${TICKER_ID}`,
+        `http://localhost${analysisPath}?unanalyzed=true`,
         { headers: AUTH_HEADERS },
       );
       const body = await res.json();
@@ -507,36 +499,18 @@ describe("agent-data-api", () => {
       expect(res.status).toBe(200);
       expect(body.dataSources).toHaveLength(1);
       expect(mod.loadAnalysisContext).toHaveBeenCalledWith({
-        tickerId: TICKER_ID,
         unanalyzed: true,
       });
     });
 
-    it("forwards start and end query params to loadAnalysisContext", async () => {
+    it("forwards the limit query param to loadAnalysisContext", async () => {
       const mod = await getAnalysisService();
       vi.mocked(mod.loadAnalysisContext).mockResolvedValue({
-        ticker: { id: TICKER_ID, symbol: "T1", name: "Ticker One" },
-        tickers: [],
         dataSources: [],
         dataSourceTotalCount: 0,
-        entityTypes: [],
-        relationTypes: [],
-        existingEntities: [],
-        relevanceSelectionState: {
-          utcDayStartIso: "2026-03-19T00:00:00.000Z",
-          selectedCountToday: 0,
-        },
-        lastRelevanceScoredAtIso: null,
       });
 
-      const start = "2026-01-01T00:00:00.000Z";
-      const end = "2026-01-31T00:00:00.000Z";
-      const qs = new URLSearchParams({
-        tickerId: TICKER_ID,
-        unanalyzed: "true",
-        start,
-        end,
-      });
+      const qs = new URLSearchParams({ unanalyzed: "true", limit: "5" });
 
       const { app } = await import("./index.js");
       const res = await app.request(
@@ -546,10 +520,8 @@ describe("agent-data-api", () => {
 
       expect(res.status).toBe(200);
       expect(mod.loadAnalysisContext).toHaveBeenCalledWith({
-        tickerId: TICKER_ID,
         unanalyzed: true,
-        start,
-        end,
+        limit: 5,
       });
     });
   });
@@ -566,11 +538,8 @@ describe("agent-data-api", () => {
         method: "POST",
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({
-          tickerId: TICKER_ID,
-          entities: [],
-          relations: [],
-          articleEntities: [],
-          articleRelevances: [],
+          articleSections: [],
+          analyzedDataSourceIds: [],
         }),
       });
       const body = await res.json();
@@ -582,13 +551,8 @@ describe("agent-data-api", () => {
     it("returns 200 with counts when body is valid", async () => {
       const mod = await getAnalysisService();
       vi.mocked(mod.applyAnalysisPost).mockResolvedValue({
-        entitiesCreated: 1,
-        entitiesReused: 0,
-        relationsCreated: 0,
         articlesScored: 1,
-        articlesSelected: 0,
-        entityEvidenceUpserted: 0,
-        relationEvidenceUpserted: 0,
+        articlesRejected: 0,
       });
 
       const { app } = await import("./index.js");
@@ -596,32 +560,22 @@ describe("agent-data-api", () => {
         method: "POST",
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({
-          tickerId: TICKER_ID,
-          entities: [],
-          relations: [],
-          articleEntities: [],
-          articleRelevances: [
+          articleSections: [
             {
               dataSourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              section: "competitiveLandscape",
               score: 0.5,
-              scoreBreakdown: {
-                _version: 1,
-                breakingNews: 0.5,
-                kgRelation: 0.5,
-                fundamental: 0.5,
-                tickerSalience: 0.5,
-                sourceQuality: 0.5,
-              },
-              selected: false,
+              reason: "Mentions a rival.",
             },
           ],
+          analyzedDataSourceIds: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
         }),
       });
       const body = await res.json();
 
       expect(res.status).toBe(200);
-      expect(body.entitiesCreated).toBe(1);
       expect(body.articlesScored).toBe(1);
+      expect(body.articlesRejected).toBe(0);
     });
   });
 

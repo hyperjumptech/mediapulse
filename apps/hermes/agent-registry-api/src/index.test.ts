@@ -8,15 +8,26 @@ vi.mock("@workspace/agent-auth-client", () => ({
 
 const mockFindFirst = vi.fn();
 const mockUpsert = vi.fn();
+const mockDelete = vi.fn();
+
+class MockPrismaClientKnownRequestError extends Error {
+  code: string;
+  constructor(message: string, code: string) {
+    super(message);
+    this.code = code;
+  }
+}
 
 vi.mock("@hermes/orchestration-database", () => ({
   DomainIntegrationStatus: { active: "active" },
+  Prisma: { PrismaClientKnownRequestError: MockPrismaClientKnownRequestError },
   prisma: {
     domainIntegration: {
       findFirst: (...args: unknown[]) => mockFindFirst(...args),
     },
     agentRegistry: {
       upsert: (...args: unknown[]) => mockUpsert(...args),
+      delete: (...args: unknown[]) => mockDelete(...args),
     },
   },
 }));
@@ -103,6 +114,65 @@ describe("agent-registry-api", () => {
       expect(body.message).toBe("Agent registered successfully");
       expect(body.data.agentId).toBe("test-agent");
       expect(mockUpsert).toHaveBeenCalled();
+    });
+  });
+
+  describe("POST /api/agents/unregister", () => {
+    const unregisterBody = {
+      domainIntegrationId: "mediapulse",
+      agentId: "test-agent",
+      agentVersion: "1.0.0",
+    };
+
+    it("returns 401 without Authorization header", async () => {
+      const { default: app } = await import("./index.js");
+      const res = await app.fetch(
+        new Request("http://localhost/api/agents/unregister", {
+          method: "POST",
+        }),
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it("returns 200 and deletes the registry entry with a valid integration token", async () => {
+      mockDelete.mockResolvedValue({ id: "1" });
+      const { default: app } = await import("./index.js");
+      const res = await app.fetch(
+        new Request("http://localhost/api/agents/unregister", {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify(unregisterBody),
+        }),
+      );
+
+      const body = await res.json();
+      expect(res.status).toBe(200);
+      expect(body.message).toBe("Agent unregistered successfully");
+      expect(mockDelete).toHaveBeenCalledWith({
+        where: {
+          domainIntegrationId_agentId_agentVersion: {
+            domainIntegrationId: "mediapulse",
+            agentId: "test-agent",
+            agentVersion: "1.0.0",
+          },
+        },
+      });
+    });
+
+    it("is idempotent when the entry does not exist (P2025)", async () => {
+      mockDelete.mockRejectedValue(
+        new MockPrismaClientKnownRequestError("not found", "P2025"),
+      );
+      const { default: app } = await import("./index.js");
+      const res = await app.fetch(
+        new Request("http://localhost/api/agents/unregister", {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify(unregisterBody),
+        }),
+      );
+
+      expect(res.status).toBe(200);
     });
   });
 });

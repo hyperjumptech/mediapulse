@@ -106,7 +106,7 @@ describe("getDataSourcesForTicker", () => {
     vi.restoreAllMocks();
   });
 
-  it("filters by selected relevance scored today in UTC and sorts by score desc", async () => {
+  it("filters by classified section analyzed today in UTC and sorts by section score desc", async () => {
     // Setup
     const db = createMockDb();
     db.ticker.findUniqueOrThrow.mockResolvedValue({
@@ -122,9 +122,10 @@ describe("getDataSourcesForTicker", () => {
         metadata: null,
         tickerId: "ticker-1",
         searchQueryId: "sq-1",
+        section: "quickHits",
+        sectionScore: 0.62,
         createdAt: new Date("2026-03-19T08:00:00.000Z"),
         updatedAt: new Date("2026-03-19T08:00:00.000Z"),
-        articleRelevances: [{ score: 0.62 }],
       },
       {
         id: "ds-high",
@@ -134,9 +135,10 @@ describe("getDataSourcesForTicker", () => {
         metadata: null,
         tickerId: "ticker-1",
         searchQueryId: "sq-2",
+        section: "competitiveLandscape",
+        sectionScore: 0.93,
         createdAt: new Date("2026-03-19T09:00:00.000Z"),
         updatedAt: new Date("2026-03-19T09:00:00.000Z"),
-        articleRelevances: [{ score: 0.93 }],
       },
     ]);
 
@@ -151,25 +153,8 @@ describe("getDataSourcesForTicker", () => {
     expect(db.dataSource.findMany).toHaveBeenCalledWith({
       where: {
         tickerId: "ticker-1",
-        articleRelevances: {
-          some: {
-            tickerId: "ticker-1",
-            selected: true,
-            scoredAt: { gte: expectedStartOfToday },
-          },
-        },
-      },
-      include: {
-        articleRelevances: {
-          where: {
-            tickerId: "ticker-1",
-            selected: true,
-            scoredAt: { gte: expectedStartOfToday },
-          },
-          select: {
-            score: true,
-          },
-        },
+        section: { not: null },
+        analyzedAt: { gte: expectedStartOfToday },
       },
       orderBy: {
         createdAt: "desc",
@@ -178,7 +163,6 @@ describe("getDataSourcesForTicker", () => {
     expect(result.dataSources).toHaveLength(2);
     expect(result.dataSources[0]?.id).toBe("ds-high");
     expect(result.dataSources[1]?.id).toBe("ds-low");
-    expect(result.dataSources[0]).not.toHaveProperty("articleRelevances");
     expect(result.tickerSymbol).toBe("TEST");
     expect(result.tickerName).toBe("Test Company");
   });

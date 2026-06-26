@@ -10,15 +10,7 @@ const MAX_RECENT_BULLETS = 200;
 const MAX_COMPETITOR_EDGE_FETCH = 50;
 const MAX_COMPETITORS_DEFAULT = 8;
 
-type DataSourceWithScore = Prisma.DataSourceGetPayload<{
-  include: {
-    articleRelevances: {
-      select: {
-        score: true;
-      };
-    };
-  };
-}>;
+type DataSourceWithScore = Prisma.DataSourceGetPayload<object>;
 
 type ContentGenerationDb = {
   dataSource: Pick<typeof prisma.dataSource, "findMany">;
@@ -219,25 +211,8 @@ export const getDataSourcesForTicker = async (
     db.dataSource.findMany({
       where: {
         tickerId,
-        articleRelevances: {
-          some: {
-            tickerId,
-            selected: true,
-            scoredAt: { gte: startOfTodayUtc },
-          },
-        },
-      },
-      include: {
-        articleRelevances: {
-          where: {
-            tickerId,
-            selected: true,
-            scoredAt: { gte: startOfTodayUtc },
-          },
-          select: {
-            score: true,
-          },
-        },
+        section: { not: null },
+        analyzedAt: { gte: startOfTodayUtc },
       },
       orderBy: {
         createdAt: "desc",
@@ -245,18 +220,13 @@ export const getDataSourcesForTicker = async (
     } satisfies Prisma.DataSourceFindManyArgs),
   ]);
 
-  const dataSources = dataSourcesWithScores
-    .sort((left: DataSourceWithScore, right: DataSourceWithScore) => {
-      const leftScore = left.articleRelevances[0]?.score ?? 0;
-      const rightScore = right.articleRelevances[0]?.score ?? 0;
+  const dataSources = [...dataSourcesWithScores].sort(
+    (left: DataSourceWithScore, right: DataSourceWithScore) => {
+      const leftScore = left.sectionScore ?? 0;
+      const rightScore = right.sectionScore ?? 0;
       return rightScore - leftScore;
-    })
-    .map(
-      ({
-        articleRelevances: _articleRelevances,
-        ...dataSource
-      }: DataSourceWithScore) => dataSource,
-    );
+    },
+  );
 
   const anchor = await findIssuerAnchorForTicker(tickerId, db);
   const issuerAliases: string[] =
