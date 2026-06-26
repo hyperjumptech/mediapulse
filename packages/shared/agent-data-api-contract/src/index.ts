@@ -138,6 +138,14 @@ export {
   type PostDeliveryResponse,
 } from "./delivery.js";
 export {
+  deliveryClaimBodySchema,
+  postDeliveryClaimResponseSchema,
+  postDeliveryClaimReleaseResponseSchema,
+  type DeliveryClaimBody,
+  type PostDeliveryClaimResponse,
+  type PostDeliveryClaimReleaseResponse,
+} from "./delivery-claim.js";
+export {
   deliveryRecipientOutcomeInputSchema,
   deliveryRunListItemSchema,
   deliveryRunOutcomeSchema,

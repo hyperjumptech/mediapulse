@@ -118,6 +118,21 @@ export const executeSchedule = async (
   const executionTime = new Date();
   const errors: EnqueueDiagnosticEntry[] = [];
 
+  // Atomically claim this tick before doing any work. The claim advances `nextRunAt`
+  // with a compare-and-swap on the exact value we read, so two workers that picked up
+  // the same due schedule cannot both proceed — the loser matches zero rows and bails.
+  // This is the single source of idempotency for a cron tick; everything below runs at
+  // most once per tick regardless of how many workers race here.
+  const claimed = await claimScheduleTick(db, schedule, executionTime);
+  if (!claimed) {
+    logger.info(
+      { scheduleId: schedule.id, nextRunAt: schedule.nextRunAt },
+      "executeSchedule: tick already claimed by another worker — skipping",
+    );
+
+    return;
+  }
+
   const pipeline = schedule.pipeline;
   const steps = pipeline?.steps ?? [];
   const effectiveExecutionConfig = mergeExecutionConfig(
@@ -130,7 +145,7 @@ export const executeSchedule = async (
       { scheduleId: schedule.id, pipelineId: schedule.pipelineId },
       "Schedule pipeline has no steps, skipping",
     );
-    await recordScheduleExecutionAndUpdateSchedule({
+    await recordScheduleExecution({
       db,
       schedule,
       executionTime,
@@ -166,7 +181,6 @@ export const executeSchedule = async (
       },
       "executeSchedule: skipping tick — prior execution is still non-terminal",
     );
-    await updateScheduleAfterExecution(db, schedule, executionTime);
 
     return;
   }
@@ -210,7 +224,7 @@ export const executeSchedule = async (
   const effectiveJson = toPrismaJson(effectiveExecutionConfig);
 
   if (jobsCreated === 0) {
-    await recordScheduleExecutionAndUpdateSchedule({
+    await recordScheduleExecution({
       db,
       schedule,
       executionTime,
@@ -366,7 +380,7 @@ export const executeSchedule = async (
           errors.length > 0 ? (errors as Prisma.InputJsonValue) : undefined,
       },
     });
-    await updateScheduleAfterExecution(db, schedule, executionTime);
+
     return;
   }
 
@@ -380,44 +394,51 @@ export const executeSchedule = async (
           : ScheduleEnqueueStatus.partial,
     },
   });
-
-  await updateScheduleAfterExecution(db, schedule, executionTime);
 };
 
 function toPrismaJson(value: Record<string, unknown>): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
-async function updateScheduleAfterExecution(
+/**
+ * Atomically claims a due tick by advancing `nextRunAt` with a compare-and-swap on the
+ * value we read. Returns true only for the worker whose update matched the row, so the
+ * same tick is executed at most once even when multiple workers race.
+ *
+ * @returns True if this caller won the tick and should proceed, false if another worker claimed it.
+ */
+async function claimScheduleTick(
   db: PrismaClient,
   schedule: DueSchedule,
   executionTime: Date,
-): Promise<void> {
-  if (schedule.repeat === "once") {
-    await db.schedule.update({
-      where: { id: schedule.id },
-      data: { nextRunAt: null },
-    });
-    return;
-  }
+): Promise<boolean> {
+  const nextRunAt =
+    schedule.repeat === "once"
+      ? null
+      : computeNextRunAt(
+          {
+            repeat: schedule.repeat,
+            cronExpression: schedule.cronExpression,
+            interval: schedule.interval,
+            timezone: schedule.timezone,
+            nextRunAt: schedule.nextRunAt,
+          },
+          executionTime,
+        );
 
-  const nextRunAt = computeNextRunAt(
-    {
-      repeat: schedule.repeat,
-      cronExpression: schedule.cronExpression,
-      interval: schedule.interval,
-      timezone: schedule.timezone,
+  const claim = await db.schedule.updateMany({
+    where: {
+      id: schedule.id,
+      enabled: true,
       nextRunAt: schedule.nextRunAt,
     },
-    executionTime,
-  );
-  await db.schedule.update({
-    where: { id: schedule.id },
     data: { nextRunAt },
   });
+
+  return claim.count === 1;
 }
 
-async function recordScheduleExecutionAndUpdateSchedule(args: {
+async function recordScheduleExecution(args: {
   db: PrismaClient;
   schedule: DueSchedule;
   executionTime: Date;
@@ -451,6 +472,4 @@ async function recordScheduleExecutionAndUpdateSchedule(args: {
       errors: errors ?? undefined,
     },
   });
-
-  await updateScheduleAfterExecution(db, schedule, executionTime);
 }

@@ -331,4 +331,85 @@ describe("deliverNewsletterToSubscribers", () => {
     expect(results[0]?.status).toBe("failed");
     expect(results[0]?.attempts).toBe(baseConfig.retry.maxAttempts);
   });
+
+  it("skips the send without acquiring when the recipient claim is lost", async () => {
+    const sendWithRetry = vi.fn();
+    const acquire = vi.fn().mockResolvedValue(0);
+    const claimRecipient = vi.fn().mockResolvedValue(false);
+    const releaseRecipient = vi.fn().mockResolvedValue(undefined);
+
+    const { results, resendMessageIds } = await deliverNewsletterToSubscribers(
+      newsletter,
+      [{ userTickerId, email: "u@example.com" }],
+      [],
+      baseConfig,
+      {
+        resend: {} as Resend,
+        rateLimiter: mockRateLimiter(acquire),
+        sendWithRetry,
+        claimRecipient,
+        releaseRecipient,
+      },
+    );
+
+    expect(claimRecipient).toHaveBeenCalledWith(userTickerId);
+    expect(sendWithRetry).not.toHaveBeenCalled();
+    expect(acquire).not.toHaveBeenCalled();
+    expect(releaseRecipient).not.toHaveBeenCalled();
+    expect(results[0]).toMatchObject({
+      status: "skipped",
+      errorCategory: "skipped_already_claimed",
+    });
+    expect(resendMessageIds).toEqual([]);
+  });
+
+  it("releases the claim when a claimed send fails so it can be retried", async () => {
+    const sendWithRetry = vi.fn().mockRejectedValue(new Error("Resend down"));
+    const claimRecipient = vi.fn().mockResolvedValue(true);
+    const releaseRecipient = vi.fn().mockResolvedValue(undefined);
+
+    const { results } = await deliverNewsletterToSubscribers(
+      newsletter,
+      [{ userTickerId, email: "u@example.com" }],
+      [],
+      baseConfig,
+      {
+        resend: {} as Resend,
+        rateLimiter: mockRateLimiter(),
+        sendWithRetry,
+        claimRecipient,
+        releaseRecipient,
+      },
+    );
+
+    expect(claimRecipient).toHaveBeenCalledWith(userTickerId);
+    expect(sendWithRetry).toHaveBeenCalledOnce();
+    expect(releaseRecipient).toHaveBeenCalledWith(userTickerId);
+    expect(results[0]?.status).toBe("failed");
+  });
+
+  it("does not release the claim when a claimed send succeeds", async () => {
+    const sendWithRetry = vi
+      .fn()
+      .mockResolvedValue({ id: "re_ok", attempts: 1 });
+    const claimRecipient = vi.fn().mockResolvedValue(true);
+    const releaseRecipient = vi.fn().mockResolvedValue(undefined);
+
+    const { results } = await deliverNewsletterToSubscribers(
+      newsletter,
+      [{ userTickerId, email: "u@example.com" }],
+      [],
+      baseConfig,
+      {
+        resend: {} as Resend,
+        rateLimiter: mockRateLimiter(),
+        sendWithRetry,
+        claimRecipient,
+        releaseRecipient,
+      },
+    );
+
+    expect(releaseRecipient).not.toHaveBeenCalled();
+    expect(results[0]?.status).toBe("success");
+  });
 });
