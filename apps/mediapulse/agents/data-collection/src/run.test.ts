@@ -318,6 +318,7 @@ describe("runDataCollection", () => {
         content: validArticleContent,
         tickerId: TICKER_ID,
         searchQueryId: "sq-1",
+        source: "Example",
       },
     ]);
     expect(failureCreateMock).not.toHaveBeenCalled();

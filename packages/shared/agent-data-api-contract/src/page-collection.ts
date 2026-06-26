@@ -6,6 +6,8 @@ const pageCollectionArticleInputSchema = z.object({
   url: z.string().url(),
   title: z.string(),
   content: z.string(),
+  author: z.string().optional(),
+  source: z.string().optional(),
   curatedSourceListingUrl: z.string().url(),
   publishedAt: z.string().datetime().optional(),
   metadata: z.object({ provider: z.string().optional() }).optional(),

@@ -50,7 +50,11 @@ import {
   checkFreshness,
   judgeRelevance,
 } from "./utilities/filter";
-import { classifyNoisyUrl, type UrlNoiseReason } from "@workspace/utils";
+import {
+  classifyNoisyUrl,
+  derivePublisherFromUrl,
+  type UrlNoiseReason,
+} from "@workspace/utils";
 
 /** Run success criteria, formerly the configurable runPolicy section. */
 const RUN_POLICY: RunPolicy = {
@@ -632,19 +636,23 @@ export async function runDataCollection(
           return;
         }
 
-        const source: DataCollectionInput = {
+        const resolvedSource =
+          page.source ?? derivePublisherFromUrl(urlDecision.canonicalUrl);
+        const collectedSource: DataCollectionInput = {
           url: urlDecision.canonicalUrl,
           title: page.title,
           content: page.content,
           tickerId: input.tickerId,
           searchQueryId: page.searchQueryId,
+          ...(page.author ? { author: page.author } : {}),
+          ...(resolvedSource ? { source: resolvedSource } : {}),
           ...(publishedAt ? { publishedAt: publishedAt.toISOString() } : {}),
         };
         log.info(
           { round, url: urlDecision.canonicalUrl.slice(0, 120) },
           "persisting collected source to Agent Data API",
         );
-        await dataApiClient.dataCollection.create([source]);
+        await dataApiClient.dataCollection.create([collectedSource]);
         outcomes.push(
           makeCollectedOutcome({
             ...outcomeBase,

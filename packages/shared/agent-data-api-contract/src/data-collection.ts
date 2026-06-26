@@ -11,6 +11,8 @@ const dataCollectionInputSchema = z.object({
   title: z.string(),
   description: z.string().optional(),
   content: z.string(),
+  author: z.string().optional(),
+  source: z.string().optional(),
   tickerId: z.string().trim().min(1),
   searchQueryId: z.string().uuid(),
   publishedAt: z.string().datetime().optional(),

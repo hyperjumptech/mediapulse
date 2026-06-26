@@ -1,8 +1,16 @@
 import type { IndustryNewsletterStructure } from "./industry-newsletter-schema.js";
 
-/** Minimal source row used to resolve `articleIndex` into an HTTPS URL. */
+/** Minimal source row used to resolve `articleIndex` into URL and byline. */
 export type IndustryNewsletterSourceRow = {
   url: string;
+  author?: string | null;
+  source?: string | null;
+};
+
+/** Author and source byline resolved from a source row. */
+export type IndustryBylineResolved = {
+  author?: string;
+  source?: string;
 };
 
 /** Bullet with an optional grounded article URL. */
@@ -10,6 +18,8 @@ export type IndustryBulletResolved = {
   title?: string;
   text: string;
   url?: string;
+  author?: string;
+  source?: string;
 };
 
 /** Quick hit with a grounded article URL when the index resolves. */
@@ -17,6 +27,8 @@ export type IndustryQuickHitResolved = {
   title?: string;
   text: string;
   url?: string;
+  author?: string;
+  source?: string;
 };
 
 export type IndustryDisruptorsOrTechResolved =
@@ -42,7 +54,13 @@ export type IndustryDisruptorsOrTechResolved =
  */
 export type IndustryNewsletterResolved = {
   subject: string;
-  industryPulse?: { displayHeading: string; prose: string; url?: string };
+  industryPulse?: {
+    displayHeading: string;
+    prose: string;
+    url?: string;
+    author?: string;
+    source?: string;
+  };
   competitiveLandscape?: {
     displayHeading: string;
     bullets: IndustryBulletResolved[];
@@ -80,6 +98,27 @@ export const resolveArticleUrlForIndustryNewsletter = (
 };
 
 /**
+ * Resolves the author/source byline for a 1-based article index.
+ *
+ * @param index - 1-based article index from the LLM, when defined.
+ * @param sources - Articles in prompt order (`Article 1` … `Article N`).
+ * @returns Trimmed author/source when present; each field omitted when empty.
+ */
+export const resolveArticleBylineForIndustryNewsletter = (
+  index: number | undefined,
+  sources: ReadonlyArray<IndustryNewsletterSourceRow>,
+): IndustryBylineResolved => {
+  if (index === undefined) return {};
+  const row = sources[index - 1];
+  const author = row?.author?.trim() ?? "";
+  const source = row?.source?.trim() ?? "";
+  return {
+    ...(author.length > 0 ? { author } : {}),
+    ...(source.length > 0 ? { source } : {}),
+  };
+};
+
+/**
  * Attaches `url` fields from Hermes-selected sources using each `articleIndex`.
  *
  * @param briefing - Validated LLM object (no URLs from the model).
@@ -98,6 +137,7 @@ export const attachIndustryNewsletterSourceUrls = (
     title: b.title,
     text: b.text,
     url: resolveArticleUrlForIndustryNewsletter(b.articleIndex, sources),
+    ...resolveArticleBylineForIndustryNewsletter(b.articleIndex, sources),
   });
 
   const mapHit = (h: {
@@ -108,6 +148,7 @@ export const attachIndustryNewsletterSourceUrls = (
     title: h.title,
     text: h.text,
     url: resolveArticleUrlForIndustryNewsletter(h.articleIndex, sources),
+    ...resolveArticleBylineForIndustryNewsletter(h.articleIndex, sources),
   });
 
   const disruptors: IndustryDisruptorsOrTechResolved =
@@ -127,6 +168,10 @@ export const attachIndustryNewsletterSourceUrls = (
     briefing.industryPulse.articleIndex,
     sources,
   );
+  const leadByline = resolveArticleBylineForIndustryNewsletter(
+    briefing.industryPulse.articleIndex,
+    sources,
+  );
 
   return {
     subject: briefing.subject,
@@ -134,6 +179,7 @@ export const attachIndustryNewsletterSourceUrls = (
       displayHeading: briefing.industryPulse.displayHeading,
       prose: briefing.industryPulse.prose,
       ...(leadUrl !== undefined ? { url: leadUrl } : {}),
+      ...leadByline,
     },
     competitiveLandscape: {
       displayHeading: briefing.competitiveLandscape.displayHeading,

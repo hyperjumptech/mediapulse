@@ -58,6 +58,8 @@ export const persistPageCollectionArticles = async (
       canonicalUrl,
       title: row.title,
       content: row.content,
+      ...(row.author ? { author: row.author } : {}),
+      ...(row.source ? { source: row.source } : {}),
       tickerId: null,
       searchQueryId: null,
       curatedSourceId,

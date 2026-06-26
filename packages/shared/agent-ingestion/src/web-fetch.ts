@@ -19,6 +19,8 @@ export interface WebSearchResult {
   url: string;
   title: string;
   content: string;
+  author?: string;
+  source?: string;
   tickerId: string;
   searchQueryId: string;
   searchQueryText: string;
@@ -195,6 +197,8 @@ const fetchOneResult = async (
           url: data.url ?? result.url,
           title: data.title ?? result.title,
           content: data.content,
+          ...(data.author ? { author: data.author } : {}),
+          ...(data.source ? { source: data.source } : {}),
           tickerId: result.tickerId,
           searchQueryId: result.searchQueryId,
           searchQueryText: result.searchQueryText,
@@ -331,6 +335,3 @@ export async function performWebFetch(
 
   return results;
 }
-
-/** @deprecated Use `jinaResponseSchema` from `./fetch-providers/jina` instead. */
-export { jinaResponseSchema as webFetchResponseSchema } from "./fetch-providers/jina";

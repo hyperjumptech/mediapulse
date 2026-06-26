@@ -98,6 +98,24 @@ export const decomposeSectionHeading = (
 };
 
 /**
+ * Builds the byline line shown above an article.
+ *
+ * @param byline - Optional author and source for the article.
+ * @returns `By {author} · {source}` when an author exists, the source alone when only the source exists, or `undefined`.
+ */
+export const formatArticleByline = (byline: {
+  author?: string;
+  source?: string;
+}): string | undefined => {
+  const author = byline.author?.trim() ?? "";
+  const source = byline.source?.trim() ?? "";
+  if (author.length > 0) {
+    return source.length > 0 ? `By ${author} · ${source}` : `By ${author}`;
+  }
+  return source.length > 0 ? source : undefined;
+};
+
+/**
  * Renders a section header as an eyebrow kicker plus subtitle, or a plain label.
  *
  * @param machineKey - Wire section key.
@@ -207,10 +225,14 @@ export const DefaultNewsletterEmail = ({
           {renderSectionHeader(section.machineKey, section.displayHeading)}
           {section.bullets.map((bullet, bulletIndex) => {
             const bulletCtaLabel = bullet.title ?? bullet.text;
+            const bulletByline = formatArticleByline(bullet);
             return (
               <Section
                 key={`${String(section.machineKey)}-b-${String(bulletIndex)}`}
               >
+                {bulletByline !== undefined ? (
+                  <Text style={newsItemByline}>{bulletByline}</Text>
+                ) : null}
                 <Text style={newsItemSummary}>
                   {renderInlineMarkdownLinks(bullet.text, link)}
                 </Text>
@@ -237,8 +259,12 @@ export const DefaultNewsletterEmail = ({
           {renderSectionHeader(section.machineKey, section.displayHeading)}
           {section.items.map((item, itemIndex) => {
             const itemCtaLabel = item.title ?? item.text;
+            const itemByline = formatArticleByline(item);
             return (
               <Section key={`qh-${String(itemIndex)}`}>
+                {itemByline !== undefined ? (
+                  <Text style={newsItemByline}>{itemByline}</Text>
+                ) : null}
                 <Text style={newsItemTitle}>
                   {itemIndex + 1}. {item.text}
                 </Text>
@@ -285,6 +311,12 @@ export const DefaultNewsletterEmail = ({
             <Heading style={heading}>{title}</Heading>
             {industryPulseSection !== undefined ? (
               <>
+                {(() => {
+                  const leadByline = formatArticleByline(industryPulseSection);
+                  return leadByline !== undefined ? (
+                    <Text style={newsItemByline}>{leadByline}</Text>
+                  ) : null;
+                })()}
                 <Text style={standfirst}>
                   {renderInlineMarkdownLinks(industryPulseSection.prose, link)}
                 </Text>
@@ -490,6 +522,14 @@ const newsItemSummary: CSSProperties = {
   fontSize: "16px",
   lineHeight: "1.6",
   margin: "0",
+};
+
+const newsItemByline: CSSProperties = {
+  color: "#6b7280",
+  fontSize: "12px",
+  fontWeight: "400",
+  lineHeight: "1.5",
+  margin: "0 0 4px",
 };
 
 const newsItemSourceLink: CSSProperties = {

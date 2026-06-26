@@ -19,8 +19,11 @@ const firecrawlResponseSchema = z.object({
       metadata: z
         .object({
           title: z.string().optional(),
+          author: z.string().optional(),
+          ogSiteName: z.string().optional(),
           publishedTime: z.string().optional(),
         })
+        .passthrough()
         .optional(),
     })
     .optional(),
@@ -65,6 +68,8 @@ const parseFirecrawlResponse = (raw: unknown): NormalizedFetchData => {
   return {
     content: markdown,
     ...(metadata?.title ? { title: metadata.title } : {}),
+    ...(metadata?.author ? { author: metadata.author } : {}),
+    ...(metadata?.ogSiteName ? { source: metadata.ogSiteName } : {}),
     ...(metadata?.publishedTime
       ? { publishedTime: metadata.publishedTime }
       : {}),

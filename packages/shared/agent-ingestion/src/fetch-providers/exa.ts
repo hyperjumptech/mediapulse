@@ -17,6 +17,7 @@ const exaResponseSchema = z.object({
       z.object({
         text: z.string().optional(),
         title: z.string().optional(),
+        author: z.string().optional(),
         publishedDate: z.string().optional(),
       }),
     )
@@ -43,6 +44,7 @@ const parseExaResponse = (raw: unknown): NormalizedFetchData => {
   return {
     content,
     ...(result.title ? { title: result.title } : {}),
+    ...(result.author ? { author: result.author } : {}),
     ...(result.publishedDate ? { publishedTime: result.publishedDate } : {}),
   };
 };

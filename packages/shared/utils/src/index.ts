@@ -27,6 +27,7 @@ export type {
   UrlNoiseReason,
 } from "./article-source-url-filter.js";
 export { buildVCard } from "./build-vcard.js";
+export { derivePublisherFromUrl } from "./derive-publisher-from-url.js";
 export {
   MEDIAPULSE_SENDER_NAME,
   formatResendSender,

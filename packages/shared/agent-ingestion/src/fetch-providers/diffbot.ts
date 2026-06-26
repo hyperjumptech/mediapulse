@@ -18,6 +18,8 @@ const diffbotResponseSchema = z.object({
         text: z.string().optional(),
         title: z.string().optional(),
         date: z.string().optional(),
+        author: z.string().optional(),
+        siteName: z.string().optional(),
       }),
     )
     .optional(),
@@ -42,6 +44,8 @@ const parseDiffbotResponse = (raw: unknown): NormalizedFetchData => {
   return {
     content: firstObject.text,
     ...(firstObject.title ? { title: firstObject.title } : {}),
+    ...(firstObject.author ? { author: firstObject.author } : {}),
+    ...(firstObject.siteName ? { source: firstObject.siteName } : {}),
     ...(firstObject.date ? { publishedTime: firstObject.date } : {}),
   };
 };
