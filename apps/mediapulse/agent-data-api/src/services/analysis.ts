@@ -44,8 +44,21 @@ export const loadAnalysisContext = async (
 ): Promise<GetAnalysisResponse> => {
   const db = deps.db ?? defaultDb;
 
+  const createdAtWhere =
+    query.start !== undefined || query.end !== undefined
+      ? ({
+          ...(query.start !== undefined ? { gte: new Date(query.start) } : {}),
+          ...(query.end !== undefined ? { lte: new Date(query.end) } : {}),
+        } satisfies Prisma.DateTimeFilter)
+      : undefined;
+
   const where = {
-    collectionGateStatus: "passed" as const,
+    // Ticker-scoped requests (data-collection daily baseline) count every source for the
+    // ticker in the window; ticker-agnostic requests (article-analysis) only see gated articles.
+    ...(query.tickerId !== undefined
+      ? { tickerId: query.tickerId }
+      : { collectionGateStatus: "passed" as const }),
+    ...(createdAtWhere ? { createdAt: createdAtWhere } : {}),
     ...(query.unanalyzed ? { analyzedAt: null } : {}),
   } satisfies Prisma.DataSourceWhereInput;
 

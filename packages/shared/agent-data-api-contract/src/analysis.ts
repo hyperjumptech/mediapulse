@@ -13,11 +13,23 @@ const sectionEnum = z.enum(
 );
 
 export const getAnalysisQuerySchema = z.object({
+  /** Scope the query to one ticker (used for the data-collection daily baseline count). */
+  tickerId: z.string().trim().min(1).optional(),
   /** Omitted query param defaults to incremental unanalyzed-only runs. */
   unanalyzed: z
     .enum(["true", "false"])
     .default("true")
     .transform((value) => value === "true"),
+  /** Inclusive lower bound on `DataSource.createdAt` (ISO 8601). */
+  start: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.string().datetime().optional(),
+  ),
+  /** Inclusive upper bound on `DataSource.createdAt` (ISO 8601). */
+  end: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.string().datetime().optional(),
+  ),
   /**
    * Max data sources returned (oldest first). Total matching rows (ignoring this cap) is
    * `dataSourceTotalCount` on the response. Upper bound is {@link ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX}.

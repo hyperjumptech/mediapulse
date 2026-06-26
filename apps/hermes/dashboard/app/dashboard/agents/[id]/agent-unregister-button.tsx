@@ -16,12 +16,9 @@ type AgentUnregisterButtonProps = {
 };
 
 /**
- * Destructive button that unregisters an agent and returns to the agents list on success.
+ * Encapsulates the unregister form action and navigate-to-list-on-success behavior.
  */
-export const AgentUnregisterButton = ({
-  agentId,
-  agentLabel,
-}: AgentUnregisterButtonProps) => {
+const useUnregisterAgentAction = () => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
@@ -31,6 +28,18 @@ export const AgentUnregisterButton = ({
       router.refresh();
     }
   }, [state, router]);
+
+  return { FormWithAction, pending };
+};
+
+/**
+ * Destructive button that unregisters an agent and returns to the agents list on success.
+ */
+export const AgentUnregisterButton = ({
+  agentId,
+  agentLabel,
+}: AgentUnregisterButtonProps) => {
+  const { FormWithAction, pending } = useUnregisterAgentAction();
 
   return (
     <FormWithAction
