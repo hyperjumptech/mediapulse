@@ -51,6 +51,10 @@ import {
 import { getDeliveryRun, postDeliveryRun } from "./routes/delivery-run.js";
 import { getDelivery, postDeliveryHandler } from "./routes/delivery.js";
 import {
+  postDeliveryClaimHandler,
+  postDeliveryClaimReleaseHandler,
+} from "./routes/delivery-claim.js";
+import {
   postUserRegistrationRegisterHandler,
   postUserRegistrationConfirmHandler,
   getUserRegistrationUnsubscribeHandler,
@@ -164,6 +168,12 @@ const routeHandlers = {
   delivery: {
     get: getDelivery,
     post: postDeliveryHandler,
+  },
+  deliveryClaim: {
+    post: postDeliveryClaimHandler,
+  },
+  deliveryClaimRelease: {
+    post: postDeliveryClaimReleaseHandler,
   },
   queryAnalysis: {
     get: getQueryAnalysis,

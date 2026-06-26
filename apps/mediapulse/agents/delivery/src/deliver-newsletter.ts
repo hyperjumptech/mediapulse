@@ -40,6 +40,14 @@ export type DeliverNewsletterDependencies = {
   rateLimiter?: SendRateLimiter;
   logger?: LoggerLike;
   sendWithRetry?: typeof sendWithResendRetry;
+  /**
+   * Atomically claims a recipient before sending. Returns false when another concurrent
+   * delivery run already owns this recipient, in which case the send is skipped. When
+   * omitted, no claim is performed (e.g. test-email overrides that never checkpoint).
+   */
+  claimRecipient?: (userTickerId: string) => Promise<boolean>;
+  /** Releases a claim after a failed send so the recipient can be retried by a later run. */
+  releaseRecipient?: (userTickerId: string) => Promise<void>;
 };
 
 /**
@@ -124,6 +132,8 @@ export async function deliverNewsletterToSubscribers(
 }> {
   const logger = dependencies.logger;
   const sendImpl = dependencies.sendWithRetry ?? sendWithResendRetry;
+  const claimRecipient = dependencies.claimRecipient;
+  const releaseRecipient = dependencies.releaseRecipient;
   const rateLimiter =
     dependencies.rateLimiter ??
     createSendRateLimiter({
@@ -150,6 +160,28 @@ export async function deliverNewsletterToSubscribers(
     }
 
     const ref = recipientLogRef(sub.userTickerId);
+
+    // Claim the recipient before sending so two concurrent runs can never both send. The
+    // claim inserts the delivery checkpoint up front; the loser of the race is told the
+    // recipient is already owned and skips without sending.
+    if (claimRecipient) {
+      const claimed = await claimRecipient(sub.userTickerId);
+      if (!claimed) {
+        logger?.info?.(
+          { recipientRef: ref, newsletterId: newsletter.id },
+          "delivery recipient already claimed — skipping send",
+        );
+        results.push({
+          userTickerId: sub.userTickerId,
+          status: "skipped",
+          attempts: 0,
+          lastErrorMessage: "already_claimed",
+          errorCategory: "skipped_already_claimed",
+        });
+        continue;
+      }
+    }
+
     const waitMs = await rateLimiter.acquire();
     if (waitMs > 0) {
       logger?.info?.(
@@ -251,6 +283,18 @@ export async function deliverNewsletterToSubscribers(
         },
         "delivery send failed",
       );
+      // Release the claim so a later run can retry this recipient. Failing to release must
+      // not turn a send failure into an unhandled error, so swallow and log release errors.
+      if (releaseRecipient) {
+        try {
+          await releaseRecipient(sub.userTickerId);
+        } catch (releaseErr) {
+          logger?.error?.(
+            { recipientRef: ref, err: releaseErr },
+            "delivery claim release failed",
+          );
+        }
+      }
       results.push({
         userTickerId: sub.userTickerId,
         status: "failed",

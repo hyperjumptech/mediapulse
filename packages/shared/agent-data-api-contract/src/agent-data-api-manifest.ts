@@ -66,6 +66,11 @@ import {
   postDeliveryResponseSchema,
 } from "./delivery.js";
 import {
+  deliveryClaimBodySchema,
+  postDeliveryClaimResponseSchema,
+  postDeliveryClaimReleaseResponseSchema,
+} from "./delivery-claim.js";
+import {
   dataCollectionRunQuerySchema,
   getDataCollectionRunResponseSchema,
   postDataCollectionRunBodySchema,
@@ -440,6 +445,36 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postDeliveryBodySchema,
         response: postDeliveryResponseSchema,
+      },
+    },
+  },
+
+  deliveryClaim: {
+    v1: {
+      post: {
+        body: deliveryClaimBodySchema,
+        response: postDeliveryClaimResponseSchema,
+      },
+    },
+    v2: {
+      post: {
+        body: deliveryClaimBodySchema,
+        response: postDeliveryClaimResponseSchema,
+      },
+    },
+  },
+
+  deliveryClaimRelease: {
+    v1: {
+      post: {
+        body: deliveryClaimBodySchema,
+        response: postDeliveryClaimReleaseResponseSchema,
+      },
+    },
+    v2: {
+      post: {
+        body: deliveryClaimBodySchema,
+        response: postDeliveryClaimReleaseResponseSchema,
       },
     },
   },

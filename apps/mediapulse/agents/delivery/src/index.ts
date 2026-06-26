@@ -284,12 +284,36 @@ const app = createAgentApp<
 
         stage = "send";
         report("Sending emails", `${pendingRecipients} recipients via Resend`);
+        const newsletterIdForClaim = deliveryData.newsletter.id;
         const sendResult = await deliverNewsletterToSubscribers(
           deliveryData.newsletter,
           subscribers,
           deliveredUserTickerIds,
           config,
-          { resend, logger },
+          {
+            resend,
+            logger,
+            // Test-email overrides never write checkpoints, so they also must not claim.
+            ...(isTestEmailOverride
+              ? {}
+              : {
+                  claimRecipient: async (userTickerId) => {
+                    const { claimed } =
+                      await dataApiClient.deliveryClaim.create({
+                        userTickerId,
+                        newsletterId: newsletterIdForClaim,
+                      });
+
+                    return claimed;
+                  },
+                  releaseRecipient: async (userTickerId) => {
+                    await dataApiClient.deliveryClaimRelease.create({
+                      userTickerId,
+                      newsletterId: newsletterIdForClaim,
+                    });
+                  },
+                }),
+          },
         );
         recipientRows = sendResult.results;
         resendMessageIds = sendResult.resendMessageIds;

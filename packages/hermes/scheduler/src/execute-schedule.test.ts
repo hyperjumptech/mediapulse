@@ -126,7 +126,10 @@ const createMockDb = (opts?: {
       createMany: vi.fn().mockResolvedValue({ count: 0 }),
       update: vi.fn().mockResolvedValue(undefined),
     },
-    schedule: { update: vi.fn().mockResolvedValue(undefined) },
+    schedule: {
+      update: vi.fn().mockResolvedValue(undefined),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
     variable: { findMany: vi.fn().mockResolvedValue([]) },
   };
 };
@@ -136,11 +139,11 @@ describe("executeSchedule", () => {
     vi.restoreAllMocks();
   });
 
-  it("creates schedule execution and updates schedule nextRunAt for repeating", async () => {
+  it("claims the tick by advancing nextRunAt via a compare-and-swap for repeating", async () => {
     const schedule = createMockSchedule();
-    const scheduleUpdate = vi.fn().mockResolvedValue(undefined);
+    const scheduleUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
     const db = createMockDb();
-    db.schedule.update = scheduleUpdate;
+    db.schedule.updateMany = scheduleUpdateMany;
     const deps: ExecuteScheduleDeps = {
       db: db as unknown as ExecuteScheduleDeps["db"],
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -150,14 +153,42 @@ describe("executeSchedule", () => {
     await executeSchedule(schedule, deps);
 
     expect(db.$transaction).toHaveBeenCalled();
-    expect(scheduleUpdate).toHaveBeenCalledTimes(1);
-    expect(scheduleUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: schedule.id } }),
-    );
-    const updateCall = scheduleUpdate.mock.calls[0] as [
-      { where: { id: string }; data: { nextRunAt?: Date | null } },
+    expect(scheduleUpdateMany).toHaveBeenCalledTimes(1);
+    const claimCall = scheduleUpdateMany.mock.calls[0] as [
+      {
+        where: { id: string; enabled: boolean; nextRunAt: Date | null };
+        data: { nextRunAt?: Date | null };
+      },
     ];
-    expect(updateCall[0].data).toHaveProperty("nextRunAt");
+    expect(claimCall[0].where).toMatchObject({
+      id: schedule.id,
+      enabled: true,
+      nextRunAt: schedule.nextRunAt,
+    });
+    expect(claimCall[0].data).toHaveProperty("nextRunAt");
+  });
+
+  it("bails out without doing work when the tick claim is lost to another worker", async () => {
+    const schedule = createMockSchedule();
+    const db = createMockDb();
+    db.schedule.updateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const deps: ExecuteScheduleDeps = {
+      db: db as unknown as ExecuteScheduleDeps["db"],
+      logger,
+      enqueueAgentInvocations,
+    };
+
+    await executeSchedule(schedule, deps);
+
+    expect(db.$transaction).not.toHaveBeenCalled();
+    expect(enqueueAgentInvocations).not.toHaveBeenCalled();
+    expect(db.scheduleExecution.findFirst).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({ scheduleId: schedule.id }),
+      "executeSchedule: tick already claimed by another worker — skipping",
+    );
   });
 
   it("enqueues one agent invocation per expanded input with body { input, config }", async () => {
@@ -328,11 +359,11 @@ describe("executeSchedule", () => {
     expect(p!.body.config).toEqual({ token: "resolved-secret" });
   });
 
-  it("clears nextRunAt when repeat is once", async () => {
+  it("clears nextRunAt via the claim when repeat is once", async () => {
     const schedule = createMockSchedule({ repeat: "once" });
-    const scheduleUpdate = vi.fn().mockResolvedValue(undefined);
+    const scheduleUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
     const db = createMockDb();
-    db.schedule.update = scheduleUpdate;
+    db.schedule.updateMany = scheduleUpdateMany;
     const deps: ExecuteScheduleDeps = {
       db: db as unknown as ExecuteScheduleDeps["db"],
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -341,8 +372,8 @@ describe("executeSchedule", () => {
 
     await executeSchedule(schedule, deps);
 
-    expect(scheduleUpdate).toHaveBeenCalledWith({
-      where: { id: schedule.id },
+    expect(scheduleUpdateMany).toHaveBeenCalledWith({
+      where: { id: schedule.id, enabled: true, nextRunAt: schedule.nextRunAt },
       data: { nextRunAt: null },
     });
   });
@@ -645,11 +676,11 @@ describe("executeSchedule", () => {
     ).toBe(true);
   });
 
-  it("skips execution and advances nextRunAt when a non-terminal execution already exists", async () => {
+  it("skips execution but still claims the tick when a non-terminal execution already exists", async () => {
     const schedule = createMockSchedule();
-    const scheduleUpdate = vi.fn().mockResolvedValue(undefined);
+    const scheduleUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
     const db = createMockDb();
-    db.schedule.update = scheduleUpdate;
+    db.schedule.updateMany = scheduleUpdateMany;
     db.scheduleExecution.findFirst = vi
       .fn()
       .mockResolvedValue({ id: "se-running", runStatus: "running" });
@@ -666,9 +697,11 @@ describe("executeSchedule", () => {
 
     expect(db.$transaction).not.toHaveBeenCalled();
     expect(enqueueAgentInvocations).not.toHaveBeenCalled();
-    expect(scheduleUpdate).toHaveBeenCalledTimes(1);
-    expect(scheduleUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: schedule.id } }),
+    expect(scheduleUpdateMany).toHaveBeenCalledTimes(1);
+    expect(scheduleUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: schedule.id }),
+      }),
     );
     expect(logger.info).toHaveBeenCalledWith(
       expect.objectContaining({
