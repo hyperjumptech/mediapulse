@@ -3,14 +3,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  narrativeDailyQuota,
-  narrativeFilteredResults,
-  narrativeFetchStart,
-  narrativeQueriesLoaded,
+  narrativeFetching,
   narrativeRunComplete,
   narrativeRunStart,
-  narrativeSearchRound,
-  narrativeSavingSources,
+  narrativeSearching,
 } from "./build-activity-narrative";
 
 const UUID_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}/;
@@ -36,78 +32,36 @@ describe("narrativeRunStart", () => {
   });
 });
 
-describe("narrativeQueriesLoaded", () => {
-  it("returns correct title and description when queryCount is 0", () => {
-    const [title, description] = narrativeQueriesLoaded(subject, 0);
-    expect(title).toBe("No search queries configured");
-    expect(description).toContain("BUVA");
-  });
-
+describe("narrativeSearching", () => {
   it("uses singular form when queryCount is 1", () => {
-    const [, description] = narrativeQueriesLoaded(subject, 1);
+    const [title, description] = narrativeSearching(subject, 1);
+    expect(title).toBe("Searching the web");
     expect(description).toContain("1 search query");
     expect(description).not.toContain("queries");
   });
 
   it("uses plural form when queryCount is 5", () => {
-    const [, description] = narrativeQueriesLoaded(subject, 5);
+    const [, description] = narrativeSearching(subject, 5);
     expect(description).toContain("5 search queries");
+    expect(description).toContain("BUVA");
   });
 
   it("does not contain a UUID pattern", () => {
-    const [title, description] = narrativeQueriesLoaded(subject, 3);
+    const [title, description] = narrativeSearching(subject, 3);
     expect(title).not.toMatch(UUID_PATTERN);
     expect(description).not.toMatch(UUID_PATTERN);
   });
 });
 
-describe("narrativeDailyQuota", () => {
-  it("does not contain a UUID pattern", () => {
-    const [title, description] = narrativeDailyQuota(subject, 3, 10);
-    expect(title).not.toMatch(UUID_PATTERN);
-    expect(description).not.toMatch(UUID_PATTERN);
-  });
-});
-
-describe("narrativeSearchRound", () => {
-  it("does not contain a UUID pattern", () => {
-    const [title, description] = narrativeSearchRound(subject, 5, 1, 3);
-    expect(title).not.toMatch(UUID_PATTERN);
-    expect(description).not.toMatch(UUID_PATTERN);
-  });
-});
-
-describe("narrativeFilteredResults", () => {
-  it("mentions URL count and no removal when droppedCount is 0", () => {
-    const [, description] = narrativeFilteredResults(10, 0);
-    expect(description).toContain("10 URLs");
-    expect(description).not.toContain("removing");
-  });
-
-  it("mentions both readyCount and droppedCount when droppedCount is positive", () => {
-    const [, description] = narrativeFilteredResults(7, 5);
-    expect(description).toContain("7");
-    expect(description).toContain("5");
+describe("narrativeFetching", () => {
+  it("titles the combined fetch and filter phase", () => {
+    const [title, description] = narrativeFetching(subject);
+    expect(title).toBe("Fetching & filtering articles");
+    expect(description).toContain("BUVA");
   });
 
   it("does not contain a UUID pattern", () => {
-    const [title, description] = narrativeFilteredResults(10, 3);
-    expect(title).not.toMatch(UUID_PATTERN);
-    expect(description).not.toMatch(UUID_PATTERN);
-  });
-});
-
-describe("narrativeFetchStart", () => {
-  it("does not contain a UUID pattern", () => {
-    const [title, description] = narrativeFetchStart(subject, 5);
-    expect(title).not.toMatch(UUID_PATTERN);
-    expect(description).not.toMatch(UUID_PATTERN);
-  });
-});
-
-describe("narrativeSavingSources", () => {
-  it("does not contain a UUID pattern", () => {
-    const [title, description] = narrativeSavingSources(subject, 8);
+    const [title, description] = narrativeFetching(subject);
     expect(title).not.toMatch(UUID_PATTERN);
     expect(description).not.toMatch(UUID_PATTERN);
   });
@@ -159,6 +113,36 @@ describe("narrativeRunComplete", () => {
       targetSavedSources: 10,
     });
     expect(description).toContain("10");
+  });
+
+  it("notes the missing search queries when stopReason is no_queries", () => {
+    const [, description] = narrativeRunComplete(subject, {
+      status: "success",
+      persisted: 0,
+      droppedByRelevance: 0,
+      droppedByFreshness: 0,
+      contentQualityDropped: 0,
+      failureCount: 0,
+      stopReason: "no_queries",
+      roundsExecuted: 0,
+      targetSavedSources: 5,
+    });
+    expect(description).toContain("No active search queries were configured.");
+  });
+
+  it("notes the target when stopReason is daily_target_met_before_start", () => {
+    const [, description] = narrativeRunComplete(subject, {
+      status: "success",
+      persisted: 0,
+      droppedByRelevance: 0,
+      droppedByFreshness: 0,
+      contentQualityDropped: 0,
+      failureCount: 0,
+      stopReason: "daily_target_met_before_start",
+      roundsExecuted: 0,
+      targetSavedSources: 8,
+    });
+    expect(description).toContain("daily target of 8 was reached");
   });
 
   it("title is 'Collection failed' when status is failed", () => {

@@ -6,6 +6,7 @@ import {
   ArrowUpDown,
   CheckCircle2,
   Loader2,
+  XCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -137,6 +138,7 @@ export const ScheduleExecutionInvocationsTable = ({
   const {
     open: activityOpen,
     jobId: activityJobId,
+    outcome: activityOutcome,
     rows: activityRows,
     loading: activityLoading,
     openModal: openActivityModal,
@@ -260,7 +262,7 @@ export const ScheduleExecutionInvocationsTable = ({
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          void openActivityModal(j.jobId);
+                          void openActivityModal(j.jobId, outcome);
                         }}
                       >
                         Show activity
@@ -341,10 +343,18 @@ export const ScheduleExecutionInvocationsTable = ({
           ) : (
             <div className="flex flex-col">
               {activityRows.map((row, index) => {
+                const jobIsActive =
+                  activityOutcome === "running" ||
+                  activityOutcome === "pending";
+                const jobFailed =
+                  activityOutcome === "failure" ||
+                  activityOutcome === "cancelled";
+                const isLastRow = index === activityRows.length - 1;
                 const inProgress = isActivityRowInProgress(
                   row,
                   index,
                   activityRows.length,
+                  jobIsActive,
                 );
                 const showLiveElapsed = inProgress;
                 const durationLabel =
@@ -368,6 +378,8 @@ export const ScheduleExecutionInvocationsTable = ({
                         ) : null}
                         {inProgress ? (
                           <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                        ) : isLastRow && jobFailed ? (
+                          <XCircle className="size-4 text-destructive" />
                         ) : (
                           <CheckCircle2 className="size-4 text-green-500" />
                         )}

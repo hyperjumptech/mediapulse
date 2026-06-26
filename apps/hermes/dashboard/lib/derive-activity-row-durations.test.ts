@@ -11,13 +11,21 @@ describe("isActivityRowInProgress", () => {
       status: "processing" as const,
     };
 
-    expect(isActivityRowInProgress(row, 0, 3)).toBe(false);
-    expect(isActivityRowInProgress(row, 1, 3)).toBe(false);
-    expect(isActivityRowInProgress(row, 2, 3)).toBe(true);
+    expect(isActivityRowInProgress(row, 0, 3, true)).toBe(false);
+    expect(isActivityRowInProgress(row, 1, 3, true)).toBe(false);
+    expect(isActivityRowInProgress(row, 2, 3, true)).toBe(true);
   });
 
   it("returns false for the last row when the run is completed", () => {
-    expect(isActivityRowInProgress({ status: "completed" }, 2, 3)).toBe(false);
+    expect(isActivityRowInProgress({ status: "completed" }, 2, 3, true)).toBe(
+      false,
+    );
+  });
+
+  it("returns false for a stuck processing last row when the job is terminal", () => {
+    expect(isActivityRowInProgress({ status: "processing" }, 2, 3, false)).toBe(
+      false,
+    );
   });
 });
 
