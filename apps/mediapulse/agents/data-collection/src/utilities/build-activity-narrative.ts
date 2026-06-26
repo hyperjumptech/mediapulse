@@ -11,81 +11,20 @@ export function narrativeRunStart(subject: TickerSubject): [string, string] {
   ];
 }
 
-export function narrativeQueriesLoaded(
+export function narrativeSearching(
   subject: TickerSubject,
   queryCount: number,
 ): [string, string] {
-  if (queryCount === 0) {
-    return [
-      "No search queries configured",
-      `${subject.symbol} (${subject.name}) has no active search queries. Skipping collection.`,
-    ];
-  }
   return [
-    "Search queries loaded",
-    `${n(queryCount, "search query", "search queries")} ready for ${subject.symbol}.`,
+    "Searching the web",
+    `Running ${n(queryCount, "search query", "search queries")} for ${subject.symbol}.`,
   ];
 }
 
-export function narrativeDailyQuota(
-  subject: TickerSubject,
-  existingCount: number,
-  target: number,
-): [string, string] {
+export function narrativeFetching(subject: TickerSubject): [string, string] {
   return [
-    "Checking daily quota",
-    `${subject.symbol} has ${n(existingCount, "saved source")} today against a target of ${target}.`,
-  ];
-}
-
-export function narrativeSearchRound(
-  subject: TickerSubject,
-  queryCount: number,
-  round: number,
-  maxRounds: number,
-): [string, string] {
-  if (round === 1) {
-    return [
-      "Searching the web",
-      `Running ${n(queryCount, "search query", "search queries")} for ${subject.symbol}.`,
-    ];
-  }
-  return [
-    "Search refill round",
-    `Refill round ${round} of ${maxRounds}: running ${n(queryCount, "search query", "search queries")} for ${subject.symbol} to reach the daily target.`,
-  ];
-}
-
-export function narrativeFilteredResults(
-  readyCount: number,
-  droppedCount: number,
-): [string, string] {
-  if (droppedCount === 0) {
-    return ["Filtering results", `${n(readyCount, "URL")} ready to fetch.`];
-  }
-  return [
-    "Filtering results",
-    `${n(readyCount, "URL")} ready to fetch, after removing ${n(droppedCount, "result")} that were already saved, noisy, or known to be dead.`,
-  ];
-}
-
-export function narrativeFetchStart(
-  subject: TickerSubject,
-  urlCount: number,
-): [string, string] {
-  return [
-    "Fetching articles",
-    `Downloading ${n(urlCount, "candidate URL")} for ${subject.symbol}.`,
-  ];
-}
-
-export function narrativeSavingSources(
-  subject: TickerSubject,
-  fetchedCount: number,
-): [string, string] {
-  return [
-    "Saving sources",
-    `Applying relevance, freshness, and quality checks to ${n(fetchedCount, "fetched page")} for ${subject.symbol}.`,
+    "Fetching & filtering articles",
+    `Downloading candidate articles for ${subject.symbol} and applying relevance, freshness, and quality checks.`,
   ];
 }
 
@@ -137,6 +76,8 @@ export function narrativeRunComplete(
     stopClause = ` The maximum number of search rounds was reached.`;
   } else if (opts.stopReason === "no_progress") {
     stopClause = ` No new articles were found in the last round.`;
+  } else if (opts.stopReason === "no_queries") {
+    stopClause = ` No active search queries were configured.`;
   }
 
   const failureClause =

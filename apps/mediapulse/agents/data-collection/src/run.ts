@@ -9,12 +9,8 @@ import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
 import {
   narrativeRunStart,
-  narrativeQueriesLoaded,
-  narrativeDailyQuota,
-  narrativeSearchRound,
-  narrativeFilteredResults,
-  narrativeFetchStart,
-  narrativeSavingSources,
+  narrativeSearching,
+  narrativeFetching,
   narrativeRunComplete,
 } from "./utilities/build-activity-narrative";
 import {
@@ -175,8 +171,6 @@ export async function runDataCollection(
     tickerId: input.tickerId,
   });
 
-  report(...narrativeQueriesLoaded(subject, queries.length));
-
   log.info(
     { queryCount: queries.length },
     "loaded search queries from Agent Data API",
@@ -201,14 +195,6 @@ export async function runDataCollection(
     limit: 1,
   });
   const existingTodaySourceCount = baselineToday.dataSourceTotalCount;
-
-  report(
-    ...narrativeDailyQuota(
-      subject,
-      existingTodaySourceCount,
-      targetSavedSources,
-    ),
-  );
 
   let roundsExecuted = 0;
   let refillStopReason:
@@ -249,33 +235,13 @@ export async function runDataCollection(
   let throttleEvents = 0;
 
   if (queries.length === 0) {
-    report(
-      "No search queries configured",
-      `${subject.symbol} (${subject.name}) has no active search queries. Skipping collection.`,
-      "completed",
-    );
     refillStopReason = "no_queries";
   } else if (existingTodaySourceCount >= targetSavedSources) {
-    report(
-      "Daily target already met",
-      `${subject.symbol} already has ${existingTodaySourceCount} saved source${existingTodaySourceCount === 1 ? "" : "s"} today, meeting the target of ${targetSavedSources}. Skipping collection.`,
-      "completed",
-    );
     refillStopReason = "daily_target_met_before_start";
   } else {
-    report(...narrativeSearchRound(subject, queries.length, 1, maxTotalRounds));
+    report(...narrativeSearching(subject, queries.length));
 
     for (let round = 1; round <= maxTotalRounds; round += 1) {
-      if (round > 1) {
-        report(
-          ...narrativeSearchRound(
-            subject,
-            queries.length,
-            round,
-            maxTotalRounds,
-          ),
-        );
-      }
       roundsExecuted += 1;
       const searchAttemptResults = await performWebSearch(queries, {
         config: config.web_search,
@@ -494,18 +460,9 @@ export async function runDataCollection(
         );
       }
 
-      const roundDroppedBeforeFetch =
-        roundSearchSuccesses.length - searchSuccessesAfterHostBreaker.length;
-      report(
-        ...narrativeFilteredResults(
-          searchSuccessesAfterHostBreaker.length,
-          roundDroppedBeforeFetch,
-        ),
-      );
-
-      report(
-        ...narrativeFetchStart(subject, searchSuccessesAfterHostBreaker.length),
-      );
+      if (round === 1) {
+        report(...narrativeFetching(subject));
+      }
 
       let persistedThisRoundCount = 0;
       const roundQualityDrops: QualityDropForDeadUrl[] = [];
@@ -663,13 +620,6 @@ export async function runDataCollection(
         persistedThisRoundCount += 1;
         fetchSuccessCount += 1;
       };
-
-      report(
-        ...narrativeSavingSources(
-          subject,
-          searchSuccessesAfterHostBreaker.length,
-        ),
-      );
 
       const fetchThrottleStats = { throttleEvents: 0 };
       const fetchAttemptResults = await performWebFetch(
