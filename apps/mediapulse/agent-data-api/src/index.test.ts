@@ -181,6 +181,8 @@ describe("agent-data-api", () => {
             canonicalUrl: "https://example.com",
             title: "Example",
             content: "Content",
+            author: null,
+            source: null,
             metadata: null,
             publishedAt: null,
             tickerId: TICKER_ID,

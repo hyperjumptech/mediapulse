@@ -81,6 +81,8 @@ model DataSource {
   canonicalUrl         String                @map("canonical_url")
   title                String
   content              String
+  author               String?
+  source               String?
   metadata             Json?
   publishedAt          DateTime?             @map("published_at")
   tickerId             String?               @map("ticker_id")

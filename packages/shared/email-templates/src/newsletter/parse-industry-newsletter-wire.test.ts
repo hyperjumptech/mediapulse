@@ -207,4 +207,73 @@ describe("parseIndustryNewsletterWire", () => {
       expect(quickHits.items[1]?.title).toBeUndefined();
     }
   });
+
+  it("parses AUTHOR and SOURCE byline lines on the lead, bullets, and items", () => {
+    const wire = [
+      INDUSTRY_NEWSLETTER_WIRE_MARKER,
+      "",
+      "BEGIN industry-pulse",
+      "DISPLAY_HEADING",
+      "The Pulse",
+      "AUTHOR Lead Writer",
+      "SOURCE Readers.id",
+      "PROSE",
+      "Lead prose.",
+      "END",
+      "",
+      "BEGIN competitive-landscape",
+      "DISPLAY_HEADING",
+      "Competition",
+      "BULLET",
+      "TITLE Rival A Launches",
+      "AUTHOR Jane Reporter",
+      "SOURCE The Star",
+      "Rival A launched a competing product.",
+      "BULLET",
+      "Bullet with no byline.",
+      "END",
+      "",
+      "BEGIN quick-hits",
+      "DISPLAY_HEADING",
+      "Quick Hits",
+      "ITEM",
+      "SOURCE Kontan",
+      "First quick hit.",
+      "END",
+      "",
+    ].join("\n");
+
+    const parsed = parseIndustryNewsletterWire(wire);
+
+    const pulse = parsed?.sections.find(
+      (s) => s.machineKey === "industry-pulse",
+    );
+    if (pulse?.machineKey === "industry-pulse") {
+      expect(pulse.author).toBe("Lead Writer");
+      expect(pulse.source).toBe("Readers.id");
+      expect(pulse.prose).toBe("Lead prose.");
+    }
+
+    const landscape = parsed?.sections.find(
+      (s) => s.machineKey === "competitive-landscape",
+    );
+    if (landscape?.machineKey === "competitive-landscape") {
+      expect(landscape.bullets[0]?.author).toBe("Jane Reporter");
+      expect(landscape.bullets[0]?.source).toBe("The Star");
+      expect(landscape.bullets[0]?.text).toBe(
+        "Rival A launched a competing product.",
+      );
+      expect(landscape.bullets[1]?.author).toBeUndefined();
+      expect(landscape.bullets[1]?.source).toBeUndefined();
+    }
+
+    const quickHits = parsed?.sections.find(
+      (s) => s.machineKey === "quick-hits",
+    );
+    if (quickHits?.machineKey === "quick-hits") {
+      expect(quickHits.items[0]?.author).toBeUndefined();
+      expect(quickHits.items[0]?.source).toBe("Kontan");
+      expect(quickHits.items[0]?.text).toBe("First quick hit.");
+    }
+  });
 });

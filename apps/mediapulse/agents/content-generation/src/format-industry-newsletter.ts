@@ -19,6 +19,8 @@ const FORMAT = "FORMAT";
 const BULLET = "BULLET";
 const ITEM = "ITEM";
 const TITLE = "TITLE";
+const AUTHOR = "AUTHOR";
+const SOURCE = "SOURCE";
 
 /**
  * Collapses internal whitespace so display headings stay a single wire line.
@@ -36,7 +38,7 @@ const collapseHeadingLine = (value: string): string =>
  * @returns Text with article markers stripped; unchanged when none are present.
  */
 export const stripArticleMarkers = (text: string): string =>
-  text.replace(/\s*\(Article\s+\d+\)/gi, "");
+  text.replace(/\s*\([^()]*\bArticles?\s+\d+[^()]*\)/gi, "");
 
 /**
  * Appends the deterministic `Read the full article: <url>` line when a URL exists.
@@ -55,6 +57,18 @@ const withOptionalReadLine = (text: string, url?: string): string => {
 
 const hasRows = (section: { bullets: ReadonlyArray<unknown> }): boolean =>
   section.bullets.length > 0;
+
+const pushBylineLines = (
+  lines: string[],
+  byline: { author?: string; source?: string },
+): void => {
+  if (byline.author !== undefined && byline.author.trim().length > 0) {
+    lines.push(`${AUTHOR} ${collapseHeadingLine(byline.author)}`);
+  }
+  if (byline.source !== undefined && byline.source.trim().length > 0) {
+    lines.push(`${SOURCE} ${collapseHeadingLine(byline.source)}`);
+  }
+};
 
 /**
  * Serializes a resolved industry briefing into the plain-text wire format.
@@ -77,25 +91,33 @@ export const formatIndustryNewsletterWire = (
   };
 
   if (briefing.industryPulse !== undefined) {
-    pushBlock(
-      [
-        `${BEGIN} industry-pulse`,
-        DISPLAY_HEADING,
-        collapseHeadingLine(briefing.industryPulse.displayHeading),
-        PROSE,
-        withOptionalReadLine(
-          stripArticleMarkers(briefing.industryPulse.prose.trim()),
-          briefing.industryPulse.url,
-        ),
-        END,
-      ].join("\n"),
+    const pulseLines: string[] = [
+      `${BEGIN} industry-pulse`,
+      DISPLAY_HEADING,
+      collapseHeadingLine(briefing.industryPulse.displayHeading),
+    ];
+    pushBylineLines(pulseLines, briefing.industryPulse);
+    pulseLines.push(
+      PROSE,
+      withOptionalReadLine(
+        stripArticleMarkers(briefing.industryPulse.prose.trim()),
+        briefing.industryPulse.url,
+      ),
+      END,
     );
+    pushBlock(pulseLines.join("\n"));
   }
 
   const pushBulletSection = (
     machineKey: string,
     displayHeading: string,
-    bullets: ReadonlyArray<{ title?: string; text: string; url?: string }>,
+    bullets: ReadonlyArray<{
+      title?: string;
+      text: string;
+      url?: string;
+      author?: string;
+      source?: string;
+    }>,
   ): void => {
     const lines: string[] = [
       `${BEGIN} ${machineKey}`,
@@ -107,6 +129,7 @@ export const formatIndustryNewsletterWire = (
       if (b.title !== undefined && b.title.trim().length > 0) {
         lines.push(`${TITLE} ${b.title.trim()}`);
       }
+      pushBylineLines(lines, b);
       lines.push(withOptionalReadLine(stripArticleMarkers(b.text), b.url));
     }
     lines.push(END);
@@ -183,6 +206,7 @@ export const formatIndustryNewsletterWire = (
           if (b.title !== undefined && b.title.trim().length > 0) {
             lines.push(`${TITLE} ${b.title.trim()}`);
           }
+          pushBylineLines(lines, b);
           lines.push(withOptionalReadLine(stripArticleMarkers(b.text), b.url));
         }
         lines.push(END);
@@ -206,6 +230,7 @@ export const formatIndustryNewsletterWire = (
         if (item.title !== undefined && item.title.trim().length > 0) {
           qhLines.push(`${TITLE} ${item.title.trim()}`);
         }
+        pushBylineLines(qhLines, item);
         qhLines.push(
           withOptionalReadLine(stripArticleMarkers(item.text), item.url),
         );

@@ -24,6 +24,8 @@ export const contentGenerationDataSourceSchema = z
     url: z.string(),
     title: z.string(),
     content: z.string(),
+    author: z.string().nullable().optional(),
+    source: z.string().nullable().optional(),
     tickerId: z.string().trim().min(1),
     searchQueryId: z.string().uuid(),
     description: z.string().nullable().optional(),

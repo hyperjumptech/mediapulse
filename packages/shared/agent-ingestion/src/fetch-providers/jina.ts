@@ -15,6 +15,7 @@ const jinaDataSchema = z.object({
   url: z.string().url().optional(),
   title: z.string().optional(),
   content: z.string().optional(),
+  author: z.string().optional(),
   publishedTime: z.string().optional(),
   published_at: z.string().optional(),
   usage: z
@@ -66,6 +67,7 @@ const parseJinaResponse = (raw: unknown): NormalizedFetchData => {
     ...(data.url ? { url: data.url } : {}),
     ...(data.title ? { title: data.title } : {}),
     content: data.content,
+    ...(data.author ? { author: data.author } : {}),
     ...(data.publishedTime ? { publishedTime: data.publishedTime } : {}),
     ...(data.published_at ? { published_at: data.published_at } : {}),
     ...(data.usage ? { usage: data.usage } : {}),

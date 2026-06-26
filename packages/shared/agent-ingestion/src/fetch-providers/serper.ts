@@ -16,6 +16,9 @@ const serperResponseSchema = z.object({
   metadata: z
     .object({
       title: z.string().optional(),
+      author: z.string().optional(),
+      "article:author": z.string().optional(),
+      "og:site_name": z.string().optional(),
       "article:published_time": z.string().optional(),
       "article:modified_time": z.string().optional(),
     })
@@ -56,9 +59,13 @@ const parseSerperResponse = (raw: unknown): NormalizedFetchData => {
 
   const metadata = parsed.data.metadata;
   const publishedTime = metadata?.["article:published_time"];
+  const author = metadata?.author ?? metadata?.["article:author"];
+  const source = metadata?.["og:site_name"];
   return {
     content: text,
     ...(metadata?.title ? { title: metadata.title } : {}),
+    ...(author ? { author } : {}),
+    ...(source ? { source } : {}),
     ...(publishedTime ? { publishedTime } : {}),
   };
 };

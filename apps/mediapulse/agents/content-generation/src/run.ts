@@ -330,6 +330,8 @@ export async function run({
     url: s.url,
     title: s.title,
     content: s.content,
+    ...(typeof s.author === "string" ? { author: s.author } : {}),
+    ...(typeof s.source === "string" ? { source: s.source } : {}),
     ...(typeof s.publishedAt === "string"
       ? { publishedAt: s.publishedAt }
       : {}),

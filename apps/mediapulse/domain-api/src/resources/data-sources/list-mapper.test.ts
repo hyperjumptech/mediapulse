@@ -9,6 +9,8 @@ import {
 
 const baseRowFields = {
   canonicalUrl: "https://example.com/a",
+  author: null,
+  source: null,
   metadata: null,
   publishedAt: null,
   analyzedAt: null,
@@ -104,6 +106,8 @@ describe("mapRowToListItem", () => {
       url: "https://example.com/global",
       title: "Global article",
       content: "body",
+      author: null,
+      source: null,
       tickerId: null,
       searchQueryId: null,
       createdAt,

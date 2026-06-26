@@ -67,6 +67,38 @@ describe("createDiffbotFetchProvider", () => {
     });
   });
 
+  it("extracts author and site name when present", async () => {
+    // Setup
+    const getMock = vi.fn().mockReturnValue(
+      mockGotGetResponse({
+        objects: [
+          {
+            text: "Article body",
+            title: "Article title",
+            author: "Jane Reporter",
+            siteName: "The Star",
+          },
+        ],
+      }),
+    );
+    const provider = createDiffbotFetchProvider(defaultConfig);
+
+    // Act
+    const result = await provider.fetchOne("http://example.com/page", {
+      gotClient: { get: getMock } as unknown as typeof got,
+      rateLimiter: mockRateLimiter(),
+      logger: { info: vi.fn(), warn: vi.fn() },
+    });
+
+    // Assert
+    expect(result).toEqual({
+      content: "Article body",
+      title: "Article title",
+      author: "Jane Reporter",
+      source: "The Star",
+    });
+  });
+
   it("throws when objects is empty", async () => {
     // Setup
     const getMock = vi.fn().mockReturnValue(

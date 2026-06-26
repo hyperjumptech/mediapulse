@@ -7,6 +7,8 @@ export type NormalizedFetchData = {
   url?: string;
   title?: string;
   content: string;
+  author?: string;
+  source?: string;
   publishedTime?: string;
   published_at?: string;
   usage?: { tokens?: number };

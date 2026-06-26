@@ -31,7 +31,11 @@ import {
   type CollectionUrlOutcomeInput,
   RateLimiter,
 } from "@workspace/agent-ingestion";
-import { classifyNoisyUrl, type UrlNoiseReason } from "@workspace/utils";
+import {
+  classifyNoisyUrl,
+  derivePublisherFromUrl,
+  type UrlNoiseReason,
+} from "@workspace/utils";
 import {
   PAGE_COLLECTION_EXISTING_URLS_MAX,
   type PostPageCollectionBody,
@@ -438,10 +442,14 @@ async function executePageCollectionRun(
       continue;
     }
 
+    const resolvedSource =
+      page.source ?? derivePublisherFromUrl(urlDecision.canonicalUrl);
     sourcesToPersist.push({
       url: urlDecision.canonicalUrl,
       title: page.title,
       content: page.content,
+      ...(page.author ? { author: page.author } : {}),
+      ...(resolvedSource ? { source: resolvedSource } : {}),
       curatedSourceListingUrl:
         item?.sourceListingUrl ?? urlDecision.canonicalUrl,
       collectionGateStatus: "passed",

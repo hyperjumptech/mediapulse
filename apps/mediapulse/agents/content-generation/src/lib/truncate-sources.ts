@@ -40,6 +40,8 @@ export function truncateSources(
       url: source.url,
       title: source.title,
       content,
+      ...(source.author !== undefined ? { author: source.author } : {}),
+      ...(source.source !== undefined ? { source: source.source } : {}),
       ...(source.publishedAt !== undefined
         ? { publishedAt: source.publishedAt }
         : {}),

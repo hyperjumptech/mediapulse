@@ -185,6 +185,20 @@ describe("stripArticleMarkers", () => {
     expect(result).toBe("Broadening commodity exposure alone.");
     expect(stripArticleMarkers("Tail risk  (article  12).")).toBe("Tail risk.");
   });
+
+  it("strips cited/see article variants and small lists", () => {
+    expect(
+      stripArticleMarkers(
+        "Year-to-date foreign net sales reached Rp 78.41 trillion. (cited Article 2)",
+      ),
+    ).toBe("Year-to-date foreign net sales reached Rp 78.41 trillion.");
+    expect(stripArticleMarkers("Momentum cooled (see Article 4).")).toBe(
+      "Momentum cooled.",
+    );
+    expect(
+      stripArticleMarkers("Two desks flagged the move (see Articles 1 and 2)."),
+    ).toBe("Two desks flagged the move.");
+  });
 });
 
 describe("formatIndustryNewsletterWire", () => {
@@ -233,6 +247,57 @@ describe("formatIndustryNewsletterWire", () => {
     expect(wire).toContain("TITLE Rival A Launches");
     expect(wire).toContain("TITLE Hit One");
     expect(wire).toContain("Read the full article: https://src.example");
+  });
+
+  it("emits AUTHOR and SOURCE byline lines when the resolved article has them", () => {
+    const resolved = attachIndustryNewsletterSourceUrls(
+      industryNewsletterStructureSchema.parse({
+        subject: "S",
+        industryPulse: {
+          displayHeading: "L",
+          prose: "p",
+          articleIndex: 1,
+        },
+        competitiveLandscape: {
+          displayHeading: "C",
+          bullets: [
+            { title: "Rival A", text: "b1", articleIndex: 1 },
+            { title: "Rival B", text: "b2", articleIndex: 1 },
+          ],
+        },
+        dealsAndMovements: {
+          displayHeading: "D",
+          bullets: [{ title: "Deal", text: "d1" }],
+        },
+        regulatoryPolicyWatch: {
+          displayHeading: "R",
+          bullets: [{ title: "Rule", text: "r1" }],
+        },
+        disruptorsOrTech: { format: "prose", displayHeading: "X", prose: "pr" },
+        quickHits: {
+          displayHeading: "Q",
+          items: [
+            { title: "Hit One", text: "h1", articleIndex: 1 },
+            { title: "Hit Two", text: "h2", articleIndex: 1 },
+            { title: "Hit Three", text: "h3", articleIndex: 1 },
+            { title: "Hit Four", text: "h4", articleIndex: 1 },
+            { title: "Hit Five", text: "h5", articleIndex: 1 },
+          ],
+        },
+      }),
+      [
+        {
+          url: "https://src.example",
+          author: "Jane Reporter",
+          source: "The Star",
+        },
+      ],
+    );
+
+    const wire = formatIndustryNewsletterWire(resolved);
+
+    expect(wire).toContain("AUTHOR Jane Reporter");
+    expect(wire).toContain("SOURCE The Star");
   });
 
   it("strips inline article markers from wire content while preserving read lines", () => {
