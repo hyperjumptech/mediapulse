@@ -484,6 +484,7 @@ describe("agent-data-api", () => {
             title: "Example",
             content: "Body",
             createdAt: new Date("2026-03-19T00:00:00.000Z"),
+            ticker: null,
           },
         ],
         dataSourceTotalCount: 1,

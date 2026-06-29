@@ -237,8 +237,24 @@ describe("createAgentDataApiClient", () => {
   it("builds analysis GET with typed query and auth header", async () => {
     const getFn = vi.fn().mockResolvedValue({
       body: JSON.stringify({
-        dataSources: [],
-        dataSourceTotalCount: 0,
+        dataSources: [
+          {
+            id: "33333333-3333-4333-a333-333333333333",
+            url: "https://example.com",
+            title: "Example",
+            content: "Body",
+            createdAt: "2026-03-19T00:00:00.000Z",
+            ticker: {
+              symbol: "AGRO",
+              name: "PT Bank Raya Indonesia Tbk",
+              sector: "Keuangan",
+              industry: "Bank",
+              subIndustry: "Bank",
+              businessActivity: "Perbankan",
+            },
+          },
+        ],
+        dataSourceTotalCount: 1,
       }),
       statusCode: 200,
     });
@@ -248,11 +264,12 @@ describe("createAgentDataApiClient", () => {
       getFn,
     });
 
-    await client.analysis.get({
+    const result = await client.analysis.get({
       unanalyzed: true,
       limit: 5,
     });
 
+    expect(result.dataSources[0]?.ticker?.businessActivity).toBe("Perbankan");
     expect(getFn).toHaveBeenCalledWith(
       `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "analysis")}?unanalyzed=true&limit=5`,
       expect.objectContaining({

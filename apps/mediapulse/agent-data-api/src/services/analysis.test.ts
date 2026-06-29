@@ -13,7 +13,7 @@ import {
 } from "./analysis.js";
 
 describe("loadAnalysisContext", () => {
-  it("loads unanalyzed sources oldest-first with the total backlog count", async () => {
+  it("loads unanalyzed sources oldest-first with per-article ticker context and the total backlog count", async () => {
     const rows = [
       {
         id: "11111111-1111-4111-8111-111111111111",
@@ -21,6 +21,24 @@ describe("loadAnalysisContext", () => {
         title: "A",
         content: "body",
         createdAt: new Date("2026-01-01T00:00:00Z"),
+        ticker: {
+          symbol: "AGRO",
+          name: "PT Bank Raya Indonesia Tbk",
+          metadata: {
+            Sektor: "Keuangan",
+            Industri: "Bank",
+            SubIndustri: "Bank",
+            KegiatanUsahaUtama: "Perbankan",
+          },
+        },
+      },
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        url: "https://example.com/b",
+        title: "B",
+        content: "body",
+        createdAt: new Date("2026-01-02T00:00:00Z"),
+        ticker: null,
       },
     ];
     const findMany = vi.fn().mockResolvedValue(rows);
@@ -36,9 +54,39 @@ describe("loadAnalysisContext", () => {
         where: { collectionGateStatus: "passed", analyzedAt: null },
         orderBy: { createdAt: "asc" },
         take: 5,
+        select: expect.objectContaining({
+          ticker: { select: { symbol: true, name: true, metadata: true } },
+        }),
       }),
     );
-    expect(result).toEqual({ dataSources: rows, dataSourceTotalCount: 7 });
+    expect(result).toEqual({
+      dataSources: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          url: "https://example.com/a",
+          title: "A",
+          content: "body",
+          createdAt: new Date("2026-01-01T00:00:00Z"),
+          ticker: {
+            symbol: "AGRO",
+            name: "PT Bank Raya Indonesia Tbk",
+            sector: "Keuangan",
+            industry: "Bank",
+            subIndustry: "Bank",
+            businessActivity: "Perbankan",
+          },
+        },
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          url: "https://example.com/b",
+          title: "B",
+          content: "body",
+          createdAt: new Date("2026-01-02T00:00:00Z"),
+          ticker: null,
+        },
+      ],
+      dataSourceTotalCount: 7,
+    });
   });
 
   it("drops the analyzedAt filter when unanalyzed is false", async () => {

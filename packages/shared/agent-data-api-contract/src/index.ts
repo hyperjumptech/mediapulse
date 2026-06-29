@@ -14,10 +14,12 @@ export {
 export {
   ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX,
   analysisDataSourceSchema,
+  analysisTickerContextSchema,
   getAnalysisQuerySchema,
   getAnalysisResponseSchema,
   postAnalysisBodySchema,
   postAnalysisResponseSchema,
+  type AnalysisTickerContext,
   type GetAnalysisQuery,
   type GetAnalysisResponse,
   type PostAnalysisBody,
