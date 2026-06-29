@@ -61,6 +61,27 @@ export const extractTickerSectorIndustry = (
 });
 
 /**
+ * Extracts sub-sector, sub-industry, and main business activity from ticker metadata.
+ *
+ * @param metadata - Ticker JSON metadata.
+ * @returns Sub-classification labels when present.
+ */
+export const extractTickerBusinessContext = (
+  metadata: unknown,
+): {
+  subSector?: string;
+  subIndustry?: string;
+  businessActivity?: string;
+} => ({
+  subSector: pickMetadataString(metadata, ["SubSektor", "sub_sector"]),
+  subIndustry: pickMetadataString(metadata, ["SubIndustri", "sub_industry"]),
+  businessActivity: pickMetadataString(metadata, [
+    "KegiatanUsahaUtama",
+    "business_activity",
+  ]),
+});
+
+/**
  * Parses market-cap style numeric metadata for peer ordering.
  *
  * @param metadata - Ticker JSON metadata.
