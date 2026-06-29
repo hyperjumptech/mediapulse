@@ -8,6 +8,11 @@ import type {
 import { prisma } from "@mediapulse/database";
 import type { Prisma } from "@mediapulse/database";
 
+import {
+  extractTickerBusinessContext,
+  extractTickerSectorIndustry,
+} from "./query-analysis-context-helpers";
+
 /**
  * Thrown when the analysis POST body references data sources that do not exist.
  */
@@ -30,6 +35,28 @@ type AnalysisDb = {
 };
 
 const defaultDb: AnalysisDb = prisma;
+
+/** Maps a joined ticker row into the per-article issuer context, reusing the metadata extractors. */
+const mapTickerContext = (
+  ticker: { symbol: string; name: string; metadata: unknown } | null,
+): GetAnalysisResponse["dataSources"][number]["ticker"] => {
+  if (ticker === null) {
+    return null;
+  }
+  const { sector, industry } = extractTickerSectorIndustry(ticker.metadata);
+  const { subIndustry, businessActivity } = extractTickerBusinessContext(
+    ticker.metadata,
+  );
+
+  return {
+    symbol: ticker.symbol,
+    name: ticker.name,
+    sector: sector ?? null,
+    industry: industry ?? null,
+    subIndustry: subIndustry ?? null,
+    businessActivity: businessActivity ?? null,
+  };
+};
 
 /**
  * Loads unanalyzed articles (any ticker) for the article-analysis agent to classify.
@@ -62,7 +89,7 @@ export const loadAnalysisContext = async (
     ...(query.unanalyzed ? { analyzedAt: null } : {}),
   } satisfies Prisma.DataSourceWhereInput;
 
-  const [dataSources, dataSourceTotalCount] = await Promise.all([
+  const [rows, dataSourceTotalCount] = await Promise.all([
     db.dataSource.findMany({
       where,
       orderBy: { createdAt: "asc" },
@@ -73,10 +100,20 @@ export const loadAnalysisContext = async (
         title: true,
         content: true,
         createdAt: true,
+        ticker: { select: { symbol: true, name: true, metadata: true } },
       },
     } satisfies Prisma.DataSourceFindManyArgs),
     db.dataSource.count({ where }),
   ]);
+
+  const dataSources = rows.map((row) => ({
+    id: row.id,
+    url: row.url,
+    title: row.title,
+    content: row.content,
+    createdAt: row.createdAt,
+    ticker: mapTickerContext(row.ticker),
+  }));
 
   return { dataSources, dataSourceTotalCount };
 };

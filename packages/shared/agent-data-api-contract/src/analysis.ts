@@ -61,12 +61,24 @@ export const postAnalysisBodySchema = z.object({
   analyzedDataSourceIds: z.array(z.string().uuid()).default([]),
 });
 
+/** Per-article issuer context for section classification (null for ticker-agnostic rows). */
+export const analysisTickerContextSchema = z.object({
+  symbol: z.string(),
+  name: z.string(),
+  sector: z.string().nullable(),
+  industry: z.string().nullable(),
+  subIndustry: z.string().nullable(),
+  businessActivity: z.string().nullable(),
+});
+
 export const analysisDataSourceSchema = z.object({
   id: z.string().uuid(),
   url: z.string(),
   title: z.string(),
   content: z.string(),
   createdAt: z.coerce.date(),
+  /** Issuer the article was collected for, or `null` when ticker-agnostic. */
+  ticker: analysisTickerContextSchema.nullable(),
 });
 
 export const getAnalysisResponseSchema = z.object({
@@ -81,6 +93,7 @@ export const postAnalysisResponseSchema = z.object({
   articlesRejected: z.number().int().nonnegative(),
 });
 
+export type AnalysisTickerContext = z.infer<typeof analysisTickerContextSchema>;
 export type GetAnalysisQuery = z.infer<typeof getAnalysisQuerySchema>;
 export type PostAnalysisBody = z.infer<typeof postAnalysisBodySchema>;
 export type GetAnalysisResponse = z.infer<typeof getAnalysisResponseSchema>;
