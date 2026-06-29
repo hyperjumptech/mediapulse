@@ -3,6 +3,7 @@ import { generateObject, type ModelMessage } from "ai";
 import {
   MEDIAPULSE_NEWSLETTER_SECTIONS,
   NEWSLETTER_SECTION_IDS,
+  type AnalysisTickerContext,
 } from "@workspace/agent-data-api-contract";
 import { z } from "zod";
 
@@ -60,21 +61,55 @@ const renderCriteria = (
 };
 
 /**
+ * Renders the issuer the article was collected for into a one-line prompt block.
+ *
+ * @param ticker - Per-article ticker context from `analysis.get`, or `null` when ticker-agnostic.
+ * @returns A single context line, or `null` when there is no issuer to describe.
+ */
+export const renderArticleTickerContext = (
+  ticker: AnalysisTickerContext | null,
+): string | null => {
+  if (ticker === null) {
+    return null;
+  }
+
+  const descriptors: string[] = [];
+  if (ticker.sector) {
+    descriptors.push(`sector ${ticker.sector}`);
+  }
+  if (ticker.industry) {
+    descriptors.push(`industry ${ticker.industry}`);
+  }
+  if (ticker.subIndustry) {
+    descriptors.push(`sub-industry ${ticker.subIndustry}`);
+  }
+  if (ticker.businessActivity) {
+    descriptors.push(`main business ${ticker.businessActivity}`);
+  }
+  const descriptorText =
+    descriptors.length > 0 ? ` — ${descriptors.join(", ")}` : "";
+
+  return `Issuer context: this article was collected for ${ticker.symbol} (${ticker.name})${descriptorText}. Newsletter sections are defined relative to this issuer and its industry.`;
+};
+
+/**
  * Builds the chat messages for one article classification call.
  *
- * @param params - Article title/content and the acceptance criteria.
+ * @param params - Article title/content, the acceptance criteria, and optional issuer context.
  * @returns System + user messages for `generateObject`.
  */
 export const buildSectionClassificationMessages = (params: {
   title: string;
   content: string;
   acceptanceCriteria: AcceptanceCriteriaRule[];
+  tickerContext?: string;
 }): ModelMessage[] => {
   const truncatedContent = params.content.slice(0, MAX_CONTENT_CHARS);
   const userContent = [
     "Newsletter sections and acceptance criteria:",
     renderCriteria(params.acceptanceCriteria),
     "",
+    ...(params.tickerContext ? [params.tickerContext, ""] : []),
     `Article title: ${params.title}`,
     "",
     "Article content:",
@@ -100,6 +135,7 @@ export const classifyArticleSection = async (params: {
   title: string;
   content: string;
   acceptanceCriteria: AcceptanceCriteriaRule[];
+  tickerContext?: string;
 }): Promise<ArticleSectionClassification> => {
   const openai = createOpenAI({
     apiKey: params.apiKey,
@@ -113,6 +149,7 @@ export const classifyArticleSection = async (params: {
       title: params.title,
       content: params.content,
       acceptanceCriteria: params.acceptanceCriteria,
+      tickerContext: params.tickerContext,
     }),
   });
 

@@ -4,6 +4,7 @@ import {
   articleSectionClassificationSchema,
   buildSectionClassificationMessages,
   MAX_CONTENT_CHARS,
+  renderArticleTickerContext,
 } from "./llm-classify-section.js";
 
 const criteria = [
@@ -29,6 +30,31 @@ describe("buildSectionClassificationMessages", () => {
     expect(String(user.content)).toContain("Acme announced an acquisition.");
   });
 
+  it("includes the issuer context line when tickerContext is provided", () => {
+    const messages = buildSectionClassificationMessages({
+      title: "Rival bank cuts rates",
+      content: "A competitor lowered rates.",
+      acceptanceCriteria: criteria,
+      tickerContext: "Issuer context: collected for AGRO.",
+    });
+    const user = messages[1]!;
+
+    expect(String(user.content)).toContain(
+      "Issuer context: collected for AGRO.",
+    );
+  });
+
+  it("omits issuer context when tickerContext is absent", () => {
+    const messages = buildSectionClassificationMessages({
+      title: "t",
+      content: "c",
+      acceptanceCriteria: criteria,
+    });
+    const user = messages[1]!;
+
+    expect(String(user.content)).not.toContain("Issuer context");
+  });
+
   it("truncates long content to MAX_CONTENT_CHARS", () => {
     const longContent = "x".repeat(MAX_CONTENT_CHARS + 500);
     const messages = buildSectionClassificationMessages({
@@ -41,6 +67,40 @@ describe("buildSectionClassificationMessages", () => {
     expect(String(user.content)).not.toContain(
       "x".repeat(MAX_CONTENT_CHARS + 1),
     );
+  });
+});
+
+describe("renderArticleTickerContext", () => {
+  it("renders the issuer and its business descriptors", () => {
+    const line = renderArticleTickerContext({
+      symbol: "AGRO",
+      name: "PT Bank Raya Indonesia Tbk",
+      sector: "Keuangan",
+      industry: "Bank",
+      subIndustry: "Bank",
+      businessActivity: "Perbankan",
+    });
+
+    expect(line).toContain("AGRO (PT Bank Raya Indonesia Tbk)");
+    expect(line).toContain("main business Perbankan");
+  });
+
+  it("skips null descriptors and still names the issuer", () => {
+    const line = renderArticleTickerContext({
+      symbol: "AGRO",
+      name: "PT Bank Raya Indonesia Tbk",
+      sector: null,
+      industry: null,
+      subIndustry: null,
+      businessActivity: null,
+    });
+
+    expect(line).toContain("AGRO (PT Bank Raya Indonesia Tbk)");
+    expect(line).not.toContain("—");
+  });
+
+  it("returns null for ticker-agnostic rows", () => {
+    expect(renderArticleTickerContext(null)).toBeNull();
   });
 });
 
