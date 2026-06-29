@@ -868,8 +868,11 @@ describe("agent-data-api", () => {
           content: "Body",
           id: NL_ID,
           symbol: "AAPL",
+          translations: [],
         },
-        subscribers: [{ userTickerId: UT_ID, email: "u@example.com" }],
+        subscribers: [
+          { userTickerId: UT_ID, email: "u@example.com", language: "en" },
+        ],
         deliveredUserTickerIds: [],
       });
 

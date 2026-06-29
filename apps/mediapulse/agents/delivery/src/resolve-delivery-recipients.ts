@@ -98,10 +98,19 @@ export function resolveDeliveryRecipients(
   }
 
   const normalized = normalizeTestEmails(input.emails);
-  const subscribers = normalized.map((email) => ({
-    userTickerId: testRecipientUserTickerId(email, deliveryData.subscribers),
-    email,
-  }));
+  const subscribers = normalized.map((email) => {
+    const match = deliveryData.subscribers.find(
+      (s) => s.email.trim().toLowerCase() === email,
+    );
+
+    return {
+      userTickerId: testRecipientUserTickerId(email, deliveryData.subscribers),
+      email,
+      // Reuse the matched subscriber's language so a test send mirrors what they receive;
+      // unmatched test addresses default to English.
+      language: match?.language ?? ("en" as const),
+    };
+  });
 
   return {
     subscribers,

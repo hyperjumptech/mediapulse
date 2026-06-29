@@ -13,8 +13,8 @@ const UT_A = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const UT_B = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 
 const DB_SUBSCRIBERS: DeliverySubscriber[] = [
-  { userTickerId: UT_A, email: "alice@example.com" },
-  { userTickerId: UT_B, email: "bob@example.com" },
+  { userTickerId: UT_A, email: "alice@example.com", language: "id" },
+  { userTickerId: UT_B, email: "bob@example.com", language: "en" },
 ];
 
 describe("normalizeTestEmails", () => {
@@ -77,7 +77,7 @@ describe("resolveDeliveryRecipients", () => {
     });
   });
 
-  it("maps override emails to subscribers with override flag", () => {
+  it("maps override emails to subscribers, defaulting language and reusing a matched subscriber's language", () => {
     const resolved = resolveDeliveryRecipients(
       { emails: ["other@example.com", "alice@example.com"] },
       { subscribers: DB_SUBSCRIBERS },
@@ -87,8 +87,9 @@ describe("resolveDeliveryRecipients", () => {
       {
         userTickerId: syntheticTestRecipientUserTickerId("other@example.com"),
         email: "other@example.com",
+        language: "en",
       },
-      { userTickerId: UT_A, email: "alice@example.com" },
+      { userTickerId: UT_A, email: "alice@example.com", language: "id" },
     ]);
   });
 

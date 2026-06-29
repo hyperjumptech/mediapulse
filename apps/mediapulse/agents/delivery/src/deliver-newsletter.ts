@@ -23,6 +23,24 @@ import {
 export type DeliverySubscriber = {
   userTickerId: string;
   email: string;
+  /** Subscription language; selects which rendered text the recipient receives. */
+  language: "en" | "id";
+};
+
+/** A translated rendering of the newsletter for a non-English subscription language. */
+export type DeliveryNewsletterTranslation = {
+  language: "en" | "id";
+  subject: string;
+  content: string;
+};
+
+export type DeliveryNewsletter = {
+  id: string;
+  subject: string;
+  content: string;
+  symbol: string;
+  /** Non-English translations; empty when none exist yet. */
+  translations: DeliveryNewsletterTranslation[];
 };
 
 export type RecipientSendResult = {
@@ -121,7 +139,7 @@ function recipientErrorCategory(
  * @returns Per-recipient results and Resend message ids (for diagnostics).
  */
 export async function deliverNewsletterToSubscribers(
-  newsletter: { id: string; subject: string; content: string; symbol: string },
+  newsletter: DeliveryNewsletter,
   subscribers: DeliverySubscriber[],
   deliveredUserTickerIds: string[],
   config: DeliveryConfig,
@@ -157,6 +175,29 @@ export async function deliverNewsletterToSubscribers(
         errorCategory: "skipped_already_delivered",
       });
       continue;
+    }
+
+    // Resolve the rendered text for this subscriber's language. English uses the base
+    // (canonical) newsletter; other languages use a translation. When a non-English
+    // subscriber has no translation yet, skip them — never send English to an id subscriber.
+    let localizedSubject = newsletter.subject;
+    let localizedContent = newsletter.content;
+    if (sub.language !== "en") {
+      const translation = newsletter.translations.find(
+        (t) => t.language === sub.language,
+      );
+      if (!translation) {
+        results.push({
+          userTickerId: sub.userTickerId,
+          status: "skipped",
+          attempts: 0,
+          lastErrorMessage: "missing_translation",
+          errorCategory: "skipped_missing_translation",
+        });
+        continue;
+      }
+      localizedSubject = translation.subject;
+      localizedContent = translation.content;
     }
 
     const ref = recipientLogRef(sub.userTickerId);
@@ -199,10 +240,10 @@ export async function deliverNewsletterToSubscribers(
     const unsubscribeUrl = `${config.unsubscribe.baseUrl}/api/unsubscribe?token=${unsubscribeToken}`;
 
     const renderStart = Date.now();
-    const emailTitle = parseNewsletterEmailSubject(newsletter.subject).title;
+    const emailTitle = parseNewsletterEmailSubject(localizedSubject).title;
     const { html, text } = await renderNewsletterEmail({
       title: emailTitle,
-      bodyText: newsletter.content,
+      bodyText: localizedContent,
       variant: config.template.newsletterVariant,
       unsubscribeUrl,
       tickerSymbol: newsletter.symbol,
@@ -221,7 +262,7 @@ export async function deliverNewsletterToSubscribers(
     const payload: SendEmailPayload = {
       from,
       to: sub.email,
-      subject: newsletter.subject,
+      subject: localizedSubject,
       ...(config.send.includeHtml ? { html } : {}),
       ...(config.send.includeText ? { text } : {}),
       ...(config.resend.replyTo !== undefined

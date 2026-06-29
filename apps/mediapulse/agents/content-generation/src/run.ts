@@ -16,6 +16,7 @@ import {
   generateNewsletterWithLlm,
   type SourceForGeneration,
 } from "./llm-generate-newsletter.js";
+import { translateNewsletter } from "./translate-newsletter.js";
 import { dedupLlmInputSources } from "./lib/dedup-llm-input-sources.js";
 import { mapOutcomeToDiagnostic } from "./outcome-to-diagnostic.js";
 import { sanitizeDiagnosticMessage } from "./sanitize-diagnostic-message.js";
@@ -580,6 +581,71 @@ export async function run({
       success: false,
       message: `Failed to store generated newsletter: ${code}`,
     };
+  }
+
+  // -------------------------------------------------------------------------
+  // Translation pass (best-effort)
+  // -------------------------------------------------------------------------
+  // Translate the persisted English newsletter into each configured target language and
+  // store it as a NewsletterTranslation keyed on the canonical newsletter id. This is
+  // best-effort: a failure here must never fail the run or roll back the English newsletter,
+  // because the delivery agent skips non-English subscribers when no translation exists.
+  if (
+    resolvedConfig.translation.enabled &&
+    persistedNewsletterId !== null &&
+    resolvedConfig.translation.targetLanguages.length > 0
+  ) {
+    const newsletterId = persistedNewsletterId;
+    report(
+      "Translating newsletter",
+      resolvedConfig.translation.targetLanguages.join(", "),
+    );
+    for (const targetLanguage of resolvedConfig.translation.targetLanguages) {
+      try {
+        const translated = await translateNewsletter({
+          subject: generated.subject,
+          content: generated.content,
+          targetLanguage,
+          model: resolvedConfig.translationModel,
+          credentials: {
+            openaiApiKey: resolvedConfig.credentials.openaiApiKey,
+            ...(resolvedConfig.credentials.baseUrl
+              ? { baseUrl: resolvedConfig.credentials.baseUrl }
+              : {}),
+          },
+        });
+        await dataApiClient.newsletterTranslation.create({
+          newsletterId,
+          language: targetLanguage,
+          subject: translated.subject,
+          content: translated.content,
+          model: resolvedConfig.translationModel,
+          ...(translated.promptTokens !== null
+            ? { promptTokens: translated.promptTokens }
+            : {}),
+          ...(translated.completionTokens !== null
+            ? { completionTokens: translated.completionTokens }
+            : {}),
+          ...(translated.totalTokens !== null
+            ? { totalTokens: translated.totalTokens }
+            : {}),
+        });
+        logger.info(
+          { tickerId: input.tickerId, newsletterId, language: targetLanguage },
+          "Newsletter translation persisted",
+        );
+      } catch (translateErr) {
+        logger.error(
+          {
+            tickerId: input.tickerId,
+            newsletterId,
+            language: targetLanguage,
+            err: translateErr,
+          },
+          "Newsletter translation failed (best-effort, skipping)",
+        );
+      }
+    }
   }
 
   // -------------------------------------------------------------------------

@@ -9,6 +9,7 @@ type UserTickerWithUserRow = {
   userId: string;
   tickerId: string;
   enabled: boolean;
+  language: "en" | "id";
   createdAt: Date;
   updatedAt: Date;
   user: {
@@ -53,7 +54,7 @@ describe("getDeliveryData", () => {
     expect(prisma.userTicker.findMany).not.toHaveBeenCalled();
   });
 
-  it("returns newsletter, subscribers with userTickerId, and checkpoint ids", async () => {
+  it("returns newsletter with translations, subscribers with language, and checkpoint ids", async () => {
     const { prisma } = await import("@mediapulse/database");
     const newsletter = {
       id: "n1",
@@ -72,8 +73,27 @@ describe("getDeliveryData", () => {
       createdAt: new Date("2026-01-01T00:00:00.000Z"),
       updatedAt: new Date("2026-01-01T00:00:00.000Z"),
       ticker: { symbol: "AAPL" },
+      translations: [
+        {
+          id: "tr1",
+          newsletterId: "n1",
+          language: "id" as const,
+          subject: "Subjek",
+          content: "Isi",
+          model: null,
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+        },
+      ],
     };
-    vi.mocked(prisma.newsletter.findFirst).mockResolvedValue(newsletter);
+    vi.mocked(prisma.newsletter.findFirst).mockResolvedValue(
+      newsletter as unknown as Awaited<
+        ReturnType<typeof prisma.newsletter.findFirst>
+      >,
+    );
     vi.mocked(prisma.newsletterDeliveryCheckpoint.findMany).mockResolvedValue([
       {
         id: "cp1",
@@ -89,6 +109,7 @@ describe("getDeliveryData", () => {
         userId: "u1",
         tickerId: "t1",
         enabled: true,
+        language: "en",
         createdAt: new Date(),
         updatedAt: new Date(),
         user: {
@@ -105,6 +126,7 @@ describe("getDeliveryData", () => {
         userId: "u2",
         tickerId: "t1",
         enabled: true,
+        language: "id",
         createdAt: new Date(),
         updatedAt: new Date(),
         user: {
@@ -129,7 +151,6 @@ describe("getDeliveryData", () => {
         where: {
           tickerId: "t1",
           enabled: true,
-          language: "en",
           user: { enabled: true },
         },
       }),
@@ -140,10 +161,11 @@ describe("getDeliveryData", () => {
         subject: "Subj",
         content: "Body",
         symbol: "AAPL",
+        translations: [{ language: "id", subject: "Subjek", content: "Isi" }],
       },
       subscribers: [
-        { userTickerId: "ut1", email: "a@example.com" },
-        { userTickerId: "ut2", email: "b@example.com" },
+        { userTickerId: "ut1", email: "a@example.com", language: "en" },
+        { userTickerId: "ut2", email: "b@example.com", language: "id" },
       ],
       deliveredUserTickerIds: ["ut2"],
     });
@@ -168,6 +190,7 @@ describe("getDeliveryData", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
       ticker: { symbol: "BBRI" },
+      translations: [],
     };
     vi.mocked(prisma.newsletter.findFirst).mockResolvedValue(
       newsletter as unknown as Awaited<
@@ -183,6 +206,7 @@ describe("getDeliveryData", () => {
         userId: "u1",
         tickerId: "t1",
         enabled: true,
+        language: "en",
         createdAt: new Date(),
         updatedAt: new Date(),
         user: {

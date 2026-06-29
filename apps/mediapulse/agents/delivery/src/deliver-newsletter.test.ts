@@ -12,6 +12,7 @@ import { DeliveryConfigSchema } from "./config-schema.js";
 import {
   buildNewsletterMessageId,
   deliverNewsletterToSubscribers,
+  type DeliveryNewsletter,
 } from "./deliver-newsletter.js";
 
 describe("buildNewsletterMessageId", () => {
@@ -59,12 +60,13 @@ vi.mock("@workspace/email-templates", async () => {
   };
 });
 
-const newsletter = {
+const newsletter: DeliveryNewsletter = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   subject: "AAPL Pulse: Subject",
   content: "Body",
   symbol: "AAPL",
-} as const;
+  translations: [],
+};
 
 const userTickerId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
@@ -93,7 +95,7 @@ describe("deliverNewsletterToSubscribers", () => {
 
     const { results, resendMessageIds } = await deliverNewsletterToSubscribers(
       newsletter,
-      [{ userTickerId, email: "u@example.com" }],
+      [{ userTickerId, email: "u@example.com", language: "en" }],
       [],
       baseConfig,
       {
@@ -144,6 +146,68 @@ describe("deliverNewsletterToSubscribers", () => {
     expect(resendMessageIds).toEqual(["re_1"]);
   });
 
+  it("renders the translated subject and content for an id subscriber", async () => {
+    const sendWithRetry = vi
+      .fn()
+      .mockResolvedValue({ id: "re_id", attempts: 1 });
+    const translatedNewsletter: DeliveryNewsletter = {
+      ...newsletter,
+      translations: [
+        { language: "id", subject: "AAPL Pulse: Subjek", content: "Isi" },
+      ],
+    };
+
+    await deliverNewsletterToSubscribers(
+      translatedNewsletter,
+      [{ userTickerId, email: "u@example.com", language: "id" }],
+      [],
+      baseConfig,
+      {
+        resend: {} as Resend,
+        rateLimiter: mockRateLimiter(),
+        sendWithRetry,
+      },
+    );
+
+    const renderCall = vi.mocked(renderNewsletterEmail).mock.calls[0]?.[0];
+    expect(renderCall).toMatchObject({
+      title: "Subjek",
+      bodyText: "Isi",
+    });
+
+    expect(sendWithRetry.mock.calls[0]?.[1]).toMatchObject({
+      subject: "AAPL Pulse: Subjek",
+    });
+  });
+
+  it("skips an id subscriber without acquire or send when no translation exists", async () => {
+    const sendWithRetry = vi.fn();
+    const acquire = vi.fn().mockResolvedValue(0);
+    const claimRecipient = vi.fn().mockResolvedValue(true);
+
+    const { results, resendMessageIds } = await deliverNewsletterToSubscribers(
+      newsletter,
+      [{ userTickerId, email: "u@example.com", language: "id" }],
+      [],
+      baseConfig,
+      {
+        resend: {} as Resend,
+        rateLimiter: mockRateLimiter(acquire),
+        sendWithRetry,
+        claimRecipient,
+      },
+    );
+
+    expect(claimRecipient).not.toHaveBeenCalled();
+    expect(acquire).not.toHaveBeenCalled();
+    expect(sendWithRetry).not.toHaveBeenCalled();
+    expect(results[0]).toMatchObject({
+      status: "skipped",
+      errorCategory: "skipped_missing_translation",
+    });
+    expect(resendMessageIds).toEqual([]);
+  });
+
   it("skips checkpointed subscribers without acquire or send", async () => {
     const sendWithRetry = vi.fn();
     const acquire = vi.fn().mockResolvedValue(0);
@@ -152,7 +216,7 @@ describe("deliverNewsletterToSubscribers", () => {
 
     const { results, resendMessageIds } = await deliverNewsletterToSubscribers(
       newsletter,
-      [{ userTickerId, email: "u@example.com" }],
+      [{ userTickerId, email: "u@example.com", language: "en" }],
       [userTickerId],
       baseConfig,
       {
@@ -194,7 +258,7 @@ describe("deliverNewsletterToSubscribers", () => {
 
     await deliverNewsletterToSubscribers(
       newsletter,
-      [{ userTickerId, email: "u@example.com" }],
+      [{ userTickerId, email: "u@example.com", language: "en" }],
       [],
       cfg,
       {
@@ -225,7 +289,7 @@ describe("deliverNewsletterToSubscribers", () => {
 
     await deliverNewsletterToSubscribers(
       newsletter,
-      [{ userTickerId, email: "u@example.com" }],
+      [{ userTickerId, email: "u@example.com", language: "en" }],
       [],
       cfg,
       {
@@ -259,7 +323,7 @@ describe("deliverNewsletterToSubscribers", () => {
 
     await deliverNewsletterToSubscribers(
       newsletter,
-      [{ userTickerId, email: "u@example.com" }],
+      [{ userTickerId, email: "u@example.com", language: "en" }],
       [],
       cfg,
       {
@@ -295,7 +359,7 @@ describe("deliverNewsletterToSubscribers", () => {
     // Act
     await deliverNewsletterToSubscribers(
       newsletter,
-      [{ userTickerId, email: "u@example.com" }],
+      [{ userTickerId, email: "u@example.com", language: "en" }],
       [],
       cfg,
       {
@@ -318,7 +382,7 @@ describe("deliverNewsletterToSubscribers", () => {
 
     const { results } = await deliverNewsletterToSubscribers(
       newsletter,
-      [{ userTickerId, email: "u@example.com" }],
+      [{ userTickerId, email: "u@example.com", language: "en" }],
       [],
       baseConfig,
       {
@@ -340,7 +404,7 @@ describe("deliverNewsletterToSubscribers", () => {
 
     const { results, resendMessageIds } = await deliverNewsletterToSubscribers(
       newsletter,
-      [{ userTickerId, email: "u@example.com" }],
+      [{ userTickerId, email: "u@example.com", language: "en" }],
       [],
       baseConfig,
       {
@@ -370,7 +434,7 @@ describe("deliverNewsletterToSubscribers", () => {
 
     const { results } = await deliverNewsletterToSubscribers(
       newsletter,
-      [{ userTickerId, email: "u@example.com" }],
+      [{ userTickerId, email: "u@example.com", language: "en" }],
       [],
       baseConfig,
       {
@@ -397,7 +461,7 @@ describe("deliverNewsletterToSubscribers", () => {
 
     const { results } = await deliverNewsletterToSubscribers(
       newsletter,
-      [{ userTickerId, email: "u@example.com" }],
+      [{ userTickerId, email: "u@example.com", language: "en" }],
       [],
       baseConfig,
       {

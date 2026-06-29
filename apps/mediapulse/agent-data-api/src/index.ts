@@ -50,6 +50,7 @@ import {
 } from "./routes/data-collection-failure.js";
 import { getDeliveryRun, postDeliveryRun } from "./routes/delivery-run.js";
 import { getDelivery, postDeliveryHandler } from "./routes/delivery.js";
+import { postNewsletterTranslationHandler } from "./routes/newsletter-translation.js";
 import {
   postDeliveryClaimHandler,
   postDeliveryClaimReleaseHandler,
@@ -137,6 +138,9 @@ const routeHandlers = {
   },
   contentGenerationBulletsRecent: {
     get: getContentGenerationBulletsRecent,
+  },
+  newsletterTranslation: {
+    post: postNewsletterTranslationHandler,
   },
   dataCollection: {
     get: getDataCollection,
