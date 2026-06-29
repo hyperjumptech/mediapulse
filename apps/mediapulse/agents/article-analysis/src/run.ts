@@ -6,7 +6,10 @@ import crypto from "node:crypto";
 
 import type { ArticleAnalysisConfig } from "./config-schema.js";
 import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
-import { classifyArticleSection } from "./llm-classify-section.js";
+import {
+  classifyArticleSection,
+  renderArticleTickerContext,
+} from "./llm-classify-section.js";
 import {
   narrativeRunStart,
   narrativeClassifying,
@@ -139,6 +142,7 @@ export async function run(
     dataSources,
     CLASSIFY_CONCURRENCY,
     async (dataSource): Promise<ClassifiedRow> => {
+      const tickerContext = renderArticleTickerContext(dataSource.ticker);
       const result = await classifyArticleSection({
         apiKey: config.acceptance.apiKey,
         baseUrl: config.acceptance.baseUrl,
@@ -146,6 +150,7 @@ export async function run(
         title: dataSource.title,
         content: dataSource.content,
         acceptanceCriteria: config.acceptanceCriteria,
+        ...(tickerContext ? { tickerContext } : {}),
       });
 
       return {
