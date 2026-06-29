@@ -360,6 +360,7 @@ describe("delivery-agent", () => {
         {
           userTickerId: syntheticTestRecipientUserTickerId("test@example.com"),
           email: "test@example.com",
+          language: "en",
         },
       ],
       [],
@@ -407,7 +408,7 @@ describe("delivery-agent", () => {
 
     expect(mockDeliverNewsletter).toHaveBeenCalledWith(
       expect.anything(),
-      [{ userTickerId: UT_ID, email: "u@example.com" }],
+      [{ userTickerId: UT_ID, email: "u@example.com", language: "en" }],
       [],
       expect.anything(),
       expect.anything(),

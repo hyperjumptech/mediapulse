@@ -178,8 +178,34 @@ model Newsletter {
   deliveryCheckpoints NewsletterDeliveryCheckpoint[]
   deliveryRuns        DeliveryRun[]
   feedback            NewsletterFeedback[]
+  translations        NewsletterTranslation[]
 
   @@map("newsletter")
+}
+
+/// A translated rendering of a Newsletter for a non-English subscription language.
+/// The base Newsletter row holds the canonical English text, so delivery checkpoints,
+/// the self-describing Message-ID, and feedback correlation all key on the same newsletter id.
+model NewsletterTranslation {
+  id           String   @id @default(uuid())
+  newsletterId String   @map("newsletter_id")
+  language     Language
+  subject      String
+  content      String
+
+  /// Provenance for the translation pass (mirrors Newsletter provenance fields).
+  model            String? @map("model")
+  promptTokens     Int?    @map("prompt_tokens")
+  completionTokens Int?    @map("completion_tokens")
+  totalTokens      Int?    @map("total_tokens")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  newsletter Newsletter @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
+
+  @@unique([newsletterId, language])
+  @@map("newsletter_translation")
 }
 
 /// Admin-managed vocabulary for entity classification used by extraction prompts.

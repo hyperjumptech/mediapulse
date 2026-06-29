@@ -22,6 +22,10 @@ import {
   postContentGenerationResponseSchema,
 } from "./content-generation.js";
 import {
+  postNewsletterTranslationBodySchema,
+  postNewsletterTranslationResponseSchema,
+} from "./newsletter-translation.js";
+import {
   dataCollectionBodySchema,
   dataCollectionQuerySchema,
   getDataCollectionResponseSchema,
@@ -237,6 +241,20 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postContentGenerationBodySchema,
         response: postContentGenerationResponseSchema,
+      },
+    },
+  },
+  newsletterTranslation: {
+    v1: {
+      post: {
+        body: postNewsletterTranslationBodySchema,
+        response: postNewsletterTranslationResponseSchema,
+      },
+    },
+    v2: {
+      post: {
+        body: postNewsletterTranslationBodySchema,
+        response: postNewsletterTranslationResponseSchema,
       },
     },
   },

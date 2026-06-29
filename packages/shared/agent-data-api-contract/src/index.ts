@@ -124,16 +124,26 @@ export {
 } from "./discovery-source-health.js";
 export {
   deliveryNewsletterSchema,
+  deliveryNewsletterTranslationSchema,
   deliverySubscriberSchema,
   getDeliveryQuerySchema,
   getDeliveryResponseSchema,
   postDeliveryBodySchema,
   postDeliveryResponseSchema,
+  type DeliveryNewsletterTranslation,
   type GetDeliveryQuery,
   type GetDeliveryResponse,
   type PostDeliveryBody,
   type PostDeliveryResponse,
 } from "./delivery.js";
+export {
+  newsletterLanguageSchema,
+  postNewsletterTranslationBodySchema,
+  postNewsletterTranslationResponseSchema,
+  type NewsletterLanguage,
+  type PostNewsletterTranslationBody,
+  type PostNewsletterTranslationResponse,
+} from "./newsletter-translation.js";
 export {
   deliveryClaimBodySchema,
   postDeliveryClaimResponseSchema,

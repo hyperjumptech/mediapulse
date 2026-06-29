@@ -8,13 +8,17 @@ export async function getDeliveryData(tickerId: string) {
   const newsletter = await mediapulsePrisma.newsletter.findFirst({
     where: { tickerId },
     orderBy: { createdAt: "desc" },
-    include: { ticker: true },
+    include: { ticker: true, translations: true },
   });
 
   if (!newsletter) {
     return {
       newsletter: null,
-      subscribers: [] as { userTickerId: string; email: string }[],
+      subscribers: [] as {
+        userTickerId: string;
+        email: string;
+        language: "en" | "id";
+      }[],
       deliveredUserTickerIds: [] as string[],
     };
   }
@@ -24,14 +28,13 @@ export async function getDeliveryData(tickerId: string) {
       where: { newsletterId: newsletter.id },
       select: { userTickerId: true },
     }),
-    // Indonesian newsletters are not generated yet, so only English subscriptions are
-    // delivered for now. This also avoids duplicate sends to a subscriber who registered
-    // the same ticker in both languages (each row has its own delivery checkpoint).
+    // Enabled subscribers in every language. Each (user, ticker, language) row has its own
+    // delivery checkpoint, so a subscriber registered in both languages receives one email per
+    // language without duplicate sends. The delivery agent picks the rendered text per language.
     mediapulsePrisma.userTicker.findMany({
       where: {
         tickerId,
         enabled: true,
-        language: "en",
         user: { enabled: true },
       },
       include: { user: true },
@@ -42,10 +45,19 @@ export async function getDeliveryData(tickerId: string) {
     .map((subscription) => {
       const email = subscription.user.email;
       return email != null && email !== ""
-        ? { userTickerId: subscription.id, email }
+        ? {
+            userTickerId: subscription.id,
+            email,
+            language: subscription.language,
+          }
         : null;
     })
-    .filter((s): s is { userTickerId: string; email: string } => s != null);
+    .filter(
+      (
+        s,
+      ): s is { userTickerId: string; email: string; language: "en" | "id" } =>
+        s != null,
+    );
 
   return {
     newsletter: {
@@ -53,6 +65,11 @@ export async function getDeliveryData(tickerId: string) {
       subject: newsletter.subject,
       content: newsletter.content,
       symbol: newsletter.ticker.symbol,
+      translations: newsletter.translations.map((translation) => ({
+        language: translation.language,
+        subject: translation.subject,
+        content: translation.content,
+      })),
     },
     subscribers,
     deliveredUserTickerIds: checkpoints.map((c) => c.userTickerId),

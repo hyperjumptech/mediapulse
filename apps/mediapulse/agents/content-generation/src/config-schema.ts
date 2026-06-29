@@ -622,6 +622,31 @@ const freshnessSchema = z
  * Runtime config for the content-generation agent, supplied by Hermes on each invocation
  * (from the admin-selected agent config for the pipeline step).
  */
+const translationSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(false)
+      .describe(
+        "When true, translate the generated newsletter into each target language after the English newsletter is persisted.",
+      ),
+    targetLanguages: z
+      .array(z.enum(["id"]))
+      .default(["id"])
+      .describe(
+        "Non-English languages to translate the newsletter into (currently only Indonesian).",
+      ),
+    model: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "Chat model for the translation pass. If omitted, uses credentials.chatModel.",
+      ),
+  })
+  .strict()
+  .default({});
+
 export const ContentGenerationConfigSchema = z
   .object({
     credentials: credentialsSchema,
@@ -632,6 +657,7 @@ export const ContentGenerationConfigSchema = z
     delivery: deliverySchema,
     freshness: freshnessSchema,
     reliability: reliabilitySchema,
+    translation: translationSchema,
   })
   /** Reject unknown keys (e.g. legacy flat `openai`, `sourceRanking`) so configs fail fast. */
   .strict()
@@ -669,6 +695,7 @@ export type ResolvedContentGenerationConfig = ContentGenerationConfig & {
   brainstormModel: string;
   critiqueModel: string;
   subjectLineModel: string;
+  translationModel: string;
 };
 
 type RetryFields = {
@@ -724,5 +751,6 @@ export function resolveContentGenerationConfig(
     brainstormModel: parsed.creativity.brainstorm.model ?? chatModel,
     critiqueModel: parsed.quality.selfCritique.critiqueModel ?? chatModel,
     subjectLineModel: parsed.delivery.subjectLine.model ?? chatModel,
+    translationModel: parsed.translation.model ?? chatModel,
   };
 }
