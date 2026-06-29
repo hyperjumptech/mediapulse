@@ -87,3 +87,41 @@ export const collectionGateStatusSelectListFilter = {
   placeholderAll: "All",
   optionsMetaKey: "collectionGateStatusOptions",
 } satisfies TableV1ListFilterDefinition;
+
+/** Newsletter feedback sentiment filter (`sentiment` query param). */
+export const feedbackSentimentSelectListFilter = {
+  key: "sentiment",
+  label: "Sentiment",
+  ui: "select",
+  placeholderAll: "All sentiments",
+  staticOptions: [
+    { value: "positive", label: "Positive" },
+    { value: "negative", label: "Negative" },
+    { value: "neutral", label: "Neutral" },
+    { value: "mixed", label: "Mixed" },
+  ],
+} satisfies TableV1ListFilterDefinition;
+
+/** Newsletter feedback category filter (`category` query param). */
+export const feedbackCategorySelectListFilter = {
+  key: "category",
+  label: "Category",
+  ui: "select",
+  placeholderAll: "All categories",
+  staticOptions: [
+    { value: "praise", label: "Praise" },
+    { value: "complaint", label: "Complaint" },
+    { value: "feature_request", label: "Feature request" },
+    { value: "bug", label: "Bug" },
+    { value: "question", label: "Question" },
+    { value: "other", label: "Other" },
+  ],
+} satisfies TableV1ListFilterDefinition;
+
+/** Newsletter feedback received-date range filter (`from`/`to` query params). */
+export const feedbackReceivedAtDateRangeListFilter = {
+  key: "receivedAt",
+  label: "Received",
+  ui: "date-range",
+  rangeParams: { from: "from", to: "to" },
+} satisfies TableV1ListFilterDefinition;
