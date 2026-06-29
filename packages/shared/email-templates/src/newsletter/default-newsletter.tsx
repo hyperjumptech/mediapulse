@@ -397,6 +397,9 @@ export const DefaultNewsletterEmail = ({
             </Link>
             .
           </Text>
+          <Text style={footer}>
+            Have feedback? Just reply to this email and we&apos;ll read it.
+          </Text>
           <Text style={footer}>{resolvedFooterNote}</Text>
           {unsubscribeUrl !== undefined && unsubscribeUrl !== "" ? (
             <Text style={footerMuted}>
