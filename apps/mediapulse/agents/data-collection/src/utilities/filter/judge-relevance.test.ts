@@ -74,6 +74,28 @@ describe("judgeRelevance", () => {
     expect(decision).toEqual({ keep: false, reason: "irrelevant", via: "llm" });
   });
 
+  it("includes alternate company names in the LLM prompt", async () => {
+    let capturedPrompt = "";
+    const generate = (async (options: { prompt: string }) => {
+      capturedPrompt = options.prompt;
+
+      return { object: { relevant: true, reason: "t" } };
+    }) as unknown as typeof generateObject;
+
+    await judgeRelevance(
+      baseInput({
+        contractBrief: "Track AGRO news.",
+        tickerSymbol: "AGRO",
+        tickerName: "PT Bank Raya Indonesia Tbk",
+        tickerAliases: ["agro", "pt bank raya indonesia tbk", "bri agro"],
+        generate,
+      }),
+    );
+
+    expect(capturedPrompt).toContain("also referred to as");
+    expect(capturedPrompt).toContain("bri agro");
+  });
+
   it("falls back to keyword matching when the LLM call throws", async () => {
     const generate = (async () => {
       throw new Error("llm down");
