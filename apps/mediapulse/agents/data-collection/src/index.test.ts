@@ -165,6 +165,12 @@ describe("data-collection agent (HTTP)", () => {
       symbol: "BBCA",
       name: "Bank Central Asia",
       aliases: ["BCA"],
+      sector: "Keuangan",
+      industry: "Perbankan",
+      subSector: "Bank",
+      subIndustry: "Bank",
+      businessActivity: "Jasa Perbankan",
+      peers: [{ symbol: "BBRI", name: "Bank Rakyat Indonesia Tbk" }],
     });
   });
 

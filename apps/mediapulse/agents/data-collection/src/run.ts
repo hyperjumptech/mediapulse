@@ -141,6 +141,7 @@ export async function runDataCollection(
     tickerRecord.sector,
     tickerRecord.industry,
   );
+  const peerNames = tickerRecord.peers.map((peer) => peer.symbol);
   const subject = { symbol: tickerRecord.symbol, name: tickerRecord.name };
 
   report(...narrativeRunStart(subject));
@@ -530,6 +531,9 @@ export async function runDataCollection(
           tickerName: subject.name,
           tickerAliases,
           industryAliases,
+          businessActivity: tickerRecord.businessActivity,
+          subIndustry: tickerRecord.subIndustry,
+          peerNames,
           contractBrief,
           llm: config.relevance,
           logger: log,
