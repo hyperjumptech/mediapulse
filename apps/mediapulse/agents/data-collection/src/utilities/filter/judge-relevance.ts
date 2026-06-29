@@ -65,9 +65,20 @@ const buildPrompt = (input: JudgeRelevanceInput): string => {
       : "its industry";
   const head = input.content.slice(0, HEAD_CHARS);
 
+  const otherNames = input.tickerAliases.filter(
+    (alias) =>
+      alias !== input.tickerSymbol.toLowerCase() &&
+      alias !== input.tickerName.toLowerCase(),
+  );
+  const aliasLine =
+    otherNames.length > 0
+      ? `This company is also referred to as: ${otherNames.join(", ")}. Treat any of these names as referring to the same company.`
+      : null;
+
   return [
     `Decide whether this web page is relevant for an investor tracking ${input.tickerSymbol} (${input.tickerName}) in ${industry}.`,
-    "Relevant means the page is about this company, its industry, or events that materially affect it. Generic, unrelated, or spam pages are not relevant.",
+    "Relevant means the page is about this company, its industry, its peers and competitors, or events that materially affect it. Generic, unrelated, or spam pages are not relevant.",
+    ...(aliasLine ? [aliasLine] : []),
     "",
     `Title: ${input.title}`,
     "",
