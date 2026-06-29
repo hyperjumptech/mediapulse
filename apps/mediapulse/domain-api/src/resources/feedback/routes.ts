@@ -11,12 +11,14 @@ import {
 } from "@mediapulse/database";
 import { Hono } from "hono";
 
+import { buildMetaPayloadForPathSegment } from "../../hermes-dashboard/templates/table-v1/meta-for-path-segment";
 import { parseCreatedDateBound } from "../../lib/parse-created-date-bound";
 import { parsePagination } from "../../lib/list-pagination";
+import { feedbackHermesPathSegment } from "./dashboard-page";
 import { mapRowToDetailItem } from "./detail-mapper";
 import { mapRowToListItem } from "./list-mapper";
 
-/** Hermes `resource-table` API for read-only newsletter feedback (list, detail). */
+/** Hermes `resource-table` API for read-only newsletter feedback (list, meta, detail). */
 export const feedbackRoutes = new Hono();
 
 const SENTIMENT_VALUES = new Set<FeedbackSentiment>([
@@ -159,6 +161,20 @@ feedbackRoutes.get("/", async (c) => {
   });
 
   return c.json(payload);
+});
+
+/**
+ * Table metadata (columns, filters, detail blocks) for the feedback resource.
+ * Declared here because the `/:id` route below would otherwise capture the
+ * `meta` segment before the central manifest handler sees it.
+ */
+feedbackRoutes.get("/meta", (c) => {
+  const meta = buildMetaPayloadForPathSegment(feedbackHermesPathSegment);
+  if (!meta) {
+    return c.json({ message: "Unknown dashboard resource" }, 404);
+  }
+
+  return c.json(meta);
 });
 
 /** Detail payload for a single newsletter feedback row. */

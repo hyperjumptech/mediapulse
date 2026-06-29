@@ -111,6 +111,21 @@ describe("feedbackRoutes", () => {
     );
   });
 
+  it("serves table metadata at /meta without hitting the detail handler", async () => {
+    const res = await feedbackRoutes.request("http://localhost/meta", {
+      method: "GET",
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      title: string;
+      columns: Array<{ key: string }>;
+    };
+    expect(body.title).toBe("Feedback");
+    expect(body.columns.map((column) => column.key)).toContain("senderEmail");
+    expect(prisma.newsletterFeedback.findUnique).not.toHaveBeenCalled();
+  });
+
   it("returns a detail payload for an existing row", async () => {
     vi.mocked(prisma.newsletterFeedback.findUnique).mockResolvedValue(
       row as never,
