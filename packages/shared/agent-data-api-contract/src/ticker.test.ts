@@ -17,7 +17,7 @@ describe("getTickerQuerySchema", () => {
 });
 
 describe("getTickerResponseSchema", () => {
-  it("accepts a ticker payload with aliases", () => {
+  it("accepts a ticker payload with aliases, business context, and peers", () => {
     // Act
     const parsed = getTickerResponseSchema.parse({
       id: "11111111-1111-4111-a111-111111111111",
@@ -26,11 +26,19 @@ describe("getTickerResponseSchema", () => {
       aliases: ["BCA", "Bank Central Asia"],
       sector: "Keuangan",
       industry: "Perbankan",
+      subSector: "Bank",
+      subIndustry: "Bank",
+      businessActivity: "Jasa Perbankan",
+      peers: [{ symbol: "BBRI", name: "Bank Rakyat Indonesia Tbk" }],
     });
 
     // Assert
     expect(parsed.aliases).toEqual(["BCA", "Bank Central Asia"]);
     expect(parsed.sector).toBe("Keuangan");
     expect(parsed.industry).toBe("Perbankan");
+    expect(parsed.businessActivity).toBe("Jasa Perbankan");
+    expect(parsed.peers).toEqual([
+      { symbol: "BBRI", name: "Bank Rakyat Indonesia Tbk" },
+    ]);
   });
 });

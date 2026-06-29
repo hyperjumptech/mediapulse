@@ -52,6 +52,7 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | GET    | `/api/v1/user-registration-unsubscribe`          | Resolve an unsubscribe token status for the user-registration UI           |
 | POST   | `/api/v1/user-registration-unsubscribe`          | Apply one-click unsubscribe from the user-registration app                 |
 | POST   | `/api/v1/newsletter-feedback-record`             | Record a classified newsletter reply (idempotent on `graphMessageId`)      |
+| GET    | `/api/v1/ticker`                                 | Get ticker identity, aliases, sector/industry, business context, and peers |
 | GET    | `/api/v1/query-analysis`                         | Get query-analysis context by ticker                                       |
 | POST   | `/api/v1/query-analysis`                         | Store and activate a versioned query set                                   |
 | GET    | `/api/v1/section-coverage-rollup`                | Per-section average query coverage and newsletter fill by contract version |

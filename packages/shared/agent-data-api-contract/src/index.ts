@@ -240,8 +240,10 @@ export {
 export {
   getTickerQuerySchema,
   getTickerResponseSchema,
+  tickerPeerSchema,
   type GetTickerQuery,
   type GetTickerResponse,
+  type TickerPeer,
 } from "./ticker.js";
 export * from "./user-registration.js";
 export * from "./newsletter-feedback.js";

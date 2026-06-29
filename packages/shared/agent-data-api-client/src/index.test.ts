@@ -707,6 +707,10 @@ describe("agent-data-api path helpers", () => {
         aliases: ["BCA"],
         sector: "Keuangan",
         industry: "Perbankan",
+        subSector: "Bank",
+        subIndustry: "Bank",
+        businessActivity: "Jasa Perbankan",
+        peers: [{ symbol: "BBRI", name: "Bank Rakyat Indonesia Tbk" }],
       }),
       statusCode: 200,
     });

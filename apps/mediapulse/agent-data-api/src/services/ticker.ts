@@ -1,8 +1,14 @@
-import { prisma } from "@mediapulse/database";
+import { prisma, type Prisma } from "@mediapulse/database";
 import type { GetTickerResponse } from "@workspace/agent-data-api-contract";
 import { z } from "zod";
 
-import { extractTickerSectorIndustry } from "./query-analysis-context-helpers";
+import {
+  QUERY_ANALYSIS_PEER_LIMIT,
+  buildPeerMetadataOrFilters,
+  extractTickerBusinessContext,
+  extractTickerSectorIndustry,
+  sortAndLimitPeers,
+} from "./query-analysis-context-helpers";
 
 const tickerMetadataSchema = z
   .object({
@@ -46,6 +52,25 @@ export const getTickerForAgent = async (
   }
 
   const { sector, industry } = extractTickerSectorIndustry(row.metadata);
+  const { subSector, subIndustry, businessActivity } =
+    extractTickerBusinessContext(row.metadata);
+
+  const peerFilters = buildPeerMetadataOrFilters(sector, industry);
+  const peerCandidates =
+    peerFilters === undefined
+      ? []
+      : await prisma.ticker.findMany({
+          where: {
+            id: { not: row.id },
+            OR: peerFilters,
+          },
+          select: { id: true, symbol: true, name: true, metadata: true },
+          take: QUERY_ANALYSIS_PEER_LIMIT * 4,
+        } satisfies Prisma.TickerFindManyArgs);
+  const peers = sortAndLimitPeers(peerCandidates).map((peer) => ({
+    symbol: peer.symbol,
+    name: peer.name,
+  }));
 
   return {
     id: row.id,
@@ -54,5 +79,9 @@ export const getTickerForAgent = async (
     aliases,
     sector: sector ?? null,
     industry: industry ?? null,
+    subSector: subSector ?? null,
+    subIndustry: subIndustry ?? null,
+    businessActivity: businessActivity ?? null,
+    peers,
   };
 };

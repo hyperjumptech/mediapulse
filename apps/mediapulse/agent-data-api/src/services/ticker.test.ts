@@ -6,6 +6,7 @@ vi.mock("@mediapulse/database", () => ({
   prisma: {
     ticker: {
       findUnique: vi.fn(),
+      findMany: vi.fn(),
     },
   },
 }));
@@ -32,18 +33,35 @@ describe("getTickerForAgent", () => {
     expect(result).toBeNull();
   });
 
-  it("returns symbol, name, metadata aliases, and sector labels", async () => {
+  it("returns identity, aliases, sector labels, business context, and peers", async () => {
     // Setup
     vi.mocked(prisma.ticker.findUnique).mockResolvedValueOnce({
       id: "11111111-1111-4111-a111-111111111111",
-      symbol: "BBCA",
-      name: "Bank Central Asia Tbk",
+      symbol: "AGRO",
+      name: "PT Bank Raya Indonesia Tbk",
       metadata: {
-        aliases: ["BCA", "Bank Central Asia", "BCA"],
+        aliases: ["BRI Agro", "Bank Agroniaga", "BRI Agro"],
         Sektor: "Keuangan",
-        Industri: "Perbankan",
+        Industri: "Bank",
+        SubSektor: "Bank",
+        SubIndustri: "Bank",
+        KegiatanUsahaUtama: "Perbankan",
       },
     } as never);
+    vi.mocked(prisma.ticker.findMany).mockResolvedValueOnce([
+      {
+        id: "22222222-2222-4222-a222-222222222222",
+        symbol: "BBCA",
+        name: "Bank Central Asia Tbk",
+        metadata: { marketCap: 100 },
+      },
+      {
+        id: "33333333-3333-4333-a333-333333333333",
+        symbol: "BBRI",
+        name: "Bank Rakyat Indonesia Tbk",
+        metadata: { marketCap: 200 },
+      },
+    ] as never);
 
     // Act
     const result = await getTickerForAgent(
@@ -53,11 +71,48 @@ describe("getTickerForAgent", () => {
     // Assert
     expect(result).toEqual({
       id: "11111111-1111-4111-a111-111111111111",
-      symbol: "BBCA",
-      name: "Bank Central Asia Tbk",
-      aliases: ["BCA", "Bank Central Asia"],
+      symbol: "AGRO",
+      name: "PT Bank Raya Indonesia Tbk",
+      aliases: ["BRI Agro", "Bank Agroniaga"],
       sector: "Keuangan",
-      industry: "Perbankan",
+      industry: "Bank",
+      subSector: "Bank",
+      subIndustry: "Bank",
+      businessActivity: "Perbankan",
+      peers: [
+        { symbol: "BBRI", name: "Bank Rakyat Indonesia Tbk" },
+        { symbol: "BBCA", name: "Bank Central Asia Tbk" },
+      ],
+    });
+  });
+
+  it("returns empty peers and null business context when metadata lacks them", async () => {
+    // Setup
+    vi.mocked(prisma.ticker.findUnique).mockResolvedValueOnce({
+      id: "11111111-1111-4111-a111-111111111111",
+      symbol: "XYZ",
+      name: "Example Corp",
+      metadata: { aliases: [] },
+    } as never);
+
+    // Act
+    const result = await getTickerForAgent(
+      "11111111-1111-4111-a111-111111111111",
+    );
+
+    // Assert
+    expect(prisma.ticker.findMany).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      id: "11111111-1111-4111-a111-111111111111",
+      symbol: "XYZ",
+      name: "Example Corp",
+      aliases: [],
+      sector: null,
+      industry: null,
+      subSector: null,
+      subIndustry: null,
+      businessActivity: null,
+      peers: [],
     });
   });
 });
