@@ -271,6 +271,10 @@ describe("runDataCollection", () => {
       aliases: ["BCA"],
       sector: "Keuangan",
       industry: "Perbankan",
+      subSector: "Bank",
+      subIndustry: "Bank",
+      businessActivity: "Jasa Perbankan",
+      peers: [{ symbol: "BBRI", name: "Bank Rakyat Indonesia Tbk" }],
     });
   });
 

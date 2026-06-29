@@ -33,6 +33,12 @@ export interface JudgeRelevanceInput {
   tickerAliases: string[];
   /** Lowercased industry aliases used by the keyword fallback. */
   industryAliases: string[];
+  /** Main business activity (IDX `KegiatanUsahaUtama`), when known. */
+  businessActivity?: string | null;
+  /** Sub-industry label (IDX `SubIndustri`), when known. */
+  subIndustry?: string | null;
+  /** Peer/competitor display names surfaced for competitive-landscape relevance. */
+  peerNames?: string[];
   /** Agent contract brief. When empty, the keyword fallback is used. */
   contractBrief?: string;
   llm: RelevanceConfig;
@@ -75,10 +81,29 @@ const buildPrompt = (input: JudgeRelevanceInput): string => {
       ? `This company is also referred to as: ${otherNames.join(", ")}. Treat any of these names as referring to the same company.`
       : null;
 
+  const businessParts: string[] = [];
+  if (input.businessActivity) {
+    businessParts.push(`its main business is ${input.businessActivity}`);
+  }
+  if (input.subIndustry) {
+    businessParts.push(`its sub-industry is ${input.subIndustry}`);
+  }
+  const businessLine =
+    businessParts.length > 0
+      ? `Context: ${businessParts.join(", ")}. Judge relevance against this actual business, not just a name match.`
+      : null;
+
+  const peerLine =
+    input.peerNames && input.peerNames.length > 0
+      ? `Known peers and competitors: ${input.peerNames.join(", ")}. Pages about these are relevant as competitive-landscape coverage.`
+      : null;
+
   return [
     `Decide whether this web page is relevant for an investor tracking ${input.tickerSymbol} (${input.tickerName}) in ${industry}.`,
     "Relevant means the page is about this company, its industry, its peers and competitors, or events that materially affect it. Generic, unrelated, or spam pages are not relevant.",
+    ...(businessLine ? [businessLine] : []),
     ...(aliasLine ? [aliasLine] : []),
+    ...(peerLine ? [peerLine] : []),
     "",
     `Title: ${input.title}`,
     "",

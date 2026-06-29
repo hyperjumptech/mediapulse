@@ -96,6 +96,31 @@ describe("judgeRelevance", () => {
     expect(capturedPrompt).toContain("bri agro");
   });
 
+  it("includes business activity and peer competitors in the LLM prompt", async () => {
+    let capturedPrompt = "";
+    const generate = (async (options: { prompt: string }) => {
+      capturedPrompt = options.prompt;
+
+      return { object: { relevant: true, reason: "t" } };
+    }) as unknown as typeof generateObject;
+
+    await judgeRelevance(
+      baseInput({
+        contractBrief: "Track AGRO news.",
+        tickerSymbol: "AGRO",
+        tickerName: "PT Bank Raya Indonesia Tbk",
+        businessActivity: "Perbankan",
+        subIndustry: "Bank",
+        peerNames: ["BBRI", "BBCA"],
+        generate,
+      }),
+    );
+
+    expect(capturedPrompt).toContain("its main business is Perbankan");
+    expect(capturedPrompt).toContain("its sub-industry is Bank");
+    expect(capturedPrompt).toContain("Known peers and competitors: BBRI, BBCA");
+  });
+
   it("falls back to keyword matching when the LLM call throws", async () => {
     const generate = (async () => {
       throw new Error("llm down");
