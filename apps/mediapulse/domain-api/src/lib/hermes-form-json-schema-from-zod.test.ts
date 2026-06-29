@@ -35,6 +35,24 @@ describe("hermesFormJsonSchemaFromZod", () => {
     const props = json.properties as Record<string, { title?: string }>;
     expect(props.name?.title).toBe("Name");
   });
+
+  it("drops boolean fields from required so checkboxes are optional", () => {
+    // Setup
+    const schema = z
+      .object({
+        email: z.string().email(),
+        enabled: z.boolean(),
+      })
+      .strict();
+
+    // Act
+    const json = hermesFormJsonSchemaFromZod(schema);
+
+    // Assert
+    const required = json.required as string[];
+    expect(required).toContain("email");
+    expect(required).not.toContain("enabled");
+  });
 });
 
 describe("mergeHermesObjectFormProperties", () => {

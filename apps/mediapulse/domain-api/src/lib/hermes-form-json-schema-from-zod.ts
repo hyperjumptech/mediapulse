@@ -64,10 +64,16 @@ export const hermesFormJsonSchemaFromZod = (
     nextProps[key] = sub;
   }
 
-  return {
-    ...raw,
-    properties: nextProps,
-  };
+  const nextRoot: Record<string, unknown> = { ...raw, properties: nextProps };
+  if (Array.isArray(raw.required)) {
+    const required = (raw.required as string[]).filter((key) => {
+      const prop = nextProps[key] as Record<string, unknown> | undefined;
+      return prop?.type !== "boolean";
+    });
+    nextRoot.required = required;
+  }
+
+  return nextRoot;
 };
 
 /**
