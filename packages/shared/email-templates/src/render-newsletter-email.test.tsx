@@ -325,6 +325,16 @@ describe("renderNewsletterEmail", () => {
     expect(brandingIndex).toBeLessThan(footerNoteIndex);
   });
 
+  it("invites subscribers to reply with feedback in the footer", async () => {
+    const { html, text } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: "Body content",
+    });
+
+    expect(html).toMatch(/reply to this email/i);
+    expect(text).toMatch(/reply to this email/i);
+  });
+
   it("renders a CTA link with the item title below each top-news item that has a source URL", async () => {
     // Setup
     const structuredBody = [
