@@ -14,6 +14,7 @@ import {
   narrativeRunStart,
   narrativeClassifying,
   narrativeRunComplete,
+  type AnalysisStopReason,
 } from "./utilities/build-activity-narrative.js";
 
 /** (article, ticker) pairs fetched per drain iteration (also bounded by the GET contract). */
@@ -108,13 +109,20 @@ export async function run(
   let totalScored = 0;
   let totalRejected = 0;
   let totalReturned = 0;
+  let failureCount = 0;
   let backlog = 0;
   let startReported = false;
+  let stopReason: AnalysisStopReason = null;
 
   // Drain the recent unclassified backlog in batches until empty (or the per-run safety cap is hit).
   // Each posted batch upserts section rows, so the next fetch excludes those pairs and the loop
   // makes forward progress; a batch that classifies nothing means no progress is possible, so stop.
-  while (totalReturned < MAX_PAIRS_PER_RUN) {
+  while (true) {
+    if (totalReturned >= MAX_PAIRS_PER_RUN) {
+      stopReason = "max_pairs_reached";
+      break;
+    }
+
     const { dataSources, dataSourceTotalCount } =
       await dataApiClient.analysis.get({
         unanalyzed: true,
@@ -123,19 +131,17 @@ export async function run(
     backlog = dataSourceTotalCount;
 
     if (!startReported) {
-      log.info(
-        { returned: dataSources.length, backlog },
-        "article-analysis run started",
-      );
-      report(...narrativeRunStart(dataSources.length));
+      log.info({ backlog }, "article-analysis run started");
+      report(...narrativeRunStart(backlog));
       startReported = true;
     }
 
     if (dataSources.length === 0) {
+      stopReason = totalReturned === 0 ? "nothing_to_do" : "drained";
       break;
     }
 
-    report(...narrativeClassifying(dataSources.length));
+    report(...narrativeClassifying(dataSources.length, totalReturned, backlog));
 
     const classified = await mapWithConcurrency(
       dataSources,
@@ -165,10 +171,12 @@ export async function run(
     const articleSections = classified.filter(
       (row): row is ClassifiedRow => row !== null,
     );
+    failureCount += dataSources.length - articleSections.length;
 
     // No pair in this batch could be classified: no section rows would be written, so the same
     // pairs would be returned again. Stop to avoid an infinite loop.
     if (articleSections.length === 0) {
+      stopReason = "no_progress";
       break;
     }
 
@@ -196,23 +204,40 @@ export async function run(
   }
 
   const totalAssigned = totalScored - totalRejected;
+  const status: "success" | "partial_success" | "failed" =
+    totalScored > 0
+      ? failureCount > 0
+        ? "partial_success"
+        : "success"
+      : stopReason === "nothing_to_do"
+        ? "success"
+        : "failed";
 
   log.info(
-    { scored: totalScored, assigned: totalAssigned, rejected: totalRejected },
+    {
+      status,
+      scored: totalScored,
+      assigned: totalAssigned,
+      rejected: totalRejected,
+      failed: failureCount,
+      stopReason,
+    },
     "article-analysis run completed",
   );
   report(
     ...narrativeRunComplete({
-      status: "success",
+      status,
       scored: totalScored,
       assigned: totalAssigned,
       rejected: totalRejected,
+      failureCount,
+      stopReason,
     }),
     "completed",
   );
 
   return {
-    success: true,
+    success: status !== "failed",
     message:
       totalScored === 0
         ? "No unanalyzed articles to classify."
@@ -221,6 +246,7 @@ export async function run(
       scored: totalScored,
       assigned: totalAssigned,
       rejected: totalRejected,
+      failed: failureCount,
       backlog,
     },
   };
