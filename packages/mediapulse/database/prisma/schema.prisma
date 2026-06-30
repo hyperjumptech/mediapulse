@@ -100,18 +100,44 @@ model DataSource {
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
 
-  ticker                 Ticker?                  @relation(fields: [tickerId], references: [id])
-  searchQuery            SearchQuery?             @relation(fields: [searchQueryId], references: [id])
-  curatedSource          CuratedSource?           @relation(fields: [curatedSourceId], references: [id], onDelete: SetNull)
+  ticker                 Ticker?                   @relation(fields: [tickerId], references: [id])
+  searchQuery            SearchQuery?              @relation(fields: [searchQueryId], references: [id])
+  curatedSource          CuratedSource?            @relation(fields: [curatedSourceId], references: [id], onDelete: SetNull)
   articleEntities        ArticleEntity[]
   articleRelevances      ArticleRelevance[]
   entityEvidence         EntityEvidence[]
   entityRelationEvidence EntityRelationEvidence[]
+  tickerSections         DataSourceTickerSection[]
 
   @@index([curatedSourceId])
   @@index([collectionGateStatus, analyzedAt])
   @@index([tickerId, section])
   @@map("data_source")
+}
+
+/// Per-(article, ticker) newsletter-section classification produced by article-analysis.
+/// Replaces the 1:1 DataSource.section/sectionScore/sectionReason columns so one curated/global
+/// article can belong to a different section for each active ticker.
+model DataSourceTickerSection {
+  id            String   @id @default(uuid())
+  dataSourceId  String   @map("data_source_id")
+  tickerId      String   @map("ticker_id")
+  /// Newsletter section id; null = classified-but-rejected for this ticker.
+  section       String?  @map("section")
+  /// Section-fit score 0–1.
+  sectionScore  Float?   @map("section_score")
+  /// AI reason for the section choice or rejection.
+  sectionReason String?  @map("section_reason") @db.Text
+  analyzedAt    DateTime @default(now()) @map("analyzed_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  dataSource DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+  ticker     Ticker     @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+
+  @@unique([dataSourceId, tickerId])
+  @@index([tickerId, section, analyzedAt])
+  @@map("data_source_ticker_section")
 }
 
 /// Negative cache for URLs that recently failed terminally during data collection.
@@ -467,6 +493,7 @@ model Ticker {
   collectionUrlOutcomes  CollectionUrlOutcome[]
   deliveryRuns           DeliveryRun[]
   contentGenerationRuns  ContentGenerationRun[]
+  tickerSections         DataSourceTickerSection[]
 
   @@map("ticker")
 }

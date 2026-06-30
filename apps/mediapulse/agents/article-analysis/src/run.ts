@@ -16,13 +16,14 @@ import {
   narrativeRunComplete,
 } from "./utilities/build-activity-narrative.js";
 
-/** Max data sources fetched and classified per run (also bounded by the GET contract). */
-const MAX_SOURCES = 10;
+/** Max (article, ticker) pairs fetched and classified per run (also bounded by the GET contract). */
+const MAX_PAIRS = 10;
 /** Max concurrent classification calls. */
 const CLASSIFY_CONCURRENCY = 4;
 
 type ClassifiedRow = {
   dataSourceId: string;
+  tickerId: string;
   section: string | null;
   score: number;
   reason: string;
@@ -105,7 +106,7 @@ export async function run(
   const { dataSources, dataSourceTotalCount } =
     await dataApiClient.analysis.get({
       unanalyzed: true,
-      limit: MAX_SOURCES,
+      limit: MAX_PAIRS,
     });
 
   log.info(
@@ -155,6 +156,7 @@ export async function run(
 
       return {
         dataSourceId: dataSource.id,
+        tickerId: dataSource.tickerId,
         section: result.section,
         score: result.score,
         reason: result.reason,
@@ -183,8 +185,10 @@ export async function run(
     };
   }
 
-  // Every fetched source is marked analyzed, even if its classification call failed.
-  const analyzedDataSourceIds = dataSources.map((dataSource) => dataSource.id);
+  // Every fetched article is marked analyzed (article-level), even if a classification call failed.
+  const analyzedDataSourceIds = [
+    ...new Set(dataSources.map((dataSource) => dataSource.id)),
+  ];
 
   const { articlesScored, articlesRejected } =
     await dataApiClient.analysis.create({
