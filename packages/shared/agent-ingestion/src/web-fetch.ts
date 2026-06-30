@@ -79,7 +79,56 @@ export interface WebFetchDeps {
    * aborts the batch the same way a failing fetch would.
    */
   onOutcome?: (outcome: WebFetchOutcome) => void | Promise<void>;
+  /**
+   * Optional absolute wall-clock deadline (epoch ms). Once reached, URLs not yet
+   * started are skipped instead of fetched so a slow batch cannot wedge the run.
+   */
+  deadlineEpochMs?: number;
 }
+
+/**
+ * Extra time beyond a provider's request timeout before the hard per-attempt abort
+ * fires. Covers rate-limiter wait plus response parsing so the provider's own timeout
+ * (which yields a clean classified error) trips first and the abort is only a backstop.
+ */
+const ATTEMPT_ABORT_BUFFER_MS = 5_000;
+
+/** Fallback hard per-attempt ceiling when a provider config omits `timeoutMs`. */
+const DEFAULT_HARD_ATTEMPT_TIMEOUT_MS = 60_000;
+
+/**
+ * Races a provider fetch against a hard deadline. On timeout it aborts the request
+ * (cancelling the in-flight HTTP call) and rejects, so the chain advances even if a
+ * provider ignores the abort signal. The losing promise is always handled, avoiding
+ * unhandled rejections when it settles late.
+ *
+ * @param fetchPromise - In-flight provider fetch.
+ * @param timeoutMs - Hard ceiling before the attempt is abandoned.
+ * @param controller - Abort controller wired into the provider request.
+ */
+const fetchWithHardTimeout = <T>(
+  fetchPromise: Promise<T>,
+  timeoutMs: number,
+  controller: AbortController,
+): Promise<T> =>
+  new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      controller.abort();
+      reject(
+        new Error(`web fetch attempt exceeded hard timeout of ${timeoutMs}ms`),
+      );
+    }, timeoutMs);
+    fetchPromise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error as Error);
+      },
+    );
+  });
 
 type ProviderChainEntry = {
   provider: FetchProvider;
@@ -180,13 +229,22 @@ const fetchOneResult = async (
 
   for (const entry of rotated) {
     const providerName = toWebFetchProviderName(entry.provider.type);
+    const hardTimeoutMs =
+      (entry.config.timeoutMs ?? DEFAULT_HARD_ATTEMPT_TIMEOUT_MS) +
+      ATTEMPT_ABORT_BUFFER_MS;
+    const abortController = new AbortController();
 
     try {
-      const data = await entry.provider.fetchOne(result.url, {
-        gotClient,
-        rateLimiter: entry.rateLimiter,
-        logger: log,
-      });
+      const data = await fetchWithHardTimeout(
+        entry.provider.fetchOne(result.url, {
+          gotClient,
+          rateLimiter: entry.rateLimiter,
+          logger: log,
+          signal: abortController.signal,
+        }),
+        hardTimeoutMs,
+        abortController,
+      );
 
       hostErrorTracker?.record(hostFromUrl(result.url), true);
 
@@ -283,9 +341,12 @@ export async function performWebFetch(
     logger: logOpt,
     throttleStats,
     onOutcome,
+    deadlineEpochMs,
   } = deps;
   const log = logOpt ?? defaultLogger;
   const providerConfigs = config.providers;
+  const deadline = deadlineEpochMs ?? Infinity;
+  let skippedAfterDeadline = 0;
 
   log.info(
     {
@@ -312,6 +373,12 @@ export async function performWebFetch(
     async (result) => {
       const startOffset = dispatchIndex;
       dispatchIndex += 1;
+      // Once the wall-clock deadline passes, stop starting new fetches so one
+      // slow batch cannot wedge the run. Remaining URLs resolve as unfetched.
+      if (Date.now() >= deadline) {
+        skippedAfterDeadline += 1;
+        return { success: null, failures: [] } satisfies WebFetchOutcome;
+      }
       const outcome = await fetchOneResult(
         result,
         chain,
@@ -325,6 +392,16 @@ export async function performWebFetch(
     },
     { concurrency },
   );
+
+  if (skippedAfterDeadline > 0) {
+    log.warn(
+      {
+        skippedAfterDeadline,
+        urlCount: searchResults.length,
+      },
+      "web fetch: wall-clock deadline reached, skipped remaining URLs",
+    );
+  }
 
   if (throttleStats) {
     throttleStats.throttleEvents += chain.reduce(

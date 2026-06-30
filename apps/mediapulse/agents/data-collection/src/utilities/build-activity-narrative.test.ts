@@ -115,6 +115,21 @@ describe("narrativeRunComplete", () => {
     expect(description).toContain("10");
   });
 
+  it("notes the time budget when stopReason is wall_clock_exceeded", () => {
+    const [, description] = narrativeRunComplete(subject, {
+      status: "partial_success",
+      persisted: 3,
+      droppedByRelevance: 0,
+      droppedByFreshness: 0,
+      contentQualityDropped: 0,
+      failureCount: 0,
+      stopReason: "wall_clock_exceeded",
+      roundsExecuted: 1,
+      targetSavedSources: 15,
+    });
+    expect(description).toContain("time budget");
+  });
+
   it("notes the missing search queries when stopReason is no_queries", () => {
     const [, description] = narrativeRunComplete(subject, {
       status: "success",

@@ -78,6 +78,8 @@ export function narrativeRunComplete(
     stopClause = ` No new articles were found in the last round.`;
   } else if (opts.stopReason === "no_queries") {
     stopClause = ` No active search queries were configured.`;
+  } else if (opts.stopReason === "wall_clock_exceeded") {
+    stopClause = ` The run reached its time budget and stopped early.`;
   }
 
   const failureClause =

@@ -62,6 +62,13 @@ const RUN_POLICY: RunPolicy = {
 const DEAD_URL_LOOKUP_BATCH_SIZE = 50;
 
 /**
+ * Hard wall-clock budget for a single data-collection run. Once exceeded, the round
+ * loop stops and the in-flight fetch stage abandons remaining URLs, so one slow or
+ * hostile host cannot wedge the run (and the pipeline behind it) for hours.
+ */
+const RUN_WALL_CLOCK_BUDGET_MS = 15 * 60 * 1000;
+
+/**
  * Executes the data-collection pipeline: load search queries, run web search and fetch,
  * persist sources and failures, and record run metadata.
  *
@@ -204,7 +211,9 @@ export async function runDataCollection(
     | "max_rounds_reached"
     | "no_progress"
     | "no_queries"
+    | "wall_clock_exceeded"
     | null = null;
+  const runDeadlineEpochMs = startedAt.getTime() + RUN_WALL_CLOCK_BUDGET_MS;
   let persistedThisRunCount = 0;
   let searchSuccessCount = 0;
   let searchFailedCount = 0;
@@ -243,6 +252,14 @@ export async function runDataCollection(
     report(...narrativeSearching(subject, queries.length));
 
     for (let round = 1; round <= maxTotalRounds; round += 1) {
+      if (Date.now() >= runDeadlineEpochMs) {
+        refillStopReason = "wall_clock_exceeded";
+        log.warn(
+          { round, budgetMs: RUN_WALL_CLOCK_BUDGET_MS },
+          "run wall-clock budget exceeded; stopping before next round",
+        );
+        break;
+      }
       roundsExecuted += 1;
       const searchAttemptResults = await performWebSearch(queries, {
         config: config.web_search,
@@ -633,6 +650,7 @@ export async function runDataCollection(
           logger: log,
           throttleStats: fetchThrottleStats,
           hostErrorTracker,
+          deadlineEpochMs: runDeadlineEpochMs,
           onOutcome: async (outcome) => {
             if (outcome.success !== null) {
               await persistFetchedPage(outcome.success);
