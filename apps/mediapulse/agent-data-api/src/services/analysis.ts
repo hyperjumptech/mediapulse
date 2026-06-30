@@ -23,6 +23,8 @@ import {
 const MAX_CANDIDATE_ARTICLE_SCAN = 1500;
 /** Only articles created within this window are considered for candidate pairs. */
 const CANDIDATE_ARTICLE_RECENCY_DAYS = 3;
+/** Per-(article, ticker) section upserts committed per transaction, to stay under the timeout. */
+const SECTION_UPSERT_CHUNK_SIZE = 20;
 
 /**
  * Thrown when the analysis POST body references data sources or tickers that do not exist.
@@ -339,8 +341,8 @@ export const applyAnalysisPost = async (
   }
 
   const analyzedAt = new Date();
-  const writes: Prisma.PrismaPromise<unknown>[] = body.articleSections.map(
-    (row) =>
+  const sectionWrites: Prisma.PrismaPromise<unknown>[] =
+    body.articleSections.map((row) =>
       db.dataSourceTickerSection.upsert({
         where: {
           dataSourceId_tickerId: {
@@ -363,19 +365,27 @@ export const applyAnalysisPost = async (
           analyzedAt,
         },
       } satisfies Prisma.DataSourceTickerSectionUpsertArgs),
-  );
-
-  if (body.analyzedDataSourceIds.length > 0) {
-    writes.push(
-      db.dataSource.updateMany({
-        where: { id: { in: body.analyzedDataSourceIds } },
-        data: { analyzedAt },
-      }),
     );
+
+  // Persist section classifications in bounded transactions. A whole batch of
+  // sequential upserts in one transaction overruns the default 5s transaction
+  // timeout on a pooled connection; smaller chunks stay well under it.
+  for (
+    let start = 0;
+    start < sectionWrites.length;
+    start += SECTION_UPSERT_CHUNK_SIZE
+  ) {
+    const chunk = sectionWrites.slice(start, start + SECTION_UPSERT_CHUNK_SIZE);
+    await db.$transaction(chunk);
   }
 
-  if (writes.length > 0) {
-    await db.$transaction(writes);
+  // Mark articles analyzed only after every section row is persisted, so the
+  // content-generation read never sees an analyzed article without its sections.
+  if (body.analyzedDataSourceIds.length > 0) {
+    await db.dataSource.updateMany({
+      where: { id: { in: body.analyzedDataSourceIds } },
+      data: { analyzedAt },
+    });
   }
 
   const articlesRejected = body.articleSections.filter(
