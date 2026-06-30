@@ -267,6 +267,36 @@ describe("applyAnalysisPost", () => {
     expect(result).toEqual({ articlesScored: 2, articlesRejected: 1 });
   });
 
+  it("commits section upserts in bounded chunks to stay under the transaction timeout", async () => {
+    const { db, upsert, $transaction, findMany } = buildDb();
+    const ids = Array.from(
+      { length: 45 },
+      (_, index) =>
+        `00000000-0000-4000-a000-${String(index).padStart(12, "0")}`,
+    );
+    findMany.mockResolvedValue(ids.map((id) => ({ id })));
+
+    await applyAnalysisPost(
+      {
+        articleSections: ids.map((id) => ({
+          dataSourceId: id,
+          tickerId: TICKER_ID,
+          section: "quickHits" as const,
+          score: 0.5,
+          reason: "x",
+        })),
+        analyzedDataSourceIds: ids,
+      },
+      { db: db as never },
+    );
+
+    // 45 upserts at chunk size 20 → 3 transactions (20 + 20 + 5).
+    expect(upsert).toHaveBeenCalledTimes(45);
+    expect($transaction).toHaveBeenCalledTimes(3);
+    expect(($transaction.mock.calls[0]?.[0] as unknown[]).length).toBe(20);
+    expect(($transaction.mock.calls[2]?.[0] as unknown[]).length).toBe(5);
+  });
+
   it("throws when a referenced data source is unknown", async () => {
     const { db, findMany } = buildDb();
     findMany.mockResolvedValue([]);
