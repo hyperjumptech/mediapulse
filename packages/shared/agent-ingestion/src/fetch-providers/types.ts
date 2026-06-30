@@ -47,6 +47,8 @@ export type ProviderRequestContext = {
   gotClient: typeof got;
   rateLimiter: RateLimiter;
   logger: FetchProviderLogger;
+  /** Hard-deadline abort signal; aborting cancels the in-flight HTTP request. */
+  signal?: AbortSignal;
 };
 
 /** Contract implemented by every web-fetch provider adapter. */

@@ -65,6 +65,8 @@ const fetchOneTavily = async (
           : {}),
       },
       timeout: config.timeoutMs ? { request: config.timeoutMs } : undefined,
+      retry: { limit: 0 },
+      signal: ctx.signal,
     });
     ctx.rateLimiter.recordResponse(response.statusCode);
     const raw = JSON.parse(response.body) as unknown;

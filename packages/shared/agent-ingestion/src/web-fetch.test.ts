@@ -339,6 +339,61 @@ describe("performWebFetch", () => {
     expect(result).toHaveLength(2);
   });
 
+  it("skips remaining URLs once the wall-clock deadline has passed", async () => {
+    // Setup
+    const postMock = vi.fn();
+    const warnMock = vi.fn();
+    const fakeGot = { post: postMock } as unknown as typeof got;
+
+    // Act — a deadline already in the past skips every URL
+    const result = await performWebFetch([baseSearchResult, baseSearchResult], {
+      config: { providers: [jinaProviderConfig] },
+      gotClient: fakeGot,
+      logger: { info: vi.fn(), warn: warnMock },
+      deadlineEpochMs: Date.now() - 1,
+    });
+
+    // Assert
+    expect(postMock).not.toHaveBeenCalled();
+    expect(result).toHaveLength(2);
+    expect(
+      result.every(
+        (outcome) => outcome.success === null && outcome.failures.length === 0,
+      ),
+    ).toBe(true);
+    expect(warnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ skippedAfterDeadline: 2 }),
+      "web fetch: wall-clock deadline reached, skipped remaining URLs",
+    );
+  });
+
+  it("abandons a provider that hangs past the hard per-attempt timeout", async () => {
+    // Setup — a provider that ignores the abort signal and never resolves
+    vi.useFakeTimers();
+    const postMock = vi.fn().mockReturnValue(new Promise(() => {}));
+    const fakeGot = { post: postMock } as unknown as typeof got;
+    const hangingConfig = { ...jinaProviderConfig, timeoutMs: 10 };
+
+    // Act — advance past the hard ceiling (timeoutMs + buffer) so the race aborts
+    const pending = performWebFetch([baseSearchResult], {
+      config: { providers: [hangingConfig] },
+      gotClient: fakeGot,
+    });
+    await vi.advanceTimersByTimeAsync(10 + 5_000);
+    const result = await pending;
+
+    vi.useRealTimers();
+
+    // Assert
+    expect(result[0]?.success).toBeNull();
+    expect(result[0]?.failures).toEqual([
+      expect.objectContaining({
+        provider: "jina",
+        errorCategory: "internal_processing_error",
+      }),
+    ]);
+  });
+
   it("logs a warning with a truncated URL when fetch fails and the URL is very long", async () => {
     // Setup
     const warnMock = vi.fn();
