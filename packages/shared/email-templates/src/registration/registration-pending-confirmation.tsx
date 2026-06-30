@@ -1,16 +1,12 @@
-import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
-  Preview,
-  Section,
-  Text,
-} from "@react-email/components";
+import { Button, Section, Text } from "@react-email/components";
 import type { CSSProperties, ReactElement } from "react";
+
+import {
+  EmailDivider,
+  EmailHeading,
+  EmailParagraph,
+  EmailShell,
+} from "../shared/email-shell.js";
 
 export interface RegistrationPendingConfirmationEmailProps {
   /** The ticker symbol the user wants to subscribe to. */
@@ -37,41 +33,33 @@ export const RegistrationPendingConfirmationEmail = ({
   const greeting = name?.trim() ? `Hello ${name.trim()},` : "Hello,";
 
   return (
-    <Html>
-      <Head />
-      <Preview>Confirm your MediaPulse subscription</Preview>
-      <Body style={main}>
-        <Container style={container}>
-          <Section style={header}>
-            <Heading style={heading}>Confirm your subscription</Heading>
-          </Section>
-          <Hr style={hr} />
-          <Text style={bodyParagraph}>
-            {greeting}
-            {"\n\n"}
-            Tap the button below to confirm your subscription to the '
-            {tickerSymbol}' newsletter on MediaPulse.
-            {"\n\n"}
-            If you did not request this, you can ignore this email.
-          </Text>
-          <Section style={buttonContainer}>
-            <Button href={confirmUrl} style={button}>
-              Confirm subscription
-            </Button>
-          </Section>
-          <Text style={linkFallback}>
-            Or copy and paste this link into your browser:
-            {"\n"}
-            {confirmUrl}
-          </Text>
-          <Hr style={hr} />
-          <Text style={footer}>
-            You are receiving this because someone requested MediaPulse updates
-            using this email address.
-          </Text>
-        </Container>
-      </Body>
-    </Html>
+    <EmailShell
+      preview="Confirm your MediaPulse subscription"
+      footer={{
+        note: "You are receiving this because someone requested MediaPulse updates using this email address.",
+      }}
+    >
+      <EmailHeading>Confirm your subscription</EmailHeading>
+      <EmailDivider />
+      <EmailParagraph>
+        {greeting}
+        {"\n\n"}
+        Please use the button below to confirm your subscription to the '
+        {tickerSymbol}' newsletter on MediaPulse.
+        {"\n\n"}
+        If you did not request this subscription, you may disregard this email.
+      </EmailParagraph>
+      <Section style={buttonContainer}>
+        <Button href={confirmUrl} style={button}>
+          Confirm subscription
+        </Button>
+      </Section>
+      <Text style={linkFallback}>
+        Alternatively, copy and paste the following link into your browser:
+        {"\n"}
+        {confirmUrl}
+      </Text>
+    </EmailShell>
   );
 };
 
@@ -82,45 +70,6 @@ RegistrationPendingConfirmationEmail.PreviewProps = {
 } satisfies RegistrationPendingConfirmationEmailProps;
 
 export default RegistrationPendingConfirmationEmail;
-
-const main: CSSProperties = {
-  backgroundColor: "#f6f9fc",
-  fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
-};
-
-const container: CSSProperties = {
-  backgroundColor: "#ffffff",
-  margin: "0 auto",
-  padding: "24px 20px 32px",
-  marginBottom: "32px",
-  maxWidth: "600px",
-};
-
-const header: CSSProperties = {
-  padding: "8px 0",
-};
-
-const heading: CSSProperties = {
-  color: "#1a1a1a",
-  fontSize: "24px",
-  fontWeight: "600",
-  lineHeight: "1.3",
-  margin: "0",
-};
-
-const hr: CSSProperties = {
-  borderColor: "#e6ebf1",
-  margin: "20px 0",
-};
-
-const bodyParagraph: CSSProperties = {
-  color: "#374151",
-  fontSize: "16px",
-  lineHeight: "1.6",
-  margin: "0",
-  whiteSpace: "pre-wrap",
-};
 
 const buttonContainer: CSSProperties = {
   margin: "24px 0",
@@ -143,14 +92,7 @@ const linkFallback: CSSProperties = {
   color: "#6b7280",
   fontSize: "13px",
   lineHeight: "1.5",
-  margin: "0",
+  margin: "16px 0 0",
   whiteSpace: "pre-wrap",
   wordBreak: "break-all",
-};
-
-const footer: CSSProperties = {
-  color: "#6b7280",
-  fontSize: "12px",
-  lineHeight: "1.5",
-  margin: "0 0 8px",
 };

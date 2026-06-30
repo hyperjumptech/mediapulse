@@ -249,6 +249,7 @@ export async function deliverNewsletterToSubscribers(
       tickerSymbol: newsletter.symbol,
       mediapulseSiteUrl: config.branding.mediapulseSiteUrl,
       hyperjumpSiteUrl: config.branding.hyperjumpSiteUrl,
+      language: sub.language,
     });
     logger?.info?.(
       {

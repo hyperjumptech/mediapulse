@@ -1,21 +1,18 @@
-import {
-  Body,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
-  Link,
-  Preview,
-  Section,
-  Text,
-} from "@react-email/components";
-import { Fragment, type CSSProperties, type ReactElement } from "react";
+import { Heading, Hr, Link, Section, Text } from "@react-email/components";
+import { Fragment, type ReactElement } from "react";
 
 import { parseNewsletterBody } from "./parse-newsletter-body.js";
 import type { ParsedIndustrySection } from "./parse-industry-newsletter-wire.js";
 import { renderInlineMarkdownLinks } from "./render-inline-markdown-links.js";
-
+import {
+  DEFAULT_HYPERJUMP_SITE_URL,
+  DEFAULT_MEDIAPULSE_SITE_URL,
+  EmailHeading,
+  EmailShell,
+  emailLink as link,
+  emailLinkClassName,
+  type EmailLanguage,
+} from "../shared/email-shell.js";
 export interface DefaultNewsletterEmailProps {
   /** Shown as the main title inside the email body (typically matches the message subject). */
   title: string;
@@ -51,13 +48,19 @@ export interface DefaultNewsletterEmailProps {
    * values from Hermes when available.
    */
   hyperjumpSiteUrl?: string;
+  /**
+   * Footer chrome language. The newsletter body is translated upstream
+   * (NewsletterTranslation); this only localizes the static footer strings
+   * (branding line, feedback line, subscription note, unsubscribe label).
+   * Defaults to "en".
+   */
+  language?: FooterLanguage;
 }
 
-/** Default Mediapulse marketing site link used for previews and when Hermes config omits the URL. */
-export const DEFAULT_MEDIAPULSE_SITE_URL = "https://mediapulse.hyperjump.tech";
-
-/** Default Hyperjump marketing site link used for previews and when Hermes config omits the URL. */
-export const DEFAULT_HYPERJUMP_SITE_URL = "https://hyperjump.tech";
+export {
+  DEFAULT_MEDIAPULSE_SITE_URL,
+  DEFAULT_HYPERJUMP_SITE_URL,
+} from "../shared/email-shell.js";
 
 /** Canonical section labels keyed by wire `machineKey`. */
 const SECTION_LABELS: Partial<
@@ -69,6 +72,47 @@ const SECTION_LABELS: Partial<
   "regulatory-policy-watch": "Regulatory & Policy Watch",
   "disruptors-or-tech": "Disruptors & Tech",
   "quick-hits": "Quick Hits",
+};
+
+/** Newsletter footer language. Alias of the shared {@link EmailLanguage}. */
+export type FooterLanguage = EmailLanguage;
+
+/** Newsletter-specific footer strings for one language (branding lives in the shell). */
+interface FooterCopy {
+  /** Reply-for-feedback line. */
+  feedback: string;
+  /** Subscription disclaimer, given a trimmed ticker symbol (empty when unknown). */
+  subscriptionNote: (ticker: string) => string;
+  /** Unsubscribe link label, given the resolved ticker or fallback noun. */
+  unsubscribeLabel: (tickerOrFallback: string) => string;
+  /** Noun used in the unsubscribe label when no ticker symbol is available. */
+  unsubscribeFallback: string;
+}
+
+/** Newsletter footer copy keyed by language. */
+const FOOTER_COPY: Record<FooterLanguage, FooterCopy> = {
+  en: {
+    feedback:
+      "Have feedback? Reply to this email and we will use it to improve the newsletter.",
+    subscriptionNote: (ticker) =>
+      ticker.length > 0
+        ? `You are receiving this because you subscribed to ${ticker} updates.`
+        : "You are receiving this because you subscribed to updates.",
+    unsubscribeLabel: (tickerOrFallback) =>
+      `Unsubscribe from ${tickerOrFallback} updates`,
+    unsubscribeFallback: "these",
+  },
+  id: {
+    feedback:
+      "Punya masukan? Balas email ini dan kami akan menggunakannya untuk meningkatkan buletin.",
+    subscriptionNote: (ticker) =>
+      ticker.length > 0
+        ? `Anda menerima email ini karena Anda berlangganan pembaruan ${ticker}.`
+        : "Anda menerima email ini karena Anda berlangganan pembaruan.",
+    unsubscribeLabel: (tickerOrFallback) =>
+      `Berhenti berlangganan pembaruan ${tickerOrFallback}`,
+    unsubscribeFallback: "ini",
+  },
 };
 
 /**
@@ -92,6 +136,12 @@ export const decomposeSectionHeading = (
   if (displayHeading.toLowerCase().startsWith(prefix.toLowerCase())) {
     const subtitle = displayHeading.slice(prefix.length).trim();
     return { eyebrow: label, subtitle: subtitle.length > 0 ? subtitle : null };
+  }
+
+  // When the heading is just the label itself, render it once instead of
+  // repeating it as both eyebrow and subtitle.
+  if (displayHeading.trim().toLowerCase() === label.toLowerCase()) {
+    return { eyebrow: label, subtitle: null };
   }
 
   return { eyebrow: label, subtitle: displayHeading };
@@ -134,7 +184,10 @@ export const renderSectionHeader = (
 
   if (subtitle === null) {
     return (
-      <Heading as="h2" style={sectionLabel}>
+      <Heading
+        as="h2"
+        className="m-0 mb-3 text-lg font-semibold leading-tight text-ink"
+      >
         {label}
       </Heading>
     );
@@ -142,8 +195,13 @@ export const renderSectionHeader = (
 
   return (
     <>
-      <Text style={sectionEyebrow}>{eyebrow ?? label}</Text>
-      <Heading as="h2" style={sectionLabel}>
+      <Text className="m-0 mb-1 text-xs font-semibold uppercase leading-snug tracking-[0.06em] text-muted">
+        {eyebrow ?? label}
+      </Text>
+      <Heading
+        as="h2"
+        className="m-0 mb-3 text-lg font-semibold leading-tight text-ink"
+      >
         {subtitle}
       </Heading>
     </>
@@ -154,14 +212,15 @@ export const renderSectionHeader = (
  * Builds the default subscription footer when no explicit `footerNote` is passed.
  *
  * @param tickerSymbol - Optional ticker symbol for personalized copy.
+ * @param language - Footer chrome language. Defaults to "en".
  * @returns Footer disclaimer text.
  */
-export const buildDefaultFooterNote = (tickerSymbol?: string): string => {
+export const buildDefaultFooterNote = (
+  tickerSymbol?: string,
+  language: FooterLanguage = "en",
+): string => {
   const trimmed = tickerSymbol?.trim() ?? "";
-  if (trimmed.length > 0) {
-    return `You are receiving this because you subscribed to ${trimmed} updates.`;
-  }
-  return "You are receiving this because you subscribed to updates.";
+  return FOOTER_COPY[language].subscriptionNote(trimmed);
 };
 
 /**
@@ -193,9 +252,13 @@ export const DefaultNewsletterEmail = ({
   tickerSymbol,
   mediapulseSiteUrl = DEFAULT_MEDIAPULSE_SITE_URL,
   hyperjumpSiteUrl = DEFAULT_HYPERJUMP_SITE_URL,
+  language = "en",
 }: DefaultNewsletterEmailProps): ReactElement => {
   const parsed = parseNewsletterBody(bodyText);
-  const resolvedFooterNote = footerNote ?? buildDefaultFooterNote(tickerSymbol);
+  const copy = FOOTER_COPY[language];
+  const resolvedFooterNote =
+    footerNote ?? buildDefaultFooterNote(tickerSymbol, language);
+  const unsubscribeTarget = tickerSymbol ?? copy.unsubscribeFallback;
 
   const renderIndustrySection = (
     section: ParsedIndustrySection,
@@ -209,7 +272,7 @@ export const DefaultNewsletterEmail = ({
       return (
         <Section key={`${section.machineKey}-${String(index)}`}>
           {renderSectionHeader(section.machineKey, section.displayHeading)}
-          <Text style={bodyParagraph}>
+          <Text className="m-0 whitespace-pre-wrap text-base leading-relaxed text-body">
             {renderInlineMarkdownLinks(section.prose, link)}
           </Text>
         </Section>
@@ -231,20 +294,22 @@ export const DefaultNewsletterEmail = ({
                 key={`${String(section.machineKey)}-b-${String(bulletIndex)}`}
               >
                 {bulletByline !== undefined ? (
-                  <Text style={newsItemByline}>{bulletByline}</Text>
+                  <Text className="m-0 mb-1 text-xs font-normal leading-normal text-muted">
+                    {bulletByline}
+                  </Text>
                 ) : null}
-                <Text style={newsItemSummary}>
+                <Text className="m-0 text-base leading-relaxed text-body">
                   {renderInlineMarkdownLinks(bullet.text, link)}
                 </Text>
                 {bullet.url !== undefined && bullet.url !== "" ? (
-                  <Text style={newsItemSourceLink}>
-                    <Link href={bullet.url} style={link}>
+                  <Text className="m-0 mt-2 text-sm leading-normal text-body">
+                    <Link href={bullet.url} className={emailLinkClassName}>
                       Read {bulletCtaLabel}
                     </Link>
                   </Text>
                 ) : null}
                 {bulletIndex < section.bullets.length - 1 ? (
-                  <Hr style={itemSeparator} />
+                  <Hr className="my-4 border-0 border-t border-rule" />
                 ) : null}
               </Section>
             );
@@ -263,20 +328,22 @@ export const DefaultNewsletterEmail = ({
             return (
               <Section key={`qh-${String(itemIndex)}`}>
                 {itemByline !== undefined ? (
-                  <Text style={newsItemByline}>{itemByline}</Text>
+                  <Text className="m-0 mb-1 text-xs font-normal leading-normal text-muted">
+                    {itemByline}
+                  </Text>
                 ) : null}
-                <Text style={newsItemTitle}>
+                <Text className="m-0 mb-2 text-base font-semibold leading-normal text-body">
                   {itemIndex + 1}. {item.text}
                 </Text>
                 {item.url !== undefined && item.url !== "" ? (
-                  <Text style={newsItemSourceLink}>
-                    <Link href={item.url} style={link}>
+                  <Text className="m-0 mt-2 text-sm leading-normal text-body">
+                    <Link href={item.url} className={emailLinkClassName}>
                       Read {itemCtaLabel}
                     </Link>
                   </Text>
                 ) : null}
                 {itemIndex < section.items.length - 1 ? (
-                  <Hr style={itemSeparator} />
+                  <Hr className="my-4 border-0 border-t border-rule" />
                 ) : null}
               </Section>
             );
@@ -302,272 +369,190 @@ export const DefaultNewsletterEmail = ({
       : [];
 
   return (
-    <Html>
-      <Head />
-      <Preview>{title}</Preview>
-      <Body style={main}>
-        <Container style={container}>
-          <Section style={header}>
-            <Heading style={heading}>{title}</Heading>
-            {industryPulseSection !== undefined ? (
-              <>
-                {(() => {
-                  const leadByline = formatArticleByline(industryPulseSection);
-                  return leadByline !== undefined ? (
-                    <Text style={newsItemByline}>{leadByline}</Text>
-                  ) : null;
-                })()}
-                <Text style={standfirst}>
-                  {renderInlineMarkdownLinks(industryPulseSection.prose, link)}
+    <EmailShell
+      preview={title}
+      language={language}
+      mediapulseSiteUrl={mediapulseSiteUrl}
+      hyperjumpSiteUrl={hyperjumpSiteUrl}
+      footer={{
+        feedback: copy.feedback,
+        note: resolvedFooterNote,
+        ...(unsubscribeUrl !== undefined && unsubscribeUrl !== ""
+          ? {
+              unsubscribe: {
+                url: unsubscribeUrl,
+                label: copy.unsubscribeLabel(unsubscribeTarget),
+              },
+            }
+          : {}),
+      }}
+    >
+      <Section>
+        <EmailHeading>{title}</EmailHeading>
+        {industryPulseSection !== undefined ? (
+          <>
+            {(() => {
+              const leadByline = formatArticleByline(industryPulseSection);
+              return leadByline !== undefined ? (
+                <Text className="m-0 mb-1 text-xs font-normal leading-normal text-muted">
+                  {leadByline}
                 </Text>
-                {industryPulseSection.url !== undefined ? (
-                  <Text style={newsItemSourceLink}>
-                    <Link href={industryPulseSection.url} style={link}>
-                      Read {industryPulseSection.displayHeading}
-                    </Link>
-                  </Text>
-                ) : null}
-              </>
+              ) : null;
+            })()}
+            <Text className="m-0 whitespace-pre-wrap text-[17px] leading-relaxed text-body">
+              {renderInlineMarkdownLinks(industryPulseSection.prose, link)}
+            </Text>
+            {industryPulseSection.url !== undefined ? (
+              <Text className="m-0 mt-2 text-sm leading-normal text-body">
+                <Link
+                  href={industryPulseSection.url}
+                  className={emailLinkClassName}
+                >
+                  Read {industryPulseSection.displayHeading}
+                </Link>
+              </Text>
             ) : null}
-          </Section>
-          <Hr style={hr} />
-          {parsed !== undefined ? (
-            parsed.format === "industry" ? (
-              <>
-                {industryBodySections.map((section, index) => (
-                  <Fragment key={`sec-${String(index)}`}>
-                    {index > 0 ? <Hr style={hr} /> : null}
-                    {renderIndustrySection(section, index)}
-                  </Fragment>
-                ))}
-              </>
-            ) : (
-              <>
-                <Heading as="h2" style={sectionLabel}>
-                  Executive Summary
-                </Heading>
-                <Text style={bodyParagraph}>
-                  {renderInlineMarkdownLinks(parsed.executiveSummary, link)}
-                </Text>
-                <Hr style={hr} />
-                <Heading as="h2" style={sectionLabel}>
-                  Top News
-                </Heading>
-                {parsed.topNewsItems.map(
-                  (
-                    item: (typeof parsed.topNewsItems)[number],
-                    index: number,
-                  ) => (
-                    <Section key={item.number}>
-                      <Text style={newsItemTitle}>
-                        {item.number}. {item.title}
-                      </Text>
-                      <Text style={newsItemSummary}>
-                        {renderInlineMarkdownLinks(item.summary, link)}
-                      </Text>
-                      {item.url !== undefined && item.url !== "" ? (
-                        <Text style={newsItemSourceLink}>
-                          <Link href={item.url} style={link}>
-                            Read {item.title}
-                          </Link>
-                        </Text>
-                      ) : null}
-                      {index < parsed.topNewsItems.length - 1 ? (
-                        <Hr style={itemSeparator} />
-                      ) : null}
-                    </Section>
-                  ),
-                )}
-              </>
-            )
-          ) : (
-            <Text style={bodyParagraph}>
-              {renderInlineMarkdownLinks(bodyText, link)}
+          </>
+        ) : null}
+      </Section>
+      <Hr className="my-6 border-0 border-t border-rule" />
+      {parsed !== undefined ? (
+        parsed.format === "industry" ? (
+          <>
+            {industryBodySections.map((section, index) => (
+              <Fragment key={`sec-${String(index)}`}>
+                {index > 0 ? (
+                  <Hr className="my-6 border-0 border-t border-rule" />
+                ) : null}
+                {renderIndustrySection(section, index)}
+              </Fragment>
+            ))}
+          </>
+        ) : (
+          <>
+            <Heading
+              as="h2"
+              className="m-0 mb-3 text-lg font-semibold leading-tight text-ink"
+            >
+              Executive Summary
+            </Heading>
+            <Text className="m-0 whitespace-pre-wrap text-base leading-relaxed text-body">
+              {renderInlineMarkdownLinks(parsed.executiveSummary, link)}
             </Text>
-          )}
-          <Hr style={hr} />
-          <Text style={brandingLine}>
-            Brought to you by{" "}
-            <Link href={mediapulseSiteUrl} style={link}>
-              Mediapulse
-            </Link>
-            , a product of{" "}
-            <Link href={hyperjumpSiteUrl} style={link}>
-              Hyperjump
-            </Link>
-            .
-          </Text>
-          <Text style={footer}>
-            Have feedback? Just reply to this email and we&apos;ll read it.
-          </Text>
-          <Text style={footer}>{resolvedFooterNote}</Text>
-          {unsubscribeUrl !== undefined && unsubscribeUrl !== "" ? (
-            <Text style={footerMuted}>
-              <Link href={unsubscribeUrl} style={link}>
-                Unsubscribe from {tickerSymbol ?? "these"} updates
-              </Link>
-            </Text>
-          ) : null}
-        </Container>
-      </Body>
-    </Html>
+            <Hr className="my-6 border-0 border-t border-rule" />
+            <Heading
+              as="h2"
+              className="m-0 mb-3 text-lg font-semibold leading-tight text-ink"
+            >
+              Top News
+            </Heading>
+            {parsed.topNewsItems.map(
+              (item: (typeof parsed.topNewsItems)[number], index: number) => (
+                <Section key={item.number}>
+                  <Text className="m-0 mb-2 text-base font-semibold leading-normal text-body">
+                    {item.number}. {item.title}
+                  </Text>
+                  <Text className="m-0 text-base leading-relaxed text-body">
+                    {renderInlineMarkdownLinks(item.summary, link)}
+                  </Text>
+                  {item.url !== undefined && item.url !== "" ? (
+                    <Text className="m-0 mt-2 text-sm leading-normal text-body">
+                      <Link href={item.url} className={emailLinkClassName}>
+                        Read {item.title}
+                      </Link>
+                    </Text>
+                  ) : null}
+                  {index < parsed.topNewsItems.length - 1 ? (
+                    <Hr className="my-4 border-0 border-t border-rule" />
+                  ) : null}
+                </Section>
+              ),
+            )}
+          </>
+        )
+      ) : (
+        <Text className="m-0 whitespace-pre-wrap text-base leading-relaxed text-body">
+          {renderInlineMarkdownLinks(bodyText, link)}
+        </Text>
+      )}
+    </EmailShell>
   );
 };
 
-DefaultNewsletterEmail.PreviewProps = {
-  title: "Weekly digest",
+/** Shared sample props for the preview wrappers (English base; id flips `language`). */
+export const NEWSLETTER_PREVIEW_PROPS = {
+  title: "ACME Weekly: Fixed broadband steadies the sector",
   bodyText: [
-    "EXECUTIVE SUMMARY",
+    "MP_NEWSLETTER",
     "",
-    "Markets rallied today as tech earnings exceeded expectations and the Fed signaled a measured approach to rate adjustments.",
+    "BEGIN industry-pulse",
+    "DISPLAY_HEADING",
+    "The sector repairs, quietly",
+    "SOURCE Market Wire",
+    "PROSE",
+    "The telecom sector is repairing rather than roaring. Fixed broadband net adds are carrying revenue growth while prepaid ARPU stays flat, and operators are leaning on bundling and home fiber to defend margins into the second half.",
+    "Read the full article: https://example.com/sector/broadband-outlook",
+    "END",
     "",
-    "---",
+    "BEGIN competitive-landscape",
+    "DISPLAY_HEADING",
+    "Competitive Landscape / Fiber is the new battleground",
+    "BULLET",
+    "TITLE Acme extends home-fiber lead",
+    "AUTHOR Jane Doe",
+    "SOURCE Market Wire",
+    "Acme Telecom added roughly 320,000 home-fiber subscribers in the quarter, widening its lead as rivals struggle to match its backbone reach in secondary cities.",
+    "Read the full article: https://example.com/acme/home-fiber",
+    "BULLET",
+    "TITLE Contoso Mobile leans on convergence",
+    "Contoso Mobile pushed converged mobile-plus-home plans to lift retention, trading near-term ARPU for lower churn in contested urban clusters.",
+    "Read the full article: https://example.com/contoso/convergence",
+    "END",
     "",
-    "TOP 3 NEWS",
+    "BEGIN deals-and-movements",
+    "DISPLAY_HEADING",
+    "Deals & Movements",
+    "BULLET",
+    "TITLE Northwind closes tower acquisition",
+    "Northwind Towers completed the purchase of about 2,800 sites, building the largest independent tower portfolio in the region.",
+    "Read the full article: https://example.com/northwind/tower-deal",
+    "END",
     "",
-    "1. Fed holds rates steady",
-    "The Federal Reserve announced no change to interest rates, citing stable inflation and strong employment data.",
-    "Read the full article: https://example.com/fed-holds-rates",
+    "BEGIN regulatory-policy-watch",
+    "DISPLAY_HEADING",
+    "Regulatory & Policy Watch / Spectrum on the agenda",
+    "BULLET",
+    "The regulator signaled a mid-band spectrum auction for next year, a prerequisite for wider 5G coverage beyond the largest cities.",
+    "Read the full article: https://example.com/policy/spectrum-auction",
+    "END",
     "",
-    "2. Apple beats estimates",
-    "Apple reported record quarterly revenue of $95B, driven by strong iPhone and services growth.",
-    "Read the full article: https://example.com/apple-earnings",
+    "BEGIN disruptors-or-tech",
+    "DISPLAY_HEADING",
+    "Disruptors & Tech / AI moves to the edge",
+    "FORMAT",
+    "prose",
+    "PROSE",
+    "Operators are piloting AI-driven network optimization to squeeze more capacity from existing sites, while fixed-wireless access is emerging as a cheaper path to homes that fiber has not yet reached.",
+    "END",
     "",
-    "3. Oil prices dip",
-    "Crude oil fell 2% amid easing geopolitical tensions and rising US production.",
-    "Read the full article: https://example.com/oil-prices",
+    "BEGIN quick-hits",
+    "DISPLAY_HEADING",
+    "Quick Hits",
+    "ITEM",
+    "Acme reaffirmed its full-year capex guidance.",
+    "ITEM",
+    "Contoso Mobile reported steady data traffic growth.",
+    "Read the full article: https://example.com/contoso/data-traffic",
+    "ITEM",
+    "Fabrikam expanded prepaid promotions ahead of the holiday quarter.",
+    "ITEM",
+    "A new submarine cable landing was approved in the east.",
+    "ITEM",
+    "The board reaffirmed its dividend timeline for the year.",
+    "END",
   ].join("\n"),
-  footerNote:
-    "You can unsubscribe from ticker updates in your account settings.",
-  unsubscribeUrl: "https://mediapulse.com/api/unsubscribe?token=example",
-  tickerSymbol: "AAPL",
+  unsubscribeUrl: "https://example.com/api/unsubscribe?token=preview",
+  tickerSymbol: "ACME",
   mediapulseSiteUrl: DEFAULT_MEDIAPULSE_SITE_URL,
   hyperjumpSiteUrl: DEFAULT_HYPERJUMP_SITE_URL,
 } satisfies DefaultNewsletterEmailProps;
-
-export default DefaultNewsletterEmail;
-
-const main: CSSProperties = {
-  backgroundColor: "#f6f9fc",
-  fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
-};
-
-const container: CSSProperties = {
-  backgroundColor: "#ffffff",
-  margin: "0 auto",
-  padding: "24px 20px 32px",
-  marginBottom: "32px",
-  maxWidth: "600px",
-};
-
-const header: CSSProperties = {
-  padding: "8px 0",
-};
-
-const heading: CSSProperties = {
-  color: "#1a1a1a",
-  fontSize: "24px",
-  fontWeight: "600",
-  lineHeight: "1.3",
-  margin: "0",
-};
-
-const standfirst: CSSProperties = {
-  color: "#374151",
-  fontSize: "17px",
-  lineHeight: "1.6",
-  margin: "12px 0 0",
-  whiteSpace: "pre-wrap",
-};
-
-const hr: CSSProperties = {
-  borderColor: "#e6ebf1",
-  margin: "20px 0",
-};
-
-const bodyParagraph: CSSProperties = {
-  color: "#374151",
-  fontSize: "16px",
-  lineHeight: "1.6",
-  margin: "0",
-  whiteSpace: "pre-wrap",
-};
-
-const sectionEyebrow: CSSProperties = {
-  color: "#6b7280",
-  fontSize: "12px",
-  fontWeight: "600",
-  letterSpacing: "0.06em",
-  lineHeight: "1.4",
-  margin: "0 0 4px",
-  textTransform: "uppercase",
-};
-
-const sectionLabel: CSSProperties = {
-  color: "#1a1a1a",
-  fontSize: "18px",
-  fontWeight: "600",
-  lineHeight: "1.3",
-  margin: "0 0 12px",
-};
-
-const newsItemTitle: CSSProperties = {
-  color: "#374151",
-  fontSize: "16px",
-  fontWeight: "600",
-  lineHeight: "1.5",
-  margin: "0 0 4px",
-};
-
-const newsItemSummary: CSSProperties = {
-  color: "#374151",
-  fontSize: "16px",
-  lineHeight: "1.6",
-  margin: "0",
-};
-
-const newsItemByline: CSSProperties = {
-  color: "#6b7280",
-  fontSize: "12px",
-  fontWeight: "400",
-  lineHeight: "1.5",
-  margin: "0 0 4px",
-};
-
-const newsItemSourceLink: CSSProperties = {
-  color: "#374151",
-  fontSize: "14px",
-  lineHeight: "1.5",
-  margin: "8px 0 0",
-};
-
-const itemSeparator: CSSProperties = {
-  borderColor: "#e6ebf1",
-  margin: "16px 0",
-};
-
-const brandingLine: CSSProperties = {
-  color: "#374151",
-  fontSize: "13px",
-  lineHeight: "1.5",
-  margin: "0 0 12px",
-};
-
-const footer: CSSProperties = {
-  color: "#6b7280",
-  fontSize: "12px",
-  lineHeight: "1.5",
-  margin: "0 0 8px",
-};
-
-const footerMuted: CSSProperties = {
-  color: "#9ca3af",
-  fontSize: "12px",
-  margin: "0",
-};
-
-const link: CSSProperties = {
-  color: "#2563eb",
-  textDecoration: "underline",
-};
