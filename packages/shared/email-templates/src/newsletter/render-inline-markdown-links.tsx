@@ -28,6 +28,8 @@ export const defaultIsAllowedNewsletterLinkUrl = (href: string): boolean => {
 export type RenderInlineMarkdownLinksDependencies = {
   /** Override URL policy (defaults to {@link defaultIsAllowedNewsletterLinkUrl}). */
   isAllowedUrl?: IsAllowedNewsletterLinkUrl;
+  /** Optional className applied to each rendered link (e.g. for dark-mode color). */
+  linkClassName?: string;
 };
 
 /**
@@ -69,6 +71,7 @@ export const renderInlineMarkdownLinks = (
           href={href}
           key={`newsletter-inline-link-${linkKey++}`}
           style={linkStyle}
+          className={dependencies.linkClassName}
         >
           {label}
         </Link>,

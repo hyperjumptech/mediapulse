@@ -1,15 +1,12 @@
+import type { ReactElement } from "react";
+
 import {
-  Body,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
-  Preview,
-  Section,
-  Text,
-} from "@react-email/components";
-import type { CSSProperties, ReactElement } from "react";
+  EmailCallout,
+  EmailDivider,
+  EmailHeading,
+  EmailParagraph,
+  EmailShell,
+} from "../shared/email-shell.js";
 
 export interface RegistrationConfirmationEmailProps {
   /** The ticker symbol the user subscribed to. */
@@ -22,6 +19,7 @@ export interface RegistrationConfirmationEmailProps {
  * Email sent when a user's subscription to a newsletter is successfully confirmed.
  *
  * @param props.tickerSymbol - The ticker symbol that was confirmed.
+ * @param props.nextDeliveryLabel - Optional label for the first delivery time.
  * @returns The confirmation email React Email component.
  */
 export const RegistrationConfirmationEmail = ({
@@ -29,40 +27,33 @@ export const RegistrationConfirmationEmail = ({
   nextDeliveryLabel,
 }: RegistrationConfirmationEmailProps): ReactElement => {
   return (
-    <Html>
-      <Head />
-      <Preview>Subscription Confirmed - MediaPulse</Preview>
-      <Body style={main}>
-        <Container style={container}>
-          <Section style={header}>
-            <Heading style={heading}>Subscription Confirmed</Heading>
-          </Section>
-          <Hr style={hr} />
-          <Text style={bodyParagraph}>
-            Hello,
-            {"\n\n"}
-            Your subscription to the '{tickerSymbol}' newsletter has been
-            confirmed.
-            {nextDeliveryLabel !== undefined
-              ? `\n\nYou will receive your first ${tickerSymbol} newsletter ${nextDeliveryLabel}.`
-              : ""}
-            {"\n\n"}
-            We've attached a contact card to this email. Open it to add
-            MediaPulse to your contacts and ensure future newsletters land in
-            your inbox, not spam or junk.
-            {"\n\n"}
-            Thank you,
-            {"\n"}
-            MediaPulse Team
-          </Text>
-          <Hr style={hr} />
-          <Text style={footer}>
-            You are receiving this because you subscribed to updates on
-            MediaPulse.
-          </Text>
-        </Container>
-      </Body>
-    </Html>
+    <EmailShell
+      preview="Subscription Confirmed - MediaPulse"
+      footer={{
+        note: "You are receiving this because you subscribed to updates on MediaPulse.",
+      }}
+    >
+      <EmailHeading>Subscription Confirmed</EmailHeading>
+      <EmailDivider />
+      <EmailParagraph>
+        Hello,
+        {"\n\n"}
+        Your subscription to the '{tickerSymbol}' newsletter has been confirmed
+        {nextDeliveryLabel !== undefined
+          ? ` and you will receive your first newsletter ${nextDeliveryLabel}.`
+          : "."}
+      </EmailParagraph>
+      <EmailCallout title="Add MediaPulse to your contacts">
+        Open the attached contact card (.vcf) and select "Add to Contacts". This
+        marks MediaPulse as a trusted sender, so future newsletters reach your
+        inbox instead of the spam or promotions folder.
+      </EmailCallout>
+      <EmailParagraph>
+        Thank you,
+        {"\n"}
+        The MediaPulse Team
+      </EmailParagraph>
+    </EmailShell>
   );
 };
 
@@ -72,49 +63,3 @@ RegistrationConfirmationEmail.PreviewProps = {
 } satisfies RegistrationConfirmationEmailProps;
 
 export default RegistrationConfirmationEmail;
-
-const main: CSSProperties = {
-  backgroundColor: "#f6f9fc",
-  fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
-};
-
-const container: CSSProperties = {
-  backgroundColor: "#ffffff",
-  margin: "0 auto",
-  padding: "24px 20px 32px",
-  marginBottom: "32px",
-  maxWidth: "600px",
-};
-
-const header: CSSProperties = {
-  padding: "8px 0",
-};
-
-const heading: CSSProperties = {
-  color: "#1a1a1a",
-  fontSize: "24px",
-  fontWeight: "600",
-  lineHeight: "1.3",
-  margin: "0",
-};
-
-const hr: CSSProperties = {
-  borderColor: "#e6ebf1",
-  margin: "20px 0",
-};
-
-const bodyParagraph: CSSProperties = {
-  color: "#374151",
-  fontSize: "16px",
-  lineHeight: "1.6",
-  margin: "0",
-  whiteSpace: "pre-wrap",
-};
-
-const footer: CSSProperties = {
-  color: "#6b7280",
-  fontSize: "12px",
-  lineHeight: "1.5",
-  margin: "0 0 8px",
-};

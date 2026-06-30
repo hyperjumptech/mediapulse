@@ -1,7 +1,7 @@
 import { render } from "@react-email/render";
 import type { ReactElement } from "react";
 
-import DefaultNewsletterEmail from "./newsletter/default-newsletter.js";
+import { DefaultNewsletterEmail } from "./newsletter/default-newsletter.js";
 import type { DefaultNewsletterEmailProps } from "./newsletter/default-newsletter.js";
 import RegistrationConfirmationEmail from "./registration/registration-confirmation.js";
 import type { RegistrationConfirmationEmailProps } from "./registration/registration-confirmation.js";
@@ -23,6 +23,7 @@ export type RenderNewsletterEmailInput =
         tickerSymbol?: string;
         mediapulseSiteUrl?: string;
         hyperjumpSiteUrl?: string;
+        language?: "en" | "id";
       })
   | ({
       variant: "registration-confirmation";
@@ -93,6 +94,7 @@ function newsletterElementForVariant(
           tickerSymbol={input.tickerSymbol}
           mediapulseSiteUrl={input.mediapulseSiteUrl}
           hyperjumpSiteUrl={input.hyperjumpSiteUrl}
+          language={input.language}
         />
       );
     case "registration-confirmation":

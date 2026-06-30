@@ -215,7 +215,7 @@ describe("renderNewsletterEmail", () => {
     );
   });
 
-  it("renders default Mediapulse and Hyperjump branding links in the footer", async () => {
+  it("renders default MediaPulse and Hyperjump branding links in the footer", async () => {
     // Act
     const { html, text } = await renderNewsletterEmail({
       title: "Morning Briefing",
@@ -225,7 +225,7 @@ describe("renderNewsletterEmail", () => {
     // Assert
     expect(html).toMatch(
       new RegExp(
-        `<a[^>]+href=["']?${DEFAULT_MEDIAPULSE_SITE_URL}["']?[^>]*>\\s*Mediapulse\\s*</a>`,
+        `<a[^>]+href=["']?${DEFAULT_MEDIAPULSE_SITE_URL}["']?[^>]*>\\s*MediaPulse\\s*</a>`,
         "i",
       ),
     );
@@ -257,7 +257,7 @@ describe("renderNewsletterEmail", () => {
     // Assert
     expect(html).toMatch(
       new RegExp(
-        `<a[^>]+href=["']?${mediapulseSiteUrl}["']?[^>]*>\\s*Mediapulse\\s*</a>`,
+        `<a[^>]+href=["']?${mediapulseSiteUrl}["']?[^>]*>\\s*MediaPulse\\s*</a>`,
         "i",
       ),
     );
@@ -289,7 +289,7 @@ describe("renderNewsletterEmail", () => {
     expect(html).not.toMatch(/this digest covers/i);
     expect(html).toMatch(
       new RegExp(
-        `<a[^>]+href=["']?${mediapulseSiteUrl}["']?[^>]*>\\s*Mediapulse\\s*</a>`,
+        `<a[^>]+href=["']?${mediapulseSiteUrl}["']?[^>]*>\\s*MediaPulse\\s*</a>`,
         "i",
       ),
     );
@@ -667,5 +667,57 @@ describe("renderNewsletterEmail", () => {
     expect(text).toContain(
       "You are receiving this because you subscribed to TLKM updates.",
     );
+  });
+
+  it("renders the footer chrome in Indonesian when language is id", async () => {
+    const { html, text } = await renderNewsletterEmail({
+      title: "Buletin TLKM",
+      bodyText: "Isi buletin",
+      tickerSymbol: "TLKM",
+      unsubscribeUrl: "https://app.example.com/api/unsubscribe?token=abc",
+      language: "id",
+    });
+
+    expect(html).toContain("Dipersembahkan oleh");
+    expect(html).toContain(", produk dari");
+    expect(html).toContain(
+      "Punya masukan? Balas email ini dan kami akan menggunakannya untuk meningkatkan buletin.",
+    );
+    expect(html).toContain(
+      "Anda menerima email ini karena Anda berlangganan pembaruan TLKM.",
+    );
+    expect(html).toMatch(/Berhenti berlangganan pembaruan.*TLKM/i);
+    expect(text).toContain(
+      "Anda menerima email ini karena Anda berlangganan pembaruan TLKM.",
+    );
+    // English chrome must not leak into an Indonesian render.
+    expect(html).not.toContain("Brought to you by");
+    expect(html).not.toMatch(/reply to this email/i);
+  });
+
+  it("uses the Indonesian generic copy and fallback unsubscribe noun when tickerSymbol is omitted", async () => {
+    const { html } = await renderNewsletterEmail({
+      title: "Buletin",
+      bodyText: "Isi buletin",
+      unsubscribeUrl: "https://app.example.com/api/unsubscribe?token=abc",
+      language: "id",
+    });
+
+    expect(html).toContain(
+      "Anda menerima email ini karena Anda berlangganan pembaruan.",
+    );
+    expect(html).toMatch(/Berhenti berlangganan pembaruan.*ini/i);
+  });
+
+  it("keeps the footer chrome in English when language is omitted", async () => {
+    const { html } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: "Body content",
+      tickerSymbol: "TLKM",
+    });
+
+    expect(html).toContain("Brought to you by");
+    expect(html).toMatch(/reply to this email/i);
+    expect(html).not.toContain("Dipersembahkan oleh");
   });
 });

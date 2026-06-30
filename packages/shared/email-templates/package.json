@@ -28,7 +28,9 @@
   "scripts": {
     "type:check": "tsc --noEmit",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "email:dev": "email dev --dir ./src",
+    "email:export": "email export --dir ./src --outDir ./out"
   },
   "dependencies": {
     "@react-email/components": "^0.5.7",
@@ -37,9 +39,11 @@
     "react-dom": "catalog:"
   },
   "devDependencies": {
+    "@react-email/ui": "^6.6.5",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@workspace/typescript-config": "workspace:*",
+    "react-email": "^6.6.5",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

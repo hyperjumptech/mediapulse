@@ -117,6 +117,7 @@ describe("deliverNewsletterToSubscribers", () => {
       tickerSymbol: "AAPL",
       mediapulseSiteUrl: DEFAULT_MEDIAPULSE_SITE_URL,
       hyperjumpSiteUrl: DEFAULT_HYPERJUMP_SITE_URL,
+      language: "en",
     });
     expect(acquire).toHaveBeenCalledOnce();
     expect(sendWithRetry).toHaveBeenCalledOnce();
@@ -173,6 +174,7 @@ describe("deliverNewsletterToSubscribers", () => {
     expect(renderCall).toMatchObject({
       title: "Subjek",
       bodyText: "Isi",
+      language: "id",
     });
 
     expect(sendWithRetry.mock.calls[0]?.[1]).toMatchObject({
