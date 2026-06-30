@@ -20,7 +20,9 @@ import {
 } from "./issuer-context.js";
 
 /** Newest-first cap on eligible articles scanned per candidate-pair request. */
-const MAX_CANDIDATE_ARTICLE_SCAN = 500;
+const MAX_CANDIDATE_ARTICLE_SCAN = 1500;
+/** Only articles created within this window are considered for candidate pairs. */
+const CANDIDATE_ARTICLE_RECENCY_DAYS = 3;
 
 /**
  * Thrown when the analysis POST body references data sources or tickers that do not exist.
@@ -147,20 +149,23 @@ const buildAnalysisCandidatePairs = async (
     | "entityRelation"
   >,
 ): Promise<GetAnalysisResponse> => {
+  const recencyFloor = new Date(
+    Date.now() - CANDIDATE_ARTICLE_RECENCY_DAYS * 24 * 60 * 60 * 1000,
+  );
   const createdAtWhere =
     query.start !== undefined || query.end !== undefined
       ? ({
           ...(query.start !== undefined ? { gte: new Date(query.start) } : {}),
           ...(query.end !== undefined ? { lte: new Date(query.end) } : {}),
         } satisfies Prisma.DateTimeFilter)
-      : undefined;
+      : ({ gte: recencyFloor } satisfies Prisma.DateTimeFilter);
 
   const where = {
     OR: [
       { collectionGateStatus: "passed" as const, tickerId: null },
       { tickerId: { not: null } },
     ],
-    ...(createdAtWhere ? { createdAt: createdAtWhere } : {}),
+    createdAt: createdAtWhere,
   } satisfies Prisma.DataSourceWhereInput;
 
   const activeSets = await db.searchQuerySet.findMany({

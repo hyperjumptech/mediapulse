@@ -14,12 +14,15 @@ import {
   narrativeRunStart,
   narrativeClassifying,
   narrativeRunComplete,
+  type AnalysisStopReason,
 } from "./utilities/build-activity-narrative.js";
 
-/** Max (article, ticker) pairs fetched and classified per run (also bounded by the GET contract). */
-const MAX_PAIRS = 10;
+/** (article, ticker) pairs fetched per drain iteration (also bounded by the GET contract). */
+const BATCH_SIZE = 100;
+/** Safety bound on total pairs classified in a single run. */
+const MAX_PAIRS_PER_RUN = 1000;
 /** Max concurrent classification calls. */
-const CLASSIFY_CONCURRENCY = 4;
+const CLASSIFY_CONCURRENCY = 8;
 
 type ClassifiedRow = {
   dataSourceId: string;
@@ -103,124 +106,148 @@ export async function run(
     token,
   });
 
-  const { dataSources, dataSourceTotalCount } =
-    await dataApiClient.analysis.get({
-      unanalyzed: true,
-      limit: MAX_PAIRS,
-    });
+  let totalScored = 0;
+  let totalRejected = 0;
+  let totalReturned = 0;
+  let failureCount = 0;
+  let backlog = 0;
+  let startReported = false;
+  let stopReason: AnalysisStopReason = null;
 
-  log.info(
-    { returned: dataSources.length, backlog: dataSourceTotalCount },
-    "article-analysis run started",
-  );
-  report(...narrativeRunStart(dataSources.length));
+  // Drain the recent unclassified backlog in batches until empty (or the per-run safety cap is hit).
+  // Each posted batch upserts section rows, so the next fetch excludes those pairs and the loop
+  // makes forward progress; a batch that classifies nothing means no progress is possible, so stop.
+  while (true) {
+    if (totalReturned >= MAX_PAIRS_PER_RUN) {
+      stopReason = "max_pairs_reached";
+      break;
+    }
 
-  if (dataSources.length === 0) {
-    report(
-      ...narrativeRunComplete({
-        status: "success",
-        scored: 0,
-        assigned: 0,
-        rejected: 0,
-      }),
-      "completed",
-    );
-    return {
-      success: true,
-      message: "No unanalyzed articles to classify.",
-      details: {
-        scored: 0,
-        assigned: 0,
-        rejected: 0,
-        backlog: dataSourceTotalCount,
+    const { dataSources, dataSourceTotalCount } =
+      await dataApiClient.analysis.get({
+        unanalyzed: true,
+        limit: BATCH_SIZE,
+      });
+    backlog = dataSourceTotalCount;
+
+    if (!startReported) {
+      log.info({ backlog }, "article-analysis run started");
+      report(...narrativeRunStart(backlog));
+      startReported = true;
+    }
+
+    if (dataSources.length === 0) {
+      stopReason = totalReturned === 0 ? "nothing_to_do" : "drained";
+      break;
+    }
+
+    report(...narrativeClassifying(dataSources.length, totalReturned, backlog));
+
+    const classified = await mapWithConcurrency(
+      dataSources,
+      CLASSIFY_CONCURRENCY,
+      async (dataSource): Promise<ClassifiedRow> => {
+        const tickerContext = renderArticleTickerContext(dataSource.ticker);
+        const result = await classifyArticleSection({
+          apiKey: config.acceptance.apiKey,
+          baseUrl: config.acceptance.baseUrl,
+          model: config.acceptance.model,
+          title: dataSource.title,
+          content: dataSource.content,
+          acceptanceCriteria: config.acceptanceCriteria,
+          ...(tickerContext ? { tickerContext } : {}),
+        });
+
+        return {
+          dataSourceId: dataSource.id,
+          tickerId: dataSource.tickerId,
+          section: result.section,
+          score: result.score,
+          reason: result.reason,
+        };
       },
-    };
-  }
+    );
 
-  report(...narrativeClassifying(dataSources.length));
+    const articleSections = classified.filter(
+      (row): row is ClassifiedRow => row !== null,
+    );
+    failureCount += dataSources.length - articleSections.length;
 
-  const classified = await mapWithConcurrency(
-    dataSources,
-    CLASSIFY_CONCURRENCY,
-    async (dataSource): Promise<ClassifiedRow> => {
-      const tickerContext = renderArticleTickerContext(dataSource.ticker);
-      const result = await classifyArticleSection({
-        apiKey: config.acceptance.apiKey,
-        baseUrl: config.acceptance.baseUrl,
-        model: config.acceptance.model,
-        title: dataSource.title,
-        content: dataSource.content,
-        acceptanceCriteria: config.acceptanceCriteria,
-        ...(tickerContext ? { tickerContext } : {}),
+    // No pair in this batch could be classified: no section rows would be written, so the same
+    // pairs would be returned again. Stop to avoid an infinite loop.
+    if (articleSections.length === 0) {
+      stopReason = "no_progress";
+      break;
+    }
+
+    const analyzedDataSourceIds = [
+      ...new Set(dataSources.map((dataSource) => dataSource.id)),
+    ];
+
+    const { articlesScored, articlesRejected } =
+      await dataApiClient.analysis.create({
+        articleSections,
+        analyzedDataSourceIds,
       });
 
-      return {
-        dataSourceId: dataSource.id,
-        tickerId: dataSource.tickerId,
-        section: result.section,
-        score: result.score,
-        reason: result.reason,
-      };
-    },
-  );
-
-  const articleSections = classified.filter(
-    (row): row is ClassifiedRow => row !== null,
-  );
-
-  if (articleSections.length === 0) {
-    report(
-      ...narrativeRunComplete({
-        status: "failed",
-        scored: 0,
-        assigned: 0,
-        rejected: 0,
-      }),
-      "completed",
+    totalScored += articlesScored;
+    totalRejected += articlesRejected;
+    totalReturned += dataSources.length;
+    log.info(
+      {
+        batchScored: articlesScored,
+        totalScored,
+        remainingBacklog: Math.max(0, backlog - totalReturned),
+      },
+      "article-analysis batch completed",
     );
-    return {
-      success: false,
-      message: "Failed to classify any articles this run.",
-      details: { returned: dataSources.length, scored: 0 },
-    };
   }
 
-  // Every fetched article is marked analyzed (article-level), even if a classification call failed.
-  const analyzedDataSourceIds = [
-    ...new Set(dataSources.map((dataSource) => dataSource.id)),
-  ];
-
-  const { articlesScored, articlesRejected } =
-    await dataApiClient.analysis.create({
-      articleSections,
-      analyzedDataSourceIds,
-    });
-
-  const assigned = articlesScored - articlesRejected;
+  const totalAssigned = totalScored - totalRejected;
+  const status: "success" | "partial_success" | "failed" =
+    totalScored > 0
+      ? failureCount > 0
+        ? "partial_success"
+        : "success"
+      : stopReason === "nothing_to_do"
+        ? "success"
+        : "failed";
 
   log.info(
-    { scored: articlesScored, assigned, rejected: articlesRejected },
+    {
+      status,
+      scored: totalScored,
+      assigned: totalAssigned,
+      rejected: totalRejected,
+      failed: failureCount,
+      stopReason,
+    },
     "article-analysis run completed",
   );
   report(
     ...narrativeRunComplete({
-      status: "success",
-      scored: articlesScored,
-      assigned,
-      rejected: articlesRejected,
+      status,
+      scored: totalScored,
+      assigned: totalAssigned,
+      rejected: totalRejected,
+      failureCount,
+      stopReason,
     }),
     "completed",
   );
 
   return {
-    success: true,
-    message: `Classified ${articlesScored} article(s): ${assigned} assigned, ${articlesRejected} rejected.`,
+    success: status !== "failed",
+    message:
+      totalScored === 0
+        ? "No unanalyzed articles to classify."
+        : `Classified ${totalScored} article(s): ${totalAssigned} assigned, ${totalRejected} rejected.`,
     details: {
-      returned: dataSources.length,
-      scored: articlesScored,
-      assigned,
-      rejected: articlesRejected,
-      backlog: dataSourceTotalCount,
+      scored: totalScored,
+      assigned: totalAssigned,
+      rejected: totalRejected,
+      failed: failureCount,
+      backlog,
     },
   };
 }
