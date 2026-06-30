@@ -32,6 +32,7 @@ type ContentGenerationDb = {
   tickerEntity: Pick<typeof prisma.tickerEntity, "findFirst">;
   entityRelation: Pick<typeof prisma.entityRelation, "findMany">;
   entityType: Pick<typeof prisma.entityType, "findFirst">;
+  userTicker: Pick<typeof prisma.userTicker, "findMany">;
 };
 
 /**
@@ -52,6 +53,7 @@ export const getDataSourcesForTicker = async (
       | "entityType"
       | "tickerEntity"
       | "entityRelation"
+      | "userTicker"
     >;
     now?: () => Date;
   } = {},
@@ -122,12 +124,20 @@ export const getDataSourcesForTicker = async (
     relation: entry.relation,
   }));
 
+  const subscriberLanguageRows = await db.userTicker.findMany({
+    where: { tickerId, enabled: true, language: { not: "en" } },
+    select: { language: true },
+    distinct: ["language"],
+  } satisfies Prisma.UserTickerFindManyArgs);
+  const subscriberLanguages = subscriberLanguageRows.map((row) => row.language);
+
   return {
     dataSources,
     tickerSymbol: ticker.symbol,
     tickerName: ticker.name,
     competitors,
     issuerAliases,
+    subscriberLanguages,
   };
 };
 

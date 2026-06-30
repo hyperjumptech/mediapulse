@@ -248,7 +248,7 @@ describe("GET /schemas", () => {
     expect(body).toHaveProperty("configSchema");
   });
 
-  it("configSchema contains all expanded config groups", async () => {
+  it("configSchema contains the model and duplicateGuard groups", async () => {
     // Act
     const request = new Request("http://localhost:4002/schemas");
     const response = await appModule.fetch(request);
@@ -257,29 +257,12 @@ describe("GET /schemas", () => {
     const body = (await response.json()) as Record<string, unknown>;
     const schemaStr = JSON.stringify(body.configSchema);
 
-    // Verify all config groups are present
-    expect(schemaStr).toContain('"credentials"');
-    expect(schemaStr).toContain("openaiApiKey");
-    expect(schemaStr).toContain("chatModel");
+    // Verify the two config groups are present
+    expect(schemaStr).toContain('"model"');
+    expect(schemaStr).toContain("apiKey");
     expect(schemaStr).toContain("baseUrl");
-    expect(schemaStr).toContain("maxTokens");
-    expect(schemaStr).toContain("timeoutMs");
-    expect(schemaStr).toContain("inputs");
-    expect(schemaStr).toContain("creativity");
-    expect(schemaStr).toContain("quality");
-    expect(schemaStr).toContain("delivery");
-    expect(schemaStr).toContain("reliability");
-    expect(schemaStr).toContain("topNewsCount");
-    expect(schemaStr).toContain("maxCharsPerSource");
-    expect(schemaStr).toContain("maxTotalContextChars");
-    expect(schemaStr).toContain("llmRetry");
-    expect(schemaStr).toContain("maxAttempts");
-    expect(schemaStr).toContain("baseDelayMs");
-    expect(schemaStr).toContain("maxDelayMs");
-    expect(schemaStr).toContain("jitter");
-    expect(schemaStr).toContain("freshness");
-    expect(schemaStr).toContain("calendar_day");
-    expect(schemaStr).toContain("persistRetry");
+    expect(schemaStr).toContain("duplicateGuard");
+    expect(schemaStr).toContain("timezone");
   });
 
   it("inputSchema requires tickerId", async () => {

@@ -24,6 +24,9 @@ vi.mock("@mediapulse/database", () => ({
     entityRelation: {
       findMany: vi.fn(),
     },
+    userTicker: {
+      findMany: vi.fn(),
+    },
   },
 }));
 
@@ -56,6 +59,9 @@ type MockDb = {
   entityRelation: {
     findMany: ReturnType<typeof vi.fn>;
   };
+  userTicker: {
+    findMany: ReturnType<typeof vi.fn>;
+  };
 };
 
 const createMockDb = (): MockDb => ({
@@ -77,6 +83,9 @@ const createMockDb = (): MockDb => ({
     findFirst: vi.fn().mockResolvedValue(null),
   },
   entityRelation: {
+    findMany: vi.fn().mockResolvedValue([]),
+  },
+  userTicker: {
     findMany: vi.fn().mockResolvedValue([]),
   },
 });
@@ -191,6 +200,53 @@ describe("getDataSourcesForTicker", () => {
     expect(result.dataSources).toEqual([]);
     expect(result.tickerSymbol).toBe("EMPTY");
     expect(result.tickerName).toBe("Empty Corp");
+  });
+
+  it("returns distinct non-English subscriber languages", async () => {
+    // Setup
+    const db = createMockDb();
+    db.ticker.findUniqueOrThrow.mockResolvedValue({
+      symbol: "BBCA",
+      name: "Bank Central Asia",
+    });
+    db.dataSourceTickerSection.findMany.mockResolvedValue([]);
+    db.userTicker.findMany.mockResolvedValue([{ language: "id" }]);
+
+    // Act
+    const result = await getDataSourcesForTicker("ticker-1", {
+      db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
+      now: () => new Date("2026-03-19T02:00:00.000Z"),
+    });
+
+    // Assert
+    expect(result.subscriberLanguages).toEqual(["id"]);
+    expect(db.userTicker.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tickerId: "ticker-1", enabled: true, language: { not: "en" } },
+        select: { language: true },
+        distinct: ["language"],
+      }),
+    );
+  });
+
+  it("returns an empty subscriberLanguages list when there are no non-English subscribers", async () => {
+    // Setup
+    const db = createMockDb();
+    db.ticker.findUniqueOrThrow.mockResolvedValue({
+      symbol: "BBCA",
+      name: "Bank Central Asia",
+    });
+    db.dataSourceTickerSection.findMany.mockResolvedValue([]);
+    db.userTicker.findMany.mockResolvedValue([]);
+
+    // Act
+    const result = await getDataSourcesForTicker("ticker-1", {
+      db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
+      now: () => new Date("2026-03-19T02:00:00.000Z"),
+    });
+
+    // Assert
+    expect(result.subscriberLanguages).toEqual([]);
   });
 });
 

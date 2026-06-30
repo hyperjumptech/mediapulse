@@ -45,6 +45,10 @@ export function truncateSources(
       ...(source.publishedAt !== undefined
         ? { publishedAt: source.publishedAt }
         : {}),
+      ...(source.section !== undefined ? { section: source.section } : {}),
+      ...(source.sectionScore !== undefined
+        ? { sectionScore: source.sectionScore }
+        : {}),
     };
   });
 
@@ -62,6 +66,12 @@ export function truncateSources(
       content: truncated[0]!.content.slice(0, maxTotalContextChars),
       ...(truncated[0]!.publishedAt !== undefined
         ? { publishedAt: truncated[0]!.publishedAt }
+        : {}),
+      ...(truncated[0]!.section !== undefined
+        ? { section: truncated[0]!.section }
+        : {}),
+      ...(truncated[0]!.sectionScore !== undefined
+        ? { sectionScore: truncated[0]!.sectionScore }
         : {}),
     };
   }
