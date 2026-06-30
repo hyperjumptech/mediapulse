@@ -19,7 +19,7 @@ describe("ContentGenerationConfigSchema", () => {
     expect(parsed.credentials.baseUrl).toBeUndefined();
     expect(parsed.credentials.chatModel).toBe("{{OPENAI_MODEL}}");
     expect(parsed.credentials.timeoutMs).toBe(120_000);
-    expect(parsed.output.topNewsCount).toBe(10);
+    expect(parsed.output.topNewsCount).toBe(30);
     expect(parsed.inputs.context.maxCharsPerSource).toBe(8000);
     expect(parsed.inputs.context.maxTotalContextChars).toBe(100_000);
     expect(parsed.reliability.llmRetry.maxAttempts).toBe(3);

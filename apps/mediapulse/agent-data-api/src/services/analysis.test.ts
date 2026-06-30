@@ -159,6 +159,7 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
             { collectionGateStatus: "passed", tickerId: null },
             { tickerId: { not: null } },
           ],
+          createdAt: { gte: expect.any(Date) },
         }),
       }),
     );

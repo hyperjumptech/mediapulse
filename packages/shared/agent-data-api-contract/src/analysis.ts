@@ -6,7 +6,7 @@ import { NEWSLETTER_SECTION_IDS } from "./newsletter-sections.js";
  * Max `limit` on analysis GET (query param). The article consumer
  * (`analysisGetDataSourceLimitMax` in Hermes config) should cap at this value so requests stay valid.
  */
-export const ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX = 10;
+export const ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX = 100;
 
 const sectionEnum = z.enum(
   NEWSLETTER_SECTION_IDS as unknown as [string, ...string[]],

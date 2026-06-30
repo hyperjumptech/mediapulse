@@ -522,7 +522,7 @@ const outputSchema = z
       .number()
       .int()
       .positive()
-      .default(10)
+      .default(30)
       .describe("Number of top news items to include in the output."),
   })
   .default({})
