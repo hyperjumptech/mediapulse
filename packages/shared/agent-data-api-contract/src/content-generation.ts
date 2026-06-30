@@ -29,7 +29,8 @@ export const contentGenerationDataSourceSchema = z
     author: z.string().nullable().optional(),
     source: z.string().nullable().optional(),
     tickerId: z.string().trim().min(1),
-    searchQueryId: z.string().uuid(),
+    /** Search query that surfaced the article; `null` for curated/global sources. */
+    searchQueryId: z.string().uuid().nullable().optional(),
     description: z.string().nullable().optional(),
     /** Newsletter section assigned by article-analysis 3.0.0 (used to group sources at generation time). */
     section: z.enum(NEWSLETTER_SECTION_IDS as unknown as [string, ...string[]]),

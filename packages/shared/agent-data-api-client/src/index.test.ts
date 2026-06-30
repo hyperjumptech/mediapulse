@@ -240,6 +240,7 @@ describe("createAgentDataApiClient", () => {
         dataSources: [
           {
             id: "33333333-3333-4333-a333-333333333333",
+            tickerId: "44444444-4444-4444-8444-444444444444",
             url: "https://example.com",
             title: "Example",
             content: "Body",
@@ -296,6 +297,7 @@ describe("createAgentDataApiClient", () => {
       articleSections: [
         {
           dataSourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          tickerId: "44444444-4444-4444-8444-444444444444",
           section: "competitiveLandscape",
           score: 0.7,
           reason: "Mentions a rival.",
@@ -311,6 +313,7 @@ describe("createAgentDataApiClient", () => {
           articleSections: [
             {
               dataSourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              tickerId: "44444444-4444-4444-8444-444444444444",
               section: "competitiveLandscape",
               score: 0.7,
               reason: "Mentions a rival.",

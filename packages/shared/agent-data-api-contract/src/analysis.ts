@@ -46,18 +46,22 @@ export const getAnalysisQuerySchema = z.object({
 });
 
 export const postAnalysisBodySchema = z.object({
-  /** One classification row per scored article. `section: null` means the article was rejected. */
+  /**
+   * One classification row per scored (article, ticker) pair. `section: null` means the article
+   * was rejected for that ticker. The same article may appear once per active ticker.
+   */
   articleSections: z
     .array(
       z.object({
         dataSourceId: z.string().uuid(),
+        tickerId: z.string().uuid(),
         section: sectionEnum.nullable(),
         score: z.number().min(0).max(1),
         reason: z.string().trim().min(1).max(2000),
       }),
     )
     .default([]),
-  /** Marks the processed articles as analyzed (covers rejected rows too). */
+  /** Marks the processed articles as analyzed at the article level (covers rejected rows too). */
   analyzedDataSourceIds: z.array(z.string().uuid()).default([]),
 });
 
@@ -73,17 +77,20 @@ export const analysisTickerContextSchema = z.object({
 
 export const analysisDataSourceSchema = z.object({
   id: z.string().uuid(),
+  /** Active ticker this article is being classified against (one row per (article, ticker) pair). */
+  tickerId: z.string().uuid(),
   url: z.string(),
   title: z.string(),
   content: z.string(),
   createdAt: z.coerce.date(),
-  /** Issuer the article was collected for, or `null` when ticker-agnostic. */
-  ticker: analysisTickerContextSchema.nullable(),
+  /** Issuer context for the paired ticker, used to ground section classification. */
+  ticker: analysisTickerContextSchema,
 });
 
 export const getAnalysisResponseSchema = z.object({
+  /** Candidate (article, ticker) pairs to classify (each carries its own issuer context). */
   dataSources: z.array(analysisDataSourceSchema),
-  /** Count of data sources matching the GET filters (ignores `limit` on the request). */
+  /** Count of (article, ticker) pairs matching the GET filters (ignores `limit` on the request). */
   dataSourceTotalCount: z.number().int().nonnegative(),
 });
 

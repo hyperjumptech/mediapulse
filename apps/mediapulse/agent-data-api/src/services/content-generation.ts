@@ -5,196 +5,53 @@ import type { PostContentGenerationBody } from "@workspace/agent-data-api-contra
 import type { Prisma } from "@mediapulse/database";
 
 import { flattenBulletsFromNewsletterWire } from "../lib/flatten-newsletter-wire-bullets.js";
+import {
+  findIssuerAnchorForTicker,
+  getCompetitorsForTicker,
+  normalizeName,
+} from "./issuer-context.js";
+
+export type { CompetitorEntry } from "./issuer-context.js";
+export {
+  findIssuerAnchorForTicker,
+  getCompetitorsForTicker,
+} from "./issuer-context.js";
 
 const MAX_RECENT_BULLETS = 200;
-const MAX_COMPETITOR_EDGE_FETCH = 50;
-const MAX_COMPETITORS_DEFAULT = 8;
-
-type DataSourceWithScore = Prisma.DataSourceGetPayload<object>;
 
 type ContentGenerationDb = {
-  dataSource: Pick<typeof prisma.dataSource, "findMany">;
+  dataSourceTickerSection: Pick<
+    typeof prisma.dataSourceTickerSection,
+    "findMany"
+  >;
   ticker: Pick<typeof prisma.ticker, "findUniqueOrThrow" | "findUnique">;
   newsletter: Pick<
     typeof prisma.newsletter,
     "create" | "findFirst" | "findMany"
   >;
-  entity: Pick<typeof prisma.entity, "findFirst" | "findMany">;
-  entityAlias: Pick<typeof prisma.entityAlias, "findMany">;
-  tickerEntity: Pick<typeof prisma.tickerEntity, "findFirst" | "findMany">;
+  tickerEntity: Pick<typeof prisma.tickerEntity, "findFirst">;
   entityRelation: Pick<typeof prisma.entityRelation, "findMany">;
-  relationType: Pick<typeof prisma.relationType, "findMany">;
   entityType: Pick<typeof prisma.entityType, "findFirst">;
 };
 
-type IssuerAnchor = {
-  entityId: string;
-  canonicalName: string;
-  aliases: string[];
-};
-
-export type CompetitorEntry = {
-  name: string;
-  aliases: string[];
-  relation: string;
-  weight: number;
-};
-
-const normalizeName = (value: string): string => value.trim().toLowerCase();
-
-async function findIssuerAnchorForTicker(
-  tickerId: string,
-  db: Pick<ContentGenerationDb, "ticker" | "entityType" | "tickerEntity">,
-): Promise<IssuerAnchor | null> {
-  const ticker = await db.ticker.findUnique({
-    where: { id: tickerId },
-    select: { symbol: true, name: true },
-  } satisfies Prisma.TickerFindUniqueArgs);
-  if (!ticker) return null;
-
-  const companyType = await db.entityType.findFirst({
-    where: { name: "COMPANY" },
-    select: { id: true },
-  } satisfies Prisma.EntityTypeFindFirstArgs);
-  if (!companyType) return null;
-
-  const tickerEntityRow = await db.tickerEntity.findFirst({
-    where: {
-      tickerId,
-      source: "SEED",
-      entity: { typeId: companyType.id },
-    },
-    select: {
-      entityId: true,
-      entity: {
-        select: {
-          canonicalName: true,
-          aliases: { select: { alias: true } },
-        },
-      },
-    },
-  } satisfies Prisma.TickerEntityFindFirstArgs);
-  if (!tickerEntityRow) return null;
-
-  const storedAliases = tickerEntityRow.entity.aliases.map((row) => row.alias);
-  const aliases = [
-    ...new Set(
-      [ticker.symbol, ticker.name, ...storedAliases].filter(
-        (value) => value.length > 0,
-      ),
-    ),
-  ];
-
-  return {
-    entityId: tickerEntityRow.entityId,
-    canonicalName: tickerEntityRow.entity.canonicalName,
-    aliases,
-  };
-}
-
 /**
- * Reads COMPETITOR and SECTOR_PEER edges from the issuer entity, returning a
- * ranked, capped, self-excluded list of peer COMPANY entities.
+ * Returns today's classified data sources for a ticker, plus the ticker's name, symbol,
+ * competitors, and issuer aliases. Reads the per-(article, ticker) section table.
  *
- * @param issuerEntityId - KG entity id for the ticker's issuer anchor.
- * @param issuerNormalizedAliasSet - Normalized alias strings for the issuer (self-exclusion guard).
- * @param opts - Optional cap override.
- * @param db - Database delegates.
- * @returns Competitor entries ordered by weight desc, then lastSeenAt desc.
- */
-export async function getCompetitorsForTicker(
-  issuerEntityId: string,
-  issuerNormalizedAliasSet: ReadonlySet<string>,
-  opts: { maxCompetitors?: number },
-  db: Pick<ContentGenerationDb, "entityRelation">,
-): Promise<CompetitorEntry[]> {
-  const maxCompetitors = opts.maxCompetitors ?? MAX_COMPETITORS_DEFAULT;
-
-  const relations = await db.entityRelation.findMany({
-    where: {
-      OR: [{ fromEntityId: issuerEntityId }, { toEntityId: issuerEntityId }],
-      relationType: {
-        name: { in: ["COMPETITOR", "SECTOR_PEER"] },
-      },
-    },
-    select: {
-      fromEntityId: true,
-      toEntityId: true,
-      weight: true,
-      relationType: { select: { name: true } },
-      fromEntity: {
-        select: {
-          id: true,
-          canonicalName: true,
-          type: { select: { name: true } },
-          aliases: { select: { alias: true } },
-        },
-      },
-      toEntity: {
-        select: {
-          id: true,
-          canonicalName: true,
-          type: { select: { name: true } },
-          aliases: { select: { alias: true } },
-        },
-      },
-    },
-    orderBy: [{ weight: "desc" }, { lastSeenAt: "desc" }],
-    take: MAX_COMPETITOR_EDGE_FETCH,
-  } satisfies Prisma.EntityRelationFindManyArgs);
-
-  const seenEntityIds = new Set<string>();
-  const competitors: CompetitorEntry[] = [];
-
-  for (const relation of relations) {
-    if (competitors.length >= maxCompetitors) break;
-
-    const peerEntity =
-      relation.fromEntityId === issuerEntityId
-        ? relation.toEntity
-        : relation.fromEntity;
-
-    if (peerEntity.type.name !== "COMPANY") continue;
-    if (peerEntity.id === issuerEntityId) continue;
-
-    const peerNormalizedName = normalizeName(peerEntity.canonicalName);
-    if (issuerNormalizedAliasSet.has(peerNormalizedName)) continue;
-    const peerNormalizedAliases = peerEntity.aliases.map((aliasRow) =>
-      normalizeName(aliasRow.alias),
-    );
-    if (
-      peerNormalizedAliases.some((alias) => issuerNormalizedAliasSet.has(alias))
-    )
-      continue;
-
-    if (seenEntityIds.has(peerEntity.id)) continue;
-    seenEntityIds.add(peerEntity.id);
-
-    competitors.push({
-      name: peerEntity.canonicalName,
-      aliases: peerEntity.aliases.map((aliasRow) => aliasRow.alias),
-      relation: relation.relationType.name,
-      weight: relation.weight,
-    });
-  }
-
-  return competitors;
-}
-
-/**
- * Returns today's selected data sources for a ticker, plus the ticker's
- * human-readable name and exchange symbol, ordered by relevance score.
- *
- * @param tickerId - Ticker id used to scope data sources and relevance rows.
+ * @param tickerId - Ticker id used to scope the per-ticker section rows.
  * @param deps - Optional dependencies for database and current time.
- * @returns Data sources filtered to selected article relevance rows scored today (UTC), plus `tickerName` and `tickerSymbol`.
+ * @returns Data sources sectioned for this ticker today (UTC), ordered by section score desc.
  */
 export const getDataSourcesForTicker = async (
   tickerId: string,
   deps: {
     db?: Pick<
       ContentGenerationDb,
-      "dataSource" | "ticker" | "entityType" | "tickerEntity" | "entityRelation"
+      | "dataSourceTickerSection"
+      | "ticker"
+      | "entityType"
+      | "tickerEntity"
+      | "entityRelation"
     >;
     now?: () => Date;
   } = {},
@@ -203,30 +60,50 @@ export const getDataSourcesForTicker = async (
   const startOfTodayUtc = now();
   startOfTodayUtc.setUTCHours(0, 0, 0, 0);
 
-  const [ticker, dataSourcesWithScores] = await Promise.all([
+  const [ticker, sectionRows] = await Promise.all([
     db.ticker.findUniqueOrThrow({
       where: { id: tickerId },
       select: { symbol: true, name: true },
     } satisfies Prisma.TickerFindUniqueOrThrowArgs),
-    db.dataSource.findMany({
+    db.dataSourceTickerSection.findMany({
       where: {
         tickerId,
         section: { not: null },
         analyzedAt: { gte: startOfTodayUtc },
       },
-      orderBy: {
-        createdAt: "desc",
+      select: {
+        section: true,
+        sectionScore: true,
+        sectionReason: true,
+        dataSource: {
+          select: {
+            url: true,
+            title: true,
+            content: true,
+            author: true,
+            source: true,
+            searchQueryId: true,
+            metadata: true,
+            publishedAt: true,
+          },
+        },
       },
-    } satisfies Prisma.DataSourceFindManyArgs),
+      orderBy: { sectionScore: "desc" },
+    } satisfies Prisma.DataSourceTickerSectionFindManyArgs),
   ]);
 
-  const dataSources = [...dataSourcesWithScores].sort(
-    (left: DataSourceWithScore, right: DataSourceWithScore) => {
-      const leftScore = left.sectionScore ?? 0;
-      const rightScore = right.sectionScore ?? 0;
-      return rightScore - leftScore;
-    },
-  );
+  const dataSources = sectionRows.map((row) => ({
+    url: row.dataSource.url,
+    title: row.dataSource.title,
+    content: row.dataSource.content,
+    author: row.dataSource.author,
+    source: row.dataSource.source,
+    tickerId,
+    searchQueryId: row.dataSource.searchQueryId,
+    section: row.section,
+    sectionScore: row.sectionScore,
+    sectionReason: row.sectionReason,
+  }));
 
   const anchor = await findIssuerAnchorForTicker(tickerId, db);
   const issuerAliases: string[] =

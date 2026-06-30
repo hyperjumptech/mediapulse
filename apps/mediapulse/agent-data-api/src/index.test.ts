@@ -176,26 +176,16 @@ describe("agent-data-api", () => {
       vi.mocked(mod.getDataSourcesForTicker).mockResolvedValue({
         dataSources: [
           {
-            id: "ds-1",
             url: "https://example.com",
-            canonicalUrl: "https://example.com",
             title: "Example",
             content: "Content",
             author: null,
             source: null,
-            metadata: null,
-            publishedAt: null,
             tickerId: TICKER_ID,
             searchQueryId: SEARCH_QUERY_ID,
-            curatedSourceId: null,
-            collectionGateStatus: null,
-            collectionGateReason: null,
-            analyzedAt: null,
             section: "competitiveLandscape",
             sectionScore: 0.8,
             sectionReason: "Mentions a rival.",
-            createdAt: new Date("2026-03-19T00:00:00.000Z"),
-            updatedAt: new Date("2026-03-19T00:00:00.000Z"),
           },
         ],
         tickerSymbol: "TEST",
@@ -480,11 +470,19 @@ describe("agent-data-api", () => {
         dataSources: [
           {
             id: "33333333-3333-4333-a333-333333333333",
+            tickerId: TICKER_ID,
             url: "https://example.com",
             title: "Example",
             content: "Body",
             createdAt: new Date("2026-03-19T00:00:00.000Z"),
-            ticker: null,
+            ticker: {
+              symbol: "TEST",
+              name: "Test Company",
+              sector: null,
+              industry: null,
+              subIndustry: null,
+              businessActivity: null,
+            },
           },
         ],
         dataSourceTotalCount: 1,
@@ -564,6 +562,7 @@ describe("agent-data-api", () => {
           articleSections: [
             {
               dataSourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              tickerId: "44444444-4444-4444-8444-444444444444",
               section: "competitiveLandscape",
               score: 0.5,
               reason: "Mentions a rival.",

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@mediapulse/database", () => ({
   prisma: {
-    dataSource: {
+    dataSourceTickerSection: {
       findMany: vi.fn(),
     },
     ticker: {
@@ -36,7 +36,7 @@ import {
 } from "./content-generation.js";
 
 type MockDb = {
-  dataSource: {
+  dataSourceTickerSection: {
     findMany: ReturnType<typeof vi.fn>;
   };
   ticker: {
@@ -59,7 +59,7 @@ type MockDb = {
 };
 
 const createMockDb = (): MockDb => ({
-  dataSource: {
+  dataSourceTickerSection: {
     findMany: vi.fn(),
   },
   ticker: {
@@ -113,32 +113,36 @@ describe("getDataSourcesForTicker", () => {
       symbol: "TEST",
       name: "Test Company",
     });
-    db.dataSource.findMany.mockResolvedValue([
+    db.dataSourceTickerSection.findMany.mockResolvedValue([
       {
-        id: "ds-low",
-        url: "https://example.com/low",
-        title: "Low score",
-        content: "Low",
-        metadata: null,
-        tickerId: "ticker-1",
-        searchQueryId: "sq-1",
-        section: "quickHits",
-        sectionScore: 0.62,
-        createdAt: new Date("2026-03-19T08:00:00.000Z"),
-        updatedAt: new Date("2026-03-19T08:00:00.000Z"),
-      },
-      {
-        id: "ds-high",
-        url: "https://example.com/high",
-        title: "High score",
-        content: "High",
-        metadata: null,
-        tickerId: "ticker-1",
-        searchQueryId: "sq-2",
         section: "competitiveLandscape",
         sectionScore: 0.93,
-        createdAt: new Date("2026-03-19T09:00:00.000Z"),
-        updatedAt: new Date("2026-03-19T09:00:00.000Z"),
+        sectionReason: "peer move",
+        dataSource: {
+          url: "https://example.com/high",
+          title: "High score",
+          content: "High",
+          author: null,
+          source: "Reuters",
+          searchQueryId: "sq-2",
+          metadata: null,
+          publishedAt: null,
+        },
+      },
+      {
+        section: "quickHits",
+        sectionScore: 0.62,
+        sectionReason: "minor",
+        dataSource: {
+          url: "https://example.com/low",
+          title: "Low score",
+          content: "Low",
+          author: null,
+          source: null,
+          searchQueryId: null,
+          metadata: null,
+          publishedAt: null,
+        },
       },
     ]);
 
@@ -150,19 +154,20 @@ describe("getDataSourcesForTicker", () => {
 
     // Assert
     const expectedStartOfToday = new Date("2026-03-19T00:00:00.000Z");
-    expect(db.dataSource.findMany).toHaveBeenCalledWith({
-      where: {
-        tickerId: "ticker-1",
-        section: { not: null },
-        analyzedAt: { gte: expectedStartOfToday },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+    expect(db.dataSourceTickerSection.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tickerId: "ticker-1",
+          section: { not: null },
+          analyzedAt: { gte: expectedStartOfToday },
+        },
+        orderBy: { sectionScore: "desc" },
+      }),
+    );
     expect(result.dataSources).toHaveLength(2);
-    expect(result.dataSources[0]?.id).toBe("ds-high");
-    expect(result.dataSources[1]?.id).toBe("ds-low");
+    expect(result.dataSources[0]?.title).toBe("High score");
+    expect(result.dataSources[0]?.tickerId).toBe("ticker-1");
+    expect(result.dataSources[1]?.title).toBe("Low score");
     expect(result.tickerSymbol).toBe("TEST");
     expect(result.tickerName).toBe("Test Company");
   });
@@ -174,7 +179,7 @@ describe("getDataSourcesForTicker", () => {
       symbol: "EMPTY",
       name: "Empty Corp",
     });
-    db.dataSource.findMany.mockResolvedValue([]);
+    db.dataSourceTickerSection.findMany.mockResolvedValue([]);
 
     // Act
     const result = await getDataSourcesForTicker("ticker-1", {
@@ -782,7 +787,7 @@ describe("getDataSourcesForTicker — competitors and issuerAliases in response"
       symbol: "BBCA",
       name: "Bank Central Asia",
     });
-    db.dataSource.findMany.mockResolvedValue([]);
+    db.dataSourceTickerSection.findMany.mockResolvedValue([]);
     db.entityType.findFirst.mockResolvedValue({ id: "type-company" });
     db.tickerEntity.findFirst.mockResolvedValue({
       entityId: "entity-bbca",
@@ -825,7 +830,7 @@ describe("getDataSourcesForTicker — competitors and issuerAliases in response"
       name: "New Company",
     });
     // ticker.findUnique returns null by default in createMockDb — anchor lookup short-circuits
-    db.dataSource.findMany.mockResolvedValue([]);
+    db.dataSourceTickerSection.findMany.mockResolvedValue([]);
 
     // Act
     const result = await getDataSourcesForTicker("ticker-new", {
@@ -852,7 +857,7 @@ describe("getDataSourcesForTicker — competitors and issuerAliases in response"
       symbol: "SOLO",
       name: "Solo Corp",
     });
-    db.dataSource.findMany.mockResolvedValue([]);
+    db.dataSourceTickerSection.findMany.mockResolvedValue([]);
     db.entityType.findFirst.mockResolvedValue({ id: "type-company" });
     db.tickerEntity.findFirst.mockResolvedValue({
       entityId: "entity-solo",
