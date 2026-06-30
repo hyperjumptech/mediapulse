@@ -52,6 +52,8 @@ export const getContentGenerationResponseSchema = z.object({
   tickerName: z.string(),
   competitors: z.array(contentGenerationCompetitorSchema).default([]),
   issuerAliases: z.array(z.string()).default([]),
+  /** Distinct non-English languages with an enabled subscription for this ticker (drives translation). */
+  subscriberLanguages: z.array(z.string()).default([]),
 });
 
 export const postContentGenerationResponseSchema = z.object({

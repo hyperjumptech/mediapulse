@@ -192,6 +192,7 @@ describe("agent-data-api", () => {
         tickerName: "Test Company",
         competitors: [],
         issuerAliases: ["TEST", "Test Company"],
+        subscriberLanguages: [],
       });
 
       const { app } = await import("./index.js");

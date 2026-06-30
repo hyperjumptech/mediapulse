@@ -1,7 +1,6 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-content-generation";
-import { parseNewsletterEmailSubject } from "@workspace/email-templates/newsletter-email-subject";
 import { logger } from "@workspace/logger";
 
 import { AGENT_VERSION } from "./agent-version.js";
@@ -14,10 +13,17 @@ import { computePromptHash } from "./compute-prompt-hash.js";
 import { computeFreshnessWindow } from "./freshness-window.js";
 import {
   generateNewsletterWithLlm,
+  groupSourcesBySection,
   type SourceForGeneration,
 } from "./llm-generate-newsletter.js";
 import { translateNewsletter } from "./translate-newsletter.js";
-import { dedupLlmInputSources } from "./lib/dedup-llm-input-sources.js";
+import type { TranslationTargetLanguage } from "./translate-newsletter.js";
+import {
+  narrativeGenerating,
+  narrativeRunComplete,
+  narrativeRunStart,
+  type TickerSubject,
+} from "./utilities/build-activity-narrative.js";
 import { mapOutcomeToDiagnostic } from "./outcome-to-diagnostic.js";
 import { sanitizeDiagnosticMessage } from "./sanitize-diagnostic-message.js";
 import type { AgentOutcome } from "./types/outcome.js";
@@ -168,22 +174,28 @@ export async function run({
     }
   };
 
-  report("Loading source articles", `ticker ${input.tickerId}`);
+  // Pre-fetch reports only know the ticker id; the real symbol/name arrive with
+  // the content-generation API response below.
+  const fallbackSubject: TickerSubject = {
+    symbol: input.tickerId,
+    name: input.tickerId,
+  };
+  report(...narrativeRunStart(fallbackSubject));
 
   const pipelineRunId = hermesCorrelation?.pipelineStepId ?? null;
   const executionId = hermesCorrelation?.executionId ?? null;
 
   // -------------------------------------------------------------------------
-  // Skip-if-fresh precheck (MP-CGA-006)
+  // Skip-if-duplicate precheck (MP-CGA-006)
   // -------------------------------------------------------------------------
-  // Freshness window formula:
-  //   windowStart = start of the current calendar day in config.freshness.timezone (IANA)
-  //   windowEnd   = start of the next calendar day in config.freshness.timezone
+  // Duplicate-guard window formula:
+  //   windowStart = start of the current calendar day in config.duplicateGuard.timezone (IANA)
+  //   windowEnd   = start of the next calendar day in config.duplicateGuard.timezone
   //   Interval is half-open: [windowStart, windowEnd).
   //
   // **Deliberate divergence from source-selection (v1):**
   // The data-source selection window in `getDataSourcesForTicker` uses UTC start-of-day
-  // (`scoredAt >= startOfTodayUtc`). This freshness window uses the configured IANA
+  // (`scoredAt >= startOfTodayUtc`). This duplicate-guard window uses the configured IANA
   // timezone instead. These windows are intentionally different in v1. Aligning them
   // is deferred to a future phase.
   //
@@ -191,7 +203,7 @@ export async function run({
   // When this step is skipped, a new newsletter row is NOT written. The delivery agent
   // must be designed to either (a) locate and deliver the existing newsletter row, or
   // (b) skip its own delivery step when no new row appears.
-  const timezone = resolvedConfig.freshness?.timezone ?? "Asia/Jakarta";
+  const timezone = resolvedConfig.duplicateGuard.timezone;
   const { windowStart, windowEnd } = computeFreshnessWindow(timezone);
 
   logger.info(
@@ -206,8 +218,8 @@ export async function run({
 
   const precheckStart = Date.now();
   report(
-    "Checking freshness",
-    `newsletter window ${windowStart} – ${windowEnd}`,
+    "Checking for an existing newsletter",
+    `newsletter window ${windowStart} to ${windowEnd}`,
   );
   const freshnessResult =
     await dataApiClient.contentGenerationNewslettersLatest.get({
@@ -251,8 +263,12 @@ export async function run({
       "Skipping run: fresh newsletter already exists",
     );
     report(
-      "Newsletter already generated today",
-      `skipping for ${input.tickerId}`,
+      ...narrativeRunComplete(fallbackSubject, {
+        status: "skipped",
+        itemsWritten: 0,
+        sectionsFilled: 0,
+        translationLanguages: [],
+      }),
       "completed",
     );
     await writeDiagnostic({
@@ -280,18 +296,18 @@ export async function run({
     tickerSymbol,
     competitors,
     issuerAliases,
+    subscriberLanguages,
   } = await dataApiClient.contentGeneration.get({
     tickerId: input.tickerId,
   });
 
-  report(
-    "Fetched source articles",
-    `${sources?.length ?? 0} articles for ${input.tickerId}`,
-  );
+  const subject: TickerSubject = {
+    symbol: tickerSymbol,
+    name: tickerName,
+  };
 
-  const { openaiApiKey: _apiKey, ...safeCredentials } =
-    resolvedConfig.credentials;
-  const safeConfig = { ...resolvedConfig, credentials: safeCredentials };
+  const { apiKey: _apiKey, ...safeModel } = resolvedConfig.model;
+  const safeConfig = { ...resolvedConfig, model: safeModel };
   logger.info({ sources }, "Data sources for ticker");
   logger.info({ config: safeConfig }, "Config");
 
@@ -306,8 +322,13 @@ export async function run({
       "Skipping run: no data sources",
     );
     report(
-      "No source articles found",
-      `${input.tickerId} has no collected sources yet`,
+      ...narrativeRunComplete(subject, {
+        status: "failed",
+        itemsWritten: 0,
+        sectionsFilled: 0,
+        translationLanguages: [],
+        reason: `${subject.symbol} has no analyzed articles to write from yet.`,
+      }),
       "completed",
     );
     await writeDiagnostic({
@@ -324,9 +345,8 @@ export async function run({
     };
   }
 
-  report("Preparing article context", `${sources.length} articles`);
-
-  // Map API sources to the minimal shape needed by the LLM generator.
+  // Map API sources to the minimal shape needed by the LLM generator, then
+  // pre-group by their authoritative upstream section before generation.
   const mappedSources: SourceForGeneration[] = sources.map((s) => ({
     url: s.url,
     title: s.title,
@@ -342,82 +362,11 @@ export async function run({
       : {}),
   }));
 
-  const { sources: sourcesForLlm, removedCount: dedupRemovedCount } =
-    dedupLlmInputSources(mappedSources);
-
-  if (dedupRemovedCount > 0) {
-    logger.info(
-      {
-        tickerId: input.tickerId,
-        removedCount: dedupRemovedCount,
-        event: "dedup_llm_input_sources",
-      },
-      `Deduped LLM input sources: removed ${String(dedupRemovedCount)} near-duplicate(s)`,
-    );
-  }
-
-  let recentBullets: Array<{
-    newsletterId: string;
-    sectionKey: string;
-    bulletText: string;
-    createdAt: string;
-  }> = [];
-  if (resolvedConfig.quality.crossRunDedup.enabled) {
-    report(
-      "Loading recent newsletter bullets",
-      `last ${resolvedConfig.quality.crossRunDedup.windowDays} days`,
-    );
-    try {
-      const recent = await dataApiClient.contentGenerationBulletsRecent.get({
-        tickerId: input.tickerId,
-        days: resolvedConfig.quality.crossRunDedup.windowDays,
-      });
-      recentBullets = recent.items;
-    } catch (recentErr) {
-      logger.warn(
-        {
-          tickerId: input.tickerId,
-          event: "cross_run_dedup_recent_bullets_unavailable",
-          err: recentErr,
-        },
-        "Recent newsletter bullets unavailable; cross-run dedup uses empty corpus",
-      );
-      recentBullets = [];
-    }
-  }
-
-  let recentSubjects: string[] = [];
-  if (resolvedConfig.delivery.subjectLine.enabled) {
-    report("Loading recent subject lines", "last 7 days");
-    try {
-      const recent = await dataApiClient.contentGenerationNewslettersRecent.get(
-        {
-          tickerId: input.tickerId,
-          days: 7,
-        },
-      );
-      recentSubjects = recent.items.map(
-        (item) => parseNewsletterEmailSubject(item.subject).title,
-      );
-    } catch (recentErr) {
-      logger.warn(
-        {
-          tickerId: input.tickerId,
-          event: "subject_line_recent_history_unavailable",
-          err: recentErr,
-        },
-        "Recent newsletter subjects unavailable; novelty scoring uses empty history",
-      );
-      recentSubjects = [];
-    }
-  }
+  const sourcesForLlm = groupSourcesBySection(mappedSources);
 
   // Generate newsletter with retry-wrapped generateObject.
   let generated: Awaited<ReturnType<typeof generateNewsletterWithLlm>>;
-  report(
-    "Generating newsletter with LLM",
-    `${sourcesForLlm.length} articles · ${resolvedConfig.credentials.chatModel}`,
-  );
+  report(...narrativeGenerating(subject, sourcesForLlm.length));
   logger.info({ tickerId: input.tickerId }, "LLM generation: start");
   try {
     generated = await generateNewsletterWithLlm(sourcesForLlm, resolvedConfig, {
@@ -425,9 +374,6 @@ export async function run({
       date: new Date(runStart).toISOString().slice(0, 10),
       tickerName,
       tickerSymbol,
-      runStartedAt: runStart,
-      recentSubjects,
-      recentBullets,
       competitors,
       issuerAliases,
       ...(contract !== undefined ? { brief: contract.brief } : {}),
@@ -454,8 +400,13 @@ export async function run({
       executionId,
     });
     report(
-      "Newsletter generation failed",
-      `Newsletter generation failed: ${code}`,
+      ...narrativeRunComplete(subject, {
+        status: "failed",
+        itemsWritten: 0,
+        sectionsFilled: 0,
+        translationLanguages: [],
+        reason: `Newsletter generation failed: ${code}`,
+      }),
       "completed",
     );
     return {
@@ -466,32 +417,6 @@ export async function run({
 
   logger.info({ tickerId: input.tickerId }, "LLM generation: complete");
 
-  if (generated.brainstormUsed) {
-    logger.info(
-      {
-        tickerId: input.tickerId,
-        brainstormUsed: true,
-        brainstormPromptTokens: generated.brainstormPromptTokens,
-        brainstormCompletionTokens: generated.brainstormCompletionTokens,
-      },
-      "Newsletter two-pass generation: brainstorm leg complete",
-    );
-  }
-
-  if (generated.competitiveFocusSummary !== undefined) {
-    logger.info(
-      {
-        tickerId: input.tickerId,
-        competitorCount: generated.competitiveFocusSummary.competitorCount,
-        evaluated: generated.competitiveFocusSummary.evaluated,
-        dropped: generated.competitiveFocusSummary.dropped,
-        flagged: generated.competitiveFocusSummary.flagged,
-        policy: resolvedConfig.quality.competitiveFocus.policy,
-      },
-      "Competitive-focus gate run summary",
-    );
-  }
-
   // -------------------------------------------------------------------------
   // Compute provenance fields (MP-CGA-008)
   // -------------------------------------------------------------------------
@@ -501,7 +426,7 @@ export async function run({
   // response model may be an alias or resolved variant (e.g. "gpt-4o-2024-08-06"
   // for an "gpt-4o" alias). Using the config value keeps provenance aligned with
   // the operator-visible setting in Hermes.
-  const provenanceModel = resolvedConfig.credentials.chatModel;
+  const provenanceModel = resolvedConfig.model.model;
 
   // `configVersion`: deterministic hash of non-secret config fields.
   const configVersion = computeConfigVersion(resolvedConfig);
@@ -529,10 +454,7 @@ export async function run({
 
   // Persist generated newsletter via agent-data-api.
   let persistedNewsletterId: string | null = null;
-  report(
-    "Saving newsletter to database",
-    `${resolvedConfig.output.topNewsCount} topics`,
-  );
+  report("Saving newsletter to database", "persisting English newsletter");
   logger.info({ tickerId: input.tickerId }, "Persisting newsletter: start");
   try {
     const persistResult = await dataApiClient.contentGeneration.create({
@@ -573,8 +495,13 @@ export async function run({
       executionId,
     });
     report(
-      "Newsletter generation failed",
-      `Failed to store generated newsletter: ${code}`,
+      ...narrativeRunComplete(subject, {
+        status: "failed",
+        itemsWritten: 0,
+        sectionsFilled: 0,
+        translationLanguages: [],
+        reason: `Failed to store generated newsletter: ${code}`,
+      }),
       "completed",
     );
     return {
@@ -584,33 +511,49 @@ export async function run({
   }
 
   // -------------------------------------------------------------------------
-  // Translation pass (best-effort)
+  // Subscription-driven translation pass (best-effort)
   // -------------------------------------------------------------------------
-  // Translate the persisted English newsletter into each configured target language and
-  // store it as a NewsletterTranslation keyed on the canonical newsletter id. This is
-  // best-effort: a failure here must never fail the run or roll back the English newsletter,
-  // because the delivery agent skips non-English subscribers when no translation exists.
-  if (
-    resolvedConfig.translation.enabled &&
-    persistedNewsletterId !== null &&
-    resolvedConfig.translation.targetLanguages.length > 0
-  ) {
-    const newsletterId = persistedNewsletterId;
-    report(
-      "Translating newsletter",
-      resolvedConfig.translation.targetLanguages.join(", "),
+  // Translate the persisted English newsletter into each non-English language that
+  // an enabled subscriber has selected for this ticker (from the API response's
+  // `subscriberLanguages`) and store it as a NewsletterTranslation keyed on the
+  // canonical newsletter id. This is best-effort: a failure here must never fail
+  // the run or roll back the English newsletter, because the delivery agent skips
+  // non-English subscribers when no translation exists.
+  const supportedTargetLanguages: TranslationTargetLanguage[] = ["id"];
+  const targetLanguages = subscriberLanguages.filter(
+    (language): language is TranslationTargetLanguage =>
+      (supportedTargetLanguages as string[]).includes(language),
+  );
+  const unsupportedLanguages = subscriberLanguages.filter(
+    (language) => !(supportedTargetLanguages as string[]).includes(language),
+  );
+
+  if (unsupportedLanguages.length > 0) {
+    logger.warn(
+      {
+        tickerId: input.tickerId,
+        unsupportedLanguages,
+        event: "subscriber_language_unsupported",
+      },
+      "Subscriber language(s) have no translator; skipping",
     );
-    for (const targetLanguage of resolvedConfig.translation.targetLanguages) {
+  }
+
+  const translatedLanguages: string[] = [];
+  if (persistedNewsletterId !== null && targetLanguages.length > 0) {
+    const newsletterId = persistedNewsletterId;
+    report("Translating newsletter", targetLanguages.join(", "));
+    for (const targetLanguage of targetLanguages) {
       try {
         const translated = await translateNewsletter({
           subject: generated.subject,
           content: generated.content,
           targetLanguage,
-          model: resolvedConfig.translationModel,
+          model: resolvedConfig.model.model,
           credentials: {
-            openaiApiKey: resolvedConfig.credentials.openaiApiKey,
-            ...(resolvedConfig.credentials.baseUrl
-              ? { baseUrl: resolvedConfig.credentials.baseUrl }
+            openaiApiKey: resolvedConfig.model.apiKey,
+            ...(resolvedConfig.model.baseUrl
+              ? { baseUrl: resolvedConfig.model.baseUrl }
               : {}),
           },
         });
@@ -619,7 +562,7 @@ export async function run({
           language: targetLanguage,
           subject: translated.subject,
           content: translated.content,
-          model: resolvedConfig.translationModel,
+          model: resolvedConfig.model.model,
           ...(translated.promptTokens !== null
             ? { promptTokens: translated.promptTokens }
             : {}),
@@ -630,6 +573,7 @@ export async function run({
             ? { totalTokens: translated.totalTokens }
             : {}),
         });
+        translatedLanguages.push(targetLanguage);
         logger.info(
           { tickerId: input.tickerId, newsletterId, language: targetLanguage },
           "Newsletter translation persisted",
@@ -652,9 +596,25 @@ export async function run({
   // Success path
   // -------------------------------------------------------------------------
   logger.info({ tickerId: input.tickerId }, "Stored newsletter for ticker");
+
+  const sectionFillEntries = Object.values(
+    generated.sectionFillSnapshot?.bySection ?? {},
+  );
+  const itemsWritten = sectionFillEntries.reduce(
+    (sum, entry) => sum + entry.citedBullets,
+    0,
+  );
+  const sectionsFilled = sectionFillEntries.filter(
+    (entry) => entry.citedBullets > 0,
+  ).length;
+
   report(
-    "Newsletter generated",
-    `${resolvedConfig.output.topNewsCount} topics`,
+    ...narrativeRunComplete(subject, {
+      status: "success",
+      itemsWritten,
+      sectionsFilled,
+      translationLanguages: translatedLanguages,
+    }),
     "completed",
   );
   const successDetails =
@@ -686,13 +646,6 @@ export async function run({
       ...(generated.structuredReasoningTokens !== undefined
         ? { reasoningTokens: generated.structuredReasoningTokens }
         : {}),
-      brainstormUsed: generated.brainstormUsed,
-      ...(generated.brainstormPromptTokens !== null
-        ? { brainstormPromptTokens: generated.brainstormPromptTokens }
-        : {}),
-      ...(generated.brainstormCompletionTokens !== null
-        ? { brainstormCompletionTokens: generated.brainstormCompletionTokens }
-        : {}),
       ...(generated.citationGroundingSummary !== undefined
         ? {
             grounding: {
@@ -700,71 +653,6 @@ export async function run({
               dropped: generated.citationGroundingSummary.dropped,
               floorPreserved: generated.citationGroundingSummary.floorPreserved,
               p50Overlap: generated.citationGroundingSummary.p50Overlap,
-            },
-          }
-        : {}),
-      ...(generated.numericAnchorSummary !== undefined
-        ? {
-            numericAnchors: {
-              anchorsExtracted: generated.numericAnchorSummary.anchorsExtracted,
-              anchorsTopSelected:
-                generated.numericAnchorSummary.anchorsTopSelected,
-              anchorsQuotedVerbatim:
-                generated.numericAnchorSummary.anchorsQuotedVerbatim,
-              anchorCoverageRatio:
-                generated.numericAnchorSummary.anchorCoverageRatio,
-              unmatchedFigures:
-                generated.numericAnchorSummary.unmatchedFigures.length,
-            },
-          }
-        : {}),
-      ...(generated.critiqueSummary !== undefined
-        ? {
-            critique: {
-              bulletsRated: generated.critiqueSummary.bulletsRated,
-              bulletsRewritten: generated.critiqueSummary.bulletsRewritten,
-              bulletsDropped: generated.critiqueSummary.bulletsDropped,
-              floorPreserved: generated.critiqueSummary.floorPreserved,
-              p50Specificity: generated.critiqueSummary.p50Specificity,
-              p50ReaderValue: generated.critiqueSummary.p50ReaderValue,
-            },
-          }
-        : {}),
-      ...(generated.critiqueSkippedDueToBudget
-        ? { critiqueSkippedDueToBudget: true }
-        : {}),
-      ...(generated.polishSummary !== undefined
-        ? {
-            polish: {
-              totalReplacements: generated.polishSummary.totalReplacements,
-              rulesFired: generated.polishSummary.rulesFired,
-            },
-          }
-        : {}),
-      ...(generated.subjectLineSummary !== undefined
-        ? {
-            subjectLine: {
-              originalSubject: generated.subjectLineSummary.originalSubject,
-              winnerSubject: generated.subjectLineSummary.winnerSubject,
-              winnerScore: generated.subjectLineSummary.winnerScore,
-              originalScore: generated.subjectLineSummary.originalScore,
-              candidateCount: generated.subjectLineSummary.candidateCount,
-            },
-          }
-        : {}),
-      ...(generated.preheader !== undefined
-        ? { preheader: generated.preheader }
-        : {}),
-      ...(generated.lowInformationDay !== undefined
-        ? { lowInformationDay: generated.lowInformationDay }
-        : {}),
-      ...(generated.crossRunDedupSummary !== undefined
-        ? {
-            crossRunDedup: {
-              nearDuplicates: generated.crossRunDedupSummary.nearDuplicates,
-              droppedByDedup: generated.crossRunDedupSummary.droppedByDedup,
-              markedByDedup: generated.crossRunDedupSummary.markedByDedup,
-              p95Similarity: generated.crossRunDedupSummary.p95Similarity,
             },
           }
         : {}),
@@ -788,16 +676,6 @@ export async function run({
               ...(contract !== undefined
                 ? { contractVersion: contract.version }
                 : {}),
-            },
-          }
-        : {}),
-      ...(generated.competitiveFocusSummary !== undefined
-        ? {
-            competitiveFocus: {
-              dropped: generated.competitiveFocusSummary.dropped,
-              flagged: generated.competitiveFocusSummary.flagged,
-              competitorCount:
-                generated.competitiveFocusSummary.competitorCount,
             },
           }
         : {}),
