@@ -5,8 +5,10 @@
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma, type Language } from "@mediapulse/database";
 import { Hono } from "hono";
+import { buildMetaPayloadForPathSegment } from "../../hermes-dashboard/templates/table-v1/meta-for-path-segment";
 import { parsePagination } from "../../lib/list-pagination";
 import { nullableText } from "../../lib/nullable-text";
+import { mediapulseUsersHermesPathSegment } from "./dashboard-page";
 import { mapRowToDetailItem } from "./detail-mapper";
 import { mapRowToListItem } from "./list-mapper";
 import {
@@ -128,6 +130,19 @@ mediapulseUsersRoutes.get("/", async (c) => {
   });
 
   return c.json(payload);
+});
+
+/**
+ * Table metadata (columns, filters, detail blocks) for the mediapulse-users resource.
+ * Declared here because the `/:id` route below would otherwise capture the `meta` segment.
+ */
+mediapulseUsersRoutes.get("/meta", (c) => {
+  const meta = buildMetaPayloadForPathSegment(mediapulseUsersHermesPathSegment);
+  if (!meta) {
+    return c.json({ message: "Unknown dashboard resource" }, 404);
+  }
+
+  return c.json(meta);
 });
 
 /** Returns one Mediapulse user by id with ticker subscriptions for the Hermes detail page. */
