@@ -242,6 +242,19 @@ const newslettersEmailPreviewBlock = {
 } satisfies DetailBlock;
 
 /**
+ * `htmlPreview` block bound to `chronicleHtml` — the end-to-end generation
+ * Chronicle rendered server-side. The Hermes generic renderer drops it into a
+ * sandboxed iframe. A dedicated per-record route is not supported by the generic
+ * dashboard (placements are `sidebar` / `agent-tab` only), so the Chronicle is
+ * embedded here rather than at its own URL.
+ */
+const newslettersChronicleBlock = {
+  type: "htmlPreview",
+  label: "Chronicle",
+  field: "chronicleHtml",
+} satisfies DetailBlock;
+
+/**
  * `keyValue` block linking each delivery row back to the Hermes execution
  * surface. Missing template variables fall back to plain text (see
  * `renderUrlTemplate` in `@hermes/domain-contract`), which is what the
@@ -322,6 +335,7 @@ export const newslettersDashboardPage = {
     newslettersSearchQueriesBlock,
     newslettersCitationsBlock,
     newslettersEmailPreviewBlock,
+    newslettersChronicleBlock,
     newslettersHermesLinksBlock,
   ],
   customActions: newslettersCustomActionsForManifest,

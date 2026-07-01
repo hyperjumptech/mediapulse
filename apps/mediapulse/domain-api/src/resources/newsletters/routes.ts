@@ -11,6 +11,8 @@ import { parseCreatedDateBound } from "../../lib/parse-created-date-bound";
 import { parsePagination } from "../../lib/list-pagination";
 import { newslettersTableV1CustomActionRegistrations } from "./custom-actions";
 import { findActiveQuerySetForNewsletter } from "./active-query-set";
+import { renderNewsletterChronicleHtml } from "../../hermes-dashboard/content-views/render-newsletter-chronicle-html";
+import { buildChronicle } from "./build-chronicle";
 import { buildHermesLinks } from "./build-hermes-links";
 import {
   buildRecipients,
@@ -151,6 +153,7 @@ newslettersRoutes.get("/:id", async (c) => {
     activeQuerySet,
     hermesLinks,
     emailPreviewHtml,
+    chronicle,
   ] = await Promise.all([
     buildRecipients(row.id, row.tickerId, {
       userTicker: prisma.userTicker,
@@ -176,6 +179,13 @@ newslettersRoutes.get("/:id", async (c) => {
       },
       { logger },
     ),
+    buildChronicle(row, {
+      searchQuerySet: prisma.searchQuerySet,
+      dataCollectionRun: prisma.dataCollectionRun,
+      dataSourceTickerSection: prisma.dataSourceTickerSection,
+      contentGenerationRun: prisma.contentGenerationRun,
+      deliveryRun: prisma.deliveryRun,
+    }),
   ]);
 
   for (const entry of recipientsResult.notAttemptedAtSendTime) {
@@ -204,6 +214,7 @@ newslettersRoutes.get("/:id", async (c) => {
   return c.json(
     mapRowToDetailItem(row, {
       emailPreviewHtml,
+      chronicleHtml: renderNewsletterChronicleHtml(chronicle),
       citations,
       recipients: recipientsResult.recipients,
       recipientsTruncated: recipientsResult.truncated,
@@ -220,6 +231,37 @@ newslettersRoutes.get("/:id", async (c) => {
       hermesLinks,
     }),
   );
+});
+
+newslettersRoutes.get("/:id/chronicle", async (c) => {
+  const id = c.req.param("id");
+  const newsletter = await prisma.newsletter.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      tickerId: true,
+      subject: true,
+      createdAt: true,
+      model: true,
+      promptTokens: true,
+      completionTokens: true,
+      totalTokens: true,
+    },
+  } satisfies Prisma.NewsletterFindUniqueArgs);
+
+  if (!newsletter) {
+    return c.json({ message: "Newsletter not found" }, 404);
+  }
+
+  const chronicle = await buildChronicle(newsletter, {
+    searchQuerySet: prisma.searchQuerySet,
+    dataCollectionRun: prisma.dataCollectionRun,
+    dataSourceTickerSection: prisma.dataSourceTickerSection,
+    contentGenerationRun: prisma.contentGenerationRun,
+    deliveryRun: prisma.deliveryRun,
+  });
+
+  return c.json(chronicle);
 });
 
 registerTableV1CustomActionRoutes(
