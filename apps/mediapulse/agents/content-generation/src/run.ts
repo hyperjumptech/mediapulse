@@ -193,11 +193,10 @@ export async function run({
   //   windowEnd   = start of the next calendar day in config.duplicateGuard.timezone
   //   Interval is half-open: [windowStart, windowEnd).
   //
-  // **Deliberate divergence from source-selection (v1):**
-  // The data-source selection window in `getDataSourcesForTicker` uses UTC start-of-day
-  // (`scoredAt >= startOfTodayUtc`). This duplicate-guard window uses the configured IANA
-  // timezone instead. These windows are intentionally different in v1. Aligning them
-  // is deferred to a future phase.
+  // **Deliberate divergence from source-selection:**
+  // The data-source selection window in `getDataSourcesForTicker` uses a rolling lookback
+  // (`analyzedAt >= now - SOURCE_LOOKBACK_HOURS`). This duplicate-guard window uses the configured
+  // IANA timezone calendar day instead. These windows are intentionally different.
   //
   // **Delivery-agent coordination:**
   // When this step is skipped, a new newsletter row is NOT written. The delivery agent

@@ -19,6 +19,18 @@ export {
 
 const MAX_RECENT_BULLETS = 200;
 
+/**
+ * Rolling lookback (hours) for the source-selection window in {@link getDataSourcesForTicker}.
+ *
+ * - Important: this must match the window used by the domain-api newsletter-detail mirror
+ *   (`domain-api/src/resources/newsletters/selected-sources-window.ts`). Changing one without the
+ *   other makes the detail view disagree with what the agent could actually select.
+ *
+ * The pipeline runs at ~02:00 UTC; a 24h window reaches back to ~02:00 UTC the prior day so a full
+ * collect→analyze cycle is visible, instead of the ~2h that a UTC-calendar-day boundary yields.
+ */
+const SOURCE_LOOKBACK_HOURS = 24;
+
 type ContentGenerationDb = {
   dataSourceTickerSection: Pick<
     typeof prisma.dataSourceTickerSection,
@@ -36,12 +48,16 @@ type ContentGenerationDb = {
 };
 
 /**
- * Returns today's classified data sources for a ticker, plus the ticker's name, symbol,
+ * Returns the recently classified data sources for a ticker, plus the ticker's name, symbol,
  * competitors, and issuer aliases. Reads the per-(article, ticker) section table.
+ *
+ * Sources are selected with a rolling ``SOURCE_LOOKBACK_HOURS`` window (`analyzedAt >= now - lookback`)
+ * so a full collect→analyze cycle is visible at the ~02:00 UTC run time, rather than the ~2h a
+ * UTC-calendar-day boundary would yield.
  *
  * @param tickerId - Ticker id used to scope the per-ticker section rows.
  * @param deps - Optional dependencies for database and current time.
- * @returns Data sources sectioned for this ticker today (UTC), ordered by section score desc.
+ * @returns Data sources sectioned for this ticker within the lookback window, ordered by section score desc.
  */
 export const getDataSourcesForTicker = async (
   tickerId: string,
@@ -59,8 +75,7 @@ export const getDataSourcesForTicker = async (
   } = {},
 ) => {
   const { db = prisma, now = () => new Date() } = deps;
-  const startOfTodayUtc = now();
-  startOfTodayUtc.setUTCHours(0, 0, 0, 0);
+  const cutoff = new Date(now().getTime() - SOURCE_LOOKBACK_HOURS * 3_600_000);
 
   const [ticker, sectionRows] = await Promise.all([
     db.ticker.findUniqueOrThrow({
@@ -71,7 +86,7 @@ export const getDataSourcesForTicker = async (
       where: {
         tickerId,
         section: { not: null },
-        analyzedAt: { gte: startOfTodayUtc },
+        analyzedAt: { gte: cutoff },
       },
       select: {
         section: true,

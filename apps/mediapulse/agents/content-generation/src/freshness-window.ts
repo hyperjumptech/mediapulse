@@ -7,15 +7,14 @@
  *
  * The interval is half-open: [windowStart, windowEnd).
  *
- * **Deliberate divergence from source-selection (v1):**
- * The data-source selection window in `getDataSourcesForTicker` uses UTC start-of-day
- * (`scoredAt >= startOfTodayUtc`). This skip-if-fresh window uses the configured IANA
- * timezone instead. These windows are intentionally different in v1:
- *   - Source selection is a broader query that benefits from UTC simplicity.
+ * **Deliberate divergence from source-selection:**
+ * The data-source selection window in `getDataSourcesForTicker` uses a rolling lookback
+ * (`analyzedAt >= now - SOURCE_LOOKBACK_HOURS`). This skip-if-fresh window instead uses the
+ * configured IANA timezone calendar day. These windows are intentionally different:
+ *   - Source selection is a broad "recent enough to include" query.
  *   - The freshness check must reflect "today" as perceived by the end user (in
- *     `config.freshness.timezone`), so that a newsletter generated at 11 PM Jakarta
+ *     `config.duplicateGuard.timezone`), so that a newsletter generated at 11 PM Jakarta
  *     time is considered "today's" newsletter even though it falls in the previous UTC day.
- * Aligning these windows is deferred to a later phase.
  *
  * **Delivery-agent coordination:**
  * When the content-generation step is skipped (`skipped_fresh_newsletter_exists`), no

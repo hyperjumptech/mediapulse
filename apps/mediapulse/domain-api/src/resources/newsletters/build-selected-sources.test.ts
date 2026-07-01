@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { buildSelectedSources } from "./build-selected-sources";
 
 describe("buildSelectedSources", () => {
-  it("queries the per-day window matching the newsletter createdAt", async () => {
+  it("queries the rolling lookback window ending at the newsletter createdAt", async () => {
     const findMany = vi.fn().mockResolvedValue([]);
 
     const result = await buildSelectedSources(
@@ -13,8 +13,8 @@ describe("buildSelectedSources", () => {
       { dataSource: { findMany } },
     );
 
-    expect(result.windowStart).toBe("2026-05-14T00:00:00.000Z");
-    expect(result.windowEnd).toBe("2026-05-15T00:00:00.000Z");
+    expect(result.windowStart).toBe("2026-05-13T13:42:11.123Z");
+    expect(result.windowEnd).toBe("2026-05-14T13:42:11.123Z");
 
     const args = findMany.mock.calls[0]?.[0];
     expect(args?.where?.tickerId).toBe("tk-1");
@@ -22,8 +22,8 @@ describe("buildSelectedSources", () => {
       tickerId: "tk-1",
       selected: true,
       scoredAt: {
-        gte: new Date("2026-05-14T00:00:00.000Z"),
-        lt: new Date("2026-05-15T00:00:00.000Z"),
+        gte: new Date("2026-05-13T13:42:11.123Z"),
+        lt: new Date("2026-05-14T13:42:11.123Z"),
       },
     });
   });
