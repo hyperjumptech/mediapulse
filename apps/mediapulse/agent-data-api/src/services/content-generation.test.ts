@@ -35,6 +35,7 @@ import {
   getCompetitorsForTicker,
   getDataSourcesForTicker,
   getLatestNewsletter,
+  getRecentNewsletterBullets,
   getRecentNewsletterSubjects,
 } from "./content-generation.js";
 
@@ -569,6 +570,62 @@ describe("getRecentNewsletterSubjects", () => {
           createdAt: expect.objectContaining({ gte: expect.any(Date) }),
         }),
         select: { subject: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+      }),
+    );
+  });
+});
+
+describe("getRecentNewsletterBullets", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("flattens bullets from recent newsletters within the lookback window", async () => {
+    // Setup
+    const db = createMockNewsletterDb();
+    const wire = [
+      "MP_NEWSLETTER",
+      "",
+      "BEGIN competitive-landscape",
+      "DISPLAY_HEADING",
+      "Competition",
+      "BULLET",
+      "Rival A underbid.",
+      "BULLET",
+      "Fleet oversupply.",
+      "END",
+      "",
+    ].join("\n");
+    db.newsletter.findMany.mockResolvedValue([
+      {
+        id: "nl-1",
+        content: wire,
+        createdAt: new Date("2026-04-20T12:00:00.000Z"),
+      },
+    ]);
+
+    // Act
+    const result = await getRecentNewsletterBullets(
+      "ticker-1",
+      14,
+      db as unknown as Parameters<typeof getRecentNewsletterBullets>[2],
+    );
+
+    // Assert
+    expect(result.items).toHaveLength(2);
+    expect(result.items.map((item) => item.sectionKey)).toEqual([
+      "competitiveLandscape",
+      "competitiveLandscape",
+    ]);
+    expect(result.items[0]?.bulletText).toContain("Rival A underbid.");
+    expect(result.items[0]?.newsletterId).toBe("nl-1");
+    expect(db.newsletter.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tickerId: "ticker-1",
+          createdAt: expect.objectContaining({ gte: expect.any(Date) }),
+        }),
         orderBy: { createdAt: "desc" },
       }),
     );

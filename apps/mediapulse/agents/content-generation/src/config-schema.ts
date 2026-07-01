@@ -108,6 +108,20 @@ export const CONTENT_GENERATION_CONSTANTS = {
     dedupeScope: "newsletter",
     withinRunDedupSimilarity: 0.55,
   },
+  /**
+   * Cross-day (cross-run) dedup so consecutive newsletters do not repeat points.
+   * Hardcoded (not Hermes config) to match the rest of this agent's pipeline.
+   */
+  crossRunDedup: {
+    /** Kill switch: when false, no recent-bullet fetch, prompt block, or drop pass runs. */
+    enabled: true,
+    /** Lookback in calendar days for the recent-bullet corpus. */
+    windowDays: 14,
+    /** Jaccard threshold for the post-generation drop; matches within-run dedup. */
+    similarity: 0.55,
+    /** Max recent bullets injected into the "avoid repeating" prompt block. */
+    promptBulletLimit: 20,
+  },
 } as const;
 
 /**

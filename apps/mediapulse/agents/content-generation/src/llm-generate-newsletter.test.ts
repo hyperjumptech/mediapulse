@@ -8,6 +8,7 @@ import {
   resolveContentGenerationConfig,
 } from "./config-schema.js";
 import {
+  buildAvoidRecentBulletsBlock,
   buildCompetitorPromptBlock,
   generateNewsletterWithLlm,
   groupSourcesBySection,
@@ -611,5 +612,108 @@ describe("generateNewsletterWithLlm — contract brief", () => {
     );
 
     expect(withBrief.systemPrompt).not.toBe(withoutBrief.systemPrompt);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildAvoidRecentBulletsBlock
+// ---------------------------------------------------------------------------
+
+describe("buildAvoidRecentBulletsBlock", () => {
+  it("returns an empty string with no recent bullets or a non-positive limit", () => {
+    expect(buildAvoidRecentBulletsBlock([], 20)).toBe("");
+    expect(buildAvoidRecentBulletsBlock([{ bulletText: "Something" }], 0)).toBe(
+      "",
+    );
+  });
+
+  it("lists the recent bullets under an avoidance directive, capped at the limit", () => {
+    const block = buildAvoidRecentBulletsBlock(
+      [
+        { bulletText: "First recent point" },
+        { bulletText: "Second recent point" },
+        { bulletText: "Third recent point" },
+      ],
+      2,
+    );
+
+    expect(block).toContain("AVOID REPEATING");
+    expect(block).toContain("First recent point");
+    expect(block).toContain("Second recent point");
+    expect(block).not.toContain("Third recent point");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cross-day dedup integration
+// ---------------------------------------------------------------------------
+
+const DUP_TEXT =
+  "Acme Bank acquires rival fintech startup for five hundred million dollars";
+const NOVEL_TEXT =
+  "Regulator publishes fresh capital adequacy guidance for digital lenders";
+
+const crossRunSources: SourceForGeneration[] = [
+  {
+    url: "https://example.com/dup",
+    title: "Dup",
+    content: DUP_TEXT,
+    section: "competitiveLandscape",
+  },
+  {
+    url: "https://example.com/novel",
+    title: "Novel",
+    content: NOVEL_TEXT,
+    section: "competitiveLandscape",
+  },
+];
+
+const crossRunGenerateFn = (): GenerateNewsletterObjectFn =>
+  makeSuccessfulGenerateFn({
+    competitiveLandscape: {
+      displayHeading: "Competitive",
+      bullets: [
+        { title: "Dup", text: DUP_TEXT, articleIndex: 1 },
+        { title: "Novel", text: NOVEL_TEXT, articleIndex: 2 },
+      ],
+    },
+  });
+
+describe("generateNewsletterWithLlm — cross-day dedup", () => {
+  it("injects the avoidance block and drops a bullet repeating a recent one", async () => {
+    const result = await generateNewsletterWithLlm(
+      crossRunSources,
+      baseConfig,
+      {
+        ...testContext,
+        recentBullets: [
+          { sectionKey: "competitiveLandscape", bulletText: DUP_TEXT },
+        ],
+      },
+      { generateObjectFn: crossRunGenerateFn() },
+    );
+
+    // Prompt-level avoidance directive is present.
+    expect(result.resolvedUserPrompt).toContain("AVOID REPEATING");
+    expect(result.resolvedUserPrompt).toContain(DUP_TEXT);
+
+    // Post-generation drop removed the repeated bullet, kept the novel one.
+    expect(result.crossRunDedupSummary?.removedCount).toBe(1);
+    expect(result.crossRunDedupSummary?.bySection.competitiveLandscape).toBe(1);
+    expect(result.content).toContain(NOVEL_TEXT);
+    expect(result.content).not.toContain(DUP_TEXT);
+  });
+
+  it("does not inject the block or run the drop when no recent bullets are provided", async () => {
+    const result = await generateNewsletterWithLlm(
+      crossRunSources,
+      baseConfig,
+      { ...testContext },
+      { generateObjectFn: crossRunGenerateFn() },
+    );
+
+    expect(result.resolvedUserPrompt).not.toContain("AVOID REPEATING");
+    expect(result.crossRunDedupSummary).toBeUndefined();
+    expect(result.content).toContain(DUP_TEXT);
   });
 });
