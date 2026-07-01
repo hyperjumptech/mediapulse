@@ -182,7 +182,7 @@ const renderUpstreamStage = (stage: ChronicleUpstreamStage): string => {
 
   const detailTable =
     stage.stage === "article-analysis"
-      ? renderClassificationTable(stage.details)
+      ? renderRunsTable(stage.runs) + renderClassificationTable(stage.details)
       : renderRunsTable(stage.runs);
 
   const body = `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;">${stats}</div>${detailTable}`;

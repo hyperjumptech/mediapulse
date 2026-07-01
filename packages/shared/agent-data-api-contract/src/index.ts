@@ -224,6 +224,18 @@ export {
   type PostDataCollectionRunResponse,
 } from "./data-collection-run.js";
 export {
+  articleAnalysisRunInputSchema,
+  articleAnalysisRunQuerySchema,
+  articleAnalysisRunStatusSchema,
+  getArticleAnalysisRunResponseSchema,
+  postArticleAnalysisRunBodySchema,
+  postArticleAnalysisRunResponseSchema,
+  type ArticleAnalysisRunBody,
+  type ArticleAnalysisRunQuery,
+  type GetArticleAnalysisRunResponse,
+  type PostArticleAnalysisRunResponse,
+} from "./article-analysis-run.js";
+export {
   contentGenerationRunListItemSchema,
   contentGenerationRunOutcomeSchema,
   contentGenerationRunQuerySchema,

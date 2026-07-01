@@ -1,5 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject, type ModelMessage } from "ai";
+import { extractLlmUsage, type OnLlmUsage } from "@workspace/agent-runtime";
 import {
   MEDIAPULSE_NEWSLETTER_SECTIONS,
   NEWSLETTER_SECTION_IDS,
@@ -136,6 +137,8 @@ export const classifyArticleSection = async (params: {
   content: string;
   acceptanceCriteria: AcceptanceCriteriaRule[];
   tickerContext?: string;
+  /** Chronicle instrumentation: invoked with token usage per classification. */
+  onUsage?: OnLlmUsage;
 }): Promise<ArticleSectionClassification> => {
   const openai = createOpenAI({
     apiKey: params.apiKey,
@@ -152,6 +155,10 @@ export const classifyArticleSection = async (params: {
       tickerContext: params.tickerContext,
     }),
   });
+  const usage = extractLlmUsage(result.usage);
+  if (usage !== undefined) {
+    params.onUsage?.(usage);
+  }
 
   return result.object;
 };

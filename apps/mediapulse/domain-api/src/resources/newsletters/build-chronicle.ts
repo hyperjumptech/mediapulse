@@ -120,6 +120,7 @@ export type BuildChronicleDeps = {
     typeof prisma.dataSourceTickerSection,
     "findMany"
   >;
+  articleAnalysisRun: Pick<typeof prisma.articleAnalysisRun, "findMany">;
   contentGenerationRun: Pick<typeof prisma.contentGenerationRun, "findFirst">;
   deliveryRun: Pick<typeof prisma.deliveryRun, "findMany">;
 };
@@ -367,12 +368,30 @@ const buildCollectionStage = (
 };
 
 /**
- * Builds the article-analysis stage from the per-(article, ticker) classifications
- * in the window. Token/model/timing are not yet persisted for this stage, so the
- * card surfaces classification reasons and counts only.
+ * Builds the article-analysis stage from the run records in the window plus the
+ * per-(article, ticker) classifications for this newsletter's ticker.
+ *
+ * Article analysis drains a cross-ticker backlog, so the run records (tokens,
+ * model, timing) are window-scoped across all tickers, while the classification
+ * sample (sections, scores, reasons) is scoped to this newsletter's ticker.
  */
 const buildArticleAnalysisStage = (
-  rows: Array<{
+  runRows: Array<{
+    id: string;
+    status: string;
+    startedAt: Date;
+    completedAt: Date | null;
+    model: string | null;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    scored: number;
+    rejected: number;
+    backlog: number;
+    stopReason: string | null;
+    durationMs: number | null;
+  }>,
+  classificationRows: Array<{
     section: string | null;
     sectionScore: number | null;
     sectionReason: string | null;
@@ -382,32 +401,73 @@ const buildArticleAnalysisStage = (
   windowStartIso: string,
   windowEndIso: string,
 ): ChronicleUpstreamStage => {
-  const classified = rows.filter((row) => row.section !== null).length;
-  const rejected = rows.length - classified;
-  const sample = rows.slice(0, 50).map((row) => ({
+  const classified = classificationRows.filter(
+    (row) => row.section !== null,
+  ).length;
+  const rejected = classificationRows.length - classified;
+  const sample = classificationRows.slice(0, 50).map((row) => ({
     title: row.dataSource.title,
     section: row.section,
     score: row.sectionScore,
     reason: row.sectionReason,
   }));
 
+  const tokenTotals: ChronicleTokenUsage = { ...EMPTY_TOKENS };
+  const runs: ChronicleRun[] = runRows.map((row) => {
+    const tokens: ChronicleTokenUsage = {
+      promptTokens: row.promptTokens,
+      completionTokens: row.completionTokens,
+      totalTokens: row.totalTokens,
+      embeddingTokens: 0,
+    };
+    addTokens(tokenTotals, tokens);
+    const timing = resolveTiming({
+      startedAt: row.startedAt,
+      completedAt: row.completedAt,
+      durationMs: row.durationMs,
+    });
+
+    return {
+      id: row.id,
+      startedAt: timing.startedAt,
+      completedAt: timing.completedAt,
+      durationMs: row.durationMs,
+      status: collectionRunStatus(row.status),
+      model: row.model,
+      tokens: tokens.totalTokens > 0 ? tokens : null,
+      providers: [],
+      outputs: {
+        scored: row.scored,
+        rejected: row.rejected,
+        backlog: row.backlog,
+        stopReason: row.stopReason,
+      },
+      error: null,
+    };
+  });
+
   return {
     kind: "upstream",
     stage: "article-analysis",
     label: "Article Analysis",
-    status: rows.length === 0 ? "empty" : "success",
+    status:
+      runs.length === 0
+        ? classificationRows.length === 0
+          ? "empty"
+          : "success"
+        : worstStatus(runs.map((run) => run.status)),
     windowStart: windowStartIso,
     windowEnd: windowEndIso,
-    // Article analysis has no per-run record yet; the window count of classified
-    // pairs stands in for run count until token instrumentation gets a home.
-    runCount: rows.length,
-    totals: {
-      tokens: { ...EMPTY_TOKENS },
-      searchCredits: 0,
-      fetchByProvider: {},
+    runCount: runs.length,
+    totals: { tokens: tokenTotals, searchCredits: 0, fetchByProvider: {} },
+    runs,
+    details: {
+      analyzed: classificationRows.length,
+      classified,
+      rejected,
+      sample,
+      crossTickerRuns: true,
     },
-    runs: [],
-    details: { analyzed: rows.length, classified, rejected, sample },
   };
 };
 
@@ -611,6 +671,30 @@ export const buildChronicle = async (
     },
   } satisfies Prisma.DataSourceTickerSectionFindManyArgs;
 
+  // Article-analysis runs drain a cross-ticker backlog, so they are scoped to the
+  // window only (not this newsletter's ticker).
+  const articleAnalysisRunArgs = {
+    where: {
+      startedAt: { gte: windowStart, lt: windowEnd },
+    },
+    orderBy: { startedAt: "desc" as const },
+    select: {
+      id: true,
+      status: true,
+      startedAt: true,
+      completedAt: true,
+      model: true,
+      promptTokens: true,
+      completionTokens: true,
+      totalTokens: true,
+      scored: true,
+      rejected: true,
+      backlog: true,
+      stopReason: true,
+      durationMs: true,
+    },
+  } satisfies Prisma.ArticleAnalysisRunFindManyArgs;
+
   const contentRunArgs = {
     where: { newsletterId: newsletter.id },
     orderBy: { createdAt: "desc" as const },
@@ -643,14 +727,21 @@ export const buildChronicle = async (
     },
   } satisfies Prisma.DeliveryRunFindManyArgs;
 
-  const [querySets, collectionRuns, analysisRows, contentRun, deliveryRuns] =
-    await Promise.all([
-      deps.searchQuerySet.findMany(querySetArgs),
-      deps.dataCollectionRun.findMany(collectionRunArgs),
-      deps.dataSourceTickerSection.findMany(analysisArgs),
-      deps.contentGenerationRun.findFirst(contentRunArgs),
-      deps.deliveryRun.findMany(deliveryRunArgs),
-    ]);
+  const [
+    querySets,
+    collectionRuns,
+    analysisRows,
+    analysisRuns,
+    contentRun,
+    deliveryRuns,
+  ] = await Promise.all([
+    deps.searchQuerySet.findMany(querySetArgs),
+    deps.dataCollectionRun.findMany(collectionRunArgs),
+    deps.dataSourceTickerSection.findMany(analysisArgs),
+    deps.articleAnalysisRun.findMany(articleAnalysisRunArgs),
+    deps.contentGenerationRun.findFirst(contentRunArgs),
+    deps.deliveryRun.findMany(deliveryRunArgs),
+  ]);
 
   const agentIdOf = (row: { extendedCounters: unknown }): string | undefined =>
     asString(asRecord(row.extendedCounters).agentId);
@@ -681,6 +772,7 @@ export const buildChronicle = async (
     windowEndIso,
   );
   const articleAnalysis = buildArticleAnalysisStage(
+    analysisRuns,
     analysisRows,
     windowStartIso,
     windowEndIso,

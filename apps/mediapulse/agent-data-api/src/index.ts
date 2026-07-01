@@ -45,6 +45,10 @@ import {
   postDataCollectionRun,
 } from "./routes/data-collection-run.js";
 import {
+  getArticleAnalysisRun,
+  postArticleAnalysisRun,
+} from "./routes/article-analysis-run.js";
+import {
   getDataCollectionFailure,
   postDataCollectionFailure,
 } from "./routes/data-collection-failure.js";
@@ -164,6 +168,10 @@ const routeHandlers = {
   dataCollectionRun: {
     get: getDataCollectionRun,
     post: postDataCollectionRun,
+  },
+  articleAnalysisRun: {
+    get: getArticleAnalysisRun,
+    post: postArticleAnalysisRun,
   },
   dataCollectionFailure: {
     get: getDataCollectionFailure,

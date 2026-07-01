@@ -183,6 +183,7 @@ newslettersRoutes.get("/:id", async (c) => {
       searchQuerySet: prisma.searchQuerySet,
       dataCollectionRun: prisma.dataCollectionRun,
       dataSourceTickerSection: prisma.dataSourceTickerSection,
+      articleAnalysisRun: prisma.articleAnalysisRun,
       contentGenerationRun: prisma.contentGenerationRun,
       deliveryRun: prisma.deliveryRun,
     }),
@@ -257,6 +258,7 @@ newslettersRoutes.get("/:id/chronicle", async (c) => {
     searchQuerySet: prisma.searchQuerySet,
     dataCollectionRun: prisma.dataCollectionRun,
     dataSourceTickerSection: prisma.dataSourceTickerSection,
+    articleAnalysisRun: prisma.articleAnalysisRun,
     contentGenerationRun: prisma.contentGenerationRun,
     deliveryRun: prisma.deliveryRun,
   });
