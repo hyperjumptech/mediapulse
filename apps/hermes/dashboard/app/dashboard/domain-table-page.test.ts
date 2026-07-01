@@ -53,4 +53,9 @@ describe("formatDomainTableCellValue", () => {
     // Assert
     expect(result).toBe("not-a-date");
   });
+
+  it("renders boolean values as Yes/No", () => {
+    expect(formatDomainTableCellValue(textColumn, true)).toBe("Yes");
+    expect(formatDomainTableCellValue(textColumn, false)).toBe("No");
+  });
 });

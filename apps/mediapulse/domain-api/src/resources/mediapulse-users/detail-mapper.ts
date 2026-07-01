@@ -31,7 +31,7 @@ export type DetailItem = {
   id: string;
   email: string;
   name: string | null;
-  enabled: string;
+  enabled: boolean;
   createdAt: string;
   updatedAt: string;
   subscriptions: SubscriptionRow[];
@@ -87,7 +87,7 @@ export const mapRowToDetailItem = (
   id: row.id,
   email: row.email,
   name: row.name,
-  enabled: row.enabled ? "Yes" : "No",
+  enabled: row.enabled,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
   subscriptions: row.userTickers.map(mapSubscriptionToDetailRow),
