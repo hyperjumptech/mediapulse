@@ -26,6 +26,10 @@ import {
   type PruneSummary,
   type WithinRunDedupResult,
 } from "./lib/prune-uncited-rows.js";
+import {
+  dedupeAgainstRecentBullets,
+  type RecentBullet,
+} from "./lib/cross-run-dedup.js";
 import { isRetryableLlmError } from "./llm-classify-error.js";
 import {
   groundNewsletterCitations,
@@ -131,6 +135,11 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
   requireCitationSummary?: PruneSummary;
   /** Per-section bullet counts and removed-section list from the final resolved newsletter. */
   sectionFillSnapshot?: SectionFillSnapshot;
+  /** Cross-day dedup counters, present when a recent-bullet corpus was provided. */
+  crossRunDedupSummary?: {
+    removedCount: number;
+    bySection: Record<string, number>;
+  };
 }
 
 /** Minimal arguments for a single `generateObject` call for newsletter generation. */
@@ -324,6 +333,30 @@ export const buildCompetitorPromptBlock = (
 };
 
 /**
+ * Builds the "avoid repeating recent bullets" directive injected into the user prompt.
+ *
+ * Returns an empty string when there are no recent bullets, so the caller can include it
+ * without a length guard. At most `limit` bullets are listed to bound prompt size.
+ *
+ * @param recentBullets - Bullets published in recent newsletters for this ticker.
+ * @param limit - Max bullet lines to include.
+ */
+export const buildAvoidRecentBulletsBlock = (
+  recentBullets: ReadonlyArray<{ bulletText: string }>,
+  limit: number,
+): string => {
+  if (recentBullets.length === 0 || limit <= 0) return "";
+  const lines = recentBullets
+    .slice(0, limit)
+    .map((bullet) => `- ${bullet.bulletText}`)
+    .join("\n");
+  return [
+    "AVOID REPEATING these points already published in recent newsletters. Do not restate the same story or facts; surface only genuinely new developments:",
+    lines,
+  ].join("\n");
+};
+
+/**
  * Builds the LLM user prompt from the list of data sources, substituting
  * placeholders in the provided template.
  *
@@ -357,18 +390,23 @@ export function buildUserPrompt(
   options: {
     /** Competitor directive injected above article summaries when the KG has named peers. */
     competitorSection?: string;
+    /** "Avoid repeating recent bullets" directive injected above article summaries. */
+    avoidRecentSection?: string;
   } = {},
 ): string {
   const sourceSummaries = buildArticleSummariesBlock(sources);
 
-  const competitorPrefix =
-    options.competitorSection !== undefined &&
-    options.competitorSection.length > 0
-      ? `${options.competitorSection}\n\n`
-      : "";
+  const directiveBlocks = [
+    options.avoidRecentSection,
+    options.competitorSection,
+  ]
+    .filter((block): block is string => block !== undefined && block.length > 0)
+    .join("\n\n");
+  const directivePrefix =
+    directiveBlocks.length > 0 ? `${directiveBlocks}\n\n` : "";
 
   return template
-    .replaceAll("{{sourceSummaries}}", `${competitorPrefix}${sourceSummaries}`)
+    .replaceAll("{{sourceSummaries}}", `${directivePrefix}${sourceSummaries}`)
     .replaceAll("{{tickerId}}", context.tickerId)
     .replaceAll("{{tickerName}}", context.tickerName ?? context.tickerId)
     .replaceAll("{{tickerSymbol}}", context.tickerSymbol ?? context.tickerId)
@@ -410,6 +448,8 @@ export async function generateNewsletterWithLlm(
     issuerAliases?: string[];
     /** Opaque product brief from the Agent Contract; appended to the system prompt when present. */
     brief?: string;
+    /** Recently published bullets for this ticker, used for cross-day dedup. */
+    recentBullets?: RecentBullet[];
   },
   deps: {
     generateObjectFn?: GenerateNewsletterObjectFn;
@@ -462,6 +502,12 @@ export async function generateNewsletterWithLlm(
     context.tickerName ?? context.tickerId,
   );
 
+  const recentBullets = context.recentBullets ?? [];
+  const avoidRecentSection = buildAvoidRecentBulletsBlock(
+    recentBullets,
+    CONTENT_GENERATION_CONSTANTS.crossRunDedup.promptBulletLimit,
+  );
+
   const prompt = buildUserPrompt(
     promptSources,
     DEFAULT_USER_PROMPT_TEMPLATE,
@@ -472,7 +518,7 @@ export async function generateNewsletterWithLlm(
       tickerName: context.tickerName,
       tickerSymbol: context.tickerSymbol,
     },
-    { competitorSection },
+    { competitorSection, avoidRecentSection },
   );
 
   const result = await retryWithBackoff(
@@ -576,6 +622,37 @@ export async function generateNewsletterWithLlm(
     );
   }
 
+  // Cross-day dedup: drop bullets that repeat recently published newsletters. Runs only when a
+  // recent-bullet corpus was supplied (run.ts fetches it when crossRunDedup is enabled).
+  let crossRunDedupSummary:
+    | { removedCount: number; bySection: Record<string, number> }
+    | undefined;
+  if (recentBullets.length > 0) {
+    const crossRunDeduped = dedupeAgainstRecentBullets(
+      resolved,
+      recentBullets,
+      CONTENT_GENERATION_CONSTANTS.crossRunDedup.similarity,
+    );
+    resolved = crossRunDeduped.resolved;
+    crossRunDedupSummary = {
+      removedCount: crossRunDeduped.removedCount,
+      bySection: crossRunDeduped.bySection,
+    };
+
+    if (crossRunDeduped.removedCount > 0) {
+      logger.info(
+        {
+          tickerId: context.tickerId,
+          removedCount: crossRunDeduped.removedCount,
+          bySection: crossRunDeduped.bySection,
+          minSimilarity: CONTENT_GENERATION_CONSTANTS.crossRunDedup.similarity,
+          event: "cross_run_dedup",
+        },
+        `Cross-run dedup: removed ${String(crossRunDeduped.removedCount)} bullet(s) repeating recent newsletters`,
+      );
+    }
+  }
+
   const content = formatIndustryNewsletterWire(resolved);
 
   const rawTitle =
@@ -608,5 +685,6 @@ export async function generateNewsletterWithLlm(
       bySection: computeNewsletterSectionFill(resolved),
       sectionsRemoved: prunedSectionsRemoved,
     },
+    ...(crossRunDedupSummary ? { crossRunDedupSummary } : {}),
   };
 }

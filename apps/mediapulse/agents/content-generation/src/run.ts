@@ -5,7 +5,11 @@ import { logger } from "@workspace/logger";
 
 import { AGENT_VERSION } from "./agent-version.js";
 import type { ContentGenerationConfig } from "./config-schema.js";
-import { resolveContentGenerationConfig } from "./config-schema.js";
+import {
+  CONTENT_GENERATION_CONSTANTS,
+  resolveContentGenerationConfig,
+} from "./config-schema.js";
+import type { RecentBullet } from "./lib/cross-run-dedup.js";
 import { classifyPersistError } from "./classify-persist-error.js";
 import { classifyLlmError } from "./llm-classify-error.js";
 import { computeConfigVersion } from "./compute-config-version.js";
@@ -363,6 +367,27 @@ export async function run({
 
   const sourcesForLlm = groupSourcesBySection(mappedSources);
 
+  // Cross-day dedup corpus: recently published bullets steer the model away from repeats and
+  // seed the post-generation drop. Best-effort — a fetch failure must not block generation.
+  let recentBullets: RecentBullet[] = [];
+  if (CONTENT_GENERATION_CONSTANTS.crossRunDedup.enabled) {
+    try {
+      const recent = await dataApiClient.contentGenerationBulletsRecent.get({
+        tickerId: input.tickerId,
+        days: CONTENT_GENERATION_CONSTANTS.crossRunDedup.windowDays,
+      });
+      recentBullets = recent.items.map((item) => ({
+        sectionKey: item.sectionKey,
+        bulletText: item.bulletText,
+      }));
+    } catch (err) {
+      logger.warn(
+        { tickerId: input.tickerId, err },
+        "Cross-run dedup: failed to fetch recent bullets; proceeding without",
+      );
+    }
+  }
+
   // Generate newsletter with retry-wrapped generateObject.
   let generated: Awaited<ReturnType<typeof generateNewsletterWithLlm>>;
   report(...narrativeGenerating(subject, sourcesForLlm.length));
@@ -375,6 +400,7 @@ export async function run({
       tickerSymbol,
       competitors,
       issuerAliases,
+      recentBullets,
       ...(contract !== undefined ? { brief: contract.brief } : {}),
     });
   } catch (err) {
