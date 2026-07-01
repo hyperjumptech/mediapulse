@@ -13,6 +13,7 @@ vi.mock("@mediapulse/database", async (importOriginal) => {
       ...actual.prisma,
       mediapulseUser: {
         findMany: vi.fn(),
+        findUnique: vi.fn(),
         count: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
@@ -25,6 +26,30 @@ vi.mock("@mediapulse/database", async (importOriginal) => {
 import { prisma } from "@mediapulse/database";
 
 import { mediapulseUsersRoutes } from "./routes";
+
+const detailRow = {
+  id: "user-1",
+  email: "a@example.com",
+  name: "Ada",
+  enabled: true,
+  createdAt: new Date("2026-06-17T10:00:00.000Z"),
+  updatedAt: new Date("2026-06-17T10:00:00.000Z"),
+  userTickers: [
+    {
+      id: "ut-1",
+      userId: "user-1",
+      tickerId: "ticker-1",
+      enabled: true,
+      language: "en" as const,
+      registrationConfirmedAt: new Date("2026-06-17T11:00:00.000Z"),
+      unsubscribedAt: null,
+      unsubscribeMethod: null,
+      createdAt: new Date("2026-06-17T10:30:00.000Z"),
+      updatedAt: new Date("2026-06-17T10:30:00.000Z"),
+      ticker: { symbol: "BBRI", name: "Bank Rakyat Indonesia" },
+    },
+  ],
+};
 
 describe("mediapulseUsersRoutes", () => {
   beforeEach(() => {
@@ -141,5 +166,53 @@ describe("mediapulseUsersRoutes", () => {
         data: expect.objectContaining({ enabled: false }),
       }),
     );
+  });
+
+  it("returns a detail payload with subscriptions for an existing user", async () => {
+    vi.mocked(prisma.mediapulseUser.findUnique).mockResolvedValue(
+      detailRow as never,
+    );
+
+    const res = await mediapulseUsersRoutes.request("http://localhost/user-1", {
+      method: "GET",
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      id: string;
+      email: string;
+      subscriptions: Array<{ tickerSymbol: string; language: string }>;
+    };
+    expect(body.id).toBe("user-1");
+    expect(body.email).toBe("a@example.com");
+    expect(body.subscriptions).toHaveLength(1);
+    expect(body.subscriptions[0]?.tickerSymbol).toBe("BBRI");
+    expect(body.subscriptions[0]?.language).toBe("English");
+    expect(prisma.mediapulseUser.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "user-1" },
+        include: {
+          userTickers: {
+            include: { ticker: { select: { symbol: true, name: true } } },
+            orderBy: [{ ticker: { symbol: "asc" } }, { language: "asc" }],
+          },
+        },
+      }),
+    );
+  });
+
+  it("returns 404 when the user is missing on GET /:id", async () => {
+    vi.mocked(prisma.mediapulseUser.findUnique).mockResolvedValue(
+      null as never,
+    );
+
+    const res = await mediapulseUsersRoutes.request(
+      "http://localhost/missing",
+      {
+        method: "GET",
+      },
+    );
+
+    expect(res.status).toBe(404);
   });
 });
