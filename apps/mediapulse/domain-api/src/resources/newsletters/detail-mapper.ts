@@ -40,6 +40,7 @@ export type DetailItem = {
   totalTokens: number | null;
   content: string;
   emailPreviewHtml: string;
+  chronicleHtml: string;
   citations: NewsletterCitation[];
   recipients: RecipientPayload[];
   recipientsTruncated: boolean;
@@ -63,6 +64,7 @@ export const mapRowToDetailItem = (
   row: NewsletterDetailRow,
   parts: {
     emailPreviewHtml: string;
+    chronicleHtml: string;
     citations: NewsletterCitation[];
     recipients: RecipientPayload[];
     recipientsTruncated: boolean;
@@ -95,6 +97,7 @@ export const mapRowToDetailItem = (
   totalTokens: row.totalTokens,
   content: row.content,
   emailPreviewHtml: parts.emailPreviewHtml,
+  chronicleHtml: parts.chronicleHtml,
   citations: parts.citations,
   recipients: parts.recipients,
   recipientsTruncated: parts.recipientsTruncated,

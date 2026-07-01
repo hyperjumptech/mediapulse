@@ -1,12 +1,9 @@
 import { contentViewResponseSchema } from "@hermes/domain-contract";
-import { prisma } from "@mediapulse/database";
 import { Hono } from "hono";
 
-import { buildChronicle } from "../../resources/newsletters/build-chronicle";
 import { createMediapulseAgentDataApiClient } from "../../lib/mediapulse-agent-data-api-client";
 import { renderAgentInsightsHtml } from "./render-agent-insights-html";
 import { renderContentGenerationRunsHtml } from "./render-content-generation-runs-html";
-import { renderNewsletterChronicleHtml } from "./render-newsletter-chronicle-html";
 import { renderSectionCoverageHtml } from "./render-section-coverage-html";
 
 const parseInsightsWindow = (raw: string | undefined): "24h" | "7d" | "30d" => {
@@ -57,51 +54,6 @@ hermesDashboardContentViewRoutes.get("/section-coverage", async (c) => {
   return c.json(
     contentViewResponseSchema.parse({ body, title: "Section coverage" }),
   );
-});
-
-hermesDashboardContentViewRoutes.get("/newsletter-chronicle", async (c) => {
-  const newsletterId = c.req.query("newsletterId")?.trim();
-  if (!newsletterId) {
-    return c.json(
-      contentViewResponseSchema.parse({
-        body: "<p>newsletterId is required.</p>",
-        title: "Chronicle",
-      }),
-    );
-  }
-
-  const newsletter = await prisma.newsletter.findUnique({
-    where: { id: newsletterId },
-    select: {
-      id: true,
-      tickerId: true,
-      subject: true,
-      createdAt: true,
-      model: true,
-      promptTokens: true,
-      completionTokens: true,
-      totalTokens: true,
-    },
-  });
-  if (!newsletter) {
-    return c.json(
-      contentViewResponseSchema.parse({
-        body: "<p>Newsletter not found.</p>",
-        title: "Chronicle",
-      }),
-    );
-  }
-
-  const chronicle = await buildChronicle(newsletter, {
-    searchQuerySet: prisma.searchQuerySet,
-    dataCollectionRun: prisma.dataCollectionRun,
-    dataSourceTickerSection: prisma.dataSourceTickerSection,
-    contentGenerationRun: prisma.contentGenerationRun,
-    deliveryRun: prisma.deliveryRun,
-  });
-  const body = renderNewsletterChronicleHtml(chronicle);
-
-  return c.json(contentViewResponseSchema.parse({ body, title: "Chronicle" }));
 });
 
 hermesDashboardContentViewRoutes.get("/content-generation-runs", async (c) => {
