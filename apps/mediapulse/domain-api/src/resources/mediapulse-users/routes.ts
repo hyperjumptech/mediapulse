@@ -7,6 +7,7 @@ import { prisma, Prisma, type Language } from "@mediapulse/database";
 import { Hono } from "hono";
 import { parsePagination } from "../../lib/list-pagination";
 import { nullableText } from "../../lib/nullable-text";
+import { mapRowToDetailItem } from "./detail-mapper";
 import { mapRowToListItem } from "./list-mapper";
 import {
   mediapulseUserCreateBodySchema,
@@ -127,6 +128,26 @@ mediapulseUsersRoutes.get("/", async (c) => {
   });
 
   return c.json(payload);
+});
+
+/** Returns one Mediapulse user by id with ticker subscriptions for the Hermes detail page. */
+mediapulseUsersRoutes.get("/:id", async (c) => {
+  const findUniqueArgs = {
+    where: { id: c.req.param("id") },
+    include: {
+      userTickers: {
+        include: { ticker: { select: { symbol: true, name: true } } },
+        orderBy: [{ ticker: { symbol: "asc" } }, { language: "asc" }],
+      },
+    },
+  } satisfies Prisma.MediapulseUserFindUniqueArgs;
+
+  const row = await prisma.mediapulseUser.findUnique(findUniqueArgs);
+  if (!row) {
+    return c.json({ message: "User not found" }, 404);
+  }
+
+  return c.json(mapRowToDetailItem(row));
 });
 
 /** Creates a Mediapulse user (email + optional name); returns 409 when email is already taken. */

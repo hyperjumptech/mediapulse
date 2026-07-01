@@ -2,7 +2,7 @@
  * Hermes `table-v1` manifest slice for Mediapulse end users and exported `*HermesPathSegment` for routing.
  */
 
-import type { DashboardViewInput } from "@hermes/domain-contract";
+import type { DashboardViewInput, DetailBlock } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   enabledBooleanSelectListFilter,
@@ -20,6 +20,40 @@ import {
 
 /** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const mediapulseUsersHermesPathSegment = "mediapulse-users" as const;
+
+/** User profile fields shown above the subscriptions sub-table on the detail page. */
+const mediapulseUsersMetadataBlock = {
+  type: "keyValue",
+  label: "User",
+  rows: [
+    { field: "email", label: "Email", copyAction: true },
+    { field: "name", label: "Name" },
+    { field: "enabled", label: "Enabled" },
+    { field: "createdAt", label: "Created", format: "date-time" },
+    { field: "updatedAt", label: "Updated", format: "date-time" },
+  ],
+} satisfies DetailBlock;
+
+/** Per-ticker subscription rows bound to `subscriptions` on the detail payload. */
+const mediapulseUsersSubscriptionsBlock = {
+  type: "subTable",
+  label: "Subscriptions",
+  field: "subscriptions",
+  emptyState: "No ticker subscriptions.",
+  columns: [
+    { field: "tickerSymbol", label: "Ticker", type: "text" },
+    { field: "tickerName", label: "Name", type: "text" },
+    { field: "language", label: "Language", type: "text" },
+    { field: "enabled", label: "Enabled", type: "text" },
+    {
+      field: "registrationConfirmedAt",
+      label: "Confirmed",
+      type: "date-time",
+    },
+    { field: "unsubscribedAt", label: "Unsubscribed", type: "date-time" },
+    { field: "unsubscribeMethod", label: "Unsubscribe method", type: "text" },
+  ],
+} satisfies DetailBlock;
 
 /** Hermes `table-v1` manifest page for Mediapulse end users. */
 export const mediapulseUsersDashboardPage = {
@@ -46,7 +80,11 @@ export const mediapulseUsersDashboardPage = {
     "createdAt",
   ]),
   listFilters: [enabledBooleanSelectListFilter, languageSelectListFilter],
-  actions: { create: true, update: true, delete: true, view: false },
+  actions: { create: true, update: true, delete: true, view: true },
   createSchema: mediapulseUserCreateFormJsonSchema,
   updateSchema: mediapulseUserUpdateFormJsonSchema,
+  detailBlocks: [
+    mediapulseUsersMetadataBlock,
+    mediapulseUsersSubscriptionsBlock,
+  ],
 } satisfies DashboardViewInput;
