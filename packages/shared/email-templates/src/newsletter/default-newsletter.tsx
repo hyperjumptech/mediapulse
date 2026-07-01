@@ -319,6 +319,9 @@ export const DefaultNewsletterEmail = ({
     }
 
     if (section.machineKey === "quick-hits") {
+      if (section.items.length === 0) {
+        return <Fragment key={`${section.machineKey}-${String(index)}`} />;
+      }
       return (
         <Section key={`${section.machineKey}-${String(index)}`}>
           {renderSectionHeader(section.machineKey, section.displayHeading)}
@@ -332,8 +335,8 @@ export const DefaultNewsletterEmail = ({
                     {itemByline}
                   </Text>
                 ) : null}
-                <Text className="m-0 mb-2 text-base font-semibold leading-normal text-body">
-                  {itemIndex + 1}. {item.text}
+                <Text className="m-0 text-base leading-relaxed text-body">
+                  {renderInlineMarkdownLinks(item.text, link)}
                 </Text>
                 {item.url !== undefined && item.url !== "" ? (
                   <Text className="m-0 mt-2 text-sm leading-normal text-body">
