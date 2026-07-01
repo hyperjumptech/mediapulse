@@ -20,7 +20,7 @@ describe("buildFetchProviderConfigs", () => {
         rateLimit: { requests: 1, perSeconds: 1 },
         concurrency: 1,
         timeoutMs: 45_000,
-        retry: { maxAttempts: 1, baseDelayMs: 1000, maxDelayMs: 10_000 },
+        retry: { maxAttempts: 3, baseDelayMs: 1000, maxDelayMs: 8_000 },
       },
       {
         type: "firecrawl",
@@ -33,7 +33,7 @@ describe("buildFetchProviderConfigs", () => {
         rateLimit: { requests: 1, perSeconds: 1 },
         concurrency: 1,
         timeoutMs: 45_000,
-        retry: { maxAttempts: 1, baseDelayMs: 1000, maxDelayMs: 10_000 },
+        retry: { maxAttempts: 3, baseDelayMs: 1000, maxDelayMs: 8_000 },
       },
       {
         type: "jina",
@@ -46,7 +46,7 @@ describe("buildFetchProviderConfigs", () => {
         rateLimit: { requests: 1, perSeconds: 1 },
         concurrency: 1,
         timeoutMs: 45_000,
-        retry: { maxAttempts: 1, baseDelayMs: 1000, maxDelayMs: 10_000 },
+        retry: { maxAttempts: 3, baseDelayMs: 1000, maxDelayMs: 8_000 },
       },
     ]);
   });

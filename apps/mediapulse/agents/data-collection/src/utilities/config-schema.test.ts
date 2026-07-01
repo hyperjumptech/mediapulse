@@ -65,6 +65,7 @@ describe("dataCollectionAgentConfigSchema", () => {
     expect(parsed.collection).toEqual({
       targetSavedSources: 15,
       maxRounds: 3,
+      startupJitterMs: 30_000,
     });
   });
 

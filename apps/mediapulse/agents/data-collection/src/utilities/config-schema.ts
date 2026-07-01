@@ -128,6 +128,14 @@ const collectionSchema = z
       .positive()
       .default(3)
       .describe("Hard cap on search-fetch-filter-save rounds per run."),
+    startupJitterMs: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(30_000)
+      .describe(
+        "Max random delay before a run starts fetching, so concurrent ticker runs de-synchronize and avoid bursting the shared fetch-provider rate limit. 0 disables.",
+      ),
   })
   .default({})
   .describe("Repeat-loop targets.");

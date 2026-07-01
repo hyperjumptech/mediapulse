@@ -1,7 +1,6 @@
 import { z } from "zod";
 
-import { withRetry } from "../resilience";
-import { isRetryableError } from "../error-classification";
+import { retryFetch } from "./retry";
 
 import type {
   FetchProvider,
@@ -81,9 +80,8 @@ const fetchOneDiffbot = async (
   config: FetchProviderConfig,
   ctx: ProviderRequestContext,
 ): Promise<NormalizedFetchData> => {
-  await ctx.rateLimiter.acquire();
-
   const fetchTask = async () => {
+    await ctx.rateLimiter.acquire();
     const response = await ctx.gotClient.get(
       buildDiffbotEndpoint(config, url),
       {
@@ -101,7 +99,7 @@ const fetchOneDiffbot = async (
   };
 
   return config.retry
-    ? await withRetry(fetchTask, config.retry, isRetryableError)
+    ? await retryFetch(fetchTask, config.retry, ctx)
     : await fetchTask();
 };
 
