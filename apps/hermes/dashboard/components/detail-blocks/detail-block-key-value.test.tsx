@@ -89,6 +89,24 @@ describe("DetailBlockKeyValueView", () => {
     );
   });
 
+  it("renders boolean values as Yes/No", () => {
+    render(
+      <DetailBlockKeyValueView
+        block={{
+          type: "keyValue",
+          rows: [
+            { field: "enabled", label: "Enabled" },
+            { field: "verified", label: "Verified" },
+          ],
+        }}
+        data={{ enabled: true, verified: false }}
+      />,
+    );
+
+    expect(screen.getByText("Yes")).toBeInTheDocument();
+    expect(screen.getByText("No")).toBeInTheDocument();
+  });
+
   it("falls back to plain text when a linkTemplate variable is missing", () => {
     render(
       <DetailBlockKeyValueView

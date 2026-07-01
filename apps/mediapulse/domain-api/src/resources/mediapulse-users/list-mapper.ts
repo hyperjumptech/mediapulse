@@ -55,7 +55,7 @@ export const mapRowToListItem = (row: MediapulseUserListRow) => ({
   id: row.id,
   email: row.email,
   name: row.name,
-  enabled: row.enabled ? "Yes" : "No",
+  enabled: row.enabled,
   languages: formatUserLanguages(row.userTickers),
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),

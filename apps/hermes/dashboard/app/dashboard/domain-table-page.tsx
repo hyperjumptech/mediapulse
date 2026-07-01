@@ -58,8 +58,10 @@ export type DomainTableColumnForDisplay = {
 /**
  * Formats a raw domain table cell value for display based on column type.
  *
- * `date-time` columns render like other dashboard lists (e.g. `LLL d, yyyy` via date-fns).
- * Unparseable dates fall back to the original string representation.
+ * Booleans render as `Yes`/`No` so domains can return raw booleans instead of
+ * pre-stringified labels. `date-time` columns render like other dashboard lists
+ * (e.g. `LLL d, yyyy` via date-fns). Unparseable dates fall back to the original
+ * string representation.
  *
  * @param column - Column descriptor from domain table meta.
  * @param rawValue - Cell value from the list row.
@@ -69,6 +71,9 @@ export const formatDomainTableCellValue = (
   column: DomainTableColumnForDisplay,
   rawValue: unknown,
 ): string => {
+  if (typeof rawValue === "boolean") {
+    return rawValue ? "Yes" : "No";
+  }
   if (column.type !== "date-time") {
     return String(rawValue ?? "");
   }

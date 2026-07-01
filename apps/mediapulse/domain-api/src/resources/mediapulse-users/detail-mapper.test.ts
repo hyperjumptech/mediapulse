@@ -130,7 +130,7 @@ describe("mapRowToDetailItem", () => {
       id: "user-1",
       email: "a@example.com",
       name: "Ada",
-      enabled: "Yes",
+      enabled: true,
       createdAt: createdAt.toISOString(),
       updatedAt: updatedAt.toISOString(),
       subscriptions: [
@@ -155,7 +155,7 @@ describe("mapRowToDetailItem", () => {
       }),
     );
 
-    expect(item.enabled).toBe("No");
+    expect(item.enabled).toBe(false);
     expect(item.name).toBeNull();
     expect(item.subscriptions).toEqual([]);
   });

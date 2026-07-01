@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
+import { Checkbox } from "@workspace/ui/components/checkbox";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/ui/lib/utils";
@@ -28,8 +29,6 @@ const SELECT_CLASS = cn(
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm",
   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
 );
-
-const CHECKBOX_CLASS = "size-4 rounded border-input";
 
 type DomainTableFormFieldsProps = {
   /** Parsed JSON Schema fields for this form. */
@@ -96,14 +95,11 @@ export const DomainTableFormFields = ({
             defaultRow !== undefined ? (editDefault as boolean) : false;
           return (
             <div key={path} className="flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id={fieldId}
                 name={path}
                 value="true"
                 defaultChecked={checked}
-                required={field.required}
-                className={CHECKBOX_CLASS}
               />
               <Label
                 htmlFor={fieldId}

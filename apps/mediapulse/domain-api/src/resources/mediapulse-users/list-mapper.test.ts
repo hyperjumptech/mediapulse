@@ -58,14 +58,14 @@ describe("mapRowToListItem", () => {
       id: "u-1",
       email: "a@example.com",
       name: "Ada",
-      enabled: "Yes",
+      enabled: true,
       languages: "English, Indonesian",
       createdAt: createdAt.toISOString(),
       updatedAt: updatedAt.toISOString(),
     });
   });
 
-  it("maps disabled users to No and empty subscriptions to an em dash", () => {
+  it("maps disabled users to false and empty subscriptions to an em dash", () => {
     const row = {
       id: "u-2",
       email: "b@example.com",
@@ -76,7 +76,7 @@ describe("mapRowToListItem", () => {
       userTickers: [],
     } satisfies MediapulseUserListRow;
 
-    expect(mapRowToListItem(row).enabled).toBe("No");
+    expect(mapRowToListItem(row).enabled).toBe(false);
     expect(mapRowToListItem(row).languages).toBe("—");
   });
 });

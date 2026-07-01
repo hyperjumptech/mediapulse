@@ -76,11 +76,11 @@ describe("mediapulseUsersRoutes", () => {
 
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      items: Array<{ id: string; enabled: string; languages: string }>;
+      items: Array<{ id: string; enabled: boolean; languages: string }>;
     };
     expect(body.items).toHaveLength(1);
     expect(body.items[0]?.id).toBe("user-1");
-    expect(body.items[0]?.enabled).toBe("Yes");
+    expect(body.items[0]?.enabled).toBe(true);
     expect(body.items[0]?.languages).toBe("English");
     expect(prisma.mediapulseUser.findMany).toHaveBeenCalledWith(
       expect.objectContaining({

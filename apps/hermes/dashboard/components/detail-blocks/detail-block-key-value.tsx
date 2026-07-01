@@ -31,6 +31,7 @@ const formatNumber = (value: unknown): string => {
 
 const formatPlain = (value: unknown): string => {
   if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "string") return value;
   return JSON.stringify(value);
 };
