@@ -32,17 +32,18 @@ export type BuildSelectedSourcesDeps = {
 };
 
 /**
- * Collects DataSources selected for the ticker during the same UTC calendar
- * day as the newsletter's `createdAt`, mirroring the window used by the
- * content-generation agent (`getDataSourcesForTicker`).
+ * Collects DataSources selected for the ticker within the rolling lookback window ending at the
+ * newsletter's `createdAt`, mirroring the window used by the content-generation agent
+ * (`getDataSourcesForTicker`). See `buildSelectedSourcesWindow` for the window shape and the
+ * `analyzedAt` vs `scoredAt` field note.
  *
  * The result is sorted by descending relevance score (highest-scoring first),
  * with ties broken by `scoredAt` descending.
  *
  * @param newsletterId - Caller can use this for logging; the helper itself
- *   doesn't filter on it (the window is per-day, not per-newsletter).
+ *   doesn't filter on it (the window is a rolling lookback, not per-newsletter).
  * @param tickerId - Ticker the newsletter belongs to.
- * @param newsletterCreatedAt - Newsletter's `createdAt` (defines the window).
+ * @param newsletterCreatedAt - Newsletter's `createdAt` (anchors the window).
  * @param deps - Prisma `dataSource` delegate.
  * @returns Window boundaries and the ordered list of selected sources.
  */

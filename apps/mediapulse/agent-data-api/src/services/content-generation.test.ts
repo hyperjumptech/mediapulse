@@ -115,7 +115,7 @@ describe("getDataSourcesForTicker", () => {
     vi.restoreAllMocks();
   });
 
-  it("filters by classified section analyzed today in UTC and sorts by section score desc", async () => {
+  it("filters by classified section analyzed within the rolling lookback window and sorts by section score desc", async () => {
     // Setup
     const db = createMockDb();
     db.ticker.findUniqueOrThrow.mockResolvedValue({
@@ -161,14 +161,14 @@ describe("getDataSourcesForTicker", () => {
       now: () => new Date("2026-03-19T15:30:00.000Z"),
     });
 
-    // Assert
-    const expectedStartOfToday = new Date("2026-03-19T00:00:00.000Z");
+    // Assert — cutoff is 24h before `now`, not the UTC start of day.
+    const expectedCutoff = new Date("2026-03-18T15:30:00.000Z");
     expect(db.dataSourceTickerSection.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           tickerId: "ticker-1",
           section: { not: null },
-          analyzedAt: { gte: expectedStartOfToday },
+          analyzedAt: { gte: expectedCutoff },
         },
         orderBy: { sectionScore: "desc" },
       }),
@@ -181,7 +181,39 @@ describe("getDataSourcesForTicker", () => {
     expect(result.tickerName).toBe("Test Company");
   });
 
-  it("returns empty dataSources and ticker metadata when no selected articles exist for today", async () => {
+  it("includes an article analyzed during the prior UTC day (rolling-window regression)", async () => {
+    // Setup — mirror the incident: a run at 02:00 UTC must still see the prior day's articles.
+    const db = createMockDb();
+    db.ticker.findUniqueOrThrow.mockResolvedValue({
+      symbol: "TEST",
+      name: "Test Company",
+    });
+    db.dataSourceTickerSection.findMany.mockResolvedValue([]);
+
+    // Act
+    await getDataSourcesForTicker("ticker-1", {
+      db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
+      now: () => new Date("2026-07-01T02:00:00.000Z"),
+    });
+
+    // Assert — the cutoff reaches into the prior UTC day.
+    const call = db.dataSourceTickerSection.findMany.mock.calls[0]?.[0];
+    const cutoff = call?.where?.analyzedAt?.gte as Date;
+
+    expect(cutoff).toEqual(new Date("2026-06-30T02:00:00.000Z"));
+
+    // An article analyzed 06-30 03:48 UTC (as in the incident) is now inside the window, where the
+    // old UTC-calendar-day boundary (00:00 UTC 07-01) would have excluded it.
+    const priorDayAnalyzedAt = new Date("2026-06-30T03:48:00.000Z");
+    const oldDayBoundary = new Date("2026-07-01T00:00:00.000Z");
+
+    expect(priorDayAnalyzedAt.getTime()).toBeGreaterThanOrEqual(
+      cutoff.getTime(),
+    );
+    expect(priorDayAnalyzedAt.getTime()).toBeLessThan(oldDayBoundary.getTime());
+  });
+
+  it("returns empty dataSources and ticker metadata when no articles exist within the lookback window", async () => {
     // Setup
     const db = createMockDb();
     db.ticker.findUniqueOrThrow.mockResolvedValue({
