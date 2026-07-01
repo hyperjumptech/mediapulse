@@ -1,6 +1,10 @@
 import type { DataCollectionInput } from "@workspace/agent-types";
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
-import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
+import {
+  createTokenUsageAccumulator,
+  type AgentRunContext,
+  type AgentRunResult,
+} from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-data-collection";
 import { logger } from "@workspace/logger";
 import crypto from "node:crypto";
@@ -88,6 +92,10 @@ export async function runDataCollection(
   const runId = crypto.randomUUID();
   const scheduleExecutionId =
     hermesCorrelation?.scheduleExecutionId ?? undefined;
+  // Chronicle instrumentation: accumulate relevance-filter LLM token usage across
+  // every judged page in the run, and search-provider credits across every search.
+  const relevanceUsage = createTokenUsageAccumulator();
+  const searchCreditsSink = { credits: 0 };
   const outcomes: CollectionUrlOutcomeInput[] = [];
 
   const hermes = hermesCorrelation;
@@ -236,6 +244,8 @@ export async function runDataCollection(
   let fetchSuccessCount = 0;
   let fetchedCount = 0;
   let fetchFailedCount = 0;
+  // Chronicle instrumentation: per-provider fetch success counts across the run.
+  const fetchByProvider: Record<string, number> = {};
   const searchFailures: WebSearchFailure[] = [];
   const fetchFailures: Array<
     Awaited<ReturnType<typeof performWebFetch>>[number]["failures"][number]
@@ -282,6 +292,7 @@ export async function runDataCollection(
         page: round - 1,
         cursor: searchCursor,
         logger: log,
+        creditsSink: searchCreditsSink,
       });
       const roundSearchSuccesses = searchAttemptResults
         .filter((r) => r.success)
@@ -569,6 +580,7 @@ export async function runDataCollection(
           contractBrief,
           llm: config.relevance,
           logger: log,
+          onUsage: relevanceUsage.onUsage,
         });
         if (!relevanceDecision.keep) {
           droppedByRelevance += 1;
@@ -686,6 +698,10 @@ export async function runDataCollection(
       fetchedCount += roundFetchSuccesses.length;
       fetchFailedCount += roundFailedUrlCount;
       fetchFailures.push(...roundFetchFailures);
+      for (const success of roundFetchSuccesses) {
+        fetchByProvider[success.provider] =
+          (fetchByProvider[success.provider] ?? 0) + 1;
+      }
 
       log.info(
         {
@@ -828,6 +844,16 @@ export async function runDataCollection(
     roundsExecuted,
     stopReason: refillStopReason ?? undefined,
     durationMs: Date.now() - startedAt.getTime(),
+    // Chronicle instrumentation: durable provider + relevance-LLM token record.
+    searchProvider: [...new Set(config.web_search.map((p) => p.provider))].join(
+      ", ",
+    ),
+    searchCredits: searchCreditsSink.credits,
+    ...(Object.keys(fetchByProvider).length > 0 ? { fetchByProvider } : {}),
+    relevanceModel: config.relevance.model,
+    relevancePromptTokens: relevanceUsage.totals().promptTokens,
+    relevanceCompletionTokens: relevanceUsage.totals().completionTokens,
+    relevanceTotalTokens: relevanceUsage.totals().totalTokens,
   };
 
   const runPayload = {

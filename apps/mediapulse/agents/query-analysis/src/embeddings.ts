@@ -64,7 +64,11 @@ export const maxCosineSimilarity = (
  */
 export const embedQueries = async (
   texts: string[],
-  params: { apiKey: string; model?: string },
+  params: {
+    apiKey: string;
+    model?: string;
+    onUsage?: (usage: { totalTokens: number }) => void;
+  },
   deps: { embedManyFn?: EmbedManyFn } = {},
 ): Promise<number[][]> => {
   if (texts.length === 0) {
@@ -72,10 +76,15 @@ export const embedQueries = async (
   }
   const embedManyFn = deps.embedManyFn ?? embedMany;
   const openai = createOpenAI({ apiKey: params.apiKey });
-  const { embeddings } = await embedManyFn({
+  const { embeddings, usage } = await embedManyFn({
     model: openai.embedding(params.model ?? DEFAULT_QUERY_EMBEDDING_MODEL),
     values: texts,
   });
+  const totalTokens = usage?.tokens;
+  if (totalTokens !== undefined && params.onUsage !== undefined) {
+    params.onUsage({ totalTokens });
+  }
+
   return embeddings;
 };
 

@@ -2,7 +2,12 @@ import { z } from "zod";
 
 import { RESULTS_PER_QUERY } from "./constants";
 
-import type { SearchHit, SearchProvider, SearchProviderContext } from "./types";
+import type {
+  SearchHit,
+  SearchProvider,
+  SearchProviderContext,
+  SearchProviderResult,
+} from "./types";
 
 const TAVILY_SEARCH_URL = "https://api.tavily.com/search";
 
@@ -42,7 +47,7 @@ const searchTavily = async (
   apiKey: string,
   queryText: string,
   ctx: SearchProviderContext,
-): Promise<SearchHit[]> => {
+): Promise<SearchProviderResult> => {
   const response = await ctx.gotClient.post(TAVILY_SEARCH_URL, {
     json: {
       query: queryText,
@@ -57,7 +62,7 @@ const searchTavily = async (
     timeout: { request: ctx.timeoutMs },
   });
 
-  return parseTavilyResponse(JSON.parse(response.body));
+  return { hits: parseTavilyResponse(JSON.parse(response.body)) };
 };
 
 /**

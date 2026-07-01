@@ -15,6 +15,7 @@ import {
   serializeQueryAnalysisContextBlock,
   buildStructuredQueryMessages,
   applySelfCritiqueToCandidateBatch,
+  extractLlmUsage,
   fetchLlmQueryCandidates,
   fetchLlmQueryCandidatesByPersona,
   fetchWildcardCandidates,
@@ -689,6 +690,69 @@ describe("fetchLlmQueryCandidates", () => {
         { generateObjectForQueries },
       ),
     ).rejects.toThrow("api down");
+  });
+
+  it("invokes onUsage with normalized token usage when the response carries it", async () => {
+    const generateObjectForQueries = vi.fn().mockResolvedValue({
+      object: { queries: [{ text: "ok", intent: "breaking" }] },
+      usage: { inputTokens: 120, outputTokens: 30, totalTokens: 150 },
+    });
+    const onUsage = vi.fn();
+
+    await fetchLlmQueryCandidates(
+      {
+        apiKey: "sk-test",
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: "hi" }],
+        onUsage,
+      },
+      { generateObjectForQueries },
+    );
+
+    expect(onUsage).toHaveBeenCalledExactlyOnceWith({
+      promptTokens: 120,
+      completionTokens: 30,
+      totalTokens: 150,
+    });
+  });
+
+  it("does not invoke onUsage when the response omits usage", async () => {
+    const generateObjectForQueries = vi.fn().mockResolvedValue({
+      object: { queries: [{ text: "ok", intent: "breaking" }] },
+    });
+    const onUsage = vi.fn();
+
+    await fetchLlmQueryCandidates(
+      {
+        apiKey: "sk-test",
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: "hi" }],
+        onUsage,
+      },
+      { generateObjectForQueries },
+    );
+
+    expect(onUsage).not.toHaveBeenCalled();
+  });
+});
+
+describe("extractLlmUsage", () => {
+  it("normalizes AI SDK v6 input/output tokens to prompt/completion/total", () => {
+    expect(
+      extractLlmUsage({ inputTokens: 100, outputTokens: 40, totalTokens: 140 }),
+    ).toEqual({ promptTokens: 100, completionTokens: 40, totalTokens: 140 });
+  });
+
+  it("derives totalTokens from input + output when total is absent", () => {
+    expect(extractLlmUsage({ inputTokens: 100, outputTokens: 40 })).toEqual({
+      promptTokens: 100,
+      completionTokens: 40,
+      totalTokens: 140,
+    });
+  });
+
+  it("returns undefined when usage is absent", () => {
+    expect(extractLlmUsage(undefined)).toBeUndefined();
   });
 });
 

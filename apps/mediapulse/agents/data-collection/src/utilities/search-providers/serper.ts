@@ -2,7 +2,12 @@ import { z } from "zod";
 
 import { RESULTS_PER_QUERY } from "./constants";
 
-import type { SearchHit, SearchProvider, SearchProviderContext } from "./types";
+import type {
+  SearchHit,
+  SearchProvider,
+  SearchProviderContext,
+  SearchProviderResult,
+} from "./types";
 
 const SERPER_NEWS_URL = "https://google.serper.dev/news";
 
@@ -18,9 +23,11 @@ const serperNewsItemSchema = z.object({
 
 const serperResponseSchema = z.object({
   news: z.array(serperNewsItemSchema).optional(),
+  /** Serper reports the credits consumed by the request on every response. */
+  credits: z.number().nonnegative().optional(),
 });
 
-const parseSerperResponse = (raw: unknown): SearchHit[] => {
+const parseSerperResponse = (raw: unknown): SearchProviderResult => {
   const parsed = serperResponseSchema.safeParse(raw);
   if (!parsed.success) {
     throw parsed.error;
@@ -28,7 +35,7 @@ const parseSerperResponse = (raw: unknown): SearchHit[] => {
 
   const items = parsed.data.news ?? [];
 
-  return items
+  const hits: SearchHit[] = items
     .filter((item): item is { link: string } & typeof item =>
       Boolean(item.link),
     )
@@ -38,13 +45,20 @@ const parseSerperResponse = (raw: unknown): SearchHit[] => {
       snippet: item.snippet ?? "",
       ...(item.date ? { publishedAt: item.date } : {}),
     }));
+
+  return {
+    hits,
+    ...(parsed.data.credits !== undefined
+      ? { credits: parsed.data.credits }
+      : {}),
+  };
 };
 
 const searchSerper = async (
   apiKey: string,
   queryText: string,
   ctx: SearchProviderContext,
-): Promise<SearchHit[]> => {
+): Promise<SearchProviderResult> => {
   const response = await ctx.gotClient.post(SERPER_NEWS_URL, {
     json: {
       q: queryText,

@@ -46,6 +46,24 @@ export const dataCollectionRunInputSchema = z.object({
     agentId: z.string().optional(),
     roundsExecuted: z.number().int().nonnegative().optional(),
     stopReason: z.string().optional(),
+    // Chronicle instrumentation: durable provider usage + relevance-LLM token record.
+    // These flow into the `extendedCounters` JSON column (no schema migration).
+    /** Search-provider name (e.g. "serper"). */
+    searchProvider: z.string().optional(),
+    /** Total search credits consumed by the provider across the run. */
+    searchCredits: z.number().int().nonnegative().optional(),
+    /** Fetch-provider request counts keyed by provider (e.g. { jina: 204, playwright: 18 }). */
+    fetchByProvider: z
+      .record(z.string(), z.number().int().nonnegative())
+      .optional(),
+    /** Relevance-filter LLM model id. */
+    relevanceModel: z.string().optional(),
+    /** Relevance-filter LLM prompt tokens summed across the run. */
+    relevancePromptTokens: z.number().int().nonnegative().optional(),
+    /** Relevance-filter LLM completion tokens summed across the run. */
+    relevanceCompletionTokens: z.number().int().nonnegative().optional(),
+    /** Relevance-filter LLM total tokens summed across the run. */
+    relevanceTotalTokens: z.number().int().nonnegative().optional(),
   }),
 });
 

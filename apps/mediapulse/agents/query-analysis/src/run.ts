@@ -4,7 +4,11 @@ import {
   NEWSLETTER_SECTION_IDS,
   summarizeSectionCoverage,
 } from "@workspace/agent-data-api-contract";
-import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
+import {
+  createTokenUsageAccumulator,
+  type AgentRunContext,
+  type AgentRunResult,
+} from "@workspace/agent-runtime";
 import { computeLlmPromptFingerprint } from "@workspace/agent-llm-prompt-template";
 import { logger } from "@workspace/logger";
 import { env } from "@mediapulse/env/agents-query-analysis";
@@ -20,6 +24,7 @@ import {
   applySelfCritiquePass,
   DEFAULT_CRITIC_PASS_DEADLINE_MS,
   type LlmQueryStrategyPrompt,
+  type OnLlmUsage,
 } from "./llm-queries";
 import type { LlmCandidate } from "./merge-query-candidates";
 import {
@@ -160,7 +165,12 @@ export const toDiversityScoreRows = (
  */
 export const buildLlmEmbeddingsForDiversity = async (
   llmCandidates: LlmCandidate[],
-  params: { apiKey: string; embeddingModel: string; tickerId: string },
+  params: {
+    apiKey: string;
+    embeddingModel: string;
+    tickerId: string;
+    onUsage?: (usage: { totalTokens: number }) => void;
+  },
   deps: {
     embedQueries?: typeof embedQueries;
     logWarn?: (message: string, meta: Record<string, unknown>) => void;
@@ -182,6 +192,7 @@ export const buildLlmEmbeddingsForDiversity = async (
     const embeddings = await runEmbed(texts, {
       apiKey: params.apiKey,
       model: params.embeddingModel,
+      ...(params.onUsage !== undefined ? { onUsage: params.onUsage } : {}),
     });
     return buildEmbeddingByText(texts, embeddings);
   } catch (error) {
@@ -282,6 +293,7 @@ export const buildSemanticEmbedderForMerge = async (
     threshold: number;
     embeddingModel: string;
     tickerId: string;
+    onUsage?: (usage: { totalTokens: number }) => void;
   },
   deps: {
     embedQueries?: typeof embedQueries;
@@ -307,6 +319,7 @@ export const buildSemanticEmbedderForMerge = async (
     const embeddings = await runEmbed(texts, {
       apiKey: params.apiKey,
       model: params.embeddingModel,
+      ...(params.onUsage !== undefined ? { onUsage: params.onUsage } : {}),
     });
     return buildQuerySemanticEmbedder(texts, embeddings, params.threshold);
   } catch (error) {
@@ -369,6 +382,10 @@ type LanguageSliceSharedConfig = {
   contractBrief?: string;
   /** When true, enables the section-coverage path in query generation. */
   sectionCoverageEnabled: boolean;
+  /** Optional sink for chat-model token usage across every LLM call in the slice. */
+  onUsage?: OnLlmUsage;
+  /** Optional sink for embedding token usage across every embed call in the slice. */
+  onEmbeddingUsage?: (usage: { totalTokens: number }) => void;
 };
 
 /**
@@ -426,6 +443,7 @@ export const runLanguageQuerySlice = async (params: {
           personas: langPersonas,
           perPersonaQuota: shared.perPersonaQuotaCount,
           fewShotExemplarCount: shared.fewShotExemplarCount,
+          ...(shared.onUsage !== undefined ? { onUsage: shared.onUsage } : {}),
         },
         {
           warn: (_message, meta) => {
@@ -473,6 +491,7 @@ export const runLanguageQuerySlice = async (params: {
           fewShotExemplarCount: shared.fewShotExemplarCount,
           runStartMs: shared.runStartMs,
           deadlineMs: DEFAULT_CRITIC_PASS_DEADLINE_MS,
+          ...(shared.onUsage !== undefined ? { onUsage: shared.onUsage } : {}),
         });
         llmCandidates = critiqueResult.candidates.map((row) => ({
           ...row,
@@ -498,6 +517,9 @@ export const runLanguageQuerySlice = async (params: {
         apiKey: shared.openaiApiKey,
         embeddingModel: shared.embeddingModel,
         tickerId: shared.tickerId,
+        ...(shared.onEmbeddingUsage !== undefined
+          ? { onUsage: shared.onEmbeddingUsage }
+          : {}),
       },
     );
   }
@@ -521,6 +543,9 @@ export const runLanguageQuerySlice = async (params: {
             perPersonaQuota: shared.perPersonaQuotaCount,
             fewShotExemplarCount: shared.fewShotExemplarCount,
             broadenSystemNudge,
+            ...(shared.onUsage !== undefined
+              ? { onUsage: shared.onUsage }
+              : {}),
           },
           {
             warn: (_message, meta) => {
@@ -605,6 +630,12 @@ export const runQueryAnalysis = async (
 ): Promise<AgentRunResult> => {
   const { input, config, token, hermesCorrelation, contract } = context;
   const runStartMs = Date.now();
+
+  // Chronicle instrumentation: accumulate LLM/embedding token usage across every
+  // call in the run (persona generation, self-critique, wildcard, embeddings) so the
+  // strategy snapshot carries a durable token record.
+  const tokenUsage = createTokenUsageAccumulator();
+
   const client = createAgentDataApiClient({
     baseUrl: env.AGENT_DATA_API_URL,
     version: "v1",
@@ -751,6 +782,8 @@ export const runQueryAnalysis = async (
     priorYield: yieldFeedback.enabled ? queryContext.priorYield : undefined,
     reportActivity: report,
     sectionCoverageEnabled,
+    onUsage: tokenUsage.onUsage,
+    onEmbeddingUsage: tokenUsage.onEmbeddingUsage,
     ...(contract !== undefined ? { contractBrief: contract.brief } : {}),
   };
 
@@ -842,6 +875,7 @@ export const runQueryAnalysis = async (
         context: queryContext,
         allowedLanguages: wildcardLanguages,
         queryMaxWords,
+        onUsage: tokenUsage.onUsage,
       });
     } catch (error) {
       logger.warn(
@@ -866,6 +900,7 @@ export const runQueryAnalysis = async (
                   allowedLanguages: wildcardLanguages,
                   avoidTexts,
                   queryMaxWords,
+                  onUsage: tokenUsage.onUsage,
                 });
               } catch (error) {
                 logger.warn(
@@ -981,6 +1016,18 @@ export const runQueryAnalysis = async (
       intent,
       ...(persona !== undefined ? { persona } : {}),
     })),
+    // Chronicle instrumentation: durable token + timing record for the run.
+    llmUsage: {
+      model: openaiModel,
+      critiqueModel: useSelfCritique ? critiqueModel : undefined,
+      embeddingModel: semanticDedupeConfig.enabled ? embeddingModel : undefined,
+      ...tokenUsage.totals(),
+    },
+    timing: {
+      startedAt: new Date(runStartMs).toISOString(),
+      completedAt: new Date().toISOString(),
+      durationMs: Date.now() - runStartMs,
+    },
   };
 
   report("Saving query set", `${merged.length} queries`, "completed");

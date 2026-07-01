@@ -9,7 +9,11 @@ import {
   type QueryAnalysisIntent,
   type QueryAnalysisIntentWeights,
 } from "@workspace/agent-data-api-contract";
-import { applyContractBrief } from "@workspace/agent-runtime";
+import {
+  applyContractBrief,
+  extractLlmUsage,
+  type OnLlmUsage,
+} from "@workspace/agent-runtime";
 import { z } from "zod";
 
 import {
@@ -55,6 +59,11 @@ export const llmCritiqueOutputSchema = z.object({
 export type CritiqueRating = z.infer<
   typeof llmCritiqueOutputSchema
 >["ratings"][number];
+
+// Chronicle instrumentation: token usage helpers live in @workspace/agent-runtime
+// so every agent accumulates the same way. Re-exported here for local call sites
+// (and the existing tests) that reference them from this module.
+export { extractLlmUsage, type OnLlmUsage };
 
 export type LlmQueryStrategyPrompt = {
   queryCount: number;
@@ -334,23 +343,39 @@ export const buildStructuredQueryMessages = (options: {
   return messages;
 };
 
+/** AI SDK v6 usage shape surfaced on `generateObject` results (optional in mocks). */
+type GenerateObjectUsage = {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+};
+
 export type GenerateObjectForWildcards = (args: {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
   schema: typeof llmWildcardOutputSchema;
   messages: ModelMessage[];
-}) => Promise<{ object: z.infer<typeof llmWildcardOutputSchema> }>;
+}) => Promise<{
+  object: z.infer<typeof llmWildcardOutputSchema>;
+  usage?: GenerateObjectUsage;
+}>;
 
 export type GenerateObjectForQueries = (args: {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
   schema: typeof llmQueriesOutputSchema;
   messages: ModelMessage[];
-}) => Promise<{ object: z.infer<typeof llmQueriesOutputSchema> }>;
+}) => Promise<{
+  object: z.infer<typeof llmQueriesOutputSchema>;
+  usage?: GenerateObjectUsage;
+}>;
 
 export type GenerateObjectForCritique = (args: {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
   schema: typeof llmCritiqueOutputSchema;
   messages: ModelMessage[];
-}) => Promise<{ object: z.infer<typeof llmCritiqueOutputSchema> }>;
+}) => Promise<{
+  object: z.infer<typeof llmCritiqueOutputSchema>;
+  usage?: GenerateObjectUsage;
+}>;
 
 /**
  * Calls the chat model with structured output; returns trimmed non-empty candidates with intents.
@@ -365,17 +390,23 @@ export const fetchLlmQueryCandidates = async (
     apiKey: string;
     model: string;
     messages: ModelMessage[];
+    onUsage?: OnLlmUsage;
   },
   deps: { generateObjectForQueries: GenerateObjectForQueries } = {
     generateObjectForQueries: generateObject,
   },
 ): Promise<Array<{ text: string; intent: QueryAnalysisIntent }>> => {
   const openai = createOpenAI({ apiKey: params.apiKey });
-  const { object } = await deps.generateObjectForQueries({
+  const { object, usage } = await deps.generateObjectForQueries({
     model: openai(params.model),
     schema: llmQueriesOutputSchema,
     messages: params.messages,
   });
+  const normalizedUsage = extractLlmUsage(usage);
+  if (normalizedUsage !== undefined) {
+    params.onUsage?.(normalizedUsage);
+  }
+
   return (object.queries ?? [])
     .map((q) => ({ text: q.text.trim(), intent: q.intent }))
     .filter((q) => q.text.length > 0);
@@ -459,6 +490,7 @@ export const fetchWildcardCandidates = async (
     allowedLanguages: string[];
     avoidTexts?: string[];
     queryMaxWords?: number;
+    onUsage?: OnLlmUsage;
   },
   deps: { generateObjectForWildcards: GenerateObjectForWildcards } = {
     generateObjectForWildcards: generateObject,
@@ -474,7 +506,7 @@ export const fetchWildcardCandidates = async (
     resolveWildcardUserContent(params.context),
     params.avoidTexts ?? [],
   );
-  const { object } = await deps.generateObjectForWildcards({
+  const { object, usage } = await deps.generateObjectForWildcards({
     model: openai(params.model),
     schema: llmWildcardOutputSchema,
     messages: [
@@ -482,6 +514,11 @@ export const fetchWildcardCandidates = async (
       { role: "user", content: userContent },
     ],
   });
+  const normalizedUsage = extractLlmUsage(usage);
+  if (normalizedUsage !== undefined) {
+    params.onUsage?.(normalizedUsage);
+  }
+
   return (object.queries ?? [])
     .map((q) => ({ text: q.text.trim(), intent: "wildcard" as const }))
     .filter((q) => q.text.length > 0)
@@ -498,6 +535,8 @@ export type FetchLlmQueryCandidatesByPersonaParams = {
   fewShotExemplarCount: number;
   /** Optional extra system instruction (e.g. diversity-gate broaden nudge). */
   broadenSystemNudge?: string;
+  /** Optional sink for per-call token usage across every persona call. */
+  onUsage?: OnLlmUsage;
 };
 
 /**
@@ -544,6 +583,7 @@ export const fetchLlmQueryCandidatesByPersona = async (
           apiKey: params.apiKey,
           model: params.model,
           messages,
+          ...(params.onUsage !== undefined ? { onUsage: params.onUsage } : {}),
         });
         return rows.slice(0, params.perPersonaQuota).map((row) => ({
           ...row,
@@ -675,6 +715,7 @@ export const critiqueQueryCandidates = async (
     context: GetQueryAnalysisResponse;
     candidates: LlmCandidate[];
     dropFraction: number;
+    onUsage?: OnLlmUsage;
   },
   deps: { generateObjectForCritique: GenerateObjectForCritique } = {
     generateObjectForCritique: generateObject,
@@ -687,7 +728,7 @@ export const critiqueQueryCandidates = async (
     "Queries to critique:",
     formatCandidatesForCritique(params.candidates),
   ].join("\n");
-  const { object } = await deps.generateObjectForCritique({
+  const { object, usage } = await deps.generateObjectForCritique({
     model: openai(params.model),
     schema: llmCritiqueOutputSchema,
     messages: [
@@ -698,6 +739,11 @@ export const critiqueQueryCandidates = async (
       { role: "user", content: userContent },
     ],
   });
+  const normalizedUsage = extractLlmUsage(usage);
+  if (normalizedUsage !== undefined) {
+    params.onUsage?.(normalizedUsage);
+  }
+
   return object.ratings ?? [];
 };
 
@@ -717,6 +763,7 @@ export const regenerateDroppedQueries = async (
     keptCandidates: LlmCandidate[];
     dropCount: number;
     fewShotExemplarCount: number;
+    onUsage?: OnLlmUsage;
   },
   deps: { fetchLlmQueryCandidates?: typeof fetchLlmQueryCandidates } = {},
 ): Promise<LlmCandidate[]> => {
@@ -747,6 +794,7 @@ export const regenerateDroppedQueries = async (
     apiKey: params.apiKey,
     model: params.model,
     messages,
+    ...(params.onUsage !== undefined ? { onUsage: params.onUsage } : {}),
   });
 
   return rows.slice(0, params.dropCount);
@@ -771,6 +819,7 @@ export const applySelfCritiqueToCandidateBatch = async (
     context: GetQueryAnalysisResponse;
     dropFraction: number;
     fewShotExemplarCount: number;
+    onUsage?: OnLlmUsage;
   },
   deps: {
     critiqueQueryCandidates?: typeof critiqueQueryCandidates;
@@ -787,6 +836,7 @@ export const applySelfCritiqueToCandidateBatch = async (
     context: params.context,
     candidates,
     dropFraction: params.dropFraction,
+    ...(params.onUsage !== undefined ? { onUsage: params.onUsage } : {}),
   });
 
   const toDrop = selectCandidatesToDropFromCritique(
@@ -811,6 +861,7 @@ export const applySelfCritiqueToCandidateBatch = async (
     keptCandidates,
     dropCount: toDrop.length,
     fewShotExemplarCount: params.fewShotExemplarCount,
+    ...(params.onUsage !== undefined ? { onUsage: params.onUsage } : {}),
   });
 
   return {
@@ -839,6 +890,7 @@ export const applySelfCritiquePass = async (
     fewShotExemplarCount: number;
     runStartMs: number;
     deadlineMs: number;
+    onUsage?: OnLlmUsage;
   },
   deps: {
     applySelfCritiqueToCandidateBatch?: typeof applySelfCritiqueToCandidateBatch;

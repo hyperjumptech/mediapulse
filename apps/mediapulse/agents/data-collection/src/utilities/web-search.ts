@@ -12,7 +12,7 @@ import {
   RoundRobinCursor,
   type DispatchProvider,
 } from "./provider-dispatch";
-import type { SearchHit } from "./search-providers/types";
+import type { SearchProviderResult } from "./search-providers/types";
 
 export interface SearchQuery {
   id: string;
@@ -84,6 +84,11 @@ export interface WebSearchDeps {
   gotClient?: typeof got;
   /** Logger with run correlation; defaults to workspace logger. */
   logger?: WebSearchLogger;
+  /**
+   * Chronicle instrumentation sink: provider-reported search credits are summed
+   * into `credits` across every query/locale/round when provided.
+   */
+  creditsSink?: { credits: number };
 }
 
 const SEARCH_TIMEOUT_MS = 30_000;
@@ -110,12 +115,13 @@ const searchOne = async (
     cursor: RoundRobinCursor;
     gotClient: typeof got;
     log: WebSearchLogger;
+    creditsSink?: { credits: number };
   },
 ): Promise<WebSearchAttemptResult[]> => {
-  const { providers, page, cursor, gotClient, log } = deps;
+  const { providers, page, cursor, gotClient, log, creditsSink } = deps;
 
-  const dispatchProviders: DispatchProvider<SearchHit[]>[] = providers.map(
-    (built) => ({
+  const dispatchProviders: DispatchProvider<SearchProviderResult>[] =
+    providers.map((built) => ({
       name: built.name,
       run: () =>
         built.provider.search(query.text, {
@@ -125,16 +131,19 @@ const searchOne = async (
           timeoutMs: SEARCH_TIMEOUT_MS,
           logger: log,
         }),
-    }),
-  );
+    }));
 
   try {
-    const hits = await dispatch(
+    const result = await dispatch(
       "search",
       dispatchProviders,
-      (result) => result.length > 0,
+      (candidate) => candidate.hits.length > 0,
       cursor,
     );
+    if (creditsSink !== undefined && result.credits !== undefined) {
+      creditsSink.credits += result.credits;
+    }
+    const hits = result.hits;
 
     if (hits.length === 0) {
       return [
@@ -199,7 +208,13 @@ export async function performWebSearch(
   queries: SearchQuery[],
   deps: WebSearchDeps,
 ): Promise<WebSearchAttemptResult[]> {
-  const { config, locales, gotClient = got, logger: logOpt } = deps;
+  const {
+    config,
+    locales,
+    gotClient = got,
+    logger: logOpt,
+    creditsSink,
+  } = deps;
   const log = logOpt ?? defaultLogger;
   const page = deps.page ?? 0;
   const cursor = deps.cursor ?? new RoundRobinCursor();
@@ -235,6 +250,7 @@ export async function performWebSearch(
         cursor,
         gotClient,
         log,
+        ...(creditsSink !== undefined ? { creditsSink } : {}),
       }),
     { concurrency: 4 },
   );
