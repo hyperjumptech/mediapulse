@@ -49,8 +49,10 @@ import {
 import {
   classifyNoisyUrl,
   derivePublisherFromUrl,
+  sleep,
   type UrlNoiseReason,
 } from "@workspace/utils";
+import { computeStartupJitterMs } from "./utilities/startup-jitter";
 
 /** Run success criteria, formerly the configurable runPolicy section. */
 const RUN_POLICY: RunPolicy = {
@@ -109,6 +111,19 @@ export async function runDataCollection(
     },
     "data collection run started",
   );
+
+  // Random startup delay so concurrent ticker runs de-synchronize and don't burst the
+  // shared fetch-provider (e.g. Serper) rate limit in the same instant.
+  const startupJitterMs = computeStartupJitterMs(
+    config.collection.startupJitterMs,
+  );
+  if (startupJitterMs > 0) {
+    log.info(
+      { startupJitterMs },
+      "data collection run: applying startup jitter",
+    );
+    await sleep(startupJitterMs);
+  }
 
   const runPolicy = RUN_POLICY;
   const targetSavedSources = config.collection.targetSavedSources;

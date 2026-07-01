@@ -193,7 +193,7 @@ describe("data-collection agent (HTTP)", () => {
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({
           input: { tickerId: TICKER_ID },
-          config: {},
+          config: { collection: { startupJitterMs: 0 } },
         }),
       }),
     );
@@ -255,7 +255,7 @@ describe("data-collection agent (HTTP)", () => {
         headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({
           input: { tickerId: TICKER_ID },
-          config: {},
+          config: { collection: { startupJitterMs: 0 } },
         }),
       }),
     );

@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type got from "got";
+import { HTTPError } from "got";
 
 import { createSerperFetchProvider } from "./serper";
 import type { FetchProviderConfig } from "./types";
@@ -24,6 +25,36 @@ const mockGotPostResponse = (jsonValue: unknown, statusCode = 200) => ({
   statusCode,
   body: JSON.stringify(jsonValue),
 });
+
+/** Builds a minimal got {@link HTTPError} exposing status and headers. */
+const createTestHttpError = (
+  statusCode: number,
+  headers: Record<string, string> = {},
+): HTTPError => {
+  const plainResponse: Record<string, unknown> = {
+    statusCode,
+    statusMessage: "Error",
+    headers,
+    requestUrl: new URL("http://example.test"),
+    redirectUrls: [],
+    isFromCache: false,
+    url: "http://example.test",
+    timings: {},
+    retryCount: 0,
+    ok: false,
+  };
+  plainResponse.request = {
+    _onResponse: () => {
+      /* noop — satisfies Got's request probe */
+    },
+    options: { method: "GET", url: new URL("http://example.test") },
+    response: plainResponse,
+  };
+
+  return new HTTPError(
+    plainResponse as unknown as ConstructorParameters<typeof HTTPError>[0],
+  );
+};
 
 describe("createSerperFetchProvider", () => {
   afterEach(() => {
@@ -106,6 +137,32 @@ describe("createSerperFetchProvider", () => {
         logger: { info: vi.fn(), warn: vi.fn() },
       }),
     ).rejects.toThrow();
+  });
+
+  it("retries a 429 then returns the successful response", async () => {
+    // Setup
+    const postMock = vi
+      .fn()
+      .mockRejectedValueOnce(createTestHttpError(429, { "retry-after": "0" }))
+      .mockReturnValueOnce(mockGotPostResponse({ text: "Article body" }));
+    const rateLimiter = mockRateLimiter();
+    const provider = createSerperFetchProvider({
+      ...defaultConfig,
+      retry: { maxAttempts: 3, baseDelayMs: 1, maxDelayMs: 8 },
+    });
+
+    // Act
+    const result = await provider.fetchOne("http://example.com", {
+      gotClient: { post: postMock } as unknown as typeof got,
+      rateLimiter,
+      logger: { info: vi.fn(), warn: vi.fn() },
+    });
+
+    // Assert
+    expect(result).toEqual({ content: "Article body" });
+    expect(postMock).toHaveBeenCalledTimes(2);
+    expect(rateLimiter.acquire).toHaveBeenCalledTimes(2);
+    expect(rateLimiter.recordResponse).toHaveBeenCalledWith(429);
   });
 
   it("throws when text is empty", async () => {

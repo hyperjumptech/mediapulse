@@ -54,6 +54,7 @@ const baseConfig = dataCollectionAgentConfigSchema.parse({
   collection: {
     targetSavedSources: 1,
     maxRounds: 3,
+    startupJitterMs: 0,
   },
 });
 

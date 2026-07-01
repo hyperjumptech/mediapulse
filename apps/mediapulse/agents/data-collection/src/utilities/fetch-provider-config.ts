@@ -39,11 +39,16 @@ const FETCH_PROVIDER_DEFAULTS: Record<
 
 const FETCH_TIMEOUT_MS = 45_000;
 
-/** Fetch providers fail fast and rely on round-robin failover instead of retrying. */
+/**
+ * Fetch providers retry transient failures (HTTP 429/5xx, network) a few times with
+ * backoff that honors `Retry-After`, then fall through to round-robin failover. Only one
+ * provider is typically configured, so retry is the primary containment for rate limiting.
+ * `maxDelayMs` is kept well under `FETCH_TIMEOUT_MS` so a single backoff can't wedge the run.
+ */
 const FETCH_RETRY = {
-  maxAttempts: 1,
+  maxAttempts: 3,
   baseDelayMs: 1000,
-  maxDelayMs: 10_000,
+  maxDelayMs: 8_000,
 } as const;
 
 /**
