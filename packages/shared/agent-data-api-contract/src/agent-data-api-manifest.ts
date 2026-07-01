@@ -81,6 +81,12 @@ import {
   postDataCollectionRunResponseSchema,
 } from "./data-collection-run.js";
 import {
+  articleAnalysisRunQuerySchema,
+  getArticleAnalysisRunResponseSchema,
+  postArticleAnalysisRunBodySchema,
+  postArticleAnalysisRunResponseSchema,
+} from "./article-analysis-run.js";
+import {
   dataCollectionFailureQuerySchema,
   getDataCollectionFailureResponseSchema,
   postDataCollectionFailureBodySchema,
@@ -419,6 +425,28 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postDataCollectionRunBodySchema,
         response: postDataCollectionRunResponseSchema,
+      },
+    },
+  },
+  articleAnalysisRun: {
+    v1: {
+      get: {
+        query: articleAnalysisRunQuerySchema,
+        response: getArticleAnalysisRunResponseSchema,
+      },
+      post: {
+        body: postArticleAnalysisRunBodySchema,
+        response: postArticleAnalysisRunResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: articleAnalysisRunQuerySchema,
+        response: getArticleAnalysisRunResponseSchema,
+      },
+      post: {
+        body: postArticleAnalysisRunBodySchema,
+        response: postArticleAnalysisRunResponseSchema,
       },
     },
   },

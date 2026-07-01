@@ -19,6 +19,7 @@ const makeDeps = (
   searchQuerySet: { findMany: vi.fn().mockResolvedValue([]) },
   dataCollectionRun: { findMany: vi.fn().mockResolvedValue([]) },
   dataSourceTickerSection: { findMany: vi.fn().mockResolvedValue([]) },
+  articleAnalysisRun: { findMany: vi.fn().mockResolvedValue([]) },
   contentGenerationRun: { findFirst: vi.fn().mockResolvedValue(null) },
   deliveryRun: { findMany: vi.fn().mockResolvedValue([]) },
   ...overrides,
@@ -143,6 +144,43 @@ describe("buildChronicle", () => {
 
     expect(result.upstreamRunCount).toBe(4);
     expect(result.totalSearchCredits).toBe(96);
+  });
+
+  it("builds article-analysis runs with tokens from ArticleAnalysisRun rows", async () => {
+    const deps = makeDeps({
+      articleAnalysisRun: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "aar-1",
+            status: "success",
+            startedAt: new Date("2026-06-30T06:04:24.000Z"),
+            completedAt: new Date("2026-06-30T06:05:02.000Z"),
+            model: "gpt-4o-mini",
+            promptTokens: 18_900,
+            completionTokens: 3_400,
+            totalTokens: 22_300,
+            scored: 41,
+            rejected: 48,
+            backlog: 0,
+            stopReason: "drained",
+            durationMs: 38_000,
+          },
+        ]),
+      },
+    });
+
+    const result = await buildChronicle(NEWSLETTER, deps);
+
+    const articleAnalysis = stageByName(result, "article-analysis");
+    expect(articleAnalysis.kind).toBe("upstream");
+    if (articleAnalysis.kind === "upstream") {
+      expect(articleAnalysis.runCount).toBe(1);
+      expect(articleAnalysis.totals.tokens.totalTokens).toBe(22_300);
+      expect(articleAnalysis.runs[0]?.model).toBe("gpt-4o-mini");
+      expect(articleAnalysis.runs[0]?.outputs.stopReason).toBe("drained");
+    }
+    // Article-analysis tokens count toward the newsletter total.
+    expect(result.totalTokens).toBe(17_250 + 22_300);
   });
 
   it("surfaces a failed content-generation run and marks the pipeline failed", async () => {

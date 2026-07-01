@@ -1,5 +1,9 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
-import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
+import {
+  createTokenUsageAccumulator,
+  type AgentRunContext,
+  type AgentRunResult,
+} from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-article-analysis";
 import { logger } from "@workspace/logger";
 import crypto from "node:crypto";
@@ -83,6 +87,9 @@ export async function run(
 ): Promise<AgentRunResult> {
   const { config, token, hermesCorrelation } = context;
   const runId = crypto.randomUUID();
+  const startedAt = new Date();
+  // Chronicle instrumentation: accumulate classification LLM token usage across the run.
+  const tokenUsage = createTokenUsageAccumulator();
   const log = logger.child({ component: "article-analysis", runId });
 
   const report = (
@@ -156,6 +163,7 @@ export async function run(
           content: dataSource.content,
           acceptanceCriteria: config.acceptanceCriteria,
           ...(tickerContext ? { tickerContext } : {}),
+          onUsage: tokenUsage.onUsage,
         });
 
         return {
@@ -235,6 +243,37 @@ export async function run(
     }),
     "completed",
   );
+
+  // Chronicle instrumentation: persist a run record (tokens/model/timing/counts).
+  // Article analysis drains a cross-ticker backlog, so the run is not tied to one
+  // ticker; the Chronicle aggregates these by window. Best-effort: a failure here
+  // must not fail the run.
+  const usageTotals = tokenUsage.totals();
+  try {
+    await dataApiClient.articleAnalysisRun.create({
+      id: runId,
+      ...(hermesCorrelation?.scheduleExecutionId
+        ? { scheduleExecutionId: hermesCorrelation.scheduleExecutionId }
+        : {}),
+      startedAt: startedAt.toISOString(),
+      completedAt: new Date().toISOString(),
+      status,
+      model: config.acceptance.model,
+      promptTokens: usageTotals.promptTokens,
+      completionTokens: usageTotals.completionTokens,
+      totalTokens: usageTotals.totalTokens,
+      scored: totalScored,
+      rejected: totalRejected,
+      backlog,
+      ...(stopReason !== null ? { stopReason } : {}),
+      durationMs: Date.now() - startedAt.getTime(),
+    });
+  } catch (error) {
+    log.warn(
+      { err: error },
+      "failed to persist article-analysis run record; continuing",
+    );
+  }
 
   return {
     success: status !== "failed",

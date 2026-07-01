@@ -493,6 +493,7 @@ model Ticker {
   collectionUrlOutcomes  CollectionUrlOutcome[]
   deliveryRuns           DeliveryRun[]
   contentGenerationRuns  ContentGenerationRun[]
+  articleAnalysisRuns    ArticleAnalysisRun[]
   tickerSections         DataSourceTickerSection[]
 
   @@map("ticker")
@@ -733,6 +734,36 @@ model DataCollectionRun {
 
   @@index([scheduleExecutionId])
   @@map("data_collection_run")
+}
+
+/// One run of the article-analysis agent. Article analysis has no per-newsletter
+/// tie, so the Chronicle aggregates these across a newsletter's lookback window.
+model ArticleAnalysisRun {
+  id                  String                  @id @default(uuid())
+  tickerId            String?                 @map("ticker_id")
+  scheduleExecutionId String?                 @map("schedule_execution_id")
+  startedAt           DateTime                @map("started_at")
+  completedAt         DateTime?               @map("completed_at")
+  status              DataCollectionRunStatus
+
+  model            String?
+  promptTokens     Int @default(0) @map("prompt_tokens")
+  completionTokens Int @default(0) @map("completion_tokens")
+  totalTokens      Int @default(0) @map("total_tokens")
+
+  scored     Int     @default(0)
+  rejected   Int     @default(0)
+  backlog    Int     @default(0)
+  stopReason String? @map("stop_reason")
+  durationMs Int?    @map("duration_ms")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticker Ticker? @relation(fields: [tickerId], references: [id])
+
+  @@index([tickerId, startedAt])
+  @@index([scheduleExecutionId])
+  @@map("article_analysis_run")
 }
 
 model DataCollectionFailure {
