@@ -168,6 +168,23 @@ describe("mediapulseUsersRoutes", () => {
     );
   });
 
+  it("serves table metadata at /meta without hitting the detail handler", async () => {
+    const res = await mediapulseUsersRoutes.request("http://localhost/meta", {
+      method: "GET",
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      title: string;
+      columns: Array<{ key: string }>;
+      actions: { view: boolean };
+    };
+    expect(body.title).toBe("Mediapulse Users");
+    expect(body.columns.map((column) => column.key)).toContain("email");
+    expect(body.actions.view).toBe(true);
+    expect(prisma.mediapulseUser.findUnique).not.toHaveBeenCalled();
+  });
+
   it("returns a detail payload with subscriptions for an existing user", async () => {
     vi.mocked(prisma.mediapulseUser.findUnique).mockResolvedValue(
       detailRow as never,
