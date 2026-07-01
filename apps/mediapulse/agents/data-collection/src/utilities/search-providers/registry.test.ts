@@ -32,11 +32,12 @@ describe("createSearchProvider", () => {
         },
         { title: "No link" },
       ],
+      credits: 2,
     });
 
-    const hits = await provider.search("apple", ctx);
+    const result = await provider.search("apple", ctx);
 
-    expect(hits).toEqual([
+    expect(result.hits).toEqual([
       {
         url: "https://e.com/a",
         title: "T",
@@ -44,6 +45,7 @@ describe("createSearchProvider", () => {
         publishedAt: "2026-06-20",
       },
     ]);
+    expect(result.credits).toBe(2);
   });
 
   it("parses Tavily results", async () => {
@@ -59,9 +61,9 @@ describe("createSearchProvider", () => {
       ],
     });
 
-    const hits = await provider.search("apple", ctx);
+    const result = await provider.search("apple", ctx);
 
-    expect(hits[0]).toEqual({
+    expect(result.hits[0]).toEqual({
       url: "https://e.com/b",
       title: "T",
       snippet: "C",
@@ -82,9 +84,9 @@ describe("createSearchProvider", () => {
       ],
     });
 
-    const hits = await provider.search("apple", ctx);
+    const result = await provider.search("apple", ctx);
 
-    expect(hits[0]).toEqual({
+    expect(result.hits[0]).toEqual({
       url: "https://e.com/c",
       title: "T",
       snippet: "some spaced text",

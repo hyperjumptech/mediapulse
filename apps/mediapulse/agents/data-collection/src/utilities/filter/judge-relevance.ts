@@ -2,6 +2,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { isRelevant } from "@workspace/agent-ingestion";
+import { extractLlmUsage, type OnLlmUsage } from "@workspace/agent-runtime";
 
 import type { RelevanceConfig } from "../config-schema";
 
@@ -45,6 +46,8 @@ export interface JudgeRelevanceInput {
   /** Injectable for tests; defaults to the AI SDK `generateObject`. */
   generate?: typeof generateObject;
   logger?: RelevanceLogger;
+  /** Chronicle instrumentation: invoked with token usage when the LLM path runs. */
+  onUsage?: OnLlmUsage;
 }
 
 /** Runs the keyword/alias relevance check used as the fallback. */
@@ -141,6 +144,10 @@ export const judgeRelevance = async (
       prompt: buildPrompt(input),
       maxRetries: 0,
     });
+    const usage = extractLlmUsage(result.usage);
+    if (usage !== undefined) {
+      input.onUsage?.(usage);
+    }
 
     return result.object.relevant
       ? { keep: true, via: "llm" }

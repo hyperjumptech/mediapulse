@@ -2,7 +2,12 @@ import { z } from "zod";
 
 import { RECENCY_DAYS, RESULTS_PER_QUERY } from "./constants";
 
-import type { SearchHit, SearchProvider, SearchProviderContext } from "./types";
+import type {
+  SearchHit,
+  SearchProvider,
+  SearchProviderContext,
+  SearchProviderResult,
+} from "./types";
 
 const EXA_SEARCH_URL = "https://api.exa.ai/search";
 
@@ -43,7 +48,7 @@ const searchExa = async (
   apiKey: string,
   queryText: string,
   ctx: SearchProviderContext,
-): Promise<SearchHit[]> => {
+): Promise<SearchProviderResult> => {
   const response = await ctx.gotClient.post(EXA_SEARCH_URL, {
     json: {
       query: queryText,
@@ -60,7 +65,7 @@ const searchExa = async (
     timeout: { request: ctx.timeoutMs },
   });
 
-  return parseExaResponse(JSON.parse(response.body));
+  return { hits: parseExaResponse(JSON.parse(response.body)) };
 };
 
 /**

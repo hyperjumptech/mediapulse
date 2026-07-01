@@ -39,6 +39,16 @@ export {
   type HermesInvokeEnvelopeV1,
 } from "./invoke-envelope.js";
 export { registerWithRegistry } from "./register-with-registry.js";
+export {
+  createTokenUsageAccumulator,
+  extractLlmUsage,
+  type AiSdkUsage,
+  type NormalizedLlmUsage,
+  type OnEmbeddingUsage,
+  type OnLlmUsage,
+  type TokenUsageAccumulator,
+  type TokenUsageTotals,
+} from "./token-usage.js";
 export type {
   AgentConfig,
   AgentRunResult,

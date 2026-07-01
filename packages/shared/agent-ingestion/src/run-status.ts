@@ -42,6 +42,14 @@ export type RunCounters = {
   agentId?: string;
   roundsExecuted?: number;
   stopReason?: string;
+  // Chronicle instrumentation: provider usage + relevance-LLM token record.
+  searchProvider?: string;
+  searchCredits?: number;
+  fetchByProvider?: Record<string, number>;
+  relevanceModel?: string;
+  relevancePromptTokens?: number;
+  relevanceCompletionTokens?: number;
+  relevanceTotalTokens?: number;
 };
 
 /**

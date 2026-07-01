@@ -10,6 +10,16 @@ export interface SearchHit {
   publishedAt?: string;
 }
 
+/** A provider's response for one query: the hits plus optional provider-reported credits. */
+export interface SearchProviderResult {
+  hits: SearchHit[];
+  /**
+   * Provider-reported credits consumed by this response (Serper's `credits`).
+   * Undefined for providers that do not report usage.
+   */
+  credits?: number;
+}
+
 /** Minimal structured logger passed into search provider adapters. */
 export interface SearchProviderLogger {
   info: (obj: object, msg?: string) => void;
@@ -33,5 +43,5 @@ export interface SearchProvider {
   search: (
     queryText: string,
     ctx: SearchProviderContext,
-  ) => Promise<SearchHit[]>;
+  ) => Promise<SearchProviderResult>;
 }

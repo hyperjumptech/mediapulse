@@ -263,6 +263,8 @@ async function executePageCollectionRun(
   let droppedByHostErrorRate = 0;
   let fetchSuccessCount = 0;
   let fetchFailedCount = 0;
+  // Chronicle instrumentation: per-provider fetch success counts across the run.
+  const fetchByProvider: Record<string, number> = {};
   let persistedCount = 0;
 
   const canonicalItemMap = new Map<string, CandidateItem>();
@@ -456,6 +458,7 @@ async function executePageCollectionRun(
       metadata: { provider: page.provider },
     });
     fetchSuccessCount += 1;
+    fetchByProvider[page.provider] = (fetchByProvider[page.provider] ?? 0) + 1;
     outcomes.push(
       makeCollectedOutcome({
         id: crypto.randomUUID(),
@@ -570,6 +573,7 @@ async function executePageCollectionRun(
     deadlineHit,
     durationMs: Date.now() - startedAt.getTime(),
     agentId: "page-collection",
+    ...(Object.keys(fetchByProvider).length > 0 ? { fetchByProvider } : {}),
   };
 
   await withApiStep("persist run record", () =>
