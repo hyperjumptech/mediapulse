@@ -69,6 +69,10 @@ describe("UnsubscribeConfirm", () => {
         screen.getByText(/You've been unsubscribed from BBCA updates\./),
       ).toBeInTheDocument();
     });
+    const resubscribeLink = screen.getByRole("link", {
+      name: /Subscribe again/i,
+    });
+    expect(resubscribeLink).toHaveAttribute("href", "/");
     expect(fetchMock).toHaveBeenCalledWith("/api/unsubscribe/confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

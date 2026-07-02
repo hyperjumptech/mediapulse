@@ -20,6 +20,8 @@ type ConfirmCopy = {
   expired: string;
   invalid: string;
   outcome: (status: UnsubscribeStatus, symbol?: string) => string;
+  /** Link label shown after unsubscribing, pointing back to the subscription page. */
+  resubscribeLabel: string;
 };
 
 const withSymbol = (symbol: string | undefined, fallback: string): string =>
@@ -29,7 +31,7 @@ const COPY: Record<UnsubscribeLanguage, ConfirmCopy> = {
   en: {
     title: "Unsubscribe?",
     prompt: (symbol) =>
-      `You'll stop receiving ${symbol} updates. This can't be undone from this link.`,
+      `You'll stop receiving ${symbol} updates. You can subscribe again anytime.`,
     confirmButton: "Confirm unsubscribe",
     confirming: "Unsubscribing…",
     expired:
@@ -52,11 +54,12 @@ const COPY: Record<UnsubscribeLanguage, ConfirmCopy> = {
       }
       return "Unsubscribe is temporarily unavailable. Please try again later.";
     },
+    resubscribeLabel: "Subscribe again",
   },
   id: {
     title: "Berhenti berlangganan?",
     prompt: (symbol) =>
-      `Anda akan berhenti menerima pembaruan ${symbol}. Tindakan ini tidak dapat dibatalkan dari tautan ini.`,
+      `Anda akan berhenti menerima pembaruan ${symbol}. Anda dapat berlangganan lagi kapan saja.`,
     confirmButton: "Konfirmasi berhenti berlangganan",
     confirming: "Memproses…",
     expired:
@@ -79,6 +82,7 @@ const COPY: Record<UnsubscribeLanguage, ConfirmCopy> = {
       }
       return "Berhenti berlangganan sedang tidak tersedia. Silakan coba lagi nanti.";
     },
+    resubscribeLabel: "Berlangganan lagi",
   },
 };
 

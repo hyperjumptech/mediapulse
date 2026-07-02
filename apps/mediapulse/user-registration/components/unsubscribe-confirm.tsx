@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { MailX, CheckCircle2 } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -47,6 +48,11 @@ const UnsubscribeConfirm = ({ token, tickerSymbol, language }: Props) => {
         <p className="text-sm text-muted-foreground">
           {copy.outcome(result.status, result.displaySymbol ?? tickerSymbol)}
         </p>
+        {isSuccess ? (
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/">{copy.resubscribeLabel}</Link>
+          </Button>
+        ) : null}
       </div>
     );
   }

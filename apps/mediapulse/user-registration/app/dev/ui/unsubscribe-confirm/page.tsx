@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MailX, CheckCircle2 } from "lucide-react";
 
 import { env } from "@mediapulse/env/app-user-registration";
+import { Button } from "@workspace/ui/components/button";
 
 import { HyperjumpProductAttribution } from "@/components/hyperjump-product-attribution";
 import { UnsubscribeConfirm } from "@/components/unsubscribe-confirm";
@@ -42,6 +44,11 @@ const OutcomeState = ({ status }: { status: UnsubscribeStatus }) => {
       <p className="text-sm text-muted-foreground">
         {copy.outcome(status, PREVIEW_SYMBOL)}
       </p>
+      {isSuccess ? (
+        <Button variant="ghost" size="sm" asChild>
+          <Link href="/">{copy.resubscribeLabel}</Link>
+        </Button>
+      ) : null}
     </div>
   );
 };
