@@ -53,7 +53,6 @@ const AUTH_HEADERS = { Authorization: "Bearer test-token" };
 const DELIVERY_CONFIG = {
   resendApiKey: "re_test_key",
   resend: { from: "sender@example.com" },
-  unsubscribe: { secret: "test-secret", baseUrl: "https://example.com/api" },
 };
 
 vi.mock("@workspace/agent-auth-client", () => ({
@@ -69,6 +68,8 @@ vi.mock("@mediapulse/env/agents-delivery", () => ({
     AGENT_PUBLIC_URL: undefined,
     DOMAIN_INTEGRATION_API_KEY: undefined,
     DOMAIN_INTEGRATION_ID: undefined,
+    UNSUBSCRIBE_SECRET: "test-secret",
+    UNSUBSCRIBE_BASE_URL: "https://register.example.com",
   },
 }));
 

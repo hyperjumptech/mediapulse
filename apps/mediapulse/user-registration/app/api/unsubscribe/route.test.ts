@@ -20,40 +20,31 @@ describe("user-registration unsubscribe route", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders success html for GET unsubscribe", async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({ status: "unsubscribed", displaySymbol: "BBCA" }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
-    );
+  it("redirects GET to the confirmation page without unsubscribing", async () => {
     const { GET } = await import("./route");
 
     const response = await GET(
-      new Request("http://localhost/api/unsubscribe?token=test-token"),
+      new Request("http://localhost/api/unsubscribe?token=test-token&lang=id"),
     );
-    const body = await response.text();
 
-    expect(response.status).toBe(200);
-    expect(body).toContain("Unsubscribed");
-    expect(body).toContain("BBCA");
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://agent-data-api.internal/api/v1/user-registration-unsubscribe?token=test-token",
-      { method: "GET", cache: "no-store" },
-    );
+    expect(response.status).toBe(303);
+    const location = new URL(response.headers.get("location") ?? "");
+    expect(location.pathname).toBe("/unsubscribe");
+    expect(location.searchParams.get("token")).toBe("test-token");
+    expect(location.searchParams.get("lang")).toBe("id");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("returns fallback html when GET upstream fails", async () => {
-    fetchMock.mockRejectedValueOnce(new Error("network"));
+  it("redirects GET with no token to the confirmation page", async () => {
     const { GET } = await import("./route");
 
-    const response = await GET(
-      new Request("http://localhost/api/unsubscribe?token=test-token"),
-    );
-    const body = await response.text();
+    const response = await GET(new Request("http://localhost/api/unsubscribe"));
 
-    expect(response.status).toBe(200);
-    expect(body).toContain("temporarily unavailable");
+    expect(response.status).toBe(303);
+    const location = new URL(response.headers.get("location") ?? "");
+    expect(location.pathname).toBe("/unsubscribe");
+    expect(location.searchParams.has("token")).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("returns empty 200 for POST one-click and forwards token", async () => {
@@ -82,5 +73,19 @@ describe("user-registration unsubscribe route", () => {
         body: JSON.stringify({ token: "test-token" }),
       },
     );
+  });
+
+  it("returns empty 200 for POST one-click even when upstream fails", async () => {
+    fetchMock.mockRejectedValueOnce(new Error("network"));
+    const { POST } = await import("./route");
+
+    const response = await POST(
+      new Request("http://localhost/api/unsubscribe?token=test-token", {
+        method: "POST",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("");
   });
 });

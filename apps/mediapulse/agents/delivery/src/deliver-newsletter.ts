@@ -53,6 +53,23 @@ export type RecipientSendResult = {
   resendEmailId?: string;
 };
 
+/** Unsubscribe link settings sourced from env at the call site. */
+export type UnsubscribeSettings = {
+  /**
+   * Origin of the user-registration app (e.g. "https://register.mediapulse.com").
+   * The confirmation page (`/unsubscribe`) and one-click endpoint (`/api/unsubscribe`)
+   * are appended at runtime.
+   */
+  baseUrl: string;
+  /** Shared HMAC secret for signing unsubscribe tokens. */
+  secret: string;
+};
+
+/** DeliveryConfig augmented with the env-sourced unsubscribe settings a run needs. */
+export type DeliveryRunConfig = DeliveryConfig & {
+  unsubscribe: UnsubscribeSettings;
+};
+
 export type DeliverNewsletterDependencies = {
   resend: Resend;
   rateLimiter?: SendRateLimiter;
@@ -142,7 +159,7 @@ export async function deliverNewsletterToSubscribers(
   newsletter: DeliveryNewsletter,
   subscribers: DeliverySubscriber[],
   deliveredUserTickerIds: string[],
-  config: DeliveryConfig,
+  config: DeliveryRunConfig,
   dependencies: DeliverNewsletterDependencies,
 ): Promise<{
   results: RecipientSendResult[];
@@ -231,13 +248,17 @@ export async function deliverNewsletterToSubscribers(
       );
     }
 
-    // Generate per-subscriber unsubscribe token and URL
+    // Generate per-subscriber unsubscribe token, confirmation page link, and one-click endpoint.
     const unsubscribeToken = createUnsubscribeToken({
       userTickerId: sub.userTickerId,
       tickerSymbol: newsletter.symbol,
       secret: config.unsubscribe.secret,
     });
-    const unsubscribeUrl = `${config.unsubscribe.baseUrl}/api/unsubscribe?token=${unsubscribeToken}`;
+    const unsubscribeBaseUrl = config.unsubscribe.baseUrl.replace(/\/$/, "");
+    // Human-facing footer link points at the confirmation page.
+    const unsubscribeUrl = `${unsubscribeBaseUrl}/unsubscribe?token=${unsubscribeToken}&lang=${sub.language}`;
+    // RFC 8058 one-click POST endpoint for the List-Unsubscribe header (mail clients only).
+    const oneClickUnsubscribeUrl = `${unsubscribeBaseUrl}/api/unsubscribe?token=${unsubscribeToken}`;
 
     const renderStart = Date.now();
     const emailTitle = parseNewsletterEmailSubject(localizedSubject).title;
@@ -273,7 +294,7 @@ export async function deliverNewsletterToSubscribers(
         ? { tags: config.resend.tags }
         : {}),
       headers: {
-        "List-Unsubscribe": `<${unsubscribeUrl}>`,
+        "List-Unsubscribe": `<${oneClickUnsubscribeUrl}>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
         // Self-describing Message-ID so a reply's In-Reply-To header lets the
         // newsletter-feedback agent correlate the reply to this newsletter and

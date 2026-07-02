@@ -9,6 +9,7 @@ export const env = createEnv({
     PORT: z.number({ coerce: true }).optional(),
     AGENT_DATA_API_URL: z.string().min(1),
     REGISTRATION_CONFIRM_SECRET: z.string().min(1),
+    UNSUBSCRIBE_SECRET: z.string().min(1),
     USER_REGISTRATION_RESEND_API_KEY: z.string().min(1),
     USER_REGISTRATION_RESEND_FROM: z.string().min(1),
     USER_REGISTRATION_PUBLIC_URL: z.string().min(1),
