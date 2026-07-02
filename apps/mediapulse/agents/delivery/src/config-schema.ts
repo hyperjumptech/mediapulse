@@ -77,16 +77,6 @@ export const DeliveryConfigSchema = z
      * delivery agent; both keys fall back to the public defaults when omitted.
      */
     branding: brandingSchema,
-    /** Unsubscribe feature config for per-subscriber token generation. */
-    unsubscribe: z.object({
-      /** Shared HMAC secret for signing/verifying unsubscribe tokens. */
-      secret: z.string().min(1),
-      /**
-       * Public base URL of the user-registration app (e.g. "https://register.mediapulse.com").
-       * The full unsubscribe path `/api/unsubscribe` is appended at runtime.
-       */
-      baseUrl: z.string().url(),
-    }),
   })
   .superRefine((val, ctx) => {
     if (!val.send.includeHtml && !val.send.includeText) {

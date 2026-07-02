@@ -18,6 +18,7 @@ import { z } from "zod";
 import { DeliveryConfigSchema, type DeliveryConfig } from "./config-schema.js";
 import {
   deliverNewsletterToSubscribers,
+  type DeliveryRunConfig,
   type RecipientSendResult,
 } from "./deliver-newsletter.js";
 import { resolveDeliveryRecipients } from "./resolve-delivery-recipients.js";
@@ -285,11 +286,20 @@ const app = createAgentApp<
         stage = "send";
         report("Sending emails", `${pendingRecipients} recipients via Resend`);
         const newsletterIdForClaim = deliveryData.newsletter.id;
+        // Unsubscribe settings come from env, not Hermes config: the shared HMAC secret and
+        // the user-registration app origin (confirmation page + one-click endpoint are derived).
+        const runConfig: DeliveryRunConfig = {
+          ...config,
+          unsubscribe: {
+            baseUrl: env.UNSUBSCRIBE_BASE_URL,
+            secret: env.UNSUBSCRIBE_SECRET,
+          },
+        };
         const sendResult = await deliverNewsletterToSubscribers(
           deliveryData.newsletter,
           subscribers,
           deliveredUserTickerIds,
-          config,
+          runConfig,
           {
             resend,
             logger,

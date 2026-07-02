@@ -8,12 +8,22 @@ import {
   renderNewsletterEmail,
 } from "@workspace/email-templates";
 
-import { DeliveryConfigSchema } from "./config-schema.js";
+import { DeliveryConfigSchema, type DeliveryConfig } from "./config-schema.js";
 import {
   buildNewsletterMessageId,
   deliverNewsletterToSubscribers,
   type DeliveryNewsletter,
+  type DeliveryRunConfig,
 } from "./deliver-newsletter.js";
+
+/** Augments a parsed Hermes config with the env-sourced unsubscribe settings a run needs. */
+const withUnsubscribe = (config: DeliveryConfig): DeliveryRunConfig => ({
+  ...config,
+  unsubscribe: {
+    baseUrl: "https://example.com",
+    secret: "test-secret",
+  },
+});
 
 describe("buildNewsletterMessageId", () => {
   it("embeds the newsletter and userTicker ids using the sender domain", () => {
@@ -79,11 +89,12 @@ describe("deliverNewsletterToSubscribers", () => {
     });
   });
 
-  const baseConfig = DeliveryConfigSchema.parse({
-    resendApiKey: "re_k",
-    resend: { from: "from@example.com" },
-    unsubscribe: { secret: "test-secret", baseUrl: "https://example.com" },
-  });
+  const baseConfig = withUnsubscribe(
+    DeliveryConfigSchema.parse({
+      resendApiKey: "re_k",
+      resend: { from: "from@example.com" },
+    }),
+  );
 
   it("renders per subscriber, injects unsubscribeUrl and List-Unsubscribe headers", async () => {
     const sendWithRetry = vi
@@ -112,7 +123,7 @@ describe("deliverNewsletterToSubscribers", () => {
       bodyText: newsletter.content,
       variant: "default",
       unsubscribeUrl: expect.stringContaining(
-        "https://example.com/api/unsubscribe",
+        "https://example.com/unsubscribe",
       ),
       tickerSymbol: "AAPL",
       mediapulseSiteUrl: DEFAULT_MEDIAPULSE_SITE_URL,
@@ -245,15 +256,13 @@ describe("deliverNewsletterToSubscribers", () => {
   });
 
   it("omits html from the payload when send.includeHtml is false", async () => {
-    const cfg = DeliveryConfigSchema.parse({
-      resendApiKey: "re_k",
-      resend: { from: "from@example.com" },
-      send: { includeHtml: false, includeText: true },
-      unsubscribe: {
-        secret: "test-secret",
-        baseUrl: "https://example.com/api",
-      },
-    });
+    const cfg = withUnsubscribe(
+      DeliveryConfigSchema.parse({
+        resendApiKey: "re_k",
+        resend: { from: "from@example.com" },
+        send: { includeHtml: false, includeText: true },
+      }),
+    );
     const sendWithRetry = vi
       .fn()
       .mockResolvedValue({ id: "re_2", attempts: 1 });
@@ -276,15 +285,13 @@ describe("deliverNewsletterToSubscribers", () => {
   });
 
   it("omits text from the payload when send.includeText is false", async () => {
-    const cfg = DeliveryConfigSchema.parse({
-      resendApiKey: "re_k",
-      resend: { from: "from@example.com" },
-      send: { includeHtml: true, includeText: false },
-      unsubscribe: {
-        secret: "test-secret",
-        baseUrl: "https://example.com/api",
-      },
-    });
+    const cfg = withUnsubscribe(
+      DeliveryConfigSchema.parse({
+        resendApiKey: "re_k",
+        resend: { from: "from@example.com" },
+        send: { includeHtml: true, includeText: false },
+      }),
+    );
     const sendWithRetry = vi
       .fn()
       .mockResolvedValue({ id: "re_x", attempts: 1 });
@@ -307,18 +314,16 @@ describe("deliverNewsletterToSubscribers", () => {
   });
 
   it("forwards resend.replyTo and resend.tags when configured", async () => {
-    const cfg = DeliveryConfigSchema.parse({
-      resendApiKey: "re_k",
-      resend: {
-        from: "from@example.com",
-        replyTo: "replies@example.com",
-        tags: [{ name: "env", value: "test" }],
-      },
-      unsubscribe: {
-        secret: "test-secret",
-        baseUrl: "https://example.com/api",
-      },
-    });
+    const cfg = withUnsubscribe(
+      DeliveryConfigSchema.parse({
+        resendApiKey: "re_k",
+        resend: {
+          from: "from@example.com",
+          replyTo: "replies@example.com",
+          tags: [{ name: "env", value: "test" }],
+        },
+      }),
+    );
     const sendWithRetry = vi
       .fn()
       .mockResolvedValue({ id: "re_3", attempts: 1 });
@@ -345,15 +350,13 @@ describe("deliverNewsletterToSubscribers", () => {
     // Setup
     const mediapulseSiteUrl = "https://staging.mediapulse.example";
     const hyperjumpSiteUrl = "https://staging.hyperjump.example";
-    const cfg = DeliveryConfigSchema.parse({
-      resendApiKey: "re_k",
-      resend: { from: "from@example.com" },
-      branding: { mediapulseSiteUrl, hyperjumpSiteUrl },
-      unsubscribe: {
-        secret: "test-secret",
-        baseUrl: "https://example.com/api",
-      },
-    });
+    const cfg = withUnsubscribe(
+      DeliveryConfigSchema.parse({
+        resendApiKey: "re_k",
+        resend: { from: "from@example.com" },
+        branding: { mediapulseSiteUrl, hyperjumpSiteUrl },
+      }),
+    );
     const sendWithRetry = vi
       .fn()
       .mockResolvedValue({ id: "re_brand", attempts: 1 });

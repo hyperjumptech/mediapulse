@@ -1,11 +1,14 @@
 import { z } from "zod";
 import type { RegistrationLanguage } from "@/lib/tickers";
 import { checkMemorySlidingRateLimit } from "@/lib/memory-sliding-rate-limit";
+import { getClientIpFromRequest } from "@/lib/get-client-ip";
 import { requestWebSignup } from "@/lib/request-web-signup";
 import {
   sendPendingConfirmationEmailDefault,
   type SendEmail,
 } from "@/lib/send-registration-emails";
+
+export { getClientIpFromRequest };
 
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const RATE_LIMIT_MAX_PER_IP = 20;
@@ -29,20 +32,6 @@ type ConfirmRequestDeps = {
   sendPendingConfirmationEmail?: SendEmail;
   checkRateLimit?: typeof checkMemorySlidingRateLimit;
   getClientIp?: (request: Request) => string;
-};
-
-/**
- * Extracts a stable client IP for rate limiting from proxy headers.
- *
- * @param request - Incoming HTTP request.
- * @returns Client IP or a fallback bucket key.
- */
-export const getClientIpFromRequest = (request: Request): string => {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) {
-    return forwarded.split(",")[0]?.trim() ?? "unknown";
-  }
-  return request.headers.get("x-real-ip")?.trim() ?? "unknown";
 };
 
 /**

@@ -11,10 +11,6 @@ const minimalResendConfig = {
   resend: { from: "sender@example.com" },
 } as const;
 
-const minimalUnsubscribe = {
-  unsubscribe: { secret: "secret", baseUrl: "https://example.com/api" },
-} as const;
-
 describe("DeliveryConfigSchema", () => {
   it("rejects when both send body parts are disabled", () => {
     const r = DeliveryConfigSchema.safeParse({
@@ -27,7 +23,6 @@ describe("DeliveryConfigSchema", () => {
   it("accepts default send (html + text) when resend fields are set", () => {
     const r = DeliveryConfigSchema.safeParse({
       ...minimalResendConfig,
-      unsubscribe: { secret: "secret", baseUrl: "https://example.com/api" },
     });
     expect(r.success).toBe(true);
     expect(r.data?.send.includeHtml).toBe(true);
@@ -49,35 +44,10 @@ describe("DeliveryConfigSchema", () => {
     expect(r.success).toBe(false);
   });
 
-  it("accepts optional unsubscribe config with secret and baseUrl", () => {
-    const r = DeliveryConfigSchema.safeParse({
-      ...minimalResendConfig,
-      unsubscribe: {
-        secret: "my-hmac-secret",
-        baseUrl: "https://app.example.com/api",
-      },
-    });
-    expect(r.success).toBe(true);
-    expect(r.data?.unsubscribe.secret).toBe("my-hmac-secret");
-    expect(r.data?.unsubscribe.baseUrl).toBe("https://app.example.com/api");
-  });
-
-  it("rejects invalid unsubscribe.baseUrl", () => {
-    const r = DeliveryConfigSchema.safeParse({
-      ...minimalResendConfig,
-      unsubscribe: {
-        secret: "secret",
-        baseUrl: "not-a-url",
-      },
-    });
-    expect(r.success).toBe(false);
-  });
-
   it("fills branding URLs with public defaults when the key is omitted", () => {
     // Act
     const r = DeliveryConfigSchema.safeParse({
       ...minimalResendConfig,
-      ...minimalUnsubscribe,
     });
 
     // Assert
@@ -95,7 +65,6 @@ describe("DeliveryConfigSchema", () => {
     // Act
     const r = DeliveryConfigSchema.safeParse({
       ...minimalResendConfig,
-      ...minimalUnsubscribe,
       branding: { mediapulseSiteUrl: customMediapulse },
     });
 
@@ -113,7 +82,6 @@ describe("DeliveryConfigSchema", () => {
     // Act
     const r = DeliveryConfigSchema.safeParse({
       ...minimalResendConfig,
-      ...minimalUnsubscribe,
       branding: { mediapulseSiteUrl, hyperjumpSiteUrl },
     });
 
@@ -127,7 +95,6 @@ describe("DeliveryConfigSchema", () => {
     // Act
     const r = DeliveryConfigSchema.safeParse({
       ...minimalResendConfig,
-      ...minimalUnsubscribe,
       branding: { mediapulseSiteUrl: "http://insecure.example" },
     });
 
@@ -139,7 +106,6 @@ describe("DeliveryConfigSchema", () => {
     // Act
     const r = DeliveryConfigSchema.safeParse({
       ...minimalResendConfig,
-      ...minimalUnsubscribe,
       branding: { hyperjumpSiteUrl: "not-a-url" },
     });
 
