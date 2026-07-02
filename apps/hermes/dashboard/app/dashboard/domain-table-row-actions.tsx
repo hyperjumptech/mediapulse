@@ -81,6 +81,21 @@ const DomainTableRowDeleteSubmitButton = () => {
 };
 
 /**
+ * Submit button for the edit modal; reflects the pending state of the
+ * surrounding form so the user gets feedback while the update runs.
+ *
+ * @returns Save button that shows a saving state while pending.
+ */
+const DomainTableRowEditSubmitButton = () => {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending}>
+      {pending ? "Saving…" : "Save"}
+    </Button>
+  );
+};
+
+/**
  * Row actions for generic domain table-v1 resources: ellipsis menu with Edit (modal) and Delete.
  *
  * @param props - Row data, field schema, server actions, and visibility flags.
@@ -184,11 +199,17 @@ export const DomainTableRowActions = ({
               <DialogTitle>Edit</DialogTitle>
             </DialogHeader>
             <div className="min-h-0 overflow-y-auto overscroll-y-contain px-6 py-4">
-              <form action={updateAction} className="grid gap-3">
+              <form
+                action={async (formData) => {
+                  await updateAction(formData);
+                  setEditOpen(false);
+                }}
+                className="grid gap-3"
+              >
                 <input type="hidden" name="__id" value={rowId} readOnly />
                 <DomainTableFormFields fields={updateFields} defaultRow={row} />
                 <div>
-                  <Button type="submit">Save</Button>
+                  <DomainTableRowEditSubmitButton />
                 </div>
               </form>
             </div>
