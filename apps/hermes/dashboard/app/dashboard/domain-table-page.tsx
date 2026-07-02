@@ -142,8 +142,9 @@ export const DomainTablePage = async ({
       id,
       formDataToDomainPayload(formData, updateFields),
     );
+    // Revalidate in place (no redirect) so the client edit modal can close
+    // itself once this action resolves; the list is already on `basePath`.
     revalidatePath(basePath);
-    redirect(basePath);
   };
 
   const deleteAction = async (formData: FormData) => {
