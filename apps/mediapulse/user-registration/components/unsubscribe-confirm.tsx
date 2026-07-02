@@ -1,13 +1,12 @@
 "use client";
 
-import * as React from "react";
 import { MailX, CheckCircle2 } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import {
   getUnsubscribeCopy,
   type UnsubscribeLanguage,
 } from "@/lib/unsubscribe-copy";
-import type { UnsubscribeStatus } from "@/lib/unsubscribe-api";
+import { useUnsubscribeConfirm } from "@/hooks/use-unsubscribe-confirm";
 
 type Props = {
   token: string;
@@ -29,31 +28,7 @@ type Props = {
  */
 const UnsubscribeConfirm = ({ token, tickerSymbol, language }: Props) => {
   const copy = getUnsubscribeCopy(language);
-  const [pending, setPending] = React.useState(false);
-  const [result, setResult] = React.useState<{
-    status: UnsubscribeStatus;
-    displaySymbol?: string;
-  } | null>(null);
-
-  const handleConfirm = async () => {
-    setPending(true);
-    try {
-      const response = await fetch("/api/unsubscribe/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-      const data = (await response.json()) as {
-        status: UnsubscribeStatus;
-        displaySymbol?: string;
-      };
-      setResult(data);
-    } catch {
-      setResult({ status: "invalid" });
-    } finally {
-      setPending(false);
-    }
-  };
+  const { pending, result, confirm } = useUnsubscribeConfirm(token);
 
   if (result) {
     const isSuccess =
@@ -87,7 +62,7 @@ const UnsubscribeConfirm = ({ token, tickerSymbol, language }: Props) => {
           {copy.prompt(tickerSymbol)}
         </p>
       </div>
-      <Button className="w-full" onClick={handleConfirm} disabled={pending}>
+      <Button className="w-full" onClick={confirm} disabled={pending}>
         {pending ? copy.confirming : copy.confirmButton}
       </Button>
     </div>
