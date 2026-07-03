@@ -1,47 +1,80 @@
+import { createHash } from "node:crypto";
+
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject, type ModelMessage } from "ai";
 import { extractLlmUsage, type OnLlmUsage } from "@workspace/agent-runtime";
 import {
   MEDIAPULSE_NEWSLETTER_SECTIONS,
-  NEWSLETTER_SECTION_IDS,
   type AnalysisTickerContext,
+  type PostAnalysisScoreBreakdown,
 } from "@workspace/agent-data-api-contract";
 import { z } from "zod";
 
-import type { AcceptanceCriteriaRule } from "./config-schema.js";
+import {
+  flattenAcceptanceCriteria,
+  type AcceptanceCriteriaRule,
+} from "./config-schema.js";
 
 /** Article content past this many characters is truncated before classification. */
 export const MAX_CONTENT_CHARS = 12000;
 
-/**
- * LLM output: the single best-fit newsletter section (or `null` to reject), a 0–1 fit score,
- * and a short reason explaining the choice or the rejection.
- */
-export const articleSectionClassificationSchema = z.object({
-  section: z
-    .enum(NEWSLETTER_SECTION_IDS as unknown as [string, ...string[]])
-    .nullable(),
-  score: z.number().min(0).max(1),
-  reason: z.string().trim().min(1).max(2000),
-});
+/** Reason strings are capped to this length by the analysis contract. */
+const MAX_REASON_CHARS = 2000;
 
-export type ArticleSectionClassification = z.infer<
-  typeof articleSectionClassificationSchema
->;
+/** Fallback note when the model omits a judgment for a configured rule. */
+const MISSING_EVALUATION_NOTE = "No judgment returned; treated as not matched.";
+
+/** One per-rule judgment returned by the model. */
+export type CriterionEvaluation = {
+  id: string;
+  matched: boolean;
+  note: string;
+};
+
+/**
+ * The deterministic classification derived from the model's per-rule judgments: the winning section
+ * (or `null` to reject), the computed fit score, a code-composed reason, and the full breakdown.
+ */
+export type ArticleSectionClassification = {
+  section: string | null;
+  score: number;
+  reason: string;
+  scoreBreakdown: PostAnalysisScoreBreakdown;
+};
+
+/**
+ * Builds the model output schema for one classification, constraining rule ids to the configured
+ * set so the model cannot reference an unknown rule.
+ *
+ * @param criterionIds - Every configured rule id (deduplicated).
+ * @returns A zod object schema requiring one `{ id, matched, note }` judgment per rule.
+ */
+export const buildEvaluationSchema = (criterionIds: string[]) =>
+  z.object({
+    evaluations: z.array(
+      z.object({
+        id: z.enum(criterionIds as unknown as [string, ...string[]]),
+        matched: z.boolean(),
+        note: z.string().trim().min(1).max(240),
+      }),
+    ),
+  });
 
 const SYSTEM_PROMPT = [
   "You are an editorial classifier for an industry newsletter.",
-  "Assign each article to EXACTLY ONE newsletter section using the acceptance criteria provided,",
-  "or reject it (section = null) when it fits none of them.",
-  "Return a fit score between 0 and 1 and a one-sentence reason explaining why the article was",
-  "placed in that section, or — when rejected — why it does not fit any section.",
+  'Each criterion is an inclusion rule phrased as "Include if the article ...".',
+  "For EACH rule decide whether the article satisfies its condition (matched true or false).",
+  "In the note, cite the specific article detail that satisfies the rule (for a match) or state",
+  "what is missing (for a miss) — do not restate the rule.",
+  "Do NOT choose a section or a score; those are computed from your judgments.",
+  "Judge every rule independently and return exactly one judgment per rule.",
 ].join(" ");
 
 /**
- * Renders the acceptance criteria (with each section's human label) into a prompt block.
+ * Renders the inclusion rules grouped by section (with each section's human label) for the prompt.
  *
  * @param acceptanceCriteria - Per-section rules from agent config.
- * @returns A newline-delimited list of `id (Label): criteria`.
+ * @returns A prompt block listing each section and its `- <id>: <text>` rules.
  */
 const renderCriteria = (
   acceptanceCriteria: AcceptanceCriteriaRule[],
@@ -56,9 +89,13 @@ const renderCriteria = (
   return acceptanceCriteria
     .map((rule) => {
       const label = labelById.get(rule.section) ?? rule.section;
-      return `- ${rule.section} (${label}): ${rule.criteria}`;
+      const rules = rule.criteria
+        .map((criterion) => `  - ${criterion.id}: ${criterion.text}`)
+        .join("\n");
+
+      return `${rule.section} (${label}):\n${rules}`;
     })
-    .join("\n");
+    .join("\n\n");
 };
 
 /**
@@ -107,7 +144,7 @@ export const buildSectionClassificationMessages = (params: {
 }): ModelMessage[] => {
   const truncatedContent = params.content.slice(0, MAX_CONTENT_CHARS);
   const userContent = [
-    "Newsletter sections and acceptance criteria:",
+    "Newsletter sections and inclusion rules:",
     renderCriteria(params.acceptanceCriteria),
     "",
     ...(params.tickerContext ? [params.tickerContext, ""] : []),
@@ -124,10 +161,171 @@ export const buildSectionClassificationMessages = (params: {
 };
 
 /**
- * Classifies a single article into one newsletter section (or rejects it) with a score and reason.
+ * Hashes the inclusion-rule set so persisted breakdowns record which criteria version scored them.
+ *
+ * @param acceptanceCriteria - Per-section rules from agent config.
+ * @returns A short hex digest over the section/id/text of every rule, in config order.
+ */
+export const criteriaHash = (
+  acceptanceCriteria: AcceptanceCriteriaRule[],
+): string => {
+  const canonical = flattenAcceptanceCriteria(acceptanceCriteria).map(
+    (criterion) => [criterion.section, criterion.id, criterion.text],
+  );
+
+  return createHash("sha256")
+    .update(JSON.stringify(canonical))
+    .digest("hex")
+    .slice(0, 12);
+};
+
+/**
+ * Truncates a composed reason to the contract limit without dropping below one character.
+ *
+ * @param reason - The composed reason.
+ * @returns The reason capped at {@link MAX_REASON_CHARS}.
+ */
+const capReason = (reason: string): string =>
+  reason.length > MAX_REASON_CHARS ? reason.slice(0, MAX_REASON_CHARS) : reason;
+
+/**
+ * Derives the section, score, reason, and breakdown from the model's per-rule judgments.
+ *
+ * Scoring is fully deterministic: each section's score is `matched / total` of its rules, the
+ * winning section is the one with the highest matched fraction (ties broken by canonical display
+ * order), and an article that matches no rule in any section is rejected (`section: null`).
+ *
+ * @param evaluations - Per-rule judgments from the model (missing rules count as not matched).
+ * @param acceptanceCriteria - The per-section rules the judgments were made against.
+ * @returns The deterministic classification with a self-describing score breakdown.
+ */
+export const scoreFromEvaluations = (
+  evaluations: CriterionEvaluation[],
+  acceptanceCriteria: AcceptanceCriteriaRule[],
+): ArticleSectionClassification => {
+  const flat = flattenAcceptanceCriteria(acceptanceCriteria);
+  const evaluationById = new Map<string, CriterionEvaluation>(
+    evaluations.map((evaluation) => [evaluation.id, evaluation]),
+  );
+  const labelById = new Map<string, string>(
+    MEDIAPULSE_NEWSLETTER_SECTIONS.map((section) => [
+      section.id,
+      section.label,
+    ]),
+  );
+
+  const isMatched = (id: string): boolean =>
+    evaluationById.get(id)?.matched === true;
+  const noteFor = (id: string): string =>
+    evaluationById.get(id)?.note ?? MISSING_EVALUATION_NOTE;
+
+  // Per-section tallies in canonical display order, so the argmax tie-break is deterministic.
+  const presentSections = MEDIAPULSE_NEWSLETTER_SECTIONS.map(
+    (section) => section.id,
+  ).filter((sectionId) =>
+    flat.some((criterion) => criterion.section === sectionId),
+  );
+
+  const tallies = presentSections.map((sectionId) => {
+    const sectionCriteria = flat.filter(
+      (criterion) => criterion.section === sectionId,
+    );
+    const total = sectionCriteria.length;
+    const matched = sectionCriteria.filter((criterion) =>
+      isMatched(criterion.id),
+    ).length;
+
+    return {
+      section: sectionId,
+      matched,
+      total,
+      fraction: total > 0 ? matched / total : 0,
+    };
+  });
+
+  // First section with the maximum fraction wins (canonical order => earliest section on a tie).
+  let winner = tallies[0];
+  for (const tally of tallies) {
+    if (winner === undefined || tally.fraction > winner.fraction) {
+      winner = tally;
+    }
+  }
+
+  const sections = tallies.map((tally) => ({
+    section: tally.section,
+    matched: tally.matched,
+    total: tally.total,
+  }));
+  const hash = criteriaHash(acceptanceCriteria);
+
+  // No rule matched in any section: reject with an empty per-rule breakdown.
+  if (winner === undefined || winner.matched === 0) {
+    return {
+      section: null,
+      score: 0,
+      reason: "No inclusion rule matched in any section; rejected.",
+      scoreBreakdown: {
+        section: null,
+        matched: 0,
+        total: 0,
+        criteriaHash: hash,
+        criteria: [],
+        sections,
+      },
+    };
+  }
+
+  const winnerCriteria = flat.filter(
+    (criterion) => criterion.section === winner.section,
+  );
+  const criteriaBreakdown = winnerCriteria.map((criterion) => ({
+    id: criterion.id,
+    section: criterion.section,
+    text: criterion.text,
+    matched: isMatched(criterion.id),
+    note: noteFor(criterion.id),
+  }));
+
+  const label = labelById.get(winner.section) ?? winner.section;
+  const matchedIds = criteriaBreakdown
+    .filter((criterion) => criterion.matched)
+    .map((criterion) => criterion.id);
+  const missed = criteriaBreakdown.filter((criterion) => !criterion.matched);
+  const matchedText =
+    matchedIds.length > 0 ? ` (${matchedIds.join(", ")})` : "";
+  const missedText =
+    missed.length > 0
+      ? ` Missed: ${missed
+          .map((criterion) => `${criterion.id} (${criterion.note})`)
+          .join(", ")}.`
+      : "";
+  const reason = capReason(
+    `${label} — matched ${winner.matched}/${winner.total}${matchedText}.${missedText}`,
+  );
+
+  return {
+    section: winner.section,
+    score: winner.fraction,
+    reason,
+    scoreBreakdown: {
+      section: winner.section,
+      matched: winner.matched,
+      total: winner.total,
+      criteriaHash: hash,
+      criteria: criteriaBreakdown,
+      sections,
+    },
+  };
+};
+
+/**
+ * Classifies a single article into one newsletter section (or rejects it) with a computed score.
+ *
+ * The model only judges each inclusion rule as matched or not; the section, score, reason, and
+ * breakdown are computed deterministically by {@link scoreFromEvaluations}.
  *
  * @param params - LLM credentials, the article, and the acceptance criteria.
- * @returns The validated classification.
+ * @returns The deterministic classification.
  */
 export const classifyArticleSection = async (params: {
   apiKey: string;
@@ -145,9 +343,17 @@ export const classifyArticleSection = async (params: {
     baseURL: params.baseUrl,
   });
 
+  const criterionIds = [
+    ...new Set(
+      flattenAcceptanceCriteria(params.acceptanceCriteria).map(
+        (criterion) => criterion.id,
+      ),
+    ),
+  ];
+
   const result = await generateObject({
     model: openai(params.model),
-    schema: articleSectionClassificationSchema,
+    schema: buildEvaluationSchema(criterionIds),
     messages: buildSectionClassificationMessages({
       title: params.title,
       content: params.content,
@@ -160,5 +366,8 @@ export const classifyArticleSection = async (params: {
     params.onUsage?.(usage);
   }
 
-  return result.object;
+  return scoreFromEvaluations(
+    result.object.evaluations,
+    params.acceptanceCriteria,
+  );
 };

@@ -45,6 +45,40 @@ export const getAnalysisQuerySchema = z.object({
   ),
 });
 
+/**
+ * Self-describing snapshot of the deterministic scoring for one (article, ticker) pair. Each
+ * criterion embeds its `text` as evaluated so later config edits never re-interpret a stored row;
+ * `criteriaHash` records which criteria version produced the score.
+ */
+export const postAnalysisScoreBreakdownSchema = z.object({
+  /** Winning section, or `null` when the article was rejected. */
+  section: sectionEnum.nullable(),
+  /** Rules matched in the winning section (0 when rejected). */
+  matched: z.number().int().nonnegative(),
+  /** Total rules in the winning section (0 when rejected). */
+  total: z.number().int().nonnegative(),
+  /** Short hash of the acceptance-criteria set used for this classification. */
+  criteriaHash: z.string(),
+  /** Per-rule breakdown for the winning section (empty when rejected). */
+  criteria: z.array(
+    z.object({
+      id: z.string(),
+      section: sectionEnum,
+      text: z.string(),
+      matched: z.boolean(),
+      note: z.string(),
+    }),
+  ),
+  /** Matched/total tally for every scored section, for debugging the argmax. */
+  sections: z.array(
+    z.object({
+      section: sectionEnum,
+      matched: z.number().int().nonnegative(),
+      total: z.number().int().nonnegative(),
+    }),
+  ),
+});
+
 export const postAnalysisBodySchema = z.object({
   /**
    * One classification row per scored (article, ticker) pair. `section: null` means the article
@@ -58,6 +92,8 @@ export const postAnalysisBodySchema = z.object({
         section: sectionEnum.nullable(),
         score: z.number().min(0).max(1),
         reason: z.string().trim().min(1).max(2000),
+        /** Deterministic per-rule breakdown behind `score`/`reason`; optional for older posters. */
+        scoreBreakdown: postAnalysisScoreBreakdownSchema.optional(),
       }),
     )
     .default([]),
@@ -102,6 +138,9 @@ export const postAnalysisResponseSchema = z.object({
 
 export type AnalysisTickerContext = z.infer<typeof analysisTickerContextSchema>;
 export type GetAnalysisQuery = z.infer<typeof getAnalysisQuerySchema>;
+export type PostAnalysisScoreBreakdown = z.infer<
+  typeof postAnalysisScoreBreakdownSchema
+>;
 export type PostAnalysisBody = z.infer<typeof postAnalysisBodySchema>;
 export type GetAnalysisResponse = z.infer<typeof getAnalysisResponseSchema>;
 export type PostAnalysisResponse = z.infer<typeof postAnalysisResponseSchema>;

@@ -375,6 +375,32 @@ const buildCollectionStage = (
  * model, timing) are window-scoped across all tickers, while the classification
  * sample (sections, scores, reasons) is scoped to this newsletter's ticker.
  */
+/**
+ * Narrows a persisted `sectionScoreBreakdown` Json blob to the matched/total summary the Chronicle
+ * surfaces. Returns `null` for legacy rows written before the breakdown existed or malformed values.
+ *
+ * @param value - The `sectionScoreBreakdown` column value (arbitrary Json or `null`).
+ * @returns The matched/total tally and criteria hash, or `null` when unavailable.
+ */
+const readBreakdownSummary = (
+  value: unknown,
+): { matched: number; total: number; criteriaHash: string | null } | null => {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  if (typeof record.matched !== "number" || typeof record.total !== "number") {
+    return null;
+  }
+
+  return {
+    matched: record.matched,
+    total: record.total,
+    criteriaHash:
+      typeof record.criteriaHash === "string" ? record.criteriaHash : null,
+  };
+};
+
 const buildArticleAnalysisStage = (
   runRows: Array<{
     id: string;
@@ -395,6 +421,7 @@ const buildArticleAnalysisStage = (
     section: string | null;
     sectionScore: number | null;
     sectionReason: string | null;
+    sectionScoreBreakdown: unknown;
     analyzedAt: Date;
     dataSource: { title: string };
   }>,
@@ -405,12 +432,19 @@ const buildArticleAnalysisStage = (
     (row) => row.section !== null,
   ).length;
   const rejected = classificationRows.length - classified;
-  const sample = classificationRows.slice(0, 50).map((row) => ({
-    title: row.dataSource.title,
-    section: row.section,
-    score: row.sectionScore,
-    reason: row.sectionReason,
-  }));
+  const sample = classificationRows.slice(0, 50).map((row) => {
+    const summary = readBreakdownSummary(row.sectionScoreBreakdown);
+
+    return {
+      title: row.dataSource.title,
+      section: row.section,
+      score: row.sectionScore,
+      reason: row.sectionReason,
+      matched: summary?.matched ?? null,
+      total: summary?.total ?? null,
+      criteriaHash: summary?.criteriaHash ?? null,
+    };
+  });
 
   const tokenTotals: ChronicleTokenUsage = { ...EMPTY_TOKENS };
   const runs: ChronicleRun[] = runRows.map((row) => {
@@ -666,6 +700,7 @@ export const buildChronicle = async (
       section: true,
       sectionScore: true,
       sectionReason: true,
+      sectionScoreBreakdown: true,
       analyzedAt: true,
       dataSource: { select: { title: true } },
     },

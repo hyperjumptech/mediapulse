@@ -19,11 +19,13 @@ export {
   getAnalysisResponseSchema,
   postAnalysisBodySchema,
   postAnalysisResponseSchema,
+  postAnalysisScoreBreakdownSchema,
   type AnalysisTickerContext,
   type GetAnalysisQuery,
   type GetAnalysisResponse,
   type PostAnalysisBody,
   type PostAnalysisResponse,
+  type PostAnalysisScoreBreakdown,
 } from "./analysis.js";
 export {
   postAnalysisDataSourceDeleteBodySchema,

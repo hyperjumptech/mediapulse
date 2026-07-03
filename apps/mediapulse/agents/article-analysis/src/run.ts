@@ -6,6 +6,7 @@ import {
 } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-article-analysis";
 import { logger } from "@workspace/logger";
+import type { PostAnalysisScoreBreakdown } from "@workspace/agent-data-api-contract";
 import crypto from "node:crypto";
 
 import type { ArticleAnalysisConfig } from "./config-schema.js";
@@ -34,6 +35,7 @@ type ClassifiedRow = {
   section: string | null;
   score: number;
   reason: string;
+  scoreBreakdown: PostAnalysisScoreBreakdown;
 };
 
 /**
@@ -172,6 +174,7 @@ export async function run(
           section: result.section,
           score: result.score,
           reason: result.reason,
+          scoreBreakdown: result.scoreBreakdown,
         };
       },
     );
