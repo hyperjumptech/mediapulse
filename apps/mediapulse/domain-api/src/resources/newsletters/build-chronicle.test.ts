@@ -183,6 +183,63 @@ describe("buildChronicle", () => {
     expect(result.totalTokens).toBe(17_250 + 22_300);
   });
 
+  it("surfaces the per-rule matched/total breakdown in the classification sample", async () => {
+    const deps = makeDeps({
+      dataSourceTickerSection: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            section: "industryPulse",
+            sectionScore: 0.6,
+            sectionReason: "Industry Pulse — matched 3/5.",
+            sectionScoreBreakdown: {
+              section: "industryPulse",
+              matched: 3,
+              total: 5,
+              criteriaHash: "abc123def456",
+              criteria: [],
+              sections: [{ section: "industryPulse", matched: 3, total: 5 }],
+            },
+            analyzedAt: new Date("2026-06-30T06:04:00.000Z"),
+            dataSource: { title: "Sector demand rebounds" },
+          },
+          {
+            section: null,
+            sectionScore: 0,
+            sectionReason:
+              "No inclusion rule matched in any section; rejected.",
+            sectionScoreBreakdown: null,
+            analyzedAt: new Date("2026-06-30T06:03:00.000Z"),
+            dataSource: { title: "Unrelated filler" },
+          },
+        ]),
+      },
+    });
+
+    const result = await buildChronicle(NEWSLETTER, deps);
+
+    const articleAnalysis = stageByName(result, "article-analysis");
+    if (articleAnalysis.kind !== "upstream") {
+      throw new Error("expected an upstream article-analysis stage");
+    }
+    const sample = articleAnalysis.details.sample as Array<{
+      matched: number | null;
+      total: number | null;
+      criteriaHash: string | null;
+    }>;
+
+    expect(sample[0]).toMatchObject({
+      matched: 3,
+      total: 5,
+      criteriaHash: "abc123def456",
+    });
+    // Legacy rows without a persisted breakdown surface null tallies.
+    expect(sample[1]).toMatchObject({
+      matched: null,
+      total: null,
+      criteriaHash: null,
+    });
+  });
+
   it("surfaces a failed content-generation run and marks the pipeline failed", async () => {
     const deps = makeDeps({
       contentGenerationRun: {

@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@mediapulse/database", () => ({
   prisma: {},
+  Prisma: { DbNull: "__DbNull__" },
 }));
+
+import { Prisma } from "@mediapulse/database";
 
 import {
   AnalysisPostValidationError,
@@ -265,6 +268,86 @@ describe("applyAnalysisPost", () => {
       data: { analyzedAt: expect.any(Date) },
     });
     expect(result).toEqual({ articlesScored: 2, articlesRejected: 1 });
+  });
+
+  it("persists the score breakdown on create and update when provided", async () => {
+    const { db, upsert, findMany } = buildDb();
+    findMany.mockResolvedValue([{ id: SEARCH_ARTICLE }]);
+    const scoreBreakdown = {
+      section: "dealsAndMovements" as const,
+      matched: 3,
+      total: 5,
+      criteriaHash: "abc123",
+      criteria: [
+        {
+          id: "dm-corporate-action",
+          section: "dealsAndMovements" as const,
+          text: "Include if M&A.",
+          matched: true,
+          note: "acquisition announced",
+        },
+      ],
+      sections: [
+        { section: "dealsAndMovements" as const, matched: 3, total: 5 },
+      ],
+    };
+
+    await applyAnalysisPost(
+      {
+        articleSections: [
+          {
+            dataSourceId: SEARCH_ARTICLE,
+            tickerId: TICKER_ID,
+            section: "dealsAndMovements",
+            score: 0.6,
+            reason: "deal",
+            scoreBreakdown,
+          },
+        ],
+        analyzedDataSourceIds: [SEARCH_ARTICLE],
+      },
+      { db: db as never },
+    );
+
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          sectionScoreBreakdown: scoreBreakdown,
+        }),
+        update: expect.objectContaining({
+          sectionScoreBreakdown: scoreBreakdown,
+        }),
+      }),
+    );
+  });
+
+  it("writes SQL NULL for the breakdown when the poster omits it", async () => {
+    const { db, upsert, findMany } = buildDb();
+    findMany.mockResolvedValue([{ id: SEARCH_ARTICLE }]);
+
+    await applyAnalysisPost(
+      {
+        articleSections: [
+          {
+            dataSourceId: SEARCH_ARTICLE,
+            tickerId: TICKER_ID,
+            section: "quickHits",
+            score: 0.4,
+            reason: "x",
+          },
+        ],
+        analyzedDataSourceIds: [SEARCH_ARTICLE],
+      },
+      { db: db as never },
+    );
+
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          sectionScoreBreakdown: Prisma.DbNull,
+        }),
+      }),
+    );
   });
 
   it("commits section upserts in bounded chunks to stay under the transaction timeout", async () => {

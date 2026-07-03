@@ -6,8 +6,7 @@ import type {
   PostAnalysisBody,
   PostAnalysisResponse,
 } from "@workspace/agent-data-api-contract";
-import { prisma } from "@mediapulse/database";
-import type { Prisma } from "@mediapulse/database";
+import { prisma, Prisma } from "@mediapulse/database";
 
 import {
   extractTickerBusinessContext,
@@ -342,8 +341,16 @@ export const applyAnalysisPost = async (
 
   const analyzedAt = new Date();
   const sectionWrites: Prisma.PrismaPromise<unknown>[] =
-    body.articleSections.map((row) =>
-      db.dataSourceTickerSection.upsert({
+    body.articleSections.map((row) => {
+      // Nullable Json column: write SQL NULL when the poster omits the breakdown.
+      const sectionScoreBreakdown:
+        | Prisma.InputJsonValue
+        | typeof Prisma.DbNull =
+        row.scoreBreakdown === undefined
+          ? Prisma.DbNull
+          : (row.scoreBreakdown as unknown as Prisma.InputJsonValue);
+
+      return db.dataSourceTickerSection.upsert({
         where: {
           dataSourceId_tickerId: {
             dataSourceId: row.dataSourceId,
@@ -356,16 +363,18 @@ export const applyAnalysisPost = async (
           section: row.section,
           sectionScore: row.score,
           sectionReason: row.reason,
+          sectionScoreBreakdown,
           analyzedAt,
         },
         update: {
           section: row.section,
           sectionScore: row.score,
           sectionReason: row.reason,
+          sectionScoreBreakdown,
           analyzedAt,
         },
-      } satisfies Prisma.DataSourceTickerSectionUpsertArgs),
-    );
+      } satisfies Prisma.DataSourceTickerSectionUpsertArgs);
+    });
 
   // Persist section classifications in bounded transactions. A whole batch of
   // sequential upserts in one transaction overruns the default 5s transaction

@@ -20,9 +20,9 @@ const app = createAgentApp<
 >(
   {
     agentId: "article-analysis",
-    agentVersion: "3.0.0",
+    agentVersion: "4.0.0",
     description:
-      "Loads unanalyzed articles and classifies each into exactly one newsletter section, or rejects it, with an AI fit score and reason, then persists section/sectionScore/sectionReason onto the data source and marks it analyzed.",
+      "Loads unanalyzed articles and, for each, has the model judge every per-section inclusion rule as matched or not. The winning section and a deterministic fit score (matched/total) are computed in code, then persisted as section/sectionScore/sectionReason plus a per-rule score breakdown, and the article is marked analyzed.",
     inputSchema: articleAnalysisInputSchema,
     configSchema: articleAnalysisConfigSchema,
     run,

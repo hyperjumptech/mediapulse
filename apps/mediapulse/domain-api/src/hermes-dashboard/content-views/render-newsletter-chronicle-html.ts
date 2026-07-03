@@ -113,16 +113,23 @@ const renderClassificationTable = (
         section?: unknown;
         score?: unknown;
         reason?: unknown;
+        matched?: unknown;
+        total?: unknown;
       };
       const title = typeof row.title === "string" ? row.title : "—";
       const section =
         typeof row.section === "string" ? row.section : "rejected";
       const score = typeof row.score === "number" ? row.score.toFixed(2) : "—";
+      const match =
+        typeof row.matched === "number" && typeof row.total === "number"
+          ? `${String(row.matched)}/${String(row.total)}`
+          : "—";
       const reason = typeof row.reason === "string" ? row.reason : "—";
       return `<tr>
         <td style="padding:6px 8px;border-bottom:1px solid #eef1f4;">${escapeHtml(title)}</td>
         <td style="padding:6px 8px;border-bottom:1px solid #eef1f4;">${escapeHtml(section)}</td>
         <td style="padding:6px 8px;border-bottom:1px solid #eef1f4;text-align:right;">${escapeHtml(score)}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eef1f4;text-align:right;">${escapeHtml(match)}</td>
         <td style="padding:6px 8px;border-bottom:1px solid #eef1f4;">${escapeHtml(reason)}</td>
       </tr>`;
     })
@@ -135,6 +142,7 @@ const renderClassificationTable = (
         <th style="text-align:left;padding:6px 8px;color:#6b7280;font-size:11px;text-transform:uppercase;">Title</th>
         <th style="text-align:left;padding:6px 8px;color:#6b7280;font-size:11px;text-transform:uppercase;">Section</th>
         <th style="text-align:right;padding:6px 8px;color:#6b7280;font-size:11px;text-transform:uppercase;">Score</th>
+        <th style="text-align:right;padding:6px 8px;color:#6b7280;font-size:11px;text-transform:uppercase;">Match</th>
         <th style="text-align:left;padding:6px 8px;color:#6b7280;font-size:11px;text-transform:uppercase;">Reason</th>
       </tr></thead>
       <tbody>${rows}</tbody>
