@@ -1,60 +1,179 @@
 ---
 title: Query Analysis Agent
-description: Generates ticker-specific search queries using ticker metadata and KG context
+description: Builds a small set of high-signal search queries per ticker that actually return results
 icon: Sparkles
 ---
 
+import { Callout } from "fumadocs-ui/components/callout";
+import { Step, Steps } from "fumadocs-ui/components/steps";
+
 ## Purpose
 
-The query-analysis agent generates 5-10 search queries per ticker so data-collection can crawl more relevant sources.
+Given a `tickerId`, the query-analysis agent produces a small set of search queries that actually return results. The set covers the issuer itself, its named competitors, its regulators, and the industry and global topics that move it.
 
-It uses:
+This is version 3.0.0, a self-driving pipeline. It no longer leans on a knowledge-graph context payload or on operator-tuned prompt templates. It discovers the entities that matter, phrases queries around them, and keeps only the ones that a real search provider answers.
 
-- Ticker metadata (symbol, name, sector/industry)
-- Existing ticker KG context (entities/themes)
-- LLM-driven query generation
+## Required contract
+
+The agent runs with `requireContract: true`. A run without a contract brief, or with a blank one, returns HTTP 400 before `run` is ever called. The message tells the operator to attach an Agent Contract to the pipeline step.
+
+The brief is the steering context for discovery. Before the discovery LLM call, the runtime wraps the brief in a `<product_contract>` block and prepends it to the system prompt, so the model knows which competitors and regulators count as real signal for this reader. The pipeline step's `agentContractId` must be set in Hermes for the brief to reach the agent.
+
+<Callout type="info">
+  The exact brief this agent expects, a clause-by-clause rationale, and how to
+  attach it in the Hermes dashboard live on the [Query Analysis Contract
+  Brief](/mediapulse/apps/agents/query-analysis-contract-brief) page.
+</Callout>
 
 ## I/O contract
 
 - **Input:** `{ tickerId: string }`
-- **Reads:** `GET /api/query-analysis?tickerId=...`
-- **Writes:** `POST /api/query-analysis` (upsert search queries)
+- **Reads:** the agent-data-api `query-analysis` GET resource for the ticker
+- **Writes:** the agent-data-api `query-analysis` POST resource (persists the active query set)
+
+The GET response now carries only the ticker. There are no more KG entities, themes, peers, calendar, or headline samples.
 
 ### GET response fields
 
-| Field                  | Shape                                            | Notes                                                                                                        |
-| ---------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `ticker`               | `{ id, symbol, name, metadata }`                 | Anchor company                                                                                               |
-| `topEntities`          | `{ canonicalName, typeName, relevanceWeight }[]` | Up to 10 KG entities                                                                                         |
-| `recentThemes`         | `{ theme, articleCount }[]`                      | Recent article-title themes                                                                                  |
-| `recentRelationDeltas` | optional relation delta rows                     | When present from upstream                                                                                   |
-| `peers`                | `{ symbol, name, relevance }[]`                  | Up to 5 sector/industry siblings from ticker metadata                                                        |
-| `calendar`             | `{ nextEarningsAt?, recentEventTypes[] }`        | `nextEarningsAt` is omitted until a calendar table exists; event types come from recent data-source metadata |
-| `headlineSamples`      | `{ title, publishedAt, sourceName }[]`           | Up to 5 recent headlines (`publishedAt` uses ingestion time or metadata)                                     |
-| `kgNeighborhood`       | `{ fromEntity, relationType, toEntity }[]`       | One-hop KG edges for top entities (deduped, capped at 30)                                                    |
+| Field    | Shape                                                                                   | Notes                    |
+| -------- | --------------------------------------------------------------------------------------- | ------------------------ |
+| `ticker` | `{ id, symbol, name, sector?, industry?, subSector?, subIndustry?, businessActivity? }` | The tracked issuer only. |
 
-Empty fixtures still return the four enriched collections as empty arrays (never omitted keys).
+### POST body
 
-### Sample user-prompt block
+Each persisted query is `{ text, intent, rank }`. The agent sends the ranked set alongside `generationSource: "self_driving_v1"`, the run `strategySnapshot`, and `activate: true` so the new set becomes the active one. The response returns `created`, `createdSetId`, and `activeSetId`.
 
-When the LLM user prompt is built, non-empty enriched sections appear beneath themes and relation deltas:
+## Run flow
 
-```
-Sector peers:
-- PEER1 (Peer One Corp) relevance=1
-- PEER2 (Peer Two Inc) relevance=0.9
+The pipeline lives in `src/run.ts` and its stage folders (`src/pipeline`, `src/keywords`, `src/discovery`, `src/probe`, `src/select`).
 
-Calendar:
-- Recent events: ratings_change, executive_departure
+<Steps>
+  <Step>
+    ### Load the ticker
 
-Recent headlines:
-- 2026-05-18 (reuters.com) — "Acme beats estimates"
+    GET the `query-analysis` resource for `tickerId` and read the ticker's
+    identity and classification (sector, industry, sub-sector, sub-industry,
+    business activity).
 
-KG neighborhood:
-- Alpha Subsidiary --PARTNER_OF--> Beta Partner
-```
+  </Step>
+  <Step>
+    ### Look up the discovery cache
 
-System and user prompts are built in source — see `buildQueryAnalysisSystemContent` and `buildQueryAnalysisUserContent` in `apps/mediapulse/agents/query-analysis/src/llm-queries.ts`. Strategy knobs (`queryCount`, `languageQuotas`, `intentWeights`, and the derived deterministic floor) are interpolated at run time; there is no Hermes override surface for prompt text.
+    Check the per-ticker `ticker_discovery` cache via the agent-data-api SDK
+    (`tickerDiscoveryLookup`). A hit returns the cached competitors and
+    regulators and skips the LLM call.
+
+  </Step>
+  <Step>
+    ### Discover on a miss
+
+    On a cache miss or expiry, `discoverEntities`
+    (`src/discovery/discover-entities.ts`) makes a single `generateObject` call,
+    steered by the contract brief, to name the competitors and regulators. It
+    runs with `maxRetries: 0` and degrades to empty (own-company plus industry
+    only) if the call fails, so discovery never blocks the run. The result is
+    written back with `tickerDiscoveryRecord` at a fourteen-day TTL.
+
+  </Step>
+  <Step>
+    ### Build candidates
+
+    Build candidate queries from four stages, own-company, competitors,
+    regulators, and industry, in both Indonesian (`id`) and English (`en`).
+
+  </Step>
+  <Step>
+    ### Yield-probe
+
+    Probe each candidate through the search provider pool
+    (`src/probe/yield-probe.ts`, reusing `@workspace/agent-search`
+    `countQueryHits`). Dedupe by normalized text, cap to the probe budget by
+    stage priority, drop anything that returns zero results, and rank the rest
+    by hit count.
+
+  </Step>
+  <Step>
+    ### Finalize and persist
+
+    `finalizeQueries` (`src/select/finalize.ts`) guarantees at least one
+    surviving query for every dedicated newsletter section, keeps the id/en
+    mix, and caps the set at 24. The agent then POSTs the active set with
+    `generationSource: "self_driving_v1"`.
+
+  </Step>
+</Steps>
+
+## Hermes config
+
+The agent exposes only two flat groups, the same shape data-collection uses. Everything else is an internal constant, not an operator knob.
+
+### `web_search`
+
+An array of `{ provider, apiKey }` entries for the yield probe. Supported providers are `serper`, `tavily`, and `exa`. The probe rotates the starting provider round-robin and falls back to the rest on failure. The default pool is all three, keyed by Hermes variables (`{{SERPER_API_KEY}}`, `{{TAVILY_API_KEY}}`, `{{EXA_API_KEY}}`).
+
+### `ai`
+
+LLM credentials for entity discovery: `{ apiKey, model, baseUrl }`, defaulting to `{{AI_API_KEY}}`, `{{AI_MODEL}}`, and `{{AI_BASE_URL}}`. The base URL points at any OpenAI-compatible endpoint (for example an OpenRouter gateway).
+
+<Callout type="warn">
+  There is no personas, exemplars, diversity gate, `intentWeights`,
+  `templatePack`, or creativity-sampling config anymore. Languages (`id` plus
+  `en`), probe locales, the query count of 24, discovery caps (6 competitors, 4
+  regulators, 2 keywords per entity), probe budget and concurrency, cache TTL,
+  and the Indonesia/IDX market anchors are all internal constants in
+  `src/constants.ts`. Change them with a code deploy, not a Hermes config edit.
+</Callout>
+
+## Query intents and section mapping
+
+Every persisted query carries an `intent`, and each intent maps to the newsletter section it feeds. The old `source` field (deterministic/llm/curated) is gone. The pipeline emits the intents below.
+
+| Intent             | Feeds section                                       | Stage       |
+| ------------------ | --------------------------------------------------- | ----------- |
+| `breaking`         | Industry Pulse or Quick Hits (no dedicated section) | Own-company |
+| `deals`            | Deals & Movements                                   | Own-company |
+| `competitor`       | Competitive Landscape                               | Competitors |
+| `regulatory`       | Regulatory & Policy Watch                           | Regulators  |
+| `industry_trend`   | Industry Pulse                                      | Industry    |
+| `technology_trend` | Disruptors / Tech                                   | Industry    |
+| `macro`            | Industry Pulse or Quick Hits (no dedicated section) | Industry    |
+| `wildcard`         | Industry Pulse or Quick Hits (no dedicated section) | Industry    |
+
+The intent-to-section map is the authoritative `SECTION_BY_INTENT` record in `@workspace/agent-data-api-contract`. Finalization reads it to guarantee that every section with a dedicated intent keeps at least one query. Stage priority also drives the probe budget cap: own-company first, then competitors, then regulators, then industry.
+
+## Discovery cache
+
+Competitor and regulator discovery is the one LLM step, and it is cached per ticker in `ticker_discovery` so a daily fan-out does not re-pay for it every run.
+
+- **Lookup:** `tickerDiscoveryLookup` returns the cached entry, or `null` on a miss or expiry.
+- **Write:** `tickerDiscoveryRecord` stores the competitors, regulators, and the discovery model at a fourteen-day TTL.
+- **Freshness:** a single `expiresAt` timestamp. Past it, the next run treats the ticker as a miss and rediscovers.
+
+A cache hit skips the LLM call entirely and reuses the stored entities, so most runs cost only the yield probe.
+
+## Yield probe
+
+The probe is what makes the output queries return real results. It reuses `countQueryHits` from `@workspace/agent-search` to count hits per candidate across the Indonesian and global (English) locales.
+
+1. **Dedupe** candidates by normalized text.
+2. **Cap** to the probe budget, keeping higher-priority stages first.
+3. **Drop** any candidate that returns zero results.
+4. **Rank** the survivors by hit count.
+
+Finalization can reinstate the highest-yield dropped candidate for a starved dedicated section, so section coverage is never sacrificed to the zero-result rule.
+
+## Chronicle telemetry
+
+Each run writes a `strategySnapshot` for the newsletter Chronicle:
+
+- **Discovery:** model and token usage (prompt, completion, total, call count) plus a `cacheHit` flag.
+- **Search:** provider names with per-provider call counts (`providerUsage`) and total `searchCredits`.
+- **Discovered entities:** the competitor and regulator names in play.
+- **Probe counts:** candidates, deduped, dropped-zero-yield, and survivors.
+- **Output:** the query breakdown by intent and section, the id/global split, and the final query texts.
+- **Timing:** total, discovery, probe, and finalize durations.
+
+The newsletter Chronicle surfaces the search provider, credits, and discovery tokens from this snapshot.
 
 ## Environment variables
 
@@ -68,127 +187,13 @@ System and user prompts are built in source — see `buildQueryAnalysisSystemCon
 | `DOMAIN_INTEGRATION_API_KEY` | Yes      | Hermes domain integration API key for auto-register (mint JWT) |
 | `DOMAIN_INTEGRATION_ID`      | Yes      | Stable Hermes domain integration id (e.g. `mediapulse`)        |
 
-## Hermes agent `config` (strategy + LLM)
-
-This agent is configured per pipeline step via the Hermes invoke request body `config`.
-
-| Field                                                     | Required | Notes                                                                                                                                                                                                                                        |
-| --------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `openaiApiKey`                                            | Yes      | OpenAI API key (never stored in `packages/mediapulse/env` for this agent).                                                                                                                                                                   |
-| `openaiModel`                                             | No       | Defaults to `gpt-4o-mini`.                                                                                                                                                                                                                   |
-| `queryCount`                                              | No       | Total queries to persist (default `10`).                                                                                                                                                                                                     |
-| `languageQuotas`                                          | No       | Per-language budget shares (BCP-47 `language`, `share` summing to `1.0`). Defaults to English-only when omitted.                                                                                                                           |
-| `intentWeights`                                           | No       | Per-intent merge and LLM target-count weights (default favors `breaking`, `kg_change`, and industry-wide intents such as `competitor`, `macro`, `regulatory`, and `industry_trend`; legacy `fundamental` weight is `0`). Keys: `breaking`, `kg_change`, `fundamental`, `sentiment`, `competitor`, `supply_chain`, `esg`, `macro`, `technical`, `regulatory`, `technology_trend`, `geopolitical`, `industry_trend`. |
-| `templatePack`                                            | No       | Deterministic template pack name (default `default-v1`). Set to `rich-v2` for the expanded industry-focused pack, or `rich-v2-extended` for all twelve standard intents. Operators can switch packs via Hermes invoke config without redeploying the agent. |
-
-### Derived strategy values
-
-These are computed at run time from `queryCount` and recorded on **`strategySnapshot`** for audit — they are not Hermes config fields.
-
-| Derived field             | Formula                                      | Examples                          |
-| ------------------------- | -------------------------------------------- | --------------------------------- |
-| `minDeterministicCount`   | `max(2, floor(queryCount × 0.4))`            | `queryCount: 10` → `4`; `3` → `2` |
-
-LLM output token budget is fixed in source as `QUERY_ANALYSIS_MAX_OUTPUT_TOKENS` (`800`) in `llm-queries.ts`. Change it via a code deploy, not Hermes config.
-
-Prompts live in source. To change them, open a PR. Tune model behavior via `intentWeights` and sampling (see [Creativity sampling](#creativity-sampling)).
-
-### Creativity sampling
-
-LLM query generation uses higher-variance defaults than the AI SDK baseline so operators get lateral phrasing without redeploying. All fields are persisted in the run **`strategySnapshot`** for audit and reproduction.
-
-| Field              | Range    | Default     | Notes                                                                                                       |
-| ------------------ | -------- | ----------- | ----------------------------------------------------------------------------------------------------------- |
-| `temperature`      | `0`–`2`  | `0.9`       | Overall randomness. Raise for more varied phrasing; lower if outputs drift off-topic.                       |
-| `topP`             | `0`–`1`  | `0.95`      | Nucleus sampling cutoff. Usually leave near default unless you are tuning alongside `temperature`.          |
-| `presencePenalty`  | `-2`–`2` | `0.4`       | Pushes the model toward new topics. **Tune this first** when duplicate query angles dominate the LLM pool.  |
-| `frequencyPenalty` | `-2`–`2` | `0.5`       | Reduces repeated tokens. Raise slightly if the model keeps reusing the same words across rows.              |
-| `seed`             | integer  | _(omitted)_ | Fixed seed for reproducible output during regression hunts. Leave unset in production for genuine variance. |
-
-**Tune-up recipe:** If persisted queries feel repetitive, bump `presencePenalty` by `0.1`–`0.2` before touching `temperature`. If phrasing is too wild, lower `temperature` toward `0.7` and keep penalties steady. Set `seed` only when you need bit-for-bit comparison across prompt edits.
-
-## Query intents
-
-Each persisted query row carries an **`intent`** label. Legacy rows use the original trio; new runs may emit any value below.
-
-| Intent              | Meaning                                              | Example query                         | Default weight |
-| ------------------- | ---------------------------------------------------- | ------------------------------------- | -------------- |
-| `breaking`          | Timely news, catalysts, price-moving events           | `why is ACME moving today`            | `1.0`          |
-| `kg_change`         | Knowledge-graph relation or entity changes           | `Acme Co relation changes`            | `0.8`          |
-| `sentiment`         | Social buzz, analyst tone, reputation swings         | `Acme Co social media sentiment`      | `0.5`          |
-| `competitor`        | Peer positioning, share shifts, competitive threats  | `Software competitive landscape`      | `0.7`          |
-| `supply_chain`      | Suppliers, logistics, input costs, bottlenecks       | `Acme Co supplier risk`               | `0.4`          |
-| `esg`               | Environmental, social, governance controversies    | `Acme Co ESG controversies`           | `0.5`          |
-| `macro`             | Rates, FX, commodity, sector-wide drivers            | `Technology macro outlook 2026`       | `0.7`          |
-| `technical`         | Chart patterns, momentum, support/resistance         | `ACME chart pattern May`              | `0.3`          |
-| `regulatory`        | Licensing, compliance, policy enforcement            | `Software regulatory changes`         | `0.6`          |
-| `technology_trend`  | Digital disruption, AI adoption, tech shifts         | `Software technology disruption`      | `0.55`         |
-| `geopolitical`      | Trade, sanctions, cross-border sector dynamics       | `Software trade policy impact`        | `0.5`          |
-| `industry_trend`    | Sector outlook, analyst views on the industry        | `Technology industry outlook 2026`    | `0.6`          |
-| `fundamental`       | Legacy earnings/guidance intent (retained for old rows) | _(not emitted in new runs)_         | `0`            |
-
-New runs prioritize external industry intelligence. The standard pipeline no longer emits `fundamental` queries.
-
-## Deterministic template packs
-
-Deterministic queries are built from a named **template pack** before the LLM complement is merged. Set **`templatePack`** in Hermes invoke config to switch packs without redeploying the agent.
-
-| Pack                  | Templates | Slots used                                                                                                  | Example row                    |
-| --------------------- | --------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| **`default-v1`**      | 5         | `{symbol}`, `{name}`, `{sector}`, `{industry}`                                                              | `Technology industry trends`   |
-| **`rich-v2`**         | ~25       | `{symbol}`, `{name}`, `{topEntity}`, `{recentTheme}`, `{sector}`, `{industry}`, `{currentQuarter}`, `{currentYear}`, `{currentMonth}` | `Software competitive landscape` |
-| **`rich-v2-extended`**| ~28       | Same as `rich-v2` plus templates for all twelve standard intents including `regulatory`, `technology_trend`, `geopolitical`, and `industry_trend` | `Software regulatory changes`  |
-
-Templates whose required slots cannot be filled from live GET /query-analysis context are **skipped** (never persisted with literal `{slot}` tokens). For example, `{recentTheme}` templates are omitted when the ticker has no recent themes.
-
-Slot resolution uses the agent clock at run time:
-
-- **`{currentQuarter}`** — e.g. `Q2 2026` for May 2026
-- **`{currentYear}`** — calendar year, e.g. `2026`
-- **`{currentMonth}`** — full English month name, e.g. `May`
-- **`{topEntity}`** — highest-weight entity from `topEntities`
-- **`{recentTheme}`** — first entry from `recentThemes`
-- **`{sector}`** — sector label from ticker metadata (`Sektor` / `sector`)
-- **`{industry}`** — industry label from ticker metadata (`Industri` / `industry`)
-
-## Diversity score and regenerate gate
-
-Before merge, the agent scores the LLM candidate batch on three axes and persists the breakdown in **`strategySnapshot.diversityScore`** (always, even when the gate is off). That lets operators collect telemetry before turning enforcement on.
-
-| Axis | What it measures | Penalizes |
-| ---- | ---------------- | --------- |
-| **Lexical** | Distinct-token ratio across all query texts | Repeated wording and copy-paste phrasing |
-| **Intent coverage** | Normalized entropy of intent labels (`÷ log(n_distinct_intents)`) | Collapse to one or two intents |
-| **Semantic spread** | Mean pairwise cosine distance from embeddings (when semantic dedupe is enabled) | Paraphrases that mean the same thing |
-
-**Persona coverage** (normalized entropy of persona tags) is recorded when rows carry `persona`; it does not enter the composite unless you extend weights in a future change.
-
-The **composite** is a weighted sum of lexical, intent, and semantic terms (defaults `0.4` / `0.3` / `0.3`). When semantic dedupe is off, the semantic term is omitted and the remaining weights are renormalized.
-
-| Config field | Default | Notes |
-| ------------ | ------- | ----- |
-| `diversityGate.enabled` | `false` | When `true` and composite &lt; threshold, one extra persona fan-out runs with a broaden nudge |
-| `diversityGate.threshold` | `0.6` | Scores below this trigger regenerate (max **one** pass per run) |
-| `diversityGate.weights.lexical` | `0.4` | Lexical axis weight |
-| `diversityGate.weights.intent` | `0.3` | Intent entropy weight |
-| `diversityGate.weights.semantic` | `0.3` | Semantic spread weight (ignored when semantic dedupe is off) |
-
-**When to enable:** Turn the gate on after you have a week of `diversityScore` snapshots and a sense of typical composite ranges for your tickers. Start with the default threshold; lower it if you still see narrow batches slipping through, raise it if regenerate passes add cost without improving persisted sets.
-
-The regenerate pass **appends** a second LLM batch; it does not discard the first. Semantic or string dedupe during merge collapses overlap. Even if the second batch is still low-diversity, the run ships after that single retry.
-
-## Hermes run payload
-
-Successful runs return `details` including the agent-data-api create response fields plus **`llmPromptFingerprint`** (16-character hex, same algorithm as content-generation `promptHash`) so operators can tell runs apart when prompt prose or strategy knobs change across agent deploys.
-
 ## Pipeline usage
 
-- Included in **Pipeline A: Query Analysis**
-- Schedule: `0 5 * * *` in `Asia/Jakarta`
-- Input fan-out: `{ "tickerId": "db:userTicker:tickerId?where.enabled=true" }`
+- Runs in the **Query Analysis Pipeline** on a daily schedule.
+- Fanned out per enabled ticker.
 
 ## Related docs
 
-- [Knowledge graph](/mediapulse/knowledge-graph/knowledge-graph)
+- [Query Analysis Contract Brief](/mediapulse/apps/agents/query-analysis-contract-brief)
 - [Data Collection Agent](/mediapulse/apps/agents/data-collection)
 - [agent-data-api](/mediapulse/apps/agent-data-api)

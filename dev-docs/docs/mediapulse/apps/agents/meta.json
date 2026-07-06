@@ -2,6 +2,7 @@
   "title": "Agents",
   "pages": [
     "query-analysis",
+    "query-analysis-contract-brief",
     "analysis",
     "content-generation",
     "content-generation-config-reference",
