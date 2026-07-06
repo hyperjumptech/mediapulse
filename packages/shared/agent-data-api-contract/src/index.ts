@@ -127,6 +127,18 @@ export {
   type DiscoverySourceHealthEntry,
 } from "./discovery-source-health.js";
 export {
+  postTickerDiscoveryLookupBodySchema,
+  postTickerDiscoveryLookupResponseSchema,
+  postTickerDiscoveryRecordBodySchema,
+  postTickerDiscoveryRecordResponseSchema,
+  type PostTickerDiscoveryLookupBody,
+  type PostTickerDiscoveryLookupResponse,
+  type PostTickerDiscoveryRecordBody,
+  type PostTickerDiscoveryRecordResponse,
+  type TickerDiscoveryEntry,
+  type TickerDiscoveryParty,
+} from "./ticker-discovery.js";
+export {
   deliveryNewsletterSchema,
   deliveryNewsletterTranslationSchema,
   deliverySubscriberSchema,

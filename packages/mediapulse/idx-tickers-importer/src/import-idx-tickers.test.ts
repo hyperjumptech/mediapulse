@@ -24,12 +24,16 @@ const createMockDb = (): TickerUpsertDb => ({
 });
 
 describe("mapIdxRowToTicker", () => {
-  it("maps KodeEmiten to symbol and NamaEmiten to name", () => {
+  it("maps KodeEmiten/NamaEmiten and promotes classification columns", () => {
     // Setup
     const row = {
       KodeEmiten: "AADI",
       NamaEmiten: "PT Adaro Andalan Indonesia Tbk",
       Sektor: "Energi",
+      Industri: "Batu Bara",
+      SubSektor: "Pertambangan",
+      SubIndustri: "Batu Bara",
+      KegiatanUsahaUtama: "Pertambangan batu bara",
     };
 
     // Act
@@ -38,7 +42,13 @@ describe("mapIdxRowToTicker", () => {
     // Assert
     expect(result.symbol).toBe("AADI");
     expect(result.name).toBe("PT Adaro Andalan Indonesia Tbk");
-    expect(result.metadata).toEqual(row);
+    expect(result.sector).toBe("Energi");
+    expect(result.industry).toBe("Batu Bara");
+    expect(result.subSector).toBe("Pertambangan");
+    expect(result.subIndustry).toBe("Batu Bara");
+    expect(result.businessActivity).toBe("Pertambangan batu bara");
+    expect(result.aliases).toEqual([]);
+    expect(result.metadataRaw).toEqual(row);
   });
 
   it("trims symbol and name", () => {
@@ -53,7 +63,7 @@ describe("mapIdxRowToTicker", () => {
     expect(result.name).toBe("Bank");
   });
 
-  it("uses empty string for missing name and includes full row in metadata", () => {
+  it("uses empty string for missing name, null classification, and full row in metadataRaw", () => {
     // Setup
     const row = {
       KodeEmiten: "X",
@@ -66,9 +76,20 @@ describe("mapIdxRowToTicker", () => {
     // Assert
     expect(result.symbol).toBe("X");
     expect(result.name).toBe("");
-    expect(result.metadata).toEqual(row);
+    expect(result.sector).toBeNull();
+    expect(result.industry).toBeNull();
+    expect(result.metadataRaw).toEqual(row);
   });
 });
+
+const nullClassification = {
+  sector: null,
+  industry: null,
+  subSector: null,
+  subIndustry: null,
+  businessActivity: null,
+  aliases: [],
+};
 
 describe("importIdxTickers", () => {
   afterEach(() => {
@@ -100,14 +121,16 @@ describe("importIdxTickers", () => {
       data: {
         symbol: "AADI",
         name: "PT Adaro Andalan Indonesia Tbk",
-        metadata: payload.data[0],
+        ...nullClassification,
+        metadataRaw: payload.data[0],
       },
     });
     expect(db.ticker.create).toHaveBeenNthCalledWith(2, {
       data: {
         symbol: "BBHI",
         name: "PT Bank Harda Internasional Tbk",
-        metadata: payload.data[1],
+        ...nullClassification,
+        metadataRaw: payload.data[1],
       },
     });
     expect(db.ticker.update).not.toHaveBeenCalled();
@@ -135,7 +158,8 @@ describe("importIdxTickers", () => {
       where: { symbol: "AADI" },
       data: {
         name: "PT Adaro Andalan Indonesia Tbk",
-        metadata: payload.data[0],
+        ...nullClassification,
+        metadataRaw: payload.data[0],
       },
     });
     expect(db.ticker.create).not.toHaveBeenCalled();
@@ -162,11 +186,20 @@ describe("importIdxTickers", () => {
     expect(db.ticker.update).toHaveBeenCalledTimes(1);
     expect(db.ticker.update).toHaveBeenCalledWith({
       where: { symbol: "AADI" },
-      data: { name: "PT Adaro", metadata: payload.data[0] },
+      data: {
+        name: "PT Adaro",
+        ...nullClassification,
+        metadataRaw: payload.data[0],
+      },
     });
     expect(db.ticker.create).toHaveBeenCalledTimes(1);
     expect(db.ticker.create).toHaveBeenCalledWith({
-      data: { symbol: "BBHI", name: "PT Bank", metadata: payload.data[1] },
+      data: {
+        symbol: "BBHI",
+        name: "PT Bank",
+        ...nullClassification,
+        metadataRaw: payload.data[1],
+      },
     });
   });
 
@@ -190,7 +223,12 @@ describe("importIdxTickers", () => {
     expect(db.ticker.findUnique).toHaveBeenCalledTimes(1);
     expect(db.ticker.create).toHaveBeenCalledTimes(1);
     expect(db.ticker.create).toHaveBeenCalledWith({
-      data: { symbol: "OK", name: "Valid", metadata: payload.data[2] },
+      data: {
+        symbol: "OK",
+        name: "Valid",
+        ...nullClassification,
+        metadataRaw: payload.data[2],
+      },
     });
   });
 
@@ -207,7 +245,12 @@ describe("importIdxTickers", () => {
 
     // Assert
     expect(db.ticker.create).toHaveBeenCalledWith({
-      data: { symbol: "XYZ", name: "XYZ", metadata: payload.data[0] },
+      data: {
+        symbol: "XYZ",
+        name: "XYZ",
+        ...nullClassification,
+        metadataRaw: payload.data[0],
+      },
     });
   });
 

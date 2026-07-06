@@ -33,12 +33,11 @@ describe("loadAnalysisContext — ticker-scoped baseline", () => {
         ticker: {
           symbol: "AGRO",
           name: "PT Bank Raya Indonesia Tbk",
-          metadata: {
-            Sektor: "Keuangan",
-            Industri: "Bank",
-            SubIndustri: "Bank",
-            KegiatanUsahaUtama: "Perbankan",
-          },
+          sector: "Keuangan",
+          industry: "Bank",
+          subSector: null,
+          subIndustry: "Bank",
+          businessActivity: "Perbankan",
         },
       },
     ];
@@ -90,7 +89,11 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
           id: TICKER_ID,
           symbol: "BBCA",
           name: "Bank Central Asia",
-          metadata: {},
+          sector: null,
+          industry: null,
+          subSector: null,
+          subIndustry: null,
+          businessActivity: null,
         },
       ]),
       findUnique: vi
@@ -125,7 +128,15 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
         content: "anything",
         createdAt: new Date("2026-01-03T00:00:00Z"),
         tickerId: TICKER_ID,
-        ticker: { symbol: "BBCA", name: "Bank Central Asia", metadata: {} },
+        ticker: {
+          symbol: "BBCA",
+          name: "Bank Central Asia",
+          sector: null,
+          industry: null,
+          subSector: null,
+          subIndustry: null,
+          businessActivity: null,
+        },
         tickerSections: [],
       },
       {

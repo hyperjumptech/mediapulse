@@ -7,7 +7,7 @@ import type {
 
 import {
   buildKgNeighborhood,
-  buildPeerMetadataOrFilters,
+  buildPeerColumnFilters,
   collectRecentEventTypes,
   extractTickerSectorIndustry,
   mapPeersWithRelevance,
@@ -104,21 +104,21 @@ export const getQueryAnalysisContext = async (
     orderBy: { createdAt: "desc" as const },
   } satisfies Prisma.DataSourceFindManyArgs;
 
-  const { sector, industry } = extractTickerSectorIndustry(ticker.metadata);
-  const peerMetadataFilters = buildPeerMetadataOrFilters(sector, industry);
+  const { sector, industry } = extractTickerSectorIndustry(ticker);
+  const peerColumnFilters = buildPeerColumnFilters(sector, industry);
   const peerArgs =
-    peerMetadataFilters === undefined
+    peerColumnFilters === undefined
       ? null
       : ({
           where: {
             id: { not: query.tickerId },
-            OR: peerMetadataFilters,
+            OR: peerColumnFilters,
           },
           select: {
             id: true,
             symbol: true,
             name: true,
-            metadata: true,
+            metadataRaw: true,
           },
           take: QUERY_ANALYSIS_PEER_LIMIT * 4,
         } satisfies Prisma.TickerFindManyArgs);
@@ -171,7 +171,7 @@ export const getQueryAnalysisContext = async (
       id: ticker.id,
       symbol: ticker.symbol,
       name: ticker.name,
-      metadata: ticker.metadata,
+      metadata: ticker.metadataRaw,
     },
     topEntities: topEntityRows.map((row) => ({
       canonicalName: row.entity.canonicalName,

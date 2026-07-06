@@ -1,6 +1,28 @@
 import { prisma } from "@mediapulse/database";
 import type { IdxTickersPayload } from "./types";
 
+/** Structured ticker fields mapped from an IDX emiten row. */
+export type MappedTickerFields = {
+  symbol: string;
+  name: string;
+  sector: string | null;
+  industry: string | null;
+  subSector: string | null;
+  subIndustry: string | null;
+  businessActivity: string | null;
+  aliases: string[];
+  metadataRaw: unknown;
+};
+
+/** Ticker create payload derived from {@link MappedTickerFields} (drops `symbol`). */
+type TickerCreateData = { symbol: string; name: string } & Omit<
+  MappedTickerFields,
+  "symbol"
+>;
+
+/** Ticker update payload derived from {@link MappedTickerFields} (drops `symbol`). */
+type TickerUpdateData = Omit<MappedTickerFields, "symbol">;
+
 /** Minimal DB type: ticker.findUnique, create, and update (for DI and tests). */
 export type TickerUpsertDb = {
   ticker: {
@@ -9,33 +31,51 @@ export type TickerUpsertDb = {
       select: { id: true };
     }) => Promise<{ id: string } | null>;
     create: (args: {
-      data: { symbol: string; name: string; metadata?: unknown };
+      data: TickerCreateData;
     }) => Promise<{ id: string; symbol: string; name: string }>;
     update: (args: {
       where: { symbol: string };
-      data: { name: string; metadata?: unknown };
+      data: TickerUpdateData;
     }) => Promise<{ id: string; symbol: string; name: string }>;
   };
 };
 
+/** Trims a nullable IDX string field to a non-empty value, or `null`. */
+const normalizeField = (value: unknown): string | null => {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+
+  return trimmed.length > 0 ? trimmed : null;
+};
+
 /**
- * Maps an IDX emiten row to ticker create/update fields.
- * Uses KodeEmiten as symbol, NamaEmiten as name, and stores the full row as metadata.
+ * Maps an IDX emiten row to structured ticker create/update fields.
+ * Uses KodeEmiten as symbol, NamaEmiten as name, promotes the classification
+ * columns from the Indonesian keys, and keeps the full row on `metadataRaw`.
  *
  * @param row - Single row from IDX API data array.
  * @returns Object suitable for Prisma ticker create/update.
  */
 export const mapIdxRowToTicker = (
   row: IdxTickersPayload["data"][number],
-): {
-  symbol: string;
-  name: string;
-  metadata: unknown;
-} => {
+): MappedTickerFields => {
   const symbol = String(row.KodeEmiten ?? "").trim();
   const name = String(row.NamaEmiten ?? "").trim();
-  const metadata = { ...row } as unknown;
-  return { symbol, name, metadata };
+  const metadataRaw = { ...row } as unknown;
+
+  return {
+    symbol,
+    name,
+    sector: normalizeField(row.Sektor),
+    industry: normalizeField(row.Industri),
+    subSector: normalizeField(row.SubSektor),
+    subIndustry: normalizeField(row.SubIndustri),
+    businessActivity: normalizeField(row.KegiatanUsahaUtama),
+    aliases: [],
+    metadataRaw,
+  };
 };
 
 /**
@@ -54,7 +94,11 @@ export const importIdxTickers = async (
   let added = 0;
   let updated = 0;
   for (const row of rows) {
-    const { symbol, name: tickerName, metadata } = mapIdxRowToTicker(row);
+    const {
+      symbol,
+      name: tickerName,
+      ...classification
+    } = mapIdxRowToTicker(row);
     if (!symbol) continue;
     const existing = await db.ticker.findUnique({
       where: { symbol },
@@ -63,12 +107,12 @@ export const importIdxTickers = async (
     if (existing) {
       await db.ticker.update({
         where: { symbol },
-        data: { name: tickerName || symbol, metadata },
+        data: { name: tickerName || symbol, ...classification },
       });
       updated += 1;
     } else {
       await db.ticker.create({
-        data: { symbol, name: tickerName || symbol, metadata },
+        data: { symbol, name: tickerName || symbol, ...classification },
       });
       added += 1;
     }

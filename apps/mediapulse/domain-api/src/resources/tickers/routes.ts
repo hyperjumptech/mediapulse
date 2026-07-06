@@ -21,6 +21,25 @@ import { tickersTableV1CustomActionRegistrations } from "./custom-actions";
  */
 export const tickersRoutes = new Hono();
 
+/**
+ * Normalizes a structured classification column from the form body.
+ *
+ * @param value - Raw value from the validated write body (`string | null | undefined`).
+ * @returns Trimmed string, `null` to clear, or `undefined` to leave unchanged.
+ */
+const trimOptionalColumn = (value: unknown): string | null | undefined => {
+  if (value === undefined || value === null) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  return undefined;
+};
+
 /** Paginated list of tickers for the Hermes dashboard table (search `q`, `sortBy`, `sortDir`). */
 tickersRoutes.get("/", async (c) => {
   const { page, pageSize } = parsePagination(
@@ -77,7 +96,7 @@ tickersRoutes.post("/", async (c) => {
     return c.json({ message: "Invalid request body" }, 400);
   }
 
-  const metadataParsed = parseTickerMetadataJson(body.data.metadata);
+  const metadataParsed = parseTickerMetadataJson(body.data.metadataRaw);
   if (!metadataParsed.ok) {
     return c.json({ message: metadataParsed.message }, 400);
   }
@@ -86,9 +105,14 @@ tickersRoutes.post("/", async (c) => {
     data: {
       symbol: body.data.symbol.trim(),
       name: body.data.name.trim(),
+      sector: trimOptionalColumn(body.data.sector),
+      industry: trimOptionalColumn(body.data.industry),
+      subSector: trimOptionalColumn(body.data.subSector),
+      subIndustry: trimOptionalColumn(body.data.subIndustry),
+      businessActivity: trimOptionalColumn(body.data.businessActivity),
       ...(metadataParsed.value !== undefined
         ? {
-            metadata:
+            metadataRaw:
               metadataParsed.value === null
                 ? Prisma.DbNull
                 : metadataParsed.value,
@@ -112,21 +136,21 @@ tickersRoutes.patch("/:id", async (c) => {
     return c.json({ message: "Invalid request body" }, 400);
   }
 
-  const metadataParsed = parseTickerMetadataJson(body.data.metadata);
+  const metadataParsed = parseTickerMetadataJson(body.data.metadataRaw);
   if (!metadataParsed.ok) {
     return c.json({ message: metadataParsed.message }, 400);
   }
 
   const existing = await prisma.ticker.findUnique({
     where: { id: c.req.param("id") },
-    select: { id: true, metadata: true },
+    select: { id: true, metadataRaw: true },
   });
   if (!existing) {
     return c.json({ message: "Ticker not found" }, 404);
   }
 
   const mergedMetadata = mergeTickerMetadataForPatch(
-    existing.metadata,
+    existing.metadataRaw,
     metadataParsed.ok ? metadataParsed.value : undefined,
   );
 
@@ -135,7 +159,12 @@ tickersRoutes.patch("/:id", async (c) => {
     data: {
       symbol: body.data.symbol.trim(),
       name: body.data.name.trim(),
-      ...(mergedMetadata !== undefined ? { metadata: mergedMetadata } : {}),
+      sector: trimOptionalColumn(body.data.sector),
+      industry: trimOptionalColumn(body.data.industry),
+      subSector: trimOptionalColumn(body.data.subSector),
+      subIndustry: trimOptionalColumn(body.data.subIndustry),
+      businessActivity: trimOptionalColumn(body.data.businessActivity),
+      ...(mergedMetadata !== undefined ? { metadataRaw: mergedMetadata } : {}),
     },
   });
   return c.json({ id: updated.id });
