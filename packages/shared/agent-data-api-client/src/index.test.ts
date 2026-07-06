@@ -359,6 +359,11 @@ describe("createAgentDataApiClient", () => {
           symbol: "AAPL",
           name: "Apple Inc.",
           metadata: null,
+          sector: "Technology",
+          industry: "Consumer Electronics",
+          subSector: null,
+          subIndustry: null,
+          businessActivity: null,
         },
         topEntities: [],
         recentThemes: [],
@@ -405,6 +410,8 @@ describe("createAgentDataApiClient", () => {
 
     // Assert
     expect(getResponse.ticker.symbol).toBe("AAPL");
+    expect(getResponse.ticker.sector).toBe("Technology");
+    expect(getResponse.ticker.industry).toBe("Consumer Electronics");
     expect(postResponse.created).toBe(1);
   });
 

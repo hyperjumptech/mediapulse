@@ -150,6 +150,17 @@ describe("getQueryAnalysisContext", () => {
 
     const payload = await getQueryAnalysisContext({ tickerId: TICKER_ID }, db);
 
+    expect(payload.ticker).toEqual({
+      id: TICKER_ID,
+      symbol: "ACME",
+      name: "Acme Co",
+      metadata: null,
+      sector: "Technology",
+      industry: "Software",
+      subSector: null,
+      subIndustry: null,
+      businessActivity: null,
+    });
     expect(payload.peers).toEqual([
       { symbol: "PEER2", name: "Peer Two", relevance: 1 },
       { symbol: "PEER1", name: "Peer One", relevance: 0.9 },

@@ -123,6 +123,12 @@ export type AgentConfig<
   /** Zod schema to parse and validate the request body's `config` field. Defaults to empty object. */
   configSchema?: TConfigSchema;
   /**
+   * When true, a request with no contract (or a blank `brief`) is rejected with 400 before `run` is invoked.
+   * Generic opt-in: the runtime only enforces that *a* contract is present, not any specific content.
+   * Defaults to false (contract stays optional, as for every other agent).
+   */
+  requireContract?: boolean;
+  /**
    * Agent business logic. Returns {@link AgentRunResult}; the runtime maps it to the Hermes JSON envelope on 200.
    */
   run: (context: AgentRunContext<TInput, TConfig>) => Promise<AgentRunResult>;

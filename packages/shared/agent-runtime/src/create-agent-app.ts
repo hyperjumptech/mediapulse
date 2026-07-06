@@ -200,6 +200,24 @@ export function createAgentApp<
       )) as TConfig;
       const contractResult = contractSchema.safeParse(requestBody?.contract);
       const contract = contractResult.success ? contractResult.data : undefined;
+
+      if (config.requireContract === true) {
+        const brief = contract?.brief.trim();
+        if (brief === undefined || brief.length === 0) {
+          logger.error(
+            { agentId: config.agentId },
+            "Agent requires a contract brief but none was provided",
+          );
+          return context.json(
+            {
+              message:
+                "This agent requires a contract brief. Attach an Agent Contract to the pipeline step.",
+            },
+            400,
+          );
+        }
+      }
+
       const token = context.req.header("Authorization");
       const hermesCorrelation = hermesInvokeCorrelationFromGetHeader((name) =>
         context.req.header(name),

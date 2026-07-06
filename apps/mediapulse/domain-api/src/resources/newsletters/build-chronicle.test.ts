@@ -146,6 +146,73 @@ describe("buildChronicle", () => {
     expect(result.totalSearchCredits).toBe(96);
   });
 
+  it("surfaces self-driving query-analysis provider usage, credits, and discovery counts", async () => {
+    const deps = makeDeps({
+      searchQuerySet: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "qs-sd-1",
+            generatedAt: new Date("2026-06-30T06:00:00.000Z"),
+            strategySnapshot: {
+              agentVersion: "3.0.0",
+              generationSource: "self_driving_v1",
+              llmUsage: {
+                model: "test-model",
+                promptTokens: 120,
+                completionTokens: 40,
+                totalTokens: 160,
+                calls: 1,
+                cacheHit: false,
+              },
+              providerUsage: {
+                searchProvider: [
+                  { name: "serper", calls: 40 },
+                  { name: "tavily", calls: 12 },
+                ],
+                searchCredits: 52,
+              },
+              discovered: {
+                competitors: ["Bank Mandiri", "BCA"],
+                regulators: ["OJK"],
+              },
+              probe: {
+                candidates: 60,
+                deduped: 48,
+                droppedZeroYield: ["dead one", "dead two"],
+                survivors: 30,
+              },
+              output: { queryCount: 24 },
+              timing: { totalMs: 4_200 },
+            },
+          },
+        ]),
+      },
+    });
+
+    const result = await buildChronicle(NEWSLETTER, deps);
+
+    const queryAnalysis = stageByName(result, "query-analysis");
+    expect(queryAnalysis.kind).toBe("upstream");
+    if (queryAnalysis.kind === "upstream") {
+      expect(queryAnalysis.totals.searchCredits).toBe(52);
+      const run = queryAnalysis.runs[0];
+      expect(run?.providers).toEqual([
+        { name: "serper", calls: 40 },
+        { name: "tavily", calls: 12 },
+      ]);
+      expect(run?.durationMs).toBe(4_200);
+      expect(run?.outputs).toMatchObject({
+        queryCount: 24,
+        cacheHit: false,
+        searchCredits: 52,
+        discoveredCompetitors: 2,
+        discoveredRegulators: 1,
+        droppedZeroYield: 2,
+      });
+    }
+    expect(result.totalSearchCredits).toBe(52);
+  });
+
   it("builds article-analysis runs with tokens from ArticleAnalysisRun rows", async () => {
     const deps = makeDeps({
       articleAnalysisRun: {

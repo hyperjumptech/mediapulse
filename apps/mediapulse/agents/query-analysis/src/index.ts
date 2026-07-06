@@ -21,11 +21,12 @@ const app = createAgentApp<
 >(
   {
     agentId: "query-analysis",
-    agentVersion: "1.0.0",
+    agentVersion: "3.0.0",
     description:
-      "Runs analytical and knowledge-graph queries for a ticker against stored Mediapulse data.",
+      "Self-driving query-analysis: discovers competitors/regulators (contract-steered), probes query yield, and persists a ranked, section-covering query set.",
     inputSchema,
     configSchema: queryAnalysisConfigSchema,
+    requireContract: true,
     run: runQueryAnalysis,
   },
   {
