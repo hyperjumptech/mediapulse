@@ -49,12 +49,6 @@ const discoveredRegulators = [
 const makeClient = (lookupEntry: unknown) => {
   const get = vi.fn().mockResolvedValue({
     ticker: baseTicker,
-    topEntities: [],
-    recentThemes: [],
-    peers: [],
-    calendar: { recentEventTypes: [] },
-    headlineSamples: [],
-    kgNeighborhood: [],
   });
   const create = vi.fn().mockResolvedValue({
     created: 1,
