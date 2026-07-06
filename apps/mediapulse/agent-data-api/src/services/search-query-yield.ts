@@ -304,9 +304,13 @@ export const finalizeYieldBuckets = <TId extends string>(
 /**
  * Builds rolling yield rollups for template, intent, and persona dimensions.
  *
+ * @deprecated (query-analysis 3.0.0) No longer read by query-analysis: the reactive
+ * merge engine that consumed prior yield was removed in the rewrite. The
+ * `search_query_yield` table is still written by data-collection for analytics.
+ *
  * @param params - Ticker id and rolling window length in days.
  * @param db - Optional injected DB delegates for testing.
- * @returns Per-dimension average yield buckets for GET /query-analysis.
+ * @returns Per-dimension average yield buckets.
  */
 export const getQueryYieldSummary = async (
   params: {
@@ -329,7 +333,6 @@ export const getQueryYieldSummary = async (
         select: {
           text: true,
           intent: true,
-          source: true,
           set: {
             select: {
               strategySnapshot: true,

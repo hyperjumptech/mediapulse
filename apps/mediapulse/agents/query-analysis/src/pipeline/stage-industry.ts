@@ -68,7 +68,6 @@ export const buildIndustryCandidates = (
       candidates.push({
         text: `${theme} ${anchor}`,
         intent: template.intent,
-        source: "llm",
         language,
       });
     }

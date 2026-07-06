@@ -1,7 +1,4 @@
-import type {
-  QueryAnalysisIntent,
-  QueryAnalysisSource,
-} from "@workspace/agent-data-api-contract";
+import type { QueryAnalysisIntent } from "@workspace/agent-data-api-contract";
 
 import type { LANGUAGES } from "../constants";
 
@@ -12,6 +9,5 @@ export type Language = (typeof LANGUAGES)[number];
 export type Candidate = {
   text: string;
   intent: QueryAnalysisIntent;
-  source: QueryAnalysisSource;
   language: Language;
 };

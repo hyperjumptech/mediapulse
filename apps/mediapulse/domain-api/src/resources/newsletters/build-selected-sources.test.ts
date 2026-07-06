@@ -36,7 +36,6 @@ describe("buildSelectedSources", () => {
         title: "Low",
         searchQueryId: "sq",
         createdAt: new Date("2026-05-14T01:00:00.000Z"),
-        searchQuery: { source: "deterministic" },
         articleRelevances: [
           { score: 0.2, scoredAt: new Date("2026-05-14T01:00:00.000Z") },
         ],
@@ -47,7 +46,6 @@ describe("buildSelectedSources", () => {
         title: "Mid 1",
         searchQueryId: "sq",
         createdAt: new Date("2026-05-14T01:00:00.000Z"),
-        searchQuery: { source: "deterministic" },
         articleRelevances: [
           { score: 0.7, scoredAt: new Date("2026-05-14T03:00:00.000Z") },
         ],
@@ -58,7 +56,6 @@ describe("buildSelectedSources", () => {
         title: "Mid 2",
         searchQueryId: "sq",
         createdAt: new Date("2026-05-14T01:00:00.000Z"),
-        searchQuery: { source: "deterministic" },
         articleRelevances: [
           { score: 0.7, scoredAt: new Date("2026-05-14T05:00:00.000Z") },
         ],
@@ -87,7 +84,6 @@ describe("buildSelectedSources", () => {
         title: "X",
         searchQueryId: "sq",
         createdAt: new Date("2026-05-14T02:00:00.000Z"),
-        searchQuery: { source: "llm" },
         articleRelevances: [],
       },
     ]);
@@ -106,15 +102,14 @@ describe("buildSelectedSources", () => {
     });
   });
 
-  it("emits collectionSource and label for curated and deterministic rows", async () => {
+  it("emits collectionSource and label from search-query linkage", async () => {
     const findMany = vi.fn().mockResolvedValue([
       {
-        id: "src-curated",
-        url: "https://example.com/curated",
-        title: "Curated",
-        searchQueryId: "sq-c",
+        id: "src-page",
+        url: "https://example.com/page",
+        title: "Page collected",
+        searchQueryId: null,
         createdAt: new Date("2026-05-14T01:00:00.000Z"),
-        searchQuery: { source: "curated" },
         articleRelevances: [
           { score: 0.9, scoredAt: new Date("2026-05-14T01:00:00.000Z") },
         ],
@@ -122,10 +117,9 @@ describe("buildSelectedSources", () => {
       {
         id: "src-det",
         url: "https://example.com/det",
-        title: "Deterministic",
+        title: "Data collected",
         searchQueryId: "sq-d",
         createdAt: new Date("2026-05-14T01:00:00.000Z"),
-        searchQuery: { source: "deterministic" },
         articleRelevances: [
           { score: 0.5, scoredAt: new Date("2026-05-14T01:00:00.000Z") },
         ],
@@ -139,12 +133,12 @@ describe("buildSelectedSources", () => {
       { dataSource: { findMany } },
     );
 
-    const curated = result.sources.find((s) => s.id === "src-curated");
-    const deterministic = result.sources.find((s) => s.id === "src-det");
+    const pageCollected = result.sources.find((s) => s.id === "src-page");
+    const dataCollected = result.sources.find((s) => s.id === "src-det");
 
-    expect(curated?.collectionSource).toBe("page-collection");
-    expect(curated?.collectionSourceLabel).toBe("Page Collection");
-    expect(deterministic?.collectionSource).toBe("data-collection");
-    expect(deterministic?.collectionSourceLabel).toBe("Data Collection");
+    expect(pageCollected?.collectionSource).toBe("page-collection");
+    expect(pageCollected?.collectionSourceLabel).toBe("Page Collection");
+    expect(dataCollected?.collectionSource).toBe("data-collection");
+    expect(dataCollected?.collectionSourceLabel).toBe("Data Collection");
   });
 });

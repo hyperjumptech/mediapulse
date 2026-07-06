@@ -401,7 +401,6 @@ describe("createAgentDataApiClient", () => {
       queries: [
         {
           text: "AAPL latest news",
-          source: "deterministic",
           intent: "breaking",
           rank: 1,
         },

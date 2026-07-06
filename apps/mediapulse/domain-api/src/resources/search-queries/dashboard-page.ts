@@ -8,7 +8,6 @@ import {
   createdAtDateRangeListFilter,
   intentSelectListFilter,
   isActiveBooleanSelectListFilter,
-  sourceSelectListFilter,
   tickerIdSelectListFilter,
 } from "../../hermes-dashboard/templates/table-v1/list-filter-definitions";
 import {
@@ -39,7 +38,6 @@ export const searchQueriesDashboardPage = {
     { key: "activeSet", label: "Active set", type: "text" },
     { key: "intent", label: "Intent", type: "text" },
     { key: "rank", label: "Rank", type: "text" },
-    { key: "source", label: "Source", type: "text" },
     { key: "setGeneratedAt", label: "Set generated", type: "date-time" },
     { key: "generationPipeline", label: "Generation pipeline", type: "text" },
     { key: "querySetId", label: "Query set id", type: "text" },
@@ -52,7 +50,6 @@ export const searchQueriesDashboardPage = {
     "tickerSymbol",
     "text",
     "intent",
-    "source",
     "querySetId",
     "agentJobId",
   ]),
@@ -67,7 +64,6 @@ export const searchQueriesDashboardPage = {
     tickerIdSelectListFilter,
     isActiveBooleanSelectListFilter,
     intentSelectListFilter,
-    sourceSelectListFilter,
     createdAtDateRangeListFilter,
   ],
   actions: { create: false, update: false, delete: true, view: false },

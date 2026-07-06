@@ -62,12 +62,6 @@ export const DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS: Record<
   wildcard: 0,
 };
 
-export const queryAnalysisSourceSchema = z.enum([
-  "deterministic",
-  "llm",
-  "curated",
-]);
-
 export const getQueryAnalysisQuerySchema = z.object({
   tickerId: z.string().trim().min(1),
 });
@@ -101,7 +95,6 @@ export const queryAnalysisRelationDeltaSchema = z.object({
 
 export const queryAnalysisPostQuerySchema = z.object({
   text: z.string().trim().min(1),
-  source: queryAnalysisSourceSchema,
   intent: queryAnalysisIntentSchema,
   rank: z.number().int().positive(),
 });
@@ -176,6 +169,11 @@ export const queryAnalysisPersonaYieldBucketSchema =
     persona: z.string(),
   });
 
+/**
+ * @deprecated (query-analysis 3.0.0) The reactive merge engine that consumed prior
+ * yield was removed in the rewrite. GET /query-analysis no longer populates this;
+ * kept optional for backward compatibility.
+ */
 export const queryAnalysisPriorYieldSchema = z.object({
   perIntent: z.array(queryAnalysisIntentYieldBucketSchema),
   perPersona: z.array(queryAnalysisPersonaYieldBucketSchema),
@@ -191,6 +189,7 @@ export const getQueryAnalysisResponseSchema = z.object({
   calendar: queryAnalysisCalendarSchema.default({ recentEventTypes: [] }),
   headlineSamples: z.array(queryAnalysisHeadlineSampleSchema).default([]),
   kgNeighborhood: z.array(queryAnalysisKgNeighborhoodSchema).default([]),
+  /** @deprecated (query-analysis 3.0.0) No longer populated; kept optional for compatibility. */
   priorYield: queryAnalysisPriorYieldSchema.optional(),
 });
 
@@ -208,7 +207,6 @@ export type GetQueryAnalysisResponse = z.infer<
 export type PostQueryAnalysisResponse = z.infer<
   typeof postQueryAnalysisResponseSchema
 >;
-export type QueryAnalysisSource = z.infer<typeof queryAnalysisSourceSchema>;
 export type QueryAnalysisIntentWeights = Record<QueryAnalysisIntent, number>;
 export type QueryAnalysisPriorYield = z.infer<
   typeof queryAnalysisPriorYieldSchema

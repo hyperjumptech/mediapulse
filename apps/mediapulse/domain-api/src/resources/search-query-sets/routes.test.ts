@@ -92,8 +92,8 @@ describe("searchQuerySetsRoutes", () => {
         isActive: false,
         strategySnapshot: "{}",
         queries: JSON.stringify([
-          { text: "dup", source: "llm", intent: "breaking", rank: 1 },
-          { text: "dup", source: "llm", intent: "breaking", rank: 2 },
+          { text: "dup", intent: "breaking", rank: 1 },
+          { text: "dup", intent: "breaking", rank: 2 },
         ]),
       }),
     });

@@ -42,15 +42,12 @@ describe("buildSearchQueryListWhere", () => {
     ).toEqual({ tickerId: "11111111-1111-4111-a111-111111111111" });
   });
 
-  it("filters by intent and source", () => {
+  it("filters by intent", () => {
     expect(
       buildSearchQueryListWhere({
         intent: "breaking",
-        source: "llm",
       }),
-    ).toEqual({
-      AND: [{ intent: "breaking" }, { source: "llm" }],
-    });
+    ).toEqual({ intent: "breaking" });
   });
 
   it("filters active-set yes via set.isActive true", () => {

@@ -148,7 +148,6 @@ describe("getQueryYieldSummary", () => {
         searchQuery: {
           text: "ACME latest news",
           intent: "breaking",
-          source: "deterministic",
           set: {
             strategySnapshot: {
               queryAttribution: [
@@ -168,7 +167,6 @@ describe("getQueryYieldSummary", () => {
         searchQuery: {
           text: "Retail chatter on ACME",
           intent: "sentiment",
-          source: "llm",
           set: {
             strategySnapshot: {
               queryAttribution: [

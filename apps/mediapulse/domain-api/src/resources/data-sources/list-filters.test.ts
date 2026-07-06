@@ -47,7 +47,7 @@ describe("buildDataSourceListWhere", () => {
     expect(
       buildDataSourceListWhere({ collectionSource: "page-collection" }),
     ).toEqual({
-      searchQuery: { source: "curated" },
+      searchQueryId: null,
     });
   });
 
@@ -55,7 +55,7 @@ describe("buildDataSourceListWhere", () => {
     expect(
       buildDataSourceListWhere({ collectionSource: "data-collection" }),
     ).toEqual({
-      searchQuery: { source: { in: ["deterministic", "llm"] } },
+      searchQueryId: { not: null },
     });
   });
 

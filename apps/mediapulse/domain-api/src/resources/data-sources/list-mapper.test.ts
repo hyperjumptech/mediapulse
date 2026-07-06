@@ -36,7 +36,7 @@ describe("truncateContentPreview", () => {
 });
 
 describe("mapRowToListItem", () => {
-  it("flattens relations, previews content, and emits collection source for curated", () => {
+  it("flattens relations, previews content, and emits data-collection when a search query is linked", () => {
     const createdAt = new Date("2024-07-01T00:00:00.000Z");
     const updatedAt = new Date("2024-07-02T00:00:00.000Z");
     const content = "x".repeat(DATA_SOURCE_CONTENT_PREVIEW_MAX + 10);
@@ -53,7 +53,6 @@ describe("mapRowToListItem", () => {
       searchQuery: {
         id: "sq-1",
         text: "earnings news",
-        source: "curated" as const,
       },
       ...baseRowFields,
     } satisfies ListRow;
@@ -68,13 +67,13 @@ describe("mapRowToListItem", () => {
     expect(item.contentPreview.length).toBe(
       DATA_SOURCE_CONTENT_PREVIEW_MAX + 1,
     );
-    expect(item.collectionSource).toBe("page-collection");
-    expect(item.collectionSourceLabel).toBe("Page Collection");
+    expect(item.collectionSource).toBe("data-collection");
+    expect(item.collectionSourceLabel).toBe("Data Collection");
     expect(item.collectionGateStatus).toBeNull();
     expect(item.articleRelevances).toEqual([]);
   });
 
-  it("emits data-collection for deterministic source", () => {
+  it("emits data-collection when a search query is linked", () => {
     const createdAt = new Date("2024-07-01T00:00:00.000Z");
     const updatedAt = new Date("2024-07-02T00:00:00.000Z");
     const row = {
@@ -90,7 +89,6 @@ describe("mapRowToListItem", () => {
       searchQuery: {
         id: "sq-2",
         text: "news",
-        source: "deterministic" as const,
       },
       ...baseRowFields,
     } satisfies ListRow;

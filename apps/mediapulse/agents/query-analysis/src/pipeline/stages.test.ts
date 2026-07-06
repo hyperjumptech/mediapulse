@@ -57,12 +57,11 @@ describe("buildOwnCompanyCandidates", () => {
     expect(deals).toHaveLength(
       CORPORATE_ACTION_TERMS.length * LANGUAGES.length,
     );
-    expect(candidates.every((c) => c.source === "deterministic")).toBe(true);
   });
 });
 
 describe("buildCompetitorCandidates / buildRegulatorCandidates", () => {
-  it("emits name and name+keyword under the right intent and source", () => {
+  it("emits name and name+keyword under the right intent", () => {
     const competitors = buildCompetitorCandidates(
       [{ name: "Bank Mandiri", aliases: [], searchKeywords: ["kredit"] }],
       ["id"],
@@ -73,7 +72,6 @@ describe("buildCompetitorCandidates / buildRegulatorCandidates", () => {
       "Bank Mandiri kredit",
     ]);
     expect(competitors.every((c) => c.intent === "competitor")).toBe(true);
-    expect(competitors.every((c) => c.source === "llm")).toBe(true);
 
     const regulators = buildRegulatorCandidates(
       [{ name: "OJK", aliases: [], searchKeywords: ["regulasi"] }],

@@ -10,13 +10,13 @@ const survivor = (
   hits: number,
   language: ProbeSurvivor["language"] = "id",
   rank = 1,
-): ProbeSurvivor => ({ text, intent, source: "llm", language, hits, rank });
+): ProbeSurvivor => ({ text, intent, language, hits, rank });
 
 const dropped = (
   text: string,
   intent: ProbedCandidate["intent"],
   language: ProbedCandidate["language"] = "id",
-): ProbedCandidate => ({ text, intent, source: "llm", language, hits: 0 });
+): ProbedCandidate => ({ text, intent, language, hits: 0 });
 
 describe("finalizeQueries", () => {
   it("returns an empty set when there is nothing to finalize", () => {

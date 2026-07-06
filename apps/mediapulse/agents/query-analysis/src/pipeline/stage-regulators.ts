@@ -23,7 +23,6 @@ export const buildRegulatorCandidates = (
         candidates.push({
           text,
           intent: "regulatory",
-          source: "llm",
           language,
         });
       }

@@ -19,12 +19,6 @@ enum Sentiment {
   NEUTRAL
 }
 
-enum SearchQuerySource {
-  deterministic
-  llm
-  curated
-}
-
 enum SearchQueryIntent {
   breaking
   kg_change
@@ -417,12 +411,12 @@ model ArticleRelevance {
   @@map("article_relevance")
 }
 
+// NOTE (query-analysis 3.0.0): query provenance removed — carried by intent.
 model SearchQuery {
   id        String            @id @default(uuid())
   text      String
   tickerId  String            @map("ticker_id")
   setId     String?           @map("set_id")
-  source    SearchQuerySource @default(deterministic)
   intent    SearchQueryIntent @default(breaking)
   rank      Int               @default(1)
   createdAt DateTime          @default(now()) @map("created_at")
@@ -440,6 +434,7 @@ model SearchQuery {
 }
 
 /// Daily rollup of articles surfaced per search query via data-collection.
+// NOTE (query-analysis 3.0.0): still written by data-collection for analytics; no longer read by query-analysis.
 model SearchQueryYield {
   id                String   @id @default(uuid())
   searchQueryId     String   @map("search_query_id")

@@ -18,10 +18,6 @@ import {
   sortAndLimitPeers,
   sourceNameFromUrl,
 } from "./query-analysis-context-helpers";
-import { getQueryYieldSummary } from "./search-query-yield";
-
-/** Default rolling window for prior yield rollups on GET /query-analysis. */
-export const QUERY_ANALYSIS_PRIOR_YIELD_WINDOW_DAYS = 30;
 
 type QueryAnalysisDb = {
   ticker: Pick<typeof prisma.ticker, "findUniqueOrThrow" | "findMany">;
@@ -144,7 +140,6 @@ export const getQueryAnalysisContext = async (
     calendarSources,
     peerCandidates,
     kgRelations,
-    priorYield,
   ] = await Promise.all([
     db.dataSource.findMany(themeSourceArgs),
     db.dataSource.findMany(headlineSourceArgs),
@@ -153,10 +148,6 @@ export const getQueryAnalysisContext = async (
     kgNeighborhoodArgs
       ? db.entityRelation.findMany(kgNeighborhoodArgs)
       : Promise.resolve([]),
-    getQueryYieldSummary({
-      tickerId: query.tickerId,
-      windowDays: QUERY_ANALYSIS_PRIOR_YIELD_WINDOW_DAYS,
-    }),
   ]);
 
   const peers = mapPeersWithRelevance(
@@ -197,7 +188,6 @@ export const getQueryAnalysisContext = async (
       sourceName: sourceNameFromUrl(row.url),
     })),
     kgNeighborhood: buildKgNeighborhood(entityIds, kgRelations),
-    priorYield,
   };
 };
 
