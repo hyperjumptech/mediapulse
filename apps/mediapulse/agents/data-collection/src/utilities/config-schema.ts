@@ -1,10 +1,19 @@
+import {
+  localeSchema,
+  providerEntrySchema,
+  providerNameSchema,
+  type ProviderEntry,
+  type ProviderName,
+  type SearchLocale,
+} from "@workspace/agent-search";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
-/** Web providers that support search. Search adapters exist only for these. */
-export const providerNameSchema = z.enum(["serper", "tavily", "exa"]);
-
-export type ProviderName = z.infer<typeof providerNameSchema>;
+// Search provider identity, entry, and locale schemas are owned by
+// @workspace/agent-search (shared with the query-analysis yield probe) and
+// re-exported here so this agent's config surface is unchanged.
+export { localeSchema, providerEntrySchema, providerNameSchema };
+export type { ProviderName, ProviderEntry, SearchLocale };
 
 /** Web providers usable for fetch. Diffbot, Firecrawl, and Jina are fetch-only. */
 export const fetchProviderNameSchema = z.enum([
@@ -17,18 +26,6 @@ export const fetchProviderNameSchema = z.enum([
 ]);
 
 export type FetchProviderName = z.infer<typeof fetchProviderNameSchema>;
-
-/** A single search provider entry: the operator only picks a provider and pastes an API key. */
-const providerEntrySchema = z.object({
-  provider: providerNameSchema.describe("Provider identifier."),
-  apiKey: z
-    .string()
-    .describe(
-      "Provider API key or a Hermes variable placeholder such as {{SERPER_API_KEY}}.",
-    ),
-});
-
-export type ProviderEntry = z.infer<typeof providerEntrySchema>;
 
 /** A single fetch provider entry: the operator only picks a provider and pastes an API key. */
 const fetchProviderEntrySchema = z.object({
@@ -74,13 +71,6 @@ const webFetchSchema = z
   .describe(
     "Web-fetch provider pool. Each request rotates the starting provider (round-robin) and falls back to the rest on failure.",
   );
-
-const localeSchema = z.object({
-  gl: z.string().describe("Search country code (Serper `gl`, Tavily country)."),
-  hl: z.string().describe("Search language code (Serper `hl`)."),
-});
-
-export type SearchLocale = z.infer<typeof localeSchema>;
 
 const webSearchLocalesSchema = z
   .array(localeSchema)

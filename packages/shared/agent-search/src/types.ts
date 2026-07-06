@@ -1,6 +1,6 @@
 import type got from "got";
 
-import type { ProviderName, SearchLocale } from "../config-schema";
+import type { ProviderName, SearchLocale } from "./schemas";
 
 /** Normalized search result returned by every search provider adapter. */
 export interface SearchHit {

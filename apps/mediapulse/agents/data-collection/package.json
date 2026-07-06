@@ -18,6 +18,7 @@
     "@workspace/agent-ingestion": "workspace:*",
     "@workspace/agent-data-api-contract": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
+    "@workspace/agent-search": "workspace:*",
     "@workspace/agent-types": "workspace:*",
     "@mediapulse/env": "workspace:*",
     "@workspace/logger": "workspace:*",

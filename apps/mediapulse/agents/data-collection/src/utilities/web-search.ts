@@ -3,16 +3,17 @@ import { logger as defaultLogger } from "@workspace/logger";
 import { pMap } from "@workspace/agent-ingestion";
 import type { FetchMetadata } from "@workspace/agent-ingestion";
 import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
-
-import type { SearchLocale, WebSearchConfig } from "./config-schema";
-import { createSearchProvider, type SearchProvider } from "./search-providers";
 import {
   AllProvidersFailed,
+  createSearchProvider,
   dispatch,
   RoundRobinCursor,
   type DispatchProvider,
-} from "./provider-dispatch";
-import type { SearchProviderResult } from "./search-providers/types";
+  type SearchProvider,
+  type SearchProviderResult,
+} from "@workspace/agent-search";
+
+import type { SearchLocale, WebSearchConfig } from "./config-schema";
 
 export interface SearchQuery {
   id: string;

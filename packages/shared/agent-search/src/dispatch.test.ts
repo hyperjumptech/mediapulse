@@ -7,7 +7,7 @@ import {
   dispatch,
   RoundRobinCursor,
   type DispatchProvider,
-} from "./provider-dispatch";
+} from "./dispatch";
 
 const makeProvider = (
   name: string,
