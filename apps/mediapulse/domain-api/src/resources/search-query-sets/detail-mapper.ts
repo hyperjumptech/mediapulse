@@ -31,7 +31,6 @@ export const mapRowToDetailItem = (row: DetailRow) => {
   const queries = row.searchQueries.map((query) => ({
     id: query.id,
     text: query.text,
-    source: query.source,
     intent: query.intent,
     rank: query.rank,
   }));
@@ -49,9 +48,8 @@ export const mapRowToDetailItem = (row: DetailRow) => {
     strategySnapshotJson: JSON.stringify(row.strategySnapshot),
     queries,
     queriesJson: JSON.stringify(
-      queries.map(({ text, source, intent, rank }) => ({
+      queries.map(({ text, intent, rank }) => ({
         text,
-        source,
         intent,
         rank,
       })),

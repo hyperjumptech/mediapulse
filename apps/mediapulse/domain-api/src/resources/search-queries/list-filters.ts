@@ -1,7 +1,4 @@
-import type {
-  QueryAnalysisIntent,
-  QueryAnalysisSource,
-} from "@workspace/agent-data-api-contract";
+import type { QueryAnalysisIntent } from "@workspace/agent-data-api-contract";
 import { Prisma } from "@mediapulse/database";
 
 /**
@@ -15,8 +12,6 @@ export type SearchQueryListFilters = {
   tickerId?: string;
   /** Search-query intent enum value. */
   intent?: QueryAnalysisIntent;
-  /** Search-query source enum value. */
-  source?: QueryAnalysisSource;
   /** When true, only queries in an active set; when false, no set or inactive set. */
   isActive?: boolean;
   /** Lower bound on `createdAt` (inclusive). */
@@ -65,10 +60,6 @@ export const buildSearchQueryListWhere = (
 
   if (filters.intent) {
     parts.push({ intent: filters.intent });
-  }
-
-  if (filters.source) {
-    parts.push({ source: filters.source });
   }
 
   if (filters.isActive === true) {

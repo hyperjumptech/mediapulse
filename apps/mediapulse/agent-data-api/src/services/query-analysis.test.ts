@@ -192,10 +192,6 @@ describe("getQueryAnalysisContext", () => {
         toEntity: "Gamma Vendor",
       },
     ]);
-    expect(payload.priorYield).toEqual({
-      perIntent: [],
-      perPersona: [],
-    });
     expect(tickerFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({

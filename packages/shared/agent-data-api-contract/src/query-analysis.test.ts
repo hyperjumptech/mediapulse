@@ -13,7 +13,6 @@ describe("queryAnalysisIntentSchema", () => {
   it("accepts legacy breaking intent rows", () => {
     const parsed = queryAnalysisPostQuerySchema.parse({
       text: "ACME latest news",
-      source: "deterministic",
       intent: "breaking",
       rank: 1,
     });
@@ -23,7 +22,6 @@ describe("queryAnalysisIntentSchema", () => {
   it("accepts new esg intent rows", () => {
     const parsed = queryAnalysisPostQuerySchema.parse({
       text: "Acme Co ESG controversies",
-      source: "llm",
       intent: "esg",
       rank: 3,
     });
@@ -33,7 +31,6 @@ describe("queryAnalysisIntentSchema", () => {
   it("accepts industry-focused intent rows", () => {
     const parsed = queryAnalysisPostQuerySchema.parse({
       text: "Indonesian telecom regulatory licensing",
-      source: "deterministic",
       intent: "regulatory",
       rank: 4,
     });
@@ -43,7 +40,6 @@ describe("queryAnalysisIntentSchema", () => {
   it("accepts wildcard intent rows", () => {
     const parsed = queryAnalysisPostQuerySchema.parse({
       text: "Oblique cultural narrative angle",
-      source: "llm",
       intent: "wildcard",
       rank: 10,
     });

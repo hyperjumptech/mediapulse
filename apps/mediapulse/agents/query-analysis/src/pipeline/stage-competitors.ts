@@ -23,7 +23,6 @@ export const buildCompetitorCandidates = (
         candidates.push({
           text,
           intent: "competitor",
-          source: "llm",
           language,
         });
       }

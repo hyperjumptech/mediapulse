@@ -76,9 +76,6 @@ export const buildSelectedSources = async (
         },
         select: { score: true, scoredAt: true },
       },
-      searchQuery: {
-        select: { source: true },
-      },
     },
   } satisfies Prisma.DataSourceFindManyArgs;
 
@@ -87,15 +84,14 @@ export const buildSelectedSources = async (
   type RowWithScore = Prisma.DataSourceGetPayload<{
     include: {
       articleRelevances: { select: { score: true; scoredAt: true } };
-      searchQuery: { select: { source: true } };
     };
   }>;
 
   const mapped = (rows as RowWithScore[]).map((row) => {
     const relevance = row.articleRelevances[0];
-    const collectionSource = row.searchQuery
-      ? classifyCollectionSource(row.searchQuery.source)
-      : "page-collection";
+    const collectionSource = classifyCollectionSource(
+      row.searchQueryId !== null,
+    );
 
     return {
       id: row.id,

@@ -6,7 +6,6 @@ import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import {
   QUERY_ANALYSIS_INTENTS,
   queryAnalysisIntentSchema,
-  queryAnalysisSourceSchema,
 } from "@workspace/agent-data-api-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
@@ -50,9 +49,6 @@ searchQueriesRoutes.get("/", async (c) => {
   const intentFilter = queryAnalysisIntentSchema.safeParse(
     c.req.query("intent")?.trim() ?? "",
   );
-  const sourceFilter = queryAnalysisSourceSchema.safeParse(
-    c.req.query("source")?.trim() ?? "",
-  );
   const isActiveRaw = c.req.query("isActive")?.trim() ?? "";
   const isActiveFilter = z
     .enum(["true", "false"])
@@ -62,7 +58,6 @@ searchQueriesRoutes.get("/", async (c) => {
     q: c.req.query("q"),
     tickerId: tickerFilter.success ? tickerFilter.data : undefined,
     intent: intentFilter.success ? intentFilter.data : undefined,
-    source: sourceFilter.success ? sourceFilter.data : undefined,
     isActive: isActiveFilter.success
       ? isActiveFilter.data === "true"
       : undefined,
@@ -117,10 +112,6 @@ searchQueriesRoutes.get("/meta", async (c) => {
       intentOptions: QUERY_ANALYSIS_INTENTS.map((intent) => ({
         value: intent,
         label: formatSearchQueryEnumLabel(intent),
-      })),
-      sourceOptions: queryAnalysisSourceSchema.options.map((source) => ({
-        value: source,
-        label: formatSearchQueryEnumLabel(source),
       })),
     },
   });

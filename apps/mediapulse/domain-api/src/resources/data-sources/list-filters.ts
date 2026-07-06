@@ -1,6 +1,6 @@
 import { Prisma } from "@mediapulse/database";
 import {
-  buildCollectionSourceSearchQueryWhere,
+  buildCollectionSourceDataSourceWhere,
   type CollectionSource,
 } from "./collection-source";
 import type { CollectionGateStatusFilter } from "./collection-gate-status";
@@ -64,11 +64,7 @@ export const buildDataSourceListWhere = (
   }
 
   if (filters.collectionSource) {
-    parts.push({
-      searchQuery: buildCollectionSourceSearchQueryWhere(
-        filters.collectionSource,
-      ),
-    });
+    parts.push(buildCollectionSourceDataSourceWhere(filters.collectionSource));
   }
 
   if (filters.collectionGateStatus) {

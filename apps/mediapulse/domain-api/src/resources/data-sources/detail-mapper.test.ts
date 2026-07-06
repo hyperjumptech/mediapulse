@@ -82,7 +82,7 @@ describe("mapRowToDetailItem", () => {
       createdAt,
       updatedAt,
       ticker: { symbol: "ACME", name: "Acme Inc" },
-      searchQuery: { id: "sq-3", text: "q", source: "llm" as const },
+      searchQuery: { id: "sq-3", text: "q" },
       curatedSource: null,
       articleRelevances: [],
     } satisfies DetailRow;

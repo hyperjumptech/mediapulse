@@ -19,7 +19,7 @@ export async function ensureCuratedListingQuery(
   searchQuery: SearchQueryDb,
 ): Promise<string> {
   const findArgs = {
-    where: { tickerId, source: "curated", text: CURATED_LISTING_TEXT },
+    where: { tickerId, text: CURATED_LISTING_TEXT },
     select: { id: true },
   } satisfies Prisma.SearchQueryFindFirstArgs;
 
@@ -32,7 +32,6 @@ export async function ensureCuratedListingQuery(
     data: {
       tickerId,
       text: CURATED_LISTING_TEXT,
-      source: "curated",
       setId: null,
     },
     select: { id: true },

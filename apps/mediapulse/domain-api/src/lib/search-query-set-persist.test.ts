@@ -18,8 +18,8 @@ describe("findDuplicateQueryTexts", () => {
   it("returns null when texts are unique", () => {
     // Act
     const result = findDuplicateQueryTexts([
-      { text: "a", source: "llm", intent: "breaking", rank: 1 },
-      { text: "b", source: "llm", intent: "breaking", rank: 2 },
+      { text: "a", intent: "breaking", rank: 1 },
+      { text: "b", intent: "breaking", rank: 2 },
     ]);
 
     // Assert
@@ -29,8 +29,8 @@ describe("findDuplicateQueryTexts", () => {
   it("returns a message when duplicate texts exist", () => {
     // Act
     const result = findDuplicateQueryTexts([
-      { text: "dup", source: "llm", intent: "breaking", rank: 1 },
-      { text: "dup", source: "deterministic", intent: "fundamental", rank: 2 },
+      { text: "dup", intent: "breaking", rank: 1 },
+      { text: "dup", intent: "fundamental", rank: 2 },
     ]);
 
     // Assert
@@ -87,7 +87,7 @@ describe("createSearchQuerySet", () => {
         isActive: true,
         generationSource: "manual",
         strategySnapshot: { queryCount: 2 },
-        queries: [{ text: "q1", source: "llm", intent: "breaking", rank: 1 }],
+        queries: [{ text: "q1", intent: "breaking", rank: 1 }],
       },
       db,
     );
@@ -120,8 +120,8 @@ describe("createSearchQuerySet", () => {
           generationSource: "manual",
           strategySnapshot: {},
           queries: [
-            { text: "same", source: "llm", intent: "breaking", rank: 1 },
-            { text: "same", source: "llm", intent: "breaking", rank: 2 },
+            { text: "same", intent: "breaking", rank: 1 },
+            { text: "same", intent: "breaking", rank: 2 },
           ],
         },
         db,
@@ -150,7 +150,7 @@ describe("replaceSearchQueriesForSet", () => {
     await replaceSearchQueriesForSet(
       SET_ID,
       TICKER_ID,
-      [{ text: "new", source: "deterministic", intent: "kg_change", rank: 1 }],
+      [{ text: "new", intent: "kg_change", rank: 1 }],
       db,
     );
 

@@ -21,7 +21,7 @@ const candidate = (
   text: string,
   intent: Candidate["intent"],
   language: Candidate["language"] = "id",
-): Candidate => ({ text, intent, source: "llm", language });
+): Candidate => ({ text, intent, language });
 
 const fakeCreateProvider = () =>
   vi.fn(() => ({ type: "serper" as const, search: vi.fn() }));

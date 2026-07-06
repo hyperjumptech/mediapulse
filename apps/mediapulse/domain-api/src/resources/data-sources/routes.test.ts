@@ -109,7 +109,7 @@ describe("dataSourcesRoutes", () => {
     expect(prisma.dataSource.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          searchQuery: { source: "curated" },
+          searchQueryId: null,
         },
       }),
     );

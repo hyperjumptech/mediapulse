@@ -4,7 +4,6 @@ import {
   summarizeSectionCoverage,
   type NewsletterSectionId,
   type QueryAnalysisIntent,
-  type QueryAnalysisSource,
 } from "@workspace/agent-data-api-contract";
 
 import { normalizeQueryText } from "../probe/yield-probe";
@@ -14,7 +13,6 @@ import type { Language } from "../pipeline/types";
 /** A persisted query row. */
 export type FinalizedQuery = {
   text: string;
-  source: QueryAnalysisSource;
   intent: QueryAnalysisIntent;
   rank: number;
 };
@@ -134,7 +132,6 @@ export const finalizeQueries = (params: {
   chosen.sort((left, right) => right.hits - left.hits);
   const queries: FinalizedQuery[] = chosen.map((candidate, index) => ({
     text: candidate.text,
-    source: candidate.source,
     intent: candidate.intent,
     rank: index + 1,
   }));

@@ -2,10 +2,7 @@
  * Zod write bodies and Hermes JSON Schemas for search-query-set CRUD forms.
  */
 
-import {
-  queryAnalysisPostQuerySchema,
-  queryAnalysisSourceSchema,
-} from "@workspace/agent-data-api-contract";
+import { queryAnalysisPostQuerySchema } from "@workspace/agent-data-api-contract";
 import { z } from "zod";
 
 import {
@@ -66,7 +63,7 @@ export const searchQuerySetCreateFormJsonSchema =
     ),
     queries: jsonTextareaProperty(
       "Queries",
-      'JSON array of objects: [{ "text": "...", "source": "deterministic"|"llm", "intent": "breaking"|"kg_change"|"fundamental", "rank": 1 }, ...]',
+      'JSON array of objects: [{ "text": "...", "intent": "breaking"|"kg_change"|"fundamental", "rank": 1 }, ...]',
     ),
   });
 
@@ -86,5 +83,3 @@ export const searchQuerySetUpdateFormJsonSchema =
       "Optional JSON array to replace all queries in the set. Same shape as create. Omit to leave queries unchanged.",
     ),
   });
-
-export { queryAnalysisSourceSchema };

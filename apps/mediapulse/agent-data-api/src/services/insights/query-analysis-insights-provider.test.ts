@@ -60,17 +60,15 @@ function makeSets(count: number, offsetMs = WINDOW_MS / 2) {
 }
 
 function makeQueries(setIds: string[]) {
-  const sources = ["llm", "deterministic", "curated"] as const;
   const intents = ["breaking", "fundamental", "sentiment"] as const;
   return setIds.flatMap((setId, i) => [
     {
       id: `q-${setId}-0`,
       setId,
-      source: sources[i % 3] ?? "llm",
       intent: intents[i % 3] ?? "breaking",
     },
-    { id: `q-${setId}-1`, setId, source: "llm", intent: "competitor" },
-    { id: `q-${setId}-2`, setId, source: "deterministic", intent: "breaking" },
+    { id: `q-${setId}-1`, setId, intent: "competitor" },
+    { id: `q-${setId}-2`, setId, intent: "breaking" },
   ]);
 }
 
@@ -116,40 +114,6 @@ describe("createQueryAnalysisInsightsProvider", () => {
 
     expect(() => insightsPayloadSchema.parse(payload)).not.toThrow();
     expect(payload.agentId).toBe("query-analysis");
-  });
-
-  it("source breakdown fractions sum to 1 when sources are present", async () => {
-    const sets = makeSets(2);
-    const queries = [
-      { id: "q-0", setId: "set-0", source: "llm", intent: "breaking" },
-      {
-        id: "q-1",
-        setId: "set-0",
-        source: "deterministic",
-        intent: "fundamental",
-      },
-      { id: "q-2", setId: "set-1", source: "curated", intent: "sentiment" },
-      { id: "q-3", setId: "set-1", source: "llm", intent: "competitor" },
-    ];
-
-    const provider = createQueryAnalysisInsightsProvider(
-      makeDeps(sets, queries, []),
-    );
-    const payload = await provider.compute({ window: "7d" });
-
-    const sourceSection = payload.sections.find(
-      (s) => s.id === "what-source-composition",
-    );
-    expect(sourceSection).toBeDefined();
-    expect(sourceSection?.widget.kind).toBe("breakdown");
-
-    if (sourceSection?.widget.kind === "breakdown") {
-      const total = sourceSection.widget.slices.reduce(
-        (sum, s) => sum + s.fraction,
-        0,
-      );
-      expect(total).toBeCloseTo(1, 5);
-    }
   });
 
   it("diversity-axis section reads each axis from the latest diversityScore", async () => {
@@ -228,12 +192,11 @@ describe("createQueryAnalysisInsightsProvider", () => {
   it("intent categoryBar counts SearchQuery.intent values", async () => {
     const sets = makeSets(1);
     const queries = [
-      { id: "q-0", setId: "set-0", source: "llm", intent: "breaking" },
-      { id: "q-1", setId: "set-0", source: "llm", intent: "breaking" },
+      { id: "q-0", setId: "set-0", intent: "breaking" },
+      { id: "q-1", setId: "set-0", intent: "breaking" },
       {
         id: "q-2",
         setId: "set-0",
-        source: "deterministic",
         intent: "fundamental",
       },
     ];

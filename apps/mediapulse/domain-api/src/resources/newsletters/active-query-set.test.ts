@@ -25,7 +25,7 @@ describe("findActiveQuerySetForNewsletter", () => {
     });
   });
 
-  it("maps queries with rank/source/intent and supports empty sets", async () => {
+  it("maps queries with rank/intent and supports empty sets", async () => {
     const generatedAt = new Date("2026-05-13T08:00:00.000Z");
     const findFirst = vi.fn().mockResolvedValue({
       id: "set-1",
@@ -58,14 +58,12 @@ describe("findActiveQuerySetForNewsletter", () => {
         {
           id: "q1",
           text: "first query",
-          source: "deterministic",
           intent: "breaking",
           rank: 1,
         },
         {
           id: "q2",
           text: "second query",
-          source: "deterministic",
           intent: "thematic",
           rank: 2,
         },
@@ -80,7 +78,6 @@ describe("findActiveQuerySetForNewsletter", () => {
 
     expect(result?.queries.map((q) => q.id)).toStrictEqual(["q1", "q2"]);
     expect(result?.queries[0]).toMatchObject({
-      source: "deterministic",
       intent: "breaking",
       rank: 1,
     });

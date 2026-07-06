@@ -589,7 +589,6 @@ describe("agent-data-api", () => {
           text: "query one",
           tickerId: TICKER_ID,
           setId: null,
-          source: "deterministic",
           intent: "breaking",
           rank: 1,
           createdAt: new Date("2026-03-19T00:00:00.000Z"),
@@ -694,7 +693,6 @@ describe("agent-data-api", () => {
           queries: [
             {
               text: "AAPL latest news",
-              source: "deterministic",
               intent: "breaking",
               rank: 1,
             },

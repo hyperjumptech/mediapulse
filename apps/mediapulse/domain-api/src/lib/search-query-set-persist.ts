@@ -3,15 +3,11 @@
  */
 
 import { prisma, type Prisma } from "@mediapulse/database";
-import type {
-  QueryAnalysisIntent,
-  QueryAnalysisSource,
-} from "@workspace/agent-data-api-contract";
+import type { QueryAnalysisIntent } from "@workspace/agent-data-api-contract";
 
 /** One query row supplied when creating or replacing set membership. */
 export type SearchQuerySetPersistQueryInput = {
   text: string;
-  source: QueryAnalysisSource;
   intent: QueryAnalysisIntent;
   rank: number;
 };
@@ -116,7 +112,6 @@ export const createSearchQuerySet = async (
         create: input.queries.map((query) => ({
           tickerId: input.tickerId,
           text: query.text,
-          source: query.source,
           intent: query.intent,
           rank: query.rank,
         })),
@@ -159,7 +154,6 @@ export const replaceSearchQueriesForSet = async (
       setId,
       tickerId,
       text: query.text,
-      source: query.source,
       intent: query.intent,
       rank: query.rank,
     })),

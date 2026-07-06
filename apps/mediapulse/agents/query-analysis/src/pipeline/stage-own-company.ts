@@ -32,7 +32,6 @@ export const buildOwnCompanyCandidates = (
       candidates.push({
         text: symbol,
         intent: "breaking",
-        source: "deterministic",
         language,
       });
     }
@@ -40,14 +39,12 @@ export const buildOwnCompanyCandidates = (
       candidates.push({
         text: name,
         intent: "breaking",
-        source: "deterministic",
         language,
       });
       for (const term of CORPORATE_ACTION_TERMS) {
         candidates.push({
           text: `${name} ${term}`,
           intent: "deals",
-          source: "deterministic",
           language,
         });
       }

@@ -1,7 +1,7 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 import {
-  buildCollectionSourceSearchQueryWhere,
+  buildCollectionSourceDataSourceWhere,
   classifyCollectionSource,
   COLLECTION_SOURCE_BADGE_VARIANTS_BY_LABEL,
   COLLECTION_SOURCE_LABEL,
@@ -9,16 +9,12 @@ import {
 } from "./collection-source";
 
 describe("classifyCollectionSource", () => {
-  it("maps curated to page-collection", () => {
-    expect(classifyCollectionSource("curated")).toBe("page-collection");
+  it("maps a data source with a search query to data-collection", () => {
+    expect(classifyCollectionSource(true)).toBe("data-collection");
   });
 
-  it("maps deterministic to data-collection", () => {
-    expect(classifyCollectionSource("deterministic")).toBe("data-collection");
-  });
-
-  it("maps llm to data-collection", () => {
-    expect(classifyCollectionSource("llm")).toBe("data-collection");
+  it("maps a data source without a search query to page-collection", () => {
+    expect(classifyCollectionSource(false)).toBe("page-collection");
   });
 });
 
@@ -41,16 +37,16 @@ describe("COLLECTION_SOURCE_OPTIONS", () => {
   });
 });
 
-describe("buildCollectionSourceSearchQueryWhere", () => {
-  it("maps page-collection to curated search queries", () => {
-    expect(buildCollectionSourceSearchQueryWhere("page-collection")).toEqual({
-      source: "curated",
+describe("buildCollectionSourceDataSourceWhere", () => {
+  it("maps page-collection to data sources without a search query", () => {
+    expect(buildCollectionSourceDataSourceWhere("page-collection")).toEqual({
+      searchQueryId: null,
     });
   });
 
-  it("maps data-collection to deterministic and llm search queries", () => {
-    expect(buildCollectionSourceSearchQueryWhere("data-collection")).toEqual({
-      source: { in: ["deterministic", "llm"] },
+  it("maps data-collection to data sources with a search query", () => {
+    expect(buildCollectionSourceDataSourceWhere("data-collection")).toEqual({
+      searchQueryId: { not: null },
     });
   });
 });

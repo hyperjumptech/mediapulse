@@ -55,7 +55,6 @@ describe("searchQueriesRoutes", () => {
       "tickerId",
       "isActive",
       "intent",
-      "source",
       "createdAt",
     ]);
     expect(body.filterOptions?.tickerOptions).toEqual([
@@ -69,11 +68,7 @@ describe("searchQueriesRoutes", () => {
         (option) => option.value === "breaking",
       ),
     ).toBe(true);
-    expect(body.filterOptions?.sourceOptions).toEqual([
-      { value: "deterministic", label: "deterministic" },
-      { value: "llm", label: "llm" },
-      { value: "curated", label: "curated" },
-    ]);
+    expect(body.filterOptions?.sourceOptions).toBeUndefined();
   });
 
   it("passes list filter query params to Prisma findMany", async () => {
@@ -81,7 +76,7 @@ describe("searchQueriesRoutes", () => {
     vi.mocked(prisma.searchQuery.count).mockResolvedValue(0);
 
     const res = await searchQueriesRoutes.request(
-      "http://localhost/?tickerId=11111111-1111-4111-a111-111111111111&intent=breaking&source=llm&isActive=true&from=2026-05-01",
+      "http://localhost/?tickerId=11111111-1111-4111-a111-111111111111&intent=breaking&isActive=true&from=2026-05-01",
       { method: "GET" },
     );
 
@@ -92,7 +87,6 @@ describe("searchQueriesRoutes", () => {
           AND: [
             { tickerId: "11111111-1111-4111-a111-111111111111" },
             { intent: "breaking" },
-            { source: "llm" },
             { set: { isActive: true } },
             {
               createdAt: {

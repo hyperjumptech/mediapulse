@@ -24,7 +24,6 @@ describe("ensureCuratedListingQuery", () => {
     expect(findFirst).toHaveBeenCalledWith({
       where: {
         tickerId: TICKER_A,
-        source: "curated",
         text: CURATED_LISTING_TEXT,
       },
       select: { id: true },
@@ -33,7 +32,6 @@ describe("ensureCuratedListingQuery", () => {
       data: {
         tickerId: TICKER_A,
         text: CURATED_LISTING_TEXT,
-        source: "curated",
         setId: null,
       },
       select: { id: true },

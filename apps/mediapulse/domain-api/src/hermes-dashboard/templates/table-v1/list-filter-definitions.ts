@@ -61,15 +61,6 @@ export const intentSelectListFilter = {
   optionsMetaKey: "intentOptions",
 } satisfies TableV1ListFilterDefinition;
 
-/** Source dropdown filter for search queries. */
-export const sourceSelectListFilter = {
-  key: "source",
-  label: "Source",
-  ui: "select",
-  placeholderAll: "All sources",
-  optionsMetaKey: "sourceOptions",
-} satisfies TableV1ListFilterDefinition;
-
 /** Collection source dropdown filter for data sources. */
 export const collectionSourceSelectListFilter = {
   key: "collectionSource",

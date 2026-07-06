@@ -50,9 +50,7 @@ export type DetailRow = Prisma.DataSourceGetPayload<{
  * @returns Serializable detail record for the Hermes read-only detail page.
  */
 export const mapRowToDetailItem = (row: DetailRow) => {
-  const collectionSource = row.searchQuery
-    ? classifyCollectionSource(row.searchQuery.source)
-    : "page-collection";
+  const collectionSource = classifyCollectionSource(row.searchQuery !== null);
 
   const articleRelevances = row.articleRelevances.map(mapArticleRelevanceRow);
 

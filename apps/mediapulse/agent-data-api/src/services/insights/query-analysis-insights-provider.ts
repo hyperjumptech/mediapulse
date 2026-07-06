@@ -14,7 +14,6 @@ import type {
 const TOP_N = 10;
 
 const DIVERSITY_WARNING_THRESHOLD = 0.5;
-const DETERMINISTIC_ADHERENCE_WARNING_THRESHOLD = 100;
 const ZERO_YIELD_WARNING_THRESHOLD = 0.5;
 
 const WINDOW_MS: Record<"24h" | "7d" | "30d", number> = {
@@ -33,7 +32,6 @@ type QuerySetRow = {
 type QueryRow = {
   id: string;
   setId: string | null;
-  source: string;
   intent: string;
 };
 
@@ -72,7 +70,6 @@ type QueryAnalysisInsightsDeps = {
       select: {
         id: boolean;
         setId: boolean;
-        source: boolean;
         intent: boolean;
       };
     }) => Promise<QueryRow[]>;
@@ -217,7 +214,7 @@ export function createQueryAnalysisInsightsProvider(
         allSetIds.length > 0
           ? await deps.searchQuery.findMany({
               where: { setId: { in: allSetIds } },
-              select: { id: true, setId: true, source: true, intent: true },
+              select: { id: true, setId: true, intent: true },
             })
           : [];
 
@@ -258,34 +255,6 @@ export function createQueryAnalysisInsightsProvider(
             compositeScores.length
           : null;
 
-      // LLM fraction
-      const totalQueries = currentQueries.length;
-      const llmCount = currentQueries.filter((q) => q.source === "llm").length;
-      const llmFraction =
-        totalQueries > 0 ? Math.round((llmCount / totalQueries) * 100) : 0;
-
-      // Deterministic-floor adherence
-      let setsWithMinDeterministic = 0;
-      for (const snap of snapshots) {
-        if (snap.minDeterministicCount === undefined) continue;
-        const setId = currentSets.find(
-          (s) => parseStrategySnapshot(s.strategySnapshot) === snap,
-        )?.id;
-        const deterministic = queries.filter(
-          (q) => q.setId === setId && q.source === "deterministic",
-        ).length;
-        if (deterministic >= snap.minDeterministicCount) {
-          setsWithMinDeterministic += 1;
-        }
-      }
-      const setsWithFloorDefined = snapshots.filter(
-        (s) => s.minDeterministicCount !== undefined,
-      ).length;
-      const deterministicAdherence =
-        setsWithFloorDefined > 0
-          ? Math.round((setsWithMinDeterministic / setsWithFloorDefined) * 100)
-          : null;
-
       // ─── KPIs ────────────────────────────────────────────────────────────
 
       const kpis: KpiCard[] = [
@@ -308,27 +277,6 @@ export function createQueryAnalysisInsightsProvider(
                 value: Math.round(windowAvgDiversityScore * 100) / 100,
                 tone:
                   windowAvgDiversityScore < DIVERSITY_WARNING_THRESHOLD
-                    ? "warning"
-                    : "positive",
-              } satisfies KpiCard,
-            ]
-          : []),
-        {
-          id: "llm_fraction",
-          label: "LLM-sourced queries",
-          value: llmFraction,
-          unit: "%",
-        },
-        ...(deterministicAdherence !== null
-          ? [
-              {
-                id: "deterministic_adherence",
-                label: "Deterministic-floor adherence",
-                value: deterministicAdherence,
-                unit: "%",
-                tone:
-                  deterministicAdherence <
-                  DETERMINISTIC_ADHERENCE_WARNING_THRESHOLD
                     ? "warning"
                     : "positive",
               } satisfies KpiCard,
@@ -408,18 +356,14 @@ export function createQueryAnalysisInsightsProvider(
 
       // ─── Yield aggregation ───────────────────────────────────────────────
 
-      // Build a map from searchQueryId to { intent, source } using currentQueries.
-      const queryIdToMeta = new Map<
-        string,
-        { intent: string; source: string }
-      >();
+      // Build a map from searchQueryId to { intent } using currentQueries.
+      const queryIdToMeta = new Map<string, { intent: string }>();
       for (const q of currentQueries) {
-        queryIdToMeta.set(q.id, { intent: q.intent, source: q.source });
+        queryIdToMeta.set(q.id, { intent: q.intent });
       }
 
-      // Aggregate novel yield by intent and source.
+      // Aggregate novel yield by intent.
       const novelByIntent = new Map<string, number>();
-      const novelBySource = new Map<string, number>();
       const totalByIntent = new Map<string, number>();
       let totalNovelArticles = 0;
       let totalArticles = 0;
@@ -431,10 +375,6 @@ export function createQueryAnalysisInsightsProvider(
         novelByIntent.set(
           meta.intent,
           (novelByIntent.get(meta.intent) ?? 0) + row.novelArticleCount,
-        );
-        novelBySource.set(
-          meta.source,
-          (novelBySource.get(meta.source) ?? 0) + row.novelArticleCount,
         );
         totalByIntent.set(
           meta.intent,
@@ -488,38 +428,6 @@ export function createQueryAnalysisInsightsProvider(
       // ─── Sections ────────────────────────────────────────────────────────
 
       const sections: InsightSection[] = [];
-
-      // What — query source composition breakdown
-      const sourceCounts = new Map<string, number>();
-      for (const query of currentQueries) {
-        sourceCounts.set(
-          query.source,
-          (sourceCounts.get(query.source) ?? 0) + 1,
-        );
-      }
-      if (sourceCounts.size > 0) {
-        const sourceTotal = Array.from(sourceCounts.values()).reduce(
-          (sum, v) => sum + v,
-          0,
-        );
-        sections.push({
-          id: "what-source-composition",
-          category: "what",
-          title: "Query source composition",
-          insight:
-            "Distribution of queries by generation source across all sets in the window.",
-          widget: {
-            kind: "breakdown",
-            slices: Array.from(sourceCounts.entries()).map(
-              ([label, value]) => ({
-                label,
-                value,
-                fraction: sourceTotal > 0 ? value / sourceTotal : 0,
-              }),
-            ),
-          },
-        });
-      }
 
       // When — query sets generated per day (timeSeries)
       const dailyBuckets = buildWindowDates(windowStart, now);
@@ -726,30 +634,6 @@ export function createQueryAnalysisInsightsProvider(
               TOP_N,
             ),
             unit: "novel articles",
-          },
-        });
-      }
-
-      // How — novel yield by source
-      if (novelBySource.size > 0) {
-        const sourceTotal = Array.from(novelBySource.values()).reduce(
-          (sum, v) => sum + v,
-          0,
-        );
-        sections.push({
-          id: "how-yield-by-source",
-          category: "how",
-          title: "Novel yield by source",
-          insight: "Novel articles produced by deterministic vs LLM queries.",
-          widget: {
-            kind: "breakdown",
-            slices: Array.from(novelBySource.entries()).map(
-              ([label, value]) => ({
-                label,
-                value,
-                fraction: sourceTotal > 0 ? value / sourceTotal : 0,
-              }),
-            ),
           },
         });
       }

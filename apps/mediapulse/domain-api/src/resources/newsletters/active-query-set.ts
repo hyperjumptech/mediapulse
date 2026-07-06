@@ -8,7 +8,6 @@ export type ActiveQuerySetPayload = {
   queries: Array<{
     id: string;
     text: string;
-    source: string;
     intent: string;
     rank: number;
   }>;
@@ -58,7 +57,6 @@ export const findActiveQuerySetForNewsletter = async (
     queries: set.searchQueries.map((query) => ({
       id: query.id,
       text: query.text,
-      source: query.source,
       intent: query.intent,
       rank: query.rank,
     })),

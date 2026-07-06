@@ -26,7 +26,6 @@ export const listInclude = {
     select: {
       id: true,
       text: true,
-      source: true,
     },
   },
   curatedSource: {
@@ -104,9 +103,7 @@ export const truncateContentPreview = (
  * @returns Serializable list row for the domain API.
  */
 export const mapRowToListItem = (row: ListRow) => {
-  const collectionSource = row.searchQuery
-    ? classifyCollectionSource(row.searchQuery.source)
-    : "page-collection";
+  const collectionSource = classifyCollectionSource(row.searchQuery !== null);
 
   return {
     id: row.id,

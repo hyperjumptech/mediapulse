@@ -47,7 +47,6 @@ export const mapRowToListItem = (row: ListRow) => ({
   activeSet: row.set?.isActive ? "Yes" : "No",
   intent: row.intent,
   rank: String(row.rank),
-  source: row.source,
   setGeneratedAt: (row.set?.generatedAt ?? row.createdAt).toISOString(),
   generationPipeline: row.set?.generationSource ?? "",
   querySetId: row.set?.id ?? "",
