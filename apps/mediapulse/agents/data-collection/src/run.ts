@@ -43,7 +43,7 @@ import {
   type WebSearchEmptyResult,
   type WebSearchFailure,
 } from "./utilities/web-search";
-import { RoundRobinCursor } from "./utilities/provider-dispatch";
+import { RoundRobinCursor } from "@workspace/agent-search";
 import { buildFetchProviderConfigs } from "./utilities/fetch-provider-config";
 import {
   checkContent,

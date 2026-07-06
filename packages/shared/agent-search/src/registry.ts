@@ -1,4 +1,4 @@
-import type { ProviderEntry } from "../config-schema";
+import type { ProviderEntry } from "./schemas";
 import { createExaSearchProvider } from "./exa";
 import { createSerperSearchProvider } from "./serper";
 import { createTavilySearchProvider } from "./tavily";
