@@ -5,7 +5,6 @@ import {
   getQueryAnalysisResponseSchema,
   queryAnalysisIntentSchema,
   queryAnalysisPostQuerySchema,
-  queryAnalysisPriorYieldSchema,
   queryAnalysisTickerSchema,
 } from "./query-analysis.js";
 
@@ -111,15 +110,5 @@ describe("queryAnalysisTickerSchema classification fields", () => {
       recentThemes: [],
     });
     expect(parsed.ticker.industry).toBe("Software");
-  });
-});
-
-describe("queryAnalysisPriorYieldSchema", () => {
-  it("accepts rolling yield rollups on GET /query-analysis responses", () => {
-    const parsed = queryAnalysisPriorYieldSchema.parse({
-      perIntent: [{ intent: "fundamental", avgArticles: 3.2, avgNovel: 3.2 }],
-      perPersona: [{ persona: "analyst", avgArticles: 1, avgNovel: 0.5 }],
-    });
-    expect(parsed.perIntent[0]?.intent).toBe("fundamental");
   });
 });

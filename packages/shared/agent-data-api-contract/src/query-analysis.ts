@@ -154,31 +154,6 @@ export const queryAnalysisKgNeighborhoodSchema = z.object({
   toEntity: z.string(),
 });
 
-export const queryAnalysisYieldBucketSchema = z.object({
-  avgArticles: z.number().nonnegative(),
-  avgNovel: z.number().nonnegative(),
-});
-
-export const queryAnalysisIntentYieldBucketSchema =
-  queryAnalysisYieldBucketSchema.extend({
-    intent: queryAnalysisIntentSchema,
-  });
-
-export const queryAnalysisPersonaYieldBucketSchema =
-  queryAnalysisYieldBucketSchema.extend({
-    persona: z.string(),
-  });
-
-/**
- * @deprecated (query-analysis 3.0.0) The reactive merge engine that consumed prior
- * yield was removed in the rewrite. GET /query-analysis no longer populates this;
- * kept optional for backward compatibility.
- */
-export const queryAnalysisPriorYieldSchema = z.object({
-  perIntent: z.array(queryAnalysisIntentYieldBucketSchema),
-  perPersona: z.array(queryAnalysisPersonaYieldBucketSchema),
-});
-
 export const getQueryAnalysisResponseSchema = z.object({
   ticker: queryAnalysisTickerSchema,
   topEntities: z.array(queryAnalysisTopEntitySchema),
@@ -189,8 +164,6 @@ export const getQueryAnalysisResponseSchema = z.object({
   calendar: queryAnalysisCalendarSchema.default({ recentEventTypes: [] }),
   headlineSamples: z.array(queryAnalysisHeadlineSampleSchema).default([]),
   kgNeighborhood: z.array(queryAnalysisKgNeighborhoodSchema).default([]),
-  /** @deprecated (query-analysis 3.0.0) No longer populated; kept optional for compatibility. */
-  priorYield: queryAnalysisPriorYieldSchema.optional(),
 });
 
 export const postQueryAnalysisResponseSchema = z.object({
@@ -208,12 +181,3 @@ export type PostQueryAnalysisResponse = z.infer<
   typeof postQueryAnalysisResponseSchema
 >;
 export type QueryAnalysisIntentWeights = Record<QueryAnalysisIntent, number>;
-export type QueryAnalysisPriorYield = z.infer<
-  typeof queryAnalysisPriorYieldSchema
->;
-export type QueryAnalysisIntentYieldBucket = z.infer<
-  typeof queryAnalysisIntentYieldBucketSchema
->;
-export type QueryAnalysisPersonaYieldBucket = z.infer<
-  typeof queryAnalysisPersonaYieldBucketSchema
->;

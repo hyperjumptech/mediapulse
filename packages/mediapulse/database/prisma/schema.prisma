@@ -434,7 +434,7 @@ model SearchQuery {
 }
 
 /// Daily rollup of articles surfaced per search query via data-collection.
-// NOTE (query-analysis 3.0.0): still written by data-collection for analytics; no longer read by query-analysis.
+/// Written by data-collection ingestion; read by the query-analysis admin insights provider.
 model SearchQueryYield {
   id                String   @id @default(uuid())
   searchQueryId     String   @map("search_query_id")

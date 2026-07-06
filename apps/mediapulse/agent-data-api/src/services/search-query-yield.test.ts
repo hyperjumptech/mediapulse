@@ -6,12 +6,8 @@ vi.mock("@mediapulse/database", () => ({
 }));
 
 import {
-  accumulateYieldSample,
   aggregateSearchQueryYieldForTicker,
   computeDailyQueryYieldCounts,
-  finalizeYieldBuckets,
-  getQueryYieldSummary,
-  parseQueryAttributionByText,
   toUtcRunDate,
   utcDayBoundsForDate,
 } from "./search-query-yield";
@@ -136,110 +132,5 @@ describe("aggregateSearchQueryYieldForTicker", () => {
         }),
       }),
     );
-  });
-});
-
-describe("getQueryYieldSummary", () => {
-  it("rolls up intent and persona averages from yield rows", async () => {
-    const findMany = vi.fn().mockResolvedValue([
-      {
-        articleCount: 2,
-        novelArticleCount: 1,
-        searchQuery: {
-          text: "ACME latest news",
-          intent: "breaking",
-          set: {
-            strategySnapshot: {
-              queryAttribution: [
-                {
-                  text: "ACME latest news",
-                  source: "deterministic",
-                  intent: "breaking",
-                },
-              ],
-            },
-          },
-        },
-      },
-      {
-        articleCount: 4,
-        novelArticleCount: 3,
-        searchQuery: {
-          text: "Retail chatter on ACME",
-          intent: "sentiment",
-          set: {
-            strategySnapshot: {
-              queryAttribution: [
-                {
-                  text: "Retail chatter on ACME",
-                  persona: "retail",
-                  source: "llm",
-                  intent: "sentiment",
-                },
-              ],
-            },
-          },
-        },
-      },
-    ]);
-
-    const summary = await getQueryYieldSummary(
-      { tickerId: TICKER_ID, windowDays: 30 },
-      {
-        dataSource: { findMany: vi.fn() },
-        searchQueryYield: { upsert: vi.fn(), findMany },
-        searchQuery: { findMany: vi.fn() },
-      },
-    );
-
-    expect(summary.perIntent).toEqual([
-      {
-        intent: "breaking",
-        avgArticles: 2,
-        avgNovel: 1,
-      },
-      {
-        intent: "sentiment",
-        avgArticles: 4,
-        avgNovel: 3,
-      },
-    ]);
-    expect(summary.perPersona).toEqual([
-      {
-        persona: "retail",
-        avgArticles: 4,
-        avgNovel: 3,
-      },
-    ]);
-  });
-});
-
-describe("parseQueryAttributionByText", () => {
-  it("indexes attribution rows by normalized query text", () => {
-    const map = parseQueryAttributionByText({
-      queryAttribution: [{ text: "  ACME   news ", persona: "analyst" }],
-    });
-    expect(map.get("acme news")).toEqual({
-      text: "  ACME   news ",
-      persona: "analyst",
-    });
-  });
-});
-
-describe("finalizeYieldBuckets", () => {
-  it("averages accumulated totals per bucket key", () => {
-    const map = new Map<
-      string,
-      { articleTotal: number; novelTotal: number; sampleCount: number }
-    >();
-    accumulateYieldSample(map, "fundamental", 4, 2);
-    accumulateYieldSample(map, "fundamental", 2, 0);
-    expect(finalizeYieldBuckets(map, "intent")).toEqual([
-      {
-        intent: "fundamental",
-        avgArticles: 3,
-        avgNovel: 1,
-      },
-    ]);
   });
 });
