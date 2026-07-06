@@ -235,16 +235,54 @@ const buildQueryAnalysisStage = (
   windowEndIso: string,
 ): ChronicleUpstreamStage => {
   const totals: ChronicleTokenUsage = { ...EMPTY_TOKENS };
+  let stageSearchCredits = 0;
   const runs: ChronicleRun[] = sets.map((set) => {
     const snapshot = asRecord(set.strategySnapshot);
     const usage = asRecord(snapshot.llmUsage);
     const timing = asRecord(snapshot.timing);
+    const providerUsage = asRecord(snapshot.providerUsage);
+    const probe = asRecord(snapshot.probe);
+    const discovered = asRecord(snapshot.discovered);
+    const output = asRecord(snapshot.output);
     const tokens = readTokens(usage);
     addTokens(totals, tokens);
-    const durationMs = asNumber(timing.durationMs) ?? null;
+    const durationMs =
+      asNumber(timing.totalMs) ?? asNumber(timing.durationMs) ?? null;
     const startedAt = asString(timing.startedAt) ?? null;
     const completedAt =
       asString(timing.completedAt) ?? set.generatedAt.toISOString();
+
+    // Provider usage: search-provider call counts + provider-reported credits.
+    const runSearchCredits = asNumber(providerUsage.searchCredits) ?? 0;
+    stageSearchCredits += runSearchCredits;
+    const providers: ChronicleProviderUsage[] = [];
+    const providerRows = Array.isArray(providerUsage.searchProvider)
+      ? providerUsage.searchProvider
+      : [];
+    for (const providerRow of providerRows) {
+      const row = asRecord(providerRow);
+      const name = asString(row.name);
+      if (name === undefined) {
+        continue;
+      }
+      const calls = asNumber(row.calls);
+      const credits = asNumber(row.credits);
+      providers.push({
+        name,
+        ...(calls !== undefined ? { calls } : {}),
+        ...(credits !== undefined ? { credits } : {}),
+      });
+    }
+
+    const droppedZeroYield = Array.isArray(probe.droppedZeroYield)
+      ? probe.droppedZeroYield.length
+      : null;
+    const discoveredCompetitors = Array.isArray(discovered.competitors)
+      ? discovered.competitors.length
+      : null;
+    const discoveredRegulators = Array.isArray(discovered.regulators)
+      ? discovered.regulators.length
+      : null;
 
     return {
       id: set.id,
@@ -254,12 +292,16 @@ const buildQueryAnalysisStage = (
       status: "success",
       model: asString(usage.model) ?? null,
       tokens,
-      providers: [],
+      providers,
       outputs: {
-        queryCount: asNumber(snapshot.queryCount) ?? null,
-        critiqueModel: asString(usage.critiqueModel) ?? null,
-        embeddingModel: asString(usage.embeddingModel) ?? null,
+        queryCount:
+          asNumber(output.queryCount) ?? asNumber(snapshot.queryCount) ?? null,
         calls: asNumber(usage.calls) ?? null,
+        cacheHit: typeof usage.cacheHit === "boolean" ? usage.cacheHit : null,
+        searchCredits: runSearchCredits > 0 ? runSearchCredits : null,
+        discoveredCompetitors,
+        discoveredRegulators,
+        droppedZeroYield,
       },
       error: null,
     };
@@ -273,7 +315,11 @@ const buildQueryAnalysisStage = (
     windowStart: windowStartIso,
     windowEnd: windowEndIso,
     runCount: runs.length,
-    totals: { tokens: totals, searchCredits: 0, fetchByProvider: {} },
+    totals: {
+      tokens: totals,
+      searchCredits: stageSearchCredits,
+      fetchByProvider: {},
+    },
     runs,
     details: {},
   };

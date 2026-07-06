@@ -172,6 +172,11 @@ export const getQueryAnalysisContext = async (
       symbol: ticker.symbol,
       name: ticker.name,
       metadata: ticker.metadataRaw,
+      sector: ticker.sector,
+      industry: ticker.industry,
+      subSector: ticker.subSector,
+      subIndustry: ticker.subIndustry,
+      businessActivity: ticker.businessActivity,
     },
     topEntities: topEntityRows.map((row) => ({
       canonicalName: row.entity.canonicalName,

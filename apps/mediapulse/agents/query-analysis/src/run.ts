@@ -1,642 +1,75 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
-import type { GetQueryAnalysisResponse } from "@workspace/agent-data-api-contract";
-import {
-  NEWSLETTER_SECTION_IDS,
-  summarizeSectionCoverage,
-} from "@workspace/agent-data-api-contract";
 import {
   createTokenUsageAccumulator,
   type AgentRunContext,
   type AgentRunResult,
 } from "@workspace/agent-runtime";
-import { computeLlmPromptFingerprint } from "@workspace/agent-llm-prompt-template";
+import { countQueryHits, createSearchProvider } from "@workspace/agent-search";
+import { generateObject } from "ai";
 import { logger } from "@workspace/logger";
 import { env } from "@mediapulse/env/agents-query-analysis";
+
+import { type QueryAnalysisConfig } from "./config-schema";
 import {
-  resolveIntentWeights,
-  type QueryAnalysisConfig,
-} from "./config-schema";
-import {
-  buildQueryAnalysisSystemContent,
-  buildQueryAnalysisUserContent,
-  fetchLlmQueryCandidatesByPersona,
-  fetchWildcardCandidates,
-  applySelfCritiquePass,
-  DEFAULT_CRITIC_PASS_DEADLINE_MS,
-  type LlmQueryStrategyPrompt,
-  type OnLlmUsage,
-} from "./llm-queries";
-import type { LlmCandidate } from "./merge-query-candidates";
-import {
-  appendWildcardRowsToMerged,
-  applySectionCoverageReserve,
-  finalizeWildcardCandidates,
-  mergeQueryCandidates,
-  normalizeQueryKey,
-} from "./merge-query-candidates";
-import {
-  buildQuerySemanticEmbedder,
-  buildEmbeddingByText,
-  collectQueryTextsForEmbedding,
-  embedQueries,
-} from "./embeddings";
-import type {
-  DeterministicCandidate,
-  MergedQueryRow,
-} from "./merge-query-candidates";
-import {
-  resolveQueryPersonas,
-  filterPersonasForLanguage,
-  type QueryPersona,
-} from "./personas/default-personas";
-import { buildSeedQueries } from "./build-seed-queries";
-import {
-  distributeQueryCountAcrossLanguages,
-  resolveLanguageQuotas,
-  type DistributedLanguageQuota,
-} from "./language-quotas";
-import {
-  buildDiversityBroadenSystemNudge,
-  computeDiversityScore,
-  type DiversityScoreResult,
-  type DiversityScoreRow,
-} from "./diversity/score";
-import { DEFAULT_EVENT_BIAS_RULES } from "./temporal/default-rules";
-import {
-  applyEventBiasToIntentWeights,
-  computeEventBias,
-  type EventBiasResult,
-} from "./temporal/event-bias";
-
-export { DEFAULT_CRITIC_PASS_DEADLINE_MS } from "./llm-queries";
-
-/**
- * Computes the reserved wildcard slot count from total set size and configured fraction.
- *
- * @param queryCount - Total rows to persist in the active query set.
- * @param wildcardFraction - Fraction of `queryCount` reserved for wildcard queries.
- * @returns Non-negative integer wildcard slot count.
- */
-export const computeWildcardCount = (
-  queryCount: number,
-  wildcardFraction: number,
-): number => Math.round(queryCount * wildcardFraction);
-
-/**
- * Derives the deterministic query floor from total `queryCount` (40% ratio, minimum 2).
- *
- * @param queryCount - Total rows to persist in the active query set.
- * @returns Minimum deterministic template rows to include before LLM complement.
- */
-export const deriveMinDeterministicCount = (queryCount: number): number =>
-  Math.max(2, Math.floor(queryCount * 0.4));
-
-/**
- * Applies optional calendar-driven event bias to configured intent weights.
- *
- * @param baseIntentWeights - Weights from Hermes config after legacy lifting.
- * @param queryContext - Live GET /query-analysis payload.
- * @param temporalBias - Resolved temporal bias toggle.
- * @param deps - Injectable clock and rule library for tests.
- * @returns Adjusted weights plus snapshot metadata when rules fire.
- */
-export const resolveIntentWeightsWithEventBias = (
-  baseIntentWeights: ReturnType<typeof resolveIntentWeights>,
-  queryContext: GetQueryAnalysisResponse,
-  temporalBias: QueryAnalysisConfig["dynamics"]["temporalBias"],
-  deps: {
-    clock?: () => Date;
-    rules?: typeof DEFAULT_EVENT_BIAS_RULES;
-  } = {},
-): {
-  intentWeights: ReturnType<typeof resolveIntentWeights>;
-  appliedEventBias?: EventBiasResult;
-} => {
-  if (!temporalBias.enabled) {
-    return { intentWeights: baseIntentWeights };
-  }
-
-  const eventBias = computeEventBias(
-    queryContext,
-    deps.clock ?? (() => new Date()),
-    deps.rules ?? DEFAULT_EVENT_BIAS_RULES,
-  );
-
-  if (eventBias.firedRuleIds.length === 0) {
-    return { intentWeights: baseIntentWeights };
-  }
-
-  return {
-    intentWeights: applyEventBiasToIntentWeights(
-      baseIntentWeights,
-      eventBias.multipliers,
-    ),
-    appliedEventBias: eventBias,
-  };
-};
-
-type PersonaFetchParams = Parameters<
-  typeof fetchLlmQueryCandidatesByPersona
->[0];
-type PersonaFetchDeps = Parameters<typeof fetchLlmQueryCandidatesByPersona>[1];
-
-/**
- * Maps LLM candidate rows to diversity score inputs.
- *
- * @param llmCandidates - Post-critique LLM batch.
- * @returns Rows for {@link computeDiversityScore}.
- */
-export const toDiversityScoreRows = (
-  llmCandidates: LlmCandidate[],
-): DiversityScoreRow[] =>
-  llmCandidates.map((candidate) => ({
-    text: candidate.text,
-    intent: candidate.intent,
-    ...(candidate.persona !== undefined ? { persona: candidate.persona } : {}),
-  }));
-
-/**
- * Embeds LLM candidate texts for the semantic diversity axis (llm rows only).
- *
- * @param llmCandidates - Candidate batch to embed.
- * @param params - OpenAI credentials and embedding model.
- * @param deps - Injectable embed collaborator.
- * @returns Text-to-vector map when embedding succeeds; `undefined` on failure or empty input.
- */
-export const buildLlmEmbeddingsForDiversity = async (
-  llmCandidates: LlmCandidate[],
-  params: {
-    apiKey: string;
-    embeddingModel: string;
-    tickerId: string;
-    onUsage?: (usage: { totalTokens: number }) => void;
-  },
-  deps: {
-    embedQueries?: typeof embedQueries;
-    logWarn?: (message: string, meta: Record<string, unknown>) => void;
-  } = {},
-): Promise<Map<string, number[]> | undefined> => {
-  const runEmbed = deps.embedQueries ?? embedQueries;
-  const warn =
-    deps.logWarn ??
-    ((message, meta) => {
-      logger.warn(meta, message);
-    });
-
-  const texts = collectQueryTextsForEmbedding([], llmCandidates);
-  if (texts.length < 2) {
-    return undefined;
-  }
-
-  try {
-    const embeddings = await runEmbed(texts, {
-      apiKey: params.apiKey,
-      model: params.embeddingModel,
-      ...(params.onUsage !== undefined ? { onUsage: params.onUsage } : {}),
-    });
-    return buildEmbeddingByText(texts, embeddings);
-  } catch (error) {
-    warn(
-      "query-analysis diversity semantic embedding failed; omitting semantic axis",
-      { error, tickerId: params.tickerId },
-    );
-    return undefined;
-  }
-};
-
-/**
- * Runs at most one diversity-gate broaden regenerate pass when composite is below threshold.
- *
- * @param params - Current LLM batch, gate settings, optional embeddings, and broaden fetcher.
- * @returns Merged candidates, scores, and whether a regenerate pass ran.
- */
-export const applyDiversityGatePass = async (params: {
-  llmCandidates: LlmCandidate[];
-  diversityGate: QueryAnalysisConfig["quality"]["diversityGate"];
-  embeddingsByText?: ReadonlyMap<string, number[]>;
-  allowRegenerate?: boolean;
-  fetchBroadenBatch: (broadenSystemNudge: string) => Promise<LlmCandidate[]>;
-  logWarn?: (message: string, meta: Record<string, unknown>) => void;
-}): Promise<{
-  candidates: LlmCandidate[];
-  diversityScore: DiversityScoreResult;
-  diversityRegenerateFired: boolean;
-}> => {
-  const warn =
-    params.logWarn ??
-    ((message, meta) => {
-      logger.warn(meta, message);
-    });
-
-  const scoreRows = toDiversityScoreRows(params.llmCandidates);
-  const scoreBeforeGate = computeDiversityScore(scoreRows, {
-    weights: params.diversityGate.weights,
-    embeddingsByText: params.embeddingsByText,
-  });
-
-  if (
-    !params.diversityGate.enabled ||
-    scoreBeforeGate.composite >= params.diversityGate.threshold ||
-    params.llmCandidates.length === 0 ||
-    params.allowRegenerate === false
-  ) {
-    return {
-      candidates: params.llmCandidates,
-      diversityScore: scoreBeforeGate,
-      diversityRegenerateFired: false,
-    };
-  }
-
-  const broadenNudge = buildDiversityBroadenSystemNudge(scoreBeforeGate);
-  let broadened: LlmCandidate[] = [];
-  try {
-    broadened = await params.fetchBroadenBatch(broadenNudge);
-  } catch (error) {
-    warn(
-      "query-analysis diversity gate regenerate failed; shipping first batch",
-      {
-        error,
-      },
-    );
-  }
-
-  const mergedCandidates = [...params.llmCandidates, ...broadened];
-  const diversityScore = computeDiversityScore(
-    toDiversityScoreRows(mergedCandidates),
-    {
-      weights: params.diversityGate.weights,
-      embeddingsByText: params.embeddingsByText,
-    },
-  );
-
-  return {
-    candidates: mergedCandidates,
-    diversityScore,
-    diversityRegenerateFired: true,
-  };
-};
+  DISCOVERY_CACHE_TTL_SECONDS,
+  DISCOVERY_MAX_COMPETITORS,
+  DISCOVERY_MAX_KEYWORDS_PER_ENTITY,
+  DISCOVERY_MAX_REGULATORS,
+  LANGUAGES,
+  PROBE_BUDGET,
+  PROBE_CONCURRENCY,
+  PROBE_LOCALES,
+  PROBE_MIN_RESULTS,
+  PROBE_TIMEOUT_MS,
+  QUERY_COUNT,
+} from "./constants";
+import { discoverEntities } from "./discovery/discover-entities";
+import type { DiscoveredEntity } from "./discovery/schema";
+import { deriveClassification, deriveMarketContext } from "./pipeline/context";
+import { buildCompetitorCandidates } from "./pipeline/stage-competitors";
+import { buildIndustryCandidates } from "./pipeline/stage-industry";
+import { buildOwnCompanyCandidates } from "./pipeline/stage-own-company";
+import { buildRegulatorCandidates } from "./pipeline/stage-regulators";
+import { runYieldProbe } from "./probe/yield-probe";
+import { finalizeQueries } from "./select/finalize";
 
 type QueryAnalysisInput = { tickerId: string };
 
-/**
- * Builds the semantic embedder for merge, falling back to string dedupe on API failure.
- *
- * @param params - OpenAI credentials, candidate rows, threshold, and logging context.
- * @param deps - Injectable embedding collaborator and logger.
- * @returns Embedder when embedding succeeds; `undefined` to fall back to string-key dedupe.
- */
-export const buildSemanticEmbedderForMerge = async (
-  params: {
-    apiKey: string;
-    deterministic: DeterministicCandidate[];
-    llmCandidates: LlmCandidate[];
-    threshold: number;
-    embeddingModel: string;
-    tickerId: string;
-    onUsage?: (usage: { totalTokens: number }) => void;
-  },
-  deps: {
-    embedQueries?: typeof embedQueries;
-    logWarn?: (message: string, meta: Record<string, unknown>) => void;
-  } = {},
-): Promise<ReturnType<typeof buildQuerySemanticEmbedder> | undefined> => {
-  const runEmbed = deps.embedQueries ?? embedQueries;
-  const warn =
-    deps.logWarn ??
-    ((message, meta) => {
-      logger.warn(meta, message);
-    });
-
-  const texts = collectQueryTextsForEmbedding(
-    params.deterministic,
-    params.llmCandidates,
-  );
-  if (texts.length === 0) {
-    return undefined;
-  }
-
-  try {
-    const embeddings = await runEmbed(texts, {
-      apiKey: params.apiKey,
-      model: params.embeddingModel,
-      ...(params.onUsage !== undefined ? { onUsage: params.onUsage } : {}),
-    });
-    return buildQuerySemanticEmbedder(texts, embeddings, params.threshold);
-  } catch (error) {
-    warn(
-      "query-analysis semantic dedupe embedding failed; falling back to string-key dedupe",
-      { error, tickerId: params.tickerId },
-    );
-    return undefined;
-  }
+/** Injectable collaborators for {@link runQueryAnalysis} (tests only). */
+export type RunQueryAnalysisDeps = {
+  createClient?: typeof createAgentDataApiClient;
+  generate?: typeof generateObject;
+  countHits?: typeof countQueryHits;
+  createProvider?: typeof createSearchProvider;
+  now?: () => number;
 };
 
 /**
- * Clamps per-persona quota when fan-out would exceed three times the target set size.
+ * Runs the self-driving query-analysis pipeline for one ticker and persists an
+ * active query set.
  *
- * @param personasLength - Number of personas that will run in parallel.
- * @param perPersonaQuotaCount - Configured quota per persona.
- * @param queryCount - Total rows to persist in the active query set.
- * @returns Effective per-persona quota (≥ 1 when personasLength > 0).
- */
-export const clampPerPersonaQuotaCount = (
-  personasLength: number,
-  perPersonaQuotaCount: number,
-  queryCount: number,
-): number => {
-  if (personasLength <= 0) {
-    return perPersonaQuotaCount;
-  }
-  const maxTotal = queryCount * 3;
-  const product = personasLength * perPersonaQuotaCount;
-  if (product <= maxTotal) {
-    return perPersonaQuotaCount;
-  }
-  return Math.max(1, Math.floor(maxTotal / personasLength));
-};
-
-/** Shared LLM configuration passed into each language slice. */
-type LanguageSliceSharedConfig = {
-  openaiApiKey: string;
-  openaiModel: string;
-  intentWeights: LlmQueryStrategyPrompt["intentWeights"];
-  fewShotExemplarCount: number;
-  queryMaxWords: number;
-  useSelfCritique: boolean;
-  critiqueDropFraction: number;
-  critiqueModel: string;
-  perPersonaQuotaCount: number;
-  diversityGate: QueryAnalysisConfig["quality"]["diversityGate"];
-  semanticDedupeEnabled: boolean;
-  embeddingModel: string;
-  runStartMs: number;
-  tickerId: string;
-  yieldFeedback: QueryAnalysisConfig["dynamics"]["yieldFeedback"];
-  priorYield?: GetQueryAnalysisResponse["priorYield"];
-  reportActivity?: (
-    title: string,
-    description?: string,
-    status?: "processing" | "completed",
-  ) => void;
-  /** Opaque product brief from the Agent Contract; threaded into every system prompt. */
-  contractBrief?: string;
-  /** When true, enables the section-coverage path in query generation. */
-  sectionCoverageEnabled: boolean;
-  /** Optional sink for chat-model token usage across every LLM call in the slice. */
-  onUsage?: OnLlmUsage;
-  /** Optional sink for embedding token usage across every embed call in the slice. */
-  onEmbeddingUsage?: (usage: { totalTokens: number }) => void;
-};
-
-/**
- * Generates and merges deterministic + LLM candidates for one language quota slice.
+ * Flow: load GET context, derive classification, look up the `ticker_discovery`
+ * cache, discover competitors/regulators on miss (steered by the contract brief)
+ * and write the cache, build own-company + competitor + regulator + industry
+ * candidates across Indonesian and English, probe each for yield, drop
+ * zero-result queries, guarantee section coverage, and persist the ranked set.
  *
- * @param params - Language quota row, context, personas, and shared run config.
- * @returns Merged rows for the slice plus observability counters.
- */
-export const runLanguageQuerySlice = async (params: {
-  languageQuota: DistributedLanguageQuota;
-  minDeterministicCount: number;
-  queryContext: GetQueryAnalysisResponse;
-  personas: QueryPersona[];
-  shared: LanguageSliceSharedConfig;
-}): Promise<{
-  merged: MergedQueryRow[];
-  diversityScore?: DiversityScoreResult;
-  diversityRegenerateFired: boolean;
-  selfCritiqueReplacedCount: number;
-  selfCritiqueSkippedDueToDeadline: boolean;
-}> => {
-  const { languageQuota, shared } = params;
-  const language = languageQuota.language;
-  const langPersonas = filterPersonasForLanguage(params.personas, language);
-
-  const deterministic = buildSeedQueries(params.queryContext, { language });
-
-  const strategyPrompt: LlmQueryStrategyPrompt = {
-    queryCount: languageQuota.queryCount,
-    language,
-    minDeterministicCount: params.minDeterministicCount,
-    intentWeights: shared.intentWeights,
-    queryMaxWords: shared.queryMaxWords,
-    sectionCoverageEnabled: shared.sectionCoverageEnabled,
-    ...(shared.contractBrief !== undefined
-      ? { brief: shared.contractBrief }
-      : {}),
-  };
-
-  const systemContent = buildQueryAnalysisSystemContent(strategyPrompt);
-  const userContent = buildQueryAnalysisUserContent(
-    params.queryContext,
-    language,
-  );
-
-  let llmCandidates: LlmCandidate[] = [];
-  try {
-    if (langPersonas.length > 0) {
-      const rows = await fetchLlmQueryCandidatesByPersona(
-        {
-          apiKey: shared.openaiApiKey,
-          model: shared.openaiModel,
-          systemContent,
-          userContent,
-          personas: langPersonas,
-          perPersonaQuota: shared.perPersonaQuotaCount,
-          fewShotExemplarCount: shared.fewShotExemplarCount,
-          ...(shared.onUsage !== undefined ? { onUsage: shared.onUsage } : {}),
-        },
-        {
-          warn: (_message, meta) => {
-            logger.warn(
-              {
-                error: meta.error,
-                personaId: meta.personaId,
-                tickerId: shared.tickerId,
-                language,
-              },
-              "query-analysis persona LLM call failed; skipping persona",
-            );
-          },
-        },
-      );
-      llmCandidates = rows.map((row) => ({ ...row, language }));
-    }
-  } catch (error) {
-    logger.warn(
-      { error, tickerId: shared.tickerId, language },
-      "query-analysis LLM failed for language slice; using deterministic only",
-    );
-  }
-
-  let selfCritiqueReplacedCount = 0;
-  let selfCritiqueSkippedDueToDeadline = false;
-  if (shared.useSelfCritique && llmCandidates.length > 0) {
-    if (Date.now() - shared.runStartMs > DEFAULT_CRITIC_PASS_DEADLINE_MS) {
-      selfCritiqueSkippedDueToDeadline = true;
-    } else {
-      shared.reportActivity?.(
-        "Running self-critique pass",
-        `${llmCandidates.length} candidates`,
-      );
-      try {
-        const critiqueResult = await applySelfCritiquePass({
-          apiKey: shared.openaiApiKey,
-          critiqueModel: shared.critiqueModel,
-          generationModel: shared.openaiModel,
-          systemContent,
-          userContent,
-          context: params.queryContext,
-          candidates: llmCandidates,
-          dropFraction: shared.critiqueDropFraction,
-          fewShotExemplarCount: shared.fewShotExemplarCount,
-          runStartMs: shared.runStartMs,
-          deadlineMs: DEFAULT_CRITIC_PASS_DEADLINE_MS,
-          ...(shared.onUsage !== undefined ? { onUsage: shared.onUsage } : {}),
-        });
-        llmCandidates = critiqueResult.candidates.map((row) => ({
-          ...row,
-          language,
-        }));
-        selfCritiqueReplacedCount = critiqueResult.replacedCount;
-        selfCritiqueSkippedDueToDeadline = critiqueResult.skippedDueToDeadline;
-      } catch (error) {
-        logger.warn(
-          { error, tickerId: shared.tickerId, language },
-          "query-analysis self-critique failed for language slice",
-        );
-      }
-    }
-  }
-
-  const diversityGate = shared.diversityGate;
-  let diversityEmbeddingsByText: Map<string, number[]> | undefined;
-  if (shared.semanticDedupeEnabled && llmCandidates.length >= 2) {
-    diversityEmbeddingsByText = await buildLlmEmbeddingsForDiversity(
-      llmCandidates,
-      {
-        apiKey: shared.openaiApiKey,
-        embeddingModel: shared.embeddingModel,
-        tickerId: shared.tickerId,
-        ...(shared.onEmbeddingUsage !== undefined
-          ? { onUsage: shared.onEmbeddingUsage }
-          : {}),
-      },
-    );
-  }
-
-  let diversityScore: DiversityScoreResult | undefined;
-  let diversityRegenerateFired = false;
-  if (llmCandidates.length > 0) {
-    const gateResult = await applyDiversityGatePass({
-      llmCandidates,
-      diversityGate,
-      embeddingsByText: diversityEmbeddingsByText,
-      allowRegenerate: langPersonas.length > 0,
-      fetchBroadenBatch: (broadenSystemNudge) =>
-        fetchLlmQueryCandidatesByPersona(
-          {
-            apiKey: shared.openaiApiKey,
-            model: shared.openaiModel,
-            systemContent,
-            userContent,
-            personas: langPersonas,
-            perPersonaQuota: shared.perPersonaQuotaCount,
-            fewShotExemplarCount: shared.fewShotExemplarCount,
-            broadenSystemNudge,
-            ...(shared.onUsage !== undefined
-              ? { onUsage: shared.onUsage }
-              : {}),
-          },
-          {
-            warn: (_message, meta) => {
-              logger.warn(
-                {
-                  error: meta.error,
-                  personaId: meta.personaId,
-                  tickerId: shared.tickerId,
-                  language,
-                },
-                "query-analysis persona LLM call failed; skipping persona",
-              );
-            },
-          },
-        ).then((rows) => rows.map((row) => ({ ...row, language }))),
-      logWarn: (message, meta) => {
-        logger.warn({ ...meta, tickerId: shared.tickerId, language }, message);
-      },
-    });
-    llmCandidates = gateResult.candidates.map((row) => ({ ...row, language }));
-    diversityScore = gateResult.diversityScore;
-    diversityRegenerateFired = gateResult.diversityRegenerateFired;
-
-    if (diversityRegenerateFired && shared.semanticDedupeEnabled) {
-      diversityEmbeddingsByText = await buildLlmEmbeddingsForDiversity(
-        llmCandidates,
-        {
-          apiKey: shared.openaiApiKey,
-          embeddingModel: shared.embeddingModel,
-          tickerId: shared.tickerId,
-        },
-      );
-      diversityScore = computeDiversityScore(
-        toDiversityScoreRows(llmCandidates),
-        {
-          weights: diversityGate.weights,
-          embeddingsByText: diversityEmbeddingsByText,
-        },
-      );
-    }
-  }
-
-  const merged = mergeQueryCandidates({
-    deterministic,
-    llm: llmCandidates,
-    queryCount: languageQuota.queryCount,
-    minDeterministicCount: params.minDeterministicCount,
-    weights: shared.intentWeights,
-    ...(shared.yieldFeedback.enabled ? { priorYield: shared.priorYield } : {}),
-  });
-
-  return {
-    merged,
-    diversityScore,
-    diversityRegenerateFired,
-    selfCritiqueReplacedCount,
-    selfCritiqueSkippedDueToDeadline,
-  };
-};
-
-/**
- * Concatenates per-language merged rows and reassigns contiguous ranks.
- *
- * @param slices - Ordered language slice merge results.
- * @returns Flattened rows with ranks 1..N.
- */
-export const concatenateLanguageMergedRows = (
-  slices: MergedQueryRow[][],
-): MergedQueryRow[] => {
-  const combined = slices.flat();
-  return combined.map((row, index) => ({ ...row, rank: index + 1 }));
-};
-
-/**
- * Runs the query-analysis agent for one ticker and persists an active query set.
- *
- * @param context - Agent run context with validated input/config and bearer token.
- * @returns Success response with created query count.
+ * @param context - Agent run context with validated input/config, token, and contract.
+ * @param deps - Injectable collaborators for tests.
+ * @returns Success response with created query count, or failure when no query survives.
  */
 export const runQueryAnalysis = async (
   context: AgentRunContext<QueryAnalysisInput, QueryAnalysisConfig>,
+  deps: RunQueryAnalysisDeps = {},
 ): Promise<AgentRunResult> => {
   const { input, config, token, hermesCorrelation, contract } = context;
-  const runStartMs = Date.now();
+  const now = deps.now ?? (() => Date.now());
+  const runStartMs = now();
+  const contractBrief = contract?.brief ?? "";
 
-  // Chronicle instrumentation: accumulate LLM/embedding token usage across every
-  // call in the run (persona generation, self-critique, wildcard, embeddings) so the
-  // strategy snapshot carries a durable token record.
   const tokenUsage = createTokenUsageAccumulator();
-
-  const client = createAgentDataApiClient({
+  const createClient = deps.createClient ?? createAgentDataApiClient;
+  const client = createClient({
     baseUrl: env.AGENT_DATA_API_URL,
     version: "v1",
     token,
@@ -658,402 +91,182 @@ export const runQueryAnalysis = async (
   };
 
   report("Fetching ticker context", `ticker ${input.tickerId}`);
-
   const queryContext = await client.queryAnalysis.get({
     tickerId: input.tickerId,
   });
-  report(
-    "Loaded ticker context",
-    `${queryContext.topEntities.length} entities, ${queryContext.kgNeighborhood.length} relations`,
-  );
-  const { credentials, output, prompting, creativity, quality, dynamics } =
-    config;
+  const ticker = queryContext.ticker;
+  const classification = deriveClassification(ticker);
+  const market = deriveMarketContext();
 
-  const sectionCoverageEnabled = output.sectionCoverage.enabled;
-  const queryCount = output.queryCount;
-  const wildcardFraction = creativity.wildcardFraction;
-  const wildcardCount = computeWildcardCount(queryCount, wildcardFraction);
-  const standardQueryCount = queryCount - wildcardCount;
-  const languageQuotas = resolveLanguageQuotas(output);
-  const minDeterministicCount = deriveMinDeterministicCount(queryCount);
-  const baseIntentWeights = resolveIntentWeights(output);
-  const temporalBias = dynamics.temporalBias;
-  const { intentWeights, appliedEventBias } = resolveIntentWeightsWithEventBias(
-    baseIntentWeights,
-    queryContext,
-    temporalBias,
-  );
-  if (appliedEventBias !== undefined) {
-    logger.info(
-      {
-        tickerId: input.tickerId,
-        firedRuleIds: appliedEventBias.firedRuleIds,
-        multipliers: appliedEventBias.multipliers,
-      },
-      "query-analysis temporal event bias applied",
-    );
-  }
-  const openaiModel = credentials.chatModel;
-  const fewShotExemplarCount = prompting.fewShotExemplarCount;
-  const queryMaxWords = prompting.queryMaxWords;
-  const useSelfCritique = quality.useSelfCritique;
-  const critiqueDropFraction = quality.critiqueDropFraction;
-  const critiqueModel = quality.critiqueModel ?? openaiModel;
-  const personaIds = prompting.personas;
-  let perPersonaQuotaCount = prompting.perPersonaQuotaCount;
-  const resolvedPersonas = resolveQueryPersonas(personaIds, {
-    warn: (_message, meta) => {
-      logger.warn(
-        { unknownPersonaId: meta.unknownId, tickerId: input.tickerId },
-        "unknown query-analysis persona id; skipping",
-      );
-    },
-  });
-
-  const languageCount = languageQuotas.length;
-  const personaCellCount = resolvedPersonas.length * languageCount;
-  if (
-    personaCellCount > 0 &&
-    personaCellCount * perPersonaQuotaCount > standardQueryCount * 3
-  ) {
-    const clamped = clampPerPersonaQuotaCount(
-      personaCellCount,
-      perPersonaQuotaCount,
-      standardQueryCount,
-    );
-    logger.warn(
-      {
-        tickerId: input.tickerId,
-        personas: resolvedPersonas.length,
-        languages: languageCount,
-        configuredPerPersonaQuotaCount: perPersonaQuotaCount,
-        clampedPerPersonaQuotaCount: clamped,
-        queryCount: standardQueryCount,
-      },
-      "query-analysis persona × language fan-out exceeds cost guard; clamping perPersonaQuotaCount",
-    );
-    perPersonaQuotaCount = clamped;
-  }
-
-  const distributedStandard = distributeQueryCountAcrossLanguages(
-    standardQueryCount,
-    languageQuotas,
-  );
-  const distributedMinDeterministic = distributeQueryCountAcrossLanguages(
-    minDeterministicCount,
-    languageQuotas,
-  );
-
-  const diversityGate = quality.diversityGate;
-  const yieldFeedback = dynamics.yieldFeedback;
-  const semanticDedupeConfig = quality.semanticDedupe;
-  const embeddingModel = semanticDedupeConfig.embeddingModel;
-
-  const primaryLanguage = languageQuotas[0]?.language ?? "en";
-  const llmPromptFingerprint = computeLlmPromptFingerprint(
-    buildQueryAnalysisSystemContent({
-      queryCount: standardQueryCount,
-      language: primaryLanguage,
-      minDeterministicCount,
-      intentWeights,
-      queryMaxWords,
-      sectionCoverageEnabled,
-      ...(contract !== undefined ? { brief: contract.brief } : {}),
-    }),
-    buildQueryAnalysisUserContent(queryContext, primaryLanguage),
-  );
-
-  const sharedSliceConfig: LanguageSliceSharedConfig = {
-    openaiApiKey: credentials.openaiApiKey,
-    openaiModel,
-    intentWeights,
-    fewShotExemplarCount,
-    queryMaxWords,
-    useSelfCritique,
-    critiqueDropFraction,
-    critiqueModel,
-    perPersonaQuotaCount,
-    diversityGate,
-    semanticDedupeEnabled: semanticDedupeConfig.enabled,
-    embeddingModel,
-    runStartMs,
+  // Discovery: reuse the cache, LLM-discover on miss, and write back.
+  const discoveryStartMs = now();
+  const lookup = await client.tickerDiscoveryLookup.create({
     tickerId: input.tickerId,
-    yieldFeedback,
-    priorYield: yieldFeedback.enabled ? queryContext.priorYield : undefined,
-    reportActivity: report,
-    sectionCoverageEnabled,
-    onUsage: tokenUsage.onUsage,
-    onEmbeddingUsage: tokenUsage.onEmbeddingUsage,
-    ...(contract !== undefined ? { contractBrief: contract.brief } : {}),
-  };
+  });
+  let competitors: DiscoveredEntity[] = lookup.entry?.competitors ?? [];
+  let regulators: DiscoveredEntity[] = lookup.entry?.regulators ?? [];
+  const cacheHit = lookup.entry !== null;
+  let discoveryModel: string | null = lookup.entry?.model ?? null;
 
-  const deterministicCount = distributedStandard.reduce(
-    (count, languageQuota) =>
-      count +
-      buildSeedQueries(queryContext, { language: languageQuota.language })
-        .length,
-    0,
-  );
-
-  report(
-    "Building deterministic queries",
-    `${deterministicCount} template queries`,
-  );
-
-  report(
-    "Generating LLM query candidates",
-    `${resolvedPersonas.length} personas`,
-  );
-
-  const sliceResults = await Promise.all(
-    distributedStandard.map((languageQuota) => {
-      const minDet =
-        distributedMinDeterministic.find(
-          (row) => row.language === languageQuota.language,
-        )?.queryCount ?? 0;
-      return runLanguageQuerySlice({
-        languageQuota,
-        minDeterministicCount: minDet,
-        queryContext,
-        personas: resolvedPersonas,
-        shared: sharedSliceConfig,
-      });
-    }),
-  );
-
-  let selfCritiqueReplacedCount = 0;
-  let selfCritiqueSkippedDueToDeadline = false;
-  let diversityRegenerateFired = false;
-  let diversityScore: DiversityScoreResult | undefined;
-  for (const slice of sliceResults) {
-    selfCritiqueReplacedCount += slice.selfCritiqueReplacedCount;
-    selfCritiqueSkippedDueToDeadline =
-      selfCritiqueSkippedDueToDeadline ||
-      slice.selfCritiqueSkippedDueToDeadline;
-    diversityRegenerateFired =
-      diversityRegenerateFired || slice.diversityRegenerateFired;
-    if (slice.diversityScore !== undefined) {
-      diversityScore = slice.diversityScore;
-    }
-  }
-
-  if (diversityScore !== undefined) {
-    logger.info(
-      {
-        tickerId: input.tickerId,
-        diversityScore,
-        diversityRegenerateFired,
-        diversityGateEnabled: diversityGate.enabled,
-      },
-      "query-analysis diversity score computed",
+  if (!cacheHit) {
+    report(
+      "Discovering competitors and regulators",
+      `${ticker.symbol} (${ticker.name})`,
     );
-  }
-
-  const mergedStandard = concatenateLanguageMergedRows(
-    sliceResults.map((slice) => slice.merged),
-  );
-
-  report(
-    "Generated LLM query candidates",
-    `${mergedStandard.length} standard queries across ${languageQuotas.length} language(s)`,
-  );
-
-  const wildcardLanguages = languageQuotas.map((quota) => quota.language);
-
-  let merged = mergedStandard;
-  if (wildcardCount > 0) {
-    report("Generating wildcard queries", `${wildcardCount} wildcard slots`);
-    const seenKeys = new Set(
-      mergedStandard.map((row) => normalizeQueryKey(row.text)),
-    );
-    let wildcardBatch: LlmCandidate[] = [];
-    try {
-      wildcardBatch = await fetchWildcardCandidates({
-        apiKey: credentials.openaiApiKey,
-        model: openaiModel,
-        count: wildcardCount,
-        context: queryContext,
-        allowedLanguages: wildcardLanguages,
-        queryMaxWords,
-        onUsage: tokenUsage.onUsage,
-      });
-    } catch (error) {
-      logger.warn(
-        { error, tickerId: input.tickerId, wildcardCount },
-        "query-analysis wildcard LLM failed; shipping standard set only",
-      );
-    }
-
-    const wildcardRows = await finalizeWildcardCandidates({
-      wildcards: wildcardBatch,
-      seenKeys,
-      wildcardCount,
-      retryFetch:
-        wildcardCount > 0
-          ? async (avoidTexts) => {
-              try {
-                return await fetchWildcardCandidates({
-                  apiKey: credentials.openaiApiKey,
-                  model: openaiModel,
-                  count: wildcardCount,
-                  context: queryContext,
-                  allowedLanguages: wildcardLanguages,
-                  avoidTexts,
-                  queryMaxWords,
-                  onUsage: tokenUsage.onUsage,
-                });
-              } catch (error) {
-                logger.warn(
-                  { error, tickerId: input.tickerId, wildcardCount },
-                  "query-analysis wildcard retry failed; keeping accepted wildcard rows",
-                );
-                return [];
-              }
-            }
-          : undefined,
+    const discovered = await discoverEntities({
+      tickerName: ticker.name,
+      tickerSymbol: ticker.symbol,
+      classification,
+      homeMarket: market.homeMarket,
+      contractBrief,
+      ai: config.ai,
+      maxCompetitors: DISCOVERY_MAX_COMPETITORS,
+      maxRegulators: DISCOVERY_MAX_REGULATORS,
+      maxKeywordsPerEntity: DISCOVERY_MAX_KEYWORDS_PER_ENTITY,
+      onUsage: tokenUsage.onUsage,
+      logger,
+      ...(deps.generate ? { generate: deps.generate } : {}),
     });
-    merged = appendWildcardRowsToMerged(
-      mergedStandard,
-      wildcardRows,
-      queryCount,
-    );
+    competitors = discovered.competitors;
+    regulators = discovered.regulators;
+    discoveryModel = config.ai.model;
+
+    await client.tickerDiscoveryRecord.create({
+      tickerId: input.tickerId,
+      competitors: discovered.competitors,
+      regulators: discovered.regulators,
+      model: config.ai.model,
+      ttlSeconds: DISCOVERY_CACHE_TTL_SECONDS,
+    });
   }
+  const discoveryMs = now() - discoveryStartMs;
 
-  // Section-coverage reserve: for each dedicated-intent section with zero coverage,
-  // promote the best deterministic candidate of a matching intent, displacing the
-  // lowest-ranked homeless-intent row. Runs after wildcards so the full set is visible.
-  if (sectionCoverageEnabled) {
-    const allDeterministic = distributedStandard.flatMap((languageQuota) =>
-      buildSeedQueries(queryContext, { language: languageQuota.language }),
-    );
-    merged = applySectionCoverageReserve(merged, allDeterministic, queryCount);
-  }
+  // Build entity-specific candidates across Indonesian + English.
+  const candidates = [
+    ...buildOwnCompanyCandidates(ticker, LANGUAGES),
+    ...buildCompetitorCandidates(
+      competitors,
+      LANGUAGES,
+      DISCOVERY_MAX_KEYWORDS_PER_ENTITY,
+    ),
+    ...buildRegulatorCandidates(
+      regulators,
+      LANGUAGES,
+      DISCOVERY_MAX_KEYWORDS_PER_ENTITY,
+    ),
+    ...buildIndustryCandidates(classification, market, LANGUAGES),
+  ];
 
-  report("Merged and deduped query set", `${merged.length} total queries`);
-
-  const mergedIntents = merged.map((row) => row.intent);
-  const coverageBySection = summarizeSectionCoverage(mergedIntents);
-  const zeroCoverageSections = NEWSLETTER_SECTION_IDS.filter(
-    (sectionId) => coverageBySection[sectionId].count === 0,
+  report("Probing query yield", `${candidates.length} candidates`);
+  const probeStartMs = now();
+  const probe = await runYieldProbe(
+    {
+      candidates,
+      providers: config.web_search,
+      locales: PROBE_LOCALES,
+      budget: PROBE_BUDGET,
+      concurrency: PROBE_CONCURRENCY,
+      minResults: PROBE_MIN_RESULTS,
+      timeoutMs: PROBE_TIMEOUT_MS,
+      logger,
+    },
+    {
+      ...(deps.countHits ? { countHits: deps.countHits } : {}),
+      ...(deps.createProvider ? { createProvider: deps.createProvider } : {}),
+    },
   );
-  if (zeroCoverageSections.length > 0) {
+  const probeMs = now() - probeStartMs;
+
+  const finalizeStartMs = now();
+  const finalized = finalizeQueries({
+    survivors: probe.survivors,
+    dropped: probe.dropped,
+    queryCount: QUERY_COUNT,
+  });
+  const finalizeMs = now() - finalizeStartMs;
+
+  if (finalized.queries.length === 0) {
     logger.warn(
-      { tickerId: input.tickerId, zeroCoverageSections },
-      "query-analysis section coverage: zero-coverage sections detected",
+      { tickerId: input.tickerId, candidates: candidates.length },
+      "query-analysis produced no surviving queries; skipping persist",
     );
+
+    return {
+      success: false,
+      message: "No query survived the yield probe.",
+      details: { created: 0 },
+    };
   }
+
+  const usageTotals = tokenUsage.totals();
+  const providerUsage = probe.telemetry.providerUsage.map((entry) => ({
+    name: entry.name,
+    calls: entry.calls,
+  }));
 
   const strategySnapshot = {
-    queryCount,
-    wildcardFraction,
-    wildcardCount,
-    languageQuotas,
-    minDeterministicCount,
-    intentWeights,
+    agentVersion: "3.0.0",
+    generationSource: "self_driving_v1",
     ...(contract !== undefined ? { contractVersion: contract.version } : {}),
-    ...(sectionCoverageEnabled ? { sectionCoverageEnabled: true } : {}),
-    sectionCoverage: {
-      bySection: coverageBySection,
-      zeroCoverageSections,
-      ...(contract !== undefined ? { contractVersion: contract.version } : {}),
-    },
-    ...(appliedEventBias !== undefined
-      ? {
-          appliedEventBias: {
-            firedRuleIds: appliedEventBias.firedRuleIds,
-            multipliers: appliedEventBias.multipliers,
-          },
-        }
-      : {}),
-    model: openaiModel,
-    fewShotExemplarCount,
-    personas: personaIds,
-    perPersonaQuotaCount,
-    useSelfCritique,
-    ...(useSelfCritique
-      ? {
-          critiqueDropFraction,
-          critiqueModel,
-          selfCritiqueReplacedCount,
-          selfCritiqueSkippedDueToDeadline,
-        }
-      : {}),
-    ...(semanticDedupeConfig.enabled
-      ? {
-          semanticDedupe: {
-            enabled: true,
-            threshold: semanticDedupeConfig.threshold,
-            embeddingModel,
-          },
-        }
-      : {}),
-    ...(diversityScore !== undefined
-      ? {
-          diversityScore,
-          ...(diversityGate.enabled
-            ? {
-                diversityGate: {
-                  enabled: true,
-                  threshold: diversityGate.threshold,
-                  weights: diversityGate.weights,
-                  diversityRegenerateFired,
-                },
-              }
-            : {}),
-        }
-      : {}),
-    ...(yieldFeedback.enabled
-      ? {
-          yieldFeedback: {
-            enabled: true,
-            windowDays: yieldFeedback.windowDays,
-          },
-        }
-      : {}),
-    queryAttribution: merged.map(({ text, source, intent, persona }) => ({
-      text,
-      source,
-      intent,
-      ...(persona !== undefined ? { persona } : {}),
-    })),
-    // Chronicle instrumentation: durable token + timing record for the run.
     llmUsage: {
-      model: openaiModel,
-      critiqueModel: useSelfCritique ? critiqueModel : undefined,
-      embeddingModel: semanticDedupeConfig.enabled ? embeddingModel : undefined,
-      ...tokenUsage.totals(),
+      model: config.ai.model,
+      promptTokens: usageTotals.promptTokens,
+      completionTokens: usageTotals.completionTokens,
+      totalTokens: usageTotals.totalTokens,
+      calls: usageTotals.calls,
+      cacheHit,
+    },
+    providerUsage: {
+      searchProvider: providerUsage,
+      searchCredits: probe.telemetry.searchCredits,
+    },
+    discovered: {
+      competitors: competitors.map((entity) => entity.name),
+      regulators: regulators.map((entity) => entity.name),
+    },
+    probe: {
+      candidates: probe.telemetry.candidates,
+      deduped: probe.telemetry.deduped,
+      droppedZeroYield: probe.telemetry.dropped,
+      survivors: probe.telemetry.survivors,
+    },
+    output: {
+      queryCount: finalized.queries.length,
+      perIntent: finalized.perIntent,
+      perSection: finalized.perSection,
+      idCount: finalized.idCount,
+      globalCount: finalized.globalCount,
+      queries: finalized.queries.map((query) => query.text),
     },
     timing: {
-      startedAt: new Date(runStartMs).toISOString(),
-      completedAt: new Date().toISOString(),
-      durationMs: Date.now() - runStartMs,
+      totalMs: now() - runStartMs,
+      discoveryMs,
+      probeMs,
+      finalizeMs,
     },
+    ...(discoveryModel !== null ? { discoveryModel } : {}),
   };
 
-  report("Saving query set", `${merged.length} queries`, "completed");
-
+  report(
+    "Saving query set",
+    `${finalized.queries.length} queries`,
+    "completed",
+  );
   const response = await client.queryAnalysis.create({
     tickerId: input.tickerId,
-    generationSource: "hybrid_v1",
+    generationSource: "self_driving_v1",
     strategySnapshot,
     activate: true,
-    queries: merged.map(({ text, source, intent, rank }) => ({
-      text,
-      source,
-      intent,
-      rank,
-    })),
+    queries: finalized.queries,
     ...(hermesCorrelation?.jobId !== undefined
       ? { agentJobId: hermesCorrelation.jobId }
       : {}),
   });
 
   logger.info(
-    { tickerId: input.tickerId, created: response.created },
+    { tickerId: input.tickerId, created: response.created, cacheHit },
     "query analysis set persisted",
   );
-  return {
-    success: true,
-    details: { ...response, llmPromptFingerprint },
-  };
+
+  return { success: true, details: { ...response } };
 };

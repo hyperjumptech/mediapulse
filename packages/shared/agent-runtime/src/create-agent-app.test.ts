@@ -886,4 +886,82 @@ describe("createAgentApp", () => {
     const body = JSON.parse(options.body);
     expect(body.description).toBe("My agent");
   });
+
+  it("returns 400 without invoking run when requireContract is set and no contract is sent", async () => {
+    // Setup
+    const run = vi.fn().mockResolvedValue({ success: true } as AgentRunResult);
+    const app = createAgentApp<Input, typeof schema>(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        requireContract: true,
+        run,
+      },
+      { verifyToken: async () => true },
+    );
+
+    // Act
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify(validBody),
+    });
+    const body = (await res.json()) as { message: string };
+
+    // Assert
+    expect(res.status).toBe(400);
+    expect(body.message).toContain("requires a contract brief");
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when requireContract is set and the brief is blank", async () => {
+    const run = vi.fn().mockResolvedValue({ success: true } as AgentRunResult);
+    const app = createAgentApp<Input, typeof schema>(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        requireContract: true,
+        run,
+      },
+      { verifyToken: async () => true },
+    );
+
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({
+        ...validBody,
+        contract: { brief: "   ", version: "1.0.0" },
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("invokes run with the contract when requireContract is set and a brief is provided", async () => {
+    const run = vi.fn().mockResolvedValue({ success: true } as AgentRunResult);
+    const app = createAgentApp<Input, typeof schema>(
+      {
+        agentId: "test-agent",
+        agentVersion: "1.0.0",
+        inputSchema: schema,
+        requireContract: true,
+        run,
+      },
+      { verifyToken: async () => true },
+    );
+
+    const contract = { brief: "Track the issuer.", version: "1.0.0" };
+    const res = await app.request("http://localhost/", {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ ...validBody, contract }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(run).toHaveBeenCalledWith(expect.objectContaining({ contract }));
+  });
 });

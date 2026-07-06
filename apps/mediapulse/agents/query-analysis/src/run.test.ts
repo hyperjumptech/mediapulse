@@ -1,19 +1,9 @@
 /** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS } from "@workspace/agent-data-api-contract";
+
+import type { CountQueryHitsContext } from "@workspace/agent-search";
 
 import { queryAnalysisConfigSchema } from "./config-schema";
-
-const { mockGet, mockCreate, mockFetch, mockFetchQueryLlm, mockFetchWildcard } =
-  vi.hoisted(() => ({
-    mockGet: vi.fn(),
-    mockCreate: vi.fn(),
-    mockFetch: vi.fn(),
-    mockFetchQueryLlm: vi.fn(),
-    mockFetchWildcard: vi.fn(),
-  }));
-
-vi.stubGlobal("fetch", mockFetch);
 
 vi.mock("@mediapulse/env/agents-query-analysis", () => ({
   env: {
@@ -23,699 +13,273 @@ vi.mock("@mediapulse/env/agents-query-analysis", () => ({
   },
 }));
 
-vi.mock("@workspace/agent-data-api-client", () => ({
-  createAgentDataApiClient: vi.fn(() => ({
-    queryAnalysis: {
-      get: mockGet,
-      create: mockCreate,
-    },
-  })),
-}));
-
-vi.mock("./llm-queries", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./llm-queries")>();
-  return {
-    ...actual,
-    fetchLlmQueryCandidatesByPersona: mockFetchQueryLlm,
-    fetchWildcardCandidates: mockFetchWildcard,
-    applySelfCritiquePass: vi.fn(),
-  };
-});
-
 vi.mock("@workspace/logger", () => ({
-  logger: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  },
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { buildSeedQueries } from "./build-seed-queries";
-import {
-  clampPerPersonaQuotaCount,
-  computeWildcardCount,
-  deriveMinDeterministicCount,
-  runQueryAnalysis,
-} from "./run";
+import { runQueryAnalysis, type RunQueryAnalysisDeps } from "./run";
 
-const ctxResponse = {
-  ticker: {
-    id: "22222222-2222-4222-a222-222222222222",
-    symbol: "ABC",
-    name: "ABC Ltd",
-    metadata: { Sektor: "Technology", Industri: "Software" },
-  },
-  topEntities: [] as [],
-  recentThemes: [] as [],
-  peers: [] as [],
-  calendar: { recentEventTypes: [] as string[] },
-  headlineSamples: [] as [],
-  kgNeighborhood: [] as [],
+const TICKER_ID = "11111111-1111-4111-a111-111111111111";
+
+const baseTicker = {
+  id: TICKER_ID,
+  symbol: "BBRI",
+  name: "Bank Rakyat Indonesia",
+  metadata: null,
+  sector: "Keuangan",
+  industry: "Bank",
+  subSector: null,
+  subIndustry: null,
+  businessActivity: "Perbankan",
 };
 
-const baseConfig = queryAnalysisConfigSchema.parse({
-  credentials: { openaiApiKey: "sk" },
+const config = queryAnalysisConfigSchema.parse({
+  web_search: [{ provider: "serper", apiKey: "sk-serper" }],
+  ai: { apiKey: "sk-ai", model: "test-model", baseUrl: "" },
 });
 
-/** Disables quality passes so unrelated run tests stay focused and fast. */
-const conservativeConfig = queryAnalysisConfigSchema.parse({
-  credentials: { openaiApiKey: "sk" },
-  quality: {
-    useSelfCritique: false,
-    semanticDedupe: { enabled: false },
-    diversityGate: { enabled: false },
-  },
-  dynamics: { yieldFeedback: { enabled: false } },
-});
+const discoveredCompetitors = [
+  { name: "Bank Mandiri", aliases: ["BMRI"], searchKeywords: ["kredit"] },
+];
+const discoveredRegulators = [
+  { name: "OJK", aliases: [], searchKeywords: ["regulasi bank"] },
+];
 
-describe("query-analysis run", () => {
-  beforeEach(async () => {
-    mockGet.mockReset();
-    mockCreate.mockReset();
-    mockFetch.mockReset();
-    mockFetch.mockResolvedValue({ ok: true });
-    mockFetchQueryLlm.mockReset();
-    mockFetchWildcard.mockReset();
+/** Builds a fresh mock agent-data-api client. */
+const makeClient = (lookupEntry: unknown) => {
+  const get = vi.fn().mockResolvedValue({
+    ticker: baseTicker,
+    topEntities: [],
+    recentThemes: [],
+    peers: [],
+    calendar: { recentEventTypes: [] },
+    headlineSamples: [],
+    kgNeighborhood: [],
+  });
+  const create = vi.fn().mockResolvedValue({
+    created: 1,
+    createdSetId: "22222222-2222-4222-a222-222222222222",
+    activeSetId: "22222222-2222-4222-a222-222222222222",
+  });
+  const lookupCreate = vi.fn().mockResolvedValue({ entry: lookupEntry });
+  const recordCreate = vi.fn().mockResolvedValue({
+    tickerId: TICKER_ID,
+    expiresAt: "2026-07-20T00:00:00.000Z",
+  });
+  const client = {
+    queryAnalysis: { get, create },
+    tickerDiscoveryLookup: { create: lookupCreate },
+    tickerDiscoveryRecord: { create: recordCreate },
+  };
 
-    mockFetchWildcard.mockResolvedValue([]);
+  return { client, get, create, lookupCreate, recordCreate };
+};
 
-    const { applySelfCritiquePass } = await import("./llm-queries");
-    vi.mocked(applySelfCritiquePass).mockReset();
-    vi.mocked(applySelfCritiquePass).mockImplementation(async (params) => ({
-      candidates: params.candidates,
-      replacedCount: 0,
-      skippedDueToDeadline: false,
-    }));
-
-    mockGet.mockResolvedValue(ctxResponse);
-    mockCreate.mockResolvedValue({
-      created: 3,
-      createdSetId: "33333333-3333-4333-a333-333333333333",
-      activeSetId: "44444444-4444-4444-a444-444444444444",
-    });
-    mockFetchQueryLlm.mockResolvedValue([
-      { text: "LLM extra", intent: "kg_change" as const, persona: "analyst" },
-    ]);
+/** Fake `generateObject` returning a discovery result and token usage. */
+const makeGenerate = () =>
+  vi.fn().mockResolvedValue({
+    object: {
+      competitors: discoveredCompetitors,
+      regulators: discoveredRegulators,
+    },
+    usage: { inputTokens: 120, outputTokens: 40, totalTokens: 160 },
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  describe("buildSeedQueries", () => {
-    it("creates symbol/name anchors plus per-section intent seeds", () => {
-      // Act
-      const queries = buildSeedQueries(ctxResponse, { language: "en" });
-
-      // Assert
-      expect(queries.length).toBeGreaterThan(0);
-      expect(queries[0]?.text).toBe("ABC");
-      expect(queries.some((query) => query.intent === "industry_trend")).toBe(
-        true,
-      );
-    });
-  });
-
-  it("calls create with agentJobId when Hermes job id is present", async () => {
-    // Act
-    await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: conservativeConfig,
-      token: "Bearer t",
-      hermesCorrelation: { jobId: "job-abc" },
-    });
-
-    // Assert
-    expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ agentJobId: "job-abc" }),
-    );
-  });
-
-  it("returns llmPromptFingerprint on success details", async () => {
-    const result = await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: conservativeConfig,
-      token: "Bearer t",
-    });
-
-    expect(result.success).toBe(true);
-    if (result.success && result.details) {
-      expect(
-        typeof (result.details as { llmPromptFingerprint?: string })
-          .llmPromptFingerprint,
-      ).toBe("string");
-      expect(
-        (result.details as { llmPromptFingerprint: string })
-          .llmPromptFingerprint,
-      ).toHaveLength(16);
+/** Fake `countQueryHits` that scores by an override map and accrues credits. */
+const makeCountHits = (hitsByText: Record<string, number> = {}) =>
+  vi.fn(async (text: string, context: CountQueryHitsContext) => {
+    if (context.creditsSink) {
+      context.creditsSink.credits += 1;
     }
+    const hits = hitsByText[text] ?? 5;
+
+    return { hits, credits: 1, provider: "serper" };
   });
 
-  it("omits agentJobId when correlation is absent", async () => {
-    // Act
-    await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: conservativeConfig,
-      token: "Bearer t",
-    });
+const makeContext = () => ({
+  input: { tickerId: TICKER_ID },
+  config,
+  token: "Bearer token",
+  contract: { brief: "Track BBRI and Indonesian banking.", version: "1.0" },
+});
 
-    // Assert
-    const calls = mockCreate.mock.calls;
-    const payload = calls[calls.length - 1]?.[0] as
-      | Record<string, unknown>
-      | undefined;
-    expect(payload).toBeDefined();
-    expect(Object.keys(payload as Record<string, unknown>)).not.toContain(
-      "agentJobId",
-    );
-  });
+let generate: ReturnType<typeof makeGenerate>;
+let countHits: ReturnType<typeof makeCountHits>;
 
-  it("continues with deterministic merge when LLM throws", async () => {
+beforeEach(() => {
+  generate = makeGenerate();
+  countHits = makeCountHits();
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("runQueryAnalysis — cold run (cache miss)", () => {
+  it("discovers entities, writes the cache, and persists a self-driving query set", async () => {
     // Setup
-    mockFetchQueryLlm.mockRejectedValue(new Error("LLM down"));
+    const { client, create, lookupCreate, recordCreate } = makeClient(null);
+    const deps: RunQueryAnalysisDeps = {
+      createClient: vi.fn(() => client) as never,
+      generate: generate as never,
+      countHits: countHits as never,
+    };
 
     // Act
-    const result = await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: conservativeConfig,
-      token: "Bearer t",
-    });
+    const result = await runQueryAnalysis(makeContext() as never, deps);
 
     // Assert
     expect(result.success).toBe(true);
-    expect(mockCreate).toHaveBeenCalled();
-    const createCalls = mockCreate.mock.calls;
-    const queries = (
-      createCalls[createCalls.length - 1]?.[0] as {
-        queries: { source: string }[];
-      }
-    ).queries;
-    expect(queries.every((q) => q.source === "deterministic")).toBe(true);
-  });
-
-  it("persists LLM candidate rows in the created query set", async () => {
-    // Act
-    const result = await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: conservativeConfig,
-      token: "Bearer t",
-    });
-
-    // Assert
-    expect(result.success).toBe(true);
-    expect(mockFetchQueryLlm).toHaveBeenCalledTimes(1);
-    expect(mockCreate).toHaveBeenCalledWith(
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(lookupCreate).toHaveBeenCalledWith({ tickerId: TICKER_ID });
+    expect(recordCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        queries: expect.arrayContaining([
-          expect.objectContaining({ text: "LLM extra", intent: "kg_change" }),
-        ]),
+        tickerId: TICKER_ID,
+        competitors: discoveredCompetitors,
+        regulators: discoveredRegulators,
+        model: "test-model",
+        ttlSeconds: 14 * 24 * 60 * 60,
       }),
     );
+
+    const body = create.mock.calls[0]?.[0];
+    expect(body.generationSource).toBe("self_driving_v1");
+    expect(body.activate).toBe(true);
+    expect(body.queries.length).toBeGreaterThan(0);
+    expect(body.strategySnapshot.agentVersion).toBe("3.0.0");
+    expect(body.strategySnapshot.llmUsage.cacheHit).toBe(false);
+    expect(body.strategySnapshot.llmUsage.totalTokens).toBe(160);
+    expect(body.strategySnapshot.discovered.competitors).toContain(
+      "Bank Mandiri",
+    );
+    expect(body.strategySnapshot.discovered.regulators).toContain("OJK");
+    expect(body.strategySnapshot.providerUsage.searchProvider[0]?.name).toBe(
+      "serper",
+    );
+    expect(body.strategySnapshot.providerUsage.searchCredits).toBeGreaterThan(
+      0,
+    );
+    expect(body.strategySnapshot.contractVersion).toBe("1.0");
   });
 
-  it("fires one diversity-gate broaden regenerate when the first batch is near-identical", async () => {
-    const lowDiversityBatch = Array.from({ length: 10 }, () => ({
-      text: "ABC latest news",
-      intent: "breaking" as const,
-      persona: "analyst",
-    }));
-    mockFetchQueryLlm
-      .mockResolvedValueOnce(lowDiversityBatch)
-      .mockResolvedValueOnce([
-        {
-          text: "ABC supply chain risk Q2",
-          intent: "supply_chain" as const,
-          persona: "retail",
-        },
-      ]);
-
-    await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: queryAnalysisConfigSchema.parse({
-        credentials: { openaiApiKey: "sk" },
-        quality: {
-          useSelfCritique: false,
-          semanticDedupe: { enabled: false },
-        },
-      }),
-      token: "Bearer t",
-    });
-
-    expect(mockFetchQueryLlm).toHaveBeenCalledTimes(2);
-    const secondCall = mockFetchQueryLlm.mock.calls[1]?.[0] as {
-      broadenSystemNudge?: string;
+  it("ranks queries by probe hits (descending) and assigns contiguous ranks", async () => {
+    // Setup
+    const { client, create } = makeClient(null);
+    countHits = makeCountHits({ BBRI: 99, "Bank Rakyat Indonesia": 42 });
+    const deps: RunQueryAnalysisDeps = {
+      createClient: vi.fn(() => client) as never,
+      generate: generate as never,
+      countHits: countHits as never,
     };
-    expect(secondCall.broadenSystemNudge).toContain("diversity");
-    expect(secondCall.broadenSystemNudge).toContain("Vary phrasing");
 
-    const createPayload = mockCreate.mock.calls[
-      mockCreate.mock.calls.length - 1
-    ]?.[0] as {
-      strategySnapshot: {
-        diversityScore?: { composite: number };
-        diversityGate?: { diversityRegenerateFired: boolean };
-      };
-    };
-    expect(createPayload.strategySnapshot.diversityScore).toBeDefined();
-    expect(
-      createPayload.strategySnapshot.diversityGate?.diversityRegenerateFired,
-    ).toBe(true);
+    // Act
+    await runQueryAnalysis(makeContext() as never, deps);
+
+    // Assert
+    const body = create.mock.calls[0]?.[0];
+    const ranks = body.queries.map((query: { rank: number }) => query.rank);
+    expect(ranks).toEqual([...ranks].sort((a: number, b: number) => a - b));
+    expect(body.queries[0]?.text).toBe("BBRI");
+    expect(body.queries[0]?.rank).toBe(1);
   });
+});
 
-  it("runs best-quality default profile with critique and diversity regenerate", async () => {
-    const { applySelfCritiquePass } = await import("./llm-queries");
-    const applySelfCritiquePassMock = vi.mocked(applySelfCritiquePass);
-
-    const lowDiversityBatch = Array.from({ length: 10 }, () => ({
-      text: "ABC latest news",
-      intent: "breaking" as const,
-      persona: "analyst",
-    }));
-    mockFetchQueryLlm
-      .mockResolvedValueOnce(lowDiversityBatch)
-      .mockResolvedValueOnce([
-        {
-          text: "ABC supply chain risk Q2",
-          intent: "supply_chain" as const,
-          persona: "retail",
-        },
-      ]);
-
-    applySelfCritiquePassMock.mockImplementation(async (params) => ({
-      candidates: params.candidates,
-      replacedCount: 1,
-      skippedDueToDeadline: false,
-    }));
-
-    const result = await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: baseConfig,
-      token: "Bearer t",
+describe("runQueryAnalysis — warm run (cache hit)", () => {
+  it("skips discovery and cache write when a fresh entry exists", async () => {
+    // Setup
+    const { client, create, recordCreate } = makeClient({
+      tickerId: TICKER_ID,
+      competitors: discoveredCompetitors,
+      regulators: discoveredRegulators,
+      model: "cached-model",
+      expiresAt: "2026-07-20T00:00:00.000Z",
     });
+    const deps: RunQueryAnalysisDeps = {
+      createClient: vi.fn(() => client) as never,
+      generate: generate as never,
+      countHits: countHits as never,
+    };
 
+    // Act
+    const result = await runQueryAnalysis(makeContext() as never, deps);
+
+    // Assert
     expect(result.success).toBe(true);
-    expect(applySelfCritiquePassMock).toHaveBeenCalledTimes(1);
-    expect(mockFetchQueryLlm).toHaveBeenCalledTimes(2);
+    expect(generate).not.toHaveBeenCalled();
+    expect(recordCreate).not.toHaveBeenCalled();
 
-    const createPayload = mockCreate.mock.calls[
-      mockCreate.mock.calls.length - 1
-    ]?.[0] as {
-      strategySnapshot: {
-        useSelfCritique?: boolean;
-        diversityGate?: { diversityRegenerateFired: boolean };
-        yieldFeedback?: { enabled: boolean };
-      };
+    const body = create.mock.calls[0]?.[0];
+    expect(body.strategySnapshot.llmUsage.cacheHit).toBe(true);
+    expect(body.strategySnapshot.discovered.competitors).toContain(
+      "Bank Mandiri",
+    );
+  });
+});
+
+describe("runQueryAnalysis — yield probe", () => {
+  it("drops zero-yield candidates and records them in the snapshot", async () => {
+    // Setup
+    const { client, create } = makeClient({
+      tickerId: TICKER_ID,
+      competitors: discoveredCompetitors,
+      regulators: discoveredRegulators,
+      model: "cached-model",
+      expiresAt: "2026-07-20T00:00:00.000Z",
+    });
+    countHits = makeCountHits({ BBRI: 0 });
+    const deps: RunQueryAnalysisDeps = {
+      createClient: vi.fn(() => client) as never,
+      generate: generate as never,
+      countHits: countHits as never,
     };
-    expect(createPayload.strategySnapshot.useSelfCritique).toBe(true);
+
+    // Act
+    await runQueryAnalysis(makeContext() as never, deps);
+
+    // Assert
+    const body = create.mock.calls[0]?.[0];
+    expect(body.strategySnapshot.probe.droppedZeroYield).toContain("BBRI");
     expect(
-      createPayload.strategySnapshot.diversityGate?.diversityRegenerateFired,
-    ).toBe(true);
-    expect(createPayload.strategySnapshot.yieldFeedback?.enabled).toBe(true);
+      body.queries.some((query: { text: string }) => query.text === "BBRI"),
+    ).toBe(false);
   });
 
-  it("persists wildcardFraction budget as wildcard intent rows", async () => {
-    mockFetchQueryLlm.mockResolvedValue(
-      Array.from({ length: 8 }, (_, index) => ({
-        text: `Standard LLM ${String(index + 1)}`,
-        intent: "breaking" as const,
-        persona: "analyst",
-      })),
-    );
-    mockFetchWildcard.mockResolvedValue([
-      { text: "Wildcard lateral angle A", intent: "wildcard" as const },
-      { text: "Wildcard lateral angle B", intent: "wildcard" as const },
-    ]);
-
-    await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: queryAnalysisConfigSchema.parse({
-        credentials: { openaiApiKey: "sk" },
-        output: { queryCount: 10 },
-        creativity: { wildcardFraction: 0.2 },
-      }),
-      token: "Bearer t",
+  it("guarantees section coverage even when every candidate is zero-yield", async () => {
+    // Setup
+    const { client, create } = makeClient({
+      tickerId: TICKER_ID,
+      competitors: discoveredCompetitors,
+      regulators: discoveredRegulators,
+      model: "cached-model",
+      expiresAt: "2026-07-20T00:00:00.000Z",
     });
+    const allZero = vi.fn(
+      async (_text: string, context: CountQueryHitsContext) => {
+        if (context.creditsSink) {
+          context.creditsSink.credits += 1;
+        }
 
-    expect(mockFetchWildcard).toHaveBeenCalledTimes(1);
-    const createPayload = mockCreate.mock.calls[
-      mockCreate.mock.calls.length - 1
-    ]?.[0] as {
-      queries: Array<{ intent: string }>;
-    };
-    const wildcardRows = createPayload.queries.filter(
-      (row) => row.intent === "wildcard",
-    );
-    expect(wildcardRows).toHaveLength(2);
-    expect(createPayload.queries).toHaveLength(10);
-  });
-
-  it("distributes queryCount across language quotas into per-language slices", async () => {
-    mockFetchQueryLlm.mockResolvedValue([]);
-
-    await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: queryAnalysisConfigSchema.parse({
-        credentials: { openaiApiKey: "sk" },
-        output: {
-          queryCount: 10,
-          languageQuotas: [
-            { language: "en", share: 0.6 },
-            { language: "id", share: 0.4 },
-          ],
-        },
-        creativity: { wildcardFraction: 0 },
-        prompting: { personas: [] },
-      }),
-      token: "Bearer t",
-    });
-
-    const createPayload = mockCreate.mock.calls[
-      mockCreate.mock.calls.length - 1
-    ]?.[0] as {
-      queries: Array<{ text: string }>;
-      strategySnapshot: {
-        languageQuotas: Array<{ language: string; share: number }>;
-      };
-    };
-
-    expect(createPayload.queries).toHaveLength(10);
-    expect(createPayload.strategySnapshot.languageQuotas).toEqual([
-      { language: "en", share: 0.6 },
-      { language: "id", share: 0.4 },
-    ]);
-
-    const englishSlice = createPayload.queries.slice(0, 6);
-    const indonesianSlice = createPayload.queries.slice(6);
-
-    expect(englishSlice).toHaveLength(6);
-    expect(indonesianSlice).toHaveLength(4);
-  });
-
-  it("boosts regulatory intent weight in snapshot when recent regulatory events are present", async () => {
-    mockGet.mockResolvedValue({
-      ...ctxResponse,
-      calendar: {
-        recentEventTypes: ["regulatory_filing"],
+        return { hits: 0, credits: 1, provider: "serper" };
       },
-    });
-
-    await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: queryAnalysisConfigSchema.parse({
-        credentials: { openaiApiKey: "sk" },
-        creativity: { wildcardFraction: 0 },
-      }),
-      token: "Bearer t",
-    });
-
-    const createPayload = mockCreate.mock.calls[
-      mockCreate.mock.calls.length - 1
-    ]?.[0] as {
-      strategySnapshot: {
-        intentWeights: { regulatory: number };
-        appliedEventBias?: {
-          firedRuleIds: string[];
-          multipliers: { regulatory?: number };
-        };
-      };
-    };
-    expect(createPayload.strategySnapshot.intentWeights.regulatory).toBe(
-      DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS.regulatory * 1.5,
     );
-    expect(
-      createPayload.strategySnapshot.appliedEventBias?.firedRuleIds,
-    ).toContain("recent-regulatory-event");
-    expect(
-      createPayload.strategySnapshot.appliedEventBias?.multipliers.regulatory,
-    ).toBe(1.5);
-  });
-});
-
-describe("clampPerPersonaQuotaCount", () => {
-  it("returns configured quota when fan-out is within the guard", () => {
-    expect(clampPerPersonaQuotaCount(3, 3, 10)).toBe(3);
-  });
-
-  it("clamps quota when fan-out exceeds queryCount * 3", () => {
-    expect(clampPerPersonaQuotaCount(3, 10, 5)).toBe(5);
-  });
-});
-
-describe("computeWildcardCount", () => {
-  it("rounds queryCount times wildcardFraction", () => {
-    expect(computeWildcardCount(10, 0.2)).toBe(2);
-    expect(computeWildcardCount(10, 0.1)).toBe(1);
-    expect(computeWildcardCount(10, 0)).toBe(0);
-  });
-});
-
-describe("deriveMinDeterministicCount", () => {
-  it("derives floor 4 for default queryCount 10", () => {
-    expect(deriveMinDeterministicCount(10)).toBe(4);
-  });
-
-  it("floors at 2 for small queryCount values", () => {
-    expect(deriveMinDeterministicCount(3)).toBe(2);
-  });
-});
-
-describe("sectionCoverage snapshot", () => {
-  it("strategySnapshot.sectionCoverage.bySection contains every newsletter section", async () => {
-    mockFetchQueryLlm.mockResolvedValue([
-      { text: "competitor moves", intent: "competitor" as const },
-      { text: "regulatory update", intent: "regulatory" as const },
-    ]);
-
-    await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: conservativeConfig,
-      token: "Bearer t",
-    });
-
-    const createPayload = mockCreate.mock.calls[
-      mockCreate.mock.calls.length - 1
-    ]?.[0] as {
-      strategySnapshot: {
-        sectionCoverage: {
-          bySection: Record<string, { count: number; share: number }>;
-          zeroCoverageSections: string[];
-        };
-      };
+    const deps: RunQueryAnalysisDeps = {
+      createClient: vi.fn(() => client) as never,
+      generate: generate as never,
+      countHits: allZero as never,
     };
 
-    const { sectionCoverage } = createPayload.strategySnapshot;
-    expect(sectionCoverage).toBeDefined();
-    for (const sectionId of [
-      "industryPulse",
-      "competitiveLandscape",
-      "dealsAndMovements",
-      "regulatoryPolicyWatch",
-      "disruptorsOrTech",
-      "quickHits",
-    ]) {
-      expect(sectionCoverage.bySection).toHaveProperty(sectionId);
-    }
-  });
+    // Act
+    const result = await runQueryAnalysis(makeContext() as never, deps);
 
-  it("zeroCoverageSections includes quickHits when no query maps to it", async () => {
-    mockFetchQueryLlm.mockResolvedValue([
-      { text: "only breaking", intent: "breaking" as const },
-    ]);
-
-    await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: conservativeConfig,
-      token: "Bearer t",
-    });
-
-    const createPayload = mockCreate.mock.calls[
-      mockCreate.mock.calls.length - 1
-    ]?.[0] as {
-      strategySnapshot: {
-        sectionCoverage: {
-          zeroCoverageSections: string[];
-        };
-      };
-    };
-
-    const { zeroCoverageSections } =
-      createPayload.strategySnapshot.sectionCoverage;
-    // quickHits has no dedicated intent so it always shows zero search coverage.
-    expect(zeroCoverageSections).toContain("quickHits");
-  });
-
-  it("sectionCoverage includes contractVersion when a contract is attached", async () => {
-    mockFetchQueryLlm.mockResolvedValue([
-      { text: "competitor news", intent: "competitor" as const },
-    ]);
-
-    await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: conservativeConfig,
-      token: "Bearer t",
-      contract: { brief: "brief text", version: "v2" },
-    });
-
-    const createPayload = mockCreate.mock.calls[
-      mockCreate.mock.calls.length - 1
-    ]?.[0] as {
-      strategySnapshot: {
-        sectionCoverage: { contractVersion?: string };
-      };
-    };
-
-    expect(createPayload.strategySnapshot.sectionCoverage.contractVersion).toBe(
-      "v2",
+    // Assert
+    expect(result.success).toBe(true);
+    const body = create.mock.calls[0]?.[0];
+    const intents = new Set(
+      body.queries.map((query: { intent: string }) => query.intent),
     );
-  });
-
-  it("sectionCoverage omits contractVersion when no contract is attached", async () => {
-    mockFetchQueryLlm.mockResolvedValue([
-      { text: "industry outlook", intent: "industry_trend" as const },
-    ]);
-
-    await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: conservativeConfig,
-      token: "Bearer t",
-    });
-
-    const createPayload = mockCreate.mock.calls[
-      mockCreate.mock.calls.length - 1
-    ]?.[0] as {
-      strategySnapshot: {
-        sectionCoverage: { contractVersion?: string };
-      };
-    };
-
-    expect(
-      createPayload.strategySnapshot.sectionCoverage.contractVersion,
-    ).toBeUndefined();
-  });
-});
-
-describe("section-coverage reserve", () => {
-  const seedConfig = queryAnalysisConfigSchema.parse({
-    credentials: { openaiApiKey: "sk" },
-    output: {
-      queryCount: 10,
-      languageQuotas: [{ language: "fr", share: 1 }],
-    },
-    creativity: { wildcardFraction: 0 },
-    quality: {
-      useSelfCritique: false,
-      semanticDedupe: { enabled: false },
-      diversityGate: { enabled: false },
-    },
-    dynamics: { yieldFeedback: { enabled: false } },
-  });
-
-  it("includes competitor-intent queries when LLM returns nothing", async () => {
-    // LLM stubbed to return empty so only deterministic rows survive.
-    mockFetchQueryLlm.mockResolvedValue([]);
-
-    await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: seedConfig,
-      token: "Bearer t",
-    });
-
-    const createPayload = mockCreate.mock.calls[
-      mockCreate.mock.calls.length - 1
-    ]?.[0] as {
-      queries: Array<{ intent: string }>;
-    };
-
-    // The seed builder emits a competitor anchor; it appears via merge or reserve.
-    const competitorRows = createPayload.queries.filter(
-      (row) => row.intent === "competitor",
-    );
-    expect(competitorRows.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("includes technology_trend queries when LLM returns nothing", async () => {
-    mockFetchQueryLlm.mockResolvedValue([]);
-
-    await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: seedConfig,
-      token: "Bearer t",
-    });
-
-    const createPayload = mockCreate.mock.calls[
-      mockCreate.mock.calls.length - 1
-    ]?.[0] as {
-      queries: Array<{ intent: string }>;
-    };
-
-    const techRows = createPayload.queries.filter(
-      (row) => row.intent === "technology_trend" || row.intent === "technical",
-    );
-    expect(techRows.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("total query count never exceeds queryCount after reserve pass runs", async () => {
-    mockFetchQueryLlm.mockResolvedValue([]);
-
-    const queryCount = 10;
-    await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: seedConfig,
-      token: "Bearer t",
-    });
-
-    const createPayload = mockCreate.mock.calls[
-      mockCreate.mock.calls.length - 1
-    ]?.[0] as {
-      queries: Array<{ intent: string }>;
-    };
-
-    expect(createPayload.queries.length).toBeLessThanOrEqual(queryCount);
-    expect(createPayload.queries.length).toBeGreaterThan(0);
-  });
-});
-
-describe("runQueryAnalysis derived minDeterministicCount", () => {
-  it("persists derived minDeterministicCount 4 when queryCount is 10", async () => {
-    await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: queryAnalysisConfigSchema.parse({
-        credentials: { openaiApiKey: "sk" },
-        output: { queryCount: 10 },
-        creativity: { wildcardFraction: 0 },
-      }),
-      token: "Bearer t",
-    });
-
-    const createPayload = mockCreate.mock.calls[
-      mockCreate.mock.calls.length - 1
-    ]?.[0] as {
-      strategySnapshot: { minDeterministicCount: number; maxTokens?: number };
-    };
-    expect(createPayload.strategySnapshot.minDeterministicCount).toBe(4);
-    expect(createPayload.strategySnapshot.maxTokens).toBeUndefined();
-  });
-
-  it("persists derived minDeterministicCount 2 when queryCount is 3", async () => {
-    mockFetchQueryLlm.mockResolvedValue([
-      { text: "LLM one", intent: "breaking" as const, persona: "analyst" },
-    ]);
-
-    await runQueryAnalysis({
-      input: { tickerId: "22222222-2222-4222-a222-222222222222" },
-      config: queryAnalysisConfigSchema.parse({
-        credentials: { openaiApiKey: "sk" },
-        output: { queryCount: 3 },
-        creativity: { wildcardFraction: 0 },
-      }),
-      token: "Bearer t",
-    });
-
-    const createPayload = mockCreate.mock.calls[
-      mockCreate.mock.calls.length - 1
-    ]?.[0] as {
-      strategySnapshot: { minDeterministicCount: number };
-    };
-    expect(createPayload.strategySnapshot.minDeterministicCount).toBe(2);
+    // Reinstated coverage spans the dedicated-intent sections.
+    expect(intents.has("competitor")).toBe(true);
+    expect(intents.has("regulatory")).toBe(true);
+    expect(intents.has("industry_trend")).toBe(true);
   });
 });

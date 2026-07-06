@@ -120,6 +120,11 @@ export const queryAnalysisTickerSchema = z.object({
   symbol: z.string(),
   name: z.string(),
   metadata: z.unknown().nullable(),
+  sector: z.string().nullable().optional(),
+  industry: z.string().nullable().optional(),
+  subSector: z.string().nullable().optional(),
+  subIndustry: z.string().nullable().optional(),
+  businessActivity: z.string().nullable().optional(),
 });
 
 export const queryAnalysisTopEntitySchema = z.object({
