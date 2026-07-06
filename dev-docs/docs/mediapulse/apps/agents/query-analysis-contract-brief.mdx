@@ -1,0 +1,126 @@
+---
+title: Query Analysis Contract Brief
+description: The Agent Contract that steers query-analysis discovery, and how to attach it in Hermes
+icon: FileText
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+import { Step, Steps } from "fumadocs-ui/components/steps";
+
+## What the Agent Contract is
+
+An Agent Contract is a plain-text brief attached to a pipeline step. It tells the agent who the output is for and what counts as real signal. For query-analysis, the brief is not optional. The agent runs with `requireContract: true`, so a run without a brief, or with a blank one, returns HTTP 400 and never reaches the pipeline.
+
+The agent consumes the brief at one point: entity discovery. Before the discovery LLM call, the runtime wraps the brief in a `<product_contract>` block and prepends it to the system prompt. From there the model decides which competitors and regulators to name. A vague or missing brief and the model reaches for index co-members and generic sector bodies. A sharp brief and it names the rivals and regulators that actually generate news for this issuer.
+
+<Callout type="warn">
+  The brief steers discovery only. The yield probe still verifies every
+  candidate against a live search provider, so the brief cannot force a dead
+  query into the output. What it can do is aim discovery at the right entities
+  in the first place.
+</Callout>
+
+## The brief
+
+Paste this verbatim into the Agent Contract for the query-analysis pipeline step.
+
+```
+ROLE AND READER
+You steer a daily media-intelligence newsletter read by a C-level executive of the
+tracked issuer (the company behind the ticker). Judge everything by one test: does it
+help that executive run the business or read the competitive and regulatory field.
+You are not writing for a trader or a general reader.
+
+WHAT MATTERS, IN PRIORITY ORDER
+1. The issuer itself. Earnings and guidance, material share-price moves that have a
+   business cause, corporate actions (rights issues, acquisitions, dividends, AGM or
+   RUPS outcomes), store and product expansion, and any food-safety, labor, halal, or
+   brand-reputation event.
+2. Named direct competitors. Funding, expansion, pricing moves, new store or product
+   formats, international moves, and IPO plans. Name the competitor explicitly. Never
+   fold competitor news into generic "industry" framing.
+3. Named regulators and policy bodies for the issuer's industry, and their rule changes
+   (for food and beverage in Indonesia: BPOM, BPJPH and halal certification, Kemenkes
+   labeling such as Nutri-Level; for a listed company: OJK and IDX duties).
+4. Input costs and supply chain that move the issuer's margins (raw materials, dairy,
+   sugar, packaging, FX, logistics).
+
+QUALITY BAR FOR DISCOVERY
+A competitor is a real product-market rival that competes for the same customers, not a
+company that merely shares a sector or stock index. A regulator is a body whose rules
+materially affect the issuer's products, licensing, or listing. Prefer entities that
+plausibly generate news in the issuer's home market. When unsure, return fewer rather
+than inventing.
+
+MARKET SCOPE
+Anchor to the issuer's home market first, then relevant global developments that
+plausibly affect it (global input prices, a competitor's overseas expansion, a supply
+chain shift). Ignore foreign stories with no link to the issuer.
+
+EXCLUDE
+Do not surface stock-trading tips, chart or technical-signal commentary, generic
+global-lifestyle stories, or foreign-industry news unconnected to the issuer. Do not
+treat the ticker symbol as a keyword to match inside unrelated market roundups.
+
+OUTCOME
+Every query you inform should plausibly return news that helps the executive understand
+the issuer's own position, its named rivals, or the rules that govern it, in the home
+market and where it matters globally.
+```
+
+## Why each clause is there
+
+Every clause exists to close a discovery failure the team has actually seen in evals.
+
+| Clause                        | Failure it fixes                                                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Role and reader               | Queries pitched at traders or chart-watchers instead of an operator running the business.                        |
+| Priority 1, the issuer        | Discovery drifting to sector color while the issuer's own earnings and corporate actions go uncovered.           |
+| Priority 2, named competitors | Competitor news collapsed into generic "industry" phrasing, so no rival is ever named.                           |
+| Priority 3, named regulators  | The real oversight bodies (BPOM, BPJPH, OJK, IDX) missing from the discovered set.                               |
+| Priority 4, input costs       | Margin drivers like dairy, sugar, packaging, and FX left out of the industry queries.                            |
+| Quality bar for discovery     | Index or sector co-members returned as "competitors" when they do not compete for the same customers.            |
+| Market scope                  | Foreign entities and topics surfaced with no plausible link to the issuer's home market.                         |
+| Exclude                       | Trading tips, technical-signal noise, lifestyle filler, and the ticker symbol matched inside unrelated roundups. |
+| Outcome                       | Queries that return nothing an executive would act on, even when they technically mention the issuer.            |
+
+## How to attach it in Hermes
+
+<Steps>
+  <Step>
+    ### Open the pipeline
+
+    In the Hermes dashboard, open the Query Analysis Pipeline and select the
+    query-analysis step.
+
+  </Step>
+  <Step>
+    ### Create or pick an Agent Contract
+
+    Attach an Agent Contract to the step and paste the brief above as its body.
+    Save it so the step gets an `agentContractId`.
+
+  </Step>
+  <Step>
+    ### Confirm the step carries the contract id
+
+    The step must have `agentContractId` set. Without it the brief never reaches
+    the agent and the run returns HTTP 400 with a message telling you to attach
+    a contract.
+
+  </Step>
+  <Step>
+    ### Run once and check the Chronicle
+
+    Trigger a run and open the newsletter Chronicle. The discovered competitors
+    and regulators should read like real rivals and oversight bodies for the
+    issuer. If they look like index co-members, tighten the brief's quality bar
+    before the next scheduled run.
+
+  </Step>
+</Steps>
+
+## Related docs
+
+- [Query Analysis Agent](/mediapulse/apps/agents/query-analysis)
+- [Data Collection Agent](/mediapulse/apps/agents/data-collection)
