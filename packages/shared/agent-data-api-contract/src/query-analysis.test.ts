@@ -57,7 +57,6 @@ describe("queryAnalysisTickerSchema classification fields", () => {
       id: "11111111-1111-1111-1111-111111111111",
       symbol: "ACME",
       name: "Acme Co",
-      metadata: null,
       sector: "Technology",
       industry: "Software",
       subSector: "Application Software",
@@ -73,7 +72,6 @@ describe("queryAnalysisTickerSchema classification fields", () => {
       id: "11111111-1111-1111-1111-111111111111",
       symbol: "ACME",
       name: "Acme Co",
-      metadata: null,
       sector: null,
       industry: null,
       subSector: null,
@@ -88,7 +86,6 @@ describe("queryAnalysisTickerSchema classification fields", () => {
       id: "11111111-1111-1111-1111-111111111111",
       symbol: "ACME",
       name: "Acme Co",
-      metadata: null,
     });
     expect(parsed.sector).toBeUndefined();
   });
@@ -99,15 +96,12 @@ describe("queryAnalysisTickerSchema classification fields", () => {
         id: "11111111-1111-1111-1111-111111111111",
         symbol: "ACME",
         name: "Acme Co",
-        metadata: null,
         sector: "Technology",
         industry: "Software",
         subSector: null,
         subIndustry: null,
         businessActivity: null,
       },
-      topEntities: [],
-      recentThemes: [],
     });
     expect(parsed.ticker.industry).toBe("Software");
   });

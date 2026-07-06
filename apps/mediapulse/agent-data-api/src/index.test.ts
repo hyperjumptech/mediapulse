@@ -634,13 +634,6 @@ describe("agent-data-api", () => {
         createdAt: new Date("2026-03-19T00:00:00.000Z"),
         updatedAt: new Date("2026-03-19T00:00:00.000Z"),
       });
-      vi.mocked(prisma.tickerEntity.findMany).mockResolvedValue([]);
-      vi.mocked(prisma.dataSource.findMany)
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([]);
-      vi.mocked(prisma.entityRelation.findMany).mockResolvedValue([]);
-
       // Act
       const { app } = await import("./index.js");
       const res = await app.request(
@@ -652,12 +645,18 @@ describe("agent-data-api", () => {
       // Assert
       expect(res.status).toBe(200);
       expect(body.ticker.symbol).toBe("AAPL");
-      expect(body.topEntities).toEqual([]);
-      expect(body.recentThemes).toEqual([]);
-      expect(body.peers).toEqual([]);
-      expect(body.calendar).toEqual({ recentEventTypes: [] });
-      expect(body.headlineSamples).toEqual([]);
-      expect(body.kgNeighborhood).toEqual([]);
+      expect(body).toEqual({
+        ticker: {
+          id: TICKER_ID,
+          symbol: "AAPL",
+          name: "Apple Inc.",
+          sector: null,
+          industry: null,
+          subSector: null,
+          subIndustry: null,
+          businessActivity: null,
+        },
+      });
     });
   });
 

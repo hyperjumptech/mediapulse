@@ -66,33 +66,6 @@ export const getQueryAnalysisQuerySchema = z.object({
   tickerId: z.string().trim().min(1),
 });
 
-export const queryAnalysisConfigSnapshotSchema = z.object({
-  queryCount: z.number().int().positive(),
-  allowedLanguages: z.array(z.string().trim().min(1)),
-  minDeterministicCount: z.number().int().nonnegative(),
-  /** @deprecated Prefer `intentWeights`; legacy snapshots may only include the original trio. */
-  weights: z
-    .object({
-      breaking: z.number().nonnegative(),
-      kgChange: z.number().nonnegative(),
-      fundamental: z.number().nonnegative(),
-    })
-    .optional(),
-  intentWeights: z
-    .record(queryAnalysisIntentSchema, z.number().nonnegative())
-    .optional(),
-  model: z.string().trim().min(1).optional(),
-  maxTokens: z.number().int().positive().optional(),
-});
-
-export const queryAnalysisRelationDeltaSchema = z.object({
-  fromEntity: z.string().trim().min(1),
-  toEntity: z.string().trim().min(1),
-  relationType: z.string().trim().min(1),
-  change: z.enum(["added", "removed", "updated"]),
-  weight: z.number().optional(),
-});
-
 export const queryAnalysisPostQuerySchema = z.object({
   text: z.string().trim().min(1),
   intent: queryAnalysisIntentSchema,
@@ -112,7 +85,6 @@ export const queryAnalysisTickerSchema = z.object({
   id: z.string().uuid(),
   symbol: z.string(),
   name: z.string(),
-  metadata: z.unknown().nullable(),
   sector: z.string().nullable().optional(),
   industry: z.string().nullable().optional(),
   subSector: z.string().nullable().optional(),
@@ -120,50 +92,8 @@ export const queryAnalysisTickerSchema = z.object({
   businessActivity: z.string().nullable().optional(),
 });
 
-export const queryAnalysisTopEntitySchema = z.object({
-  canonicalName: z.string(),
-  typeName: z.string(),
-  relevanceWeight: z.number(),
-});
-
-export const queryAnalysisRecentThemeSchema = z.object({
-  theme: z.string(),
-  articleCount: z.number().int().nonnegative(),
-});
-
-export const queryAnalysisPeerSchema = z.object({
-  symbol: z.string(),
-  name: z.string(),
-  relevance: z.number(),
-});
-
-export const queryAnalysisCalendarSchema = z.object({
-  nextEarningsAt: z.string().datetime().optional(),
-  recentEventTypes: z.array(z.string()),
-});
-
-export const queryAnalysisHeadlineSampleSchema = z.object({
-  title: z.string(),
-  publishedAt: z.string(),
-  sourceName: z.string(),
-});
-
-export const queryAnalysisKgNeighborhoodSchema = z.object({
-  fromEntity: z.string(),
-  relationType: z.string(),
-  toEntity: z.string(),
-});
-
 export const getQueryAnalysisResponseSchema = z.object({
   ticker: queryAnalysisTickerSchema,
-  topEntities: z.array(queryAnalysisTopEntitySchema),
-  recentThemes: z.array(queryAnalysisRecentThemeSchema),
-  recentRelationDeltas: z.array(queryAnalysisRelationDeltaSchema).optional(),
-  configSnapshot: queryAnalysisConfigSnapshotSchema.optional(),
-  peers: z.array(queryAnalysisPeerSchema).default([]),
-  calendar: queryAnalysisCalendarSchema.default({ recentEventTypes: [] }),
-  headlineSamples: z.array(queryAnalysisHeadlineSampleSchema).default([]),
-  kgNeighborhood: z.array(queryAnalysisKgNeighborhoodSchema).default([]),
 });
 
 export const postQueryAnalysisResponseSchema = z.object({
