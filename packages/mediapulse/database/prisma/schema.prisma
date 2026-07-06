@@ -474,13 +474,26 @@ model SearchQuerySet {
 }
 
 model Ticker {
-  id        String   @id @default(uuid())
-  symbol    String   @unique
-  name      String
-  metadata  Json?    @map("metadata")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id     String @id @default(uuid())
+  symbol String @unique
+  name   String
 
+  /// Structured business classification promoted out of the raw IDX blob.
+  /// These are the only classification fields code reads; prefer them over `metadataRaw`.
+  sector           String?  @map("sector")
+  industry         String?  @map("industry")
+  subSector        String?  @map("sub_sector")
+  subIndustry      String?  @map("sub_industry")
+  businessActivity String?  @map("business_activity")
+  aliases          String[] @map("aliases")
+
+  /// Full original IDX emiten row. Admin/import display only.
+  /// NOTE (query-analysis 3.0.0): code must read the structured columns above, not this blob.
+  metadataRaw Json?    @map("metadata_raw")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  discovery              TickerDiscovery?
   searchQueries          SearchQuery[]
   searchQuerySets        SearchQuerySet[]
   dataSources            DataSource[]
@@ -499,6 +512,23 @@ model Ticker {
   tickerSections         DataSourceTickerSection[]
 
   @@map("ticker")
+}
+
+/// Per-ticker cache of LLM-discovered competitors and regulators, refreshed by expiry.
+/// Mirrors ListingDiscoveryCache: freshness is the single `expiresAt` gate, renewed on every upsert.
+model TickerDiscovery {
+  id          String   @id @default(uuid())
+  tickerId    String   @unique @map("ticker_id")
+  competitors Json
+  regulators  Json
+  /// Discovery model id, for audit.
+  model       String?
+  expiresAt   DateTime @map("expires_at")
+
+  ticker Ticker @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("ticker_discovery")
 }
 
 /// End-user / newsletter subscriber in the Mediapulse domain (distinct from Hermes orchestration `User` admins).

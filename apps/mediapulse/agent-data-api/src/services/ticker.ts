@@ -1,20 +1,13 @@
 import { prisma, type Prisma } from "@mediapulse/database";
 import type { GetTickerResponse } from "@workspace/agent-data-api-contract";
-import { z } from "zod";
 
 import {
   QUERY_ANALYSIS_PEER_LIMIT,
-  buildPeerMetadataOrFilters,
+  buildPeerColumnFilters,
   extractTickerBusinessContext,
   extractTickerSectorIndustry,
   sortAndLimitPeers,
 } from "./query-analysis-context-helpers";
-
-const tickerMetadataSchema = z
-  .object({
-    aliases: z.array(z.string()).optional(),
-  })
-  .passthrough();
 
 /**
  * Loads one ticker row and normalizes alias metadata for agent consumers.
@@ -33,15 +26,9 @@ export const getTickerForAgent = async (
     return null;
   }
 
-  const metadata = tickerMetadataSchema.safeParse(row.metadata);
-  const storedAliases =
-    metadata.success && Array.isArray(metadata.data.aliases)
-      ? metadata.data.aliases
-      : [];
-
   const seen = new Set<string>();
   const aliases: string[] = [];
-  for (const alias of storedAliases) {
+  for (const alias of row.aliases) {
     const trimmed = alias.trim();
     const normalized = trimmed.toLowerCase();
     if (trimmed.length === 0 || seen.has(normalized)) {
@@ -51,11 +38,11 @@ export const getTickerForAgent = async (
     aliases.push(trimmed);
   }
 
-  const { sector, industry } = extractTickerSectorIndustry(row.metadata);
+  const { sector, industry } = extractTickerSectorIndustry(row);
   const { subSector, subIndustry, businessActivity } =
-    extractTickerBusinessContext(row.metadata);
+    extractTickerBusinessContext(row);
 
-  const peerFilters = buildPeerMetadataOrFilters(sector, industry);
+  const peerFilters = buildPeerColumnFilters(sector, industry);
   const peerCandidates =
     peerFilters === undefined
       ? []
@@ -64,7 +51,7 @@ export const getTickerForAgent = async (
             id: { not: row.id },
             OR: peerFilters,
           },
-          select: { id: true, symbol: true, name: true, metadata: true },
+          select: { id: true, symbol: true, name: true, metadataRaw: true },
           take: QUERY_ANALYSIS_PEER_LIMIT * 4,
         } satisfies Prisma.TickerFindManyArgs);
   const peers = sortAndLimitPeers(peerCandidates).map((peer) => ({

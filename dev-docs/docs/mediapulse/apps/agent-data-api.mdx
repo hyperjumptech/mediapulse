@@ -323,6 +323,33 @@ Implemented in `apps/mediapulse/agent-data-api/src/routes/newsletter-feedback.ts
 - **Behavior:** Idempotent on `graphMessageId` (`created: false` on replay). Correlates the reply to a subscriber/newsletter by parsing the self-describing newsletter Message-ID out of `inReplyToMessageId`, falling back to a `senderEmail` match against `mediapulse_user`. The raw body is always stored, even when correlation is empty.
 - **Response:** `feedbackId`, `created`, and `correlated` (`{ userId?, userTickerId?, newsletterId? }`).
 
+### Ticker discovery cache (`POST /api/v1/ticker-discovery/lookup`, `POST /api/v1/ticker-discovery/record`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/ticker-discovery.ts` and `services/ticker-discovery.ts`. Schemas live in `@workspace/agent-data-api-contract` (`ticker-discovery.ts`). Manifest keys are **`tickerDiscoveryLookup`** and **`tickerDiscoveryRecord`**. Backed by the `ticker_discovery` table (one row per ticker, keyed by **`tickerId`**, with an **`expiresAt`** TTL).
+
+- **POST lookup** — Body: **`tickerId`**. Response: **`{ entry }`** — the cached discovery (`competitors`, `regulators`, `model`, `expiresAt`) when a non-expired row exists (`expiresAt > now()`), otherwise **`null`**.
+- **POST record** — Body: **`{ tickerId, competitors, regulators, model?, ttlSeconds }`**, where each competitor/regulator is **`{ name, aliases, searchKeywords }`**. Upserts by `tickerId` and refreshes `expiresAt = now + ttlSeconds`. Response: **`{ tickerId, expiresAt }`**.
+
+From agents, use SDK namespaces **`tickerDiscoveryLookup`** and **`tickerDiscoveryRecord`** (**`create`** for POST).
+
+```ts
+const { entry } = await dataApiClient.tickerDiscoveryLookup.create({
+  tickerId,
+});
+
+await dataApiClient.tickerDiscoveryRecord.create({
+  tickerId,
+  competitors: [
+    { name: "Rival Co", aliases: ["Rival"], searchKeywords: ["rival co"] },
+  ],
+  regulators: [
+    { name: "OJK", aliases: [], searchKeywords: ["otoritas jasa keuangan"] },
+  ],
+  model: "gpt-test",
+  ttlSeconds: 86_400,
+});
+```
+
 ## Versioning
 
 - `agent-data-api` can serve multiple live versions (for example `v1`, `v2`) under `/api/<version>/...`.

@@ -1,5 +1,5 @@
 /**
- * Maps `Ticker` rows (including metadata) to list items for the tickers Hermes table API.
+ * Maps `Ticker` rows (structured classification columns + raw metadata blob) to list items for the tickers Hermes table API.
  */
 
 import type { Ticker } from "@mediapulse/database";
@@ -14,10 +14,15 @@ export const mapRowToListItem = (row: Ticker) => ({
   id: row.id,
   symbol: row.symbol,
   name: row.name,
-  metadata:
-    row.metadata === null || row.metadata === undefined
+  sector: row.sector ?? "",
+  industry: row.industry ?? "",
+  subSector: row.subSector ?? "",
+  subIndustry: row.subIndustry ?? "",
+  businessActivity: row.businessActivity ?? "",
+  metadataRaw:
+    row.metadataRaw === null || row.metadataRaw === undefined
       ? ""
-      : JSON.stringify(row.metadata, null, 2),
+      : JSON.stringify(row.metadataRaw, null, 2),
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
 });

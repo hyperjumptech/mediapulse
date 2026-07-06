@@ -57,16 +57,23 @@ type AnalysisDb = {
 
 const defaultDb: AnalysisDb = prisma;
 
-type TickerRow = { symbol: string; name: string; metadata: unknown } | null;
+type TickerRow = {
+  symbol: string;
+  name: string;
+  sector: string | null;
+  industry: string | null;
+  subSector: string | null;
+  subIndustry: string | null;
+  businessActivity: string | null;
+} | null;
 
 const mapTickerContext = (ticker: TickerRow): AnalysisTickerContext => {
   if (ticker === null) {
     throw new Error("mapTickerContext called with null ticker");
   }
-  const { sector, industry } = extractTickerSectorIndustry(ticker.metadata);
-  const { subIndustry, businessActivity } = extractTickerBusinessContext(
-    ticker.metadata,
-  );
+  const { sector, industry } = extractTickerSectorIndustry(ticker);
+  const { subIndustry, businessActivity } =
+    extractTickerBusinessContext(ticker);
 
   return {
     symbol: ticker.symbol,
@@ -98,9 +105,29 @@ type TickerGatingContext = {
   matcher: RegExp | null;
 };
 
+/** Ticker columns selected to build {@link AnalysisTickerContext}. */
+const tickerContextSelect = {
+  symbol: true,
+  name: true,
+  sector: true,
+  industry: true,
+  subSector: true,
+  subIndustry: true,
+  businessActivity: true,
+} satisfies Prisma.TickerSelect;
+
 /** Builds issuer context + alias matcher for one active ticker. */
 const buildTickerGatingContext = async (
-  ticker: { id: string; symbol: string; name: string; metadata: unknown },
+  ticker: {
+    id: string;
+    symbol: string;
+    name: string;
+    sector: string | null;
+    industry: string | null;
+    subSector: string | null;
+    subIndustry: string | null;
+    businessActivity: string | null;
+  },
   db: Pick<
     AnalysisDb,
     "ticker" | "entityType" | "tickerEntity" | "entityRelation"
@@ -177,7 +204,7 @@ const buildAnalysisCandidatePairs = async (
 
   const activeTickers = await db.ticker.findMany({
     where: { id: { in: activeTickerIds } },
-    select: { id: true, symbol: true, name: true, metadata: true },
+    select: { id: true, ...tickerContextSelect },
   } satisfies Prisma.TickerFindManyArgs);
   const gatingContexts = await Promise.all(
     activeTickers.map((ticker) => buildTickerGatingContext(ticker, db)),
@@ -194,7 +221,7 @@ const buildAnalysisCandidatePairs = async (
       content: true,
       createdAt: true,
       tickerId: true,
-      ticker: { select: { symbol: true, name: true, metadata: true } },
+      ticker: { select: tickerContextSelect },
       tickerSections: { select: { tickerId: true } },
     },
   } satisfies Prisma.DataSourceFindManyArgs);
@@ -287,7 +314,7 @@ export const loadAnalysisContext = async (
         content: true,
         createdAt: true,
         tickerId: true,
-        ticker: { select: { symbol: true, name: true, metadata: true } },
+        ticker: { select: tickerContextSelect },
       },
     } satisfies Prisma.DataSourceFindManyArgs),
     db.dataSource.count({ where }),

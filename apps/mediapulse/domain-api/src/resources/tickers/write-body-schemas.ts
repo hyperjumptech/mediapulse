@@ -14,13 +14,18 @@ import { buildWriteBodySchema } from "../../lib/prisma-write-schema/build-write-
 import type { ListItem } from "./list-mapper";
 import { tickerMetadataFormProperties } from "./lib/metadata-form-properties";
 
-const tickerMetadataBodySchema = z
+const tickerMetadataRawBodySchema = z
   .union([z.string(), z.record(z.string(), z.unknown()), z.null()])
   .optional();
 
 const tickerScalarWriteFields = [
   "symbol",
   "name",
+  "sector",
+  "industry",
+  "subSector",
+  "subIndustry",
+  "businessActivity",
 ] as const satisfies ReadonlyArray<keyof ListItem>;
 
 const tickerScalarWriteBodySchemaBuilt = buildWriteBodySchema({
@@ -31,7 +36,7 @@ const tickerScalarWriteBodySchemaBuilt = buildWriteBodySchema({
 
 const tickerWriteBodySchemaBuilt = tickerScalarWriteBodySchemaBuilt
   .extend({
-    metadata: tickerMetadataBodySchema,
+    metadataRaw: tickerMetadataRawBodySchema,
   })
   .strict();
 
@@ -41,35 +46,39 @@ export const tickerCreateBodySchema = tickerWriteBodySchemaBuilt;
 /** Validated JSON body for `PATCH /:id` (Hermes update). */
 export const tickerUpdateBodySchema = tickerCreateBodySchema;
 
-const tickerMetadataJsonProperty = {
+const tickerMetadataRawJsonProperty = {
   type: "object",
-  title: "Metadata",
+  title: "Metadata (raw IDX blob)",
   nullable: true,
   properties: tickerMetadataFormProperties,
 } as const;
 
-/** Hermes `createSchema` slice: Zod-derived scalars + IDX metadata field layout. */
+/** Human-friendly titles for the structured classification columns. */
+const tickerFieldTitles: Record<string, string> = {
+  symbol: "Symbol",
+  name: "Name",
+  sector: "Sector",
+  industry: "Industry",
+  subSector: "Sub-sector",
+  subIndustry: "Sub-industry",
+  businessActivity: "Business activity",
+};
+
+const titleForTickerFieldKey = (fieldKey: string): string =>
+  tickerFieldTitles[fieldKey] ?? defaultTitleForFormFieldKey(fieldKey);
+
+/** Hermes `createSchema` slice: Zod-derived scalars + raw IDX metadata field layout. */
 export const tickerCreateFormJsonSchema = mergeHermesObjectFormProperties(
   hermesFormJsonSchemaFromZod(tickerCreateBodySchema, {
-    titleForFieldKey: (fieldKey: string) =>
-      fieldKey === "symbol"
-        ? "Symbol"
-        : fieldKey === "name"
-          ? "Name"
-          : defaultTitleForFormFieldKey(fieldKey),
+    titleForFieldKey: titleForTickerFieldKey,
   }),
-  { metadata: tickerMetadataJsonProperty },
+  { metadataRaw: tickerMetadataRawJsonProperty },
 );
 
 /** Hermes `updateSchema` slice (same as create for this resource). */
 export const tickerUpdateFormJsonSchema = mergeHermesObjectFormProperties(
   hermesFormJsonSchemaFromZod(tickerUpdateBodySchema, {
-    titleForFieldKey: (fieldKey: string) =>
-      fieldKey === "symbol"
-        ? "Symbol"
-        : fieldKey === "name"
-          ? "Name"
-          : defaultTitleForFormFieldKey(fieldKey),
+    titleForFieldKey: titleForTickerFieldKey,
   }),
-  { metadata: tickerMetadataJsonProperty },
+  { metadataRaw: tickerMetadataRawJsonProperty },
 );

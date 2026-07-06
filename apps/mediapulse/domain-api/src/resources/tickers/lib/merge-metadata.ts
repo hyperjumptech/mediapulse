@@ -1,5 +1,5 @@
 /**
- * PATCH-time merge helper for ticker `metadata` JSON: preserve keys omitted from the dashboard form.
+ * PATCH-time merge helper for ticker `metadataRaw` JSON: preserve keys omitted from the dashboard form.
  */
 
 import { Prisma } from "@mediapulse/database";
@@ -8,8 +8,8 @@ import { Prisma } from "@mediapulse/database";
  * Shallow-merges incoming metadata from the dashboard into existing JSON so keys not present
  * in the form (e.g. from IDX import) are preserved on PATCH.
  *
- * @param existing - Current `metadata` column value.
- * @param incoming - Parsed body `metadata` (object, string, null, or undefined to skip).
+ * @param existing - Current `metadataRaw` column value.
+ * @param incoming - Parsed body `metadataRaw` (object, string, null, or undefined to skip).
  * @returns Value for Prisma `update`, or `undefined` to leave the column unchanged.
  */
 export const mergeTickerMetadataForPatch = (

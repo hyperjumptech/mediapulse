@@ -39,27 +39,25 @@ describe("getTickerForAgent", () => {
       id: "11111111-1111-4111-a111-111111111111",
       symbol: "AGRO",
       name: "PT Bank Raya Indonesia Tbk",
-      metadata: {
-        aliases: ["BRI Agro", "Bank Agroniaga", "BRI Agro"],
-        Sektor: "Keuangan",
-        Industri: "Bank",
-        SubSektor: "Bank",
-        SubIndustri: "Bank",
-        KegiatanUsahaUtama: "Perbankan",
-      },
+      aliases: ["BRI Agro", "Bank Agroniaga", "BRI Agro"],
+      sector: "Keuangan",
+      industry: "Bank",
+      subSector: "Bank",
+      subIndustry: "Bank",
+      businessActivity: "Perbankan",
     } as never);
     vi.mocked(prisma.ticker.findMany).mockResolvedValueOnce([
       {
         id: "22222222-2222-4222-a222-222222222222",
         symbol: "BBCA",
         name: "Bank Central Asia Tbk",
-        metadata: { marketCap: 100 },
+        metadataRaw: { marketCap: 100 },
       },
       {
         id: "33333333-3333-4333-a333-333333333333",
         symbol: "BBRI",
         name: "Bank Rakyat Indonesia Tbk",
-        metadata: { marketCap: 200 },
+        metadataRaw: { marketCap: 200 },
       },
     ] as never);
 
@@ -86,13 +84,18 @@ describe("getTickerForAgent", () => {
     });
   });
 
-  it("returns empty peers and null business context when metadata lacks them", async () => {
+  it("returns empty peers and null business context when columns lack them", async () => {
     // Setup
     vi.mocked(prisma.ticker.findUnique).mockResolvedValueOnce({
       id: "11111111-1111-4111-a111-111111111111",
       symbol: "XYZ",
       name: "Example Corp",
-      metadata: { aliases: [] },
+      aliases: [],
+      sector: null,
+      industry: null,
+      subSector: null,
+      subIndustry: null,
+      businessActivity: null,
     } as never);
 
     // Act

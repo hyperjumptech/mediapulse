@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildKgNeighborhood,
-  buildPeerMetadataOrFilters,
+  buildPeerColumnFilters,
   collectRecentEventTypes,
   extractMarketCap,
   extractTickerSectorIndustry,
@@ -26,10 +26,16 @@ describe("pickMetadataString", () => {
 });
 
 describe("extractTickerSectorIndustry", () => {
-  it("reads IDX and admin metadata keys", () => {
+  it("reads and trims the structured columns", () => {
     expect(
-      extractTickerSectorIndustry({ Sektor: "Energy", Industri: "Oil" }),
+      extractTickerSectorIndustry({ sector: " Energy ", industry: "Oil" }),
     ).toEqual({ sector: "Energy", industry: "Oil" });
+  });
+
+  it("normalizes empty and null columns to undefined", () => {
+    expect(
+      extractTickerSectorIndustry({ sector: "  ", industry: null }),
+    ).toEqual({ sector: undefined, industry: undefined });
   });
 });
 
@@ -38,11 +44,23 @@ describe("extractMarketCap", () => {
     expect(extractMarketCap({ marketCap: 1_000_000 })).toBe(1_000_000);
     expect(extractMarketCap({ MarketCap: "2,500,000" })).toBe(2_500_000);
   });
+
+  it("returns null when the blob has no market cap", () => {
+    expect(extractMarketCap({ Sektor: "Energy" })).toBeNull();
+    expect(extractMarketCap(null)).toBeNull();
+  });
 });
 
-describe("buildPeerMetadataOrFilters", () => {
+describe("buildPeerColumnFilters", () => {
   it("returns undefined when sector and industry are absent", () => {
-    expect(buildPeerMetadataOrFilters(undefined, undefined)).toBeUndefined();
+    expect(buildPeerColumnFilters(undefined, undefined)).toBeUndefined();
+  });
+
+  it("builds column equality OR clauses when present", () => {
+    expect(buildPeerColumnFilters("Energy", "Oil")).toEqual([
+      { sector: { equals: "Energy" } },
+      { industry: { equals: "Oil" } },
+    ]);
   });
 });
 
@@ -53,13 +71,13 @@ describe("sortAndLimitPeers", () => {
         id: "b",
         symbol: "B",
         name: "B Co",
-        metadata: { marketCap: 100 },
+        metadataRaw: { marketCap: 100 },
       },
       {
         id: "a",
         symbol: "A",
         name: "A Co",
-        metadata: { marketCap: 200 },
+        metadataRaw: { marketCap: 200 },
       },
     ]);
 
