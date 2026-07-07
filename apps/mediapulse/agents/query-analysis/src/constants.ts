@@ -21,6 +21,15 @@ export const DISCOVERY_MAX_REGULATORS = 4;
 /** Maximum search keywords kept per discovered entity. */
 export const DISCOVERY_MAX_KEYWORDS_PER_ENTITY = 2;
 
+/** Target number of candidates the generation LLM call is asked to produce per attempt. */
+export const GENERATION_CANDIDATE_TARGET = 40;
+
+/** Hard cap on candidates accepted from one generation LLM response. */
+export const GENERATION_CANDIDATE_MAX = 60;
+
+/** Maximum generation attempts (initial + retries) before accepting whatever survived probing. */
+export const GENERATION_MAX_ATTEMPTS = 3;
+
 /** Hard cap on candidates admitted to the yield probe. */
 export const PROBE_BUDGET = 80;
 

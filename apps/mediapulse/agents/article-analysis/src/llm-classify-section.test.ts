@@ -5,6 +5,7 @@ import {
   buildEvaluationSchema,
   buildSectionClassificationMessages,
   criteriaHash,
+  ISSUER_RELEVANCE_CRITERION_ID,
   MAX_CONTENT_CHARS,
   renderArticleTickerContext,
   scoreFromEvaluations,
@@ -79,6 +80,27 @@ describe("buildSectionClassificationMessages", () => {
 
     expect(String(user.content)).toContain(
       "Issuer context: collected for AGRO.",
+    );
+  });
+
+  it("includes the mandatory issuer-relevance gate only when tickerContext is provided", () => {
+    const withContext = buildSectionClassificationMessages({
+      title: "Rival bank cuts rates",
+      content: "A competitor lowered rates.",
+      acceptanceCriteria: criteria,
+      tickerContext: "Issuer context: collected for AGRO.",
+    });
+    const withoutContext = buildSectionClassificationMessages({
+      title: "Rival bank cuts rates",
+      content: "A competitor lowered rates.",
+      acceptanceCriteria: criteria,
+    });
+
+    expect(String(withContext[1]!.content)).toContain(
+      ISSUER_RELEVANCE_CRITERION_ID,
+    );
+    expect(String(withoutContext[1]!.content)).not.toContain(
+      ISSUER_RELEVANCE_CRITERION_ID,
     );
   });
 
@@ -228,6 +250,69 @@ describe("scoreFromEvaluations", () => {
       matched: true,
     });
     expect(result.scoreBreakdown.criteriaHash).toBe(criteriaHash(criteria));
+  });
+});
+
+describe("scoreFromEvaluations — issuer-relevance gate", () => {
+  it("rejects when the gate is not matched, even though other criteria matched (quickHits-style false win)", () => {
+    const evaluations: CriterionEvaluation[] = [
+      ...evaluate(["ip1", "ip3"]),
+      {
+        id: ISSUER_RELEVANCE_CRITERION_ID,
+        matched: false,
+        note: "unrelated topic",
+      },
+    ];
+
+    const result = scoreFromEvaluations(evaluations, criteria, true);
+
+    expect(result.section).toBeNull();
+    expect(result.score).toBe(0);
+    expect(result.reason).toContain("not relevant to issuer context");
+    expect(result.reason).toContain("unrelated topic");
+  });
+
+  it("proceeds with normal argmax scoring when the gate is matched", () => {
+    const evaluations: CriterionEvaluation[] = [
+      ...evaluate(["ip1", "ip3", "ip4"]),
+      {
+        id: ISSUER_RELEVANCE_CRITERION_ID,
+        matched: true,
+        note: "about the issuer",
+      },
+    ];
+
+    const result = scoreFromEvaluations(evaluations, criteria, true);
+
+    expect(result.section).toBe("industryPulse");
+    expect(result.score).toBeCloseTo(0.6);
+  });
+
+  it("fails closed when the gate judgment is omitted entirely", () => {
+    const result = scoreFromEvaluations(
+      evaluate(["ip1", "ip3"]),
+      criteria,
+      true,
+    );
+
+    expect(result.section).toBeNull();
+    expect(result.reason).toContain("not relevant to issuer context");
+  });
+
+  it("is a no-op when requireIssuerRelevance is false, even if a gate id happens to be present", () => {
+    const evaluations: CriterionEvaluation[] = [
+      ...evaluate(["ip1", "ip3", "ip4"]),
+      {
+        id: ISSUER_RELEVANCE_CRITERION_ID,
+        matched: false,
+        note: "unrelated",
+      },
+    ];
+
+    const result = scoreFromEvaluations(evaluations, criteria);
+
+    expect(result.section).toBe("industryPulse");
+    expect(result.score).toBeCloseTo(0.6);
   });
 });
 

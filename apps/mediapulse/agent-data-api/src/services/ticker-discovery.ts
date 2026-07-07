@@ -44,6 +44,7 @@ export async function lookupTickerDiscovery(
       competitors: true,
       regulators: true,
       model: true,
+      contractVersion: true,
       expiresAt: true,
     },
   } satisfies Prisma.TickerDiscoveryFindFirstArgs;
@@ -58,6 +59,7 @@ export async function lookupTickerDiscovery(
     competitors: row.competitors as TickerDiscoveryEntry["competitors"],
     regulators: row.regulators as TickerDiscoveryEntry["regulators"],
     model: row.model,
+    contractVersion: row.contractVersion,
     expiresAt: row.expiresAt.toISOString(),
   };
 }
@@ -79,6 +81,7 @@ export async function recordTickerDiscovery(
   const competitors = record.competitors as unknown as Prisma.InputJsonValue;
   const regulators = record.regulators as unknown as Prisma.InputJsonValue;
   const model = record.model ?? null;
+  const contractVersion = record.contractVersion ?? null;
 
   const upsertArgs = {
     where: { tickerId: record.tickerId },
@@ -87,12 +90,14 @@ export async function recordTickerDiscovery(
       competitors,
       regulators,
       model,
+      contractVersion,
       expiresAt,
     },
     update: {
       competitors,
       regulators,
       model,
+      contractVersion,
       expiresAt,
     },
     select: { tickerId: true, expiresAt: true },
