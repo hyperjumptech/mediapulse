@@ -23,6 +23,7 @@ export const createFetchProvider = (
     case "jina":
       return createJinaFetchProvider(config);
     case "firecrawl":
+    case "firecrawl_selfhosted":
       return createFirecrawlFetchProvider(config);
     case "diffbot":
       return createDiffbotFetchProvider(config);

@@ -87,7 +87,7 @@ const fetchOneFirecrawl = async (
   config: FetchProviderConfig,
   ctx: ProviderRequestContext,
 ): Promise<NormalizedFetchData> => {
-  const endpoint = `${config.baseUrl.replace(/\/$/, "")}/v1/scrape`;
+  const endpoint = `${config.baseUrl.replace(/\/$/, "")}/v2/scrape`;
   const fetchTask = async () => {
     await ctx.rateLimiter.acquire();
     const response = await ctx.gotClient.post(endpoint, {
@@ -96,6 +96,7 @@ const fetchOneFirecrawl = async (
         Accept: "application/json",
         "Content-Type": "application/json",
         ...buildAuthHeaders(config),
+        ...(config.headers ?? {}),
       },
       timeout: config.timeoutMs ? { request: config.timeoutMs } : undefined,
       retry: { limit: 0 },
@@ -114,11 +115,15 @@ const fetchOneFirecrawl = async (
 /**
  * Creates a Firecrawl fetch provider adapter.
  *
+ * Serves both the hosted `firecrawl` provider (bearer auth) and the
+ * `firecrawl_selfhosted` provider (custom `baseUrl` and `headers`); the adapter
+ * reports `config.type` so failures attribute to the right provider.
+ *
  * @param config - Firecrawl provider configuration.
  */
 export const createFirecrawlFetchProvider = (
   config: FetchProviderConfig,
 ): FetchProvider => ({
-  type: "firecrawl",
+  type: config.type,
   fetchOne: (url, ctx) => fetchOneFirecrawl(url, config, ctx),
 });

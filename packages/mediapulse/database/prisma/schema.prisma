@@ -726,6 +726,7 @@ enum DataCollectionProvider {
   serper
   jina
   firecrawl
+  firecrawl_selfhosted
   diffbot
   tavily
   exa

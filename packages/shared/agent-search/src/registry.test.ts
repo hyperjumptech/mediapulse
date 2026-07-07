@@ -94,6 +94,35 @@ describe("createSearchProvider", () => {
     });
   });
 
+  it("builds a firecrawl cloud provider", () => {
+    const provider = createSearchProvider({
+      provider: "firecrawl",
+      apiKey: "k",
+    });
+
+    expect(provider.type).toBe("firecrawl");
+  });
+
+  it("builds a firecrawl_selfhosted provider from baseUrl and headers", () => {
+    const provider = createSearchProvider({
+      provider: "firecrawl_selfhosted",
+      baseUrl: "https://firecrawl.internal",
+      headers: { "CF-Access-Client-Id": "id" },
+    });
+
+    expect(provider.type).toBe("firecrawl_selfhosted");
+  });
+
+  it("throws when firecrawl_selfhosted has no baseUrl", () => {
+    expect(() =>
+      createSearchProvider({ provider: "firecrawl_selfhosted" }),
+    ).toThrow();
+  });
+
+  it("throws when a cloud provider is missing its API key", () => {
+    expect(() => createSearchProvider({ provider: "serper" })).toThrow();
+  });
+
   it("throws for an unknown provider", () => {
     expect(() =>
       createSearchProvider({

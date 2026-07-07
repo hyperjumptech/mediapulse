@@ -22,20 +22,56 @@ export const fetchProviderNameSchema = z.enum([
   "exa",
   "diffbot",
   "firecrawl",
+  "firecrawl_selfhosted",
   "jina",
 ]);
 
 export type FetchProviderName = z.infer<typeof fetchProviderNameSchema>;
 
-/** A single fetch provider entry: the operator only picks a provider and pastes an API key. */
-const fetchProviderEntrySchema = z.object({
-  provider: fetchProviderNameSchema.describe("Fetch provider identifier."),
-  apiKey: z
-    .string()
-    .describe(
-      "Provider API key or a Hermes variable placeholder such as {{SERPER_API_KEY}}.",
-    ),
-});
+/**
+ * A single fetch provider entry. Most providers only need a provider name and an
+ * API key; `firecrawl_selfhosted` instead points at a custom `baseUrl` and
+ * authenticates through operator-supplied `headers` (for example Cloudflare Access).
+ */
+const fetchProviderEntrySchema = z
+  .object({
+    provider: fetchProviderNameSchema.describe("Fetch provider identifier."),
+    apiKey: z
+      .string()
+      .optional()
+      .describe(
+        "Provider API key or a Hermes variable placeholder such as {{SERPER_API_KEY}}. Optional for firecrawl_selfhosted, which authenticates via headers.",
+      ),
+    baseUrl: z
+      .string()
+      .optional()
+      .describe(
+        "Override base URL. Required for firecrawl_selfhosted; ignored by providers with fixed endpoints.",
+      ),
+    headers: z
+      .record(z.string())
+      .optional()
+      .describe(
+        "Extra HTTP headers sent with every request (for example Cloudflare Access). Used by firecrawl_selfhosted.",
+      ),
+  })
+  .superRefine((entry, ctx) => {
+    if (entry.provider === "firecrawl_selfhosted") {
+      if (!entry.baseUrl) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["baseUrl"],
+          message: "baseUrl is required for the firecrawl_selfhosted provider.",
+        });
+      }
+    } else if (!entry.apiKey) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["apiKey"],
+        message: `apiKey is required for the ${entry.provider} provider.`,
+      });
+    }
+  });
 
 export type FetchProviderEntry = z.infer<typeof fetchProviderEntrySchema>;
 

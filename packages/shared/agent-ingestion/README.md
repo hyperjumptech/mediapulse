@@ -12,14 +12,14 @@ This is a `@workspace/*` package, not `@mediapulse/*`, because its entire depend
 
 ## What is inside
 
-| Area                   | Modules                                                                             | Purpose                                                                             |
-| ---------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Discovery              | `discovery/` (`rss`, `sitemap`, `generic-links`, `registry`, `run-discovery`)       | Turn a listing source into article items, with a per-source strategy fallback chain |
-| Fetch                  | `web-fetch`, `fetch-providers/` (`serper`, `diffbot`, `firecrawl`, `jina`)          | Fetch article content through a per-URL provider fallback chain                     |
-| Gates                  | `content-quality-gate`, `ticker-relevance-gate`, `freshness-gate`, `date-extractor` | Keep or drop a fetched page by quality, alias and industry relevance, and recency   |
-| Resilience             | `resilience` (`RateLimiter`), `host-error-tracker`, `error-classification`, `p-map` | Rate limiting, adaptive backoff, host circuit breaking, and bounded concurrency     |
-| Dedup and cache        | `resolve-existing-data-source-urls`, `resolve-dead-urls`                            | Skip URLs already stored or in the dead-url negative cache                          |
-| Persist and accounting | `data-sources`, `run-status`                                                        | Map survivors to `DataCollectionInput` and derive run status from counters          |
+| Area                   | Modules                                                                                                             | Purpose                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Discovery              | `discovery/` (`rss`, `sitemap`, `generic-links`, `registry`, `run-discovery`)                                       | Turn a listing source into article items, with a per-source strategy fallback chain |
+| Fetch                  | `web-fetch`, `fetch-providers/` (`serper`, `diffbot`, `firecrawl`, `firecrawl_selfhosted`, `jina`, `tavily`, `exa`) | Fetch article content through a per-URL provider fallback chain                     |
+| Gates                  | `content-quality-gate`, `ticker-relevance-gate`, `freshness-gate`, `date-extractor`                                 | Keep or drop a fetched page by quality, alias and industry relevance, and recency   |
+| Resilience             | `resilience` (`RateLimiter`), `host-error-tracker`, `error-classification`, `p-map`                                 | Rate limiting, adaptive backoff, host circuit breaking, and bounded concurrency     |
+| Dedup and cache        | `resolve-existing-data-source-urls`, `resolve-dead-urls`                                                            | Skip URLs already stored or in the dead-url negative cache                          |
+| Persist and accounting | `data-sources`, `run-status`                                                                                        | Map survivors to `DataCollectionInput` and derive run status from counters          |
 
 `classifyNoisyUrl` is reused from `@workspace/utils` for URL canonicalization and noise filtering.
 
@@ -29,6 +29,8 @@ The package gives a collector two independent fallback chains, both failing a un
 
 - **Discovery strategy chain** (how to extract article URLs from a listing): `rss` then `sitemap` then `generic-links`. A strategy that errors or returns nothing falls through to the next, so a site that drops its RSS feed is still covered.
 - **Fetch provider chain** (how to fetch an article body): `serper` then `diffbot` then `firecrawl` then `jina`. A URL is only a fetch failure when the whole chain has failed.
+
+The `firecrawl` and `firecrawl_selfhosted` adapters both call Firecrawl v2 (`/v2/scrape`). `firecrawl` authenticates with a bearer API key against the hosted API, while `firecrawl_selfhosted` targets an operator-supplied `baseUrl` and merges a generic `headers` map into every request (for example Cloudflare Access `CF-Access-Client-Id` / `CF-Access-Client-Secret`) instead of a bearer key.
 
 ## Usage
 

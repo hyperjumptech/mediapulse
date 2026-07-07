@@ -51,6 +51,35 @@ describe("buildFetchProviderConfigs", () => {
     ]);
   });
 
+  it("expands a self-hosted Firecrawl entry with its baseUrl and headers", () => {
+    const configs = buildFetchProviderConfigs([
+      {
+        provider: "firecrawl_selfhosted",
+        baseUrl: "https://firecrawl.internal",
+        headers: {
+          "CF-Access-Client-Id": "id",
+          "CF-Access-Client-Secret": "secret",
+        },
+      },
+    ]);
+
+    expect(configs).toEqual([
+      {
+        type: "firecrawl_selfhosted",
+        baseUrl: "https://firecrawl.internal",
+        authentication: { type: "none" },
+        headers: {
+          "CF-Access-Client-Id": "id",
+          "CF-Access-Client-Secret": "secret",
+        },
+        rateLimit: { requests: 1, perSeconds: 1 },
+        concurrency: 1,
+        timeoutMs: 45_000,
+        retry: { maxAttempts: 3, baseDelayMs: 1000, maxDelayMs: 8_000 },
+      },
+    ]);
+  });
+
   it("threads the configured API key into the search-capable providers", () => {
     const configs = buildFetchProviderConfigs([
       { provider: "serper", apiKey: "serper-key" },
