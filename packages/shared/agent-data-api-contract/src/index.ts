@@ -190,8 +190,6 @@ export {
   postQueryAnalysisResponseSchema,
   queryAnalysisIntentSchema,
   QUERY_ANALYSIS_INTENTS,
-  QUERY_ANALYSIS_STANDARD_INTENTS,
-  DEFAULT_QUERY_ANALYSIS_INTENT_WEIGHTS,
   queryAnalysisTickerSchema,
   queryAnalysisPostQuerySchema,
   type GetQueryAnalysisQuery,
@@ -199,7 +197,6 @@ export {
   type PostQueryAnalysisBody,
   type PostQueryAnalysisResponse,
   type QueryAnalysisIntent,
-  type QueryAnalysisIntentWeights,
 } from "./query-analysis.js";
 export {
   dataCollectionFailureErrorCategorySchema,
@@ -322,12 +319,10 @@ export {
   type PostPageCollectionResponse,
 } from "./page-collection.js";
 export {
-  classifyQueryToSection,
   MEDIAPULSE_NEWSLETTER_SECTIONS,
   NEWSLETTER_SECTION_IDS,
   SECTION_BY_INTENT,
   ZERO_COVERAGE_EXCLUDED_SECTIONS,
-  sectionsWithoutDedicatedIntent,
   summarizeSectionCoverage,
   type NewsletterSectionId,
 } from "./newsletter-sections.js";

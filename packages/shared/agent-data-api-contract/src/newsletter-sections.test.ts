@@ -3,11 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import { QUERY_ANALYSIS_INTENTS } from "./query-analysis.js";
 import {
-  classifyQueryToSection,
   NEWSLETTER_SECTION_IDS,
   SECTION_BY_INTENT,
   ZERO_COVERAGE_EXCLUDED_SECTIONS,
-  sectionsWithoutDedicatedIntent,
   summarizeSectionCoverage,
 } from "./newsletter-sections.js";
 
@@ -82,42 +80,6 @@ describe("SECTION_BY_INTENT", () => {
   });
 });
 
-describe("classifyQueryToSection", () => {
-  it("returns null for homeless intents", () => {
-    const homelessIntents = [
-      "breaking",
-      "kg_change",
-      "fundamental",
-      "sentiment",
-      "supply_chain",
-      "esg",
-      "macro",
-      "geopolitical",
-      "wildcard",
-    ] as const;
-    for (const intent of homelessIntents) {
-      expect(classifyQueryToSection(intent)).toBeNull();
-    }
-  });
-
-  it("returns the correct section id for mapped intents", () => {
-    expect(classifyQueryToSection("competitor")).toBe("competitiveLandscape");
-    expect(classifyQueryToSection("regulatory")).toBe("regulatoryPolicyWatch");
-    expect(classifyQueryToSection("technology_trend")).toBe("disruptorsOrTech");
-    expect(classifyQueryToSection("technical")).toBe("disruptorsOrTech");
-    expect(classifyQueryToSection("industry_trend")).toBe("industryPulse");
-    expect(classifyQueryToSection("deals")).toBe("dealsAndMovements");
-  });
-
-  it("is consistent with SECTION_BY_INTENT", () => {
-    for (const [intent, expected] of Object.entries(SECTION_BY_INTENT)) {
-      expect(
-        classifyQueryToSection(intent as keyof typeof SECTION_BY_INTENT),
-      ).toBe(expected);
-    }
-  });
-});
-
 describe("summarizeSectionCoverage", () => {
   it("returns an entry for every section id, including zero-coverage ones", () => {
     const result = summarizeSectionCoverage(["breaking", "sentiment", "macro"]);
@@ -181,43 +143,6 @@ describe("summarizeSectionCoverage", () => {
     for (const sectionId of NEWSLETTER_SECTION_IDS) {
       expect(result[sectionId].count).toBe(0);
       expect(result[sectionId].share).toBe(0);
-    }
-  });
-});
-
-describe("sectionsWithoutDedicatedIntent", () => {
-  it("excludes dealsAndMovements now that deals intent is mapped", () => {
-    expect(sectionsWithoutDedicatedIntent()).not.toContain("dealsAndMovements");
-  });
-
-  it("excludes quickHits because it is in ZERO_COVERAGE_EXCLUDED_SECTIONS", () => {
-    expect(sectionsWithoutDedicatedIntent()).not.toContain("quickHits");
-  });
-
-  it("excludes competitiveLandscape", () => {
-    expect(sectionsWithoutDedicatedIntent()).not.toContain(
-      "competitiveLandscape",
-    );
-  });
-
-  it("excludes regulatoryPolicyWatch", () => {
-    expect(sectionsWithoutDedicatedIntent()).not.toContain(
-      "regulatoryPolicyWatch",
-    );
-  });
-
-  it("excludes disruptorsOrTech", () => {
-    expect(sectionsWithoutDedicatedIntent()).not.toContain("disruptorsOrTech");
-  });
-
-  it("excludes industryPulse", () => {
-    expect(sectionsWithoutDedicatedIntent()).not.toContain("industryPulse");
-  });
-
-  it("returns only valid NewsletterSectionIds", () => {
-    const sectionSet = new Set<string>(NEWSLETTER_SECTION_IDS);
-    for (const sectionId of sectionsWithoutDedicatedIntent()) {
-      expect(sectionSet.has(sectionId)).toBe(true);
     }
   });
 });
