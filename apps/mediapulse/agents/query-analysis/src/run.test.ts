@@ -45,6 +45,14 @@ const discoveredRegulators = [
   { name: "OJK", aliases: [], searchKeywords: ["regulasi bank"] },
 ];
 
+const generatedCandidates = [
+  { text: "BBRI", intent: "breaking", language: "id" },
+  { text: "Bank Rakyat Indonesia", intent: "breaking", language: "id" },
+  { text: "Bank Mandiri", intent: "competitor", language: "id" },
+  { text: "OJK", intent: "regulatory", language: "id" },
+  { text: "industri Bank Indonesia", intent: "industry_trend", language: "id" },
+];
+
 /** Builds a fresh mock agent-data-api client. */
 const makeClient = (lookupEntry: unknown) => {
   const get = vi.fn().mockResolvedValue({
@@ -79,6 +87,13 @@ const makeGenerate = () =>
     usage: { inputTokens: 120, outputTokens: 40, totalTokens: 160 },
   });
 
+/** Fake `generateObject` returning a fixed query-candidate batch and token usage. */
+const makeGenerateQueries = () =>
+  vi.fn().mockResolvedValue({
+    object: { candidates: generatedCandidates },
+    usage: { inputTokens: 80, outputTokens: 30, totalTokens: 110 },
+  });
+
 /** Fake `countQueryHits` that scores by an override map and accrues credits. */
 const makeCountHits = (hitsByText: Record<string, number> = {}) =>
   vi.fn(async (text: string, context: CountQueryHitsContext) => {
@@ -98,10 +113,12 @@ const makeContext = () => ({
 });
 
 let generate: ReturnType<typeof makeGenerate>;
+let generateQueries: ReturnType<typeof makeGenerateQueries>;
 let countHits: ReturnType<typeof makeCountHits>;
 
 beforeEach(() => {
   generate = makeGenerate();
+  generateQueries = makeGenerateQueries();
   countHits = makeCountHits();
 });
 
@@ -110,12 +127,13 @@ afterEach(() => {
 });
 
 describe("runQueryAnalysis — cold run (cache miss)", () => {
-  it("discovers entities, writes the cache, and persists a self-driving query set", async () => {
+  it("discovers entities, generates queries, writes the cache with the contract version, and persists a self-driving query set", async () => {
     // Setup
     const { client, create, lookupCreate, recordCreate } = makeClient(null);
     const deps: RunQueryAnalysisDeps = {
       createClient: vi.fn(() => client) as never,
       generate: generate as never,
+      generateQueries: generateQueries as never,
       countHits: countHits as never,
     };
 
@@ -125,6 +143,7 @@ describe("runQueryAnalysis — cold run (cache miss)", () => {
     // Assert
     expect(result.success).toBe(true);
     expect(generate).toHaveBeenCalledTimes(1);
+    expect(generateQueries).toHaveBeenCalledTimes(1);
     expect(lookupCreate).toHaveBeenCalledWith({ tickerId: TICKER_ID });
     expect(recordCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -132,6 +151,7 @@ describe("runQueryAnalysis — cold run (cache miss)", () => {
         competitors: discoveredCompetitors,
         regulators: discoveredRegulators,
         model: "test-model",
+        contractVersion: "1.0",
         ttlSeconds: 14 * 24 * 60 * 60,
       }),
     );
@@ -142,11 +162,13 @@ describe("runQueryAnalysis — cold run (cache miss)", () => {
     expect(body.queries.length).toBeGreaterThan(0);
     expect(body.strategySnapshot.agentVersion).toBe("3.0.0");
     expect(body.strategySnapshot.llmUsage.cacheHit).toBe(false);
-    expect(body.strategySnapshot.llmUsage.totalTokens).toBe(160);
+    expect(body.strategySnapshot.llmUsage.totalTokens).toBe(270);
     expect(body.strategySnapshot.discovered.competitors).toContain(
       "Bank Mandiri",
     );
     expect(body.strategySnapshot.discovered.regulators).toContain("OJK");
+    expect(body.strategySnapshot.generation.attempts).toBe(1);
+    expect(body.strategySnapshot.generation.usedFallback).toBe(false);
     expect(body.strategySnapshot.providerUsage.searchProvider[0]?.name).toBe(
       "serper",
     );
@@ -163,6 +185,7 @@ describe("runQueryAnalysis — cold run (cache miss)", () => {
     const deps: RunQueryAnalysisDeps = {
       createClient: vi.fn(() => client) as never,
       generate: generate as never,
+      generateQueries: generateQueries as never,
       countHits: countHits as never,
     };
 
@@ -179,18 +202,20 @@ describe("runQueryAnalysis — cold run (cache miss)", () => {
 });
 
 describe("runQueryAnalysis — warm run (cache hit)", () => {
-  it("skips discovery and cache write when a fresh entry exists", async () => {
+  it("skips discovery and cache write when a fresh entry with a matching contract version exists", async () => {
     // Setup
     const { client, create, recordCreate } = makeClient({
       tickerId: TICKER_ID,
       competitors: discoveredCompetitors,
       regulators: discoveredRegulators,
       model: "cached-model",
+      contractVersion: "1.0",
       expiresAt: "2026-07-20T00:00:00.000Z",
     });
     const deps: RunQueryAnalysisDeps = {
       createClient: vi.fn(() => client) as never,
       generate: generate as never,
+      generateQueries: generateQueries as never,
       countHits: countHits as never,
     };
 
@@ -200,6 +225,7 @@ describe("runQueryAnalysis — warm run (cache hit)", () => {
     // Assert
     expect(result.success).toBe(true);
     expect(generate).not.toHaveBeenCalled();
+    expect(generateQueries).toHaveBeenCalledTimes(1);
     expect(recordCreate).not.toHaveBeenCalled();
 
     const body = create.mock.calls[0]?.[0];
@@ -207,6 +233,92 @@ describe("runQueryAnalysis — warm run (cache hit)", () => {
     expect(body.strategySnapshot.discovered.competitors).toContain(
       "Bank Mandiri",
     );
+  });
+
+  it("treats a contract-version mismatch as a cache miss and re-runs discovery", async () => {
+    // Setup
+    const { client, create, recordCreate } = makeClient({
+      tickerId: TICKER_ID,
+      competitors: discoveredCompetitors,
+      regulators: discoveredRegulators,
+      model: "cached-model",
+      contractVersion: "0.9",
+      expiresAt: "2026-07-20T00:00:00.000Z",
+    });
+    const deps: RunQueryAnalysisDeps = {
+      createClient: vi.fn(() => client) as never,
+      generate: generate as never,
+      generateQueries: generateQueries as never,
+      countHits: countHits as never,
+    };
+
+    // Act
+    const result = await runQueryAnalysis(makeContext() as never, deps);
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(recordCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ contractVersion: "1.0" }),
+    );
+    const body = create.mock.calls[0]?.[0];
+    expect(body.strategySnapshot.llmUsage.cacheHit).toBe(false);
+  });
+
+  it("treats a legacy entry with no contractVersion as a cache miss", async () => {
+    // Setup
+    const { client } = makeClient({
+      tickerId: TICKER_ID,
+      competitors: discoveredCompetitors,
+      regulators: discoveredRegulators,
+      model: "cached-model",
+      contractVersion: null,
+      expiresAt: "2026-07-20T00:00:00.000Z",
+    });
+    const deps: RunQueryAnalysisDeps = {
+      createClient: vi.fn(() => client) as never,
+      generate: generate as never,
+      generateQueries: generateQueries as never,
+      countHits: countHits as never,
+    };
+
+    // Act
+    await runQueryAnalysis(makeContext() as never, deps);
+
+    // Assert
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("runQueryAnalysis — generation fallback", () => {
+  it("degrades to deterministic template candidates and records usedFallback when the generation LLM call fails", async () => {
+    // Setup
+    const { client, create } = makeClient({
+      tickerId: TICKER_ID,
+      competitors: discoveredCompetitors,
+      regulators: discoveredRegulators,
+      model: "cached-model",
+      contractVersion: "1.0",
+      expiresAt: "2026-07-20T00:00:00.000Z",
+    });
+    const failingGenerateQueries = vi.fn().mockRejectedValue(new Error("boom"));
+    const deps: RunQueryAnalysisDeps = {
+      createClient: vi.fn(() => client) as never,
+      generate: generate as never,
+      generateQueries: failingGenerateQueries as never,
+      countHits: countHits as never,
+    };
+
+    // Act
+    const result = await runQueryAnalysis(makeContext() as never, deps);
+
+    // Assert
+    expect(result.success).toBe(true);
+    const body = create.mock.calls[0]?.[0];
+    expect(body.strategySnapshot.generation.usedFallback).toBe(true);
+    expect(
+      body.queries.some((query: { text: string }) => query.text === "BBRI"),
+    ).toBe(true);
   });
 });
 
@@ -218,12 +330,14 @@ describe("runQueryAnalysis — yield probe", () => {
       competitors: discoveredCompetitors,
       regulators: discoveredRegulators,
       model: "cached-model",
+      contractVersion: "1.0",
       expiresAt: "2026-07-20T00:00:00.000Z",
     });
     countHits = makeCountHits({ BBRI: 0 });
     const deps: RunQueryAnalysisDeps = {
       createClient: vi.fn(() => client) as never,
       generate: generate as never,
+      generateQueries: generateQueries as never,
       countHits: countHits as never,
     };
 
@@ -245,6 +359,7 @@ describe("runQueryAnalysis — yield probe", () => {
       competitors: discoveredCompetitors,
       regulators: discoveredRegulators,
       model: "cached-model",
+      contractVersion: "1.0",
       expiresAt: "2026-07-20T00:00:00.000Z",
     });
     const allZero = vi.fn(
@@ -259,6 +374,7 @@ describe("runQueryAnalysis — yield probe", () => {
     const deps: RunQueryAnalysisDeps = {
       createClient: vi.fn(() => client) as never,
       generate: generate as never,
+      generateQueries: generateQueries as never,
       countHits: allZero as never,
     };
 

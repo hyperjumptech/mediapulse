@@ -26,11 +26,7 @@ import {
 import { discoverEntities } from "./discovery/discover-entities";
 import type { DiscoveredEntity } from "./discovery/schema";
 import { deriveClassification, deriveMarketContext } from "./pipeline/context";
-import { buildCompetitorCandidates } from "./pipeline/stage-competitors";
-import { buildIndustryCandidates } from "./pipeline/stage-industry";
-import { buildOwnCompanyCandidates } from "./pipeline/stage-own-company";
-import { buildRegulatorCandidates } from "./pipeline/stage-regulators";
-import { runYieldProbe } from "./probe/yield-probe";
+import { generateAndProbeCandidates } from "./generation/generate-and-probe";
 import { finalizeQueries } from "./select/finalize";
 
 type QueryAnalysisInput = { tickerId: string };
@@ -38,7 +34,10 @@ type QueryAnalysisInput = { tickerId: string };
 /** Injectable collaborators for {@link runQueryAnalysis} (tests only). */
 export type RunQueryAnalysisDeps = {
   createClient?: typeof createAgentDataApiClient;
+  /** Injected `generateObject` for the entity-discovery LLM call. */
   generate?: typeof generateObject;
+  /** Injected `generateObject` for the query-candidate-generation LLM call (separate from `generate`). */
+  generateQueries?: typeof generateObject;
   countHits?: typeof countQueryHits;
   createProvider?: typeof createSearchProvider;
   now?: () => number;
@@ -49,10 +48,12 @@ export type RunQueryAnalysisDeps = {
  * active query set.
  *
  * Flow: load GET context, derive classification, look up the `ticker_discovery`
- * cache, discover competitors/regulators on miss (steered by the contract brief)
- * and write the cache, build own-company + competitor + regulator + industry
- * candidates across Indonesian and English, probe each for yield, drop
- * zero-result queries, guarantee section coverage, and persist the ranked set.
+ * cache (invalidated on TTL expiry or a contract-version change), discover
+ * competitors/regulators on miss (steered by the contract brief) and write the
+ * cache, generate query candidates via LLM (own-company/deals/competitor/
+ * regulator/industry themes, steered by the contract brief), probe each for
+ * yield, retry with targeted feedback on zero-hit candidates, guarantee section
+ * coverage, and persist the ranked set.
  *
  * @param context - Agent run context with validated input/config, token, and contract.
  * @param deps - Injectable collaborators for tests.
@@ -66,6 +67,7 @@ export const runQueryAnalysis = async (
   const now = deps.now ?? (() => Date.now());
   const runStartMs = now();
   const contractBrief = contract?.brief ?? "";
+  const contractVersion = contract?.version ?? null;
 
   const tokenUsage = createTokenUsageAccumulator();
   const createClient = deps.createClient ?? createAgentDataApiClient;
@@ -98,14 +100,15 @@ export const runQueryAnalysis = async (
   const classification = deriveClassification(ticker);
   const market = deriveMarketContext();
 
-  // Discovery: reuse the cache, LLM-discover on miss, and write back.
+  // Discovery: reuse the cache, LLM-discover on miss (or on a contract change), and write back.
   const discoveryStartMs = now();
   const lookup = await client.tickerDiscoveryLookup.create({
     tickerId: input.tickerId,
   });
   let competitors: DiscoveredEntity[] = lookup.entry?.competitors ?? [];
   let regulators: DiscoveredEntity[] = lookup.entry?.regulators ?? [];
-  const cacheHit = lookup.entry !== null;
+  const cacheHit =
+    lookup.entry !== null && lookup.entry.contractVersion === contractVersion;
   let discoveryModel: string | null = lookup.entry?.model ?? null;
 
   if (!cacheHit) {
@@ -136,58 +139,60 @@ export const runQueryAnalysis = async (
       competitors: discovered.competitors,
       regulators: discovered.regulators,
       model: config.ai.model,
+      ...(contractVersion !== null ? { contractVersion } : {}),
       ttlSeconds: DISCOVERY_CACHE_TTL_SECONDS,
     });
   }
   const discoveryMs = now() - discoveryStartMs;
 
-  // Build entity-specific candidates across Indonesian + English.
-  const candidates = [
-    ...buildOwnCompanyCandidates(ticker, LANGUAGES),
-    ...buildCompetitorCandidates(
-      competitors,
-      LANGUAGES,
-      DISCOVERY_MAX_KEYWORDS_PER_ENTITY,
-    ),
-    ...buildRegulatorCandidates(
-      regulators,
-      LANGUAGES,
-      DISCOVERY_MAX_KEYWORDS_PER_ENTITY,
-    ),
-    ...buildIndustryCandidates(classification, market, LANGUAGES),
-  ];
-
-  report("Probing query yield", `${candidates.length} candidates`);
-  const probeStartMs = now();
-  const probe = await runYieldProbe(
+  // Generate query candidates via LLM (own-company/deals/competitor/regulator/industry
+  // themes), probe each for yield, and retry with feedback on zero-hit candidates.
+  report("Generating query candidates", `${ticker.symbol} (${ticker.name})`);
+  const generationStartMs = now();
+  const generation = await generateAndProbeCandidates(
     {
-      candidates,
+      ticker,
+      classification,
+      market,
+      contractBrief,
+      competitors,
+      regulators,
+      languages: LANGUAGES,
+      ai: config.ai,
+      maxKeywordsPerEntity: DISCOVERY_MAX_KEYWORDS_PER_ENTITY,
+      onUsage: tokenUsage.onUsage,
+      logger,
       providers: config.web_search,
       locales: PROBE_LOCALES,
-      budget: PROBE_BUDGET,
-      concurrency: PROBE_CONCURRENCY,
-      minResults: PROBE_MIN_RESULTS,
-      timeoutMs: PROBE_TIMEOUT_MS,
-      logger,
+      probeBudget: PROBE_BUDGET,
+      probeConcurrency: PROBE_CONCURRENCY,
+      probeMinResults: PROBE_MIN_RESULTS,
+      probeTimeoutMs: PROBE_TIMEOUT_MS,
+      ...(deps.generateQueries ? { generate: deps.generateQueries } : {}),
     },
     {
-      ...(deps.countHits ? { countHits: deps.countHits } : {}),
-      ...(deps.createProvider ? { createProvider: deps.createProvider } : {}),
+      probeDeps: {
+        ...(deps.countHits ? { countHits: deps.countHits } : {}),
+        ...(deps.createProvider ? { createProvider: deps.createProvider } : {}),
+      },
     },
   );
-  const probeMs = now() - probeStartMs;
+  const generationMs = now() - generationStartMs;
 
   const finalizeStartMs = now();
   const finalized = finalizeQueries({
-    survivors: probe.survivors,
-    dropped: probe.dropped,
+    survivors: generation.survivors,
+    dropped: generation.dropped,
     queryCount: QUERY_COUNT,
   });
   const finalizeMs = now() - finalizeStartMs;
 
   if (finalized.queries.length === 0) {
     logger.warn(
-      { tickerId: input.tickerId, candidates: candidates.length },
+      {
+        tickerId: input.tickerId,
+        candidates: generation.telemetry.candidates,
+      },
       "query-analysis produced no surviving queries; skipping persist",
     );
 
@@ -199,7 +204,7 @@ export const runQueryAnalysis = async (
   }
 
   const usageTotals = tokenUsage.totals();
-  const providerUsage = probe.telemetry.providerUsage.map((entry) => ({
+  const providerUsage = generation.telemetry.providerUsage.map((entry) => ({
     name: entry.name,
     calls: entry.calls,
   }));
@@ -218,17 +223,21 @@ export const runQueryAnalysis = async (
     },
     providerUsage: {
       searchProvider: providerUsage,
-      searchCredits: probe.telemetry.searchCredits,
+      searchCredits: generation.telemetry.searchCredits,
     },
     discovered: {
       competitors: competitors.map((entity) => entity.name),
       regulators: regulators.map((entity) => entity.name),
     },
+    generation: {
+      attempts: generation.attempts,
+      usedFallback: generation.usedFallback,
+    },
     probe: {
-      candidates: probe.telemetry.candidates,
-      deduped: probe.telemetry.deduped,
-      droppedZeroYield: probe.telemetry.dropped,
-      survivors: probe.telemetry.survivors,
+      candidates: generation.telemetry.candidates,
+      deduped: generation.telemetry.deduped,
+      droppedZeroYield: generation.telemetry.dropped,
+      survivors: generation.telemetry.survivors,
     },
     output: {
       queryCount: finalized.queries.length,
@@ -241,7 +250,7 @@ export const runQueryAnalysis = async (
     timing: {
       totalMs: now() - runStartMs,
       discoveryMs,
-      probeMs,
+      generationMs,
       finalizeMs,
     },
     ...(discoveryModel !== null ? { discoveryModel } : {}),

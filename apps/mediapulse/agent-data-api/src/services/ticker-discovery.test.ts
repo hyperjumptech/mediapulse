@@ -24,6 +24,7 @@ describe("lookupTickerDiscovery", () => {
       competitors: COMPETITORS,
       regulators: REGULATORS,
       model: "gpt-test",
+      contractVersion: "1.0",
       expiresAt,
     });
 
@@ -37,6 +38,7 @@ describe("lookupTickerDiscovery", () => {
       competitors: COMPETITORS,
       regulators: REGULATORS,
       model: "gpt-test",
+      contractVersion: "1.0",
       expiresAt: expiresAt.toISOString(),
     });
     expect(findFirst).toHaveBeenCalledWith({
@@ -46,9 +48,30 @@ describe("lookupTickerDiscovery", () => {
         competitors: true,
         regulators: true,
         model: true,
+        contractVersion: true,
         expiresAt: true,
       },
     });
+  });
+
+  it("returns a null contractVersion for legacy entries written before the column existed", async () => {
+    const now = new Date("2026-01-01T00:00:00.000Z");
+    const expiresAt = new Date("2026-01-02T00:00:00.000Z");
+    const findFirst = vi.fn().mockResolvedValue({
+      tickerId: TICKER_ID,
+      competitors: COMPETITORS,
+      regulators: REGULATORS,
+      model: "gpt-test",
+      contractVersion: null,
+      expiresAt,
+    });
+
+    const result = await lookupTickerDiscovery(
+      { tickerId: TICKER_ID },
+      { tickerDiscovery: { findFirst, upsert: vi.fn() }, now },
+    );
+
+    expect(result?.contractVersion).toBeNull();
   });
 
   it("returns null on a miss (stale rows are filtered by the expiresAt guard)", async () => {
@@ -83,6 +106,7 @@ describe("recordTickerDiscovery", () => {
         competitors: COMPETITORS,
         regulators: REGULATORS,
         model: "gpt-test",
+        contractVersion: "2.1",
         ttlSeconds: 3600,
       },
       { tickerDiscovery: { findFirst: vi.fn(), upsert }, now },
@@ -99,19 +123,21 @@ describe("recordTickerDiscovery", () => {
         competitors: COMPETITORS,
         regulators: REGULATORS,
         model: "gpt-test",
+        contractVersion: "2.1",
         expiresAt,
       },
       update: {
         competitors: COMPETITORS,
         regulators: REGULATORS,
         model: "gpt-test",
+        contractVersion: "2.1",
         expiresAt,
       },
       select: { tickerId: true, expiresAt: true },
     });
   });
 
-  it("stores a null model when none is provided", async () => {
+  it("stores a null model and contractVersion when neither is provided", async () => {
     const now = new Date("2026-01-01T00:00:00.000Z");
     const expiresAt = new Date(now.getTime() + 1800 * 1000);
     const upsert = vi
@@ -130,8 +156,8 @@ describe("recordTickerDiscovery", () => {
 
     expect(upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        create: expect.objectContaining({ model: null }),
-        update: expect.objectContaining({ model: null }),
+        create: expect.objectContaining({ model: null, contractVersion: null }),
+        update: expect.objectContaining({ model: null, contractVersion: null }),
       }),
     );
   });

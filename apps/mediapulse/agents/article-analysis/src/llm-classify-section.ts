@@ -24,6 +24,17 @@ const MAX_REASON_CHARS = 2000;
 /** Fallback note when the model omits a judgment for a configured rule. */
 const MISSING_EVALUATION_NOTE = "No judgment returned; treated as not matched.";
 
+/**
+ * Reserved id for the mandatory issuer-relevance gate judgment. Not part of
+ * `DEFAULT_ACCEPTANCE_CRITERIA` and not operator-editable — code-owned so it can't be
+ * edited away, and structural rather than data-driven so it needs no agent-config migration.
+ */
+export const ISSUER_RELEVANCE_CRITERION_ID = "gate-issuer-relevance";
+
+/** Fixed instruction text for the issuer-relevance gate (not persisted, not editable). */
+const ISSUER_RELEVANCE_CRITERION_TEXT =
+  "Include if the article is genuinely about, or materially concerns, the named issuer or its stated sector/industry — not merely a coincidental match on the ticker symbol, company name, or a similarly-spelled/branded but unrelated entity, place, or topic.";
+
 /** One per-rule judgment returned by the model. */
 export type CriterionEvaluation = {
   id: string;
@@ -68,6 +79,9 @@ const SYSTEM_PROMPT = [
   "what is missing (for a miss) — do not restate the rule.",
   "Do NOT choose a section or a score; those are computed from your judgments.",
   "Judge every rule independently and return exactly one judgment per rule.",
+  "When a mandatory issuer-relevance gate rule is present, judge it exactly like any other",
+  "rule — true only if the article genuinely concerns the named issuer or its sector, not a",
+  "coincidental keyword or name match.",
 ].join(" ");
 
 /**
@@ -147,7 +161,13 @@ export const buildSectionClassificationMessages = (params: {
     "Newsletter sections and inclusion rules:",
     renderCriteria(params.acceptanceCriteria),
     "",
-    ...(params.tickerContext ? [params.tickerContext, ""] : []),
+    ...(params.tickerContext
+      ? [
+          params.tickerContext,
+          `Mandatory gate — ${ISSUER_RELEVANCE_CRITERION_ID}: ${ISSUER_RELEVANCE_CRITERION_TEXT}`,
+          "",
+        ]
+      : []),
     `Article title: ${params.title}`,
     "",
     "Article content:",
@@ -197,11 +217,15 @@ const capReason = (reason: string): string =>
  *
  * @param evaluations - Per-rule judgments from the model (missing rules count as not matched).
  * @param acceptanceCriteria - The per-section rules the judgments were made against.
+ * @param requireIssuerRelevance - When true, rejects unless the model's judgment for
+ *   {@link ISSUER_RELEVANCE_CRITERION_ID} is explicitly `matched: true` — fails closed if the
+ *   judgment is missing. Defaults to `false` for backward compatibility.
  * @returns The deterministic classification with a self-describing score breakdown.
  */
 export const scoreFromEvaluations = (
   evaluations: CriterionEvaluation[],
   acceptanceCriteria: AcceptanceCriteriaRule[],
+  requireIssuerRelevance = false,
 ): ArticleSectionClassification => {
   const flat = flattenAcceptanceCriteria(acceptanceCriteria);
   const evaluationById = new Map<string, CriterionEvaluation>(
@@ -258,12 +282,20 @@ export const scoreFromEvaluations = (
   }));
   const hash = criteriaHash(acceptanceCriteria);
 
-  // No rule matched in any section: reject with an empty per-rule breakdown.
-  if (winner === undefined || winner.matched === 0) {
+  // Mandatory issuer-relevance gate: fail closed if required and not explicitly matched
+  // true (including when the model omits the judgment), regardless of how many generic
+  // per-section criteria the article superficially satisfies elsewhere.
+  const issuerRelevanceRejected =
+    requireIssuerRelevance && !isMatched(ISSUER_RELEVANCE_CRITERION_ID);
+
+  // No rule matched in any section, or the issuer-relevance gate failed: reject.
+  if (issuerRelevanceRejected || winner === undefined || winner.matched === 0) {
     return {
       section: null,
       score: 0,
-      reason: "No inclusion rule matched in any section; rejected.",
+      reason: issuerRelevanceRejected
+        ? `Rejected — not relevant to issuer context: ${noteFor(ISSUER_RELEVANCE_CRITERION_ID)}.`
+        : "No inclusion rule matched in any section; rejected.",
       scoreBreakdown: {
         section: null,
         matched: 0,
@@ -343,12 +375,14 @@ export const classifyArticleSection = async (params: {
     baseURL: params.baseUrl,
   });
 
+  const requireIssuerRelevance = params.tickerContext !== undefined;
   const criterionIds = [
     ...new Set(
       flattenAcceptanceCriteria(params.acceptanceCriteria).map(
         (criterion) => criterion.id,
       ),
     ),
+    ...(requireIssuerRelevance ? [ISSUER_RELEVANCE_CRITERION_ID] : []),
   ];
 
   const result = await generateObject({
@@ -369,5 +403,6 @@ export const classifyArticleSection = async (params: {
   return scoreFromEvaluations(
     result.object.evaluations,
     params.acceptanceCriteria,
+    requireIssuerRelevance,
   );
 };

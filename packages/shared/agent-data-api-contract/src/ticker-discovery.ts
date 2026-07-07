@@ -20,6 +20,8 @@ const tickerDiscoveryEntrySchema = z.object({
   competitors: z.array(tickerDiscoveryPartySchema),
   regulators: z.array(tickerDiscoveryPartySchema),
   model: z.string().nullable(),
+  /** Agent contract version active when this entry was written; `null` for legacy entries. */
+  contractVersion: z.string().nullable(),
   expiresAt: z.string().datetime(),
 });
 
@@ -38,6 +40,7 @@ export const postTickerDiscoveryRecordBodySchema = z.object({
   competitors: z.array(tickerDiscoveryPartySchema),
   regulators: z.array(tickerDiscoveryPartySchema),
   model: z.string().optional(),
+  contractVersion: z.string().optional(),
   ttlSeconds: z.number().int().positive(),
 });
 
