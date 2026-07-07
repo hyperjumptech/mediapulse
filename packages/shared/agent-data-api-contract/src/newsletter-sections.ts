@@ -85,36 +85,6 @@ export const ZERO_COVERAGE_EXCLUDED_SECTIONS: ReadonlySet<NewsletterSectionId> =
   new Set<NewsletterSectionId>(["quickHits"]);
 
 /**
- * Returns every section id that no intent maps to via {@link SECTION_BY_INTENT},
- * excluding sections in {@link ZERO_COVERAGE_EXCLUDED_SECTIONS} (catch-all sections
- * that are populated at generation time rather than by targeted search queries).
- */
-export const sectionsWithoutDedicatedIntent = (): NewsletterSectionId[] => {
-  const covered = new Set(
-    Object.values(SECTION_BY_INTENT).filter(
-      (sectionId): sectionId is NewsletterSectionId => sectionId !== null,
-    ),
-  );
-  return NEWSLETTER_SECTION_IDS.filter(
-    (sectionId) =>
-      !covered.has(sectionId) &&
-      !ZERO_COVERAGE_EXCLUDED_SECTIONS.has(sectionId),
-  );
-};
-
-/**
- * Returns the newsletter section id that the given intent primarily feeds, or `null` when the
- * intent has no dedicated section (homeless intents flow to `industryPulse` or `quickHits`
- * at generation time).
- *
- * @param intent - A `QueryAnalysisIntent` value.
- * @returns The mapped `NewsletterSectionId`, or `null`.
- */
-export const classifyQueryToSection = (
-  intent: QueryAnalysisIntent,
-): NewsletterSectionId | null => SECTION_BY_INTENT[intent];
-
-/**
  * Summarises how many of the given intents map to each newsletter section.
  *
  * Always returns an entry for every `NewsletterSectionId` — sections with no matching queries
