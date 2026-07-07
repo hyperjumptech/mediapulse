@@ -31,6 +31,12 @@ const FETCH_PROVIDER_DEFAULTS: Record<
     baseUrl: "https://api.firecrawl.dev",
     authentication: { type: "bearer", headerName: "Authorization" },
   },
+  firecrawl_selfhosted: {
+    // baseUrl is supplied per entry (self-hosted instance); this default is a
+    // placeholder that toFetchProviderConfig overrides with entry.baseUrl.
+    baseUrl: "",
+    authentication: { type: "none" },
+  },
   jina: {
     baseUrl: "https://r.jina.ai/",
     authentication: { type: "bearer", headerName: "Authorization" },
@@ -63,8 +69,12 @@ const toFetchProviderConfig = (
 
   return {
     type: entry.provider,
-    baseUrl: defaults.baseUrl,
-    authentication: { ...defaults.authentication, apiKey: entry.apiKey },
+    baseUrl: entry.baseUrl ?? defaults.baseUrl,
+    authentication: {
+      ...defaults.authentication,
+      ...(entry.apiKey ? { apiKey: entry.apiKey } : {}),
+    },
+    ...(entry.headers ? { headers: entry.headers } : {}),
     rateLimit: { requests: 1, perSeconds: 1 },
     concurrency: 1,
     timeoutMs: FETCH_TIMEOUT_MS,

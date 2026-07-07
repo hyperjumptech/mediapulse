@@ -33,7 +33,13 @@ export interface WebSearchResult {
 
 export type WebFetchProviderName = Extract<
   DataCollectionFailure["provider"],
-  "serper" | "jina" | "firecrawl" | "diffbot" | "tavily" | "exa"
+  | "serper"
+  | "jina"
+  | "firecrawl"
+  | "firecrawl_selfhosted"
+  | "diffbot"
+  | "tavily"
+  | "exa"
 >;
 
 export type FetchedWebSearchResult = WebSearchResult & {
@@ -140,6 +146,7 @@ const WEB_FETCH_PROVIDER_NAMES = new Set<WebFetchProviderName>([
   "serper",
   "jina",
   "firecrawl",
+  "firecrawl_selfhosted",
   "diffbot",
   "tavily",
   "exa",

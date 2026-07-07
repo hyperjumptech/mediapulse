@@ -55,7 +55,7 @@ describe("createFirecrawlFetchProvider", () => {
 
     // Assert
     expect(postMock).toHaveBeenCalledWith(
-      "https://api.firecrawl.dev/v1/scrape",
+      "https://api.firecrawl.dev/v2/scrape",
       expect.objectContaining({
         json: { url: "http://example.com", formats: ["markdown"] },
         headers: expect.objectContaining({
@@ -68,6 +68,47 @@ describe("createFirecrawlFetchProvider", () => {
       title: "Article title",
       publishedTime: "2026-04-12T08:00:00.000Z",
     });
+  });
+
+  it("serves firecrawl_selfhosted with custom headers, no bearer, and its own type", async () => {
+    // Setup
+    const selfhostedConfig: FetchProviderConfig = {
+      type: "firecrawl_selfhosted",
+      baseUrl: "https://firecrawl.internal",
+      authentication: { type: "none" },
+      headers: {
+        "CF-Access-Client-Id": "cf-id",
+        "CF-Access-Client-Secret": "cf-secret",
+      },
+      rateLimit: { requests: 1, perSeconds: 1 },
+    };
+    const postMock = vi.fn().mockReturnValue(
+      mockGotPostResponse({
+        success: true,
+        data: { markdown: "# Body" },
+      }),
+    );
+    const provider = createFirecrawlFetchProvider(selfhostedConfig);
+
+    // Act
+    const result = await provider.fetchOne("http://example.com", {
+      gotClient: { post: postMock } as unknown as typeof got,
+      rateLimiter: mockRateLimiter(),
+      logger: { info: vi.fn(), warn: vi.fn() },
+    });
+
+    // Assert
+    expect(provider.type).toBe("firecrawl_selfhosted");
+    const [calledUrl, calledOptions] = postMock.mock.calls[0] as [
+      string,
+      { headers: Record<string, string> },
+    ];
+
+    expect(calledUrl).toBe("https://firecrawl.internal/v2/scrape");
+    expect(calledOptions.headers["CF-Access-Client-Id"]).toBe("cf-id");
+    expect(calledOptions.headers["CF-Access-Client-Secret"]).toBe("cf-secret");
+    expect(calledOptions.headers.Authorization).toBeUndefined();
+    expect(result).toEqual({ content: "# Body" });
   });
 
   it("throws when success is false", async () => {

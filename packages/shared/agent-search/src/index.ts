@@ -6,6 +6,10 @@ export {
 export type { ProviderName, ProviderEntry, SearchLocale } from "./schemas";
 
 export { createSearchProvider } from "./registry";
+export {
+  createFirecrawlSearchProvider,
+  createFirecrawlSelfhostedSearchProvider,
+} from "./firecrawl";
 export { RESULTS_PER_QUERY, RECENCY_DAYS } from "./constants";
 
 export type {

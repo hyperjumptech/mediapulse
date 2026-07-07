@@ -21,6 +21,36 @@ describe("ConfigSchema", () => {
 
     expect(result.collection.perRunFetchBudget).toBe(20);
   });
+
+  it("round-trips a self-hosted Firecrawl provider with custom headers", async () => {
+    const result = await ConfigSchema.parseAsync({
+      providers: {
+        fetch: {
+          providers: [
+            {
+              type: "firecrawl_selfhosted",
+              baseUrl: "https://firecrawl.internal",
+              authentication: { type: "none" },
+              headers: {
+                "CF-Access-Client-Id": "id",
+                "CF-Access-Client-Secret": "secret",
+              },
+              rateLimit: { requests: 1, perSeconds: 1 },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(result.providers.fetch.providers[0]).toMatchObject({
+      type: "firecrawl_selfhosted",
+      baseUrl: "https://firecrawl.internal",
+      headers: {
+        "CF-Access-Client-Id": "id",
+        "CF-Access-Client-Secret": "secret",
+      },
+    });
+  });
 });
 
 describe("getConfigSchema", () => {

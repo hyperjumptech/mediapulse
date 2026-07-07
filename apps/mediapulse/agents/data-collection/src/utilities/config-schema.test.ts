@@ -124,6 +124,57 @@ describe("dataCollectionAgentConfigSchema", () => {
     ]);
   });
 
+  it("accepts a self-hosted Firecrawl entry with baseUrl and headers in web_fetch", () => {
+    const parsed = dataCollectionAgentConfigSchema.parse({
+      web_fetch: [
+        {
+          provider: "firecrawl_selfhosted",
+          baseUrl: "https://firecrawl.internal",
+          headers: { "CF-Access-Client-Id": "id" },
+        },
+      ],
+    });
+
+    expect(parsed.web_fetch[0]).toMatchObject({
+      provider: "firecrawl_selfhosted",
+      baseUrl: "https://firecrawl.internal",
+      headers: { "CF-Access-Client-Id": "id" },
+    });
+  });
+
+  it("accepts firecrawl and firecrawl_selfhosted in web_search", () => {
+    const parsed = dataCollectionAgentConfigSchema.parse({
+      web_search: [
+        { provider: "firecrawl", apiKey: "fire-key" },
+        {
+          provider: "firecrawl_selfhosted",
+          baseUrl: "https://firecrawl.internal",
+        },
+      ],
+    });
+
+    expect(parsed.web_search.map((entry) => entry.provider)).toEqual([
+      "firecrawl",
+      "firecrawl_selfhosted",
+    ]);
+  });
+
+  it("rejects a self-hosted Firecrawl entry without a baseUrl", () => {
+    expect(() =>
+      dataCollectionAgentConfigSchema.parse({
+        web_fetch: [{ provider: "firecrawl_selfhosted" }],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects a non-self-hosted fetch provider without an API key", () => {
+    expect(() =>
+      dataCollectionAgentConfigSchema.parse({
+        web_fetch: [{ provider: "firecrawl" }],
+      }),
+    ).toThrow();
+  });
+
   it("rejects fetch-only providers in web_search", () => {
     expect(() =>
       dataCollectionAgentConfigSchema.parse({

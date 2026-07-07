@@ -23,6 +23,8 @@ export type FetchProviderConfig = {
     apiKey?: string;
     headerName?: string;
   };
+  /** Extra HTTP headers merged into every request (for example Cloudflare Access). */
+  headers?: Record<string, string>;
   rateLimit: {
     requests: number;
     perSeconds: number;

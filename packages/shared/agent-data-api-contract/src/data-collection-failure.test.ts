@@ -33,5 +33,11 @@ describe("dataCollectionFailureInputSchema", () => {
         provider: "diffbot",
       }).provider,
     ).toBe("diffbot");
+    expect(
+      dataCollectionFailureInputSchema.parse({
+        ...base,
+        provider: "firecrawl_selfhosted",
+      }).provider,
+    ).toBe("firecrawl_selfhosted");
   });
 });
