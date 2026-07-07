@@ -168,7 +168,6 @@ describe("runQueryAnalysis — cold run (cache miss)", () => {
     );
     expect(body.strategySnapshot.discovered.regulators).toContain("OJK");
     expect(body.strategySnapshot.generation.attempts).toBe(1);
-    expect(body.strategySnapshot.generation.usedFallback).toBe(false);
     expect(body.strategySnapshot.providerUsage.searchProvider[0]?.name).toBe(
       "serper",
     );
@@ -290,8 +289,8 @@ describe("runQueryAnalysis — warm run (cache hit)", () => {
   });
 });
 
-describe("runQueryAnalysis — generation fallback", () => {
-  it("degrades to deterministic template candidates and records usedFallback when the generation LLM call fails", async () => {
+describe("runQueryAnalysis — generation failure", () => {
+  it("persists nothing and reports failure when the generation LLM call fails (leaving the prior set active)", async () => {
     // Setup
     const { client, create } = makeClient({
       tickerId: TICKER_ID,
@@ -313,12 +312,8 @@ describe("runQueryAnalysis — generation fallback", () => {
     const result = await runQueryAnalysis(makeContext() as never, deps);
 
     // Assert
-    expect(result.success).toBe(true);
-    const body = create.mock.calls[0]?.[0];
-    expect(body.strategySnapshot.generation.usedFallback).toBe(true);
-    expect(
-      body.queries.some((query: { text: string }) => query.text === "BBRI"),
-    ).toBe(true);
+    expect(result.success).toBe(false);
+    expect(create).not.toHaveBeenCalled();
   });
 });
 

@@ -159,7 +159,6 @@ export const runQueryAnalysis = async (
       regulators,
       languages: LANGUAGES,
       ai: config.ai,
-      maxKeywordsPerEntity: DISCOVERY_MAX_KEYWORDS_PER_ENTITY,
       onUsage: tokenUsage.onUsage,
       logger,
       providers: config.web_search,
@@ -231,7 +230,6 @@ export const runQueryAnalysis = async (
     },
     generation: {
       attempts: generation.attempts,
-      usedFallback: generation.usedFallback,
     },
     probe: {
       candidates: generation.telemetry.candidates,
