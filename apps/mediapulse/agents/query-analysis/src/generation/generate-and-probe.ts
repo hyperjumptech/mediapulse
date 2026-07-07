@@ -48,7 +48,6 @@ export type GenerateAndProbeTelemetry = {
 export type GenerateAndProbeResult = {
   survivors: ProbeSurvivor[];
   dropped: ProbedCandidate[];
-  usedFallback: boolean;
   attempts: number;
   telemetry: GenerateAndProbeTelemetry;
 };
@@ -67,8 +66,8 @@ export type GenerateAndProbeResult = {
  * @param input - Ticker/classification/market/contract context, discovered entities, LLM
  *   credentials, and probe provider/locale/budget config.
  * @param deps - Injectable probe collaborators for tests.
- * @returns Merged survivors/dropped (deduped across attempts), fallback flag, attempt count,
- *   and aggregated telemetry.
+ * @returns Merged survivors/dropped (deduped across attempts), attempt count, and aggregated
+ *   telemetry.
  */
 export const generateAndProbeCandidates = async (
   input: GenerateAndProbeInput,
@@ -79,7 +78,6 @@ export const generateAndProbeCandidates = async (
   const providerUsageTotals = new Map<string, number>();
   const allDroppedTexts: string[] = [];
 
-  let usedFallback = false;
   let candidatesTotal = 0;
   let dedupedTotal = 0;
   let searchCreditsTotal = 0;
@@ -87,16 +85,15 @@ export const generateAndProbeCandidates = async (
   let attempts = 0;
 
   for (attempts = 1; attempts <= GENERATION_MAX_ATTEMPTS; attempts++) {
-    const generation = await generateQueryCandidates({
+    const candidates = await generateQueryCandidates({
       ...input,
       ...(input.logger ? { logger: input.logger } : {}),
       ...(excludeQueries.length > 0 ? { excludeQueries } : {}),
     });
-    usedFallback = usedFallback || generation.usedFallback;
 
     const probe = await runYieldProbe(
       {
-        candidates: generation.candidates,
+        candidates,
         providers: input.providers,
         locales: input.locales,
         budget: input.probeBudget,
@@ -154,7 +151,6 @@ export const generateAndProbeCandidates = async (
   return {
     survivors,
     dropped,
-    usedFallback,
     attempts,
     telemetry: {
       candidates: candidatesTotal,

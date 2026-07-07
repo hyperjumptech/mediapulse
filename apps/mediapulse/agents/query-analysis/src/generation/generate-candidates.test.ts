@@ -16,7 +16,6 @@ const baseInput = {
   regulators: [{ name: "BPOM", aliases: [], searchKeywords: ["bpom kopi"] }],
   languages: ["id", "en"] as const,
   ai,
-  maxKeywordsPerEntity: 2,
 };
 
 const okResult = (
@@ -49,8 +48,7 @@ describe("generateQueryCandidates", () => {
     });
 
     // Assert
-    expect(result.usedFallback).toBe(false);
-    expect(result.candidates).toEqual([
+    expect(result).toEqual([
       { text: "saham FORE IDX", intent: "breaking", language: "id" },
       {
         text: "Kopi Kenangan kopi kenangan",
@@ -85,7 +83,7 @@ describe("generateQueryCandidates", () => {
     expect(call.prompt).toContain("FORE");
     expect(call.prompt).toContain("G/FORE");
     expect(call.prompt).toContain("ambiguous bare queries");
-    expect(call.maxRetries).toBe(0);
+    expect(call.maxRetries).toBeGreaterThan(0);
   });
 
   it("includes excludeQueries steering text only when provided", async () => {
@@ -115,7 +113,7 @@ describe("generateQueryCandidates", () => {
     expect(withExclude).toContain("- fore news");
   });
 
-  it("degrades to the deterministic template stages when the LLM call throws", async () => {
+  it("returns an empty array and logs a warning when the LLM call throws", async () => {
     // Setup
     const warn = vi.fn();
     const generate = vi.fn().mockRejectedValue(new Error("boom"));
@@ -128,19 +126,10 @@ describe("generateQueryCandidates", () => {
     });
 
     // Assert
-    expect(result.usedFallback).toBe(true);
-    expect(result.candidates.length).toBeGreaterThan(0);
-    expect(
-      result.candidates.some((candidate) => candidate.text === "FORE"),
-    ).toBe(true);
-    expect(
-      result.candidates.some(
-        (candidate) => candidate.text === "PT Fore Kopi Indonesia Tbk",
-      ),
-    ).toBe(true);
+    expect(result).toEqual([]);
     expect(warn).toHaveBeenCalledWith(
       expect.objectContaining({ tickerSymbol: "FORE" }),
-      expect.stringContaining("degrading to deterministic template stages"),
+      expect.stringContaining("returning no candidates"),
     );
   });
 });

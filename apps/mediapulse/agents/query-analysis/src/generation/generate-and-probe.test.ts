@@ -16,7 +16,6 @@ const baseInput = {
   regulators: [],
   languages: ["id"] as const,
   ai,
-  maxKeywordsPerEntity: 2,
   providers: [{ provider: "serper" as const, apiKey: "sk-serper" }],
   locales: [{ gl: "id", hl: "id" }],
   probeBudget: 80,
@@ -68,7 +67,6 @@ describe("generateAndProbeCandidates", () => {
     expect(result.attempts).toBe(1);
     expect(generate).toHaveBeenCalledTimes(1);
     expect(result.survivors.map((s) => s.text)).toEqual(["saham FORE IDX"]);
-    expect(result.usedFallback).toBe(false);
   });
 
   it("retries with the zero-hit texts as excludeQueries, and re-probes only the delta", async () => {
@@ -120,7 +118,7 @@ describe("generateAndProbeCandidates", () => {
     expect(result.dropped.map((d) => d.text).sort()).toEqual(["a", "b", "c"]);
   });
 
-  it("propagates usedFallback when the generation LLM call fails", async () => {
+  it("yields no survivors and stops after one attempt when the generation LLM call fails", async () => {
     // Setup
     const generate = vi.fn().mockRejectedValue(new Error("boom"));
     const countHits = makeCountHits({ FORE: 5 });
@@ -132,6 +130,9 @@ describe("generateAndProbeCandidates", () => {
     );
 
     // Assert
-    expect(result.usedFallback).toBe(true);
+    expect(result.attempts).toBe(1);
+    expect(result.survivors).toEqual([]);
+    expect(result.dropped).toEqual([]);
+    expect(countHits).not.toHaveBeenCalled();
   });
 });

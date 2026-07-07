@@ -3,12 +3,11 @@ import { generateObject } from "ai";
 import { extractLlmUsage, type OnLlmUsage } from "@workspace/agent-runtime";
 
 import type { QueryAnalysisAiConfig } from "../config-schema";
-import { GENERATION_CANDIDATE_TARGET } from "../constants";
+import {
+  GENERATION_CANDIDATE_TARGET,
+  GENERATION_LLM_MAX_RETRIES,
+} from "../constants";
 import type { Classification, MarketContext } from "../pipeline/context";
-import { buildCompetitorCandidates } from "../pipeline/stage-competitors";
-import { buildIndustryCandidates } from "../pipeline/stage-industry";
-import { buildOwnCompanyCandidates } from "../pipeline/stage-own-company";
-import { buildRegulatorCandidates } from "../pipeline/stage-regulators";
 import type { Candidate, Language } from "../pipeline/types";
 import type { DiscoveredEntity } from "../discovery/schema";
 import { candidateGenerationResultSchema } from "./schema";
@@ -29,7 +28,6 @@ export interface GenerateQueryCandidatesInput {
   regulators: DiscoveredEntity[];
   languages: readonly Language[];
   ai: QueryAnalysisAiConfig;
-  maxKeywordsPerEntity: number;
   /** Query texts already tried and confirmed to return zero search results (retry feedback). */
   excludeQueries?: string[];
   /** Injectable for tests; defaults to the AI SDK `generateObject`. */
@@ -37,12 +35,6 @@ export interface GenerateQueryCandidatesInput {
   onUsage?: OnLlmUsage;
   logger?: GenerationLogger;
 }
-
-/** Result of one generation attempt: candidates, and whether the deterministic fallback fired. */
-export type GenerateQueryCandidatesResult = {
-  candidates: Candidate[];
-  usedFallback: boolean;
-};
 
 const classificationLines = (classification: Classification): string[] => {
   const lines: string[] = [];
@@ -138,16 +130,18 @@ const buildPrompt = (input: GenerateQueryCandidatesInput): string =>
  * Generates search-query candidates for one ticker via a single LLM call, steered by the
  * agent contract brief and explicitly instructed to avoid ambiguous bare-symbol collisions.
  *
- * - Important: Degrades to the deterministic template stages (own-company, competitor,
- *   regulator, industry) on any LLM failure, so the pipeline never produces zero candidates.
+ * - Important: Returns an empty array on any LLM failure (after {@link GENERATION_LLM_MAX_RETRIES}
+ *   SDK retries). The caller treats a run that yields no queries as a no-op that leaves the
+ *   ticker's previous active query set in place, so a transient outage never overwrites good
+ *   queries with a degraded set.
  *
  * @param input - Ticker identity, classification, market, contract brief, discovered
  *   entities, languages, LLM credentials, and optional zero-hit `excludeQueries` feedback.
- * @returns Generated candidates and whether the deterministic fallback fired.
+ * @returns Generated candidates, or an empty array when the LLM call fails.
  */
 export const generateQueryCandidates = async (
   input: GenerateQueryCandidatesInput,
-): Promise<GenerateQueryCandidatesResult> => {
+): Promise<Candidate[]> => {
   const generate = input.generate ?? generateObject;
 
   try {
@@ -161,47 +155,24 @@ export const generateQueryCandidates = async (
       schema: candidateGenerationResultSchema,
       system: buildSystemPrompt(input.contractBrief),
       prompt: buildPrompt(input),
-      maxRetries: 0,
+      maxRetries: GENERATION_LLM_MAX_RETRIES,
     });
     const usage = extractLlmUsage(result.usage);
     if (usage !== undefined) {
       input.onUsage?.(usage);
     }
 
-    const candidates: Candidate[] = result.object.candidates.map(
-      (candidate) => ({
-        text: candidate.text,
-        intent: candidate.intent,
-        language: candidate.language,
-      }),
-    );
-
-    return { candidates, usedFallback: false };
+    return result.object.candidates.map((candidate) => ({
+      text: candidate.text,
+      intent: candidate.intent,
+      language: candidate.language,
+    }));
   } catch (error) {
     input.logger?.warn(
       { err: error, tickerSymbol: input.ticker.symbol },
-      "query-analysis candidate generation failed; degrading to deterministic template stages",
+      "query-analysis candidate generation failed; returning no candidates for this attempt",
     );
 
-    const candidates: Candidate[] = [
-      ...buildOwnCompanyCandidates(input.ticker, input.languages),
-      ...buildCompetitorCandidates(
-        input.competitors,
-        input.languages,
-        input.maxKeywordsPerEntity,
-      ),
-      ...buildRegulatorCandidates(
-        input.regulators,
-        input.languages,
-        input.maxKeywordsPerEntity,
-      ),
-      ...buildIndustryCandidates(
-        input.classification,
-        input.market,
-        input.languages,
-      ),
-    ];
-
-    return { candidates, usedFallback: true };
+    return [];
   }
 };

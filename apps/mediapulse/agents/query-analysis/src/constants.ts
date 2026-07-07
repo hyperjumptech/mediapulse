@@ -30,6 +30,9 @@ export const GENERATION_CANDIDATE_MAX = 60;
 /** Maximum generation attempts (initial + retries) before accepting whatever survived probing. */
 export const GENERATION_MAX_ATTEMPTS = 3;
 
+/** SDK-level retries for one generation LLM call, so a transient blip does not fail the run. */
+export const GENERATION_LLM_MAX_RETRIES = 2;
+
 /** Hard cap on candidates admitted to the yield probe. */
 export const PROBE_BUDGET = 80;
 

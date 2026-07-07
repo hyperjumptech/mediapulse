@@ -75,18 +75,3 @@ export const deriveMarketContext = (): MarketContext => ({
   homeMarket: HOME_MARKET,
   anchors: [...MARKET_ANCHORS],
 });
-
-/**
- * Picks the most specific available industry label for theme building.
- *
- * @param classification - Normalized classification.
- * @returns The best label, or `undefined` when nothing is classified.
- */
-export const bestIndustryLabel = (
-  classification: Classification,
-): string | undefined =>
-  classification.subIndustry ??
-  classification.industry ??
-  classification.subSector ??
-  classification.sector ??
-  classification.businessActivity;
