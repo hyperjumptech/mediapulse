@@ -13,8 +13,8 @@ export type ProviderName = z.infer<typeof providerNameSchema>;
 
 /**
  * A single search provider entry. Most providers only need a provider name and an
- * API key; `firecrawl_selfhosted` instead points at a custom `baseUrl` and
- * authenticates through operator-supplied `headers` (for example Cloudflare Access).
+ * API key; some instead point at a custom `baseUrl` and authenticate through
+ * operator-supplied `headers`.
  */
 export const providerEntrySchema = z
   .object({
@@ -23,19 +23,19 @@ export const providerEntrySchema = z
       .string()
       .optional()
       .describe(
-        "Provider API key or a Hermes variable placeholder such as {{SERPER_API_KEY}}. Optional for firecrawl_selfhosted, which authenticates via headers.",
+        "Provider API key or a Hermes variable placeholder such as {{SERPER_API_KEY}}. Optional for providers that authenticate via custom headers.",
       ),
     baseUrl: z
       .string()
       .optional()
       .describe(
-        "Override base URL. Required for firecrawl_selfhosted; ignored by providers with fixed endpoints.",
+        "Override base URL. Required for providers that target a custom endpoint; ignored by providers with fixed endpoints.",
       ),
     headers: z
       .record(z.string())
       .optional()
       .describe(
-        "Extra HTTP headers sent with every request (for example Cloudflare Access). Used by firecrawl_selfhosted.",
+        "Extra HTTP headers sent with every request. Used by providers that authenticate via custom headers.",
       ),
   })
   .superRefine((entry, ctx) => {
@@ -44,7 +44,7 @@ export const providerEntrySchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["baseUrl"],
-          message: "baseUrl is required for the firecrawl_selfhosted provider.",
+          message: "baseUrl is required for this provider.",
         });
       }
     } else if (!entry.apiKey) {

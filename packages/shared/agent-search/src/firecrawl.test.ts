@@ -103,8 +103,8 @@ describe("createFirecrawlSelfhostedSearchProvider", () => {
     const provider = createFirecrawlSelfhostedSearchProvider({
       baseUrl: "https://firecrawl.internal",
       headers: {
-        "CF-Access-Client-Id": "id",
-        "CF-Access-Client-Secret": "sec",
+        "X-Auth-Id": "id",
+        "X-Auth-Secret": "sec",
       },
     });
     const ctx = makeCtx(
@@ -123,8 +123,8 @@ describe("createFirecrawlSelfhostedSearchProvider", () => {
     expect(provider.type).toBe("firecrawl_selfhosted");
     expect(captured[0]?.url).toBe("https://firecrawl.internal/v2/search");
     expect(captured[0]?.headers.Authorization).toBeUndefined();
-    expect(captured[0]?.headers["CF-Access-Client-Id"]).toBe("id");
-    expect(captured[0]?.headers["CF-Access-Client-Secret"]).toBe("sec");
+    expect(captured[0]?.headers["X-Auth-Id"]).toBe("id");
+    expect(captured[0]?.headers["X-Auth-Secret"]).toBe("sec");
     expect(result.hits).toEqual([
       { url: "https://e.com/b", title: "T", snippet: "D" },
     ]);

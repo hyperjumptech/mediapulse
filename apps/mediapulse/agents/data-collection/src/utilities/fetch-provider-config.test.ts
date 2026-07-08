@@ -57,8 +57,8 @@ describe("buildFetchProviderConfigs", () => {
         provider: "firecrawl_selfhosted",
         baseUrl: "https://firecrawl.internal",
         headers: {
-          "CF-Access-Client-Id": "id",
-          "CF-Access-Client-Secret": "secret",
+          "X-Auth-Id": "id",
+          "X-Auth-Secret": "secret",
         },
       },
     ]);
@@ -69,8 +69,8 @@ describe("buildFetchProviderConfigs", () => {
         baseUrl: "https://firecrawl.internal",
         authentication: { type: "none" },
         headers: {
-          "CF-Access-Client-Id": "id",
-          "CF-Access-Client-Secret": "secret",
+          "X-Auth-Id": "id",
+          "X-Auth-Secret": "secret",
         },
         rateLimit: { requests: 1, perSeconds: 1 },
         concurrency: 1,

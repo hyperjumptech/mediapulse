@@ -78,7 +78,7 @@ export const fetchProviderConfigSchema = z.object({
     .record(z.string())
     .optional()
     .describe(
-      "Extra HTTP headers merged into every request (for example a self-hosted Firecrawl behind Cloudflare Access). Values may be Hermes variable placeholders.",
+      "Extra HTTP headers merged into every request. Values may be Hermes variable placeholders.",
     ),
   rateLimit: rateLimitSchema.describe(
     "Sliding-window request budget for this fetch provider.",

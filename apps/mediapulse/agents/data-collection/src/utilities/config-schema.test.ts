@@ -130,7 +130,7 @@ describe("dataCollectionAgentConfigSchema", () => {
         {
           provider: "firecrawl_selfhosted",
           baseUrl: "https://firecrawl.internal",
-          headers: { "CF-Access-Client-Id": "id" },
+          headers: { "X-Auth-Id": "id" },
         },
       ],
     });
@@ -138,7 +138,7 @@ describe("dataCollectionAgentConfigSchema", () => {
     expect(parsed.web_fetch[0]).toMatchObject({
       provider: "firecrawl_selfhosted",
       baseUrl: "https://firecrawl.internal",
-      headers: { "CF-Access-Client-Id": "id" },
+      headers: { "X-Auth-Id": "id" },
     });
   });
 

@@ -107,7 +107,7 @@ describe("createSearchProvider", () => {
     const provider = createSearchProvider({
       provider: "firecrawl_selfhosted",
       baseUrl: "https://firecrawl.internal",
-      headers: { "CF-Access-Client-Id": "id" },
+      headers: { "X-Auth-Id": "id" },
     });
 
     expect(provider.type).toBe("firecrawl_selfhosted");

@@ -20,7 +20,7 @@ interface FirecrawlSearchConfig {
   baseUrl: string;
   /** Bearer API key (Firecrawl cloud). Omitted for self-hosted header auth. */
   apiKey?: string;
-  /** Extra headers sent with every request (for example Cloudflare Access). */
+  /** Extra headers sent with every request. */
   headers?: Record<string, string>;
 }
 
