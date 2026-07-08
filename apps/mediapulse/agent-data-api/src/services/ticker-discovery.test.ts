@@ -14,6 +14,8 @@ const COMPETITORS = [
 const REGULATORS = [
   { name: "OJK", aliases: [], searchKeywords: ["otoritas jasa keuangan"] },
 ];
+const MAIN_INPUTS = ["arabica beans", "dairy"];
+const CUSTOMER_SEGMENTS = ["urban middle class"];
 
 describe("lookupTickerDiscovery", () => {
   it("returns the cached entry when it is not expired", async () => {
@@ -23,6 +25,8 @@ describe("lookupTickerDiscovery", () => {
       tickerId: TICKER_ID,
       competitors: COMPETITORS,
       regulators: REGULATORS,
+      mainInputs: MAIN_INPUTS,
+      customerSegments: CUSTOMER_SEGMENTS,
       model: "gpt-test",
       contractVersion: "1.0",
       expiresAt,
@@ -37,6 +41,8 @@ describe("lookupTickerDiscovery", () => {
       tickerId: TICKER_ID,
       competitors: COMPETITORS,
       regulators: REGULATORS,
+      mainInputs: MAIN_INPUTS,
+      customerSegments: CUSTOMER_SEGMENTS,
       model: "gpt-test",
       contractVersion: "1.0",
       expiresAt: expiresAt.toISOString(),
@@ -47,6 +53,8 @@ describe("lookupTickerDiscovery", () => {
         tickerId: true,
         competitors: true,
         regulators: true,
+        mainInputs: true,
+        customerSegments: true,
         model: true,
         contractVersion: true,
         expiresAt: true,
@@ -105,6 +113,8 @@ describe("recordTickerDiscovery", () => {
         tickerId: TICKER_ID,
         competitors: COMPETITORS,
         regulators: REGULATORS,
+        mainInputs: MAIN_INPUTS,
+        customerSegments: CUSTOMER_SEGMENTS,
         model: "gpt-test",
         contractVersion: "2.1",
         ttlSeconds: 3600,
@@ -122,6 +132,8 @@ describe("recordTickerDiscovery", () => {
         tickerId: TICKER_ID,
         competitors: COMPETITORS,
         regulators: REGULATORS,
+        mainInputs: MAIN_INPUTS,
+        customerSegments: CUSTOMER_SEGMENTS,
         model: "gpt-test",
         contractVersion: "2.1",
         expiresAt,
@@ -129,6 +141,8 @@ describe("recordTickerDiscovery", () => {
       update: {
         competitors: COMPETITORS,
         regulators: REGULATORS,
+        mainInputs: MAIN_INPUTS,
+        customerSegments: CUSTOMER_SEGMENTS,
         model: "gpt-test",
         contractVersion: "2.1",
         expiresAt,
@@ -149,6 +163,8 @@ describe("recordTickerDiscovery", () => {
         tickerId: TICKER_ID,
         competitors: [],
         regulators: [],
+        mainInputs: [],
+        customerSegments: [],
         ttlSeconds: 1800,
       },
       { tickerDiscovery: { findFirst: vi.fn(), upsert }, now },

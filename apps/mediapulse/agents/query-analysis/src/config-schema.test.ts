@@ -7,13 +7,13 @@ describe("queryAnalysisConfigSchema flat layout", () => {
   it("parses an empty object into the two operator groups with defaults", () => {
     const parsed = queryAnalysisConfigSchema.parse({});
 
-    expect(Object.keys(parsed)).toEqual(["web_search", "ai"]);
+    expect(Object.keys(parsed)).toEqual(["language_model", "web_search"]);
     expect(parsed.web_search).toEqual([
       { provider: "serper", apiKey: "{{SERPER_API_KEY}}" },
       { provider: "tavily", apiKey: "{{TAVILY_API_KEY}}" },
       { provider: "exa", apiKey: "{{EXA_API_KEY}}" },
     ]);
-    expect(parsed.ai).toEqual({
+    expect(parsed.language_model).toEqual({
       apiKey: "{{AI_API_KEY}}",
       model: "{{AI_MODEL}}",
       baseUrl: "{{AI_BASE_URL}}",
@@ -28,21 +28,25 @@ describe("queryAnalysisConfigSchema flat layout", () => {
     expect(
       firstSearch && "apiKey" in firstSearch ? firstSearch.apiKey : undefined,
     ).toBe("{{SERPER_API_KEY}}");
-    expect(parsed.ai.apiKey).toBe("{{AI_API_KEY}}");
-    expect(parsed.ai.model).toBe("{{AI_MODEL}}");
-    expect(parsed.ai.baseUrl).toBe("{{AI_BASE_URL}}");
+    expect(parsed.language_model.apiKey).toBe("{{AI_API_KEY}}");
+    expect(parsed.language_model.model).toBe("{{AI_MODEL}}");
+    expect(parsed.language_model.baseUrl).toBe("{{AI_BASE_URL}}");
   });
 
-  it("accepts a custom provider pool and ai overrides", () => {
+  it("accepts a custom provider pool and language model overrides", () => {
     const parsed = queryAnalysisConfigSchema.parse({
       web_search: [{ provider: "serper", apiKey: "sk-serper" }],
-      ai: { apiKey: "sk-ai", model: "gpt-4o-mini", baseUrl: "https://gw" },
+      language_model: {
+        apiKey: "sk-ai",
+        model: "gpt-4o-mini",
+        baseUrl: "https://gw",
+      },
     });
 
     expect(parsed.web_search).toEqual([
       { provider: "serper", apiKey: "sk-serper" },
     ]);
-    expect(parsed.ai).toEqual({
+    expect(parsed.language_model).toEqual({
       apiKey: "sk-ai",
       model: "gpt-4o-mini",
       baseUrl: "https://gw",

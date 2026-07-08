@@ -159,7 +159,7 @@ export const PipelineStepEditorPanel = ({
           ) : (
             <div className="grid gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="step-agent-config-picker">Agent config</Label>
+                <Label htmlFor="step-agent-config-picker">Agent config *</Label>
                 <select
                   id="step-agent-config-picker"
                   className="flex h-9 w-full max-w-md rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -183,11 +183,9 @@ export const PipelineStepEditorPanel = ({
         <TabsContent value="contract" className="mt-4">
           <div className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="step-agent-contract-picker">Agent contract</Label>
-              <p className="text-xs text-muted-foreground">
-                Attaches a product brief to this step so the agent knows what
-                the end result looks like.
-              </p>
+              <Label htmlFor="step-agent-contract-picker">
+                Agent contract *
+              </Label>
               {allContracts.length === 0 ? (
                 <div className="flex flex-col gap-2">
                   <p className="text-sm text-muted-foreground">

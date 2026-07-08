@@ -1,5 +1,6 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import * as React from "react";
 
 import { Button } from "@workspace/ui/components/button";
@@ -12,6 +13,9 @@ import {
   applySchemaDefaults,
   defaultForSchema,
   getSchemaFormType,
+  getUnionVariants,
+  orderedPropertyEntries,
+  resolveUnionVariant,
   seedNewArrayItem,
 } from "./schema-form-utils";
 import { useRecordEntryDraftKey } from "./use-record-entry-draft-key";
@@ -46,15 +50,33 @@ function datetimeLocalToIso(local: string): string {
   return d.toISOString();
 }
 
+/** Words that should render fully uppercased in labels (e.g. apiKey → "API Key"). */
+const LABEL_ACRONYMS: Record<string, string> = {
+  ai: "AI",
+  api: "API",
+  http: "HTTP",
+  id: "ID",
+  json: "JSON",
+  llm: "LLM",
+  ttl: "TTL",
+  url: "URL",
+};
+
 /**
- * Turns a camelCase property name into a readable label (e.g. baseUrl → "Base URL").
+ * Turns a camelCase or snake_case property name into a readable label (e.g. baseUrl → "Base URL").
  */
 function humanize(name: string): string {
   return name
     .replace(/([A-Z])/g, " $1")
     .replace(/_/g, " ")
     .trim()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+    .split(/\s+/)
+    .map((word) => {
+      const acronym = LABEL_ACRONYMS[word.toLowerCase()];
+      if (acronym) return acronym;
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(" ");
 }
 
 type SchemaFormComponents = SchemaFormProps["components"];
@@ -88,10 +110,10 @@ const RecordEntryRow = ({
   const { draftKey, setDraftKey, handleBlur } =
     useRecordEntryDraftKey(onKeyChange);
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-border/80 bg-muted/20 p-4">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="grid gap-2 rounded-md border border-border/80 bg-muted/20 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         {isNew ? (
-          <div className="grid gap-1.5 flex-1 min-w-[120px]">
+          <div className="grid min-w-[120px] flex-1 gap-1.5">
             <Label className="text-xs">Key</Label>
             <Input
               placeholder="e.g. serper-dev"
@@ -107,26 +129,24 @@ const RecordEntryRow = ({
         )}
         <Button
           type="button"
-          variant="ghost"
-          size="sm"
+          variant="destructive"
+          size="icon"
           onClick={onRemove}
           disabled={disabled}
           aria-label={isNew ? "Cancel new entry" : `Remove ${entryKey}`}
         >
-          Remove
+          <Trash2 />
         </Button>
       </div>
-      <div className="grid gap-2">
-        <SchemaField
-          name="value"
-          schema={valueSchema}
-          value={value}
-          onChange={onValueChange}
-          disabled={disabled}
-          path={path}
-          components={components}
-        />
-      </div>
+      <SchemaField
+        name="value"
+        schema={valueSchema}
+        value={value}
+        onChange={onValueChange}
+        disabled={disabled}
+        path={path}
+        components={components}
+      />
     </div>
   );
 };
@@ -166,6 +186,82 @@ const SchemaField = ({
       ? schema.additionalProperties
       : null;
 
+  const unionVariants = getUnionVariants(schema);
+  if (unionVariants) {
+    const resolved = resolveUnionVariant(unionVariants, value);
+    if (resolved) {
+      const { discriminator, options, activeSchema } = resolved;
+      const obj =
+        value != null && typeof value === "object" && !Array.isArray(value)
+          ? (value as Record<string, unknown>)
+          : {};
+      const currentDiscriminatorValue =
+        typeof obj[discriminator] === "string"
+          ? (obj[discriminator] as string)
+          : (options[0]?.value ?? "");
+      const discriminatorId = `${id}_${discriminator}`;
+      const discriminatorSchema = activeSchema.properties?.[discriminator];
+      const handleDiscriminatorChange = (nextValue: string) => {
+        const nextIndex =
+          options.find((option) => option.value === nextValue)?.index ?? 0;
+        const nextVariant = unionVariants[nextIndex] ?? unionVariants[0];
+        const seeded = defaultForSchema(nextVariant);
+        const base =
+          seeded != null && typeof seeded === "object" && !Array.isArray(seeded)
+            ? (seeded as Record<string, unknown>)
+            : {};
+        onChange({ ...base, [discriminator]: nextValue });
+      };
+      const handleFieldChange = (key: string, v: unknown) => {
+        onChange({ ...obj, [key]: v });
+      };
+      const otherEntries = orderedPropertyEntries(activeSchema).filter(
+        ([key]) => key !== discriminator,
+      );
+      return (
+        <div className="grid gap-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor={discriminatorId}>{humanize(discriminator)}</Label>
+            <select
+              id={discriminatorId}
+              value={currentDiscriminatorValue}
+              onChange={(e) => handleDiscriminatorChange(e.target.value)}
+              disabled={disabled}
+              className={cn(
+                "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm",
+                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              )}
+            >
+              {options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.value}
+                </option>
+              ))}
+            </select>
+            {discriminatorSchema?.description ? (
+              <p className="text-muted-foreground text-xs">
+                {discriminatorSchema.description}
+              </p>
+            ) : null}
+          </div>
+          {otherEntries.map(([key, propSchema]) => (
+            <SchemaField
+              key={key}
+              name={key}
+              schema={propSchema}
+              value={obj[key]}
+              onChange={(v) => handleFieldChange(key, v)}
+              disabled={disabled}
+              path={`${path}.${key}`}
+              isRequired={activeSchema.required?.includes(key)}
+              components={components}
+            />
+          ))}
+        </div>
+      );
+    }
+  }
+
   if (type === "object" && valueSchema && !schema.properties) {
     const obj =
       value != null && typeof value === "object" && !Array.isArray(value)
@@ -198,9 +294,14 @@ const SchemaField = ({
       onChange({ ...obj, [key]: v });
     };
     return (
-      <div className="mt-4 space-y-4 rounded-md border border-border/80 bg-muted/20 p-4">
-        <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">{title}</Label>
+      <div className="grid gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="grid gap-1">
+            <Label className="text-sm font-medium">{title}</Label>
+            {description ? (
+              <p className="text-muted-foreground text-xs">{description}</p>
+            ) : null}
+          </div>
           <Button
             type="button"
             variant="outline"
@@ -211,10 +312,7 @@ const SchemaField = ({
             Add entry
           </Button>
         </div>
-        {description ? (
-          <p className="text-muted-foreground text-xs">{description}</p>
-        ) : null}
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {entries.map(([key]) => (
             <RecordEntryRow
               key={key}
@@ -432,13 +530,15 @@ const SchemaField = ({
       onChange({ ...obj, [key]: v });
     };
     return (
-      <div className="mt-4 space-y-4 rounded-md border border-border/80 bg-muted/20 p-4">
-        <Label className="text-sm font-medium">{title}</Label>
-        {description ? (
-          <p className="text-muted-foreground text-xs">{description}</p>
-        ) : null}
-        <div className="grid gap-4">
-          {Object.entries(schema.properties).map(([k, propSchema]) => (
+      <div className="grid gap-3">
+        <div className="grid gap-1">
+          <Label className="text-sm font-medium">{title}</Label>
+          {description ? (
+            <p className="text-muted-foreground text-xs">{description}</p>
+          ) : null}
+        </div>
+        <div className="grid gap-4 rounded-md border border-border/80 bg-muted/20 p-3">
+          {orderedPropertyEntries(schema).map(([k, propSchema]) => (
             <SchemaField
               key={k}
               name={k}
@@ -472,9 +572,14 @@ const SchemaField = ({
       onChange(next);
     };
     return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label>{title}</Label>
+      <div className="grid gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="grid gap-1">
+            <Label className="text-sm font-medium">{title}</Label>
+            {description ? (
+              <p className="text-muted-foreground text-xs">{description}</p>
+            ) : null}
+          </div>
           <Button
             type="button"
             variant="outline"
@@ -485,36 +590,41 @@ const SchemaField = ({
             Add
           </Button>
         </div>
-        {description ? (
-          <p className="text-muted-foreground text-xs">{description}</p>
-        ) : null}
-        <div className="space-y-2">
+        <div className="grid gap-3">
+          {arr.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No entries yet. Use Add to create one.
+            </p>
+          ) : null}
           {arr.map((item, index) => (
             <div
               key={index}
-              className="flex gap-2 items-start rounded-md border p-2"
+              className="grid gap-2 rounded-md border border-border/80 bg-muted/20 p-3"
             >
-              <div className="flex-1 min-w-0">
-                <SchemaField
-                  name={`${name}[${index}]`}
-                  schema={itemSchema}
-                  value={item}
-                  onChange={(v) => handleItemChange(index, v)}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground text-xs font-medium">
+                  Item {index + 1}
+                </span>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  onClick={() => handleRemove(index)}
                   disabled={disabled}
-                  path={`${path}[${index}]`}
-                  components={components}
-                />
+                  aria-label={`Remove item ${index + 1}`}
+                >
+                  <Trash2 />
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => handleRemove(index)}
+              <SchemaField
+                name={`${name}[${index}]`}
+                schema={itemSchema}
+                value={item}
+                onChange={(v) => handleItemChange(index, v)}
                 disabled={disabled}
-                aria-label={`Remove item ${index + 1}`}
-              >
-                Remove
-              </Button>
+                path={`${path}[${index}]`}
+                components={components}
+              />
             </div>
           ))}
         </div>
@@ -578,7 +688,7 @@ export const SchemaForm = ({
 
   return (
     <div className={cn("space-y-6", className)} onBlur={() => setTouched(true)}>
-      {Object.entries(schema.properties).map(([key, propSchema]) => (
+      {orderedPropertyEntries(schema).map(([key, propSchema]) => (
         <SchemaField
           key={key}
           name={key}

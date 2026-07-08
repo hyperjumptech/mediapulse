@@ -82,6 +82,7 @@ import {
   getContentGenerationRuns,
   postContentGenerationRun,
 } from "./routes/content-generation-run.js";
+import { postQueryAnalysisRun } from "./routes/query-analysis-run.js";
 import { getSectionCoverageRollupHandler } from "./routes/section-coverage-rollup.js";
 import { getAgentInsights } from "./routes/agent-insights.js";
 import { postCollectionUrlOutcome } from "./routes/collection-url-outcome.js";
@@ -227,6 +228,9 @@ const routeHandlers = {
   contentGenerationRuns: {
     get: getContentGenerationRuns,
     post: postContentGenerationRun,
+  },
+  queryAnalysisRuns: {
+    post: postQueryAnalysisRun,
   },
   sectionCoverageRollup: {
     get: getSectionCoverageRollupHandler,

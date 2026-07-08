@@ -44,6 +44,7 @@ describe("postTickerDiscoveryLookupResponseSchema", () => {
         ],
         regulators: [{ name: "OJK", aliases: [], searchKeywords: ["ojk"] }],
         model: "gpt-test",
+        contractVersion: null,
         expiresAt: "2026-01-02T00:00:00.000Z",
       },
     });

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
+import { Separator } from "@workspace/ui/components/separator";
 import { SchemaForm, type JsonSchema } from "@workspace/json-schema-form";
 import { cn } from "@workspace/ui/lib/utils";
 
@@ -122,60 +123,60 @@ export const AgentConfigFormFields = ({
   );
 
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-1.5">
-        <Label htmlFor={nameId}>Name</Label>
-        <Input
-          id={nameId}
-          value={name}
-          onChange={(e) => onNameChange(e.target.value)}
-          disabled={disabled}
-          placeholder="My config"
-        />
+    <div className="grid gap-6">
+      <div className="grid gap-4 rounded-md border border-border/80 bg-muted/20 p-3">
+        <div className="grid gap-1.5">
+          <Label htmlFor={nameId}>Name</Label>
+          <Input
+            id={nameId}
+            value={name}
+            onChange={(e) => onNameChange(e.target.value)}
+            disabled={disabled}
+            placeholder="My config"
+          />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor={descriptionId}>Description (optional)</Label>
+          <Input
+            id={descriptionId}
+            value={description}
+            onChange={(e) => onDescriptionChange(e.target.value)}
+            disabled={disabled}
+            placeholder="Brief description"
+          />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor={agentSelectId}>Agent</Label>
+          <select
+            id={agentSelectId}
+            value={agentKey}
+            onChange={(e) => handleAgentChange(e.target.value)}
+            disabled={disabled}
+            className={cn(
+              "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            )}
+          >
+            <option value="">Select an agent…</option>
+            {agents.map((a) => (
+              <option key={a.id} value={`${a.agentId}@${a.agentVersion}`}>
+                {a.agentId}@{a.agentVersion}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
-      <div className="grid gap-1.5">
-        <Label htmlFor={descriptionId}>Description (optional)</Label>
-        <Input
-          id={descriptionId}
-          value={description}
-          onChange={(e) => onDescriptionChange(e.target.value)}
-          disabled={disabled}
-          placeholder="Brief description"
-        />
-      </div>
-      <div className="grid gap-1.5">
-        <Label htmlFor={agentSelectId}>Agent</Label>
-        <select
-          id={agentSelectId}
-          value={agentKey}
-          onChange={(e) => handleAgentChange(e.target.value)}
-          disabled={disabled}
-          className={cn(
-            "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm",
-            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-          )}
-        >
-          <option value="">Select an agent…</option>
-          {agents.map((a) => (
-            <option key={a.id} value={`${a.agentId}@${a.agentVersion}`}>
-              {a.agentId}@{a.agentVersion}
-            </option>
-          ))}
-        </select>
-      </div>
+      {agentKey ? <Separator /> : null}
       {schemaLoading ? (
         <p className="text-muted-foreground text-sm">Loading schema…</p>
       ) : isObjectSchema ? (
-        <div className="grid gap-1.5">
-          <Label className="mb-2">Config</Label>
-          <SchemaForm
-            schema={configSchema as JsonSchema}
-            value={config}
-            onChange={onConfigChange}
-            disabled={disabled}
-            components={{ StringField: stringFieldComponent }}
-          />
-        </div>
+        <SchemaForm
+          schema={configSchema as JsonSchema}
+          value={config}
+          onChange={onConfigChange}
+          disabled={disabled}
+          components={{ StringField: stringFieldComponent }}
+        />
       ) : agentKey ? (
         <p className="text-muted-foreground text-sm">
           This agent has no config schema. Config will be saved as empty.

@@ -14,55 +14,42 @@ const defaultProviderPool: ProviderEntry[] = [
 const webSearchSchema = z
   .array(providerEntrySchema)
   .min(1)
-  .default([...defaultProviderPool])
-  .describe(
-    "Web-search provider pool for the yield probe. Each probe rotates the starting provider (round-robin) and falls back to the rest on failure.",
-  );
+  .default([...defaultProviderPool]);
 
-const aiSchema = z
+const languageModelSchema = z
   .object({
-    apiKey: z
-      .string()
-      .default("{{AI_API_KEY}}")
-      .describe(
-        "OpenAI-compatible API key for entity discovery (or a Hermes variable placeholder such as {{AI_API_KEY}}).",
-      ),
-    model: z
-      .string()
-      .default("{{AI_MODEL}}")
-      .describe(
-        "Model id used for entity discovery (or a Hermes variable placeholder such as {{AI_MODEL}}).",
-      ),
     baseUrl: z
       .string()
       .default("{{AI_BASE_URL}}")
-      .describe(
-        "OpenAI-compatible base URL for entity discovery (for example an OpenRouter gateway).",
-      ),
+      .describe("OpenAI-compatible base URL"),
+    model: z.string().default("{{AI_MODEL}}"),
+    apiKey: z.string().default("{{AI_API_KEY}}"),
   })
   .default({})
-  .describe("LLM credentials for the entity-discovery step.");
+  .describe(
+    "LLM used to discover related entities and generate the search-query candidates.",
+  );
 
 /**
  * Runtime configuration from Hermes invoke `config` (variable substitution).
  *
  * The self-driving pipeline exposes only two operator groups (`web_search` and
- * `ai`), matching data-collection. Every other knob (languages, probe locales,
- * query count, discovery caps, probe budget, cache TTL, market anchors) is an
- * internal constant in `./constants`, not operator-tunable config.
+ * `language_model`). Every other knob (languages, probe locales, query count,
+ * discovery caps, probe budget, cache TTL, market anchors) is an internal
+ * constant in `./constants`, not operator-tunable config.
  */
 export const queryAnalysisConfigSchema = z
   .object({
+    language_model: languageModelSchema,
     web_search: webSearchSchema,
-    ai: aiSchema,
   })
   .strict();
 
 /** Parsed invoke config with all group and field defaults applied. */
 export type QueryAnalysisConfig = z.output<typeof queryAnalysisConfigSchema>;
 
-/** LLM credentials group used by the discovery step. */
-export type QueryAnalysisAiConfig = QueryAnalysisConfig["ai"];
+/** LLM credentials group used for entity discovery and query generation. */
+export type QueryAnalysisAiConfig = QueryAnalysisConfig["language_model"];
 
 /** Web-search provider pool used by the yield probe. */
 export type QueryAnalysisWebSearchConfig = QueryAnalysisConfig["web_search"];

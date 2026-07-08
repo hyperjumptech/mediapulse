@@ -5,6 +5,7 @@ export type QueryAnalysisTicker = {
   id: string;
   symbol: string;
   name: string;
+  aliases?: string[];
   sector?: string | null;
   industry?: string | null;
   subSector?: string | null;

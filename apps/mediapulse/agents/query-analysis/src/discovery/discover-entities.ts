@@ -65,8 +65,14 @@ const buildPrompt = (input: DiscoverEntitiesInput): string =>
     `Return up to ${input.maxCompetitors} real, named competitors and up to ${input.maxRegulators} real regulators or policy bodies.`,
     "Competitors must be actual rival companies (prefer listed peers in the same market). Regulators must be real oversight or policy bodies that materially affect this company or its sector.",
     `For each entity, provide its common name, any well-known aliases or ticker symbols, and 1-${input.maxKeywordsPerEntity} short search keywords that surface news about it.`,
+    "Also identify, specific to this company's home market:",
+    "- main_inputs: the key commodities, raw materials, or services this company buys whose prices move its margins.",
+    "- customer_segments: who buys from this sector, in plain terms.",
+    "Keep main_inputs and customer_segments short (up to 8 items each), concrete, and non-generic.",
     "Do not invent entities. If you are unsure, return fewer rather than fabricating.",
   ].join("\n");
+
+const MAX_DISCOVERY_CONTEXT_ITEMS = 8;
 
 const capEntity = (
   entity: DiscoveredEntity,
@@ -86,6 +92,11 @@ const capResult = (
   regulators: result.regulators
     .slice(0, input.maxRegulators)
     .map((entity) => capEntity(entity, input.maxKeywordsPerEntity)),
+  mainInputs: result.mainInputs.slice(0, MAX_DISCOVERY_CONTEXT_ITEMS),
+  customerSegments: result.customerSegments.slice(
+    0,
+    MAX_DISCOVERY_CONTEXT_ITEMS,
+  ),
 });
 
 /**
@@ -128,6 +139,11 @@ export const discoverEntities = async (
       "query-analysis entity discovery failed; degrading to own-company + industry only",
     );
 
-    return { competitors: [], regulators: [] };
+    return {
+      competitors: [],
+      regulators: [],
+      mainInputs: [],
+      customerSegments: [],
+    };
   }
 };

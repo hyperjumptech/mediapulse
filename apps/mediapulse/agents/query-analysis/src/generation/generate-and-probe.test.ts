@@ -23,16 +23,15 @@ const baseInput = {
   probeConcurrency: 4,
   probeMinResults: 1,
   probeTimeoutMs: 30_000,
+  minSurvivors: 24,
 };
 
 /** Fake `generateObject` returning a fixed candidate batch each call. */
-const makeGenerate = (
-  batches: { text: string; intent: string; language: string }[][],
-) => {
+const makeGenerate = (batches: { i: number; l: string; s: string }[][]) => {
   const generate = vi.fn();
   for (const batch of batches) {
     generate.mockResolvedValueOnce({
-      object: { candidates: batch },
+      object: batch,
       usage: { inputTokens: 5, outputTokens: 5, totalTokens: 10 },
     });
   }
@@ -53,9 +52,7 @@ const makeCountHits = (hitsByText: Record<string, number>) =>
 describe("generateAndProbeCandidates", () => {
   it("stops after the first attempt when nothing comes back zero-hit", async () => {
     // Setup
-    const generate = makeGenerate([
-      [{ text: "saham FORE IDX", intent: "breaking", language: "id" }],
-    ]);
+    const generate = makeGenerate([[{ i: 4, l: "id", s: "saham FORE IDX" }]]);
     const countHits = makeCountHits({ "saham FORE IDX": 5 });
 
     // Act
@@ -73,8 +70,8 @@ describe("generateAndProbeCandidates", () => {
   it("retries with the zero-hit texts as excludeQueries, and re-probes only the delta", async () => {
     // Setup
     const generate = makeGenerate([
-      [{ text: "FORE", intent: "breaking", language: "id" }],
-      [{ text: "saham FORE IDX", intent: "breaking", language: "id" }],
+      [{ i: 4, l: "id", s: "FORE" }],
+      [{ i: 4, l: "id", s: "saham FORE IDX" }],
     ]);
     const countHits = makeCountHits({
       FORE: 0,
@@ -97,12 +94,35 @@ describe("generateAndProbeCandidates", () => {
     expect(result.dropped.map((d) => d.text)).toEqual(["FORE"]);
   });
 
+  it("stops retrying once minSurvivors is reached even if some candidates are zero-hit", async () => {
+    // Setup
+    const generate = makeGenerate([
+      [
+        { i: 4, l: "id", s: "saham FORE IDX" },
+        { i: 4, l: "id", s: "FORE" },
+      ],
+    ]);
+    const countHits = makeCountHits({ "saham FORE IDX": 5, FORE: 0 });
+
+    // Act
+    const result = await generateAndProbeCandidates(
+      { ...baseInput, minSurvivors: 1, generate },
+      { probeDeps: { countHits: countHits as never } },
+    );
+
+    // Assert
+    expect(result.attempts).toBe(1);
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(result.survivors.map((s) => s.text)).toEqual(["saham FORE IDX"]);
+    expect(result.dropped.map((d) => d.text)).toEqual(["FORE"]);
+  });
+
   it("stops after GENERATION_MAX_ATTEMPTS even if every attempt is zero-hit", async () => {
     // Setup
     const generate = makeGenerate([
-      [{ text: "a", intent: "wildcard", language: "id" }],
-      [{ text: "b", intent: "wildcard", language: "id" }],
-      [{ text: "c", intent: "wildcard", language: "id" }],
+      [{ i: 4, l: "id", s: "a" }],
+      [{ i: 4, l: "id", s: "b" }],
+      [{ i: 4, l: "id", s: "c" }],
     ]);
     const countHits = makeCountHits({});
 

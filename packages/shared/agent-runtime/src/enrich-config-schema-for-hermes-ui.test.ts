@@ -38,7 +38,7 @@ describe("enrichConfigSchemaForHermesUi", () => {
     expect(originalPromptProps.userPromptTemplate?.format).toBeUndefined();
   });
 
-  it("returns a clone unchanged when prompts object is missing", () => {
+  it("leaves fields untouched (except propertyOrder) when prompts object is missing", () => {
     const schema = {
       type: "object",
       properties: { limit: { type: "number" } },
@@ -46,8 +46,57 @@ describe("enrichConfigSchemaForHermesUi", () => {
 
     const enriched = enrichConfigSchemaForHermesUi(schema);
 
-    expect(enriched).toEqual(schema);
     expect(enriched).not.toBe(schema);
+    expect((enriched.properties as Record<string, unknown>).limit).toEqual({
+      type: "number",
+    });
+    expect(enriched.propertyOrder).toEqual(["limit"]);
+  });
+
+  it("records propertyOrder on every object, array item, and union variant", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        language_model: {
+          type: "object",
+          properties: {
+            baseUrl: { type: "string" },
+            model: { type: "string" },
+            apiKey: { type: "string" },
+          },
+        },
+        web_search: {
+          type: "array",
+          items: {
+            anyOf: [
+              {
+                type: "object",
+                properties: {
+                  provider: { type: "string" },
+                  apiKey: { type: "string" },
+                },
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const enriched = enrichConfigSchemaForHermesUi(schema);
+    const properties = enriched.properties as Record<
+      string,
+      Record<string, unknown>
+    >;
+    const item = (properties.web_search?.items as Record<string, unknown>)
+      .anyOf as Record<string, unknown>[];
+
+    expect(enriched.propertyOrder).toEqual(["language_model", "web_search"]);
+    expect(properties.language_model?.propertyOrder).toEqual([
+      "baseUrl",
+      "model",
+      "apiKey",
+    ]);
+    expect(item[0]?.propertyOrder).toEqual(["provider", "apiKey"]);
   });
 
   it("skips non-string prompt fields", () => {

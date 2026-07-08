@@ -22,10 +22,18 @@ export interface JsonSchema {
   properties?: Record<string, JsonSchema>;
   /** List of required property names (for object schemas). */
   required?: string[];
+  /** Declared render order of `properties` keys (survives jsonb storage, which drops object key order). */
+  propertyOrder?: string[];
   /** Schema for dynamic keys (e.g. z.record()); when set, object is edited as key-value entries. */
   additionalProperties?: JsonSchema | boolean;
   items?: JsonSchema;
   enum?: unknown[];
+  /** Single allowed value (used as a discriminator in union variants). */
+  const?: unknown;
+  /** Union variants (e.g. from z.discriminatedUnion); rendered as a variant selector plus the active variant's fields. */
+  anyOf?: JsonSchema[];
+  /** Union variants; treated the same as `anyOf`. */
+  oneOf?: JsonSchema[];
   default?: unknown;
   /** JSON Schema format (e.g. "date", "date-time", "textarea"). */
   format?: string;

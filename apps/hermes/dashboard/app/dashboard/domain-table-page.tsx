@@ -318,7 +318,10 @@ export const DomainTablePage = async ({
                 return (
                   <TableRow key={rowId}>
                     {meta.columns.map((column) => (
-                      <TableCell key={`${rowId}-${column.key}`}>
+                      <TableCell
+                        key={`${rowId}-${column.key}`}
+                        className="whitespace-nowrap"
+                      >
                         {formatDomainTableCellValue(column, row[column.key])}
                       </TableCell>
                     ))}

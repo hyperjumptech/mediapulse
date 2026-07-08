@@ -1,4 +1,5 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
+import type { QueryDecision } from "@workspace/agent-data-api-contract";
 import {
   createTokenUsageAccumulator,
   type AgentRunContext,
@@ -23,6 +24,7 @@ import {
   PROBE_TIMEOUT_MS,
   QUERY_COUNT,
 } from "./constants";
+import { buildQueryDecisions } from "./chronicle/build-query-decisions";
 import { discoverEntities } from "./discovery/discover-entities";
 import type { DiscoveredEntity } from "./discovery/schema";
 import { deriveClassification, deriveMarketContext } from "./pipeline/context";
@@ -77,28 +79,42 @@ export const runQueryAnalysis = async (
     token,
   });
 
-  const report = (
-    title: string,
-    description?: string,
-    status: "processing" | "completed" = "processing",
-  ) => {
-    const jobId = hermesCorrelation?.jobId;
-    if (jobId && token) {
-      void fetch(`${env.AGENT_REGISTRY_URL}/api/agent-activity`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: token },
-        body: JSON.stringify({ jobId, title, description, status }),
-      }).catch(() => {});
+  // Best-effort chronicle write: records the per-query include/reject decision log for this run.
+  // Any failure is logged and swallowed so it never affects the primary AgentRunResult.
+  const writeChronicle = async (queries: QueryDecision[]): Promise<void> => {
+    try {
+      await client.queryAnalysisRuns.create({
+        tickerId: input.tickerId,
+        executionId: hermesCorrelation?.executionId ?? null,
+        queries,
+      });
+    } catch (chronicleError) {
+      logger.error(
+        { err: chronicleError, tickerId: input.tickerId },
+        "Failed to write query-analysis chronicle",
+      );
     }
   };
 
-  report("Fetching ticker context", `ticker ${input.tickerId}`);
   const queryContext = await client.queryAnalysis.get({
     tickerId: input.tickerId,
   });
   const ticker = queryContext.ticker;
   const classification = deriveClassification(ticker);
   const market = deriveMarketContext();
+
+  logger.info(
+    {
+      tickerId: input.tickerId,
+      symbol: ticker.symbol,
+      name: ticker.name,
+      sector: classification.sector,
+      industry: classification.industry,
+      homeMarket: market.homeMarket,
+      contractVersion,
+    },
+    "query analysis started",
+  );
 
   // Discovery: reuse the cache, LLM-discover on miss (or on a contract change), and write back.
   const discoveryStartMs = now();
@@ -107,22 +123,20 @@ export const runQueryAnalysis = async (
   });
   let competitors: DiscoveredEntity[] = lookup.entry?.competitors ?? [];
   let regulators: DiscoveredEntity[] = lookup.entry?.regulators ?? [];
+  let mainInputs: string[] = lookup.entry?.mainInputs ?? [];
+  let customerSegments: string[] = lookup.entry?.customerSegments ?? [];
   const cacheHit =
     lookup.entry !== null && lookup.entry.contractVersion === contractVersion;
   let discoveryModel: string | null = lookup.entry?.model ?? null;
 
   if (!cacheHit) {
-    report(
-      "Discovering competitors and regulators",
-      `${ticker.symbol} (${ticker.name})`,
-    );
     const discovered = await discoverEntities({
       tickerName: ticker.name,
       tickerSymbol: ticker.symbol,
       classification,
       homeMarket: market.homeMarket,
       contractBrief,
-      ai: config.ai,
+      ai: config.language_model,
       maxCompetitors: DISCOVERY_MAX_COMPETITORS,
       maxRegulators: DISCOVERY_MAX_REGULATORS,
       maxKeywordsPerEntity: DISCOVERY_MAX_KEYWORDS_PER_ENTITY,
@@ -132,22 +146,40 @@ export const runQueryAnalysis = async (
     });
     competitors = discovered.competitors;
     regulators = discovered.regulators;
-    discoveryModel = config.ai.model;
+    mainInputs = discovered.mainInputs;
+    customerSegments = discovered.customerSegments;
+    discoveryModel = config.language_model.model;
 
     await client.tickerDiscoveryRecord.create({
       tickerId: input.tickerId,
       competitors: discovered.competitors,
       regulators: discovered.regulators,
-      model: config.ai.model,
+      mainInputs: discovered.mainInputs,
+      customerSegments: discovered.customerSegments,
+      model: config.language_model.model,
       ...(contractVersion !== null ? { contractVersion } : {}),
       ttlSeconds: DISCOVERY_CACHE_TTL_SECONDS,
     });
   }
   const discoveryMs = now() - discoveryStartMs;
 
+  logger.info(
+    {
+      tickerId: input.tickerId,
+      symbol: ticker.symbol,
+      cacheHit,
+      discoveryModel,
+      competitors: competitors.map((entity) => entity.name),
+      regulators: regulators.map((entity) => entity.name),
+      mainInputs,
+      customerSegments,
+      discoveryMs,
+    },
+    "query analysis discovery complete",
+  );
+
   // Generate query candidates via LLM (own-company/deals/competitor/regulator/industry
   // themes), probe each for yield, and retry with feedback on zero-hit candidates.
-  report("Generating query candidates", `${ticker.symbol} (${ticker.name})`);
   const generationStartMs = now();
   const generation = await generateAndProbeCandidates(
     {
@@ -157,9 +189,11 @@ export const runQueryAnalysis = async (
       contractBrief,
       competitors,
       regulators,
+      mainInputs,
+      customerSegments,
       languages: LANGUAGES,
       currentDate: new Date(now()).toISOString().slice(0, 10),
-      ai: config.ai,
+      ai: config.language_model,
       onUsage: tokenUsage.onUsage,
       logger,
       providers: config.web_search,
@@ -168,6 +202,7 @@ export const runQueryAnalysis = async (
       probeConcurrency: PROBE_CONCURRENCY,
       probeMinResults: PROBE_MIN_RESULTS,
       probeTimeoutMs: PROBE_TIMEOUT_MS,
+      minSurvivors: QUERY_COUNT,
       ...(deps.generateQueries ? { generate: deps.generateQueries } : {}),
     },
     {
@@ -179,6 +214,22 @@ export const runQueryAnalysis = async (
   );
   const generationMs = now() - generationStartMs;
 
+  logger.info(
+    {
+      tickerId: input.tickerId,
+      symbol: ticker.symbol,
+      attempts: generation.attempts,
+      candidates: generation.telemetry.candidates,
+      deduped: generation.telemetry.deduped,
+      survivors: generation.telemetry.survivors,
+      dropped: generation.telemetry.dropped.length,
+      searchCredits: generation.telemetry.searchCredits,
+      providerUsage: generation.telemetry.providerUsage,
+      generationMs,
+    },
+    "query analysis generation and probe complete",
+  );
+
   const finalizeStartMs = now();
   const finalized = finalizeQueries({
     survivors: generation.survivors,
@@ -187,18 +238,44 @@ export const runQueryAnalysis = async (
   });
   const finalizeMs = now() - finalizeStartMs;
 
+  logger.info(
+    {
+      tickerId: input.tickerId,
+      symbol: ticker.symbol,
+      queryCount: finalized.queries.length,
+      idCount: finalized.idCount,
+      globalCount: finalized.globalCount,
+      perIntent: finalized.perIntent,
+      perSection: finalized.perSection,
+      finalizeMs,
+    },
+    "query analysis finalize complete",
+  );
+
+  const queryDecisions = buildQueryDecisions({
+    survivors: generation.survivors,
+    dropped: generation.dropped,
+    finalized: finalized.queries,
+  });
+
   if (finalized.queries.length === 0) {
     logger.warn(
       {
         tickerId: input.tickerId,
+        symbol: ticker.symbol,
+        attempts: generation.attempts,
         candidates: generation.telemetry.candidates,
+        deduped: generation.telemetry.deduped,
+        dropped: generation.telemetry.dropped.length,
+        searchCredits: generation.telemetry.searchCredits,
       },
       "query-analysis produced no surviving queries; skipping persist",
     );
+    await writeChronicle(queryDecisions);
 
     return {
       success: false,
-      message: "No query survived the yield probe.",
+      message: `No query survived the yield probe (${generation.telemetry.candidates} candidates generated, ${generation.telemetry.dropped} dropped for zero search yield).`,
       details: { created: 0 },
     };
   }
@@ -214,7 +291,7 @@ export const runQueryAnalysis = async (
     generationSource: "self_driving_v1",
     ...(contract !== undefined ? { contractVersion: contract.version } : {}),
     llmUsage: {
-      model: config.ai.model,
+      model: config.language_model.model,
       promptTokens: usageTotals.promptTokens,
       completionTokens: usageTotals.completionTokens,
       totalTokens: usageTotals.totalTokens,
@@ -255,11 +332,7 @@ export const runQueryAnalysis = async (
     ...(discoveryModel !== null ? { discoveryModel } : {}),
   };
 
-  report(
-    "Saving query set",
-    `${finalized.queries.length} queries`,
-    "completed",
-  );
+  await writeChronicle(queryDecisions);
   const response = await client.queryAnalysis.create({
     tickerId: input.tickerId,
     generationSource: "self_driving_v1",
@@ -272,7 +345,13 @@ export const runQueryAnalysis = async (
   });
 
   logger.info(
-    { tickerId: input.tickerId, created: response.created, cacheHit },
+    {
+      tickerId: input.tickerId,
+      symbol: ticker.symbol,
+      created: response.created,
+      cacheHit,
+      totalMs: now() - runStartMs,
+    },
     "query analysis set persisted",
   );
 

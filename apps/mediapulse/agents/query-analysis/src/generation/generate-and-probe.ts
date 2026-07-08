@@ -26,6 +26,7 @@ export type GenerateAndProbeInput = Omit<
   probeConcurrency: number;
   probeMinResults: number;
   probeTimeoutMs: number;
+  minSurvivors: number;
   logger?: SearchProviderLogger;
 };
 
@@ -85,11 +86,31 @@ export const generateAndProbeCandidates = async (
   let attempts = 0;
 
   for (attempts = 1; attempts <= GENERATION_MAX_ATTEMPTS; attempts++) {
+    input.logger?.info(
+      {
+        tickerSymbol: input.ticker.symbol,
+        attempt: attempts,
+        maxAttempts: GENERATION_MAX_ATTEMPTS,
+        excludeCount: excludeQueries.length,
+      },
+      "query generation attempt started",
+    );
+
     const candidates = await generateQueryCandidates({
       ...input,
       ...(input.logger ? { logger: input.logger } : {}),
       ...(excludeQueries.length > 0 ? { excludeQueries } : {}),
     });
+
+    input.logger?.info(
+      {
+        tickerSymbol: input.ticker.symbol,
+        attempt: attempts,
+        candidates: candidates.length,
+        sample: candidates.slice(0, 5).map((candidate) => candidate.text),
+      },
+      "query generation attempt produced candidates",
+    );
 
     const probe = await runYieldProbe(
       {
@@ -134,7 +155,25 @@ export const generateAndProbeCandidates = async (
       }
     }
 
-    if (zeroHitTexts.length === 0 || attempts >= GENERATION_MAX_ATTEMPTS) {
+    input.logger?.info(
+      {
+        tickerSymbol: input.ticker.symbol,
+        attempt: attempts,
+        probed: probe.telemetry.deduped,
+        attemptSurvivors: probe.survivors.length,
+        attemptDropped: probe.dropped.length,
+        cumulativeSurvivors: survivorsByKey.size,
+        minSurvivors: input.minSurvivors,
+        searchCredits: probe.telemetry.searchCredits,
+      },
+      "query probe attempt complete",
+    );
+
+    if (
+      zeroHitTexts.length === 0 ||
+      survivorsByKey.size >= input.minSurvivors ||
+      attempts >= GENERATION_MAX_ATTEMPTS
+    ) {
       break;
     }
     excludeQueries = zeroHitTexts;

@@ -179,7 +179,7 @@ describe("PipelineStepEditorPanel", () => {
       name: "Choose a saved agent config",
     });
     expect(picker).toBeInTheDocument();
-    expect(screen.getByLabelText("Agent config")).toBeInTheDocument();
+    expect(screen.getByLabelText("Agent config *")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "None" })).toBeInTheDocument();
     expect(
       screen.getByRole("option", { name: "Config A — First config" }),

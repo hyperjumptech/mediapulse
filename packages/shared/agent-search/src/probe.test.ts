@@ -99,6 +99,22 @@ describe("countQueryHits", () => {
 
     expect(result.hits).toBe(0);
     expect(result.provider).toBeUndefined();
+    expect(result.failed).toBe(true);
+  });
+
+  it("does not mark a probe as failed when a provider returns zero results", async () => {
+    const providers = [
+      makeProvider("serper", () => Promise.resolve(hitsResult(0))),
+    ];
+    const result = await countQueryHits("quiet query", {
+      providers,
+      locales: [{ gl: "id", hl: "id" }],
+      cursor: new RoundRobinCursor(),
+      gotClient: fakeGot,
+    });
+
+    expect(result.hits).toBe(0);
+    expect(result.failed).toBeFalsy();
   });
 
   it("fails over to the next provider and counts credits from the attempt that returned", async () => {

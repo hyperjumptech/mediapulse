@@ -650,6 +650,7 @@ describe("agent-data-api", () => {
           id: TICKER_ID,
           symbol: "AAPL",
           name: "Apple Inc.",
+          aliases: [],
           sector: null,
           industry: null,
           subSector: null,

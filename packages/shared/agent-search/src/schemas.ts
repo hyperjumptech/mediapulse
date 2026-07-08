@@ -13,20 +13,14 @@ export type ProviderName = z.infer<typeof providerNameSchema>;
 
 /** Providers with a fixed endpoint, authenticated with an API key. */
 const apiKeyProviderEntrySchema = z.object({
-  provider: z
-    .enum(["serper", "tavily", "exa", "firecrawl"])
-    .describe("Provider identifier."),
-  apiKey: z
-    .string()
-    .describe(
-      "Provider API key or a Hermes variable placeholder such as {{SERPER_API_KEY}}.",
-    ),
+  provider: z.enum(["serper", "tavily", "exa", "firecrawl"]),
+  apiKey: z.string(),
 });
 
 /** Self-hosted provider: a custom base URL plus operator-supplied auth headers. */
 const selfHostedProviderEntrySchema = z.object({
-  provider: z.literal("firecrawl_selfhosted").describe("Provider identifier."),
-  baseUrl: z.string().describe("Base URL of the self-hosted instance."),
+  provider: z.literal("firecrawl_selfhosted"),
+  baseUrl: z.string(),
   headers: z
     .record(z.string())
     .optional()

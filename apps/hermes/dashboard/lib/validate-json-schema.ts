@@ -14,6 +14,12 @@ ajv.addFormat("textarea", {
 });
 
 /**
+ * Hermes UI-only annotation keyword recording declared field order
+ * ({@link enrichConfigSchemaForHermesUi} in @workspace/agent-runtime). No-op for validation.
+ */
+ajv.addKeyword({ keyword: "propertyOrder" });
+
+/**
  * Validates data against a JSON Schema.
  *
  * @param schema - JSON Schema object (e.g. from agent registry).

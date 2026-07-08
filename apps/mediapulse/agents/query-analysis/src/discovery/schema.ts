@@ -7,10 +7,12 @@ export const discoveredEntitySchema = z.object({
   searchKeywords: z.array(z.string()).min(1),
 });
 
-/** The full discovery result: competitors and regulators for one ticker. */
+/** The full discovery result: competitors, regulators, and input/demand context for one ticker. */
 export const discoveryResultSchema = z.object({
   competitors: z.array(discoveredEntitySchema).default([]),
   regulators: z.array(discoveredEntitySchema).default([]),
+  mainInputs: z.array(z.string()).default([]),
+  customerSegments: z.array(z.string()).default([]),
 });
 
 export type DiscoveredEntity = z.infer<typeof discoveredEntitySchema>;

@@ -33,6 +33,8 @@ describe("discoverEntities", () => {
           aliases: [],
           searchKeywords: ["x", "y", "z"],
         })),
+        mainInputs: Array.from({ length: 10 }, (_, index) => `input ${index}`),
+        customerSegments: ["urban middle class", "students"],
       },
       usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
     });
@@ -48,6 +50,8 @@ describe("discoverEntities", () => {
     expect(result.competitors).toHaveLength(6);
     expect(result.regulators).toHaveLength(4);
     expect(result.competitors[0]?.searchKeywords).toEqual(["a", "b"]);
+    expect(result.mainInputs).toHaveLength(8);
+    expect(result.customerSegments).toEqual(["urban middle class", "students"]);
     expect(onUsage).toHaveBeenCalledWith({
       promptTokens: 10,
       completionTokens: 5,
@@ -58,7 +62,12 @@ describe("discoverEntities", () => {
   it("prepends the contract brief to the system prompt", async () => {
     // Setup
     const generate = vi.fn().mockResolvedValue({
-      object: { competitors: [], regulators: [] },
+      object: {
+        competitors: [],
+        regulators: [],
+        mainInputs: [],
+        customerSegments: [],
+      },
       usage: undefined,
     });
 
@@ -85,7 +94,12 @@ describe("discoverEntities", () => {
     });
 
     // Assert
-    expect(result).toEqual({ competitors: [], regulators: [] });
+    expect(result).toEqual({
+      competitors: [],
+      regulators: [],
+      mainInputs: [],
+      customerSegments: [],
+    });
     expect(warn).toHaveBeenCalledTimes(1);
   });
 });
