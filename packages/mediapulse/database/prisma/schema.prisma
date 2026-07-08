@@ -504,6 +504,7 @@ model Ticker {
   deliveryRuns           DeliveryRun[]
   contentGenerationRuns  ContentGenerationRun[]
   articleAnalysisRuns    ArticleAnalysisRun[]
+  queryAnalysisRuns      QueryAnalysisRun[]
   tickerSections         DataSourceTickerSection[]
 
   @@map("ticker")
@@ -516,6 +517,8 @@ model TickerDiscovery {
   tickerId    String   @unique @map("ticker_id")
   competitors Json
   regulators  Json
+  mainInputs       Json  @default("[]") @map("main_inputs")
+  customerSegments Json  @default("[]") @map("customer_segments")
   /// Discovery model id, for audit.
   model       String?
   /// Agent contract version active when this entry was written; a mismatch with the
@@ -900,4 +903,21 @@ model ContentGenerationRun {
   @@index([tickerId, createdAt])
   @@index([outcome, createdAt])
   @@map("content_generation_run")
+}
+
+/// Per-run chronicle for query-analysis: each generated query with its include/reject decision and reason.
+model QueryAnalysisRun {
+  id          String   @id @default(uuid())
+  tickerId    String   @map("ticker_id")
+  /// hermesCorrelation.executionId — ties the chronicle to the run so you can find its activity.
+  executionId String?  @map("execution_id")
+  /// Per-query decision log: array of { text, included, reason }.
+  queries     Json
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  ticker Ticker @relation(fields: [tickerId], references: [id])
+
+  @@index([tickerId, createdAt])
+  @@index([executionId])
+  @@map("query_analysis_run")
 }

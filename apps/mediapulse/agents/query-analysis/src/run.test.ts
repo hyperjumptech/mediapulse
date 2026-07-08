@@ -35,7 +35,7 @@ const baseTicker = {
 
 const config = queryAnalysisConfigSchema.parse({
   web_search: [{ provider: "serper", apiKey: "sk-serper" }],
-  ai: { apiKey: "sk-ai", model: "test-model", baseUrl: "" },
+  language_model: { apiKey: "sk-ai", model: "test-model", baseUrl: "" },
 });
 
 const discoveredCompetitors = [
@@ -46,11 +46,11 @@ const discoveredRegulators = [
 ];
 
 const generatedCandidates = [
-  { text: "BBRI", intent: "breaking", language: "id" },
-  { text: "Bank Rakyat Indonesia", intent: "breaking", language: "id" },
-  { text: "Bank Mandiri", intent: "competitor", language: "id" },
-  { text: "OJK", intent: "regulatory", language: "id" },
-  { text: "industri Bank Indonesia", intent: "industry_trend", language: "id" },
+  { i: 4, l: "id", s: "BBRI" },
+  { i: 4, l: "id", s: "Bank Rakyat Indonesia" },
+  { i: 5, l: "id", s: "Bank Mandiri" },
+  { i: 8, l: "id", s: "OJK" },
+  { i: 9, l: "id", s: "industri Bank Indonesia" },
 ];
 
 /** Builds a fresh mock agent-data-api client. */
@@ -68,13 +68,28 @@ const makeClient = (lookupEntry: unknown) => {
     tickerId: TICKER_ID,
     expiresAt: "2026-07-20T00:00:00.000Z",
   });
+  const queryAnalysisRunsCreate = vi.fn().mockResolvedValue({
+    id: "33333333-3333-4333-a333-333333333333",
+    tickerId: TICKER_ID,
+    executionId: null,
+    queries: [],
+    createdAt: "2026-07-08T10:00:00.000Z",
+  });
   const client = {
     queryAnalysis: { get, create },
     tickerDiscoveryLookup: { create: lookupCreate },
     tickerDiscoveryRecord: { create: recordCreate },
+    queryAnalysisRuns: { create: queryAnalysisRunsCreate },
   };
 
-  return { client, get, create, lookupCreate, recordCreate };
+  return {
+    client,
+    get,
+    create,
+    lookupCreate,
+    recordCreate,
+    queryAnalysisRunsCreate,
+  };
 };
 
 /** Fake `generateObject` returning a discovery result and token usage. */
@@ -83,6 +98,8 @@ const makeGenerate = () =>
     object: {
       competitors: discoveredCompetitors,
       regulators: discoveredRegulators,
+      mainInputs: ["kredit korporasi"],
+      customerSegments: ["nasabah ritel"],
     },
     usage: { inputTokens: 120, outputTokens: 40, totalTokens: 160 },
   });
@@ -90,7 +107,7 @@ const makeGenerate = () =>
 /** Fake `generateObject` returning a fixed query-candidate batch and token usage. */
 const makeGenerateQueries = () =>
   vi.fn().mockResolvedValue({
-    object: { candidates: generatedCandidates },
+    object: generatedCandidates,
     usage: { inputTokens: 80, outputTokens: 30, totalTokens: 110 },
   });
 
@@ -129,7 +146,13 @@ afterEach(() => {
 describe("runQueryAnalysis — cold run (cache miss)", () => {
   it("discovers entities, generates queries, writes the cache with the contract version, and persists a self-driving query set", async () => {
     // Setup
-    const { client, create, lookupCreate, recordCreate } = makeClient(null);
+    const {
+      client,
+      create,
+      lookupCreate,
+      recordCreate,
+      queryAnalysisRunsCreate,
+    } = makeClient(null);
     const deps: RunQueryAnalysisDeps = {
       createClient: vi.fn(() => client) as never,
       generate: generate as never,
@@ -175,6 +198,17 @@ describe("runQueryAnalysis — cold run (cache miss)", () => {
       0,
     );
     expect(body.strategySnapshot.contractVersion).toBe("1.0");
+
+    // Writes the per-query chronicle with at least one included decision.
+    expect(queryAnalysisRunsCreate).toHaveBeenCalledTimes(1);
+    const chronicle = queryAnalysisRunsCreate.mock.calls[0]?.[0];
+    expect(chronicle.tickerId).toBe(TICKER_ID);
+    expect(Array.isArray(chronicle.queries)).toBe(true);
+    expect(
+      chronicle.queries.some(
+        (decision: { included: boolean }) => decision.included,
+      ),
+    ).toBe(true);
   });
 
   it("ranks queries by probe hits (descending) and assigns contiguous ranks", async () => {

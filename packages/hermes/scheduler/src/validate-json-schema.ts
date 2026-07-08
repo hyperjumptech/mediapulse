@@ -10,6 +10,9 @@ ajv.addFormat("textarea", {
   validate: () => true,
 });
 
+/** Hermes UI-only annotation keyword recording declared field order in enriched config schemas. No-op for validation. */
+ajv.addKeyword({ keyword: "propertyOrder" });
+
 type JsonSchemaLike = {
   type?: string | string[];
   required?: string[];

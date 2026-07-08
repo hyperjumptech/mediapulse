@@ -100,7 +100,7 @@ export const DomainTableSortableHeader = ({
     <TableHeader className="bg-muted/50">
       <TableRow className="border-muted hover:bg-transparent">
         {columns.map((column) => (
-          <TableHead key={column.key}>
+          <TableHead key={column.key} className="whitespace-nowrap">
             {sortableFields.includes(column.key)
               ? sortLink(column.key, column.label)
               : column.label}

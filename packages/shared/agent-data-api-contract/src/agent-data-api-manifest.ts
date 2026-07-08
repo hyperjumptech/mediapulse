@@ -129,6 +129,10 @@ import {
   postQueryAnalysisBodySchema,
   postQueryAnalysisResponseSchema,
 } from "./query-analysis.js";
+import {
+  postQueryAnalysisRunBodySchema,
+  postQueryAnalysisRunResponseSchema,
+} from "./query-analysis-run.js";
 import { getTickerQuerySchema, getTickerResponseSchema } from "./ticker.js";
 import {
   getSectionCoverageRollupQuerySchema,
@@ -608,6 +612,20 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postContentGenerationRunBodySchema,
         response: postContentGenerationRunResponseSchema,
+      },
+    },
+  },
+  queryAnalysisRuns: {
+    v1: {
+      post: {
+        body: postQueryAnalysisRunBodySchema,
+        response: postQueryAnalysisRunResponseSchema,
+      },
+    },
+    v2: {
+      post: {
+        body: postQueryAnalysisRunBodySchema,
+        response: postQueryAnalysisRunResponseSchema,
       },
     },
   },

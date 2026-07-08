@@ -253,6 +253,14 @@ export {
   type PostContentGenerationRunResponse,
 } from "./content-generation-run.js";
 export {
+  postQueryAnalysisRunBodySchema,
+  postQueryAnalysisRunResponseSchema,
+  queryDecisionSchema,
+  type PostQueryAnalysisRunBody,
+  type PostQueryAnalysisRunResponse,
+  type QueryDecision,
+} from "./query-analysis-run.js";
+export {
   getTickerQuerySchema,
   getTickerResponseSchema,
   tickerPeerSchema,

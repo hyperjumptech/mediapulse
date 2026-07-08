@@ -43,7 +43,7 @@ export const PROBE_CONCURRENCY = 4;
 export const PROBE_MIN_RESULTS = 1;
 
 /** Per-probe request timeout. */
-export const PROBE_TIMEOUT_MS = 30_000;
+export const PROBE_TIMEOUT_MS = 10_000;
 
 /** Time-to-live for a written ticker-discovery cache entry (14 days). */
 export const DISCOVERY_CACHE_TTL_SECONDS = 14 * 24 * 60 * 60;

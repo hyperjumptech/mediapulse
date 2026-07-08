@@ -287,4 +287,111 @@ describe("SchemaForm", () => {
     });
     expect(onChange).toHaveBeenCalledWith({ message: "updated" });
   });
+
+  const providerPoolSchema: JsonSchema = {
+    type: "object",
+    properties: {
+      web_search: {
+        type: "array",
+        items: {
+          anyOf: [
+            {
+              type: "object",
+              required: ["provider", "apiKey"],
+              properties: {
+                provider: { type: "string", enum: ["serper", "tavily", "exa"] },
+                apiKey: { type: "string", description: "Provider API key." },
+              },
+            },
+            {
+              type: "object",
+              required: ["provider", "baseUrl"],
+              properties: {
+                provider: { type: "string", const: "firecrawl_selfhosted" },
+                baseUrl: { type: "string", description: "Self-hosted URL." },
+              },
+            },
+          ],
+        },
+      },
+    },
+  };
+
+  it("renders a discriminated-union (anyOf) array item as a variant select plus the active variant's fields", () => {
+    // Setup
+    const value: Record<string, unknown> = {
+      web_search: [{ provider: "serper", apiKey: "{{SERPER_API_KEY}}" }],
+    };
+    const onChange = vi.fn();
+
+    // Act
+    render(
+      <SchemaForm
+        schema={providerPoolSchema}
+        value={value}
+        onChange={onChange}
+      />,
+    );
+
+    // Assert
+    const providerSelect = screen.getByLabelText(/Provider/i);
+    expect(providerSelect.tagName).toBe("SELECT");
+    expect((providerSelect as HTMLSelectElement).value).toBe("serper");
+    const apiKeyInput = screen.getByLabelText(/Api Key/i);
+
+    expect((apiKeyInput as HTMLInputElement).value).toBe("{{SERPER_API_KEY}}");
+  });
+
+  it("reseeds the item with the new variant's fields when the discriminator changes", () => {
+    // Setup
+    const value: Record<string, unknown> = {
+      web_search: [{ provider: "serper", apiKey: "{{SERPER_API_KEY}}" }],
+    };
+    const onChange = vi.fn();
+
+    // Act
+    render(
+      <SchemaForm
+        schema={providerPoolSchema}
+        value={value}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(/Provider/i), {
+      target: { value: "firecrawl_selfhosted" },
+    });
+
+    // Assert
+    expect(onChange).toHaveBeenCalledWith({
+      web_search: [{ provider: "firecrawl_selfhosted", baseUrl: "" }],
+    });
+  });
+
+  it("renders object fields in propertyOrder, not properties key order", () => {
+    // Setup
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        model: { type: "string", title: "Model" },
+        apiKey: { type: "string", title: "Api Key" },
+        baseUrl: { type: "string", title: "Base Url" },
+      },
+      propertyOrder: ["baseUrl", "model", "apiKey"],
+    };
+    const value: Record<string, unknown> = {
+      model: "m",
+      apiKey: "k",
+      baseUrl: "u",
+    };
+    const onChange = vi.fn();
+
+    // Act
+    render(<SchemaForm schema={schema} value={value} onChange={onChange} />);
+    const labels = screen
+      .getAllByText(/Base Url|Model|Api Key/)
+      .map((node) => node.textContent);
+
+    // Assert
+    expect(labels).toEqual(["Base Url", "Model", "Api Key"]);
+  });
 });

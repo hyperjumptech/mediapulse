@@ -110,6 +110,10 @@ const usePipelineDetailState = (
 
     setSaveError(null);
     setSaveWarnings([]);
+    if (stepAgentConfigId === "" || stepAgentContractId === "") {
+      setSaveError("Agent config and Agent contract are required.");
+      return;
+    }
     setSaving(true);
     try {
       const stepFormData = new FormData();

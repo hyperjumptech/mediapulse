@@ -6,6 +6,7 @@ import { Button } from "@workspace/ui/components/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog";
@@ -114,7 +115,6 @@ export const VariableExpansionInput = ({
         <Button
           type="button"
           variant="outline"
-          size="sm"
           disabled={disabled}
           aria-label="Insert variable or expansion"
           onClick={() => setOpen(true)}
@@ -128,6 +128,10 @@ export const VariableExpansionInput = ({
           >
             <DialogHeader className="space-y-0">
               <DialogTitle>Insert variable or expansion</DialogTitle>
+              <DialogDescription>
+                Insert a Hermes variable placeholder or a data-source expansion
+                template into this field.
+              </DialogDescription>
             </DialogHeader>
             <Tabs
               value={activeTab}

@@ -204,11 +204,38 @@ export const runYieldProbe = async (
     ...(input.logger ? { logger: input.logger } : {}),
   };
 
+  input.logger?.info(
+    {
+      candidates: probed.length,
+      providers: input.providers.map((entry) => entry.provider),
+      locales: input.locales.length,
+      timeoutMs: input.timeoutMs,
+      concurrency: input.concurrency,
+    },
+    "yield probe started",
+  );
+
+  let completed = 0;
   const results = await mapWithConcurrency(
     probed,
     input.concurrency,
-    async (candidate): Promise<CountQueryHitsResult> =>
-      countHits(candidate.text, probeContext),
+    async (candidate): Promise<CountQueryHitsResult> => {
+      const startedAt = Date.now();
+      const result = await countHits(candidate.text, probeContext);
+      completed += 1;
+      input.logger?.info(
+        {
+          completed,
+          total: probed.length,
+          hits: result.hits,
+          ms: Date.now() - startedAt,
+          text: candidate.text,
+        },
+        "yield probe candidate complete",
+      );
+
+      return result;
+    },
   );
 
   const survivorsUnranked: ProbedCandidate[] = [];

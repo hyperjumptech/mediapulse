@@ -43,6 +43,8 @@ export async function lookupTickerDiscovery(
       tickerId: true,
       competitors: true,
       regulators: true,
+      mainInputs: true,
+      customerSegments: true,
       model: true,
       contractVersion: true,
       expiresAt: true,
@@ -58,6 +60,9 @@ export async function lookupTickerDiscovery(
     tickerId: row.tickerId,
     competitors: row.competitors as TickerDiscoveryEntry["competitors"],
     regulators: row.regulators as TickerDiscoveryEntry["regulators"],
+    mainInputs: row.mainInputs as TickerDiscoveryEntry["mainInputs"],
+    customerSegments:
+      row.customerSegments as TickerDiscoveryEntry["customerSegments"],
     model: row.model,
     contractVersion: row.contractVersion,
     expiresAt: row.expiresAt.toISOString(),
@@ -80,6 +85,9 @@ export async function recordTickerDiscovery(
   const expiresAt = new Date(now.getTime() + record.ttlSeconds * 1000);
   const competitors = record.competitors as unknown as Prisma.InputJsonValue;
   const regulators = record.regulators as unknown as Prisma.InputJsonValue;
+  const mainInputs = record.mainInputs as unknown as Prisma.InputJsonValue;
+  const customerSegments =
+    record.customerSegments as unknown as Prisma.InputJsonValue;
   const model = record.model ?? null;
   const contractVersion = record.contractVersion ?? null;
 
@@ -89,6 +97,8 @@ export async function recordTickerDiscovery(
       tickerId: record.tickerId,
       competitors,
       regulators,
+      mainInputs,
+      customerSegments,
       model,
       contractVersion,
       expiresAt,
@@ -96,6 +106,8 @@ export async function recordTickerDiscovery(
     update: {
       competitors,
       regulators,
+      mainInputs,
+      customerSegments,
       model,
       contractVersion,
       expiresAt,

@@ -1,40 +1,52 @@
+import type { QueryAnalysisIntent } from "@workspace/agent-data-api-contract";
 import { z } from "zod";
 
-import { GENERATION_CANDIDATE_MAX, LANGUAGES } from "../constants";
+import { LANGUAGES } from "../constants";
 
-/**
- * Intents the LLM candidate-generation call may emit — matches the coverage of the
- * deterministic template stages it replaces (own-company, competitor, regulator, industry
- * themes). Deliberately narrower than the full `QUERY_ANALYSIS_INTENTS` contract enum.
- */
-export const GENERATION_INTENTS = [
-  "breaking",
-  "deals",
+export const GENERATION_INTENT_LABELS = [
+  "earnings",
+  "corporate_actions",
+  "governance_legal",
+  "company_news",
   "competitor",
+  "input_costs",
+  "demand",
   "regulatory",
   "industry_trend",
-  "technology_trend",
+  "disruption",
   "macro",
-  "wildcard",
 ] as const;
 
-export type GenerationIntent = (typeof GENERATION_INTENTS)[number];
+export type GenerationIntentLabel = (typeof GENERATION_INTENT_LABELS)[number];
 
-const generatedCandidateSchema = z.object({
-  text: z.string().trim().min(1),
-  intent: z.enum(GENERATION_INTENTS),
-  language: z.enum(LANGUAGES),
-});
+const QUERY_ANALYSIS_INTENT_BY_GENERATION_INTENT: Record<
+  GenerationIntentLabel,
+  QueryAnalysisIntent
+> = {
+  earnings: "fundamental",
+  corporate_actions: "deals",
+  governance_legal: "breaking",
+  company_news: "breaking",
+  competitor: "competitor",
+  input_costs: "supply_chain",
+  demand: "macro",
+  regulatory: "regulatory",
+  industry_trend: "industry_trend",
+  disruption: "technology_trend",
+  macro: "macro",
+};
 
-/** Model output schema for one candidate-generation call. */
-export const candidateGenerationResultSchema = z.object({
-  candidates: z
-    .array(generatedCandidateSchema)
-    .min(1)
-    .max(GENERATION_CANDIDATE_MAX),
+export const queryAnalysisIntentForNumber = (
+  intentNumber: number,
+): QueryAnalysisIntent | null => {
+  const label = GENERATION_INTENT_LABELS[intentNumber - 1];
+  return label ? QUERY_ANALYSIS_INTENT_BY_GENERATION_INTENT[label] : null;
+};
+
+export const generatedCandidateSchema = z.object({
+  i: z.number().int(),
+  l: z.enum(LANGUAGES),
+  s: z.string(),
 });
 
 export type GeneratedCandidate = z.infer<typeof generatedCandidateSchema>;
-export type CandidateGenerationResult = z.infer<
-  typeof candidateGenerationResultSchema
->;

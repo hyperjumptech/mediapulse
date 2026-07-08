@@ -46,6 +46,7 @@ export const queryAnalysisTickerSchema = z.object({
   id: z.string().uuid(),
   symbol: z.string(),
   name: z.string(),
+  aliases: z.array(z.string()).default([]),
   sector: z.string().nullable().optional(),
   industry: z.string().nullable().optional(),
   subSector: z.string().nullable().optional(),

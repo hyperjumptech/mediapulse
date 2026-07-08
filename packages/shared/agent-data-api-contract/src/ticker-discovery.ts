@@ -19,6 +19,8 @@ const tickerDiscoveryEntrySchema = z.object({
   tickerId: z.string().uuid(),
   competitors: z.array(tickerDiscoveryPartySchema),
   regulators: z.array(tickerDiscoveryPartySchema),
+  mainInputs: z.array(z.string()).default([]),
+  customerSegments: z.array(z.string()).default([]),
   model: z.string().nullable(),
   /** Agent contract version active when this entry was written; `null` for legacy entries. */
   contractVersion: z.string().nullable(),
@@ -39,6 +41,8 @@ export const postTickerDiscoveryRecordBodySchema = z.object({
   tickerId: z.string().uuid(),
   competitors: z.array(tickerDiscoveryPartySchema),
   regulators: z.array(tickerDiscoveryPartySchema),
+  mainInputs: z.array(z.string()).default([]),
+  customerSegments: z.array(z.string()).default([]),
   model: z.string().optional(),
   contractVersion: z.string().optional(),
   ttlSeconds: z.number().int().positive(),
