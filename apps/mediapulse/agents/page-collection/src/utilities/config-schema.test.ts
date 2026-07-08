@@ -32,8 +32,8 @@ describe("ConfigSchema", () => {
               baseUrl: "https://firecrawl.internal",
               authentication: { type: "none" },
               headers: {
-                "CF-Access-Client-Id": "id",
-                "CF-Access-Client-Secret": "secret",
+                "X-Auth-Id": "id",
+                "X-Auth-Secret": "secret",
               },
               rateLimit: { requests: 1, perSeconds: 1 },
             },
@@ -46,8 +46,8 @@ describe("ConfigSchema", () => {
       type: "firecrawl_selfhosted",
       baseUrl: "https://firecrawl.internal",
       headers: {
-        "CF-Access-Client-Id": "id",
-        "CF-Access-Client-Secret": "secret",
+        "X-Auth-Id": "id",
+        "X-Auth-Secret": "secret",
       },
     });
   });

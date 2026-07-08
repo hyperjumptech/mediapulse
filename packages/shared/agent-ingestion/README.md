@@ -30,7 +30,7 @@ The package gives a collector two independent fallback chains, both failing a un
 - **Discovery strategy chain** (how to extract article URLs from a listing): `rss` then `sitemap` then `generic-links`. A strategy that errors or returns nothing falls through to the next, so a site that drops its RSS feed is still covered.
 - **Fetch provider chain** (how to fetch an article body): `serper` then `diffbot` then `firecrawl` then `jina`. A URL is only a fetch failure when the whole chain has failed.
 
-The `firecrawl` and `firecrawl_selfhosted` adapters both call Firecrawl v2 (`/v2/scrape`). `firecrawl` authenticates with a bearer API key against the hosted API, while `firecrawl_selfhosted` targets an operator-supplied `baseUrl` and merges a generic `headers` map into every request (for example Cloudflare Access `CF-Access-Client-Id` / `CF-Access-Client-Secret`) instead of a bearer key.
+The `firecrawl` and `firecrawl_selfhosted` adapters both call Firecrawl v2 (`/v2/scrape`). `firecrawl` authenticates with a bearer API key against the hosted API, while `firecrawl_selfhosted` targets an operator-supplied `baseUrl` and merges a generic `headers` map into every request instead of a bearer key.
 
 ## Usage
 

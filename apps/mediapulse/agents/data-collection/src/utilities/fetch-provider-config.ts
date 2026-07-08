@@ -8,7 +8,7 @@ import type {
 
 /** Per-provider fetch transport defaults. The config only supplies the API key. */
 const FETCH_PROVIDER_DEFAULTS: Record<
-  FetchProviderName,
+  Exclude<FetchProviderName, "firecrawl_selfhosted">,
   Pick<FetchProviderConfig, "baseUrl" | "authentication">
 > = {
   serper: {
@@ -31,12 +31,6 @@ const FETCH_PROVIDER_DEFAULTS: Record<
     baseUrl: "https://api.firecrawl.dev",
     authentication: { type: "bearer", headerName: "Authorization" },
   },
-  firecrawl_selfhosted: {
-    // baseUrl is supplied per entry (self-hosted instance); this default is a
-    // placeholder that toFetchProviderConfig overrides with entry.baseUrl.
-    baseUrl: "",
-    authentication: { type: "none" },
-  },
   jina: {
     baseUrl: "https://r.jina.ai/",
     authentication: { type: "bearer", headerName: "Authorization" },
@@ -58,23 +52,33 @@ const FETCH_RETRY = {
 } as const;
 
 /**
- * Expands one simplified `{ provider, apiKey }` entry to a full fetch provider config.
+ * Expands one config entry to a full fetch provider config. API-key providers use
+ * fixed transport defaults; the self-hosted provider uses its own base URL and headers.
  *
- * @param entry - Provider name and API key from agent config.
+ * @param entry - Fetch provider entry from agent config.
  */
 const toFetchProviderConfig = (
   entry: FetchProviderEntry,
 ): FetchProviderConfig => {
+  if (entry.provider === "firecrawl_selfhosted") {
+    return {
+      type: entry.provider,
+      baseUrl: entry.baseUrl,
+      authentication: { type: "none" },
+      ...(entry.headers ? { headers: entry.headers } : {}),
+      rateLimit: { requests: 1, perSeconds: 1 },
+      concurrency: 1,
+      timeoutMs: FETCH_TIMEOUT_MS,
+      retry: FETCH_RETRY,
+    };
+  }
+
   const defaults = FETCH_PROVIDER_DEFAULTS[entry.provider];
 
   return {
     type: entry.provider,
-    baseUrl: entry.baseUrl ?? defaults.baseUrl,
-    authentication: {
-      ...defaults.authentication,
-      ...(entry.apiKey ? { apiKey: entry.apiKey } : {}),
-    },
-    ...(entry.headers ? { headers: entry.headers } : {}),
+    baseUrl: defaults.baseUrl,
+    authentication: { ...defaults.authentication, apiKey: entry.apiKey },
     rateLimit: { requests: 1, perSeconds: 1 },
     concurrency: 1,
     timeoutMs: FETCH_TIMEOUT_MS,

@@ -11,50 +11,36 @@ export const providerNameSchema = z.enum([
 
 export type ProviderName = z.infer<typeof providerNameSchema>;
 
+/** Providers with a fixed endpoint, authenticated with an API key. */
+const apiKeyProviderEntrySchema = z.object({
+  provider: z
+    .enum(["serper", "tavily", "exa", "firecrawl"])
+    .describe("Provider identifier."),
+  apiKey: z
+    .string()
+    .describe(
+      "Provider API key or a Hermes variable placeholder such as {{SERPER_API_KEY}}.",
+    ),
+});
+
+/** Self-hosted provider: a custom base URL plus operator-supplied auth headers. */
+const selfHostedProviderEntrySchema = z.object({
+  provider: z.literal("firecrawl_selfhosted").describe("Provider identifier."),
+  baseUrl: z.string().describe("Base URL of the self-hosted instance."),
+  headers: z
+    .record(z.string())
+    .optional()
+    .describe("Extra HTTP headers sent with every request."),
+});
+
 /**
- * A single search provider entry. Most providers only need a provider name and an
- * API key; `firecrawl_selfhosted` instead points at a custom `baseUrl` and
- * authenticates through operator-supplied `headers` (for example Cloudflare Access).
+ * A single search provider entry. API-key providers supply `{ provider, apiKey }`;
+ * the self-hosted provider supplies `{ provider, baseUrl, headers }` instead.
  */
-export const providerEntrySchema = z
-  .object({
-    provider: providerNameSchema.describe("Provider identifier."),
-    apiKey: z
-      .string()
-      .optional()
-      .describe(
-        "Provider API key or a Hermes variable placeholder such as {{SERPER_API_KEY}}. Optional for firecrawl_selfhosted, which authenticates via headers.",
-      ),
-    baseUrl: z
-      .string()
-      .optional()
-      .describe(
-        "Override base URL. Required for firecrawl_selfhosted; ignored by providers with fixed endpoints.",
-      ),
-    headers: z
-      .record(z.string())
-      .optional()
-      .describe(
-        "Extra HTTP headers sent with every request (for example Cloudflare Access). Used by firecrawl_selfhosted.",
-      ),
-  })
-  .superRefine((entry, ctx) => {
-    if (entry.provider === "firecrawl_selfhosted") {
-      if (!entry.baseUrl) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["baseUrl"],
-          message: "baseUrl is required for the firecrawl_selfhosted provider.",
-        });
-      }
-    } else if (!entry.apiKey) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["apiKey"],
-        message: `apiKey is required for the ${entry.provider} provider.`,
-      });
-    }
-  });
+export const providerEntrySchema = z.discriminatedUnion("provider", [
+  apiKeyProviderEntrySchema,
+  selfHostedProviderEntrySchema,
+]);
 
 export type ProviderEntry = z.infer<typeof providerEntrySchema>;
 

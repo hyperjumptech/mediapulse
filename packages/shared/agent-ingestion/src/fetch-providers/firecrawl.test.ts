@@ -77,8 +77,8 @@ describe("createFirecrawlFetchProvider", () => {
       baseUrl: "https://firecrawl.internal",
       authentication: { type: "none" },
       headers: {
-        "CF-Access-Client-Id": "cf-id",
-        "CF-Access-Client-Secret": "cf-secret",
+        "X-Auth-Id": "auth-id",
+        "X-Auth-Secret": "auth-secret",
       },
       rateLimit: { requests: 1, perSeconds: 1 },
     };
@@ -105,8 +105,8 @@ describe("createFirecrawlFetchProvider", () => {
     ];
 
     expect(calledUrl).toBe("https://firecrawl.internal/v2/scrape");
-    expect(calledOptions.headers["CF-Access-Client-Id"]).toBe("cf-id");
-    expect(calledOptions.headers["CF-Access-Client-Secret"]).toBe("cf-secret");
+    expect(calledOptions.headers["X-Auth-Id"]).toBe("auth-id");
+    expect(calledOptions.headers["X-Auth-Secret"]).toBe("auth-secret");
     expect(calledOptions.headers.Authorization).toBeUndefined();
     expect(result).toEqual({ content: "# Body" });
   });

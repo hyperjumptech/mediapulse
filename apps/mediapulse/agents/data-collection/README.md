@@ -45,8 +45,8 @@ fails with a clear auth error.
    search providers plus the fetch-only Diffbot and Jina.
 
    The `firecrawl_selfhosted` provider (search or fetch) targets a self-hosted Firecrawl instance:
-   supply `baseUrl` and an operator-defined `headers` map (for example Cloudflare Access) instead
-   of an `apiKey`. Entry shape: `{ provider: "firecrawl_selfhosted", baseUrl, headers }`.
+   supply `baseUrl` and an operator-defined `headers` map instead of an `apiKey`.
+   Entry shape: `{ provider: "firecrawl_selfhosted", baseUrl, headers }`.
 
 4. **relevance** — LLM filter credentials (`apiKey`, `model`, optional `baseUrl`).
 5. **collection** — `targetSavedSources` (default 15) and `maxRounds` (default 3) for the repeat loop.

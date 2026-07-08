@@ -4,6 +4,7 @@ import type got from "got";
 import { describe, expect, it } from "vitest";
 
 import { createSearchProvider } from "./registry";
+import { providerEntrySchema } from "./schemas";
 import type { SearchProviderContext } from "./types";
 
 const makeCtx = (body: unknown): SearchProviderContext => ({
@@ -107,20 +108,30 @@ describe("createSearchProvider", () => {
     const provider = createSearchProvider({
       provider: "firecrawl_selfhosted",
       baseUrl: "https://firecrawl.internal",
-      headers: { "CF-Access-Client-Id": "id" },
+      headers: { "X-Auth-Id": "id" },
     });
 
     expect(provider.type).toBe("firecrawl_selfhosted");
   });
 
-  it("throws when firecrawl_selfhosted has no baseUrl", () => {
+  it("rejects a self-hosted entry without a baseUrl", () => {
     expect(() =>
-      createSearchProvider({ provider: "firecrawl_selfhosted" }),
+      providerEntrySchema.parse({ provider: "firecrawl_selfhosted" }),
     ).toThrow();
   });
 
-  it("throws when a cloud provider is missing its API key", () => {
-    expect(() => createSearchProvider({ provider: "serper" })).toThrow();
+  it("rejects an API-key provider without an apiKey", () => {
+    expect(() => providerEntrySchema.parse({ provider: "serper" })).toThrow();
+  });
+
+  it("rejects baseUrl/headers on an API-key provider", () => {
+    const parsed = providerEntrySchema.parse({
+      provider: "serper",
+      apiKey: "k",
+      baseUrl: "https://nope",
+    });
+
+    expect(parsed).not.toHaveProperty("baseUrl");
   });
 
   it("throws for an unknown provider", () => {

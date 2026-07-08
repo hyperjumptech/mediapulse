@@ -27,6 +27,8 @@ export interface GenerateQueryCandidatesInput {
   competitors: DiscoveredEntity[];
   regulators: DiscoveredEntity[];
   languages: readonly Language[];
+  /** Current date as ISO `YYYY-MM-DD`, injected so the prompt has a temporal anchor. */
+  currentDate: string;
   ai: QueryAnalysisAiConfig;
   /** Query texts already tried and confirmed to return zero search results (retry feedback). */
   excludeQueries?: string[];
@@ -66,7 +68,10 @@ const renderEntities = (entities: DiscoveredEntity[]): string =>
     )
     .join("; ");
 
-const buildSystemPrompt = (contractBrief: string): string =>
+const buildSystemPrompt = (
+  contractBrief: string,
+  currentDate: string,
+): string =>
   [
     `<product_contract>\n${contractBrief.trim()}\n</product_contract>`,
     "",
@@ -74,7 +79,17 @@ const buildSystemPrompt = (contractBrief: string): string =>
     "to collect news for an investment-research newsletter. Use the product contract above",
     "as the steering context for what matters to this product. Return realistic, high-signal",
     "search queries only — the kind a research analyst would actually type.",
+    "",
+    `Today's date is ${currentDate}.`,
+    "Return each query as plain search text: no trailing punctuation (no trailing comma,",
+    "semicolon, or period). Do NOT append an explicit year to a query unless the year is",
+    "intrinsic to a specific event you are searching for; recency is handled by the search",
+    "time window, not the query text.",
   ].join("\n");
+
+/** Strips trailing commas, semicolons, periods, and whitespace the model may append. */
+const stripTrailingPunctuation = (text: string): string =>
+  text.replace(/[\s.,;]+$/u, "");
 
 const buildPrompt = (input: GenerateQueryCandidatesInput): string =>
   [
@@ -153,7 +168,7 @@ export const generateQueryCandidates = async (
     const result = await generate({
       model: openai(input.ai.model),
       schema: candidateGenerationResultSchema,
-      system: buildSystemPrompt(input.contractBrief),
+      system: buildSystemPrompt(input.contractBrief, input.currentDate),
       prompt: buildPrompt(input),
       maxRetries: GENERATION_LLM_MAX_RETRIES,
     });
@@ -163,7 +178,7 @@ export const generateQueryCandidates = async (
     }
 
     return result.object.candidates.map((candidate) => ({
-      text: candidate.text,
+      text: stripTrailingPunctuation(candidate.text),
       intent: candidate.intent,
       language: candidate.language,
     }));
