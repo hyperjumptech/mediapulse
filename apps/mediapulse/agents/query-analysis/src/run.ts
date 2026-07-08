@@ -158,6 +158,7 @@ export const runQueryAnalysis = async (
       competitors,
       regulators,
       languages: LANGUAGES,
+      currentDate: new Date(now()).toISOString().slice(0, 10),
       ai: config.ai,
       onUsage: tokenUsage.onUsage,
       logger,

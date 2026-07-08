@@ -15,6 +15,7 @@ const baseInput = {
   competitors: [],
   regulators: [],
   languages: ["id"] as const,
+  currentDate: "2026-07-08",
   ai,
   providers: [{ provider: "serper" as const, apiKey: "sk-serper" }],
   locales: [{ gl: "id", hl: "id" }],

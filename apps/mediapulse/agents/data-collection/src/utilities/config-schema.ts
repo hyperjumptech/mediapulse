@@ -28,50 +28,38 @@ export const fetchProviderNameSchema = z.enum([
 
 export type FetchProviderName = z.infer<typeof fetchProviderNameSchema>;
 
+/** Fetch providers with a fixed endpoint, authenticated with an API key. */
+const apiKeyFetchProviderEntrySchema = z.object({
+  provider: z
+    .enum(["serper", "tavily", "exa", "diffbot", "firecrawl", "jina"])
+    .describe("Fetch provider identifier."),
+  apiKey: z
+    .string()
+    .describe(
+      "Provider API key or a Hermes variable placeholder such as {{SERPER_API_KEY}}.",
+    ),
+});
+
+/** Self-hosted fetch provider: a custom base URL plus operator-supplied auth headers. */
+const selfHostedFetchProviderEntrySchema = z.object({
+  provider: z
+    .literal("firecrawl_selfhosted")
+    .describe("Fetch provider identifier."),
+  baseUrl: z.string().describe("Base URL of the self-hosted instance."),
+  headers: z
+    .record(z.string())
+    .optional()
+    .describe("Extra HTTP headers sent with every request."),
+});
+
 /**
- * A single fetch provider entry. Most providers only need a provider name and an
- * API key; some instead point at a custom `baseUrl` and authenticate through
- * operator-supplied `headers`.
+ * A single fetch provider entry. API-key providers supply `{ provider, apiKey }`;
+ * the self-hosted provider supplies `{ provider, baseUrl, headers }` instead.
  */
-const fetchProviderEntrySchema = z
-  .object({
-    provider: fetchProviderNameSchema.describe("Fetch provider identifier."),
-    apiKey: z
-      .string()
-      .optional()
-      .describe(
-        "Provider API key or a Hermes variable placeholder such as {{SERPER_API_KEY}}. Optional for providers that authenticate via custom headers.",
-      ),
-    baseUrl: z
-      .string()
-      .optional()
-      .describe(
-        "Override base URL. Required for providers that target a custom endpoint; ignored by providers with fixed endpoints.",
-      ),
-    headers: z
-      .record(z.string())
-      .optional()
-      .describe(
-        "Extra HTTP headers sent with every request. Used by providers that authenticate via custom headers.",
-      ),
-  })
-  .superRefine((entry, ctx) => {
-    if (entry.provider === "firecrawl_selfhosted") {
-      if (!entry.baseUrl) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["baseUrl"],
-          message: "baseUrl is required for this provider.",
-        });
-      }
-    } else if (!entry.apiKey) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["apiKey"],
-        message: `apiKey is required for the ${entry.provider} provider.`,
-      });
-    }
-  });
+const fetchProviderEntrySchema = z.discriminatedUnion("provider", [
+  apiKeyFetchProviderEntrySchema,
+  selfHostedFetchProviderEntrySchema,
+]);
 
 export type FetchProviderEntry = z.infer<typeof fetchProviderEntrySchema>;
 

@@ -23,7 +23,11 @@ describe("queryAnalysisConfigSchema flat layout", () => {
   it("preserves Hermes variable placeholders verbatim", () => {
     const parsed = queryAnalysisConfigSchema.parse({});
 
-    expect(parsed.web_search[0]?.apiKey).toBe("{{SERPER_API_KEY}}");
+    const firstSearch = parsed.web_search[0];
+
+    expect(
+      firstSearch && "apiKey" in firstSearch ? firstSearch.apiKey : undefined,
+    ).toBe("{{SERPER_API_KEY}}");
     expect(parsed.ai.apiKey).toBe("{{AI_API_KEY}}");
     expect(parsed.ai.model).toBe("{{AI_MODEL}}");
     expect(parsed.ai.baseUrl).toBe("{{AI_BASE_URL}}");

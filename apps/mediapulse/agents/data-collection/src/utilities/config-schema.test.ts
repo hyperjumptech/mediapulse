@@ -6,7 +6,15 @@ import {
   dataCollectionAgentConfigSchema,
   getConfigSchema,
   isUnresolvedVariablePlaceholder,
+  type FetchProviderEntry,
+  type ProviderEntry,
 } from "./config-schema";
+
+/** Reads apiKey from a provider entry union (API-key providers carry it). */
+const apiKeyOf = (
+  entry: ProviderEntry | FetchProviderEntry | undefined,
+): string | undefined =>
+  entry && "apiKey" in entry ? entry.apiKey : undefined;
 
 describe("getConfigSchema", () => {
   it("returns wrapped JSON schema with agentId", () => {
@@ -47,7 +55,7 @@ describe("dataCollectionAgentConfigSchema", () => {
       "tavily",
       "exa",
     ]);
-    expect(parsed.web_search[0]?.apiKey).toBe("{{SERPER_API_KEY}}");
+    expect(apiKeyOf(parsed.web_search[0])).toBe("{{SERPER_API_KEY}}");
     expect(parsed.web_fetch.map((entry) => entry.provider)).toEqual([
       "serper",
       "tavily",
@@ -72,8 +80,8 @@ describe("dataCollectionAgentConfigSchema", () => {
   it("preserves Hermes variable placeholders verbatim", () => {
     const parsed = dataCollectionAgentConfigSchema.parse({});
 
-    expect(parsed.web_search[1]?.apiKey).toBe("{{TAVILY_API_KEY}}");
-    expect(parsed.web_fetch[2]?.apiKey).toBe("{{EXA_API_KEY}}");
+    expect(apiKeyOf(parsed.web_search[1])).toBe("{{TAVILY_API_KEY}}");
+    expect(apiKeyOf(parsed.web_fetch[2])).toBe("{{EXA_API_KEY}}");
     expect(parsed.relevance.apiKey).toBe("{{AI_API_KEY}}");
   });
 

@@ -15,6 +15,7 @@ const baseInput = {
   ],
   regulators: [{ name: "BPOM", aliases: [], searchKeywords: ["bpom kopi"] }],
   languages: ["id", "en"] as const,
+  currentDate: "2026-07-08",
   ai,
 };
 
@@ -84,6 +85,51 @@ describe("generateQueryCandidates", () => {
     expect(call.prompt).toContain("G/FORE");
     expect(call.prompt).toContain("ambiguous bare queries");
     expect(call.maxRetries).toBeGreaterThan(0);
+  });
+
+  it("anchors the system prompt to the current date and forbids trailing punctuation and hardcoded years", async () => {
+    // Setup
+    const generate = vi
+      .fn()
+      .mockResolvedValue(
+        okResult([{ text: "x", intent: "wildcard", language: "en" }]),
+      );
+
+    // Act
+    await generateQueryCandidates({ ...baseInput, generate });
+
+    // Assert
+    const call = generate.mock.calls[0]?.[0];
+    expect(call.system).toContain("Today's date is 2026-07-08.");
+    expect(call.system).toContain("no trailing punctuation");
+    expect(call.system).toContain("Do NOT append an explicit year");
+  });
+
+  it("strips trailing commas, semicolons, and periods but keeps question marks", async () => {
+    // Setup
+    const generate = vi.fn().mockResolvedValue(
+      okResult([
+        {
+          text: "Perkembangan ekonomi Indonesia,",
+          intent: "macro",
+          language: "id",
+        },
+        { text: "saham FORE IDX.", intent: "breaking", language: "id" },
+        { text: "berita kopi kenangan;", intent: "competitor", language: "id" },
+        { text: "apa itu RUPS FORE?", intent: "deals", language: "id" },
+      ]),
+    );
+
+    // Act
+    const result = await generateQueryCandidates({ ...baseInput, generate });
+
+    // Assert
+    expect(result.map((candidate) => candidate.text)).toEqual([
+      "Perkembangan ekonomi Indonesia",
+      "saham FORE IDX",
+      "berita kopi kenangan",
+      "apa itu RUPS FORE?",
+    ]);
   });
 
   it("includes excludeQueries steering text only when provided", async () => {
