@@ -228,6 +228,7 @@ export const runYieldProbe = async (
           completed,
           total: probed.length,
           hits: result.hits,
+          failed: result.failed ?? false,
           ms: Date.now() - startedAt,
           text: candidate.text,
         },
@@ -241,9 +242,11 @@ export const runYieldProbe = async (
   const survivorsUnranked: ProbedCandidate[] = [];
   const dropped: ProbedCandidate[] = [];
   probed.forEach((candidate, index) => {
-    const hits = results[index]?.hits ?? 0;
+    const result = results[index];
+    const hits = result?.hits ?? 0;
+    const probeFailed = result?.failed ?? false;
     const probedCandidate: ProbedCandidate = { ...candidate, hits };
-    if (hits >= input.minResults) {
+    if (probeFailed || hits >= input.minResults) {
       survivorsUnranked.push(probedCandidate);
     } else {
       dropped.push(probedCandidate);

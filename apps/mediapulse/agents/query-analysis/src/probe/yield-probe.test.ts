@@ -111,6 +111,43 @@ describe("runYieldProbe", () => {
     expect(result.telemetry.providerUsage[0]?.name).toBe("serper");
   });
 
+  it("keeps candidates whose probe failed instead of dropping them as zero-yield", async () => {
+    // Setup
+    const countHits = vi.fn(async (text: string) =>
+      text === "provider down"
+        ? { hits: 0, credits: 0, failed: true }
+        : { hits: 4, credits: 2, provider: "serper" },
+    );
+    const deps = {
+      countHits: countHits as never,
+      createProvider: fakeCreateProvider() as never,
+    };
+
+    // Act
+    const result = await runYieldProbe(
+      {
+        candidates: [
+          candidate("provider down", "industry_trend"),
+          candidate("BBRI", "breaking"),
+        ],
+        providers,
+        locales: [{ gl: "id", hl: "id" }],
+        budget: 80,
+        concurrency: 2,
+        minResults: 1,
+        timeoutMs: 1000,
+      },
+      deps,
+    );
+
+    // Assert
+    expect(result.survivors.map((s) => s.text).sort()).toEqual([
+      "BBRI",
+      "provider down",
+    ]);
+    expect(result.dropped).toEqual([]);
+  });
+
   it("respects the probe budget by admitting only the highest-priority candidates", async () => {
     // Setup
     const countHits = fakeCountHits({ BBRI: 5, "Bank Mandiri": 5, theme: 5 });

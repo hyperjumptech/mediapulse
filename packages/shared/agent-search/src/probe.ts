@@ -49,6 +49,8 @@ export interface CountQueryHitsResult {
   credits: number;
   /** Provider type that produced the best (max-hit) result, if any. */
   provider?: string;
+  /** True when every probed locale failed to reach a provider, so `hits` is unknown rather than a genuine zero. */
+  failed?: boolean;
 }
 
 /**
@@ -84,7 +86,7 @@ export async function countQueryHits(
 
   const probeLocale = async (
     locale: SearchLocale,
-  ): Promise<{ hits: number; provider?: string }> => {
+  ): Promise<{ hits: number; provider?: string; ok: boolean }> => {
     const dispatchProviders: DispatchProvider<{
       provider: string;
       result: SearchProviderResult;
@@ -113,10 +115,14 @@ export async function countQueryHits(
         context.cursor,
       );
 
-      return { hits: accepted.result.hits.length, provider: accepted.provider };
+      return {
+        hits: accepted.result.hits.length,
+        provider: accepted.provider,
+        ok: true,
+      };
     } catch (error) {
       if (error instanceof AllProvidersFailed) {
-        return { hits: 0 };
+        return { hits: 0, ok: false };
       }
 
       throw error;
@@ -133,10 +139,14 @@ export async function countQueryHits(
       bestProvider = localeResult.provider;
     }
   }
+  const failed =
+    localeResults.length > 0 &&
+    localeResults.every((localeResult) => !localeResult.ok);
 
   return {
     hits: maxHits,
     credits: totalCredits,
     ...(bestProvider ? { provider: bestProvider } : {}),
+    ...(failed ? { failed: true } : {}),
   };
 }

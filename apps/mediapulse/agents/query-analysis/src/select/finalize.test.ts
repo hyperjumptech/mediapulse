@@ -61,6 +61,22 @@ describe("finalizeQueries", () => {
     );
   });
 
+  it("falls back to dropped candidates when nothing yielded and no section was reinstated", () => {
+    const result = finalizeQueries({
+      survivors: [],
+      dropped: [
+        dropped("harga biji kopi", "supply_chain"),
+        dropped("inflasi Indonesia", "macro", "en"),
+      ],
+      queryCount: 24,
+    });
+
+    expect(result.queries.map((q) => q.text).sort()).toEqual([
+      "harga biji kopi",
+      "inflasi Indonesia",
+    ]);
+  });
+
   it("keeps an id/en mix when both languages are available", () => {
     const result = finalizeQueries({
       survivors: [

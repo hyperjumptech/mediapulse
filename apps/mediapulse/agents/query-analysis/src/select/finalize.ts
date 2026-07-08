@@ -122,10 +122,23 @@ export const finalizeQueries = (params: {
     addCandidate(candidate);
   }
 
+  const droppedByHits = [...dropped].sort(
+    (left, right) => right.hits - left.hits,
+  );
+  let usedFallback = false;
+  if (chosen.length === 0) {
+    usedFallback = true;
+    for (const candidate of droppedByHits) {
+      addCandidate(candidate);
+    }
+  }
+
   ensureLanguageMix(
     chosen,
     chosenKeys,
-    [...protectedList, ...survivorPool],
+    usedFallback
+      ? [...protectedList, ...survivorPool, ...droppedByHits]
+      : [...protectedList, ...survivorPool],
     [...reinstatedKeys],
   );
 
