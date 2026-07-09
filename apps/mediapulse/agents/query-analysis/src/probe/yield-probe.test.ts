@@ -148,6 +148,43 @@ describe("runYieldProbe", () => {
     expect(result.dropped).toEqual([]);
   });
 
+  it("resolves a hung candidate via the deadline instead of stalling the probe", async () => {
+    // Setup
+    vi.useFakeTimers();
+    const countHits = vi.fn(() => new Promise(() => undefined) as never);
+    const deps = {
+      countHits: countHits as never,
+      createProvider: fakeCreateProvider() as never,
+    };
+
+    // Act
+    const probe = runYieldProbe(
+      {
+        candidates: [
+          candidate("hung query", "breaking"),
+          candidate("BBRI", "breaking"),
+        ],
+        providers,
+        locales: [{ gl: "id", hl: "id" }],
+        budget: 80,
+        concurrency: 4,
+        minResults: 1,
+        timeoutMs: 1000,
+      },
+      deps,
+    );
+    await vi.advanceTimersByTimeAsync(2000);
+    const result = await probe;
+    vi.useRealTimers();
+
+    // Assert
+    expect(result.survivors.map((survivor) => survivor.text).sort()).toEqual([
+      "BBRI",
+      "hung query",
+    ]);
+    expect(result.dropped).toEqual([]);
+  });
+
   it("respects the probe budget by admitting only the highest-priority candidates", async () => {
     // Setup
     const countHits = fakeCountHits({ BBRI: 5, "Bank Mandiri": 5, theme: 5 });
