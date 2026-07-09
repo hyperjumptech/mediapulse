@@ -263,9 +263,9 @@ export const makeFailedOutcome = (
 };
 
 /** Posts outcomes in chunks to avoid request size limits. */
-export const postOutcomesInChunks = async (
-  outcomes: CollectionUrlOutcomeInput[],
-  post: (batch: CollectionUrlOutcomeInput[]) => Promise<unknown>,
+export const postOutcomesInChunks = async <TOutcome>(
+  outcomes: TOutcome[],
+  post: (batch: TOutcome[]) => Promise<unknown>,
   chunkSize = 200,
 ): Promise<void> => {
   for (let i = 0; i < outcomes.length; i += chunkSize) {

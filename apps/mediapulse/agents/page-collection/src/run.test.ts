@@ -74,6 +74,9 @@ const deadUrlsRecordMock = vi.fn();
 const runCreateMock = vi.fn();
 const failureCreateMock = vi.fn();
 const outcomeCreateMock = vi.fn();
+const pageRunCreateMock = vi.fn();
+const pageFailureCreateMock = vi.fn();
+const pageOutcomeCreateMock = vi.fn();
 
 vi.mock("@workspace/agent-data-api-client", () => ({
   createAgentDataApiClient: vi.fn(() => ({
@@ -85,6 +88,9 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     dataCollectionRun: { create: runCreateMock },
     dataCollectionFailure: { create: failureCreateMock },
     collectionUrlOutcome: { create: outcomeCreateMock },
+    pageCollectionRun: { create: pageRunCreateMock },
+    pageCollectionFailure: { create: pageFailureCreateMock },
+    pageCollectionUrlOutcome: { create: pageOutcomeCreateMock },
   })),
 }));
 
