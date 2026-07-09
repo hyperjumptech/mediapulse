@@ -59,7 +59,13 @@ describe("performWebSearch", () => {
 
     const fakeGot = { post: postMock } as unknown as typeof got;
     const queries: SearchQuery[] = [
-      { id: "q1", text: "search", tickerId: "ticker-1" },
+      {
+        id: "q1",
+        text: "search",
+        tickerId: "ticker-1",
+        intent: "breaking",
+        rank: 1,
+      },
     ];
 
     // Act
@@ -110,7 +116,13 @@ describe("performWebSearch", () => {
 
     const fakeGot = { post: postMock } as unknown as typeof got;
     const queries: SearchQuery[] = [
-      { id: "q1", text: "search", tickerId: "ticker-1" },
+      {
+        id: "q1",
+        text: "search",
+        tickerId: "ticker-1",
+        intent: "breaking",
+        rank: 1,
+      },
     ];
 
     // Act
@@ -141,7 +153,13 @@ describe("performWebSearch", () => {
 
     const fakeGot = { post: postMock } as unknown as typeof got;
     const queries: SearchQuery[] = [
-      { id: "q1", text: "search", tickerId: "ticker-1" },
+      {
+        id: "q1",
+        text: "search",
+        tickerId: "ticker-1",
+        intent: "breaking",
+        rank: 1,
+      },
     ];
 
     // Act

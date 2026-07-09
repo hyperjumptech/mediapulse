@@ -612,6 +612,14 @@ describe("agent-data-api", () => {
           tickerId: TICKER_ID,
           set: { isActive: true },
         },
+        select: {
+          id: true,
+          text: true,
+          tickerId: true,
+          intent: true,
+          rank: true,
+        },
+        orderBy: { rank: "asc" },
       });
     });
   });

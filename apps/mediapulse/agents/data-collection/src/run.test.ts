@@ -83,6 +83,8 @@ const searchSuccessPage = {
   tickerId: TICKER_ID,
   searchQueryId: "sq-1",
   searchQueryText: "test query",
+  searchQueryIntent: "breaking" as const,
+  searchQueryRank: 1,
   serpIndex: 0,
 };
 
@@ -1009,6 +1011,8 @@ describe("runDataCollection", () => {
           tickerId: TICKER_ID,
           searchQueryId,
           searchQueryText: `query-${queryIndex}`,
+          searchQueryIntent: "breaking" as const,
+          searchQueryRank: 1,
           serpIndex: hitIndex,
         },
       })),

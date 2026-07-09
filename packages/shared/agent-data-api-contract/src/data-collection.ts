@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { queryAnalysisIntentSchema } from "./query-analysis.js";
+
 export const dataCollectionQuerySchema = z.object({
   tickerId: z.string().trim().min(1),
   start: z.string().datetime().optional(),
@@ -27,6 +29,8 @@ export const getDataCollectionResponseSchema = z.object({
       id: z.string().uuid(),
       text: z.string(),
       tickerId: z.string().trim().min(1),
+      intent: queryAnalysisIntentSchema,
+      rank: z.number().int(),
     }),
   ),
 });

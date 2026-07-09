@@ -2,7 +2,10 @@ import got from "got";
 import { logger as defaultLogger } from "@workspace/logger";
 import { pMap } from "@workspace/agent-ingestion";
 import type { FetchMetadata } from "@workspace/agent-ingestion";
-import type { DataCollectionFailure } from "@workspace/agent-data-api-contract";
+import type {
+  DataCollectionFailure,
+  QueryAnalysisIntent,
+} from "@workspace/agent-data-api-contract";
 import {
   AllProvidersFailed,
   createSearchProvider,
@@ -19,6 +22,8 @@ export interface SearchQuery {
   id: string;
   text: string;
   tickerId: string;
+  intent: QueryAnalysisIntent;
+  rank: number;
 }
 
 export interface WebSearchResult {
@@ -28,6 +33,8 @@ export interface WebSearchResult {
   tickerId: string;
   searchQueryId: string;
   searchQueryText: string;
+  searchQueryIntent: QueryAnalysisIntent;
+  searchQueryRank: number;
   serpIndex: number;
   /** Optional fetch provider metadata captured during web fetch. */
   fetchMetadata?: FetchMetadata;
@@ -167,6 +174,8 @@ const searchOne = async (
         tickerId: query.tickerId,
         searchQueryId: query.id,
         searchQueryText: query.text,
+        searchQueryIntent: query.intent,
+        searchQueryRank: query.rank,
         serpIndex,
       },
     }));
