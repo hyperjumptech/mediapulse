@@ -23,6 +23,7 @@ import {
   GENERATION_MIN_SURVIVORS,
   LANGUAGES,
   PER_INTENT_FLOOR,
+  PER_INTENT_MAX,
   PROBE_BUDGET,
   PROBE_CONCURRENCY,
   PROBE_LOCALES,
@@ -290,6 +291,7 @@ export const runQueryAnalysis = async (
     dropped: generation.dropped,
     queryCount: QUERY_COUNT,
     perIntentFloor: PER_INTENT_FLOOR,
+    perIntentMax: PER_INTENT_MAX,
   });
   const finalizeMs = now() - finalizeStartMs;
 

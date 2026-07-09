@@ -49,6 +49,10 @@ instead of an evergreen one. Never let the signals pull the whole set toward one
 intent. Do not copy a headline verbatim, and do not use the signals for intents
 1-3.
 
+Intents 1-3 (the issuer's own earnings, corporate actions, and governance) still
+need at least 5 queries each, even though the signals never mention them. Do not
+shortchange them because the recent news is about competitors or the industry.
+
 ## Intents
 
 A query belongs to exactly one intent. If it fits two, use the lower number.

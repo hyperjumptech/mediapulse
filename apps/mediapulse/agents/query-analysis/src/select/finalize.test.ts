@@ -32,6 +32,7 @@ describe("finalizeQueries", () => {
       dropped: droppedCompetitors,
       queryCount: 55,
       perIntentFloor: 5,
+      perIntentMax: 8,
     });
 
     const competitorCount = result.queries.filter(
@@ -42,7 +43,7 @@ describe("finalizeQueries", () => {
     ).length;
 
     expect(competitorCount).toBe(5);
-    expect(macroCount).toBe(10);
+    expect(macroCount).toBe(8);
     expect(result.reinstated).toEqual(
       expect.arrayContaining([
         "competitor 0",
@@ -54,12 +55,42 @@ describe("finalizeQueries", () => {
     );
   });
 
+  it("caps any single intent at perIntentMax so it cannot crowd out others", () => {
+    const survivors = [
+      ...Array.from({ length: 12 }, (_unused, index) =>
+        survivor(`macro ${index}`, "macro", 100 - index),
+      ),
+      ...Array.from({ length: 6 }, (_unused, index) =>
+        survivor(`comp ${index}`, "competitor", 50 - index),
+      ),
+    ];
+
+    const result = finalizeQueries({
+      survivors,
+      dropped: [],
+      queryCount: 55,
+      perIntentFloor: 5,
+      perIntentMax: 8,
+    });
+
+    const macroCount = result.queries.filter(
+      (query) => query.intent === "macro",
+    ).length;
+    const competitorCount = result.queries.filter(
+      (query) => query.intent === "competitor",
+    ).length;
+
+    expect(macroCount).toBe(8);
+    expect(competitorCount).toBe(6);
+  });
+
   it("returns an empty set when there is nothing to finalize", () => {
     const result = finalizeQueries({
       survivors: [],
       dropped: [],
       queryCount: 24,
       perIntentFloor: 5,
+      perIntentMax: 8,
     });
     expect(result.queries).toEqual([]);
   });
@@ -74,6 +105,7 @@ describe("finalizeQueries", () => {
       dropped: [],
       queryCount: 2,
       perIntentFloor: 5,
+      perIntentMax: 8,
     });
 
     expect(result.queries.map((q) => q.text)).toEqual(["b", "c"]);
@@ -89,6 +121,7 @@ describe("finalizeQueries", () => {
       ],
       queryCount: 24,
       perIntentFloor: 5,
+      perIntentMax: 8,
     });
 
     const texts = result.queries.map((q) => q.text);
@@ -108,6 +141,7 @@ describe("finalizeQueries", () => {
       ],
       queryCount: 24,
       perIntentFloor: 5,
+      perIntentMax: 8,
     });
 
     expect(result.queries.map((q) => q.text).sort()).toEqual([
@@ -126,6 +160,7 @@ describe("finalizeQueries", () => {
       dropped: [],
       queryCount: 2,
       perIntentFloor: 5,
+      perIntentMax: 8,
     });
 
     const languages = new Set(
@@ -145,6 +180,7 @@ describe("finalizeQueries", () => {
       dropped: [],
       queryCount: 24,
       perIntentFloor: 5,
+      perIntentMax: 8,
     });
 
     expect(result.perIntent.competitor).toBe(1);

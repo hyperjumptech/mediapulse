@@ -31,8 +31,10 @@ export const finalizeQueries = (params: {
   dropped: ProbedCandidate[];
   queryCount: number;
   perIntentFloor: number;
+  perIntentMax: number;
 }): FinalizeResult => {
-  const { survivors, dropped, queryCount, perIntentFloor } = params;
+  const { survivors, dropped, queryCount, perIntentFloor, perIntentMax } =
+    params;
 
   const survivorKeys = new Set(
     survivors.map((survivor) => normalizeQueryText(survivor.text)),
@@ -63,6 +65,7 @@ export const finalizeQueries = (params: {
 
   const chosen: ProbedCandidate[] = [];
   const chosenKeys = new Set<string>();
+  const intentCount = new Map<QueryAnalysisIntent, number>();
   const addCandidate = (candidate: ProbedCandidate): boolean => {
     if (chosen.length >= queryCount) {
       return false;
@@ -73,6 +76,10 @@ export const finalizeQueries = (params: {
     }
     chosenKeys.add(key);
     chosen.push(candidate);
+    intentCount.set(
+      candidate.intent,
+      (intentCount.get(candidate.intent) ?? 0) + 1,
+    );
 
     return true;
   };
@@ -87,6 +94,9 @@ export const finalizeQueries = (params: {
     .filter((candidate) => !chosenKeys.has(normalizeQueryText(candidate.text)))
     .sort((left, right) => right.hits - left.hits);
   for (const candidate of rest) {
+    if ((intentCount.get(candidate.intent) ?? 0) >= perIntentMax) {
+      continue;
+    }
     addCandidate(candidate);
   }
 
