@@ -24,7 +24,7 @@ export function narrativeSearching(
 export function narrativeFetching(subject: TickerSubject): [string, string] {
   return [
     "Fetching & filtering articles",
-    `Downloading candidate articles for ${subject.symbol} and applying relevance, freshness, and quality checks.`,
+    `Downloading candidate articles for ${subject.symbol} and applying freshness and quality checks.`,
   ];
 }
 
@@ -33,7 +33,6 @@ export function narrativeRunComplete(
   opts: {
     status: "success" | "partial_success" | "failed";
     persisted: number;
-    droppedByRelevance: number;
     droppedByFreshness: number;
     contentQualityDropped: number;
     failureCount: number;
@@ -51,11 +50,6 @@ export function narrativeRunComplete(
       : `No new sources were saved for ${subject.symbol}`;
 
   const dropParts: string[] = [];
-  if (opts.droppedByRelevance > 0) {
-    dropParts.push(
-      `${opts.droppedByRelevance} did not mention ${subject.symbol}`,
-    );
-  }
   if (opts.droppedByFreshness > 0) {
     dropParts.push(`${opts.droppedByFreshness} were stale`);
   }

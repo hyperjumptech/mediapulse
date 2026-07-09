@@ -23,7 +23,7 @@ export const dataCollectionRunInputSchema = z.object({
     fetchSuccess: z.number().int().nonnegative(),
     fetchFailed: z.number().int().nonnegative(),
     retryCount: z.number().int().nonnegative(),
-    droppedByRelevance: z.number().int().nonnegative(),
+    droppedByRelevance: z.number().int().nonnegative().optional(),
     throttleEvents: z.number().int().nonnegative(),
     // Extended optional counters for detailed insights
     discovered: z.number().int().nonnegative().optional(),

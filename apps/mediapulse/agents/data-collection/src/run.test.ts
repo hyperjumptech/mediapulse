@@ -46,11 +46,6 @@ const baseConfig = dataCollectionAgentConfigSchema.parse({
   web_search: [{ provider: "serper", apiKey: "serper-key" }],
   web_search_locales: [{ gl: "id", hl: "id" }],
   web_fetch: [{ provider: "serper", apiKey: "serper-key" }],
-  relevance: {
-    apiKey: "ai-key",
-    model: "test-model",
-    baseUrl: "https://ai.example",
-  },
   collection: {
     targetSavedSources: 1,
     maxRounds: 3,
@@ -72,7 +67,6 @@ const withTestConfig = (
     web_search: baseConfig.web_search,
     web_search_locales: baseConfig.web_search_locales,
     web_fetch: baseConfig.web_fetch,
-    relevance: baseConfig.relevance,
     collection: { ...baseConfig.collection, ...overrides.collection },
   });
 
@@ -633,7 +627,7 @@ describe("runDataCollection", () => {
     expect(createMock).not.toHaveBeenCalled();
   });
 
-  it("drops off-topic, quality-gated, and clean pages with separate counters", async () => {
+  it("drops quality-gated pages and saves the rest without a relevance gate", async () => {
     // Setup
     const paywallContent = "!!! $$$ ### subscribe to read !!! $$$ ### ".repeat(
       25,
@@ -697,11 +691,16 @@ describe("runDataCollection", () => {
 
     // Assert
     expect(result.success).toBe(true);
-    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(createMock).toHaveBeenCalledTimes(2);
     expect(createMock).toHaveBeenCalledWith([
       expect.objectContaining({
         url: "https://example.com/clean",
         title: validArticleTitle,
+      }),
+    ]);
+    expect(createMock).toHaveBeenCalledWith([
+      expect.objectContaining({
+        url: "https://example.com/off-topic",
       }),
     ]);
     expect(mockRunLog.info).toHaveBeenCalledWith(
@@ -709,14 +708,13 @@ describe("runDataCollection", () => {
         droppedByContentQuality: expect.objectContaining({
           content_access_gated: 1,
         }),
-        droppedByRelevance: 1,
       }),
       "web fetch stage finished",
     );
     expect(runCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        counters: expect.objectContaining({
-          droppedByRelevance: 1,
+        snapshot: expect.objectContaining({
+          result: expect.objectContaining({ saved: 2 }),
         }),
       }),
     );

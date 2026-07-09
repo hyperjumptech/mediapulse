@@ -68,12 +68,11 @@ describe("narrativeFetching", () => {
 });
 
 describe("narrativeRunComplete", () => {
-  it("mentions the symbol and saved count when persisted is 5 with relevance drops", () => {
+  it("mentions the symbol and saved count when persisted is 5 with freshness drops", () => {
     const [, description] = narrativeRunComplete(subject, {
       status: "success",
       persisted: 5,
-      droppedByRelevance: 3,
-      droppedByFreshness: 0,
+      droppedByFreshness: 3,
       contentQualityDropped: 0,
       failureCount: 0,
       stopReason: null,
@@ -82,14 +81,13 @@ describe("narrativeRunComplete", () => {
     });
     expect(description).toContain("BUVA");
     expect(description).toContain("5 new sources");
-    expect(description).toContain("3 did not mention BUVA");
+    expect(description).toContain("3 were stale");
   });
 
   it("starts with 'No new sources' when persisted is 0", () => {
     const [, description] = narrativeRunComplete(subject, {
       status: "partial_success",
       persisted: 0,
-      droppedByRelevance: 0,
       droppedByFreshness: 0,
       contentQualityDropped: 0,
       failureCount: 0,
@@ -104,7 +102,6 @@ describe("narrativeRunComplete", () => {
     const [, description] = narrativeRunComplete(subject, {
       status: "success",
       persisted: 5,
-      droppedByRelevance: 0,
       droppedByFreshness: 0,
       contentQualityDropped: 0,
       failureCount: 0,
@@ -119,7 +116,6 @@ describe("narrativeRunComplete", () => {
     const [, description] = narrativeRunComplete(subject, {
       status: "partial_success",
       persisted: 3,
-      droppedByRelevance: 0,
       droppedByFreshness: 0,
       contentQualityDropped: 0,
       failureCount: 0,
@@ -134,7 +130,6 @@ describe("narrativeRunComplete", () => {
     const [, description] = narrativeRunComplete(subject, {
       status: "success",
       persisted: 0,
-      droppedByRelevance: 0,
       droppedByFreshness: 0,
       contentQualityDropped: 0,
       failureCount: 0,
@@ -149,7 +144,6 @@ describe("narrativeRunComplete", () => {
     const [, description] = narrativeRunComplete(subject, {
       status: "success",
       persisted: 0,
-      droppedByRelevance: 0,
       droppedByFreshness: 0,
       contentQualityDropped: 0,
       failureCount: 0,
@@ -164,7 +158,6 @@ describe("narrativeRunComplete", () => {
     const [title] = narrativeRunComplete(subject, {
       status: "failed",
       persisted: 0,
-      droppedByRelevance: 0,
       droppedByFreshness: 0,
       contentQualityDropped: 0,
       failureCount: 2,
@@ -179,7 +172,6 @@ describe("narrativeRunComplete", () => {
     const [title, description] = narrativeRunComplete(subject, {
       status: "success",
       persisted: 3,
-      droppedByRelevance: 1,
       droppedByFreshness: 1,
       contentQualityDropped: 1,
       failureCount: 0,

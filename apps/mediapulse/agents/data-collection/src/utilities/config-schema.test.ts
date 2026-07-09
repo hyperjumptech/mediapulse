@@ -30,7 +30,6 @@ describe("getConfigSchema", () => {
       "web_search",
       "web_search_locales",
       "web_fetch",
-      "relevance",
       "collection",
     ]);
   });
@@ -65,11 +64,6 @@ describe("dataCollectionAgentConfigSchema", () => {
       "jina",
     ]);
     expect(parsed.web_search_locales).toEqual([{ gl: "id", hl: "id" }]);
-    expect(parsed.relevance).toEqual({
-      apiKey: "{{AI_API_KEY}}",
-      model: "{{AI_MODEL}}",
-      baseUrl: "{{AI_BASE_URL}}",
-    });
     expect(parsed.collection).toEqual({
       targetSavedSources: 15,
       maxRounds: 3,
@@ -82,7 +76,6 @@ describe("dataCollectionAgentConfigSchema", () => {
 
     expect(apiKeyOf(parsed.web_search[1])).toBe("{{TAVILY_API_KEY}}");
     expect(apiKeyOf(parsed.web_fetch[2])).toBe("{{EXA_API_KEY}}");
-    expect(parsed.relevance.apiKey).toBe("{{AI_API_KEY}}");
   });
 
   it("keeps other defaults when only one collection field is overridden", () => {
