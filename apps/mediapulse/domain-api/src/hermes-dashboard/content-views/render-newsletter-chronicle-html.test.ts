@@ -20,6 +20,7 @@ const NEWSLETTER = {
 const emptyDeps: BuildChronicleDeps = {
   searchQuerySet: { findMany: vi.fn().mockResolvedValue([]) },
   dataCollectionRun: { findMany: vi.fn().mockResolvedValue([]) },
+  pageCollectionRun: { findMany: vi.fn().mockResolvedValue([]) },
   dataSourceTickerSection: { findMany: vi.fn().mockResolvedValue([]) },
   articleAnalysisRun: { findMany: vi.fn().mockResolvedValue([]) },
   contentGenerationRun: { findFirst: vi.fn().mockResolvedValue(null) },

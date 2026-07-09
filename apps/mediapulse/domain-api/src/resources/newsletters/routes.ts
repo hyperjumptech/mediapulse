@@ -182,6 +182,7 @@ newslettersRoutes.get("/:id", async (c) => {
     buildChronicle(row, {
       searchQuerySet: prisma.searchQuerySet,
       dataCollectionRun: prisma.dataCollectionRun,
+      pageCollectionRun: prisma.pageCollectionRun,
       dataSourceTickerSection: prisma.dataSourceTickerSection,
       articleAnalysisRun: prisma.articleAnalysisRun,
       contentGenerationRun: prisma.contentGenerationRun,
@@ -257,6 +258,7 @@ newslettersRoutes.get("/:id/chronicle", async (c) => {
   const chronicle = await buildChronicle(newsletter, {
     searchQuerySet: prisma.searchQuerySet,
     dataCollectionRun: prisma.dataCollectionRun,
+    pageCollectionRun: prisma.pageCollectionRun,
     dataSourceTickerSection: prisma.dataSourceTickerSection,
     articleAnalysisRun: prisma.articleAnalysisRun,
     contentGenerationRun: prisma.contentGenerationRun,
