@@ -18,6 +18,7 @@ const makeDeps = (
 ): BuildChronicleDeps => ({
   searchQuerySet: { findMany: vi.fn().mockResolvedValue([]) },
   dataCollectionRun: { findMany: vi.fn().mockResolvedValue([]) },
+  pageCollectionRun: { findMany: vi.fn().mockResolvedValue([]) },
   dataSourceTickerSection: { findMany: vi.fn().mockResolvedValue([]) },
   articleAnalysisRun: { findMany: vi.fn().mockResolvedValue([]) },
   contentGenerationRun: { findFirst: vi.fn().mockResolvedValue(null) },
@@ -131,8 +132,8 @@ describe("buildChronicle", () => {
         jina: 204,
         playwright: 18,
       });
-      expect(dataCollection.runs[0]?.model).toBe("gpt-4o-mini");
-      expect(dataCollection.runs[0]?.tokens?.totalTokens).toBe(10_520);
+      expect(dataCollection.runs[0]?.model).toBeNull();
+      expect(dataCollection.runs[0]?.tokens).toBeNull();
     }
 
     const pageCollection = stageByName(result, "page-collection");
@@ -144,6 +145,71 @@ describe("buildChronicle", () => {
 
     expect(result.upstreamRunCount).toBe(4);
     expect(result.totalSearchCredits).toBe(96);
+  });
+
+  it("reads the grouped snapshot for saved/excluded and a separate page-collection run", async () => {
+    const deps = makeDeps({
+      dataCollectionRun: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "dcr-snap",
+            status: "success",
+            startedAt: new Date("2026-06-30T06:02:00.000Z"),
+            completedAt: new Date("2026-06-30T06:04:00.000Z"),
+            extendedCounters: { agentId: "data-collection" },
+            snapshot: {
+              agentId: "data-collection",
+              cost: { searchCredits: 42, fetchByProvider: { firecrawl: 9 } },
+              result: {
+                saved: 9,
+                excluded: 5,
+                byReason: { existing: 3, freshness: 2 },
+              },
+              timing: {
+                totalMs: 120000,
+                roundsExecuted: 2,
+                stopReason: "daily_target_met",
+              },
+            },
+          },
+        ]),
+      },
+      pageCollectionRun: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "pcr-snap",
+            status: "success",
+            startedAt: new Date("2026-06-30T06:01:00.000Z"),
+            completedAt: new Date("2026-06-30T06:01:30.000Z"),
+            snapshot: {
+              agentId: "page-collection",
+              cost: { searchCredits: 0, fetchByProvider: { firecrawl: 4 } },
+              result: { saved: 4, excluded: 1, byReason: { existing: 1 } },
+              timing: { totalMs: 30000, roundsExecuted: 1 },
+            },
+          },
+        ]),
+      },
+    });
+
+    const result = await buildChronicle(NEWSLETTER, deps);
+
+    const dataCollection = stageByName(result, "data-collection");
+    if (dataCollection.kind === "upstream") {
+      expect(dataCollection.runCount).toBe(1);
+      expect(dataCollection.totals.searchCredits).toBe(42);
+      expect(dataCollection.details.saved).toBe(9);
+      expect(dataCollection.details.excluded).toBe(5);
+      expect(dataCollection.runs[0]?.tokens).toBeNull();
+      expect(dataCollection.runs[0]?.outputs.collected).toBe(9);
+    }
+
+    const pageCollection = stageByName(result, "page-collection");
+    if (pageCollection.kind === "upstream") {
+      expect(pageCollection.runCount).toBe(1);
+      expect(pageCollection.details.saved).toBe(4);
+      expect(pageCollection.totals.fetchByProvider).toEqual({ firecrawl: 4 });
+    }
   });
 
   it("surfaces self-driving query-analysis provider usage, credits, and discovery counts", async () => {

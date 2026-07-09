@@ -178,8 +178,17 @@ const renderUpstreamStage = (stage: ChronicleUpstreamStage): string => {
     .map(([name, count]) => `${escapeHtml(name)} ×${String(count)}`)
     .join(", ");
 
+  const saved =
+    typeof stage.details.saved === "number" ? stage.details.saved : null;
+  const excluded =
+    typeof stage.details.excluded === "number" ? stage.details.excluded : null;
+
   const stats = [
-    statChip("Σ Tokens", numberFmt(stage.totals.tokens.totalTokens)),
+    stage.totals.tokens.totalTokens > 0
+      ? statChip("Σ Tokens", numberFmt(stage.totals.tokens.totalTokens))
+      : "",
+    saved !== null ? statChip("Saved", numberFmt(saved)) : "",
+    excluded !== null ? statChip("Excluded", numberFmt(excluded)) : "",
     stage.totals.searchCredits > 0
       ? statChip("Σ Search credits", numberFmt(stage.totals.searchCredits))
       : "",

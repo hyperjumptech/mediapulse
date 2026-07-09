@@ -116,6 +116,7 @@ export type ChroniclePayload = {
 export type BuildChronicleDeps = {
   searchQuerySet: Pick<typeof prisma.searchQuerySet, "findMany">;
   dataCollectionRun: Pick<typeof prisma.dataCollectionRun, "findMany">;
+  pageCollectionRun: Pick<typeof prisma.pageCollectionRun, "findMany">;
   dataSourceTickerSection: Pick<
     typeof prisma.dataSourceTickerSection,
     "findMany"
@@ -326,9 +327,10 @@ const buildQueryAnalysisStage = (
 };
 
 /**
- * Builds one collection stage (page or data) from its DataCollectionRun rows.
- * Search credits, fetch-by-provider counts, and relevance-LLM tokens come from
- * the run's `extendedCounters` JSON.
+ * Builds one collection stage (page or data) from its run rows. Reads the grouped
+ * `snapshot` (cost / result / timing) when present, and falls back to the legacy
+ * `extendedCounters` JSON for historical rows written before the snapshot existed.
+ * Collection runs no longer spend LLM tokens, so no token usage is surfaced.
  */
 const buildCollectionStage = (
   stage: "page-collection" | "data-collection",
@@ -338,62 +340,82 @@ const buildCollectionStage = (
     status: string;
     startedAt: Date;
     completedAt: Date | null;
-    extendedCounters: unknown;
+    snapshot?: unknown;
+    extendedCounters?: unknown;
   }>,
   windowStartIso: string,
   windowEndIso: string,
 ): ChronicleUpstreamStage => {
-  const tokenTotals: ChronicleTokenUsage = { ...EMPTY_TOKENS };
   const fetchByProvider: Record<string, number> = {};
   let searchCredits = 0;
+  let savedTotal = 0;
+  let excludedTotal = 0;
+  const byReasonTotals: Record<string, number> = {};
 
   const runs: ChronicleRun[] = rows.map((row) => {
-    const counters = asRecord(row.extendedCounters);
-    const runCredits = asNumber(counters.searchCredits) ?? 0;
+    const snapshot = asRecord(row.snapshot);
+    const hasSnapshot = Object.keys(snapshot).length > 0;
+    const legacy = asRecord(row.extendedCounters);
+    const cost = asRecord(snapshot.cost);
+    const result = asRecord(snapshot.result);
+    const timing = asRecord(snapshot.timing);
+
+    const runCredits = hasSnapshot
+      ? (asNumber(cost.searchCredits) ?? 0)
+      : (asNumber(legacy.searchCredits) ?? 0);
     searchCredits += runCredits;
 
-    const runFetchByProvider = asRecord(counters.fetchByProvider);
+    const runFetchByProvider = hasSnapshot
+      ? asRecord(cost.fetchByProvider)
+      : asRecord(legacy.fetchByProvider);
     const providers: ChronicleProviderUsage[] = [];
     for (const [name, count] of Object.entries(runFetchByProvider)) {
       const calls = asNumber(count) ?? 0;
       fetchByProvider[name] = (fetchByProvider[name] ?? 0) + calls;
       providers.push({ name, calls });
     }
-    const searchProvider = asString(counters.searchProvider);
-    if (searchProvider !== undefined) {
-      providers.unshift({
-        name: searchProvider,
-        ...(runCredits > 0 ? { credits: runCredits } : {}),
-      });
+
+    const collected = hasSnapshot
+      ? (asNumber(result.saved) ?? 0)
+      : (asNumber(legacy.persisted) ?? 0);
+    savedTotal += collected;
+    const excluded = asNumber(result.excluded) ?? 0;
+    excludedTotal += excluded;
+
+    const byReason = asRecord(result.byReason);
+    for (const [reason, count] of Object.entries(byReason)) {
+      byReasonTotals[reason] =
+        (byReasonTotals[reason] ?? 0) + (asNumber(count) ?? 0);
     }
 
-    const relevanceTokens: ChronicleTokenUsage = {
-      promptTokens: asNumber(counters.relevancePromptTokens) ?? 0,
-      completionTokens: asNumber(counters.relevanceCompletionTokens) ?? 0,
-      totalTokens: asNumber(counters.relevanceTotalTokens) ?? 0,
-      embeddingTokens: 0,
-    };
-    addTokens(tokenTotals, relevanceTokens);
+    const durationMs = hasSnapshot
+      ? (asNumber(timing.totalMs) ?? null)
+      : (asNumber(legacy.durationMs) ?? null);
+    const stopReason = hasSnapshot
+      ? (asString(timing.stopReason) ?? null)
+      : (asString(legacy.stopReason) ?? null);
 
-    const timing = resolveTiming({
+    const runTiming = resolveTiming({
       startedAt: row.startedAt,
       completedAt: row.completedAt,
-      durationMs: asNumber(counters.durationMs) ?? null,
+      durationMs,
     });
 
     return {
       id: row.id,
-      startedAt: timing.startedAt,
-      completedAt: timing.completedAt,
-      durationMs: asNumber(counters.durationMs) ?? null,
+      startedAt: runTiming.startedAt,
+      completedAt: runTiming.completedAt,
+      durationMs,
       status: collectionRunStatus(row.status),
-      model: asString(counters.relevanceModel) ?? null,
-      tokens: relevanceTokens.totalTokens > 0 ? relevanceTokens : null,
+      model: null,
+      tokens: null,
       providers,
       outputs: {
-        stopReason: asString(counters.stopReason) ?? null,
-        collected: asNumber(counters.persisted) ?? null,
+        stopReason,
+        collected,
+        excluded: hasSnapshot ? excluded : null,
         searchCredits: runCredits > 0 ? runCredits : null,
+        ...(Object.keys(byReason).length > 0 ? { byReason } : {}),
       },
       error: null,
     };
@@ -407,9 +429,13 @@ const buildCollectionStage = (
     windowStart: windowStartIso,
     windowEnd: windowEndIso,
     runCount: runs.length,
-    totals: { tokens: tokenTotals, searchCredits, fetchByProvider },
+    totals: { tokens: { ...EMPTY_TOKENS }, searchCredits, fetchByProvider },
     runs,
-    details: {},
+    details: {
+      saved: savedTotal,
+      excluded: excludedTotal,
+      byReason: byReasonTotals,
+    },
   };
 };
 
@@ -733,8 +759,24 @@ export const buildChronicle = async (
       startedAt: true,
       completedAt: true,
       extendedCounters: true,
+      snapshot: true,
     },
   } satisfies Prisma.DataCollectionRunFindManyArgs;
+
+  const pageCollectionRunArgs = {
+    where: {
+      tickerId,
+      startedAt: { gte: windowStart, lt: windowEnd },
+    },
+    orderBy: { startedAt: "desc" as const },
+    select: {
+      id: true,
+      status: true,
+      startedAt: true,
+      completedAt: true,
+      snapshot: true,
+    },
+  } satisfies Prisma.PageCollectionRunFindManyArgs;
 
   const analysisArgs = {
     where: {
@@ -811,6 +853,7 @@ export const buildChronicle = async (
   const [
     querySets,
     collectionRuns,
+    pageRuns,
     analysisRows,
     analysisRuns,
     contentRun,
@@ -818,20 +861,34 @@ export const buildChronicle = async (
   ] = await Promise.all([
     deps.searchQuerySet.findMany(querySetArgs),
     deps.dataCollectionRun.findMany(collectionRunArgs),
+    deps.pageCollectionRun.findMany(pageCollectionRunArgs),
     deps.dataSourceTickerSection.findMany(analysisArgs),
     deps.articleAnalysisRun.findMany(articleAnalysisRunArgs),
     deps.contentGenerationRun.findFirst(contentRunArgs),
     deps.deliveryRun.findMany(deliveryRunArgs),
   ]);
 
-  const agentIdOf = (row: { extendedCounters: unknown }): string | undefined =>
+  // The agent id lives in the grouped snapshot (new rows) or the legacy
+  // extendedCounters (historical rows). Page-collection runs live in their own
+  // table now, but rows written before that split still sit in DataCollectionRun
+  // tagged page-collection, so fold those in (deduped by id) until they age out.
+  const agentIdOf = (row: {
+    snapshot?: unknown;
+    extendedCounters?: unknown;
+  }): string | undefined =>
+    asString(asRecord(row.snapshot).agentId) ??
     asString(asRecord(row.extendedCounters).agentId);
-  const pageCollectionRuns = collectionRuns.filter(
+  const legacyPageRuns = collectionRuns.filter(
     (row) => agentIdOf(row) === "page-collection",
   );
   const dataCollectionRuns = collectionRuns.filter(
     (row) => agentIdOf(row) !== "page-collection",
   );
+  const pageRunIds = new Set(pageRuns.map((row) => row.id));
+  const pageCollectionRuns = [
+    ...pageRuns,
+    ...legacyPageRuns.filter((row) => !pageRunIds.has(row.id)),
+  ];
 
   const queryAnalysis = buildQueryAnalysisStage(
     querySets,
