@@ -28,6 +28,14 @@ export async function getDataCollection(context: Context): Promise<Response> {
             },
           }),
       },
+      select: {
+        id: true,
+        text: true,
+        tickerId: true,
+        intent: true,
+        rank: true,
+      },
+      orderBy: { rank: "asc" },
     });
 
     return context.json({ data }, 200);
