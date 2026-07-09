@@ -215,13 +215,39 @@ export const runYieldProbe = async (
     "yield probe started",
   );
 
+  const candidateDeadlineMs = input.timeoutMs * (input.providers.length + 1);
+  const probeCandidate = (
+    candidate: Candidate,
+  ): Promise<CountQueryHitsResult & { deadlineHit?: boolean }> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<
+      CountQueryHitsResult & { deadlineHit: boolean }
+    >((resolve) => {
+      timer = setTimeout(
+        () => resolve({ hits: 0, credits: 0, failed: true, deadlineHit: true }),
+        candidateDeadlineMs,
+      );
+    });
+
+    return Promise.race([
+      countHits(candidate.text, probeContext),
+      deadline,
+    ]).then((result) => {
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
+
+      return result;
+    });
+  };
+
   let completed = 0;
   const results = await mapWithConcurrency(
     probed,
     input.concurrency,
     async (candidate): Promise<CountQueryHitsResult> => {
       const startedAt = Date.now();
-      const result = await countHits(candidate.text, probeContext);
+      const result = await probeCandidate(candidate);
       completed += 1;
       input.logger?.info(
         {
@@ -229,6 +255,7 @@ export const runYieldProbe = async (
           total: probed.length,
           hits: result.hits,
           failed: result.failed ?? false,
+          deadlineHit: result.deadlineHit ?? false,
           ms: Date.now() - startedAt,
           text: candidate.text,
         },
