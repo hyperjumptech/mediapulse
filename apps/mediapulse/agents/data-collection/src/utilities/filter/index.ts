@@ -5,9 +5,3 @@ export {
   FRESHNESS_MAX_AGE_DAYS,
   type FreshnessCheckResult,
 } from "./check-freshness";
-export {
-  judgeRelevance,
-  type JudgeRelevanceInput,
-  type RelevanceDecision,
-  type RelevanceLogger,
-} from "./judge-relevance";

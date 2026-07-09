@@ -1,10 +1,6 @@
 import type { DataCollectionInput } from "@workspace/agent-types";
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
-import {
-  createTokenUsageAccumulator,
-  type AgentRunContext,
-  type AgentRunResult,
-} from "@workspace/agent-runtime";
+import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-data-collection";
 import { logger } from "@workspace/logger";
 import crypto from "node:crypto";
@@ -27,14 +23,11 @@ import {
   hostFromUrl,
   type QualityDropForDeadUrl,
   type FetchedWebSearchResult,
-  buildTickerAliases,
-  buildIndustryAliases,
   deriveRunStatus,
   type RunCounters,
   type RunPolicy,
   makeDroppedOutcome,
   makeCollectedOutcome,
-  makeFailedOutcome,
   postOutcomesInChunks,
   type CollectionUrlOutcomeInput,
 } from "@workspace/agent-ingestion";
@@ -45,11 +38,7 @@ import {
 } from "./utilities/web-search";
 import { RoundRobinCursor } from "@workspace/agent-search";
 import { buildFetchProviderConfigs } from "./utilities/fetch-provider-config";
-import {
-  checkContent,
-  checkFreshness,
-  judgeRelevance,
-} from "./utilities/filter";
+import { checkContent, checkFreshness } from "./utilities/filter";
 import {
   classifyNoisyUrl,
   derivePublisherFromUrl,
@@ -86,15 +75,11 @@ const RUN_WALL_CLOCK_BUDGET_MS = 15 * 60 * 1000;
 export async function runDataCollection(
   context: AgentRunContext<BodySchemaType, ConfigSchemaType>,
 ): Promise<AgentRunResult> {
-  const { input, config, token, hermesCorrelation, contract } = context;
-  const contractBrief = contract?.brief;
+  const { input, config, token, hermesCorrelation } = context;
   const startedAt = new Date();
   const runId = crypto.randomUUID();
   const scheduleExecutionId =
     hermesCorrelation?.scheduleExecutionId ?? undefined;
-  // Chronicle instrumentation: accumulate relevance-filter LLM token usage across
-  // every judged page in the run, and search-provider credits across every search.
-  const relevanceUsage = createTokenUsageAccumulator();
   const searchCreditsSink = { credits: 0 };
   const outcomes: CollectionUrlOutcomeInput[] = [];
 
@@ -162,16 +147,6 @@ export async function runDataCollection(
   const tickerRecord = await dataApiClient.ticker.get({
     tickerId: input.tickerId,
   });
-  const tickerAliases = buildTickerAliases(
-    tickerRecord.symbol,
-    tickerRecord.name,
-    tickerRecord.aliases,
-  );
-  const industryAliases = buildIndustryAliases(
-    tickerRecord.sector,
-    tickerRecord.industry,
-  );
-  const peerNames = tickerRecord.peers.map((peer) => peer.symbol);
   const subject = { symbol: tickerRecord.symbol, name: tickerRecord.name };
 
   report(...narrativeRunStart(subject));
@@ -182,21 +157,6 @@ export async function runDataCollection(
     minAttempts: 5,
     errorRateThreshold: 0.5,
   });
-
-  if (tickerAliases.length === 0 && industryAliases.length === 0) {
-    log.warn(
-      { tickerId: input.tickerId },
-      "ticker has no aliases or industry labels; relevance gate is a no-op for this run",
-    );
-  } else {
-    log.info(
-      {
-        aliasCount: tickerAliases.length,
-        industryAliasCount: industryAliases.length,
-      },
-      "loaded ticker and industry aliases for relevance gate",
-    );
-  }
 
   const { data: queries = [] } = await dataApiClient.dataCollection.get({
     tickerId: input.tickerId,
@@ -259,7 +219,6 @@ export async function runDataCollection(
   let droppedByDuplicateCanonicalUrl = 0;
   let droppedByExistingCanonicalUrl = 0;
   const droppedByContentQuality = createEmptyQualityCounters();
-  let droppedByRelevance = 0;
   let droppedByDeadUrlCache = 0;
   let droppedByHostErrorRate = 0;
   const droppedByFreshnessReason: Record<string, number> = {
@@ -567,44 +526,6 @@ export async function runDataCollection(
           return;
         }
 
-        const relevanceDecision = await judgeRelevance({
-          title: page.title,
-          content: page.content,
-          tickerSymbol: subject.symbol,
-          tickerName: subject.name,
-          tickerAliases,
-          industryAliases,
-          businessActivity: tickerRecord.businessActivity,
-          subIndustry: tickerRecord.subIndustry,
-          peerNames,
-          contractBrief,
-          llm: config.relevance,
-          logger: log,
-          onUsage: relevanceUsage.onUsage,
-        });
-        if (!relevanceDecision.keep) {
-          droppedByRelevance += 1;
-          outcomes.push(
-            makeDroppedOutcome(
-              { ...outcomeBase, url: urlDecision.canonicalUrl },
-              {
-                reason: "relevance_no_match",
-                tickerSymbol: subject.symbol,
-                headChars: 6000,
-              },
-            ),
-          );
-          log.info(
-            {
-              round,
-              url: page.url.slice(0, 120),
-              via: relevanceDecision.via,
-            },
-            "dropped page judged not relevant to the target ticker or industry",
-          );
-          return;
-        }
-
         const { decision: freshnessDecision, publishedAt } = checkFreshness({
           fetchMetadata: page.fetchMetadata ?? page.jinaMetadata,
           content: page.content,
@@ -712,7 +633,6 @@ export async function runDataCollection(
           droppedByDuplicateCanonicalUrl,
           droppedByExistingCanonicalUrl,
           droppedByContentQuality,
-          droppedByRelevance,
           droppedByDeadUrlCache,
           droppedByHostErrorRate,
           droppedByFreshnessReason,
@@ -819,6 +739,8 @@ export async function runDataCollection(
     0,
   );
 
+  const runDurationMs = Date.now() - startedAt.getTime();
+
   const counters: RunCounters = {
     queriesTotal: queries.length,
     urlsTotal: searchSuccessCount,
@@ -829,7 +751,6 @@ export async function runDataCollection(
     fetched: fetchedCount,
     fetchFailed: fetchFailedCount,
     retryCount: 0,
-    droppedByRelevance,
     throttleEvents,
     agentId: "data-collection",
     persisted: persistedThisRunCount,
@@ -843,17 +764,41 @@ export async function runDataCollection(
     droppedByContentQuality: { ...droppedByContentQuality },
     roundsExecuted,
     stopReason: refillStopReason ?? undefined,
-    durationMs: Date.now() - startedAt.getTime(),
-    // Chronicle instrumentation: durable provider + relevance-LLM token record.
+    durationMs: runDurationMs,
     searchProvider: [...new Set(config.web_search.map((p) => p.provider))].join(
       ", ",
     ),
     searchCredits: searchCreditsSink.credits,
     ...(Object.keys(fetchByProvider).length > 0 ? { fetchByProvider } : {}),
-    relevanceModel: config.relevance.model,
-    relevancePromptTokens: relevanceUsage.totals().promptTokens,
-    relevanceCompletionTokens: relevanceUsage.totals().completionTokens,
-    relevanceTotalTokens: relevanceUsage.totals().totalTokens,
+  };
+
+  const byReason: Record<string, number> = {
+    existing: droppedByExistingCanonicalUrl,
+    freshness: droppedByFreshnessTotalCount,
+    duplicate: droppedByDuplicateCanonicalUrl,
+    urlNoise: droppedByUrlNoiseTotal,
+    contentQuality: contentQualityDropped,
+    deadUrl: droppedByDeadUrlCache,
+    hostErrorRate: droppedByHostErrorRate,
+    fetchFailed: fetchFailedCount,
+  };
+
+  const snapshot = {
+    agentId: "data-collection" as const,
+    cost: {
+      searchCredits: searchCreditsSink.credits,
+      fetchByProvider,
+    },
+    result: {
+      saved: persistedThisRunCount,
+      excluded: Object.values(byReason).reduce((sum, count) => sum + count, 0),
+      byReason,
+    },
+    timing: {
+      totalMs: runDurationMs,
+      roundsExecuted,
+      ...(refillStopReason ? { stopReason: refillStopReason } : {}),
+    },
   };
 
   const runPayload = {
@@ -864,6 +809,7 @@ export async function runDataCollection(
     completedAt: new Date().toISOString(),
     status,
     counters,
+    snapshot,
   };
 
   await dataApiClient.dataCollectionRun.create(runPayload);
@@ -878,28 +824,6 @@ export async function runDataCollection(
       "recording run failures to Agent Data API",
     );
     await dataApiClient.dataCollectionFailure.create(failuresPayload);
-  }
-
-  for (const failure of fetchFailures) {
-    if (failure.url) {
-      outcomes.push(
-        makeFailedOutcome(
-          {
-            id: crypto.randomUUID(),
-            scheduleExecutionId,
-            runId,
-            tickerId: input.tickerId,
-            agent: "data-collection",
-            url: failure.url,
-            source: undefined,
-            searchQueryId: failure.queryId,
-            createdAt: new Date().toISOString(),
-          },
-          failure.errorCategory,
-          failure.httpStatus,
-        ),
-      );
-    }
   }
 
   if (outcomes.length > 0) {
@@ -926,7 +850,6 @@ export async function runDataCollection(
     searchEmpty: searchEmptyCount,
     fetched: fetchedCount,
     fetchSuccess: fetchSuccessCount,
-    droppedByRelevance,
     droppedByDeadUrlCache,
     droppedByHostErrorRate,
     droppedByFreshness: droppedByFreshnessTotalCount,
@@ -966,7 +889,6 @@ export async function runDataCollection(
       ...narrativeRunComplete(subject, {
         status,
         persisted: totalSources,
-        droppedByRelevance,
         droppedByFreshness: droppedByFreshnessTotalCount,
         contentQualityDropped,
         failureCount: failuresPayload.length,
@@ -1000,7 +922,6 @@ export async function runDataCollection(
       durationMs,
       totalSources,
       failureCount: failuresPayload.length,
-      droppedByRelevance,
       throttleEvents,
     },
     completionMessage,
@@ -1010,7 +931,6 @@ export async function runDataCollection(
     ...narrativeRunComplete(subject, {
       status,
       persisted: totalSources,
-      droppedByRelevance,
       droppedByFreshness: droppedByFreshnessTotalCount,
       contentQualityDropped,
       failureCount: failuresPayload.length,

@@ -16,7 +16,7 @@ export type RunCounters = {
   fetchSuccess: number;
   fetchFailed: number;
   retryCount: number;
-  droppedByRelevance: number;
+  droppedByRelevance?: number;
   throttleEvents: number;
   // Extended counters — optional so existing callers are unaffected
   discovered?: number;

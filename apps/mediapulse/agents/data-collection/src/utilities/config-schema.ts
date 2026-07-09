@@ -104,28 +104,6 @@ const webSearchLocalesSchema = z
     "Search localization. Each query fans out once per locale; results merge and dedup before fetch. Exa ignores locale.",
   );
 
-const relevanceSchema = z
-  .object({
-    apiKey: z
-      .string()
-      .default("{{AI_API_KEY}}")
-      .describe("OpenAI-compatible API key for the LLM relevance filter."),
-    model: z
-      .string()
-      .default("{{AI_MODEL}}")
-      .describe("Model id for the LLM relevance filter."),
-    baseUrl: z
-      .string()
-      .default("{{AI_BASE_URL}}")
-      .describe(
-        "OpenAI-compatible base URL (for example an OpenRouter gateway).",
-      ),
-  })
-  .default({})
-  .describe("LLM relevance filter credentials (always-on gate).");
-
-export type RelevanceConfig = z.infer<typeof relevanceSchema>;
-
 const collectionSchema = z
   .object({
     targetSavedSources: z
@@ -159,7 +137,6 @@ export const ConfigSchema = z.object({
   web_search: webSearchSchema,
   web_search_locales: webSearchLocalesSchema,
   web_fetch: webFetchSchema,
-  relevance: relevanceSchema,
   collection: collectionSchema,
 });
 
