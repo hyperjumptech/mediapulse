@@ -15,6 +15,9 @@ export const QUERY_COUNT = 55;
 /** Minimum queries guaranteed per intent in the persisted set (backfilled from probe-dropped candidates). */
 export const PER_INTENT_FLOOR = 5;
 
+/** Maximum queries any single intent may occupy, so no intent crowds out the others. */
+export const PER_INTENT_MAX = 8;
+
 /** Surviving-query count that ends the generation retry loop early (decoupled from the persisted cap). */
 export const GENERATION_MIN_SURVIVORS = 24;
 
