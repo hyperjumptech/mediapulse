@@ -23,9 +23,10 @@ export type {
 export { AllProvidersFailed, dispatch, RoundRobinCursor } from "./dispatch";
 export type { DispatchProvider } from "./dispatch";
 
-export { countQueryHits } from "./probe";
+export { countQueryHits, searchTopResults } from "./probe";
 export type {
   CountQueryHitsContext,
   CountQueryHitsResult,
   CreditsSink,
+  SearchTopResultsContext,
 } from "./probe";

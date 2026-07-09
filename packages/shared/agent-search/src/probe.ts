@@ -8,6 +8,7 @@ import {
 } from "./dispatch";
 import type { SearchLocale } from "./schemas";
 import type {
+  SearchHit,
   SearchProvider,
   SearchProviderLogger,
   SearchProviderResult,
@@ -149,4 +150,72 @@ export async function countQueryHits(
     ...(bestProvider ? { provider: bestProvider } : {}),
     ...(failed ? { failed: true } : {}),
   };
+}
+
+/** Inputs for a single-query result fetch (used by recon, not the yield probe). */
+export interface SearchTopResultsContext {
+  /** Instantiated search provider pool (round-robin + failover). */
+  providers: SearchProvider[];
+  /** Single locale to search in. */
+  locale: SearchLocale;
+  /** Shared rotating cursor; advanced once per dispatch. */
+  cursor: RoundRobinCursor;
+  gotClient?: typeof got;
+  timeoutMs?: number;
+  logger?: SearchProviderLogger;
+  /** Max results to return; defaults to all hits from the accepted provider. */
+  limit?: number;
+}
+
+/**
+ * Fetches the top search results (titles, urls, snippets) for one query from the first
+ * provider in the pool that returns any, with round-robin + failover.
+ *
+ * @param queryText - The query to search.
+ * @param context - Providers, locale, cursor, and optional client/logging/limit.
+ * @returns The accepted provider's hits (capped to `limit`), or `[]` when the whole pool fails.
+ */
+export async function searchTopResults(
+  queryText: string,
+  context: SearchTopResultsContext,
+): Promise<SearchHit[]> {
+  const gotClient = context.gotClient ?? got;
+  const timeoutMs = context.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS;
+  const logger = context.logger ?? noopLogger;
+
+  const dispatchProviders: DispatchProvider<{
+    provider: string;
+    result: SearchProviderResult;
+  }>[] = context.providers.map((provider) => ({
+    name: provider.type,
+    run: async () => {
+      const result = await provider.search(queryText, {
+        gotClient,
+        locale: context.locale,
+        page: 0,
+        timeoutMs,
+        logger,
+      });
+
+      return { provider: provider.type, result };
+    },
+  }));
+
+  try {
+    const accepted = await dispatch(
+      "search-recon",
+      dispatchProviders,
+      (candidate) => candidate.result.hits.length > 0,
+      context.cursor,
+    );
+    const limit = context.limit ?? accepted.result.hits.length;
+
+    return accepted.result.hits.slice(0, limit);
+  } catch (error) {
+    if (error instanceof AllProvidersFailed) {
+      return [];
+    }
+
+    throw error;
+  }
 }

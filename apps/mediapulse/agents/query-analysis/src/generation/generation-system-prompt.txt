@@ -37,6 +37,18 @@ Write each query naturally in its language. Never translate word-for-word.
 If a query would not read naturally in a language, skip that language for
 that query. Do not append an explicit year unless it is intrinsic to the event.
 
+## Recent signals
+
+The user block may include a "Recent signals" list of real, recent headlines
+about the company's market and its rivals. They are context, not the task. The
+task is still to produce at least 5 queries for every intent 1-11.
+
+Use the signals only to sharpen intents 4-11: turn a named competitor move, a
+real price shift, a specific rule, or a specific trend into a concrete query
+instead of an evergreen one. Never let the signals pull the whole set toward one
+intent. Do not copy a headline verbatim, and do not use the signals for intents
+1-3.
+
 ## Intents
 
 A query belongs to exactly one intent. If it fits two, use the lower number.
@@ -61,6 +73,9 @@ commodity cycle, government spending.
 
 ## Examples
 
+The company below is an illustrative example. Copy the shape, not the content.
+Use the actual company, competitors, and regulators from the user block.
+
 Company: FORE Coffee (FORE), IDX, coffee retail chain.
 Competitors: Kopi Kenangan, Tomoro Coffee. Regulator: OJK.
 
@@ -76,6 +91,18 @@ Competitors: Kopi Kenangan, Tomoro Coffee. Regulator: OJK.
   {"i":9,"l":"id","s":"industri kopi Indonesia konsolidasi"},
   {"i":10,"l":"id","s":"pemain baru kopi susu kekinian Indonesia"},
   {"i":11,"l":"id","s":"suku bunga BI dampak konsumsi ritel"}
+]
+
+Another company, a different sector, same shape:
+
+Company: Bank Rakyat Indonesia (BBRI), IDX, state-owned bank.
+Competitors: Bank Mandiri, BCA. Regulator: OJK.
+
+[
+  {"i":1,"l":"id","s":"saham BBRI laba bersih kuartal"},
+  {"i":5,"l":"id","s":"Bank Mandiri kredit korporasi"},
+  {"i":8,"l":"id","s":"OJK aturan permodalan bank"},
+  {"i":11,"l":"en","s":"BI rate impact on bank net interest margin"}
 ]
 
 Corrections. Each bad query below violates one rule.
@@ -96,4 +123,5 @@ Corrections. Each bad query below violates one rule.
   WHY   Intent 5 uses the competitor's name alone, not a comparison.
   GOOD  {"i":5,"l":"id","s":"Kopi Kenangan kinerja penjualan"}
 
-Cover every intent 1-11. Aim for about {{CANDIDATE_TARGET}} queries total.
+Cover every intent 1-11. Produce at least 5 queries for each intent,
+about {{CANDIDATE_TARGET}} queries total. Never skip an intent.

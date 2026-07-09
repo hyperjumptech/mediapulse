@@ -39,6 +39,10 @@ describe("searchQueriesRoutes", () => {
         name: "Apple",
       },
     ] as never);
+    vi.mocked(prisma.searchQuery.findMany).mockResolvedValue([
+      { intent: "breaking" },
+      { intent: "competitor" },
+    ] as never);
 
     const res = await searchQueriesRoutes.request("http://localhost/meta", {
       method: "GET",

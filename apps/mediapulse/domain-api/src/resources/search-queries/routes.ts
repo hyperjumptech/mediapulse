@@ -3,10 +3,7 @@
  */
 
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
-import {
-  QUERY_ANALYSIS_INTENTS,
-  queryAnalysisIntentSchema,
-} from "@workspace/agent-data-api-contract";
+import { queryAnalysisIntentSchema } from "@workspace/agent-data-api-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -97,10 +94,17 @@ searchQueriesRoutes.get("/meta", async (c) => {
     return c.json({ message: "Unknown dashboard resource" }, 404);
   }
 
-  const tickerOptions = await prisma.ticker.findMany({
-    select: { id: true, symbol: true, name: true },
-    orderBy: { symbol: "asc" },
-  } satisfies Prisma.TickerFindManyArgs);
+  const [tickerOptions, intentRows] = await Promise.all([
+    prisma.ticker.findMany({
+      select: { id: true, symbol: true, name: true },
+      orderBy: { symbol: "asc" },
+    } satisfies Prisma.TickerFindManyArgs),
+    prisma.searchQuery.findMany({
+      distinct: ["intent"],
+      select: { intent: true },
+      orderBy: { intent: "asc" },
+    } satisfies Prisma.SearchQueryFindManyArgs),
+  ]);
 
   return c.json({
     ...base,
@@ -109,9 +113,9 @@ searchQueriesRoutes.get("/meta", async (c) => {
         value: ticker.id,
         label: `${ticker.symbol} — ${ticker.name}`,
       })),
-      intentOptions: QUERY_ANALYSIS_INTENTS.map((intent) => ({
-        value: intent,
-        label: formatSearchQueryEnumLabel(intent),
+      intentOptions: intentRows.map((row) => ({
+        value: row.intent,
+        label: formatSearchQueryEnumLabel(row.intent),
       })),
     },
   });

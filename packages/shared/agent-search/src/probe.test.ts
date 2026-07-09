@@ -2,7 +2,7 @@ import type got from "got";
 import { describe, expect, it } from "vitest";
 
 import { RoundRobinCursor } from "./dispatch";
-import { countQueryHits, type CreditsSink } from "./probe";
+import { countQueryHits, searchTopResults, type CreditsSink } from "./probe";
 import type { SearchProvider, SearchProviderResult } from "./types";
 
 const fakeGot = {} as unknown as typeof got;
@@ -134,5 +134,53 @@ describe("countQueryHits", () => {
     expect(result.hits).toBe(4);
     expect(result.provider).toBe("tavily");
     expect(creditsSink.credits).toBe(2);
+  });
+});
+
+describe("searchTopResults", () => {
+  it("returns the accepted provider's hits, capped to limit", async () => {
+    const providers = [
+      makeProvider("serper", () => Promise.resolve(hitsResult(5))),
+    ];
+    const results = await searchTopResults("kopi kenangan terbaru", {
+      providers,
+      locale: { gl: "id", hl: "id" },
+      cursor: new RoundRobinCursor(),
+      gotClient: fakeGot,
+      limit: 3,
+    });
+
+    expect(results).toHaveLength(3);
+    expect(results[0]?.title).toBe("t");
+  });
+
+  it("fails over to the next provider when the first throws", async () => {
+    const providers = [
+      makeProvider("serper", () => Promise.reject(new Error("boom"))),
+      makeProvider("tavily", () => Promise.resolve(hitsResult(2))),
+    ];
+    const results = await searchTopResults("tomoro terbaru", {
+      providers,
+      locale: { gl: "id", hl: "id" },
+      cursor: new RoundRobinCursor(),
+      gotClient: fakeGot,
+    });
+
+    expect(results).toHaveLength(2);
+  });
+
+  it("returns an empty list when the whole pool fails", async () => {
+    const providers = [
+      makeProvider("serper", () => Promise.reject(new Error("402"))),
+      makeProvider("tavily", () => Promise.reject(new Error("429"))),
+    ];
+    const results = await searchTopResults("dead recon", {
+      providers,
+      locale: { gl: "id", hl: "id" },
+      cursor: new RoundRobinCursor(),
+      gotClient: fakeGot,
+    });
+
+    expect(results).toEqual([]);
   });
 });

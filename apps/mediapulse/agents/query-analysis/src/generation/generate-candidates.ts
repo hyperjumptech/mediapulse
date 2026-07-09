@@ -33,6 +33,7 @@ export interface GenerateQueryCandidatesInput {
   currentDate: string;
   ai: QueryAnalysisAiConfig;
   excludeQueries?: string[];
+  reconSignals?: string[];
   generate?: typeof generateObject;
   onUsage?: OnLlmUsage;
   logger?: GenerationLogger;
@@ -161,6 +162,15 @@ const buildPrompt = (input: GenerateQueryCandidatesInput): string => {
       ? `Regulators: ${renderEntities(input.regulators)}`
       : "Regulators: none discovered yet.",
     `Languages: ${input.languages.join(", ")}`,
+    ...(input.reconSignals && input.reconSignals.length > 0
+      ? [
+          "",
+          "Recent signals from this company's market and its rivals (real headlines).",
+          "Use them to make the competitor, cost, demand, industry, and trend queries",
+          "concrete and current. Still cover every intent 1-11 as instructed:",
+          ...input.reconSignals.map((signal) => `- ${signal}`),
+        ]
+      : []),
     ...(input.excludeQueries && input.excludeQueries.length > 0
       ? [
           "",

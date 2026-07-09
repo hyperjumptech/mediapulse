@@ -1,6 +1,5 @@
 import {
   NEWSLETTER_SECTION_IDS,
-  SECTION_BY_INTENT,
   summarizeSectionCoverage,
   type NewsletterSectionId,
   type QueryAnalysisIntent,
@@ -27,77 +26,40 @@ export type FinalizeResult = {
   reinstated: string[];
 };
 
-/** Dedicated newsletter sections that must retain at least one query when possible. */
-const DEDICATED_SECTIONS: NewsletterSectionId[] = [
-  ...new Set(
-    Object.values(SECTION_BY_INTENT).filter(
-      (sectionId): sectionId is NewsletterSectionId => sectionId !== null,
-    ),
-  ),
-];
-
-const sectionOf = (intent: QueryAnalysisIntent): NewsletterSectionId | null =>
-  SECTION_BY_INTENT[intent];
-
-/**
- * Finalizes the persisted query set from probed candidates.
- *
- * - Guarantees at least one query per dedicated-intent section, reinstating the
- *   highest-yield dropped candidate for a starved section when needed.
- * - Truncates to `queryCount` while keeping an Indonesian + global (en) mix.
- * - Ranks the final set by probe hits (descending).
- *
- * @param params - Ranked survivors, dropped candidates, and the target set size.
- * @returns Persisted queries and per-intent/per-section/language telemetry.
- */
 export const finalizeQueries = (params: {
   survivors: ProbeSurvivor[];
   dropped: ProbedCandidate[];
   queryCount: number;
+  perIntentFloor: number;
 }): FinalizeResult => {
-  const { survivors, dropped, queryCount } = params;
+  const { survivors, dropped, queryCount, perIntentFloor } = params;
 
-  const coveredSections = new Set<NewsletterSectionId>();
-  for (const survivor of survivors) {
-    const section = sectionOf(survivor.intent);
-    if (section !== null) {
-      coveredSections.add(section);
-    }
-  }
-
-  // Reinstate the best dropped candidate for each starved dedicated section.
-  const reinstated: ProbedCandidate[] = [];
-  const reinstatedKeys = new Set<string>();
   const survivorKeys = new Set(
     survivors.map((survivor) => normalizeQueryText(survivor.text)),
   );
-  for (const section of DEDICATED_SECTIONS) {
-    if (coveredSections.has(section)) {
-      continue;
-    }
-    const candidate = dropped
-      .filter((entry) => sectionOf(entry.intent) === section)
-      .sort((left, right) => right.hits - left.hits)[0];
-    if (candidate === undefined) {
-      continue;
-    }
-    const key = normalizeQueryText(candidate.text);
-    if (survivorKeys.has(key) || reinstatedKeys.has(key)) {
-      continue;
-    }
-    reinstatedKeys.add(key);
-    reinstated.push(candidate);
-    coveredSections.add(section);
-  }
 
-  const protectedList = [...reinstated].sort(
-    (left, right) => right.hits - left.hits,
-  );
-  const survivorPool = [...survivors]
-    .filter(
-      (survivor) => !reinstatedKeys.has(normalizeQueryText(survivor.text)),
-    )
-    .sort((left, right) => right.hits - left.hits);
+  const poolByKey = new Map<string, ProbedCandidate>();
+  for (const candidate of [...survivors, ...dropped]) {
+    const key = normalizeQueryText(candidate.text);
+    if (key.length === 0) {
+      continue;
+    }
+    const existing = poolByKey.get(key);
+    if (existing === undefined || candidate.hits > existing.hits) {
+      poolByKey.set(key, candidate);
+    }
+  }
+  const pool = [...poolByKey.values()];
+
+  const byIntent = new Map<QueryAnalysisIntent, ProbedCandidate[]>();
+  for (const candidate of pool) {
+    const list = byIntent.get(candidate.intent) ?? [];
+    list.push(candidate);
+    byIntent.set(candidate.intent, list);
+  }
+  for (const list of byIntent.values()) {
+    list.sort((left, right) => right.hits - left.hits);
+  }
 
   const chosen: ProbedCandidate[] = [];
   const chosenKeys = new Set<string>();
@@ -115,31 +77,24 @@ export const finalizeQueries = (params: {
     return true;
   };
 
-  for (const candidate of protectedList) {
-    addCandidate(candidate);
-  }
-  for (const candidate of survivorPool) {
-    addCandidate(candidate);
-  }
-
-  const droppedByHits = [...dropped].sort(
-    (left, right) => right.hits - left.hits,
-  );
-  let usedFallback = false;
-  if (chosen.length === 0) {
-    usedFallback = true;
-    for (const candidate of droppedByHits) {
+  for (const list of byIntent.values()) {
+    for (const candidate of list.slice(0, perIntentFloor)) {
       addCandidate(candidate);
     }
+  }
+
+  const rest = pool
+    .filter((candidate) => !chosenKeys.has(normalizeQueryText(candidate.text)))
+    .sort((left, right) => right.hits - left.hits);
+  for (const candidate of rest) {
+    addCandidate(candidate);
   }
 
   ensureLanguageMix(
     chosen,
     chosenKeys,
-    usedFallback
-      ? [...protectedList, ...survivorPool, ...droppedByHits]
-      : [...protectedList, ...survivorPool],
-    [...reinstatedKeys],
+    [...pool].sort((left, right) => right.hits - left.hits),
+    [],
   );
 
   chosen.sort((left, right) => right.hits - left.hits);
@@ -169,20 +124,22 @@ export const finalizeQueries = (params: {
   ).length;
   const globalCount = chosen.length - idCount;
 
+  const reinstated = chosen
+    .filter(
+      (candidate) => !survivorKeys.has(normalizeQueryText(candidate.text)),
+    )
+    .map((candidate) => candidate.text);
+
   return {
     queries,
     perIntent,
     perSection,
     idCount,
     globalCount,
-    reinstated: reinstated.map((candidate) => candidate.text),
+    reinstated,
   };
 };
 
-/**
- * Best-effort swap so both languages appear in the final set when available,
- * never evicting a protected (reinstated) coverage query.
- */
 const ensureLanguageMix = (
   chosen: ProbedCandidate[],
   chosenKeys: Set<string>,
@@ -206,7 +163,6 @@ const ensureLanguageMix = (
     if (replacement === undefined) {
       continue;
     }
-    // Evict the lowest-yield non-protected chosen candidate.
     let evictIndex = -1;
     for (let index = chosen.length - 1; index >= 0; index -= 1) {
       const candidate = chosen[index];
