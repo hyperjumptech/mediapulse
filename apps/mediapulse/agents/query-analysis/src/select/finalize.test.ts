@@ -19,11 +19,47 @@ const dropped = (
 ): ProbedCandidate => ({ text, intent, language, hits: 0 });
 
 describe("finalizeQueries", () => {
+  it("backfills each intent to the floor from dropped candidates despite low yield", () => {
+    const survivors = Array.from({ length: 10 }, (_unused, index) =>
+      survivor(`macro ${index}`, "macro", 100 - index),
+    );
+    const droppedCompetitors = Array.from({ length: 5 }, (_unused, index) =>
+      dropped(`competitor ${index}`, "competitor"),
+    );
+
+    const result = finalizeQueries({
+      survivors,
+      dropped: droppedCompetitors,
+      queryCount: 55,
+      perIntentFloor: 5,
+    });
+
+    const competitorCount = result.queries.filter(
+      (query) => query.intent === "competitor",
+    ).length;
+    const macroCount = result.queries.filter(
+      (query) => query.intent === "macro",
+    ).length;
+
+    expect(competitorCount).toBe(5);
+    expect(macroCount).toBe(10);
+    expect(result.reinstated).toEqual(
+      expect.arrayContaining([
+        "competitor 0",
+        "competitor 1",
+        "competitor 2",
+        "competitor 3",
+        "competitor 4",
+      ]),
+    );
+  });
+
   it("returns an empty set when there is nothing to finalize", () => {
     const result = finalizeQueries({
       survivors: [],
       dropped: [],
       queryCount: 24,
+      perIntentFloor: 5,
     });
     expect(result.queries).toEqual([]);
   });
@@ -37,6 +73,7 @@ describe("finalizeQueries", () => {
       ],
       dropped: [],
       queryCount: 2,
+      perIntentFloor: 5,
     });
 
     expect(result.queries.map((q) => q.text)).toEqual(["b", "c"]);
@@ -51,6 +88,7 @@ describe("finalizeQueries", () => {
         dropped("OJK", "regulatory"),
       ],
       queryCount: 24,
+      perIntentFloor: 5,
     });
 
     const texts = result.queries.map((q) => q.text);
@@ -69,6 +107,7 @@ describe("finalizeQueries", () => {
         dropped("inflasi Indonesia", "macro", "en"),
       ],
       queryCount: 24,
+      perIntentFloor: 5,
     });
 
     expect(result.queries.map((q) => q.text).sort()).toEqual([
@@ -86,6 +125,7 @@ describe("finalizeQueries", () => {
       ],
       dropped: [],
       queryCount: 2,
+      perIntentFloor: 5,
     });
 
     const languages = new Set(
@@ -104,6 +144,7 @@ describe("finalizeQueries", () => {
       ],
       dropped: [],
       queryCount: 24,
+      perIntentFloor: 5,
     });
 
     expect(result.perIntent.competitor).toBe(1);

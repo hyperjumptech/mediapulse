@@ -144,6 +144,62 @@ afterEach(() => {
 });
 
 describe("runQueryAnalysis — cold run (cache miss)", () => {
+  it("does not write the cache when discovery returns no entities", async () => {
+    // Setup
+    const { client, recordCreate } = makeClient(null);
+    const emptyGenerate = vi.fn().mockResolvedValue({
+      object: {
+        competitors: [],
+        regulators: [],
+        mainInputs: [],
+        customerSegments: [],
+      },
+      usage: undefined,
+    });
+    const deps: RunQueryAnalysisDeps = {
+      createClient: vi.fn(() => client) as never,
+      generate: emptyGenerate as never,
+      generateQueries: generateQueries as never,
+      countHits: countHits as never,
+    };
+
+    // Act
+    const result = await runQueryAnalysis(makeContext() as never, deps);
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(emptyGenerate).toHaveBeenCalledTimes(1);
+    expect(recordCreate).not.toHaveBeenCalled();
+  });
+
+  it("gathers recon signals and passes them into generation", async () => {
+    // Setup
+    const { client } = makeClient(null);
+    const reconSearch = vi.fn(async () => [
+      {
+        url: "https://example.test/1",
+        title: "Kopi Kenangan raises Series C",
+        snippet: "s",
+      },
+    ]);
+    const deps: RunQueryAnalysisDeps = {
+      createClient: vi.fn(() => client) as never,
+      generate: generate as never,
+      generateQueries: generateQueries as never,
+      countHits: countHits as never,
+      reconSearch: reconSearch as never,
+    };
+
+    // Act
+    await runQueryAnalysis(makeContext() as never, deps);
+
+    // Assert
+    expect(reconSearch).toHaveBeenCalled();
+    const generationPrompt = generateQueries.mock.calls[0]?.[0].prompt;
+    expect(generationPrompt).toContain("Recent signals");
+    expect(generationPrompt).toContain("Kopi Kenangan raises Series C");
+  });
+
   it("discovers entities, generates queries, writes the cache with the contract version, and persists a self-driving query set", async () => {
     // Setup
     const {
@@ -352,7 +408,7 @@ describe("runQueryAnalysis — generation failure", () => {
 });
 
 describe("runQueryAnalysis — yield probe", () => {
-  it("drops zero-yield candidates and records them in the snapshot", async () => {
+  it("records zero-yield candidates as dropped in the probe snapshot and reinstates them to meet the intent floor", async () => {
     // Setup
     const { client, create } = makeClient({
       tickerId: TICKER_ID,
@@ -378,7 +434,7 @@ describe("runQueryAnalysis — yield probe", () => {
     expect(body.strategySnapshot.probe.droppedZeroYield).toContain("BBRI");
     expect(
       body.queries.some((query: { text: string }) => query.text === "BBRI"),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("guarantees section coverage even when every candidate is zero-yield", async () => {

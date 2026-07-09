@@ -5,7 +5,11 @@ import {
   type AgentRunContext,
   type AgentRunResult,
 } from "@workspace/agent-runtime";
-import { countQueryHits, createSearchProvider } from "@workspace/agent-search";
+import {
+  countQueryHits,
+  createSearchProvider,
+  searchTopResults,
+} from "@workspace/agent-search";
 import { generateObject } from "ai";
 import { logger } from "@workspace/logger";
 import { env } from "@mediapulse/env/agents-query-analysis";
@@ -16,15 +20,24 @@ import {
   DISCOVERY_MAX_COMPETITORS,
   DISCOVERY_MAX_KEYWORDS_PER_ENTITY,
   DISCOVERY_MAX_REGULATORS,
+  GENERATION_MIN_SURVIVORS,
   LANGUAGES,
+  PER_INTENT_FLOOR,
   PROBE_BUDGET,
   PROBE_CONCURRENCY,
   PROBE_LOCALES,
   PROBE_MIN_RESULTS,
   PROBE_TIMEOUT_MS,
   QUERY_COUNT,
+  RECON_CONCURRENCY,
+  RECON_MAX_COMPETITORS,
+  RECON_MAX_QUERIES,
+  RECON_MAX_SIGNALS,
+  RECON_RESULTS_PER_QUERY,
+  RECON_TIMEOUT_MS,
 } from "./constants";
 import { buildQueryDecisions } from "./chronicle/build-query-decisions";
+import { gatherReconSignals } from "./recon/gather-signals";
 import { discoverEntities } from "./discovery/discover-entities";
 import type { DiscoveredEntity } from "./discovery/schema";
 import { deriveClassification, deriveMarketContext } from "./pipeline/context";
@@ -42,6 +55,8 @@ export type RunQueryAnalysisDeps = {
   generateQueries?: typeof generateObject;
   countHits?: typeof countQueryHits;
   createProvider?: typeof createSearchProvider;
+  /** Injected `searchTopResults` for the recon step. */
+  reconSearch?: typeof searchTopResults;
   now?: () => number;
 };
 
@@ -150,16 +165,24 @@ export const runQueryAnalysis = async (
     customerSegments = discovered.customerSegments;
     discoveryModel = config.language_model.model;
 
-    await client.tickerDiscoveryRecord.create({
-      tickerId: input.tickerId,
-      competitors: discovered.competitors,
-      regulators: discovered.regulators,
-      mainInputs: discovered.mainInputs,
-      customerSegments: discovered.customerSegments,
-      model: config.language_model.model,
-      ...(contractVersion !== null ? { contractVersion } : {}),
-      ttlSeconds: DISCOVERY_CACHE_TTL_SECONDS,
-    });
+    const discoveredHasContent =
+      discovered.competitors.length > 0 ||
+      discovered.regulators.length > 0 ||
+      discovered.mainInputs.length > 0 ||
+      discovered.customerSegments.length > 0;
+
+    if (discoveredHasContent) {
+      await client.tickerDiscoveryRecord.create({
+        tickerId: input.tickerId,
+        competitors: discovered.competitors,
+        regulators: discovered.regulators,
+        mainInputs: discovered.mainInputs,
+        customerSegments: discovered.customerSegments,
+        model: config.language_model.model,
+        ...(contractVersion !== null ? { contractVersion } : {}),
+        ttlSeconds: DISCOVERY_CACHE_TTL_SECONDS,
+      });
+    }
   }
   const discoveryMs = now() - discoveryStartMs;
 
@@ -178,6 +201,36 @@ export const runQueryAnalysis = async (
     "query analysis discovery complete",
   );
 
+  const reconStartMs = now();
+  const reconSignals = await gatherReconSignals({
+    ticker,
+    classification,
+    homeMarket: market.homeMarket,
+    competitors,
+    providers: config.web_search,
+    locale: PROBE_LOCALES[0] ?? { gl: "id", hl: "id" },
+    maxQueries: RECON_MAX_QUERIES,
+    maxCompetitors: RECON_MAX_COMPETITORS,
+    maxSignals: RECON_MAX_SIGNALS,
+    resultsPerQuery: RECON_RESULTS_PER_QUERY,
+    concurrency: RECON_CONCURRENCY,
+    timeoutMs: RECON_TIMEOUT_MS,
+    logger,
+    ...(deps.createProvider ? { createProvider: deps.createProvider } : {}),
+    ...(deps.reconSearch ? { search: deps.reconSearch } : {}),
+  });
+  const reconMs = now() - reconStartMs;
+
+  logger.info(
+    {
+      tickerId: input.tickerId,
+      symbol: ticker.symbol,
+      signals: reconSignals.length,
+      reconMs,
+    },
+    "query analysis recon complete",
+  );
+
   // Generate query candidates via LLM (own-company/deals/competitor/regulator/industry
   // themes), probe each for yield, and retry with feedback on zero-hit candidates.
   const generationStartMs = now();
@@ -191,6 +244,7 @@ export const runQueryAnalysis = async (
       regulators,
       mainInputs,
       customerSegments,
+      reconSignals,
       languages: LANGUAGES,
       currentDate: new Date(now()).toISOString().slice(0, 10),
       ai: config.language_model,
@@ -202,7 +256,7 @@ export const runQueryAnalysis = async (
       probeConcurrency: PROBE_CONCURRENCY,
       probeMinResults: PROBE_MIN_RESULTS,
       probeTimeoutMs: PROBE_TIMEOUT_MS,
-      minSurvivors: QUERY_COUNT,
+      minSurvivors: GENERATION_MIN_SURVIVORS,
       ...(deps.generateQueries ? { generate: deps.generateQueries } : {}),
     },
     {
@@ -235,6 +289,7 @@ export const runQueryAnalysis = async (
     survivors: generation.survivors,
     dropped: generation.dropped,
     queryCount: QUERY_COUNT,
+    perIntentFloor: PER_INTENT_FLOOR,
   });
   const finalizeMs = now() - finalizeStartMs;
 
@@ -326,6 +381,7 @@ export const runQueryAnalysis = async (
     timing: {
       totalMs: now() - runStartMs,
       discoveryMs,
+      reconMs,
       generationMs,
       finalizeMs,
     },

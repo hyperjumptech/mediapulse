@@ -105,7 +105,8 @@ describe("generateQueryCandidates", () => {
     expect(call.system).toContain(
       "Track FORE and the Indonesian beverage industry.",
     );
-    expect(call.system).toContain("G/FORE");
+    expect(call.system).toContain("Use the actual company");
+    expect(call.system).toContain("Bank Rakyat Indonesia (BBRI)");
     expect(call.system).toContain("The disambiguation rule");
     expect(call.maxRetries).toBeGreaterThan(0);
   });
@@ -164,6 +165,30 @@ describe("generateQueryCandidates", () => {
       "berita kopi kenangan",
       "apa itu RUPS FORE?",
     ]);
+  });
+
+  it("includes the recent-signals block only when reconSignals are provided", async () => {
+    // Setup
+    const generate = vi
+      .fn()
+      .mockResolvedValue(okResult([{ i: 5, l: "en", s: "x" }]));
+
+    // Act
+    await generateQueryCandidates({ ...baseInput, generate });
+    const withoutSignals = generate.mock.calls[0]?.[0].prompt;
+
+    generate.mockClear();
+    await generateQueryCandidates({
+      ...baseInput,
+      generate,
+      reconSignals: ["Kopi Kenangan raises Series C", "Arabica prices spike"],
+    });
+    const withSignals = generate.mock.calls[0]?.[0].prompt;
+
+    // Assert
+    expect(withoutSignals).not.toContain("Recent signals");
+    expect(withSignals).toContain("Recent signals");
+    expect(withSignals).toContain("- Kopi Kenangan raises Series C");
   });
 
   it("includes excludeQueries steering text only when provided", async () => {

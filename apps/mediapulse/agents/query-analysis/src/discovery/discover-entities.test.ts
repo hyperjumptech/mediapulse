@@ -78,7 +78,88 @@ describe("discoverEntities", () => {
     const call = generate.mock.calls[0]?.[0];
     expect(call.system).toContain("<product_contract>");
     expect(call.system).toContain("Track BBRI and Indonesian banking.");
-    expect(call.maxRetries).toBe(0);
+    expect(call.maxRetries).toBeGreaterThan(0);
+  });
+
+  it("asks for private or unlisted competitors in the prompt", async () => {
+    // Setup
+    const generate = vi.fn().mockResolvedValue({
+      object: {
+        competitors: [],
+        regulators: [],
+        mainInputs: [],
+        customerSegments: [],
+      },
+      usage: undefined,
+    });
+
+    // Act
+    await discoverEntities({ ...baseInput, generate });
+
+    // Assert
+    const prompt = generate.mock.calls[0]?.[0].prompt;
+    expect(prompt).toContain("whether listed or private");
+    expect(prompt).not.toContain("prefer listed peers");
+  });
+
+  it("drops entities with an empty name", async () => {
+    // Setup
+    const generate = vi.fn().mockResolvedValue({
+      object: {
+        competitors: [
+          { name: "", aliases: [], searchKeywords: [] },
+          { name: "Tomoro", aliases: [], searchKeywords: [] },
+        ],
+        regulators: [],
+        mainInputs: [],
+        customerSegments: [],
+      },
+      usage: undefined,
+    });
+
+    // Act
+    const result = await discoverEntities({ ...baseInput, generate });
+
+    // Assert
+    expect(result.competitors.map((entity) => entity.name)).toEqual(["Tomoro"]);
+  });
+
+  it("salvages entities from raw output when strict validation throws", async () => {
+    // Setup
+    const warn = vi.fn();
+    const error = Object.assign(new Error("schema mismatch"), {
+      name: "AI_NoObjectGeneratedError",
+      text: JSON.stringify({
+        competitors: [
+          {
+            name: "Kopi Kenangan",
+            aliases: [],
+            searchKeywords: ["kopi kenangan"],
+          },
+        ],
+        regulators: [],
+        mainInputs: ["arabica beans"],
+        customerSegments: [],
+      }),
+    });
+    const generate = vi.fn().mockRejectedValue(error);
+
+    // Act
+    const result = await discoverEntities({
+      ...baseInput,
+      generate,
+      logger: { warn },
+    });
+
+    // Assert
+    expect(result.competitors.map((entity) => entity.name)).toEqual([
+      "Kopi Kenangan",
+    ]);
+    expect(result.mainInputs).toEqual(["arabica beans"]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ tickerSymbol: "BBRI" }),
+      expect.stringContaining("salvaged"),
+    );
   });
 
   it("degrades to an empty result when the LLM call throws", async () => {

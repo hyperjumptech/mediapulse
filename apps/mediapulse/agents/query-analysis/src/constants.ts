@@ -10,7 +10,13 @@ export const PROBE_LOCALES: SearchLocale[] = [
 ];
 
 /** Total query rows persisted in the active query set. */
-export const QUERY_COUNT = 24;
+export const QUERY_COUNT = 55;
+
+/** Minimum queries guaranteed per intent in the persisted set (backfilled from probe-dropped candidates). */
+export const PER_INTENT_FLOOR = 5;
+
+/** Surviving-query count that ends the generation retry loop early (decoupled from the persisted cap). */
+export const GENERATION_MIN_SURVIVORS = 24;
 
 /** Maximum competitors kept from an LLM discovery result. */
 export const DISCOVERY_MAX_COMPETITORS = 6;
@@ -22,10 +28,10 @@ export const DISCOVERY_MAX_REGULATORS = 4;
 export const DISCOVERY_MAX_KEYWORDS_PER_ENTITY = 2;
 
 /** Target number of candidates the generation LLM call is asked to produce per attempt. */
-export const GENERATION_CANDIDATE_TARGET = 40;
+export const GENERATION_CANDIDATE_TARGET = 60;
 
 /** Hard cap on candidates accepted from one generation LLM response. */
-export const GENERATION_CANDIDATE_MAX = 60;
+export const GENERATION_CANDIDATE_MAX = 90;
 
 /** Maximum generation attempts (initial + retries) before accepting whatever survived probing. */
 export const GENERATION_MAX_ATTEMPTS = 3;
@@ -47,6 +53,24 @@ export const PROBE_TIMEOUT_MS = 10_000;
 
 /** Time-to-live for a written ticker-discovery cache entry (14 days). */
 export const DISCOVERY_CACHE_TTL_SECONDS = 14 * 24 * 60 * 60;
+
+/** Maximum broad recon searches run before generation to gather current-event signals. */
+export const RECON_MAX_QUERIES = 12;
+
+/** Maximum discovered competitors given a dedicated recon search. */
+export const RECON_MAX_COMPETITORS = 4;
+
+/** Maximum headline signals fed into the generation prompt. */
+export const RECON_MAX_SIGNALS = 8;
+
+/** Results kept from each recon search before dedupe/cap. */
+export const RECON_RESULTS_PER_QUERY = 5;
+
+/** Concurrent recon searches in flight. */
+export const RECON_CONCURRENCY = 4;
+
+/** Per-recon-search request timeout. */
+export const RECON_TIMEOUT_MS = 10_000;
 
 /** Home market the pipeline anchors discovery and industry queries to. */
 export const HOME_MARKET = "Indonesia";
