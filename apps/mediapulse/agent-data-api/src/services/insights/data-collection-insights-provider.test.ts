@@ -6,39 +6,42 @@ import { insightsPayloadSchema } from "@workspace/agent-data-api-contract";
 
 import { createDataCollectionInsightsProvider } from "./data-collection-insights-provider.js";
 
-function makeRun(overrides?: {
-  id?: string;
-  tickerId?: string;
-  startedAt?: Date;
-  status?: string;
-  fetchSuccess?: number;
-  searchSuccess?: number;
-  searchFailed?: number;
-  queriesTotal?: number;
-  extendedCounters?: object | null;
-}) {
-  const defaultExtendedCounters = {
-    agentId: "data-collection",
-    persisted: 10,
-    discovered: 20,
-    afterPrefilter: 18,
-    durationMs: 30000,
-  };
+function makeRun(
+  overrides: {
+    id?: string;
+    tickerId?: string;
+    startedAt?: Date;
+    status?: string;
+    agentId?: string | null;
+    saved?: number;
+    excluded?: number;
+    byReason?: Record<string, number>;
+    searchCredits?: number;
+    fetchByProvider?: Record<string, number>;
+    totalMs?: number;
+  } = {},
+) {
+  const agentId =
+    "agentId" in overrides ? overrides.agentId : "data-collection";
   return {
-    id: overrides?.id ?? "run-1",
-    tickerId: overrides?.tickerId ?? "ticker-1",
+    id: overrides.id ?? "run-1",
+    tickerId: overrides.tickerId ?? "ticker-1",
     startedAt:
-      overrides?.startedAt ?? new Date(Date.now() - 24 * 60 * 60 * 1000),
-    status: overrides?.status ?? "success",
-    fetchSuccess: overrides?.fetchSuccess ?? 10,
-    searchSuccess: overrides?.searchSuccess ?? 20,
-    searchFailed: overrides?.searchFailed ?? 2,
-    queriesTotal: overrides?.queriesTotal ?? 5,
-    extendedCounters:
-      overrides !== undefined &&
-      Object.prototype.hasOwnProperty.call(overrides, "extendedCounters")
-        ? overrides.extendedCounters
-        : defaultExtendedCounters,
+      overrides.startedAt ?? new Date(Date.now() - 24 * 60 * 60 * 1000),
+    status: overrides.status ?? "success",
+    snapshot: {
+      ...(agentId != null ? { agentId } : {}),
+      cost: {
+        searchCredits: overrides.searchCredits ?? 96,
+        fetchByProvider: overrides.fetchByProvider ?? { jina: 10 },
+      },
+      result: {
+        saved: overrides.saved ?? 10,
+        excluded: overrides.excluded ?? 8,
+        byReason: overrides.byReason ?? { existing: 5, freshness: 3 },
+      },
+      timing: { totalMs: overrides.totalMs ?? 30000 },
+    },
   };
 }
 
@@ -101,13 +104,13 @@ describe("createDataCollectionInsightsProvider", () => {
   it("excludes page-collection runs from all counts", async () => {
     const dataCollectionRun = makeRun({
       id: "dc-run",
-      fetchSuccess: 10,
-      extendedCounters: { agentId: "data-collection", persisted: 10 },
+      saved: 10,
+      agentId: "data-collection",
     });
     const pageCollectionRun = makeRun({
       id: "pc-run",
-      fetchSuccess: 999,
-      extendedCounters: { agentId: "page-collection", persisted: 999 },
+      saved: 999,
+      agentId: "page-collection",
     });
     const deps = makeDeps([dataCollectionRun, pageCollectionRun], [], []);
     const provider = createDataCollectionInsightsProvider(deps);
@@ -119,8 +122,8 @@ describe("createDataCollectionInsightsProvider", () => {
   it("excludes runs without agentId from data-collection counts", async () => {
     const runWithoutAgentId = makeRun({
       id: "old-run",
-      fetchSuccess: 999,
-      extendedCounters: null,
+      saved: 999,
+      agentId: null,
     });
     const deps = makeDeps([runWithoutAgentId], [], []);
     const provider = createDataCollectionInsightsProvider(deps);
@@ -129,16 +132,8 @@ describe("createDataCollectionInsightsProvider", () => {
     expect(articleKpi?.value).toBe(0);
   });
 
-  it("computes funnel with fetched >= persisted", async () => {
-    const run = makeRun({
-      queriesTotal: 5,
-      fetchSuccess: 8,
-      extendedCounters: {
-        agentId: "data-collection",
-        discovered: 20,
-        persisted: 6,
-      },
-    });
+  it("computes funnel with considered >= saved", async () => {
+    const run = makeRun({ saved: 6, excluded: 14 });
     const provider = createDataCollectionInsightsProvider(
       makeDeps([run], [], []),
     );
@@ -146,23 +141,20 @@ describe("createDataCollectionInsightsProvider", () => {
     const funnel = payload.sections.find((s) => s.id === "what-funnel");
     expect(funnel?.widget.kind).toBe("funnel");
     if (funnel?.widget.kind !== "funnel") return;
-    const fetched = funnel.widget.stages.find((s) => s.label === "Fetched");
-    const persisted = funnel.widget.stages.find((s) => s.label === "Persisted");
-    expect(fetched).toBeDefined();
-    expect(persisted).toBeDefined();
-    expect(fetched!.value).toBeGreaterThanOrEqual(persisted!.value);
+    const considered = funnel.widget.stages.find(
+      (s) => s.label === "Considered",
+    );
+    const saved = funnel.widget.stages.find((s) => s.label === "Saved");
+    expect(considered).toBeDefined();
+    expect(saved).toBeDefined();
+    expect(considered!.value).toBeGreaterThanOrEqual(saved!.value);
   });
 
-  it("aggregates drop reasons from extendedCounters", async () => {
+  it("aggregates drop reasons from the run snapshot byReason", async () => {
     const run = makeRun({
-      extendedCounters: {
-        agentId: "data-collection",
-        droppedByRelevance: 5,
-        droppedByFreshness: 3,
-        droppedByContentQuality: { low_quality: 2 },
-        persisted: 10,
-        discovered: 25,
-      },
+      saved: 10,
+      excluded: 10,
+      byReason: { existing: 5, freshness: 3, contentQuality: 2 },
     });
     const provider = createDataCollectionInsightsProvider(
       makeDeps([run], [], []),
@@ -174,20 +166,16 @@ describe("createDataCollectionInsightsProvider", () => {
     expect(dropSection).toBeDefined();
     if (dropSection?.widget.kind !== "breakdown") return;
     const labels = dropSection.widget.slices.map((s) => s.label);
-    expect(labels).toContain("Relevance");
-    expect(labels).toContain("Freshness");
-    expect(labels).toContain("Content: low_quality");
+    expect(labels).toContain("existing");
+    expect(labels).toContain("freshness");
+    expect(labels).toContain("contentQuality");
   });
 
   it("drop reason fractions sum to 1", async () => {
     const run = makeRun({
-      extendedCounters: {
-        agentId: "data-collection",
-        droppedByRelevance: 4,
-        droppedByFreshness: 6,
-        persisted: 10,
-        discovered: 20,
-      },
+      saved: 10,
+      excluded: 10,
+      byReason: { existing: 4, freshness: 6 },
     });
     const provider = createDataCollectionInsightsProvider(
       makeDeps([run], [], []),
@@ -212,14 +200,12 @@ describe("createDataCollectionInsightsProvider", () => {
     const priorRun = makeRun({
       id: "prior-run",
       startedAt: new Date(priorStart + 1000),
-      fetchSuccess: 5,
-      extendedCounters: { agentId: "data-collection", persisted: 5 },
+      saved: 5,
     });
     const currentRun = makeRun({
       id: "current-run",
       startedAt: new Date(windowStart + 1000),
-      fetchSuccess: 15,
-      extendedCounters: { agentId: "data-collection", persisted: 15 },
+      saved: 15,
     });
     const provider = createDataCollectionInsightsProvider(
       makeDeps([priorRun, currentRun], [], []),
@@ -228,20 +214,6 @@ describe("createDataCollectionInsightsProvider", () => {
     const articleKpi = payload.kpis.find((k) => k.id === "articles_collected");
     expect(articleKpi?.value).toBe(15);
     expect(articleKpi?.delta).toBe(10);
-  });
-
-  it("emits low-search-success alert when rate is below 50%", async () => {
-    const run = makeRun({
-      searchSuccess: 2,
-      searchFailed: 8,
-      extendedCounters: { agentId: "data-collection", persisted: 2 },
-    });
-    const provider = createDataCollectionInsightsProvider(
-      makeDeps([run], [], []),
-    );
-    const payload = await provider.compute({ window: "7d" });
-    const alert = payload.alerts.find((a) => a.id === "low-search-success");
-    expect(alert).toBeDefined();
   });
 
   it("emits stage-failure alert when a stage has more than 5 failures", async () => {

@@ -24,7 +24,6 @@ import {
   type QualityDropForDeadUrl,
   type FetchedWebSearchResult,
   deriveRunStatus,
-  type RunCounters,
   type RunPolicy,
   makeDroppedOutcome,
   makeCollectedOutcome,
@@ -741,37 +740,6 @@ export async function runDataCollection(
 
   const runDurationMs = Date.now() - startedAt.getTime();
 
-  const counters: RunCounters = {
-    queriesTotal: queries.length,
-    urlsTotal: searchSuccessCount,
-    searchSuccess: searchSuccessCount,
-    searchFailed: searchFailedCount,
-    searchEmpty: searchEmptyCount,
-    fetchSuccess: fetchSuccessCount,
-    fetched: fetchedCount,
-    fetchFailed: fetchFailedCount,
-    retryCount: 0,
-    throttleEvents,
-    agentId: "data-collection",
-    persisted: persistedThisRunCount,
-    droppedByDeadUrl: droppedByDeadUrlCache,
-    droppedByHostErrorRate,
-    droppedByFreshness: droppedByFreshnessTotalCount,
-    droppedByFreshnessReason: { ...droppedByFreshnessReason },
-    droppedByDuplicateCanonicalUrl,
-    droppedByExistingCanonicalUrl,
-    droppedByUrlNoise: droppedByUrlNoiseTotal,
-    droppedByContentQuality: { ...droppedByContentQuality },
-    roundsExecuted,
-    stopReason: refillStopReason ?? undefined,
-    durationMs: runDurationMs,
-    searchProvider: [...new Set(config.web_search.map((p) => p.provider))].join(
-      ", ",
-    ),
-    searchCredits: searchCreditsSink.credits,
-    ...(Object.keys(fetchByProvider).length > 0 ? { fetchByProvider } : {}),
-  };
-
   const byReason: Record<string, number> = {
     existing: droppedByExistingCanonicalUrl,
     freshness: droppedByFreshnessTotalCount,
@@ -808,7 +776,6 @@ export async function runDataCollection(
     startedAt: startedAt.toISOString(),
     completedAt: new Date().toISOString(),
     status,
-    counters,
     snapshot,
   };
 
