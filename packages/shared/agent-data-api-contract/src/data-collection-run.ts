@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { collectionRunSnapshotSchema } from "./collection-run-snapshot.js";
+
 export const dataCollectionRunStatusSchema = z.enum([
   "success",
   "partial_success",
@@ -65,6 +67,7 @@ export const dataCollectionRunInputSchema = z.object({
     /** Relevance-filter LLM total tokens summed across the run. */
     relevanceTotalTokens: z.number().int().nonnegative().optional(),
   }),
+  snapshot: collectionRunSnapshotSchema.optional(),
 });
 
 export const postDataCollectionRunBodySchema = dataCollectionRunInputSchema;

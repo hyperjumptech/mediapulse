@@ -56,6 +56,15 @@ import {
   getDataCollectionFailure,
   postDataCollectionFailure,
 } from "./routes/data-collection-failure.js";
+import {
+  getPageCollectionRun,
+  postPageCollectionRun,
+} from "./routes/page-collection-run.js";
+import {
+  getPageCollectionFailure,
+  postPageCollectionFailure,
+} from "./routes/page-collection-failure.js";
+import { postPageCollectionUrlOutcome } from "./routes/page-collection-url-outcome.js";
 import { getDeliveryRun, postDeliveryRun } from "./routes/delivery-run.js";
 import { getDelivery, postDeliveryHandler } from "./routes/delivery.js";
 import { postNewsletterTranslationHandler } from "./routes/newsletter-translation.js";
@@ -181,6 +190,17 @@ const routeHandlers = {
   dataCollectionFailure: {
     get: getDataCollectionFailure,
     post: postDataCollectionFailure,
+  },
+  pageCollectionRun: {
+    get: getPageCollectionRun,
+    post: postPageCollectionRun,
+  },
+  pageCollectionFailure: {
+    get: getPageCollectionFailure,
+    post: postPageCollectionFailure,
+  },
+  pageCollectionUrlOutcome: {
+    post: postPageCollectionUrlOutcome,
   },
   delivery: {
     get: getDelivery,

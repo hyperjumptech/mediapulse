@@ -65,6 +65,7 @@ model CuratedSource {
 
   articles              DataSource[]
   collectionUrlOutcomes CollectionUrlOutcome[]
+  pageCollectionUrlOutcomes PageCollectionUrlOutcome[]
 
   @@map("curated_source")
 }
@@ -501,6 +502,9 @@ model Ticker {
   dataCollectionRuns     DataCollectionRun[]
   dataCollectionFailures DataCollectionFailure[]
   collectionUrlOutcomes  CollectionUrlOutcome[]
+  pageCollectionRuns        PageCollectionRun[]
+  pageCollectionFailures    PageCollectionFailure[]
+  pageCollectionUrlOutcomes PageCollectionUrlOutcome[]
   deliveryRuns           DeliveryRun[]
   contentGenerationRuns  ContentGenerationRun[]
   articleAnalysisRuns    ArticleAnalysisRun[]
@@ -761,6 +765,7 @@ model DataCollectionRun {
   retryCount    Int @default(0) @map("retry_count")
 
   extendedCounters Json? @map("extended_counters")
+  snapshot         Json?
 
   ticker   Ticker?                 @relation(fields: [tickerId], references: [id])
   failures DataCollectionFailure[]
@@ -864,6 +869,72 @@ model CollectionUrlOutcome {
   @@index([tickerId, createdAt])
   @@index([curatedSourceId, createdAt])
   @@map("collection_url_outcome")
+}
+
+/// One run of the page-collection agent. Parallel to DataCollectionRun; page-collection
+/// owns its run and child tables instead of sharing DataCollectionRun via an agent flag.
+model PageCollectionRun {
+  id                  String                  @id @default(uuid())
+  tickerId            String?                 @map("ticker_id")
+  scheduleExecutionId String?                 @map("schedule_execution_id")
+  startedAt           DateTime                @map("started_at")
+  completedAt         DateTime?               @map("completed_at")
+  status              DataCollectionRunStatus
+
+  snapshot Json?
+
+  ticker   Ticker?                    @relation(fields: [tickerId], references: [id])
+  failures PageCollectionFailure[]
+  outcomes PageCollectionUrlOutcome[]
+
+  @@index([scheduleExecutionId])
+  @@map("page_collection_run")
+}
+
+model PageCollectionUrlOutcome {
+  id                  String              @id @default(uuid())
+  scheduleExecutionId String?             @map("schedule_execution_id")
+  runId               String              @map("run_id")
+  tickerId            String?             @map("ticker_id")
+  status              CollectionUrlStatus
+
+  url             String
+  reason          String?
+  reasonDetail    String? @map("reason_detail")
+  source          String?
+  curatedSourceId String? @map("curated_source_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  run           PageCollectionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  ticker        Ticker?           @relation(fields: [tickerId], references: [id])
+  curatedSource CuratedSource?    @relation(fields: [curatedSourceId], references: [id], onDelete: SetNull)
+
+  @@index([scheduleExecutionId])
+  @@index([runId, status])
+  @@index([tickerId, createdAt])
+  @@index([curatedSourceId, createdAt])
+  @@map("page_collection_url_outcome")
+}
+
+model PageCollectionFailure {
+  id       String                      @id @default(uuid())
+  runId    String                      @map("run_id")
+  tickerId String?                     @map("ticker_id")
+  stage    DataCollectionProviderStage
+  provider DataCollectionProvider
+
+  url           String?
+  errorCategory DataCollectionErrorCategory @map("error_category")
+  retryable     Boolean
+  httpStatus    Int?                        @map("http_status")
+  message       String
+  createdAt     DateTime                    @default(now()) @map("created_at")
+
+  run    PageCollectionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  ticker Ticker?           @relation(fields: [tickerId], references: [id])
+
+  @@map("page_collection_failure")
 }
 
 enum ContentGenerationRunOutcome {

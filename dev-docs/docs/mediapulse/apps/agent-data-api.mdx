@@ -315,6 +315,14 @@ Implemented in `apps/mediapulse/agent-data-api/src/routes/page-collection.ts`. S
 - **POST `/api/v1/page-collection-existing-urls`** — Global dedup lookup for candidate article URLs.
 - **GET `/api/v1/page-collection-articles`** — Paginated list of page-collection articles with optional gate and analysis filters.
 
+### Page collection run records (`/api/v1/page-collection-run`, `-failure`, `-url-outcome`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/page-collection-run.ts`, `page-collection-failure.ts`, and `page-collection-url-outcome.ts`. Schemas live in `@workspace/agent-data-api-contract` (`page-collection-run.ts`, `page-collection-failure.ts`, `page-collection-url-outcome.ts`, `collection-run-snapshot.ts`). These are the page-collection-specific parallels to the data-collection run tables, so page-collection no longer shares `DataCollectionRun` via an `agentId` flag.
+
+- **GET / POST `/api/v1/page-collection-run`** — One run record per page-collection run, carrying the grouped `snapshot` (`cost` / `result` / `timing`).
+- **GET / POST `/api/v1/page-collection-failure`** — Per-failure diagnostics (`stage`, `provider`, `errorCategory`, `retryable`, `httpStatus`).
+- **POST `/api/v1/page-collection-url-outcome`** — Per-URL decision log (`collected` | `dropped`) with `reason`, `reasonDetail`, and `curatedSourceId` lineage.
+
 ### Newsletter feedback (`POST /api/v1/newsletter-feedback-record`)
 
 Implemented in `apps/mediapulse/agent-data-api/src/routes/newsletter-feedback.ts` and `services/newsletter-feedback.ts`. Schemas live in `@workspace/agent-data-api-contract` (`newsletter-feedback.ts`). Consumed by the [newsletter-feedback agent](/mediapulse/apps/agents/newsletter-feedback).
