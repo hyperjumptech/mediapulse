@@ -104,6 +104,15 @@ export async function runPageCollection(
       message,
     });
 
+    const crashSnapshot = {
+      agentId: "page-collection" as const,
+      cost: { searchCredits: 0, fetchByProvider: {} },
+      result: { saved: 0, excluded: 0, byReason: {} },
+      timing: {
+        totalMs: Date.now() - startedAt.getTime(),
+        roundsExecuted: 0,
+      },
+    };
     try {
       await withApiStep("persist crash run record", () =>
         dataApiClient.dataCollectionRun.create({
@@ -120,11 +129,21 @@ export async function runPageCollection(
             fetchSuccess: 0,
             fetchFailed: 0,
             retryCount: 0,
-            droppedByRelevance: 0,
             throttleEvents: 0,
             durationMs: Date.now() - startedAt.getTime(),
             agentId: "page-collection",
           },
+          snapshot: crashSnapshot,
+        }),
+      );
+      await withApiStep("persist page collection crash run record", () =>
+        dataApiClient.pageCollectionRun.create({
+          id: runId,
+          scheduleExecutionId,
+          startedAt: startedAt.toISOString(),
+          completedAt: new Date().toISOString(),
+          status: "failed",
+          snapshot: crashSnapshot,
         }),
       );
     } catch (persistError) {
@@ -576,6 +595,39 @@ async function executePageCollectionRun(
     ...(Object.keys(fetchByProvider).length > 0 ? { fetchByProvider } : {}),
   };
 
+  const byReason: Record<string, number> = {
+    existing: droppedByExistingCanonicalUrl,
+    duplicate: droppedByDuplicateCanonicalUrl,
+    urlNoise: Object.values(droppedByUrlReason).reduce((sum, n) => sum + n, 0),
+    contentQuality: Object.values(droppedByContentQuality).reduce(
+      (sum, n) => sum + n,
+      0,
+    ),
+    deadUrl: droppedByDeadUrlCache,
+    hostErrorRate: droppedByHostErrorRate,
+    fetchBudget: droppedByFetchBudget,
+    runItemCap: droppedByRunItemCap,
+    fetchFailed: fetchFailedCount,
+  };
+
+  const snapshot = {
+    agentId: "page-collection" as const,
+    cost: {
+      searchCredits: 0,
+      fetchByProvider,
+    },
+    result: {
+      saved: persistedCount,
+      excluded: Object.values(byReason).reduce((sum, n) => sum + n, 0),
+      byReason,
+    },
+    timing: {
+      totalMs: Date.now() - startedAt.getTime(),
+      roundsExecuted: 1,
+      ...(deadlineHit ? { stopReason: "deadline_hit" } : {}),
+    },
+  };
+
   await withApiStep("persist run record", () =>
     dataApiClient.dataCollectionRun.create({
       id: runId,
@@ -584,6 +636,18 @@ async function executePageCollectionRun(
       completedAt: new Date().toISOString(),
       status,
       counters,
+      snapshot,
+    }),
+  );
+
+  await withApiStep("persist page collection run record", () =>
+    dataApiClient.pageCollectionRun.create({
+      id: runId,
+      scheduleExecutionId,
+      startedAt: startedAt.toISOString(),
+      completedAt: new Date().toISOString(),
+      status,
+      snapshot,
     }),
   );
 
@@ -594,6 +658,22 @@ async function executePageCollectionRun(
     );
     await withApiStep("record fetch failures", () =>
       dataApiClient.dataCollectionFailure.create(failuresPayload),
+    );
+    await withApiStep("record page collection fetch failures", () =>
+      dataApiClient.pageCollectionFailure.create(
+        failuresPayload.map((failure) => ({
+          id: failure.id,
+          runId: failure.runId,
+          stage: failure.stage,
+          provider: failure.provider,
+          url: failure.url,
+          errorCategory: failure.errorCategory,
+          retryable: failure.retryable,
+          httpStatus: failure.httpStatus,
+          message: failure.message,
+          createdAt: failure.createdAt,
+        })),
+      ),
     );
   }
 
@@ -606,6 +686,36 @@ async function executePageCollectionRun(
       );
     } catch (outcomeError) {
       log.warn({ err: outcomeError }, "failed to post collection URL outcomes");
+    }
+
+    const pageOutcomes = outcomes
+      .filter((outcome) => outcome.status !== "failed")
+      .map((outcome) => ({
+        id: outcome.id,
+        scheduleExecutionId: outcome.scheduleExecutionId,
+        runId: outcome.runId,
+        tickerId: outcome.tickerId,
+        status: outcome.status,
+        url: outcome.url,
+        reason: outcome.reason,
+        reasonDetail: outcome.reasonDetail,
+        source: outcome.source,
+        curatedSourceId: outcome.curatedSourceId,
+        createdAt: outcome.createdAt,
+      }));
+    if (pageOutcomes.length > 0) {
+      try {
+        await postOutcomesInChunks(pageOutcomes, (batch) =>
+          withApiStep("post page collection URL outcomes", () =>
+            dataApiClient.pageCollectionUrlOutcome.create(batch),
+          ),
+        );
+      } catch (outcomeError) {
+        log.warn(
+          { err: outcomeError },
+          "failed to post page collection URL outcomes",
+        );
+      }
     }
   }
 
