@@ -22,7 +22,6 @@ import {
   hostFromUrl,
   type QualityDropForDeadUrl,
   deriveRunStatus,
-  type RunCounters,
   type WebSearchResult,
   makeDroppedOutcome,
   makeCollectedOutcome,
@@ -121,18 +120,6 @@ export async function runPageCollection(
           startedAt: startedAt.toISOString(),
           completedAt: new Date().toISOString(),
           status: "failed",
-          counters: {
-            queriesTotal: 0,
-            urlsTotal: 0,
-            searchSuccess: 0,
-            searchFailed: 0,
-            fetchSuccess: 0,
-            fetchFailed: 0,
-            retryCount: 0,
-            throttleEvents: 0,
-            durationMs: Date.now() - startedAt.getTime(),
-            agentId: "page-collection",
-          },
           snapshot: crashSnapshot,
         }),
       );
@@ -561,40 +548,6 @@ async function executePageCollectionRun(
       ? "partial_success"
       : derivedStatus;
 
-  const counters: RunCounters = {
-    queriesTotal: 1,
-    urlsTotal: cappedCandidates.length,
-    searchSuccess: allCandidates.length,
-    searchFailed: 0,
-    fetchSuccess: fetchSuccessCount,
-    fetchFailed: fetchFailedCount,
-    retryCount: 0,
-    droppedByRelevance: 0,
-    throttleEvents: 0,
-    discovered: allCandidates.length,
-    afterPrefilter: cappedCandidates.length,
-    discoveryFailed: 0,
-    cacheHits: 0,
-    cacheMisses: 0,
-    droppedByContentQuality: { ...droppedByContentQuality },
-    droppedByFreshness: 0,
-    droppedByDeadUrl: droppedByDeadUrlCache,
-    droppedByHostErrorRate,
-    droppedByFetchBudget,
-    droppedByRunItemCap,
-    droppedByExistingCanonicalUrl,
-    droppedByDuplicateCanonicalUrl,
-    droppedByUrlNoise: Object.values(droppedByUrlReason).reduce(
-      (sum, n) => sum + n,
-      0,
-    ),
-    persisted: persistedCount,
-    deadlineHit,
-    durationMs: Date.now() - startedAt.getTime(),
-    agentId: "page-collection",
-    ...(Object.keys(fetchByProvider).length > 0 ? { fetchByProvider } : {}),
-  };
-
   const byReason: Record<string, number> = {
     existing: droppedByExistingCanonicalUrl,
     duplicate: droppedByDuplicateCanonicalUrl,
@@ -635,7 +588,6 @@ async function executePageCollectionRun(
       startedAt: startedAt.toISOString(),
       completedAt: new Date().toISOString(),
       status,
-      counters,
       snapshot,
     }),
   );

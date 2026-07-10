@@ -88,16 +88,14 @@ describe("buildChronicle", () => {
             status: "success",
             startedAt: new Date("2026-06-30T06:02:38.000Z"),
             completedAt: new Date("2026-06-30T06:04:24.000Z"),
-            extendedCounters: {
+            snapshot: {
               agentId: "data-collection",
-              searchProvider: "serper",
-              searchCredits: 96,
-              fetchByProvider: { jina: 204, playwright: 18 },
-              relevanceModel: "gpt-4o-mini",
-              relevancePromptTokens: 9_400,
-              relevanceCompletionTokens: 1_120,
-              relevanceTotalTokens: 10_520,
-              stopReason: "daily_target_met",
+              cost: {
+                searchCredits: 96,
+                fetchByProvider: { jina: 204, playwright: 18 },
+              },
+              result: { saved: 40, excluded: 12, byReason: { existing: 12 } },
+              timing: { totalMs: 106000, stopReason: "daily_target_met" },
             },
           },
           {
@@ -105,9 +103,11 @@ describe("buildChronicle", () => {
             status: "success",
             startedAt: new Date("2026-06-30T06:01:10.000Z"),
             completedAt: new Date("2026-06-30T06:01:34.000Z"),
-            extendedCounters: {
+            snapshot: {
               agentId: "page-collection",
-              fetchByProvider: { jina: 140 },
+              cost: { searchCredits: 0, fetchByProvider: { jina: 140 } },
+              result: { saved: 8, excluded: 2, byReason: {} },
+              timing: { totalMs: 24000 },
             },
           },
         ]),

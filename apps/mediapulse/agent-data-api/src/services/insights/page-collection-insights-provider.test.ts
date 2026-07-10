@@ -8,19 +8,33 @@ import { createPageCollectionInsightsProvider } from "./page-collection-insights
 
 const NOW = new Date("2026-06-08T12:00:00.000Z");
 
-function makeRun(overrides?: {
-  tickerId?: string;
-  startedAt?: Date;
-  status?: string;
-  fetchSuccess?: number;
-  extendedCounters?: object | null;
-}) {
+function makeRun(
+  overrides: {
+    tickerId?: string;
+    startedAt?: Date;
+    status?: string;
+    agentId?: string | null;
+    saved?: number;
+    excluded?: number;
+    byReason?: Record<string, number>;
+  } = {},
+) {
+  const agentId =
+    "agentId" in overrides ? overrides.agentId : "page-collection";
   return {
-    tickerId: overrides?.tickerId ?? "ticker-1",
-    startedAt: overrides?.startedAt ?? new Date("2026-06-07T08:00:00.000Z"),
-    status: overrides?.status ?? "success",
-    fetchSuccess: overrides?.fetchSuccess ?? 5,
-    extendedCounters: overrides?.extendedCounters ?? null,
+    tickerId: overrides.tickerId ?? "ticker-1",
+    startedAt: overrides.startedAt ?? new Date("2026-06-07T08:00:00.000Z"),
+    status: overrides.status ?? "success",
+    snapshot: {
+      ...(agentId != null ? { agentId } : {}),
+      cost: { searchCredits: 0, fetchByProvider: { jina: 5 } },
+      result: {
+        saved: overrides.saved ?? 5,
+        excluded: overrides.excluded ?? 3,
+        byReason: overrides.byReason ?? { existing: 3 },
+      },
+      timing: { totalMs: 20000 },
+    },
   };
 }
 
@@ -98,16 +112,7 @@ describe("createPageCollectionInsightsProvider", () => {
   it("includes a funnel section with correct stage ordering", async () => {
     const provider = createPageCollectionInsightsProvider(
       makeDeps({
-        runs: [
-          makeRun({
-            extendedCounters: {
-              discovered: 100,
-              afterPrefilter: 80,
-              persisted: 20,
-            },
-            fetchSuccess: 30,
-          }),
-        ],
+        runs: [makeRun({ saved: 20, excluded: 80 })],
       }),
     );
 
@@ -117,23 +122,21 @@ describe("createPageCollectionInsightsProvider", () => {
     expect(funnel).toBeDefined();
     expect(funnel!.widget.kind).toBe("funnel");
     if (funnel!.widget.kind === "funnel") {
-      expect(funnel!.widget.stages[0]!.label).toBe("Discovered");
+      expect(funnel!.widget.stages[0]!.label).toBe("Considered");
       expect(funnel!.widget.stages[0]!.value).toBe(100);
-      expect(funnel!.widget.stages[3]!.label).toBe("Persisted");
-      expect(funnel!.widget.stages[3]!.value).toBe(20);
+      expect(funnel!.widget.stages[1]!.label).toBe("Saved");
+      expect(funnel!.widget.stages[1]!.value).toBe(20);
     }
   });
 
-  it("aggregates extended counter drop reasons into the why-drops breakdown", async () => {
+  it("aggregates snapshot drop reasons into the why-drops breakdown", async () => {
     const provider = createPageCollectionInsightsProvider(
       makeDeps({
         runs: [
           makeRun({
-            extendedCounters: {
-              droppedByRelevance: 10,
-              droppedByFreshness: 5,
-              droppedByContentQuality: { too_short: 3 },
-            },
+            saved: 5,
+            excluded: 18,
+            byReason: { existing: 10, freshness: 5, contentQuality: 3 },
           }),
         ],
       }),
@@ -146,11 +149,11 @@ describe("createPageCollectionInsightsProvider", () => {
     expect(drops!.widget.kind).toBe("breakdown");
     if (drops!.widget.kind === "breakdown") {
       const relevance = drops!.widget.slices.find(
-        (s) => s.label === "Relevance",
+        (s) => s.label === "existing",
       );
       expect(relevance?.value).toBe(10);
       const freshness = drops!.widget.slices.find(
-        (s) => s.label === "Freshness",
+        (s) => s.label === "freshness",
       );
       expect(freshness?.value).toBe(5);
       const fractions = drops!.widget.slices.map((s) => s.fraction);
@@ -235,7 +238,7 @@ describe("createPageCollectionInsightsProvider", () => {
   it("computes KPI deltas from the prior period", async () => {
     const recentRun = makeRun({
       startedAt: new Date("2026-06-07T08:00:00.000Z"),
-      fetchSuccess: 10,
+      saved: 10,
     });
 
     const provider = createPageCollectionInsightsProvider(

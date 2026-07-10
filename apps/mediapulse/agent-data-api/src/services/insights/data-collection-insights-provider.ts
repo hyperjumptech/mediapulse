@@ -24,11 +24,7 @@ type RunRow = {
   tickerId: string | null;
   startedAt: Date;
   status: string;
-  fetchSuccess: number;
-  searchSuccess: number;
-  searchFailed: number;
-  queriesTotal: number;
-  extendedCounters: Prisma.JsonValue | null | undefined;
+  snapshot: Prisma.JsonValue | null | undefined;
 };
 
 type FailureRow = {
@@ -58,11 +54,7 @@ type DataCollectionInsightsDeps = {
         tickerId: boolean;
         startedAt: boolean;
         status: boolean;
-        fetchSuccess: boolean;
-        searchSuccess: boolean;
-        searchFailed: boolean;
-        queriesTotal: boolean;
-        extendedCounters: boolean;
+        snapshot: boolean;
       };
     }) => Promise<RunRow[]>;
   };
@@ -91,39 +83,26 @@ type DataCollectionInsightsDeps = {
   };
 };
 
-type ExtendedCounters = {
+type RunSnapshot = {
   agentId?: string;
-  discovered?: number;
-  afterPrefilter?: number;
-  fetched?: number;
-  persisted?: number;
-  searchEmpty?: number;
-  droppedByRelevance?: number;
-  droppedByContentQuality?: Record<string, number>;
-  droppedByFreshness?: number;
-  droppedByFreshnessReason?: Record<string, number>;
-  droppedByDeadUrl?: number;
-  droppedByHostErrorRate?: number;
-  droppedByExistingCanonicalUrl?: number;
-  droppedByDuplicateCanonicalUrl?: number;
-  droppedByUrlNoise?: number;
-  roundsExecuted?: number;
-  stopReason?: string;
-  durationMs?: number;
+  cost?: { searchCredits?: number; fetchByProvider?: Record<string, number> };
+  result?: {
+    saved?: number;
+    excluded?: number;
+    byReason?: Record<string, number>;
+  };
+  timing?: { totalMs?: number; roundsExecuted?: number; stopReason?: string };
 };
 
-function parseExtendedCounters(
-  raw: Prisma.JsonValue | null | undefined,
-): ExtendedCounters {
+function parseSnapshot(raw: Prisma.JsonValue | null | undefined): RunSnapshot {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return {};
   }
-  return raw as ExtendedCounters;
+  return raw as RunSnapshot;
 }
 
 function isDataCollectionRun(row: RunRow): boolean {
-  const ext = parseExtendedCounters(row.extendedCounters);
-  return ext.agentId === "data-collection";
+  return parseSnapshot(row.snapshot).agentId === "data-collection";
 }
 
 function domainFromUrl(url: string): string {
@@ -197,11 +176,7 @@ export function createDataCollectionInsightsProvider(
             tickerId: true,
             startedAt: true,
             status: true,
-            fetchSuccess: true,
-            searchSuccess: true,
-            searchFailed: true,
-            queriesTotal: true,
-            extendedCounters: true,
+            snapshot: true,
           },
         }),
         deps.dataSource.findMany({
@@ -250,61 +225,30 @@ export function createDataCollectionInsightsProvider(
       const successfulRuns = runs.filter(
         (r) => r.status === "success" || r.status === "partial_success",
       ).length;
-      const totalArticles = runs.reduce((sum, r) => sum + r.fetchSuccess, 0);
+      const savedOf = (r: RunRow): number =>
+        parseSnapshot(r.snapshot).result?.saved ?? 0;
+      const totalArticles = runs.reduce((sum, r) => sum + savedOf(r), 0);
       const priorArticles = priorWindowRuns.reduce(
-        (sum, r) => sum + r.fetchSuccess,
+        (sum, r) => sum + savedOf(r),
         0,
       );
-      const totalQueries = runs.reduce((sum, r) => sum + r.queriesTotal, 0);
-      const totalSearchSuccess = runs.reduce(
-        (sum, r) => sum + r.searchSuccess,
-        0,
-      );
-      const totalSearchFailed = runs.reduce(
-        (sum, r) => sum + r.searchFailed,
-        0,
-      );
-      const totalSearchAttempts = totalSearchSuccess + totalSearchFailed;
 
-      let totalDiscovered = 0;
-      let totalAfterPrefilter = 0;
-      let totalFetched = 0;
-      let totalPersisted = 0;
-      let totalDroppedByRelevance = 0;
-      let totalDroppedByFreshness = 0;
-      let totalDroppedByDeadUrl = 0;
-      let totalDroppedByHostErrorRate = 0;
-      let totalDroppedByUrlNoise = 0;
-      let totalDroppedByExistingCanonical = 0;
-      let totalDroppedByDuplicateCanonical = 0;
-      const totalDroppedByContentQuality: Record<string, number> = {};
+      let totalExcluded = 0;
+      let totalSearchCredits = 0;
+      const totalByReason: Record<string, number> = {};
       const durationMsList: number[] = [];
 
       for (const run of runs) {
-        const ext = parseExtendedCounters(run.extendedCounters);
-        totalDiscovered += ext.discovered ?? run.searchSuccess;
-        totalAfterPrefilter += ext.afterPrefilter ?? run.searchSuccess;
-        totalFetched += ext.fetched ?? ext.persisted ?? run.fetchSuccess;
-        totalPersisted += ext.persisted ?? run.fetchSuccess;
-        totalDroppedByRelevance += ext.droppedByRelevance ?? 0;
-        totalDroppedByFreshness += ext.droppedByFreshness ?? 0;
-        totalDroppedByDeadUrl += ext.droppedByDeadUrl ?? 0;
-        totalDroppedByHostErrorRate += ext.droppedByHostErrorRate ?? 0;
-        totalDroppedByUrlNoise += ext.droppedByUrlNoise ?? 0;
-        totalDroppedByExistingCanonical +=
-          ext.droppedByExistingCanonicalUrl ?? 0;
-        totalDroppedByDuplicateCanonical +=
-          ext.droppedByDuplicateCanonicalUrl ?? 0;
-
+        const snap = parseSnapshot(run.snapshot);
+        totalExcluded += snap.result?.excluded ?? 0;
+        totalSearchCredits += snap.cost?.searchCredits ?? 0;
         for (const [reason, count] of Object.entries(
-          ext.droppedByContentQuality ?? {},
+          snap.result?.byReason ?? {},
         )) {
-          totalDroppedByContentQuality[reason] =
-            (totalDroppedByContentQuality[reason] ?? 0) + count;
+          totalByReason[reason] = (totalByReason[reason] ?? 0) + count;
         }
-
-        if (ext.durationMs !== undefined) {
-          durationMsList.push(ext.durationMs);
+        if (snap.timing?.totalMs !== undefined) {
+          durationMsList.push(snap.timing.totalMs);
         }
       }
 
@@ -312,26 +256,10 @@ export function createDataCollectionInsightsProvider(
 
       const successRate =
         totalRuns > 0 ? Math.round((successfulRuns / totalRuns) * 100) : 0;
-      const searchSuccessRate =
-        totalSearchAttempts > 0
-          ? Math.round((totalSearchSuccess / totalSearchAttempts) * 100)
-          : 0;
-      const fetchSuccessRate =
-        totalArticles + failures.length > 0
-          ? Math.round(
-              (totalArticles / (totalArticles + failures.length)) * 100,
-            )
-          : 0;
-      const totalPostFetchDropped =
-        totalDroppedByRelevance +
-        totalDroppedByFreshness +
-        Object.values(totalDroppedByContentQuality).reduce(
-          (sum, v) => sum + v,
-          0,
-        );
+      const totalConsidered = totalArticles + totalExcluded;
       const dropRate =
-        totalFetched > 0
-          ? Math.round((totalPostFetchDropped / totalFetched) * 100)
+        totalConsidered > 0
+          ? Math.round((totalExcluded / totalConsidered) * 100)
           : 0;
       const articleDelta = totalArticles - priorArticles;
       const medianDurationMs = medianOf(durationMsList);
@@ -355,29 +283,7 @@ export function createDataCollectionInsightsProvider(
           value: totalArticles,
           delta: articleDelta,
         },
-        {
-          id: "search_success_rate",
-          label: "Search success rate",
-          value: searchSuccessRate,
-          unit: "%",
-        },
-        ...(totalArticles > 0 || failures.length > 0
-          ? [
-              {
-                id: "fetch_success_rate",
-                label: "Fetch success rate",
-                value: fetchSuccessRate,
-                unit: "%",
-                tone:
-                  fetchSuccessRate >= 80
-                    ? ("positive" as const)
-                    : fetchSuccessRate < 50
-                      ? ("warning" as const)
-                      : ("neutral" as const),
-              } satisfies KpiCard,
-            ]
-          : []),
-        ...(totalFetched > 0
+        ...(totalConsidered > 0
           ? [
               {
                 id: "drop_rate",
@@ -437,41 +343,15 @@ export function createDataCollectionInsightsProvider(
         }
       }
 
-      const totalDropped =
-        totalPostFetchDropped +
-        totalDroppedByDeadUrl +
-        totalDroppedByHostErrorRate +
-        totalDroppedByUrlNoise +
-        totalDroppedByExistingCanonical +
-        totalDroppedByDuplicateCanonical;
-      if (totalFetched > 10 && totalPostFetchDropped / totalFetched > 0.6) {
-        const dropPercent = Math.round(
-          (totalPostFetchDropped / totalFetched) * 100,
-        );
-        const contentQualitySum = Object.values(
-          totalDroppedByContentQuality,
-        ).reduce((s, v) => s + v, 0);
-        const dominantReason =
-          totalDroppedByRelevance >= totalDroppedByFreshness &&
-          totalDroppedByRelevance >= contentQualitySum
-            ? "relevance"
-            : totalDroppedByFreshness >= contentQualitySum
-              ? "freshness"
-              : "content quality";
+      if (totalConsidered > 10 && dropRate > 60) {
+        const dominant =
+          Object.entries(totalByReason).sort((a, b) => b[1] - a[1])[0]?.[0] ??
+          "unknown";
         alerts.push({
           id: "high-drop-rate",
           severity: "warning",
-          message: `${dropPercent}% of fetched articles were dropped before saving. The ${dominantReason} gate accounts for most of the loss.`,
+          message: `${dropRate}% of considered URLs were excluded before saving. The "${dominant}" reason accounts for most of the loss.`,
           sectionRef: "why-drop-reasons",
-        });
-      }
-
-      if (searchSuccessRate < 50 && totalSearchAttempts > 5) {
-        alerts.push({
-          id: "low-search-success",
-          severity: "warning",
-          message: `Search success rate is low: ${searchSuccessRate}%`,
-          sectionRef: "what-funnel",
         });
       }
 
@@ -500,14 +380,12 @@ export function createDataCollectionInsightsProvider(
         id: "what-funnel",
         category: "what",
         title: "Collection funnel",
-        insight: `${totalQueries} search queries ran across ${totalRuns} run${totalRuns === 1 ? "" : "s"}; ${totalFetched} articles were fetched and ${totalPersisted} were saved.`,
+        insight: `Across ${totalRuns} run${totalRuns === 1 ? "" : "s"}, ${totalConsidered} URLs were considered; ${totalArticles} were saved and ${totalExcluded} excluded.`,
         widget: {
           kind: "funnel",
           stages: [
-            { label: "Queries", value: totalQueries },
-            { label: "Search hits", value: totalDiscovered },
-            { label: "Fetched", value: totalFetched },
-            { label: "Persisted", value: totalPersisted },
+            { label: "Considered", value: totalConsidered },
+            { label: "Saved", value: totalArticles },
           ],
         },
       });
@@ -519,7 +397,7 @@ export function createDataCollectionInsightsProvider(
         if (dailyBuckets.has(dayKey)) {
           dailyBuckets.set(
             dayKey,
-            (dailyBuckets.get(dayKey) ?? 0) + run.fetchSuccess,
+            (dailyBuckets.get(dayKey) ?? 0) + savedOf(run),
           );
         }
       }
@@ -615,19 +493,8 @@ export function createDataCollectionInsightsProvider(
       }
 
       // Why — drop reason breakdown
-      const dropEntries: Array<[string, number]> = [
-        ["Relevance", totalDroppedByRelevance],
-        ["Freshness", totalDroppedByFreshness],
-        ["Dead URL", totalDroppedByDeadUrl],
-        ["Host error rate", totalDroppedByHostErrorRate],
-        ["URL noise", totalDroppedByUrlNoise],
-        ["Existing canonical", totalDroppedByExistingCanonical],
-        ["Duplicate canonical", totalDroppedByDuplicateCanonical],
-        ...Object.entries(totalDroppedByContentQuality).map(
-          ([reason, count]) =>
-            [`Content: ${reason}`, count] as [string, number],
-        ),
-      ];
+      const dropEntries: Array<[string, number]> =
+        Object.entries(totalByReason);
       const totalDroppedAll = dropEntries.reduce((sum, [, v]) => sum + v, 0);
       const dropReasons = dropEntries
         .filter(([, value]) => value > 0)

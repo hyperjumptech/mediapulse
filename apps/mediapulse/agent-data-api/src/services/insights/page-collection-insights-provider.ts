@@ -23,8 +23,7 @@ type RunRow = {
   tickerId: string | null;
   startedAt: Date;
   status: string;
-  fetchSuccess: number;
-  extendedCounters: Prisma.JsonValue | null;
+  snapshot: Prisma.JsonValue | null;
 };
 
 type SourceHealthRow = {
@@ -56,8 +55,7 @@ type PageCollectionInsightsDeps = {
         tickerId: boolean;
         startedAt: boolean;
         status: boolean;
-        fetchSuccess: boolean;
-        extendedCounters: boolean;
+        snapshot: boolean;
       };
     }) => Promise<RunRow[]>;
   };
@@ -89,29 +87,22 @@ type PageCollectionInsightsDeps = {
   };
 };
 
-type ExtendedCounters = {
-  discovered?: number;
-  afterPrefilter?: number;
-  cacheHits?: number;
-  cacheMisses?: number;
-  droppedByRelevance?: number;
-  droppedByContentQuality?: Record<string, number>;
-  droppedByFreshness?: number;
-  droppedByDeadUrl?: number;
-  droppedByHostErrorRate?: number;
-  droppedByFetchBudget?: number;
-  droppedByRunItemCap?: number;
-  droppedByUrlNoise?: number;
-  persisted?: number;
-  durationMs?: number;
+type RunSnapshot = {
   agentId?: string;
+  cost?: { searchCredits?: number; fetchByProvider?: Record<string, number> };
+  result?: {
+    saved?: number;
+    excluded?: number;
+    byReason?: Record<string, number>;
+  };
+  timing?: { totalMs?: number; roundsExecuted?: number; stopReason?: string };
 };
 
-function parseExtendedCounters(raw: Prisma.JsonValue | null): ExtendedCounters {
+function parseSnapshot(raw: Prisma.JsonValue | null): RunSnapshot {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return {};
   }
-  return raw as ExtendedCounters;
+  return raw as RunSnapshot;
 }
 
 function domainFromUrl(url: string): string {
@@ -176,8 +167,7 @@ export function createPageCollectionInsightsProvider(
               tickerId: true,
               startedAt: true,
               status: true,
-              fetchSuccess: true,
-              extendedCounters: true,
+              snapshot: true,
             },
           }),
           deps.dataCollectionRun.findMany({
@@ -190,8 +180,7 @@ export function createPageCollectionInsightsProvider(
               tickerId: true,
               startedAt: true,
               status: true,
-              fetchSuccess: true,
-              extendedCounters: true,
+              snapshot: true,
             },
           }),
           deps.discoverySourceHealth.findMany({
@@ -222,11 +211,9 @@ export function createPageCollectionInsightsProvider(
         ],
       );
 
-      // Scope to page-collection runs only; old runs without agentId are attributed to page-collection.
-      const isPageCollectionRun = (r: RunRow) => {
-        const ext = parseExtendedCounters(r.extendedCounters);
-        return ext.agentId === undefined || ext.agentId === "page-collection";
-      };
+      // Scope to page-collection runs only (by the snapshot's agent id).
+      const isPageCollectionRun = (r: RunRow) =>
+        parseSnapshot(r.snapshot).agentId === "page-collection";
 
       const runs = allRuns.filter(isPageCollectionRun);
       const priorWindowRuns = priorRuns.filter(
@@ -242,46 +229,26 @@ export function createPageCollectionInsightsProvider(
       const successfulRuns = runs.filter(
         (r) => r.status === "success" || r.status === "partial_success",
       ).length;
-      const totalArticles = runs.reduce((sum, r) => sum + r.fetchSuccess, 0);
+      const savedOf = (r: RunRow): number =>
+        parseSnapshot(r.snapshot).result?.saved ?? 0;
+      const totalArticles = runs.reduce((sum, r) => sum + savedOf(r), 0);
       const priorArticles = priorWindowRuns.reduce(
-        (sum, r) => sum + r.fetchSuccess,
+        (sum, r) => sum + savedOf(r),
         0,
       );
 
-      let totalDiscovered = 0;
-      let totalAfterPrefilter = 0;
-      let totalCacheHits = 0;
-      let totalCacheMisses = 0;
-      let totalDroppedByRelevance = 0;
-      let totalDroppedByFreshness = 0;
-      let totalDroppedByDeadUrl = 0;
-      let totalDroppedByHostErrorRate = 0;
-      let totalDroppedByFetchBudget = 0;
-      let totalDroppedByRunItemCap = 0;
-      let totalDroppedByUrlNoise = 0;
       let totalPersisted = 0;
-      const totalDroppedByContentQuality: Record<string, number> = {};
+      let totalExcluded = 0;
+      const totalByReason: Record<string, number> = {};
 
       for (const run of runs) {
-        const ext = parseExtendedCounters(run.extendedCounters);
-        totalDiscovered += ext.discovered ?? run.fetchSuccess;
-        totalAfterPrefilter += ext.afterPrefilter ?? run.fetchSuccess;
-        totalCacheHits += ext.cacheHits ?? 0;
-        totalCacheMisses += ext.cacheMisses ?? 0;
-        totalDroppedByRelevance += ext.droppedByRelevance ?? 0;
-        totalDroppedByFreshness += ext.droppedByFreshness ?? 0;
-        totalDroppedByDeadUrl += ext.droppedByDeadUrl ?? 0;
-        totalDroppedByHostErrorRate += ext.droppedByHostErrorRate ?? 0;
-        totalDroppedByFetchBudget += ext.droppedByFetchBudget ?? 0;
-        totalDroppedByRunItemCap += ext.droppedByRunItemCap ?? 0;
-        totalDroppedByUrlNoise += ext.droppedByUrlNoise ?? 0;
-        totalPersisted += ext.persisted ?? run.fetchSuccess;
-
+        const snap = parseSnapshot(run.snapshot);
+        totalPersisted += snap.result?.saved ?? 0;
+        totalExcluded += snap.result?.excluded ?? 0;
         for (const [reason, count] of Object.entries(
-          ext.droppedByContentQuality ?? {},
+          snap.result?.byReason ?? {},
         )) {
-          totalDroppedByContentQuality[reason] =
-            (totalDroppedByContentQuality[reason] ?? 0) + count;
+          totalByReason[reason] = (totalByReason[reason] ?? 0) + count;
         }
       }
 
@@ -290,9 +257,11 @@ export function createPageCollectionInsightsProvider(
       const successRate =
         totalRuns > 0 ? Math.round((successfulRuns / totalRuns) * 100) : 0;
 
-      const cacheTotal = totalCacheHits + totalCacheMisses;
-      const cacheHitRate =
-        cacheTotal > 0 ? Math.round((totalCacheHits / cacheTotal) * 100) : 0;
+      const totalConsidered = totalPersisted + totalExcluded;
+      const dropRate =
+        totalConsidered > 0
+          ? Math.round((totalExcluded / totalConsidered) * 100)
+          : 0;
 
       const priorRunCount = priorWindowRuns.length;
       const articleDelta = totalArticles - priorArticles;
@@ -329,12 +298,12 @@ export function createPageCollectionInsightsProvider(
           label: "Healthy sources",
           value: `${healthySources}/${uniqueSources}`,
         },
-        ...(cacheTotal > 0
+        ...(totalConsidered > 0
           ? [
               {
-                id: "cache_hit_rate",
-                label: "Cache hit rate",
-                value: cacheHitRate,
+                id: "drop_rate",
+                label: "Drop rate",
+                value: dropRate,
                 unit: "%",
               } satisfies KpiCard,
             ]
@@ -381,17 +350,11 @@ export function createPageCollectionInsightsProvider(
         }
       }
 
-      const dominantDropCount = Math.max(
-        totalDroppedByRelevance,
-        totalDroppedByFreshness,
-        ...Object.values(totalDroppedByContentQuality),
-      );
-      const totalFetched = totalAfterPrefilter;
-      if (totalFetched > 10 && dominantDropCount / totalFetched > 0.5) {
+      if (totalConsidered > 10 && dropRate > 50) {
         alerts.push({
           id: "high-drop-rate",
           severity: "warning",
-          message: `More than 50% of fetched articles are being dropped by quality/relevance gates`,
+          message: `${dropRate}% of considered URLs were excluded before saving.`,
           sectionRef: "why-drops",
         });
       }
@@ -410,10 +373,8 @@ export function createPageCollectionInsightsProvider(
         widget: {
           kind: "funnel",
           stages: [
-            { label: "Discovered", value: totalDiscovered },
-            { label: "After prefilter", value: totalAfterPrefilter },
-            { label: "Fetched", value: totalArticles },
-            { label: "Persisted", value: totalPersisted },
+            { label: "Considered", value: totalConsidered },
+            { label: "Saved", value: totalPersisted },
           ],
         },
       });
@@ -425,7 +386,7 @@ export function createPageCollectionInsightsProvider(
         if (dailyBuckets.has(dayKey)) {
           dailyBuckets.set(
             dayKey,
-            (dailyBuckets.get(dayKey) ?? 0) + run.fetchSuccess,
+            (dailyBuckets.get(dayKey) ?? 0) + savedOf(run),
           );
         }
       }
@@ -628,19 +589,8 @@ export function createPageCollectionInsightsProvider(
         value: number;
         fraction: number;
       }> = [];
-      const dropEntries: Array<[string, number]> = [
-        ["Relevance", totalDroppedByRelevance],
-        ["Freshness", totalDroppedByFreshness],
-        ["Dead URL", totalDroppedByDeadUrl],
-        ["Host error rate", totalDroppedByHostErrorRate],
-        ["Fetch budget", totalDroppedByFetchBudget],
-        ["Run item cap", totalDroppedByRunItemCap],
-        ["URL noise", totalDroppedByUrlNoise],
-        ...Object.entries(totalDroppedByContentQuality).map(
-          ([reason, count]) =>
-            [`Content: ${reason}`, count] as [string, number],
-        ),
-      ];
+      const dropEntries: Array<[string, number]> =
+        Object.entries(totalByReason);
       const totalDropped = dropEntries.reduce((sum, [, v]) => sum + v, 0);
       for (const [label, value] of dropEntries) {
         if (value > 0) {
@@ -725,20 +675,6 @@ export function createPageCollectionInsightsProvider(
               value,
               fraction: providerTotal > 0 ? value / providerTotal : 0,
             })),
-          },
-        });
-      }
-
-      // How — cache hit rate stat
-      if (cacheTotal > 0) {
-        sections.push({
-          id: "how-cache-hit",
-          category: "how",
-          title: "Cache hit rate",
-          widget: {
-            kind: "stat",
-            value: cacheHitRate,
-            unit: "%",
           },
         });
       }

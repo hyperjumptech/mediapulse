@@ -327,9 +327,8 @@ describe("runDataCollection", () => {
       expect.objectContaining({
         tickerId: TICKER_ID,
         status: "success",
-        counters: expect.objectContaining({
-          queriesTotal: 1,
-          fetchSuccess: 1,
+        snapshot: expect.objectContaining({
+          result: expect.objectContaining({ saved: 1 }),
         }),
       }),
     );

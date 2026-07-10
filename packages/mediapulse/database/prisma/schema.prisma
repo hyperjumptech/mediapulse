@@ -63,8 +63,8 @@ model CuratedSource {
   createdAt  DateTime              @default(now()) @map("created_at")
   updatedAt  DateTime              @updatedAt @map("updated_at")
 
-  articles              DataSource[]
-  collectionUrlOutcomes CollectionUrlOutcome[]
+  articles                  DataSource[]
+  collectionUrlOutcomes     CollectionUrlOutcome[]
   pageCollectionUrlOutcomes PageCollectionUrlOutcome[]
 
   @@map("curated_source")
@@ -114,20 +114,20 @@ model DataSource {
 /// Replaces the 1:1 DataSource.section/sectionScore/sectionReason columns so one curated/global
 /// article can belong to a different section for each active ticker.
 model DataSourceTickerSection {
-  id            String   @id @default(uuid())
-  dataSourceId  String   @map("data_source_id")
-  tickerId      String   @map("ticker_id")
+  id                    String   @id @default(uuid())
+  dataSourceId          String   @map("data_source_id")
+  tickerId              String   @map("ticker_id")
   /// Newsletter section id; null = classified-but-rejected for this ticker.
-  section       String?  @map("section")
+  section               String?  @map("section")
   /// Section-fit score 0–1.
-  sectionScore  Float?   @map("section_score")
+  sectionScore          Float?   @map("section_score")
   /// AI reason for the section choice or rejection.
-  sectionReason String?  @map("section_reason") @db.Text
+  sectionReason         String?  @map("section_reason") @db.Text
   /// Self-describing snapshot of the per-rule scoring behind sectionScore/sectionReason.
-  sectionScoreBreakdown Json? @map("section_score_breakdown")
-  analyzedAt    DateTime @default(now()) @map("analyzed_at")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  sectionScoreBreakdown Json?    @map("section_score_breakdown")
+  analyzedAt            DateTime @default(now()) @map("analyzed_at")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
 
   dataSource DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
   ticker     Ticker     @relation(fields: [tickerId], references: [id], onDelete: Cascade)
@@ -489,27 +489,27 @@ model Ticker {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  discovery              TickerDiscovery?
-  searchQueries          SearchQuery[]
-  searchQuerySets        SearchQuerySet[]
-  dataSources            DataSource[]
-  newsletters            Newsletter[]
-  userTickers            UserTicker[]
-  tickerEntities         TickerEntity[]
-  articleRelevances      ArticleRelevance[]
-  entityEvidence         EntityEvidence[]
-  entityRelationEvidence EntityRelationEvidence[]
-  dataCollectionRuns     DataCollectionRun[]
-  dataCollectionFailures DataCollectionFailure[]
-  collectionUrlOutcomes  CollectionUrlOutcome[]
+  discovery                 TickerDiscovery?
+  searchQueries             SearchQuery[]
+  searchQuerySets           SearchQuerySet[]
+  dataSources               DataSource[]
+  newsletters               Newsletter[]
+  userTickers               UserTicker[]
+  tickerEntities            TickerEntity[]
+  articleRelevances         ArticleRelevance[]
+  entityEvidence            EntityEvidence[]
+  entityRelationEvidence    EntityRelationEvidence[]
+  dataCollectionRuns        DataCollectionRun[]
+  dataCollectionFailures    DataCollectionFailure[]
+  collectionUrlOutcomes     CollectionUrlOutcome[]
   pageCollectionRuns        PageCollectionRun[]
   pageCollectionFailures    PageCollectionFailure[]
   pageCollectionUrlOutcomes PageCollectionUrlOutcome[]
-  deliveryRuns           DeliveryRun[]
-  contentGenerationRuns  ContentGenerationRun[]
-  articleAnalysisRuns    ArticleAnalysisRun[]
-  queryAnalysisRuns      QueryAnalysisRun[]
-  tickerSections         DataSourceTickerSection[]
+  deliveryRuns              DeliveryRun[]
+  contentGenerationRuns     ContentGenerationRun[]
+  articleAnalysisRuns       ArticleAnalysisRun[]
+  queryAnalysisRuns         QueryAnalysisRun[]
+  tickerSections            DataSourceTickerSection[]
 
   @@map("ticker")
 }
@@ -517,18 +517,18 @@ model Ticker {
 /// Per-ticker cache of LLM-discovered competitors and regulators, refreshed by expiry.
 /// Freshness is gated by `expiresAt` AND a `contractVersion` match; renewed on every upsert.
 model TickerDiscovery {
-  id          String   @id @default(uuid())
-  tickerId    String   @unique @map("ticker_id")
-  competitors Json
-  regulators  Json
-  mainInputs       Json  @default("[]") @map("main_inputs")
-  customerSegments Json  @default("[]") @map("customer_segments")
+  id               String   @id @default(uuid())
+  tickerId         String   @unique @map("ticker_id")
+  competitors      Json
+  regulators       Json
+  mainInputs       Json     @default("[]") @map("main_inputs")
+  customerSegments Json     @default("[]") @map("customer_segments")
   /// Discovery model id, for audit.
-  model       String?
+  model            String?
   /// Agent contract version active when this entry was written; a mismatch with the
   /// current contract invalidates the cache even if expiresAt hasn't passed yet.
-  contractVersion String? @map("contract_version")
-  expiresAt   DateTime @map("expires_at")
+  contractVersion  String?  @map("contract_version")
+  expiresAt        DateTime @map("expires_at")
 
   ticker Ticker @relation(fields: [tickerId], references: [id], onDelete: Cascade)
 
@@ -756,16 +756,7 @@ model DataCollectionRun {
   completedAt         DateTime?               @map("completed_at")
   status              DataCollectionRunStatus
 
-  queriesTotal  Int @default(0) @map("queries_total")
-  urlsTotal     Int @default(0) @map("urls_total")
-  searchSuccess Int @default(0) @map("search_success")
-  searchFailed  Int @default(0) @map("search_failed")
-  fetchSuccess  Int @default(0) @map("fetch_success")
-  fetchFailed   Int @default(0) @map("fetch_failed")
-  retryCount    Int @default(0) @map("retry_count")
-
-  extendedCounters Json? @map("extended_counters")
-  snapshot         Json?
+  snapshot Json?
 
   ticker   Ticker?                 @relation(fields: [tickerId], references: [id])
   failures DataCollectionFailure[]
@@ -786,9 +777,9 @@ model ArticleAnalysisRun {
   status              DataCollectionRunStatus
 
   model            String?
-  promptTokens     Int @default(0) @map("prompt_tokens")
-  completionTokens Int @default(0) @map("completion_tokens")
-  totalTokens      Int @default(0) @map("total_tokens")
+  promptTokens     Int     @default(0) @map("prompt_tokens")
+  completionTokens Int     @default(0) @map("completion_tokens")
+  totalTokens      Int     @default(0) @map("total_tokens")
 
   scored     Int     @default(0)
   rejected   Int     @default(0)

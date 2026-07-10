@@ -38,18 +38,6 @@ export async function postDataCollectionRun(
     const body = await context.req.json();
     const data = await postDataCollectionRunBodySchema.parseAsync(body);
 
-    const {
-      queriesTotal,
-      urlsTotal,
-      searchSuccess,
-      searchFailed,
-      fetchSuccess,
-      fetchFailed,
-      retryCount,
-      ...extendedCounterFields
-    } = data.counters;
-    const hasExtended = Object.keys(extendedCounterFields).length > 0;
-
     await prisma.dataCollectionRun.create({
       data: {
         id: data.id,
@@ -58,14 +46,7 @@ export async function postDataCollectionRun(
         startedAt: new Date(data.startedAt),
         completedAt: data.completedAt ? new Date(data.completedAt) : null,
         status: data.status,
-        queriesTotal,
-        urlsTotal,
-        searchSuccess,
-        searchFailed,
-        fetchSuccess,
-        fetchFailed,
-        retryCount,
-        ...(hasExtended ? { extendedCounters: extendedCounterFields } : {}),
+        snapshot: data.snapshot,
       },
     });
 

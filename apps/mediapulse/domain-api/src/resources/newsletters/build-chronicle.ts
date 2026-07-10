@@ -327,10 +327,9 @@ const buildQueryAnalysisStage = (
 };
 
 /**
- * Builds one collection stage (page or data) from its run rows. Reads the grouped
- * `snapshot` (cost / result / timing) when present, and falls back to the legacy
- * `extendedCounters` JSON for historical rows written before the snapshot existed.
- * Collection runs no longer spend LLM tokens, so no token usage is surfaced.
+ * Builds one collection stage (page or data) from its run rows, reading the grouped
+ * `snapshot` (cost / result / timing). Collection runs no longer spend LLM tokens,
+ * so no token usage is surfaced.
  */
 const buildCollectionStage = (
   stage: "page-collection" | "data-collection",
@@ -341,7 +340,6 @@ const buildCollectionStage = (
     startedAt: Date;
     completedAt: Date | null;
     snapshot?: unknown;
-    extendedCounters?: unknown;
   }>,
   windowStartIso: string,
   windowEndIso: string,
@@ -354,20 +352,14 @@ const buildCollectionStage = (
 
   const runs: ChronicleRun[] = rows.map((row) => {
     const snapshot = asRecord(row.snapshot);
-    const hasSnapshot = Object.keys(snapshot).length > 0;
-    const legacy = asRecord(row.extendedCounters);
     const cost = asRecord(snapshot.cost);
     const result = asRecord(snapshot.result);
     const timing = asRecord(snapshot.timing);
 
-    const runCredits = hasSnapshot
-      ? (asNumber(cost.searchCredits) ?? 0)
-      : (asNumber(legacy.searchCredits) ?? 0);
+    const runCredits = asNumber(cost.searchCredits) ?? 0;
     searchCredits += runCredits;
 
-    const runFetchByProvider = hasSnapshot
-      ? asRecord(cost.fetchByProvider)
-      : asRecord(legacy.fetchByProvider);
+    const runFetchByProvider = asRecord(cost.fetchByProvider);
     const providers: ChronicleProviderUsage[] = [];
     for (const [name, count] of Object.entries(runFetchByProvider)) {
       const calls = asNumber(count) ?? 0;
@@ -375,9 +367,7 @@ const buildCollectionStage = (
       providers.push({ name, calls });
     }
 
-    const collected = hasSnapshot
-      ? (asNumber(result.saved) ?? 0)
-      : (asNumber(legacy.persisted) ?? 0);
+    const collected = asNumber(result.saved) ?? 0;
     savedTotal += collected;
     const excluded = asNumber(result.excluded) ?? 0;
     excludedTotal += excluded;
@@ -388,12 +378,8 @@ const buildCollectionStage = (
         (byReasonTotals[reason] ?? 0) + (asNumber(count) ?? 0);
     }
 
-    const durationMs = hasSnapshot
-      ? (asNumber(timing.totalMs) ?? null)
-      : (asNumber(legacy.durationMs) ?? null);
-    const stopReason = hasSnapshot
-      ? (asString(timing.stopReason) ?? null)
-      : (asString(legacy.stopReason) ?? null);
+    const durationMs = asNumber(timing.totalMs) ?? null;
+    const stopReason = asString(timing.stopReason) ?? null;
 
     const runTiming = resolveTiming({
       startedAt: row.startedAt,
@@ -413,7 +399,7 @@ const buildCollectionStage = (
       outputs: {
         stopReason,
         collected,
-        excluded: hasSnapshot ? excluded : null,
+        excluded,
         searchCredits: runCredits > 0 ? runCredits : null,
         ...(Object.keys(byReason).length > 0 ? { byReason } : {}),
       },
@@ -758,7 +744,6 @@ export const buildChronicle = async (
       status: true,
       startedAt: true,
       completedAt: true,
-      extendedCounters: true,
       snapshot: true,
     },
   } satisfies Prisma.DataCollectionRunFindManyArgs;
@@ -868,16 +853,11 @@ export const buildChronicle = async (
     deps.deliveryRun.findMany(deliveryRunArgs),
   ]);
 
-  // The agent id lives in the grouped snapshot (new rows) or the legacy
-  // extendedCounters (historical rows). Page-collection runs live in their own
-  // table now, but rows written before that split still sit in DataCollectionRun
-  // tagged page-collection, so fold those in (deduped by id) until they age out.
-  const agentIdOf = (row: {
-    snapshot?: unknown;
-    extendedCounters?: unknown;
-  }): string | undefined =>
-    asString(asRecord(row.snapshot).agentId) ??
-    asString(asRecord(row.extendedCounters).agentId);
+  // Page-collection owns its own run table, but it still writes a DataCollectionRun
+  // row (the FK parent for its per-URL outcomes), so exclude those from the
+  // data-collection card and fold them into the page card (deduped by id).
+  const agentIdOf = (row: { snapshot?: unknown }): string | undefined =>
+    asString(asRecord(row.snapshot).agentId);
   const legacyPageRuns = collectionRuns.filter(
     (row) => agentIdOf(row) === "page-collection",
   );
