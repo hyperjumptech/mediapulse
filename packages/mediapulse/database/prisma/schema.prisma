@@ -63,9 +63,8 @@ model CuratedSource {
   createdAt  DateTime              @default(now()) @map("created_at")
   updatedAt  DateTime              @updatedAt @map("updated_at")
 
-  articles                  DataSource[]
-  collectionUrlOutcomes     CollectionUrlOutcome[]
-  pageCollectionUrlOutcomes PageCollectionUrlOutcome[]
+  articles              DataSource[]
+  collectionUrlOutcomes CollectionUrlOutcome[]
 
   @@map("curated_source")
 }
@@ -489,27 +488,25 @@ model Ticker {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  discovery                 TickerDiscovery?
-  searchQueries             SearchQuery[]
-  searchQuerySets           SearchQuerySet[]
-  dataSources               DataSource[]
-  newsletters               Newsletter[]
-  userTickers               UserTicker[]
-  tickerEntities            TickerEntity[]
-  articleRelevances         ArticleRelevance[]
-  entityEvidence            EntityEvidence[]
-  entityRelationEvidence    EntityRelationEvidence[]
-  dataCollectionRuns        DataCollectionRun[]
-  dataCollectionFailures    DataCollectionFailure[]
-  collectionUrlOutcomes     CollectionUrlOutcome[]
-  pageCollectionRuns        PageCollectionRun[]
-  pageCollectionFailures    PageCollectionFailure[]
-  pageCollectionUrlOutcomes PageCollectionUrlOutcome[]
-  deliveryRuns              DeliveryRun[]
-  contentGenerationRuns     ContentGenerationRun[]
-  articleAnalysisRuns       ArticleAnalysisRun[]
-  queryAnalysisRuns         QueryAnalysisRun[]
-  tickerSections            DataSourceTickerSection[]
+  discovery              TickerDiscovery?
+  searchQueries          SearchQuery[]
+  searchQuerySets        SearchQuerySet[]
+  dataSources            DataSource[]
+  newsletters            Newsletter[]
+  userTickers            UserTicker[]
+  tickerEntities         TickerEntity[]
+  articleRelevances      ArticleRelevance[]
+  entityEvidence         EntityEvidence[]
+  entityRelationEvidence EntityRelationEvidence[]
+  dataCollectionRuns     DataCollectionRun[]
+  dataCollectionFailures DataCollectionFailure[]
+  collectionUrlOutcomes  CollectionUrlOutcome[]
+  pageCollectionRuns     PageCollectionRun[]
+  deliveryRuns           DeliveryRun[]
+  contentGenerationRuns  ContentGenerationRun[]
+  articleAnalysisRuns    ArticleAnalysisRun[]
+  queryAnalysisRuns      QueryAnalysisRun[]
+  tickerSections         DataSourceTickerSection[]
 
   @@map("ticker")
 }
@@ -874,58 +871,10 @@ model PageCollectionRun {
 
   snapshot Json?
 
-  ticker   Ticker?                    @relation(fields: [tickerId], references: [id])
-  failures PageCollectionFailure[]
-  outcomes PageCollectionUrlOutcome[]
+  ticker Ticker? @relation(fields: [tickerId], references: [id])
 
   @@index([scheduleExecutionId])
   @@map("page_collection_run")
-}
-
-model PageCollectionUrlOutcome {
-  id                  String              @id @default(uuid())
-  scheduleExecutionId String?             @map("schedule_execution_id")
-  runId               String              @map("run_id")
-  tickerId            String?             @map("ticker_id")
-  status              CollectionUrlStatus
-
-  url             String
-  reason          String?
-  reasonDetail    String? @map("reason_detail")
-  source          String?
-  curatedSourceId String? @map("curated_source_id")
-
-  createdAt DateTime @default(now()) @map("created_at")
-
-  run           PageCollectionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  ticker        Ticker?           @relation(fields: [tickerId], references: [id])
-  curatedSource CuratedSource?    @relation(fields: [curatedSourceId], references: [id], onDelete: SetNull)
-
-  @@index([scheduleExecutionId])
-  @@index([runId, status])
-  @@index([tickerId, createdAt])
-  @@index([curatedSourceId, createdAt])
-  @@map("page_collection_url_outcome")
-}
-
-model PageCollectionFailure {
-  id       String                      @id @default(uuid())
-  runId    String                      @map("run_id")
-  tickerId String?                     @map("ticker_id")
-  stage    DataCollectionProviderStage
-  provider DataCollectionProvider
-
-  url           String?
-  errorCategory DataCollectionErrorCategory @map("error_category")
-  retryable     Boolean
-  httpStatus    Int?                        @map("http_status")
-  message       String
-  createdAt     DateTime                    @default(now()) @map("created_at")
-
-  run    PageCollectionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  ticker Ticker?           @relation(fields: [tickerId], references: [id])
-
-  @@map("page_collection_failure")
 }
 
 enum ContentGenerationRunOutcome {
