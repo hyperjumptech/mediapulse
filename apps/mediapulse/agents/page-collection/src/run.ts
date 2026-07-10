@@ -611,22 +611,6 @@ async function executePageCollectionRun(
     await withApiStep("record fetch failures", () =>
       dataApiClient.dataCollectionFailure.create(failuresPayload),
     );
-    await withApiStep("record page collection fetch failures", () =>
-      dataApiClient.pageCollectionFailure.create(
-        failuresPayload.map((failure) => ({
-          id: failure.id,
-          runId: failure.runId,
-          stage: failure.stage,
-          provider: failure.provider,
-          url: failure.url,
-          errorCategory: failure.errorCategory,
-          retryable: failure.retryable,
-          httpStatus: failure.httpStatus,
-          message: failure.message,
-          createdAt: failure.createdAt,
-        })),
-      ),
-    );
   }
 
   if (outcomes.length > 0) {
@@ -638,36 +622,6 @@ async function executePageCollectionRun(
       );
     } catch (outcomeError) {
       log.warn({ err: outcomeError }, "failed to post collection URL outcomes");
-    }
-
-    const pageOutcomes = outcomes
-      .filter((outcome) => outcome.status !== "failed")
-      .map((outcome) => ({
-        id: outcome.id,
-        scheduleExecutionId: outcome.scheduleExecutionId,
-        runId: outcome.runId,
-        tickerId: outcome.tickerId,
-        status: outcome.status,
-        url: outcome.url,
-        reason: outcome.reason,
-        reasonDetail: outcome.reasonDetail,
-        source: outcome.source,
-        curatedSourceId: outcome.curatedSourceId,
-        createdAt: outcome.createdAt,
-      }));
-    if (pageOutcomes.length > 0) {
-      try {
-        await postOutcomesInChunks(pageOutcomes, (batch) =>
-          withApiStep("post page collection URL outcomes", () =>
-            dataApiClient.pageCollectionUrlOutcome.create(batch),
-          ),
-        );
-      } catch (outcomeError) {
-        log.warn(
-          { err: outcomeError },
-          "failed to post page collection URL outcomes",
-        );
-      }
     }
   }
 

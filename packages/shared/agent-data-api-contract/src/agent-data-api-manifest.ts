@@ -105,16 +105,6 @@ import {
   postPageCollectionRunResponseSchema,
 } from "./page-collection-run.js";
 import {
-  postPageCollectionUrlOutcomeBodySchema,
-  postPageCollectionUrlOutcomeResponseSchema,
-} from "./page-collection-url-outcome.js";
-import {
-  getPageCollectionFailureResponseSchema,
-  pageCollectionFailureQuerySchema,
-  postPageCollectionFailureBodySchema,
-  postPageCollectionFailureResponseSchema,
-} from "./page-collection-failure.js";
-import {
   getUserRegistrationTickersQuerySchema,
   getUserRegistrationTickersResponseSchema,
   postUserRegistrationRegisterBodySchema,
@@ -517,42 +507,6 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postPageCollectionRunBodySchema,
         response: postPageCollectionRunResponseSchema,
-      },
-    },
-  },
-  pageCollectionFailure: {
-    v1: {
-      get: {
-        query: pageCollectionFailureQuerySchema,
-        response: getPageCollectionFailureResponseSchema,
-      },
-      post: {
-        body: postPageCollectionFailureBodySchema,
-        response: postPageCollectionFailureResponseSchema,
-      },
-    },
-    v2: {
-      get: {
-        query: pageCollectionFailureQuerySchema,
-        response: getPageCollectionFailureResponseSchema,
-      },
-      post: {
-        body: postPageCollectionFailureBodySchema,
-        response: postPageCollectionFailureResponseSchema,
-      },
-    },
-  },
-  pageCollectionUrlOutcome: {
-    v1: {
-      post: {
-        body: postPageCollectionUrlOutcomeBodySchema,
-        response: postPageCollectionUrlOutcomeResponseSchema,
-      },
-    },
-    v2: {
-      post: {
-        body: postPageCollectionUrlOutcomeBodySchema,
-        response: postPageCollectionUrlOutcomeResponseSchema,
       },
     },
   },
