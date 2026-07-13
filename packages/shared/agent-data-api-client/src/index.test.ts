@@ -245,6 +245,7 @@ describe("createAgentDataApiClient", () => {
             tickerId: "44444444-4444-4444-8444-444444444444",
             url: "https://example.com",
             title: "Example",
+            description: "Snippet",
             content: "Body",
             createdAt: "2026-03-19T00:00:00.000Z",
             ticker: {

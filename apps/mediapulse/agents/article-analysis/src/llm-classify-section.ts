@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject, type ModelMessage } from "ai";
-import { extractLlmUsage, type OnLlmUsage } from "@workspace/agent-runtime";
+import {
+  applyContractBrief,
+  extractLlmUsage,
+  type OnLlmUsage,
+} from "@workspace/agent-runtime";
 import {
   MEDIAPULSE_NEWSLETTER_SECTIONS,
   type AnalysisTickerContext,
@@ -155,8 +159,13 @@ export const buildSectionClassificationMessages = (params: {
   content: string;
   acceptanceCriteria: AcceptanceCriteriaRule[];
   tickerContext?: string;
+  brief?: string;
 }): ModelMessage[] => {
   const truncatedContent = params.content.slice(0, MAX_CONTENT_CHARS);
+  const systemPrompt = applyContractBrief(
+    SYSTEM_PROMPT,
+    params.brief !== undefined ? { brief: params.brief } : undefined,
+  );
   const userContent = [
     "Newsletter sections and inclusion rules:",
     renderCriteria(params.acceptanceCriteria),
@@ -175,7 +184,7 @@ export const buildSectionClassificationMessages = (params: {
   ].join("\n");
 
   return [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: systemPrompt },
     { role: "user", content: userContent },
   ];
 };
@@ -350,6 +359,22 @@ export const scoreFromEvaluations = (
   };
 };
 
+export const rejectEmptySource = (
+  acceptanceCriteria: AcceptanceCriteriaRule[],
+): ArticleSectionClassification => ({
+  section: null,
+  score: 0,
+  reason: "Rejected — no description or content to classify.",
+  scoreBreakdown: {
+    section: null,
+    matched: 0,
+    total: 0,
+    criteriaHash: criteriaHash(acceptanceCriteria),
+    criteria: [],
+    sections: [],
+  },
+});
+
 /**
  * Classifies a single article into one newsletter section (or rejects it) with a computed score.
  *
@@ -367,6 +392,7 @@ export const classifyArticleSection = async (params: {
   content: string;
   acceptanceCriteria: AcceptanceCriteriaRule[];
   tickerContext?: string;
+  brief?: string;
   /** Chronicle instrumentation: invoked with token usage per classification. */
   onUsage?: OnLlmUsage;
 }): Promise<ArticleSectionClassification> => {
@@ -392,7 +418,8 @@ export const classifyArticleSection = async (params: {
       title: params.title,
       content: params.content,
       acceptanceCriteria: params.acceptanceCriteria,
-      tickerContext: params.tickerContext,
+      ...(params.tickerContext ? { tickerContext: params.tickerContext } : {}),
+      ...(params.brief !== undefined ? { brief: params.brief } : {}),
     }),
   });
   const usage = extractLlmUsage(result.usage);

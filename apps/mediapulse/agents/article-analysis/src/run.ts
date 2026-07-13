@@ -13,6 +13,7 @@ import type { ArticleAnalysisConfig } from "./config-schema.js";
 import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
 import {
   classifyArticleSection,
+  rejectEmptySource,
   renderArticleTickerContext,
 } from "./llm-classify-section.js";
 import {
@@ -87,7 +88,7 @@ async function mapWithConcurrency<TIn, TOut>(
 export async function run(
   context: AgentRunContext<ArticleAnalysisInput, ArticleAnalysisConfig>,
 ): Promise<AgentRunResult> {
-  const { config, token, hermesCorrelation } = context;
+  const { config, token, hermesCorrelation, contract } = context;
   const runId = crypto.randomUUID();
   const startedAt = new Date();
   // Chronicle instrumentation: accumulate classification LLM token usage across the run.
@@ -156,17 +157,23 @@ export async function run(
       dataSources,
       CLASSIFY_CONCURRENCY,
       async (dataSource): Promise<ClassifiedRow> => {
+        const classifiedText =
+          dataSource.description ?? dataSource.content ?? "";
         const tickerContext = renderArticleTickerContext(dataSource.ticker);
-        const result = await classifyArticleSection({
-          apiKey: config.acceptance.apiKey,
-          baseUrl: config.acceptance.baseUrl,
-          model: config.acceptance.model,
-          title: dataSource.title,
-          content: dataSource.content,
-          acceptanceCriteria: config.acceptanceCriteria,
-          ...(tickerContext ? { tickerContext } : {}),
-          onUsage: tokenUsage.onUsage,
-        });
+        const result =
+          classifiedText.trim() === ""
+            ? rejectEmptySource(config.acceptanceCriteria)
+            : await classifyArticleSection({
+                apiKey: config.acceptance.apiKey,
+                baseUrl: config.acceptance.baseUrl,
+                model: config.acceptance.model,
+                title: dataSource.title,
+                content: classifiedText,
+                acceptanceCriteria: config.acceptanceCriteria,
+                ...(tickerContext ? { tickerContext } : {}),
+                ...(contract?.brief ? { brief: contract.brief } : {}),
+                onUsage: tokenUsage.onUsage,
+              });
 
         return {
           dataSourceId: dataSource.id,

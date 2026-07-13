@@ -117,7 +117,8 @@ export const analysisDataSourceSchema = z.object({
   tickerId: z.string().uuid(),
   url: z.string(),
   title: z.string(),
-  content: z.string(),
+  description: z.string().nullable(),
+  content: z.string().nullable(),
   createdAt: z.coerce.date(),
   /** Issuer context for the paired ticker, used to ground section classification. */
   ticker: analysisTickerContextSchema,
