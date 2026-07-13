@@ -20,6 +20,7 @@ import {
   industryNewsletterStructureSchema,
 } from "./industry-newsletter-schema.js";
 import { attachIndustryNewsletterSourceUrls } from "./industry-newsletter-urls.js";
+import type { IndustryNewsletterResolved } from "./industry-newsletter-urls.js";
 import {
   dedupeWithinRun,
   pruneNewsletterToCitedRows,
@@ -88,6 +89,62 @@ export const computeNewsletterSectionFill = (
   ) as Record<NewsletterSectionId, { citedBullets: number }>;
 };
 
+export type NewsletterCitationLink = {
+  dataSourceId: string;
+  sectionKey: string;
+};
+
+export const collectNewsletterCitations = (
+  resolved: IndustryNewsletterResolved,
+  sources: readonly SourceForGeneration[],
+): NewsletterCitationLink[] => {
+  const dataSourceIdByUrl = new Map<string, string>();
+  for (const source of sources) {
+    if (source.dataSourceId !== undefined && source.url.length > 0) {
+      dataSourceIdByUrl.set(source.url, source.dataSourceId);
+    }
+  }
+
+  const seen = new Set<string>();
+  const citations: NewsletterCitationLink[] = [];
+  const add = (sectionKey: string, url: string | undefined): void => {
+    if (url === undefined) {
+      return;
+    }
+    const dataSourceId = dataSourceIdByUrl.get(url);
+    if (dataSourceId === undefined) {
+      return;
+    }
+    const dedupeKey = `${dataSourceId}:${sectionKey}`;
+    if (seen.has(dedupeKey)) {
+      return;
+    }
+    seen.add(dedupeKey);
+    citations.push({ dataSourceId, sectionKey });
+  };
+
+  add("industryPulse", resolved.industryPulse?.url);
+  for (const bullet of resolved.competitiveLandscape?.bullets ?? []) {
+    add("competitiveLandscape", bullet.url);
+  }
+  for (const bullet of resolved.dealsAndMovements?.bullets ?? []) {
+    add("dealsAndMovements", bullet.url);
+  }
+  for (const bullet of resolved.regulatoryPolicyWatch?.bullets ?? []) {
+    add("regulatoryPolicyWatch", bullet.url);
+  }
+  if (resolved.disruptorsOrTech?.format === "bullets") {
+    for (const bullet of resolved.disruptorsOrTech.bullets) {
+      add("disruptorsOrTech", bullet.url);
+    }
+  }
+  for (const item of resolved.quickHits?.items ?? []) {
+    add("quickHits", item.url);
+  }
+
+  return citations;
+};
+
 /** Structured newsletter content returned after a successful LLM call. */
 export interface GeneratedContent {
   /** Compelling email subject line (under ~60 chars). */
@@ -135,6 +192,7 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
   requireCitationSummary?: PruneSummary;
   /** Per-section bullet counts and removed-section list from the final resolved newsletter. */
   sectionFillSnapshot?: SectionFillSnapshot;
+  newsletterCitations?: NewsletterCitationLink[];
   /** Cross-day dedup counters, present when a recent-bullet corpus was provided. */
   crossRunDedupSummary?: {
     removedCount: number;
@@ -685,6 +743,7 @@ export async function generateNewsletterWithLlm(
       bySection: computeNewsletterSectionFill(resolved),
       sectionsRemoved: prunedSectionsRemoved,
     },
+    newsletterCitations: collectNewsletterCitations(resolved, promptSources),
     ...(crossRunDedupSummary ? { crossRunDedupSummary } : {}),
   };
 }

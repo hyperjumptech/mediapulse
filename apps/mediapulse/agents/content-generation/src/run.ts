@@ -400,6 +400,7 @@ export async function run({
       dataSourceId: source.dataSourceId,
       url: source.url,
       title: source.title,
+      reason: request.reason,
       ...(typeof source.sectionScore === "number"
         ? { sectionScore: source.sectionScore }
         : {}),
@@ -419,6 +420,7 @@ export async function run({
       gateDropped: 0,
       persisted: 0,
     },
+    fetchEvents: [],
   };
   if (requestedFetchSources.length > 0) {
     report(
@@ -452,12 +454,32 @@ export async function run({
     "On-demand fetch summary",
   );
 
+  if (fetchResult.fetchEvents.length > 0) {
+    try {
+      await dataApiClient.contentGenerationFetchEvents.create(
+        fetchResult.fetchEvents.map((event) => ({
+          dataSourceId: event.dataSourceId,
+          tickerId: input.tickerId,
+          reason: event.reason,
+          ...(event.provider !== null ? { provider: event.provider } : {}),
+          status: event.status,
+        })),
+      );
+    } catch (err) {
+      logger.error(
+        { tickerId: input.tickerId, err },
+        "Failed to record fetch events (best-effort, skipping)",
+      );
+    }
+  }
+
   const mappedSources: SourceForGeneration[] = sources
     .filter((s) => !fetchResult.droppedByGateIds.has(s.dataSourceId))
     .map((s) => {
       const fetched = fetchResult.fetchedContentById.get(s.dataSourceId);
       const text = fetched?.content ?? s.content ?? s.description ?? "";
       return {
+        dataSourceId: s.dataSourceId,
         url: s.url,
         title: s.title,
         content: text,
@@ -613,6 +635,25 @@ export async function run({
       "id" in persistResult && typeof persistResult.id === "string"
         ? persistResult.id
         : null;
+
+    const newsletterCitations = generated.newsletterCitations ?? [];
+    if (persistedNewsletterId !== null && newsletterCitations.length > 0) {
+      const newsletterId = persistedNewsletterId;
+      try {
+        await dataApiClient.contentGenerationCitations.create({
+          newsletterId,
+          citations: newsletterCitations.map((citation) => ({
+            dataSourceId: citation.dataSourceId,
+            sectionKey: citation.sectionKey,
+          })),
+        });
+      } catch (citationErr) {
+        logger.error(
+          { tickerId: input.tickerId, newsletterId, err: citationErr },
+          "Failed to record newsletter citations (best-effort, skipping)",
+        );
+      }
+    }
   } catch (err) {
     const code = classifyPersistError(err);
     const outcome: AgentOutcome = { outcome: code, skipped: false };

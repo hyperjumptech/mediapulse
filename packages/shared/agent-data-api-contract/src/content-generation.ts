@@ -59,6 +59,7 @@ export const getContentGenerationResponseSchema = z.object({
 
 export const postContentGenerationResponseSchema = z.object({
   message: z.string(),
+  id: z.string().optional(),
 });
 
 export const CONTENT_GENERATION_FETCHED_CONTENT_MAX = 50;

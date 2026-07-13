@@ -160,6 +160,26 @@ export {
   type PostDeliveryResponse,
 } from "./delivery.js";
 export {
+  CONTENT_GENERATION_FETCH_EVENTS_MAX,
+  contentGenerationFetchEventItemSchema,
+  fetchEventStatusSchema,
+  postContentGenerationFetchEventsBodySchema,
+  postContentGenerationFetchEventsResponseSchema,
+  type ContentGenerationFetchEventItem,
+  type FetchEventStatus,
+  type PostContentGenerationFetchEventsBody,
+  type PostContentGenerationFetchEventsResponse,
+} from "./content-generation-fetch-event.js";
+export {
+  NEWSLETTER_CITATIONS_MAX,
+  newsletterCitationItemSchema,
+  postContentGenerationCitationsBodySchema,
+  postContentGenerationCitationsResponseSchema,
+  type NewsletterCitationItem,
+  type PostContentGenerationCitationsBody,
+  type PostContentGenerationCitationsResponse,
+} from "./newsletter-citation.js";
+export {
   newsletterLanguageSchema,
   postNewsletterTranslationBodySchema,
   postNewsletterTranslationResponseSchema,

@@ -16,6 +16,8 @@ const contentGenerationNewslettersLatestGet = vi.fn();
 const contentGenerationBulletsRecentGet = vi.fn();
 const contentGenerationRunsCreate = vi.fn();
 const contentGenerationFetchedContentCreate = vi.fn();
+const contentGenerationFetchEventsCreate = vi.fn();
+const contentGenerationCitationsCreate = vi.fn();
 const dataCollectionDeadUrlsLookupCreate = vi.fn();
 const dataCollectionDeadUrlsRecordCreate = vi.fn();
 const newsletterTranslationCreate = vi.fn();
@@ -37,6 +39,12 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     },
     contentGenerationFetchedContent: {
       create: contentGenerationFetchedContentCreate,
+    },
+    contentGenerationFetchEvents: {
+      create: contentGenerationFetchEventsCreate,
+    },
+    contentGenerationCitations: {
+      create: contentGenerationCitationsCreate,
     },
     dataCollectionDeadUrlsLookup: {
       create: dataCollectionDeadUrlsLookupCreate,
@@ -180,6 +188,8 @@ describe("run", () => {
     contentGenerationBulletsRecentGet.mockReset();
     contentGenerationBulletsRecentGet.mockResolvedValue({ items: [] });
     contentGenerationRunsCreate.mockReset();
+    contentGenerationFetchEventsCreate.mockReset();
+    contentGenerationCitationsCreate.mockReset();
     newsletterTranslationCreate.mockReset();
     vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockReset();
   });
@@ -209,6 +219,61 @@ describe("run", () => {
     expect(contentGenerationGet).toHaveBeenCalledTimes(1);
     expect(LlmGenerate.generateNewsletterWithLlm).toHaveBeenCalledTimes(1);
     expect(contentGenerationCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("posts newsletter citations for the persisted newsletter id", async () => {
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
+    contentGenerationGet.mockResolvedValue(makeGetResponse());
+    contentGenerationCreate.mockResolvedValue({ message: "ok", id: "nl-1" });
+    contentGenerationCitationsCreate.mockResolvedValue({ recordedCount: 1 });
+    vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue({
+      ...generatedNewsletter,
+      newsletterCitations: [
+        {
+          dataSourceId: "10000000-0000-4000-8000-000000000001",
+          sectionKey: "quickHits",
+        },
+      ],
+    });
+
+    const result = await run(makeContext());
+
+    expect(result.success).toBe(true);
+    expect(contentGenerationCitationsCreate).toHaveBeenCalledWith({
+      newsletterId: "nl-1",
+      citations: [
+        {
+          dataSourceId: "10000000-0000-4000-8000-000000000001",
+          sectionKey: "quickHits",
+        },
+      ],
+    });
+  });
+
+  it("still succeeds when recording citations fails", async () => {
+    contentGenerationNewslettersLatestGet.mockResolvedValue({
+      hasNewsletter: false,
+      newsletterId: null,
+    });
+    contentGenerationGet.mockResolvedValue(makeGetResponse());
+    contentGenerationCreate.mockResolvedValue({ message: "ok", id: "nl-1" });
+    contentGenerationCitationsCreate.mockRejectedValue(new Error("boom"));
+    vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue({
+      ...generatedNewsletter,
+      newsletterCitations: [
+        {
+          dataSourceId: "10000000-0000-4000-8000-000000000001",
+          sectionKey: "quickHits",
+        },
+      ],
+    });
+
+    const result = await run(makeContext());
+
+    expect(result.success).toBe(true);
   });
 
   it("fetches recent bullets over the configured window and passes them to generation", async () => {

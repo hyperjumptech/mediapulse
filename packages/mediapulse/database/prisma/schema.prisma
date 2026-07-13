@@ -74,13 +74,9 @@ model DataSource {
   url                  String
   canonicalUrl         String                @map("canonical_url")
   title                String
-  /// Lightweight text captured at collection without a paid fetch (search snippet or feed/meta description). Nullable only to admit legacy rows; collection drops sources that lack one.
   description          String?               @db.Text
-  /// Full extracted page body, present only after an on-demand fetch in content-generation. Null until fetched.
   content              String?
-  /// When a body was fetched on demand, null when never fetched.
   fetchedAt            DateTime?             @map("fetched_at")
-  /// Provider that produced the fetched body (serper, tavily, etc.), null when never fetched.
   fetchProvider        String?               @map("fetch_provider")
   author               String?
   source               String?
@@ -109,6 +105,8 @@ model DataSource {
   entityEvidence         EntityEvidence[]
   entityRelationEvidence EntityRelationEvidence[]
   tickerSections         DataSourceTickerSection[]
+  fetchEvents            FetchEvent[]
+  newsletterCitations    NewsletterCitation[]
 
   @@index([curatedSourceId])
   @@index([collectionGateStatus, analyzedAt])
@@ -208,8 +206,41 @@ model Newsletter {
   deliveryRuns        DeliveryRun[]
   feedback            NewsletterFeedback[]
   translations        NewsletterTranslation[]
+  citations           NewsletterCitation[]
 
   @@map("newsletter")
+}
+
+model FetchEvent {
+  id           String   @id @default(uuid())
+  dataSourceId String   @map("data_source_id")
+  tickerId     String   @map("ticker_id")
+  reason       String   @db.Text
+  provider     String?
+  status       String
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  dataSource DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+
+  @@index([dataSourceId])
+  @@index([tickerId])
+  @@map("fetch_event")
+}
+
+model NewsletterCitation {
+  id           String   @id @default(uuid())
+  newsletterId String   @map("newsletter_id")
+  dataSourceId String   @map("data_source_id")
+  sectionKey   String   @map("section_key")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  newsletter Newsletter @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
+  dataSource DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+
+  @@unique([newsletterId, dataSourceId, sectionKey])
+  @@index([newsletterId])
+  @@index([dataSourceId])
+  @@map("newsletter_citation")
 }
 
 /// A translated rendering of a Newsletter for a non-English subscription language.

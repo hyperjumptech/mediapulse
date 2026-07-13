@@ -10,10 +10,12 @@ import {
 import {
   buildAvoidRecentBulletsBlock,
   buildCompetitorPromptBlock,
+  collectNewsletterCitations,
   generateNewsletterWithLlm,
   groupSourcesBySection,
   type GenerateNewsletterObjectFn,
 } from "./llm-generate-newsletter.js";
+import type { IndustryNewsletterResolved } from "./industry-newsletter-urls.js";
 import type { IndustryNewsletterStructure } from "./industry-newsletter-schema.js";
 import type { SourceForGeneration } from "./types.js";
 
@@ -114,6 +116,71 @@ const testContext = {
 // ---------------------------------------------------------------------------
 // groupSourcesBySection
 // ---------------------------------------------------------------------------
+
+describe("collectNewsletterCitations", () => {
+  const citationSources: SourceForGeneration[] = [
+    {
+      dataSourceId: "ds-a",
+      url: "https://example.com/a",
+      title: "Story A",
+      content: "Content A.",
+    },
+    {
+      dataSourceId: "ds-b",
+      url: "https://example.com/b",
+      title: "Story B",
+      content: "Content B.",
+    },
+  ];
+
+  it("maps cited bullet urls back to their data source ids per section", () => {
+    const resolved: IndustryNewsletterResolved = {
+      subject: "S",
+      industryPulse: {
+        displayHeading: "Pulse",
+        prose: "Lead.",
+        url: "https://example.com/a",
+      },
+      competitiveLandscape: {
+        displayHeading: "C",
+        bullets: [{ title: "T", text: "t", url: "https://example.com/b" }],
+      },
+      quickHits: {
+        displayHeading: "Q",
+        items: [{ title: "Q1", text: "q", url: "https://example.com/a" }],
+      },
+    };
+
+    const citations = collectNewsletterCitations(resolved, citationSources);
+
+    expect(citations).toEqual([
+      { dataSourceId: "ds-a", sectionKey: "industryPulse" },
+      { dataSourceId: "ds-b", sectionKey: "competitiveLandscape" },
+      { dataSourceId: "ds-a", sectionKey: "quickHits" },
+    ]);
+  });
+
+  it("de-dupes repeats within a section and skips unlinked or unknown urls", () => {
+    const resolved: IndustryNewsletterResolved = {
+      subject: "S",
+      dealsAndMovements: {
+        displayHeading: "D",
+        bullets: [
+          { title: "T1", text: "t1", url: "https://example.com/a" },
+          { title: "T2", text: "t2", url: "https://example.com/a" },
+          { title: "T3", text: "t3" },
+          { title: "T4", text: "t4", url: "https://example.com/unknown" },
+        ],
+      },
+    };
+
+    const citations = collectNewsletterCitations(resolved, citationSources);
+
+    expect(citations).toEqual([
+      { dataSourceId: "ds-a", sectionKey: "dealsAndMovements" },
+    ]);
+  });
+});
 
 describe("groupSourcesBySection", () => {
   it("orders sources by their upstream section, stably within a section", () => {

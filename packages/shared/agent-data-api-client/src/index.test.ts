@@ -183,6 +183,102 @@ describe("createAgentDataApiClient", () => {
     expect(result).toEqual({ updatedCount: 2 });
   });
 
+  it("posts content-generation fetch-events and parses recordedCount", async () => {
+    const postFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({ recordedCount: 2 }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      postFn,
+    });
+
+    const result = await client.contentGenerationFetchEvents.create([
+      {
+        dataSourceId: "44444444-4444-4444-a444-444444444444",
+        tickerId: "ticker-bca",
+        reason: "description too thin",
+        provider: "serper",
+        status: "succeeded",
+      },
+      {
+        dataSourceId: "55555555-5555-4555-a555-555555555555",
+        tickerId: "ticker-bca",
+        reason: "no body",
+        status: "fetch_failed",
+      },
+    ]);
+
+    expect(postFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "contentGenerationFetchEvents")}`,
+      expect.objectContaining({
+        json: [
+          {
+            dataSourceId: "44444444-4444-4444-a444-444444444444",
+            tickerId: "ticker-bca",
+            reason: "description too thin",
+            provider: "serper",
+            status: "succeeded",
+          },
+          {
+            dataSourceId: "55555555-5555-4555-a555-555555555555",
+            tickerId: "ticker-bca",
+            reason: "no body",
+            status: "fetch_failed",
+          },
+        ],
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer sdk-token",
+        },
+      }),
+    );
+    expect(result).toEqual({ recordedCount: 2 });
+  });
+
+  it("posts content-generation citations and parses recordedCount", async () => {
+    const postFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({ recordedCount: 1 }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      postFn,
+    });
+
+    const result = await client.contentGenerationCitations.create({
+      newsletterId: "22222222-2222-4222-a222-222222222222",
+      citations: [
+        {
+          dataSourceId: "44444444-4444-4444-a444-444444444444",
+          sectionKey: "quickHits",
+        },
+      ],
+    });
+
+    expect(postFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "contentGenerationCitations")}`,
+      expect.objectContaining({
+        json: {
+          newsletterId: "22222222-2222-4222-a222-222222222222",
+          citations: [
+            {
+              dataSourceId: "44444444-4444-4444-a444-444444444444",
+              sectionKey: "quickHits",
+            },
+          ],
+        },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer sdk-token",
+        },
+      }),
+    );
+    expect(result).toEqual({ recordedCount: 1 });
+  });
+
   it("posts content-generation payload with provenance fields", async () => {
     // Setup
     const postFn = vi.fn().mockResolvedValue({

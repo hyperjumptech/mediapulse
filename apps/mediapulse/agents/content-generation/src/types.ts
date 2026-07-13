@@ -1,4 +1,5 @@
 export type SourceForGeneration = {
+  dataSourceId?: string;
   url: string;
   title: string;
   content: string;

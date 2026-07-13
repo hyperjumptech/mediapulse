@@ -236,6 +236,125 @@ describe("fetchSourceBodies", () => {
     expect(recordDeadUrls).toHaveBeenCalledTimes(1);
   });
 
+  it("emits a succeeded fetch event carrying the triage reason and provider", async () => {
+    const requested: RequestedFetchSource[] = [
+      {
+        dataSourceId: "ds-ok",
+        url: "https://x/ok",
+        title: "Ok",
+        sectionScore: 0.9,
+        reason: "description too thin",
+      },
+    ];
+    const performWebFetchFn = vi
+      .fn()
+      .mockResolvedValue([successOutcome("https://x/ok", "Full body", "exa")]);
+    const persistFetchedContent = vi
+      .fn()
+      .mockResolvedValue({ updatedCount: 1 });
+
+    const result = await fetchSourceBodies(
+      requested,
+      makeConfig(),
+      { tickerId: "ticker-1" },
+      {
+        persistFetchedContent,
+        performWebFetchFn: performWebFetchFn as never,
+        runQualityGateFn: () => ({ blocked: false }),
+      },
+    );
+
+    expect(result.fetchEvents).toEqual([
+      {
+        dataSourceId: "ds-ok",
+        reason: "description too thin",
+        provider: "exa",
+        status: "succeeded",
+      },
+    ]);
+  });
+
+  it("emits a gate_dropped fetch event keeping the resolved provider", async () => {
+    const requested: RequestedFetchSource[] = [
+      {
+        dataSourceId: "ds-junk",
+        url: "https://x/junk",
+        title: "Junk",
+        sectionScore: 0.9,
+        reason: "bare headline",
+      },
+    ];
+    const performWebFetchFn = vi
+      .fn()
+      .mockResolvedValue([
+        successOutcome("https://x/junk", "429 too many requests", "tavily"),
+      ]);
+    const persistFetchedContent = vi.fn();
+    const recordDeadUrls = vi.fn().mockResolvedValue(undefined);
+
+    const result = await fetchSourceBodies(
+      requested,
+      makeConfig(),
+      { tickerId: "ticker-1" },
+      {
+        persistFetchedContent,
+        recordDeadUrls,
+        performWebFetchFn: performWebFetchFn as never,
+        runQualityGateFn: () => ({
+          blocked: true,
+          reason: "content_too_short",
+        }),
+      },
+    );
+
+    expect(result.fetchEvents).toEqual([
+      {
+        dataSourceId: "ds-junk",
+        reason: "bare headline",
+        provider: "tavily",
+        status: "gate_dropped",
+      },
+    ]);
+  });
+
+  it("emits a fetch_failed event with a null provider when no body comes back", async () => {
+    const requested: RequestedFetchSource[] = [
+      {
+        dataSourceId: "ds-dead",
+        url: "https://x/dead",
+        title: "Dead",
+        sectionScore: 0.9,
+        reason: "cut off mid-thought",
+      },
+    ];
+    const performWebFetchFn = vi
+      .fn()
+      .mockResolvedValue([failureOutcome("https://x/dead")]);
+    const persistFetchedContent = vi.fn();
+    const recordDeadUrls = vi.fn().mockResolvedValue(undefined);
+
+    const result = await fetchSourceBodies(
+      requested,
+      makeConfig(),
+      { tickerId: "ticker-1" },
+      {
+        persistFetchedContent,
+        recordDeadUrls,
+        performWebFetchFn: performWebFetchFn as never,
+        runQualityGateFn: () => ({ blocked: false }),
+      },
+    );
+
+    expect(result.fetchEvents).toEqual([
+      {
+        dataSourceId: "ds-dead",
+        reason: "cut off mid-thought",
+        provider: null,
+        status: "fetch_failed",
+      },
+    ]);
+  });
+
   it("skips URLs cached as dead before fetching", async () => {
     const requested: RequestedFetchSource[] = [
       {
