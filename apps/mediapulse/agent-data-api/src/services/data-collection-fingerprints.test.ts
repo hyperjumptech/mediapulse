@@ -11,6 +11,7 @@ describe("getRecentSourceFingerprints", () => {
       {
         id: "ds-1",
         title: "Apple Q2 earnings beat",
+        description: null,
         content: "x".repeat(800),
       },
     ]);
@@ -36,6 +37,27 @@ describe("getRecentSourceFingerprints", () => {
         take: 200,
         orderBy: { createdAt: "desc" },
       }),
+    );
+  });
+
+  it("prefers the description over content for the head snippet", async () => {
+    const now = new Date("2026-05-21T12:00:00.000Z");
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        id: "ds-1",
+        title: "Apple Q2 earnings beat",
+        description: "Lightweight snippet captured at collection",
+        content: "Full fetched body that should not be used",
+      },
+    ]);
+
+    const result = await getRecentSourceFingerprints(
+      { tickerId: "ticker-1", windowDays: 7 },
+      { dataSource: { findMany }, now },
+    );
+
+    expect(result[0]?.headSnippet).toBe(
+      "Lightweight snippet captured at collection",
     );
   });
 });

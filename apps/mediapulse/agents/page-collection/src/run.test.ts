@@ -5,24 +5,8 @@ import type { AgentRunContext } from "@workspace/agent-runtime";
 
 import type { BodySchemaType } from "./utilities/body-schema";
 import { ConfigSchema, type ConfigSchemaType } from "./utilities/config-schema";
-import type {
-  FetchedWebSearchResult,
-  WebFetchOutcome,
-} from "@workspace/agent-ingestion";
 
 const SOURCE_URL = "https://example.com/article-one";
-
-const validArticleContent = [
-  "Bank Central Asia announced strategic expansion plans across regional markets.",
-  "The company reported improved margins, higher loan growth, and stronger risk controls.",
-  ...Array.from(
-    { length: 90 },
-    (_, index) =>
-      `Analyst note ${index} discusses lending trends and deposit growth in Indonesia.`,
-  ),
-].join(" ");
-
-const validArticleTitle = "Bank Central Asia expands regional operations";
 
 const baseConfig = ConfigSchema.parse({
   providers: {
@@ -44,14 +28,6 @@ const baseConfig = ConfigSchema.parse({
   },
 });
 
-const mockFetchSuccess = (
-  data: Omit<FetchedWebSearchResult, "provider"> &
-    Partial<Pick<FetchedWebSearchResult, "provider">>,
-): WebFetchOutcome => ({
-  success: { provider: "jina", ...data },
-  failures: [],
-});
-
 vi.mock("@mediapulse/env/agents-page-collection", () => ({
   env: {
     AGENT_DATA_API_URL: "http://agent-data-api",
@@ -70,9 +46,7 @@ const pageCollectionCreateMock = vi.fn();
 const existingUrlsCreateMock = vi.fn();
 const resolveSourcesCreateMock = vi.fn();
 const deadUrlsLookupMock = vi.fn();
-const deadUrlsRecordMock = vi.fn();
 const runCreateMock = vi.fn();
-const failureCreateMock = vi.fn();
 const outcomeCreateMock = vi.fn();
 const pageRunCreateMock = vi.fn();
 
@@ -82,34 +56,24 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     pageCollectionExistingUrls: { create: existingUrlsCreateMock },
     pageCollectionResolveSources: { create: resolveSourcesCreateMock },
     dataCollectionDeadUrlsLookup: { create: deadUrlsLookupMock },
-    dataCollectionDeadUrlsRecord: { create: deadUrlsRecordMock },
     dataCollectionRun: { create: runCreateMock },
-    dataCollectionFailure: { create: failureCreateMock },
     collectionUrlOutcome: { create: outcomeCreateMock },
     pageCollectionRun: { create: pageRunCreateMock },
   })),
 }));
 
 vi.mock("./utilities/expand-source-urls", () => ({
-  expandSourceUrl: vi.fn(async (url: string) => [{ url }]),
+  expandSourceUrl: vi.fn(async (url: string) => [
+    { url, title: "Article title", summary: "Feed description" },
+  ]),
   looksLikeSitemapUrl: vi.fn(() => false),
   looksLikeFeedUrl: vi.fn(() => false),
 }));
 
-vi.mock("@workspace/agent-ingestion", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@workspace/agent-ingestion")>();
-  return {
-    ...actual,
-    performWebFetch: vi.fn(),
-  };
-});
-
-import { performWebFetch } from "@workspace/agent-ingestion";
 import { expandSourceUrl } from "./utilities/expand-source-urls";
 import { runPageCollection } from "./run";
 
-/** Builds a minimal run context for page-collection v2 tests. */
+/** Builds a minimal run context for page-collection tests. */
 function createContext(
   overrides?: Partial<AgentRunContext<BodySchemaType, ConfigSchemaType>>,
 ): AgentRunContext<BodySchemaType, ConfigSchemaType> {
@@ -125,6 +89,10 @@ describe("runPageCollection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    vi.mocked(expandSourceUrl).mockResolvedValue([
+      { url: SOURCE_URL, title: "Article title", summary: "Feed description" },
+    ]);
+
     resolveSourcesCreateMock.mockResolvedValue({
       sources: [
         {
@@ -136,38 +104,22 @@ describe("runPageCollection", () => {
       ],
     });
 
-    vi.mocked(performWebFetch).mockResolvedValue([
-      mockFetchSuccess({
-        url: SOURCE_URL,
-        title: validArticleTitle,
-        content: validArticleContent,
-        tickerId: "",
-        searchQueryId: "",
-        searchQueryText: "",
-        serpIndex: 0,
-      }),
-    ]);
-
     pageCollectionCreateMock.mockResolvedValue({
       message: "Success",
       persistedCount: 1,
     });
     existingUrlsCreateMock.mockResolvedValue({ existingUrls: [] });
     deadUrlsLookupMock.mockResolvedValue({ deadUrls: [] });
-    deadUrlsRecordMock.mockResolvedValue({
-      message: "Dead URLs recorded",
-      recordedCount: 0,
-    });
     runCreateMock.mockResolvedValue({});
-    failureCreateMock.mockResolvedValue({});
     outcomeCreateMock.mockResolvedValue({ message: "Success" });
+    pageRunCreateMock.mockResolvedValue({});
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("persists gate-surviving sources without tickerId", async () => {
+  it("persists the discovered feed description as the source description with no fetch", async () => {
     const result = await runPageCollection(createContext());
 
     expect(result.success).toBe(true);
@@ -178,6 +130,34 @@ describe("runPageCollection", () => {
     expect(persistedSource.curatedSourceListingUrl).toBe(SOURCE_URL);
     expect(persistedSource.collectionGateStatus).toBe("passed");
     expect(persistedSource.url).toBe(SOURCE_URL);
+    expect(persistedSource.title).toBe("Article title");
+    expect(persistedSource.description).toBe("Feed description");
+    expect(persistedSource).not.toHaveProperty("content");
+  });
+
+  it("drops articles that discovery yields no description for", async () => {
+    vi.mocked(expandSourceUrl).mockResolvedValue([{ url: SOURCE_URL }]);
+
+    const result = await runPageCollection(createContext());
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.message).toContain(
+        "no sources were successfully collected",
+      );
+    }
+    expect(pageCollectionCreateMock).not.toHaveBeenCalled();
+    expect(result.details?.summary).toEqual(
+      expect.objectContaining({ droppedByMissingDescription: 1 }),
+    );
+    expect(outcomeCreateMock).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "dropped",
+          reason: "empty_description",
+        }),
+      ]),
+    );
   });
 
   it("records a global DataCollectionRun without tickerId", async () => {
@@ -188,36 +168,6 @@ describe("runPageCollection", () => {
 
     expect(runPayload.tickerId).toBeUndefined();
     expect(runPayload.status).toBe("success");
-  });
-
-  it("returns semantic failure with descriptive message when policy is not met", async () => {
-    vi.mocked(performWebFetch).mockResolvedValue([
-      {
-        success: null,
-        failures: [
-          {
-            provider: "jina",
-            url: SOURCE_URL,
-            errorCategory: "network_error",
-            retryable: true,
-            message: "timeout",
-            queryId: "",
-            tickerId: "",
-          },
-        ],
-      },
-    ]);
-
-    const result = await runPageCollection(createContext());
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.message).toContain(
-        "no sources were successfully collected",
-      );
-    }
-    expect(failureCreateMock).toHaveBeenCalledOnce();
-    expect(outcomeCreateMock).toHaveBeenCalled();
   });
 
   it("persists a failed run record when resolve-sources throws", async () => {
@@ -235,24 +185,12 @@ describe("runPageCollection", () => {
     const newUrl = "https://example.com/new-article";
 
     vi.mocked(expandSourceUrl).mockResolvedValue([
-      { url: existingUrl },
-      { url: newUrl },
-      { url: newUrl },
+      { url: existingUrl, summary: "Existing summary" },
+      { url: newUrl, summary: "New summary" },
+      { url: newUrl, summary: "New summary" },
     ]);
 
     existingUrlsCreateMock.mockResolvedValue({ existingUrls: [existingUrl] });
-
-    vi.mocked(performWebFetch).mockResolvedValue([
-      mockFetchSuccess({
-        url: newUrl,
-        title: validArticleTitle,
-        content: validArticleContent,
-        tickerId: "",
-        searchQueryId: "",
-        searchQueryText: "",
-        serpIndex: 0,
-      }),
-    ]);
 
     const result = await runPageCollection(createContext());
 
@@ -265,7 +203,7 @@ describe("runPageCollection", () => {
         droppedByUrlNoise: 0,
         droppedByHostErrorRate: 0,
         droppedByRunItemCap: 0,
-        fetchSuccess: 1,
+        droppedByMissingDescription: 0,
         totalSources: 1,
       }),
     );

@@ -106,6 +106,49 @@ describe("performWebSearch", () => {
     });
   });
 
+  it("carries the provider-reported publish date through to the result", async () => {
+    // Setup
+    const postMock = vi.fn().mockReturnValue(
+      mockGotPostResponse({
+        news: [
+          {
+            link: "http://example.com",
+            title: "Title",
+            snippet: "Snippet",
+            date: "2026-05-20T00:00:00.000Z",
+          },
+        ],
+      }),
+    );
+
+    const fakeGot = { post: postMock } as unknown as typeof got;
+    const queries: SearchQuery[] = [
+      {
+        id: "q1",
+        text: "search",
+        tickerId: "ticker-1",
+        intent: "breaking",
+        rank: 1,
+      },
+    ];
+
+    // Act
+    const result = await performWebSearch(queries, {
+      config: defaultConfig,
+      locales: defaultLocales,
+      gotClient: fakeGot,
+    });
+
+    // Assert
+    expect(result[0]).toMatchObject({
+      success: true,
+      data: {
+        url: "http://example.com",
+        publishedAt: "2026-05-20T00:00:00.000Z",
+      },
+    });
+  });
+
   it("returns failure when Serper returns invalid response shape", async () => {
     // Setup
     const postMock = vi.fn().mockReturnValue(

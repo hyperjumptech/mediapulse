@@ -16,6 +16,7 @@ export type CollectionUrlOutcomeReason =
   | "dead_url_cache"
   | "host_error_rate"
   | "fetch_failed"
+  | "empty_description"
   | "prefilter_alias_mismatch"
   | "dropped_by_fetch_budget"
   | "dropped_by_run_item_cap";
@@ -44,6 +45,7 @@ export const REASON_LABELS: Record<string, string> = {
   dead_url_cache: "Previously recorded as a dead URL",
   host_error_rate: "Host exceeded error-rate threshold",
   fetch_failed: "Fetch failed",
+  empty_description: "No description available at collection",
   prefilter_alias_mismatch: "Pre-filter: no ticker/industry mention",
   dropped_by_fetch_budget: "Fetch budget exhausted for this run",
   dropped_by_run_item_cap: "Run item cap reached",
@@ -61,6 +63,7 @@ type DropOutcomeContext =
   | { reason: "dead_url_cache" }
   | { reason: "host_error_rate"; host: string }
   | { reason: "fetch_failed"; errorCategory: string; httpStatus?: number }
+  | { reason: "empty_description" }
   | { reason: "prefilter_alias_mismatch" }
   | { reason: "dropped_by_fetch_budget" }
   | { reason: "dropped_by_run_item_cap" };
@@ -169,6 +172,12 @@ export const describeOutcomeReason = (
         reasonDetail: `Fetch failed: ${context.errorCategory}${status}`,
       };
     }
+
+    case "empty_description":
+      return {
+        reason: context.reason,
+        reasonDetail: "No description available at collection",
+      };
 
     case "prefilter_alias_mismatch":
       return {
