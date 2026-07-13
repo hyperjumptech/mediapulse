@@ -474,6 +474,7 @@ describe("agent-data-api", () => {
             tickerId: TICKER_ID,
             url: "https://example.com",
             title: "Example",
+            description: "Snippet",
             content: "Body",
             createdAt: new Date("2026-03-19T00:00:00.000Z"),
             ticker: {

@@ -7,6 +7,7 @@ import {
   criteriaHash,
   ISSUER_RELEVANCE_CRITERION_ID,
   MAX_CONTENT_CHARS,
+  rejectEmptySource,
   renderArticleTickerContext,
   scoreFromEvaluations,
   type CriterionEvaluation,
@@ -102,6 +103,26 @@ describe("buildSectionClassificationMessages", () => {
     expect(String(withoutContext[1]!.content)).not.toContain(
       ISSUER_RELEVANCE_CRITERION_ID,
     );
+  });
+
+  it("appends the product_contract block to the system prompt when a brief is present", () => {
+    const withBrief = buildSectionClassificationMessages({
+      title: "Acme buys Globex",
+      content: "Acme announced an acquisition.",
+      acceptanceCriteria: criteria,
+      brief: "Focus on Indonesian banking sector dynamics.",
+    });
+    const withoutBrief = buildSectionClassificationMessages({
+      title: "Acme buys Globex",
+      content: "Acme announced an acquisition.",
+      acceptanceCriteria: criteria,
+    });
+
+    expect(String(withBrief[0]!.content)).toContain("<product_contract>");
+    expect(String(withBrief[0]!.content)).toContain(
+      "Focus on Indonesian banking sector dynamics.",
+    );
+    expect(String(withoutBrief[0]!.content)).not.toContain("product_contract");
   });
 
   it("truncates long content to MAX_CONTENT_CHARS", () => {
@@ -313,6 +334,19 @@ describe("scoreFromEvaluations — issuer-relevance gate", () => {
 
     expect(result.section).toBe("industryPulse");
     expect(result.score).toBeCloseTo(0.6);
+  });
+});
+
+describe("rejectEmptySource", () => {
+  it("rejects with an empty breakdown and the current criteria hash", () => {
+    const result = rejectEmptySource(criteria);
+
+    expect(result.section).toBeNull();
+    expect(result.score).toBe(0);
+    expect(result.reason).toContain("no description or content");
+    expect(result.scoreBreakdown.criteria).toEqual([]);
+    expect(result.scoreBreakdown.sections).toEqual([]);
+    expect(result.scoreBreakdown.criteriaHash).toBe(criteriaHash(criteria));
   });
 });
 

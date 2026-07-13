@@ -27,7 +27,8 @@ describe("loadAnalysisContext — ticker-scoped baseline", () => {
         id: SEARCH_ARTICLE,
         url: "https://example.com/a",
         title: "A",
-        content: "body",
+        description: "snippet",
+        content: null,
         createdAt: new Date("2026-01-01T00:00:00Z"),
         tickerId: TICKER_ID,
         ticker: {
@@ -63,7 +64,8 @@ describe("loadAnalysisContext — ticker-scoped baseline", () => {
         tickerId: TICKER_ID,
         url: "https://example.com/a",
         title: "A",
-        content: "body",
+        description: "snippet",
+        content: null,
         createdAt: new Date("2026-01-01T00:00:00Z"),
         ticker: {
           symbol: "AGRO",
@@ -186,6 +188,44 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
       expect(pair.tickerId).toBe(TICKER_ID);
       expect(pair.ticker.symbol).toBe("BBCA");
     }
+  });
+
+  it("gates a curated article on its description when content is null", async () => {
+    const db = buildDb([
+      {
+        id: CURATED_MATCH,
+        url: "https://example.com/c",
+        title: "Unrelated headline",
+        description: "Bank Central Asia posts record profit",
+        content: null,
+        createdAt: new Date("2026-01-02T00:00:00Z"),
+        tickerId: null,
+        ticker: null,
+        tickerSections: [],
+      },
+      {
+        id: CURATED_MISS,
+        url: "https://example.com/d",
+        title: "Unrelated headline",
+        description: "no issuer mention here",
+        content: null,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        tickerId: null,
+        ticker: null,
+        tickerSections: [],
+      },
+    ]);
+
+    const result = await loadAnalysisContext(
+      { unanalyzed: true, limit: 10 },
+      { db: db as never },
+    );
+
+    expect(result.dataSources.map((pair) => pair.id)).toEqual([CURATED_MATCH]);
+    expect(result.dataSources[0]!.description).toBe(
+      "Bank Central Asia posts record profit",
+    );
+    expect(result.dataSources[0]!.content).toBeNull();
   });
 
   it("skips a pair that is already classified for the ticker", async () => {
