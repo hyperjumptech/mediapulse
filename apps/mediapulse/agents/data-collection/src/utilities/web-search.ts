@@ -36,6 +36,8 @@ export interface WebSearchResult {
   searchQueryIntent: QueryAnalysisIntent;
   searchQueryRank: number;
   serpIndex: number;
+  /** Publish date reported by the search provider, when available. */
+  publishedAt?: string;
   /** Optional fetch provider metadata captured during web fetch. */
   fetchMetadata?: FetchMetadata;
   /** @deprecated Use {@link WebSearchResult.fetchMetadata} instead. */
@@ -177,6 +179,7 @@ const searchOne = async (
         searchQueryIntent: query.intent,
         searchQueryRank: query.rank,
         serpIndex,
+        ...(hit.publishedAt ? { publishedAt: hit.publishedAt } : {}),
       },
     }));
   } catch (error) {

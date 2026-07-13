@@ -733,7 +733,7 @@ describe("agent-data-api", () => {
           {
             url: "https://example.com",
             title: "Example",
-            content: "Content",
+            description: "Search snippet",
             tickerId: TICKER_ID,
             searchQueryId: SEARCH_QUERY_ID,
           },
@@ -748,7 +748,8 @@ describe("agent-data-api", () => {
           url: "https://example.com",
           canonicalUrl: "https://example.com",
           title: "Example",
-          content: "Content",
+          description: "Search snippet",
+          content: null,
           tickerId: TICKER_ID,
           searchQueryId: SEARCH_QUERY_ID,
         },

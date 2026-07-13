@@ -18,7 +18,7 @@ export const dataCollectionInputSchema = z.object({
   url: z.string().url(),
   title: z.string(),
   description: z.string().optional(),
-  content: z.string(),
+  content: z.string().optional(),
   author: z.string().optional(),
   source: z.string().optional(),
   tickerId: z.string().uuid(),

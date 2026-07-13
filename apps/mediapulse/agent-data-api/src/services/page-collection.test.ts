@@ -88,14 +88,14 @@ describe("persistPageCollectionArticles", () => {
         {
           url: "https://example.com/article/1",
           title: "One",
-          content: "Body one",
+          description: "Feed description one",
           curatedSourceListingUrl: "https://example.com/news",
           collectionGateStatus: "passed",
         },
         {
           url: "https://example.com/article/2",
           title: "Two",
-          content: "Body two",
+          description: "Feed description two",
           curatedSourceListingUrl: "https://example.com/news",
           collectionGateStatus: "passed",
         },
@@ -110,6 +110,8 @@ describe("persistPageCollectionArticles", () => {
       curatedSourceId: "curated-1",
       tickerId: null,
       searchQueryId: null,
+      description: "Feed description one",
+      content: null,
       collectionGateStatus: "passed",
     });
   });

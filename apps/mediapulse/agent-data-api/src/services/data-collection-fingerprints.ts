@@ -42,7 +42,7 @@ export async function getRecentSourceFingerprints(
     },
     orderBy: { createdAt: "desc" as const },
     take: DATA_COLLECTION_MAX_FINGERPRINTS,
-    select: { id: true, title: true, content: true },
+    select: { id: true, title: true, description: true, content: true },
   } satisfies Prisma.DataSourceFindManyArgs;
 
   const rows = await deps.dataSource.findMany(findArgs);
@@ -50,7 +50,7 @@ export async function getRecentSourceFingerprints(
   return rows.map((row) => ({
     id: row.id,
     title: row.title,
-    headSnippet: (row.content ?? "").slice(
+    headSnippet: (row.description ?? row.content ?? "").slice(
       0,
       DATA_COLLECTION_FINGERPRINT_HEAD_CHARS,
     ),

@@ -5,7 +5,8 @@ export const collectionGateStatusSchema = z.enum(["passed", "failed"]);
 const pageCollectionArticleInputSchema = z.object({
   url: z.string().url(),
   title: z.string(),
-  content: z.string(),
+  description: z.string().optional(),
+  content: z.string().optional(),
   author: z.string().optional(),
   source: z.string().optional(),
   curatedSourceListingUrl: z.string().url(),
