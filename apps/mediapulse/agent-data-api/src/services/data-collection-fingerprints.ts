@@ -50,6 +50,9 @@ export async function getRecentSourceFingerprints(
   return rows.map((row) => ({
     id: row.id,
     title: row.title,
-    headSnippet: row.content.slice(0, DATA_COLLECTION_FINGERPRINT_HEAD_CHARS),
+    headSnippet: (row.content ?? "").slice(
+      0,
+      DATA_COLLECTION_FINGERPRINT_HEAD_CHARS,
+    ),
   }));
 }

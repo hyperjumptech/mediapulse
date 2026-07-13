@@ -9,6 +9,9 @@ import {
 
 const baseRowFields = {
   canonicalUrl: "https://example.com/a",
+  description: null,
+  fetchedAt: null,
+  fetchProvider: null,
   author: null,
   source: null,
   metadata: null,
@@ -107,6 +110,9 @@ describe("mapRowToListItem", () => {
       url: "https://example.com/global",
       title: "Global article",
       content: "body",
+      description: null,
+      fetchedAt: null,
+      fetchProvider: null,
       author: null,
       source: null,
       tickerId: null,
