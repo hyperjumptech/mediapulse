@@ -1,6 +1,9 @@
 import { prisma } from "@mediapulse/database";
 import { logger } from "@workspace/logger";
-import type { PostContentGenerationBody } from "@workspace/agent-data-api-contract";
+import type {
+  PostContentGenerationBody,
+  PostContentGenerationFetchedContentBody,
+} from "@workspace/agent-data-api-contract";
 
 import type { Prisma } from "@mediapulse/database";
 
@@ -32,6 +35,7 @@ const MAX_RECENT_BULLETS = 200;
 const SOURCE_LOOKBACK_HOURS = 24;
 
 type ContentGenerationDb = {
+  dataSource: Pick<typeof prisma.dataSource, "update">;
   dataSourceTickerSection: Pick<
     typeof prisma.dataSourceTickerSection,
     "findMany"
@@ -94,8 +98,10 @@ export const getDataSourcesForTicker = async (
         sectionReason: true,
         dataSource: {
           select: {
+            id: true,
             url: true,
             title: true,
+            description: true,
             content: true,
             author: true,
             source: true,
@@ -110,8 +116,10 @@ export const getDataSourcesForTicker = async (
   ]);
 
   const dataSources = sectionRows.map((row) => ({
+    dataSourceId: row.dataSource.id,
     url: row.dataSource.url,
     title: row.dataSource.title,
+    description: row.dataSource.description,
     content: row.dataSource.content,
     author: row.dataSource.author,
     source: row.dataSource.source,
@@ -188,6 +196,39 @@ export const createNewsletter = async (
     "Created newsletter for ticker",
   );
   return newsletter;
+};
+
+export const updateFetchedContent = async (
+  items: PostContentGenerationFetchedContentBody,
+  deps: {
+    db?: Pick<ContentGenerationDb, "dataSource">;
+    now?: () => Date;
+  } = {},
+): Promise<{ updatedCount: number }> => {
+  const { db = prisma, now = () => new Date() } = deps;
+  const fetchedAt = now();
+  let updatedCount = 0;
+
+  for (const item of items) {
+    try {
+      await db.dataSource.update({
+        where: { id: item.dataSourceId },
+        data: {
+          content: item.content,
+          fetchedAt,
+          fetchProvider: item.fetchProvider,
+        },
+      } satisfies Prisma.DataSourceUpdateArgs);
+      updatedCount += 1;
+    } catch (error) {
+      logger.warn(
+        { dataSourceId: item.dataSourceId, err: error },
+        "Failed to persist fetched content for data source",
+      );
+    }
+  }
+
+  return { updatedCount };
 };
 
 /**

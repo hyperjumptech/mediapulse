@@ -20,6 +20,7 @@ import {
   getContentGenerationNewslettersRecent,
   getContentGenerationBulletsRecent,
   postContentGeneration,
+  postContentGenerationFetchedContent,
 } from "./routes/content-generation.js";
 import { postDataCollectionExistingUrls } from "./routes/data-collection-existing-urls.js";
 import {
@@ -151,6 +152,9 @@ const routeHandlers = {
   },
   contentGenerationBulletsRecent: {
     get: getContentGenerationBulletsRecent,
+  },
+  contentGenerationFetchedContent: {
+    post: postContentGenerationFetchedContent,
   },
   newsletterTranslation: {
     post: postNewsletterTranslationHandler,

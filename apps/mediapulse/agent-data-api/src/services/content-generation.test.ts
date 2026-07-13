@@ -37,6 +37,7 @@ import {
   getLatestNewsletter,
   getRecentNewsletterBullets,
   getRecentNewsletterSubjects,
+  updateFetchedContent,
 } from "./content-generation.js";
 
 type MockDb = {
@@ -129,8 +130,10 @@ describe("getDataSourcesForTicker", () => {
         sectionScore: 0.93,
         sectionReason: "peer move",
         dataSource: {
+          id: "ds-high",
           url: "https://example.com/high",
           title: "High score",
+          description: "High snippet",
           content: "High",
           author: null,
           source: "Reuters",
@@ -144,8 +147,10 @@ describe("getDataSourcesForTicker", () => {
         sectionScore: 0.62,
         sectionReason: "minor",
         dataSource: {
+          id: "ds-low",
           url: "https://example.com/low",
           title: "Low score",
+          description: null,
           content: "Low",
           author: null,
           source: null,
@@ -176,8 +181,12 @@ describe("getDataSourcesForTicker", () => {
     );
     expect(result.dataSources).toHaveLength(2);
     expect(result.dataSources[0]?.title).toBe("High score");
+    expect(result.dataSources[0]?.dataSourceId).toBe("ds-high");
+    expect(result.dataSources[0]?.description).toBe("High snippet");
     expect(result.dataSources[0]?.tickerId).toBe("ticker-1");
     expect(result.dataSources[1]?.title).toBe("Low score");
+    expect(result.dataSources[1]?.dataSourceId).toBe("ds-low");
+    expect(result.dataSources[1]?.description).toBeNull();
     expect(result.tickerSymbol).toBe("TEST");
     expect(result.tickerName).toBe("Test Company");
   });
@@ -1020,5 +1029,63 @@ describe("getDataSourcesForTicker — competitors and issuerAliases in response"
     expect(result.competitors).toEqual([]);
     expect(result.issuerAliases).toContain("SOLO");
     expect(result.issuerAliases).toContain("Solo Corp");
+  });
+});
+
+describe("updateFetchedContent", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("updates each row with content, fetchedAt, and fetchProvider and returns the count", async () => {
+    const update = vi.fn().mockResolvedValue({ id: "ds-1" });
+    const db = { dataSource: { update } };
+    const now = new Date("2026-07-13T00:00:00.000Z");
+
+    const result = await updateFetchedContent(
+      [
+        { dataSourceId: "ds-1", content: "Body 1", fetchProvider: "serper" },
+        { dataSourceId: "ds-2", content: "Body 2", fetchProvider: "tavily" },
+      ],
+      {
+        db: db as unknown as NonNullable<
+          Parameters<typeof updateFetchedContent>[1]
+        >["db"],
+        now: () => now,
+      },
+    );
+
+    expect(result.updatedCount).toBe(2);
+    expect(update).toHaveBeenNthCalledWith(1, {
+      where: { id: "ds-1" },
+      data: { content: "Body 1", fetchedAt: now, fetchProvider: "serper" },
+    });
+    expect(update).toHaveBeenNthCalledWith(2, {
+      where: { id: "ds-2" },
+      data: { content: "Body 2", fetchedAt: now, fetchProvider: "tavily" },
+    });
+  });
+
+  it("skips a row that fails to update without failing the batch", async () => {
+    const update = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("row not found"))
+      .mockResolvedValueOnce({ id: "ds-2" });
+    const db = { dataSource: { update } };
+
+    const result = await updateFetchedContent(
+      [
+        { dataSourceId: "ds-1", content: "Body 1", fetchProvider: "serper" },
+        { dataSourceId: "ds-2", content: "Body 2", fetchProvider: "serper" },
+      ],
+      {
+        db: db as unknown as NonNullable<
+          Parameters<typeof updateFetchedContent>[1]
+        >["db"],
+      },
+    );
+
+    expect(result.updatedCount).toBe(1);
+    expect(update).toHaveBeenCalledTimes(2);
   });
 });

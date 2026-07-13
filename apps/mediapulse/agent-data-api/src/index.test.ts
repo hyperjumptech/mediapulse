@@ -6,6 +6,7 @@ import {
 
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 const SEARCH_QUERY_ID = "22222222-2222-4222-a222-222222222222";
+const DATA_SOURCE_ID = "44444444-4444-4444-a444-444444444444";
 const AUTH_HEADERS = { Authorization: "Bearer test-token" };
 const analysisPath = agentDataApiPathname(
   AGENT_DATA_API_DEFAULT_VERSION,
@@ -49,6 +50,10 @@ const contentGenerationNewslettersRecentPath = agentDataApiPathname(
 const contentGenerationBulletsRecentPath = agentDataApiPathname(
   AGENT_DATA_API_DEFAULT_VERSION,
   "contentGenerationBulletsRecent",
+);
+const contentGenerationFetchedContentPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "contentGenerationFetchedContent",
 );
 
 vi.mock("@workspace/agent-auth-client", () => ({
@@ -115,6 +120,7 @@ vi.mock("./services/analysis.js", async (importOriginal) => {
 vi.mock("./services/content-generation.js", () => ({
   getDataSourcesForTicker: vi.fn(),
   createNewsletter: vi.fn(),
+  updateFetchedContent: vi.fn(),
   getLatestNewsletter: vi.fn(),
   getRecentNewsletterSubjects: vi.fn(),
   getRecentNewsletterBullets: vi.fn(),
@@ -176,8 +182,10 @@ describe("agent-data-api", () => {
       vi.mocked(mod.getDataSourcesForTicker).mockResolvedValue({
         dataSources: [
           {
+            dataSourceId: DATA_SOURCE_ID,
             url: "https://example.com",
             title: "Example",
+            description: "Snippet",
             content: "Content",
             author: null,
             source: null,
@@ -324,6 +332,64 @@ describe("agent-data-api", () => {
         TICKER_ID,
         14,
       );
+    });
+  });
+
+  describe(`POST ${contentGenerationFetchedContentPath}`, () => {
+    it("returns 401 without Authorization header", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationFetchedContentPath}`,
+        { method: "POST" },
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it("persists fetched bodies and returns updatedCount", async () => {
+      const mod = await getContentGenerationService();
+      vi.mocked(mod.updateFetchedContent).mockResolvedValue({
+        updatedCount: 1,
+      });
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationFetchedContentPath}`,
+        {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify([
+            {
+              dataSourceId: DATA_SOURCE_ID,
+              content: "Fetched body",
+              fetchProvider: "serper",
+            },
+          ]),
+        },
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.updatedCount).toBe(1);
+      expect(mod.updateFetchedContent).toHaveBeenCalledWith([
+        {
+          dataSourceId: DATA_SOURCE_ID,
+          content: "Fetched body",
+          fetchProvider: "serper",
+        },
+      ]);
+    });
+
+    it("returns 400 when body validation fails (empty array)", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationFetchedContentPath}`,
+        {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify([]),
+        },
+      );
+      expect(res.status).toBe(400);
     });
   });
 

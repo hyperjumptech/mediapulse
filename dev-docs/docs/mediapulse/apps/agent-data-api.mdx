@@ -30,6 +30,7 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | ------ | ------------------------------------------------ | -------------------------------------------------------------------------- |
 | GET    | `/api/v1/content-generation`                     | Get content-generation data (e.g. by tickerId)                             |
 | POST   | `/api/v1/content-generation`                     | Store content-generation payload                                           |
+| POST   | `/api/v1/content-generation/fetched-content`     | Persist on-demand fetched bodies back onto data-source rows                |
 | GET    | `/api/v1/content-generation-newsletters-latest`  | Check if a fresh newsletter exists for a ticker in a time window           |
 | GET    | `/api/v1/data-collection`                        | Get data-collection data                                                   |
 | POST   | `/api/v1/data-collection`                        | Store data-collection payload                                              |
@@ -74,6 +75,25 @@ Implemented in `apps/mediapulse/agent-data-api/src/routes/content-generation.ts`
 | `promptTokens`     | `number` (integer) | Prompt token count from LLM response       |
 | `completionTokens` | `number` (integer) | Completion token count from LLM response   |
 | `totalTokens`      | `number` (integer) | Total token count from LLM response        |
+
+The **GET** response now also carries **`dataSourceId`** (the `data_source` row id) and the lightweight **`description`** on each source. `content` is nullable: after ADR-0002 most sources start with only a `description`, and a full `content` body appears only once content-generation fetches it on demand.
+
+### Content generation fetched content (`POST /api/v1/content-generation/fetched-content`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/content-generation.ts`. Schemas live in `@workspace/agent-data-api-contract` (`content-generation.ts`); manifest key **`contentGenerationFetchedContent`** (custom path segment `/content-generation/fetched-content`).
+
+Used by the content-generation on-demand fetch (ADR-0003) to persist a fetched body back onto its data-source row so a re-run or another ticker sharing the URL reuses it without re-paying.
+
+- **POST** — Body (`postContentGenerationFetchedContentBodySchema`): a non-empty array (at most **`CONTENT_GENERATION_FETCHED_CONTENT_MAX`**, 50) of **`{ dataSourceId (uuid), content (non-empty), fetchProvider (non-empty) }`**. Each item updates the matching `data_source` row's **`content`**, **`fetchedAt`** (now), and **`fetchProvider`**. Rows are updated independently; a missing row is skipped without failing the batch. Response: **`{ updatedCount }`**.
+
+From agents, use SDK namespace **`contentGenerationFetchedContent`**: **`create`** for POST.
+
+```ts
+const { updatedCount } =
+  await dataApiClient.contentGenerationFetchedContent.create([
+    { dataSourceId, content: fetchedBody, fetchProvider: "serper" },
+  ]);
+```
 
 ### Data collection existing URLs (`POST /api/v1/data-collection-existing-urls`)
 

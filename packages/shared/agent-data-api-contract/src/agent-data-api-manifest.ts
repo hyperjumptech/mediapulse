@@ -20,6 +20,8 @@ import {
   getContentGenerationBulletsRecentResponseSchema,
   postContentGenerationBodySchema,
   postContentGenerationResponseSchema,
+  postContentGenerationFetchedContentBodySchema,
+  postContentGenerationFetchedContentResponseSchema,
 } from "./content-generation.js";
 import {
   postNewsletterTranslationBodySchema,
@@ -263,6 +265,22 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postContentGenerationBodySchema,
         response: postContentGenerationResponseSchema,
+      },
+    },
+  },
+  contentGenerationFetchedContent: {
+    v1: {
+      pathSegment: "/content-generation/fetched-content",
+      post: {
+        body: postContentGenerationFetchedContentBodySchema,
+        response: postContentGenerationFetchedContentResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/content-generation/fetched-content",
+      post: {
+        body: postContentGenerationFetchedContentBodySchema,
+        response: postContentGenerationFetchedContentResponseSchema,
       },
     },
   },

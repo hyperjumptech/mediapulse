@@ -145,6 +145,44 @@ describe("createAgentDataApiClient", () => {
     expect(result).toEqual({ message: "Success" });
   });
 
+  it("posts content-generation fetched-content and parses updatedCount", async () => {
+    const postFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({ updatedCount: 2 }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "Bearer sdk-token",
+      postFn,
+    });
+
+    const result = await client.contentGenerationFetchedContent.create([
+      {
+        dataSourceId: "44444444-4444-4444-a444-444444444444",
+        content: "Fetched body",
+        fetchProvider: "serper",
+      },
+    ]);
+
+    expect(postFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "contentGenerationFetchedContent")}`,
+      expect.objectContaining({
+        json: [
+          {
+            dataSourceId: "44444444-4444-4444-a444-444444444444",
+            content: "Fetched body",
+            fetchProvider: "serper",
+          },
+        ],
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer sdk-token",
+        },
+      }),
+    );
+    expect(result).toEqual({ updatedCount: 2 });
+  });
+
   it("posts content-generation payload with provenance fields", async () => {
     // Setup
     const postFn = vi.fn().mockResolvedValue({

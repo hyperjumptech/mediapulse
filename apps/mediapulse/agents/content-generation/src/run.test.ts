@@ -15,6 +15,9 @@ const contentGenerationCreate = vi.fn();
 const contentGenerationNewslettersLatestGet = vi.fn();
 const contentGenerationBulletsRecentGet = vi.fn();
 const contentGenerationRunsCreate = vi.fn();
+const contentGenerationFetchedContentCreate = vi.fn();
+const dataCollectionDeadUrlsLookupCreate = vi.fn();
+const dataCollectionDeadUrlsRecordCreate = vi.fn();
 const newsletterTranslationCreate = vi.fn();
 
 vi.mock("@workspace/agent-data-api-client", () => ({
@@ -31,6 +34,15 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     },
     contentGenerationRuns: {
       create: contentGenerationRunsCreate,
+    },
+    contentGenerationFetchedContent: {
+      create: contentGenerationFetchedContentCreate,
+    },
+    dataCollectionDeadUrlsLookup: {
+      create: dataCollectionDeadUrlsLookupCreate,
+    },
+    dataCollectionDeadUrlsRecord: {
+      create: dataCollectionDeadUrlsRecordCreate,
     },
     newsletterTranslation: {
       create: newsletterTranslationCreate,
@@ -86,8 +98,10 @@ function makeContext(overrides?: {
 
 const testSources = [
   {
+    dataSourceId: "10000000-0000-4000-8000-000000000001",
     url: "https://example.com/a",
     title: "Story A",
+    description: "Story A snippet.",
     content: "Content for story A.",
     tickerId: TEST_TICKER_ID,
     section: "quickHits",

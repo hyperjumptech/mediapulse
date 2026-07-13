@@ -17,6 +17,7 @@
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/agent-data-api-contract": "workspace:*",
+    "@workspace/agent-ingestion": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
     "@workspace/agent-llm-prompt-template": "workspace:*",
     "@workspace/agent-types": "workspace:*",
