@@ -40,6 +40,7 @@ export function narrativeRunComplete(opts: {
   assigned: number;
   rejected: number;
   failureCount: number;
+  skippedByCap: number;
   stopReason: AnalysisStopReason;
 }): [string, string] {
   const title =
@@ -69,7 +70,12 @@ export function narrativeRunComplete(opts: {
       ? ` ${n(opts.failureCount, "classification error")} recorded.`
       : "";
 
-  const description = `${scoredClause}.${stopClause}${failureClause}`;
+  const capClause =
+    opts.skippedByCap > 0
+      ? ` ${n(opts.skippedByCap, "source")} skipped past the per-ticker cap.`
+      : "";
+
+  const description = `${scoredClause}.${stopClause}${failureClause}${capClause}`;
 
   return [title, description];
 }

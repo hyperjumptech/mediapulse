@@ -120,6 +120,8 @@ export async function run(
   let totalRejected = 0;
   let totalReturned = 0;
   let failureCount = 0;
+  let totalSkippedByCap = 0;
+  let totalCappedTickers = 0;
   let backlog = 0;
   let startReported = false;
   let stopReason: AnalysisStopReason = null;
@@ -202,14 +204,20 @@ export async function run(
       ...new Set(dataSources.map((dataSource) => dataSource.id)),
     ];
 
-    const { articlesScored, articlesRejected } =
-      await dataApiClient.analysis.create({
-        articleSections,
-        analyzedDataSourceIds,
-      });
+    const {
+      articlesScored,
+      articlesRejected,
+      skippedByCap,
+      cappedTickerCount,
+    } = await dataApiClient.analysis.create({
+      articleSections,
+      analyzedDataSourceIds,
+    });
 
     totalScored += articlesScored;
     totalRejected += articlesRejected;
+    totalSkippedByCap += skippedByCap;
+    totalCappedTickers += cappedTickerCount;
     totalReturned += dataSources.length;
     log.info(
       {
@@ -238,6 +246,8 @@ export async function run(
       assigned: totalAssigned,
       rejected: totalRejected,
       failed: failureCount,
+      skippedByCap: totalSkippedByCap,
+      cappedTickers: totalCappedTickers,
       stopReason,
     },
     "article-analysis run completed",
@@ -249,6 +259,7 @@ export async function run(
       assigned: totalAssigned,
       rejected: totalRejected,
       failureCount,
+      skippedByCap: totalSkippedByCap,
       stopReason,
     }),
     "completed",
@@ -296,6 +307,8 @@ export async function run(
       assigned: totalAssigned,
       rejected: totalRejected,
       failed: failureCount,
+      skippedByCap: totalSkippedByCap,
+      cappedTickers: totalCappedTickers,
       backlog,
     },
   };

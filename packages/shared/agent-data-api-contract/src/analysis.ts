@@ -135,6 +135,8 @@ export const postAnalysisResponseSchema = z.object({
   articlesScored: z.number().int().nonnegative(),
   /** Rows posted with `section: null`. */
   articlesRejected: z.number().int().nonnegative(),
+  skippedByCap: z.number().int().nonnegative().default(0),
+  cappedTickerCount: z.number().int().nonnegative().default(0),
 });
 
 export type AnalysisTickerContext = z.infer<typeof analysisTickerContextSchema>;

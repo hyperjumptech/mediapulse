@@ -98,6 +98,8 @@ describe("article-analysis run — empty-source skip and description classificat
     analysisCreate.mockResolvedValue({
       articlesScored: 2,
       articlesRejected: 1,
+      skippedByCap: 0,
+      cappedTickerCount: 0,
     });
     (classifyArticleSection as ReturnType<typeof vi.fn>).mockResolvedValue({
       section: "industryPulse",
@@ -148,6 +150,8 @@ describe("article-analysis run — empty-source skip and description classificat
     analysisCreate.mockResolvedValue({
       articlesScored: 1,
       articlesRejected: 0,
+      skippedByCap: 0,
+      cappedTickerCount: 0,
     });
     (classifyArticleSection as ReturnType<typeof vi.fn>).mockResolvedValue({
       section: "industryPulse",
@@ -173,5 +177,58 @@ describe("article-analysis run — empty-source skip and description classificat
       .calls[0]![0];
 
     expect(call.brief).toBeUndefined();
+  });
+
+  it("aggregates cap counts across batches into the run summary", async () => {
+    const secondSource = {
+      ...DESCRIBED_SOURCE,
+      id: "33333333-3333-4333-8333-333333333333",
+    };
+    analysisGet
+      .mockResolvedValueOnce({
+        dataSources: [DESCRIBED_SOURCE],
+        dataSourceTotalCount: 2,
+      })
+      .mockResolvedValueOnce({
+        dataSources: [secondSource],
+        dataSourceTotalCount: 1,
+      })
+      .mockResolvedValueOnce({ dataSources: [], dataSourceTotalCount: 0 });
+    analysisCreate
+      .mockResolvedValueOnce({
+        articlesScored: 1,
+        articlesRejected: 0,
+        skippedByCap: 3,
+        cappedTickerCount: 1,
+      })
+      .mockResolvedValueOnce({
+        articlesScored: 1,
+        articlesRejected: 0,
+        skippedByCap: 4,
+        cappedTickerCount: 2,
+      });
+    (classifyArticleSection as ReturnType<typeof vi.fn>).mockResolvedValue({
+      section: "industryPulse",
+      score: 0.4,
+      reason: "matched",
+      scoreBreakdown: {
+        section: "industryPulse",
+        matched: 2,
+        total: 5,
+        criteriaHash: "hash",
+        criteria: [],
+        sections: [],
+      },
+    });
+
+    const result = await run({
+      input: {},
+      config,
+      token: "Bearer test",
+    });
+
+    expect(result.details).toEqual(
+      expect.objectContaining({ skippedByCap: 7, cappedTickers: 3 }),
+    );
   });
 });
