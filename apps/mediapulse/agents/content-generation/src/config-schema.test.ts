@@ -15,6 +15,38 @@ describe("ContentGenerationConfigSchema", () => {
     expect(parsed.model.model).toBe("{{AI_MODEL}}");
     expect(parsed.model.baseUrl).toBe("{{AI_BASE_URL}}");
     expect(parsed.duplicateGuard.timezone).toBe("Asia/Jakarta");
+    expect(parsed.maxFetchesPerRun).toBe(10);
+    expect(parsed.fetch.providers[0]?.type).toBe("serper");
+    expect(parsed.resilience.deadUrlCache.enabled).toBe(true);
+    expect(parsed.resilience.hostErrorBreaker.enabled).toBe(true);
+  });
+
+  it("accepts an explicit maxFetchesPerRun and fetch provider chain", () => {
+    const parsed = ContentGenerationConfigSchema.parse({
+      maxFetchesPerRun: 3,
+      fetch: {
+        providers: [
+          {
+            type: "tavily",
+            baseUrl: "https://api.tavily.com",
+            authentication: { type: "bearer", apiKey: "sk-fetch" },
+            rateLimit: { requests: 2, perSeconds: 1 },
+          },
+        ],
+      },
+    });
+
+    expect(parsed.maxFetchesPerRun).toBe(3);
+    expect(parsed.fetch.providers).toHaveLength(1);
+    expect(parsed.fetch.providers[0]?.type).toBe("tavily");
+  });
+
+  it("rejects a non-positive maxFetchesPerRun", () => {
+    const result = ContentGenerationConfigSchema.safeParse({
+      maxFetchesPerRun: 0,
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it("parses an explicit model + duplicateGuard config", () => {

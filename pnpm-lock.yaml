@@ -572,6 +572,9 @@ importers:
       '@workspace/agent-data-api-contract':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-data-api-contract
+      '@workspace/agent-ingestion':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-ingestion
       '@workspace/agent-llm-prompt-template':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-llm-prompt-template

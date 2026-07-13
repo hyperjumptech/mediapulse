@@ -47,6 +47,175 @@ const duplicateGuardSchema = z
     "Skip-if-duplicate precheck window (one newsletter per ticker per calendar day in timezone).",
   );
 
+const fetchDefaultRetry = {
+  maxAttempts: 1,
+  baseDelayMs: 1000,
+  maxDelayMs: 10_000,
+} as const;
+
+const fetchAuthenticationSchema = z.object({
+  type: z
+    .enum(["bearer", "none"])
+    .describe("Authentication style for outbound provider requests."),
+  apiKey: z
+    .string()
+    .optional()
+    .describe(
+      "Provider API key or a Hermes variable placeholder such as {{SERPER_API_KEY}}.",
+    ),
+  headerName: z
+    .string()
+    .optional()
+    .describe("HTTP header name when the provider expects a header token."),
+});
+
+const fetchRateLimitSchema = z.object({
+  requests: z
+    .number()
+    .int()
+    .positive()
+    .describe("Maximum requests allowed within the sliding window."),
+  perSeconds: z
+    .number()
+    .positive()
+    .describe("Sliding window length in seconds for rate limiting."),
+});
+
+const fetchRetrySchema = z.object({
+  maxAttempts: z
+    .number()
+    .int()
+    .nonnegative()
+    .describe("Maximum retry attempts after a retryable failure."),
+  baseDelayMs: z
+    .number()
+    .int()
+    .positive()
+    .describe("Initial backoff delay in milliseconds."),
+  maxDelayMs: z
+    .number()
+    .int()
+    .positive()
+    .describe("Maximum backoff delay in milliseconds."),
+});
+
+const fetchProviderConfigSchema = z.object({
+  type: z
+    .string()
+    .describe(
+      "Fetch adapter identifier such as serper, diffbot, firecrawl, or jina.",
+    ),
+  baseUrl: z.string().describe("Provider base URL for this adapter."),
+  authentication: fetchAuthenticationSchema.describe(
+    "Provider credentials or Hermes variable placeholders.",
+  ),
+  headers: z
+    .record(z.string())
+    .optional()
+    .describe("Extra HTTP headers merged into every request."),
+  rateLimit: fetchRateLimitSchema.describe(
+    "Sliding-window request budget for this fetch provider.",
+  ),
+  concurrency: z.number().int().min(1).max(16).default(2).optional(),
+  timeoutMs: z.number().int().positive().default(30_000).optional(),
+  retry: fetchRetrySchema.default(fetchDefaultRetry).optional(),
+});
+
+const defaultSerperFetchProvider = {
+  type: "serper",
+  baseUrl: "https://scrape.serper.dev",
+  authentication: {
+    type: "none" as const,
+    apiKey: "{{SERPER_API_KEY}}",
+    headerName: "X-API-KEY",
+  },
+  rateLimit: { requests: 1, perSeconds: 1 },
+  concurrency: 1,
+  timeoutMs: 45_000,
+  retry: fetchDefaultRetry,
+};
+
+const defaultDiffbotFetchProvider = {
+  type: "diffbot",
+  baseUrl: "https://api.diffbot.com",
+  authentication: {
+    type: "none" as const,
+    apiKey: "{{DIFFBOT_API_KEY}}",
+  },
+  rateLimit: { requests: 1, perSeconds: 1 },
+  concurrency: 1,
+  timeoutMs: 45_000,
+  retry: fetchDefaultRetry,
+};
+
+const defaultFetchProviders = [
+  defaultSerperFetchProvider,
+  defaultDiffbotFetchProvider,
+] as const;
+
+const fetchSchema = z
+  .object({
+    providers: z
+      .array(fetchProviderConfigSchema)
+      .min(1)
+      .default([...defaultFetchProviders])
+      .describe(
+        "Ordered fetch-provider chain. The first provider is tried for each URL; later providers run only after earlier failures.",
+      ),
+  })
+  .default({})
+  .describe("Ordered web-fetch provider chain for the on-demand fetch pass.");
+
+const deadUrlCacheSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(true)
+      .describe("Skip URLs previously recorded as dead after fetch failures."),
+    skipLookupBatchSize: z
+      .number()
+      .int()
+      .positive()
+      .default(50)
+      .describe("Batch size for dead-URL negative-cache lookups."),
+  })
+  .default({})
+  .describe("Negative cache for URLs that repeatedly fail to fetch.");
+
+const hostErrorBreakerSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Skip hosts whose recent fetch error rate exceeds the threshold.",
+      ),
+    minAttempts: z
+      .number()
+      .int()
+      .positive()
+      .default(5)
+      .describe(
+        "Minimum fetch attempts on a host before the breaker can trip.",
+      ),
+    errorRateThreshold: z
+      .number()
+      .min(0)
+      .max(1)
+      .default(0.5)
+      .describe("Host error rate above which further fetches are skipped."),
+  })
+  .default({})
+  .describe("Per-host circuit breaker based on fetch error rate.");
+
+const resilienceSchema = z
+  .object({
+    deadUrlCache: deadUrlCacheSchema,
+    hostErrorBreaker: hostErrorBreakerSchema,
+  })
+  .default({})
+  .describe("Failure-avoidance controls applied before and during fetch.");
+
 /**
  * Runtime config for the content-generation agent, supplied by Hermes on each
  * invocation. Only the model block and the duplicate-guard timezone are
@@ -59,6 +228,16 @@ const duplicateGuardSchema = z
 export const ContentGenerationConfigSchema = z.object({
   model: modelSchema,
   duplicateGuard: duplicateGuardSchema,
+  fetch: fetchSchema,
+  resilience: resilienceSchema,
+  maxFetchesPerRun: z
+    .number()
+    .int()
+    .positive()
+    .default(10)
+    .describe(
+      "Maximum on-demand fetches per generation run. When the triage pass requests more, the overflow is prioritized by sectionScore descending and the rest proceed on description alone.",
+    ),
 });
 
 /** Parsed invoke config with all group and field defaults applied. */

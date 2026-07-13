@@ -20,6 +20,15 @@ import {
   groupSourcesBySection,
   type SourceForGeneration,
 } from "./llm-generate-newsletter.js";
+import {
+  triageFetchRequests,
+  type TriageCandidateSource,
+} from "./triage-fetch-requests.js";
+import {
+  fetchSourceBodies,
+  type FetchSourceBodiesResult,
+  type RequestedFetchSource,
+} from "./fetch-source-bodies.js";
 import { translateNewsletter } from "./translate-newsletter.js";
 import type { TranslationTargetLanguage } from "./translate-newsletter.js";
 import {
@@ -348,22 +357,122 @@ export async function run({
     };
   }
 
-  // Map API sources to the minimal shape needed by the LLM generator, then
-  // pre-group by their authoritative upstream section before generation.
-  const mappedSources: SourceForGeneration[] = sources.map((s) => ({
-    url: s.url,
-    title: s.title,
-    content: s.content,
-    ...(typeof s.author === "string" ? { author: s.author } : {}),
-    ...(typeof s.source === "string" ? { source: s.source } : {}),
-    ...(typeof s.publishedAt === "string"
-      ? { publishedAt: s.publishedAt }
-      : {}),
-    ...(typeof s.section === "string" ? { section: s.section } : {}),
-    ...(typeof s.sectionScore === "number"
-      ? { sectionScore: s.sectionScore }
-      : {}),
-  }));
+  const triageCandidates: TriageCandidateSource[] = sources
+    .filter((s) => !(typeof s.content === "string" && s.content.trim() !== ""))
+    .map((s) => ({
+      dataSourceId: s.dataSourceId,
+      title: s.title,
+      description: s.description ?? null,
+      ...(typeof s.section === "string" ? { section: s.section } : {}),
+      ...(typeof s.sectionScore === "number"
+        ? { sectionScore: s.sectionScore }
+        : {}),
+    }));
+
+  let fetchRequests: Awaited<ReturnType<typeof triageFetchRequests>> = [];
+  if (triageCandidates.length > 0) {
+    report(
+      "Deciding which sources need a fetch",
+      `${triageCandidates.length} candidate sources`,
+    );
+    try {
+      fetchRequests = await triageFetchRequests(
+        triageCandidates,
+        resolvedConfig,
+        { tickerId: input.tickerId, tickerName, tickerSymbol },
+      );
+    } catch (err) {
+      logger.warn(
+        { tickerId: input.tickerId, err },
+        "Fetch triage failed; proceeding on descriptions alone",
+      );
+    }
+  }
+
+  const sourceById = new Map(sources.map((s) => [s.dataSourceId, s]));
+  const requestedFetchSources: RequestedFetchSource[] = [];
+  for (const request of fetchRequests) {
+    const source = sourceById.get(request.dataSourceId);
+    if (!source) {
+      continue;
+    }
+    requestedFetchSources.push({
+      dataSourceId: source.dataSourceId,
+      url: source.url,
+      title: source.title,
+      ...(typeof source.sectionScore === "number"
+        ? { sectionScore: source.sectionScore }
+        : {}),
+    });
+  }
+
+  let fetchResult: FetchSourceBodiesResult = {
+    fetchedContentById: new Map(),
+    droppedByGateIds: new Set(),
+    counters: {
+      requested: requestedFetchSources.length,
+      droppedByCap: 0,
+      droppedByDeadUrlCache: 0,
+      attempted: 0,
+      fetchSucceeded: 0,
+      fetchFailed: 0,
+      gateDropped: 0,
+      persisted: 0,
+    },
+  };
+  if (requestedFetchSources.length > 0) {
+    report(
+      "Fetching full article bodies",
+      `${requestedFetchSources.length} requested`,
+    );
+    try {
+      fetchResult = await fetchSourceBodies(
+        requestedFetchSources,
+        resolvedConfig,
+        { tickerId: input.tickerId, logger },
+        {
+          persistFetchedContent: (body) =>
+            dataApiClient.contentGenerationFetchedContent.create(body),
+          lookupDeadUrls: (body) =>
+            dataApiClient.dataCollectionDeadUrlsLookup.create(body),
+          recordDeadUrls: (body) =>
+            dataApiClient.dataCollectionDeadUrlsRecord.create(body),
+        },
+      );
+    } catch (err) {
+      logger.error(
+        { tickerId: input.tickerId, err },
+        "On-demand fetch failed; proceeding on descriptions alone",
+      );
+    }
+  }
+
+  logger.info(
+    { tickerId: input.tickerId, fetch: fetchResult.counters },
+    "On-demand fetch summary",
+  );
+
+  const mappedSources: SourceForGeneration[] = sources
+    .filter((s) => !fetchResult.droppedByGateIds.has(s.dataSourceId))
+    .map((s) => {
+      const fetched = fetchResult.fetchedContentById.get(s.dataSourceId);
+      const text = fetched?.content ?? s.content ?? s.description ?? "";
+      return {
+        url: s.url,
+        title: s.title,
+        content: text,
+        ...(typeof s.author === "string" ? { author: s.author } : {}),
+        ...(typeof s.source === "string" ? { source: s.source } : {}),
+        ...(typeof s.publishedAt === "string"
+          ? { publishedAt: s.publishedAt }
+          : {}),
+        ...(typeof s.section === "string" ? { section: s.section } : {}),
+        ...(typeof s.sectionScore === "number"
+          ? { sectionScore: s.sectionScore }
+          : {}),
+      };
+    })
+    .filter((entry) => entry.content.trim().length > 0);
 
   const sourcesForLlm = groupSourcesBySection(mappedSources);
 
@@ -642,8 +751,9 @@ export async function run({
     }),
     "completed",
   );
-  const successDetails =
-    generated.sectionFillSnapshot !== undefined
+  const successDetails: Record<string, unknown> = {
+    fetch: fetchResult.counters,
+    ...(generated.sectionFillSnapshot !== undefined
       ? {
           sectionFill: {
             bySection: generated.sectionFillSnapshot.bySection,
@@ -653,7 +763,8 @@ export async function run({
               : {}),
           },
         }
-      : null;
+      : {}),
+  };
   await writeDiagnostic({
     dataApiClient,
     tickerId: input.tickerId,
@@ -668,6 +779,7 @@ export async function run({
     success: true,
     details: {
       promptHash,
+      fetch: fetchResult.counters,
       ...(generated.structuredReasoningTokens !== undefined
         ? { reasoningTokens: generated.structuredReasoningTokens }
         : {}),

@@ -23,9 +23,10 @@ export const postContentGenerationBodySchema = z.object({
 
 export const contentGenerationDataSourceSchema = z
   .object({
+    dataSourceId: z.string().uuid(),
     url: z.string(),
     title: z.string(),
-    content: z.string(),
+    content: z.string().nullable().optional(),
     author: z.string().nullable().optional(),
     source: z.string().nullable().optional(),
     tickerId: z.string().trim().min(1),
@@ -58,6 +59,23 @@ export const getContentGenerationResponseSchema = z.object({
 
 export const postContentGenerationResponseSchema = z.object({
   message: z.string(),
+});
+
+export const CONTENT_GENERATION_FETCHED_CONTENT_MAX = 50;
+
+export const contentGenerationFetchedContentItemSchema = z.object({
+  dataSourceId: z.string().uuid(),
+  content: z.string().min(1),
+  fetchProvider: z.string().min(1),
+});
+
+export const postContentGenerationFetchedContentBodySchema = z
+  .array(contentGenerationFetchedContentItemSchema)
+  .min(1)
+  .max(CONTENT_GENERATION_FETCHED_CONTENT_MAX);
+
+export const postContentGenerationFetchedContentResponseSchema = z.object({
+  updatedCount: z.number().int().nonnegative(),
 });
 
 export const getContentGenerationNewslettersLatestQuerySchema = z.object({
@@ -117,6 +135,15 @@ export type ContentGenerationCompetitor = z.infer<
 >;
 export type PostContentGenerationResponse = z.infer<
   typeof postContentGenerationResponseSchema
+>;
+export type ContentGenerationFetchedContentItem = z.infer<
+  typeof contentGenerationFetchedContentItemSchema
+>;
+export type PostContentGenerationFetchedContentBody = z.infer<
+  typeof postContentGenerationFetchedContentBodySchema
+>;
+export type PostContentGenerationFetchedContentResponse = z.infer<
+  typeof postContentGenerationFetchedContentResponseSchema
 >;
 export type GetContentGenerationNewslettersLatestQuery = z.infer<
   typeof getContentGenerationNewslettersLatestQuerySchema

@@ -12,6 +12,8 @@ import {
   getContentGenerationBulletsRecentResponseSchema,
   postContentGenerationBodySchema,
   postContentGenerationResponseSchema,
+  postContentGenerationFetchedContentBodySchema,
+  postContentGenerationFetchedContentResponseSchema,
 } from "@workspace/agent-data-api-contract";
 import {
   createNewsletter,
@@ -19,6 +21,7 @@ import {
   getLatestNewsletter,
   getRecentNewsletterSubjects,
   getRecentNewsletterBullets,
+  updateFetchedContent,
 } from "../services/content-generation.js";
 
 export async function getContentGeneration(
@@ -44,6 +47,22 @@ export async function postContentGeneration(
     const response = postContentGenerationResponseSchema.parse({
       message: "Success",
     });
+    return context.json(response, 200);
+  } catch (error) {
+    return internalError(context, error);
+  }
+}
+
+export async function postContentGenerationFetchedContent(
+  context: Context,
+): Promise<Response> {
+  try {
+    const body = await context.req.json();
+    const items =
+      await postContentGenerationFetchedContentBodySchema.parseAsync(body);
+    const result = await updateFetchedContent(items);
+    const response =
+      postContentGenerationFetchedContentResponseSchema.parse(result);
     return context.json(response, 200);
   } catch (error) {
     return internalError(context, error);
