@@ -55,6 +55,14 @@ const contentGenerationFetchedContentPath = agentDataApiPathname(
   AGENT_DATA_API_DEFAULT_VERSION,
   "contentGenerationFetchedContent",
 );
+const contentGenerationFetchEventsPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "contentGenerationFetchEvents",
+);
+const contentGenerationCitationsPath = agentDataApiPathname(
+  AGENT_DATA_API_DEFAULT_VERSION,
+  "contentGenerationCitations",
+);
 
 vi.mock("@workspace/agent-auth-client", () => ({
   verifyTokenViaAuthApi: vi.fn().mockResolvedValue(true),
@@ -126,6 +134,14 @@ vi.mock("./services/content-generation.js", () => ({
   getRecentNewsletterBullets: vi.fn(),
 }));
 
+vi.mock("./services/fetch-event.js", () => ({
+  createFetchEvents: vi.fn(),
+}));
+
+vi.mock("./services/newsletter-citation.js", () => ({
+  createNewsletterCitations: vi.fn(),
+}));
+
 vi.mock("./services/delivery.js", () => ({
   getDeliveryData: vi.fn(),
   postDelivery: vi.fn(),
@@ -139,6 +155,9 @@ vi.mock("./services/delivery-run.js", () => ({
 const getAnalysisService = () => import("./services/analysis.js");
 const getContentGenerationService = () =>
   import("./services/content-generation.js");
+const getFetchEventService = () => import("./services/fetch-event.js");
+const getNewsletterCitationService = () =>
+  import("./services/newsletter-citation.js");
 const getDeliveryService = () => import("./services/delivery.js");
 const getDeliveryRunService = () => import("./services/delivery-run.js");
 const getDatabase = () => import("@mediapulse/database");
@@ -387,6 +406,123 @@ describe("agent-data-api", () => {
           method: "POST",
           headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
           body: JSON.stringify([]),
+        },
+      );
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe(`POST ${contentGenerationFetchEventsPath}`, () => {
+    it("returns 401 without Authorization header", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationFetchEventsPath}`,
+        { method: "POST" },
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it("records fetch events and returns recordedCount", async () => {
+      const mod = await getFetchEventService();
+      vi.mocked(mod.createFetchEvents).mockResolvedValue({ recordedCount: 1 });
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationFetchEventsPath}`,
+        {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify([
+            {
+              dataSourceId: DATA_SOURCE_ID,
+              tickerId: "ticker-bca",
+              reason: "description too thin",
+              provider: "serper",
+              status: "succeeded",
+            },
+          ]),
+        },
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.recordedCount).toBe(1);
+    });
+
+    it("returns 400 when status is not a known value", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationFetchEventsPath}`,
+        {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify([
+            {
+              dataSourceId: DATA_SOURCE_ID,
+              tickerId: "ticker-bca",
+              reason: "x",
+              status: "unknown",
+            },
+          ]),
+        },
+      );
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe(`POST ${contentGenerationCitationsPath}`, () => {
+    it("returns 401 without Authorization header", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationCitationsPath}`,
+        { method: "POST" },
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it("records citations and returns recordedCount", async () => {
+      const mod = await getNewsletterCitationService();
+      vi.mocked(mod.createNewsletterCitations).mockResolvedValue({
+        recordedCount: 1,
+      });
+
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationCitationsPath}`,
+        {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            newsletterId: NL_ID,
+            citations: [
+              { dataSourceId: DATA_SOURCE_ID, sectionKey: "quickHits" },
+            ],
+          }),
+        },
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.recordedCount).toBe(1);
+      expect(mod.createNewsletterCitations).toHaveBeenCalledWith({
+        newsletterId: NL_ID,
+        citations: [{ dataSourceId: DATA_SOURCE_ID, sectionKey: "quickHits" }],
+      });
+    });
+
+    it("returns 400 when newsletterId is not a uuid", async () => {
+      const { app } = await import("./index.js");
+      const res = await app.request(
+        `http://localhost${contentGenerationCitationsPath}`,
+        {
+          method: "POST",
+          headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            newsletterId: "not-a-uuid",
+            citations: [
+              { dataSourceId: DATA_SOURCE_ID, sectionKey: "quickHits" },
+            ],
+          }),
         },
       );
       expect(res.status).toBe(400);

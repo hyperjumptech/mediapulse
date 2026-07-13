@@ -24,6 +24,14 @@ import {
   postContentGenerationFetchedContentResponseSchema,
 } from "./content-generation.js";
 import {
+  postContentGenerationFetchEventsBodySchema,
+  postContentGenerationFetchEventsResponseSchema,
+} from "./content-generation-fetch-event.js";
+import {
+  postContentGenerationCitationsBodySchema,
+  postContentGenerationCitationsResponseSchema,
+} from "./newsletter-citation.js";
+import {
   postNewsletterTranslationBodySchema,
   postNewsletterTranslationResponseSchema,
 } from "./newsletter-translation.js";
@@ -281,6 +289,38 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postContentGenerationFetchedContentBodySchema,
         response: postContentGenerationFetchedContentResponseSchema,
+      },
+    },
+  },
+  contentGenerationFetchEvents: {
+    v1: {
+      pathSegment: "/content-generation/fetch-events",
+      post: {
+        body: postContentGenerationFetchEventsBodySchema,
+        response: postContentGenerationFetchEventsResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/content-generation/fetch-events",
+      post: {
+        body: postContentGenerationFetchEventsBodySchema,
+        response: postContentGenerationFetchEventsResponseSchema,
+      },
+    },
+  },
+  contentGenerationCitations: {
+    v1: {
+      pathSegment: "/content-generation/citations",
+      post: {
+        body: postContentGenerationCitationsBodySchema,
+        response: postContentGenerationCitationsResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/content-generation/citations",
+      post: {
+        body: postContentGenerationCitationsBodySchema,
+        response: postContentGenerationCitationsResponseSchema,
       },
     },
   },

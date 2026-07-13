@@ -43,9 +43,10 @@ export async function postContentGeneration(
   try {
     const body = await context.req.json();
     const data = await postContentGenerationBodySchema.parseAsync(body);
-    await createNewsletter(data);
+    const newsletter = await createNewsletter(data);
     const response = postContentGenerationResponseSchema.parse({
       message: "Success",
+      id: newsletter.id,
     });
     return context.json(response, 200);
   } catch (error) {

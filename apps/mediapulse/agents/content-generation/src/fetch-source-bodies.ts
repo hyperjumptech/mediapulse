@@ -12,6 +12,7 @@ import {
   type WebSearchResult,
 } from "@workspace/agent-ingestion";
 import type {
+  FetchEventStatus,
   PostContentGenerationFetchedContentBody,
   PostDataCollectionDeadUrlsRecordBody,
 } from "@workspace/agent-data-api-contract";
@@ -23,6 +24,14 @@ export type RequestedFetchSource = {
   url: string;
   title: string;
   sectionScore?: number | null;
+  reason?: string;
+};
+
+export type FetchEventDraft = {
+  dataSourceId: string;
+  reason: string;
+  provider: string | null;
+  status: FetchEventStatus;
 };
 
 export type FetchedBody = {
@@ -45,6 +54,7 @@ export type FetchSourceBodiesResult = {
   fetchedContentById: Map<string, FetchedBody>;
   droppedByGateIds: Set<string>;
   counters: FetchSourceBodiesCounters;
+  fetchEvents: FetchEventDraft[];
 };
 
 export type FetchSourceBodiesDeps = {
@@ -103,9 +113,10 @@ export async function fetchSourceBodies(
   const counters = emptyCounters(requested.length);
   const fetchedContentById = new Map<string, FetchedBody>();
   const droppedByGateIds = new Set<string>();
+  const fetchEvents: FetchEventDraft[] = [];
 
   if (requested.length === 0) {
-    return { fetchedContentById, droppedByGateIds, counters };
+    return { fetchedContentById, droppedByGateIds, counters, fetchEvents };
   }
 
   const log = deps.logger ?? context.logger;
@@ -148,7 +159,7 @@ export async function fetchSourceBodies(
 
   counters.attempted = candidates.length;
   if (candidates.length === 0) {
-    return { fetchedContentById, droppedByGateIds, counters };
+    return { fetchedContentById, droppedByGateIds, counters, fetchEvents };
   }
 
   const fetchInputs: WebSearchResult[] = candidates.map((source) => ({
@@ -180,6 +191,12 @@ export async function fetchSourceBodies(
     if (outcome.success === null) {
       counters.fetchFailed += 1;
       fetchFailures.push(...outcome.failures);
+      fetchEvents.push({
+        dataSourceId: source.dataSourceId,
+        reason: source.reason ?? "",
+        provider: null,
+        status: "fetch_failed",
+      });
       return;
     }
 
@@ -190,6 +207,12 @@ export async function fetchSourceBodies(
       counters.gateDropped += 1;
       droppedByGateIds.add(source.dataSourceId);
       qualityDrops.push({ url: source.url, reason: decision.reason });
+      fetchEvents.push({
+        dataSourceId: source.dataSourceId,
+        reason: source.reason ?? "",
+        provider: page.provider,
+        status: "gate_dropped",
+      });
       return;
     }
 
@@ -201,6 +224,12 @@ export async function fetchSourceBodies(
       dataSourceId: source.dataSourceId,
       content: page.content,
       fetchProvider: page.provider,
+    });
+    fetchEvents.push({
+      dataSourceId: source.dataSourceId,
+      reason: source.reason ?? "",
+      provider: page.provider,
+      status: "succeeded",
     });
   });
 
@@ -224,5 +253,5 @@ export async function fetchSourceBodies(
     }
   }
 
-  return { fetchedContentById, droppedByGateIds, counters };
+  return { fetchedContentById, droppedByGateIds, counters, fetchEvents };
 }

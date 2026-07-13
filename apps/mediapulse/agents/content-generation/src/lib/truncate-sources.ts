@@ -37,6 +37,9 @@ export function truncateSources(
         ? cleaned.slice(0, maxCharsPerSource)
         : cleaned;
     return {
+      ...(source.dataSourceId !== undefined
+        ? { dataSourceId: source.dataSourceId }
+        : {}),
       url: source.url,
       title: source.title,
       content,
@@ -61,6 +64,9 @@ export function truncateSources(
 
   if (totalChars() > maxTotalContextChars) {
     truncated[0] = {
+      ...(truncated[0]!.dataSourceId !== undefined
+        ? { dataSourceId: truncated[0]!.dataSourceId }
+        : {}),
       url: truncated[0]!.url,
       title: truncated[0]!.title,
       content: truncated[0]!.content.slice(0, maxTotalContextChars),

@@ -31,6 +31,8 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | GET    | `/api/v1/content-generation`                     | Get content-generation data (e.g. by tickerId)                             |
 | POST   | `/api/v1/content-generation`                     | Store content-generation payload                                           |
 | POST   | `/api/v1/content-generation/fetched-content`     | Persist on-demand fetched bodies back onto data-source rows                |
+| POST   | `/api/v1/content-generation/fetch-events`        | Record a durable audit event per on-demand Fetch (ADR-0005)                |
+| POST   | `/api/v1/content-generation/citations`           | Persist newsletter bullet to cited Data Source links (ADR-0005)            |
 | GET    | `/api/v1/content-generation-newsletters-latest`  | Check if a fresh newsletter exists for a ticker in a time window           |
 | GET    | `/api/v1/data-collection`                        | Get data-collection data                                                   |
 | POST   | `/api/v1/data-collection`                        | Store data-collection payload                                              |
@@ -78,6 +80,8 @@ Implemented in `apps/mediapulse/agent-data-api/src/routes/content-generation.ts`
 
 The **GET** response now also carries **`dataSourceId`** (the `data_source` row id) and the lightweight **`description`** on each source. `content` is nullable: after ADR-0002 most sources start with only a `description`, and a full `content` body appears only once content-generation fetches it on demand.
 
+The **POST** response is **`{ message, id? }`** where **`id`** is the created `newsletter` row id. Agents use it to attach follow-up records (translations, citations) to the persisted newsletter.
+
 ### Content generation fetched content (`POST /api/v1/content-generation/fetched-content`)
 
 Implemented in `apps/mediapulse/agent-data-api/src/routes/content-generation.ts`. Schemas live in `@workspace/agent-data-api-contract` (`content-generation.ts`); manifest key **`contentGenerationFetchedContent`** (custom path segment `/content-generation/fetched-content`).
@@ -87,6 +91,26 @@ Used by the content-generation on-demand fetch (ADR-0003) to persist a fetched b
 - **POST** — Body (`postContentGenerationFetchedContentBodySchema`): a non-empty array (at most **`CONTENT_GENERATION_FETCHED_CONTENT_MAX`**, 50) of **`{ dataSourceId (uuid), content (non-empty), fetchProvider (non-empty) }`**. Each item updates the matching `data_source` row's **`content`**, **`fetchedAt`** (now), and **`fetchProvider`**. Rows are updated independently; a missing row is skipped without failing the batch. Response: **`{ updatedCount }`**.
 
 From agents, use SDK namespace **`contentGenerationFetchedContent`**: **`create`** for POST.
+
+### Content generation fetch events (`POST /api/v1/content-generation/fetch-events`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/fetch-event.ts`. Schemas live in `@workspace/agent-data-api-contract` (`content-generation-fetch-event.ts`); manifest key **`contentGenerationFetchEvents`** (custom path segment `/content-generation/fetch-events`).
+
+Records a durable `fetch_event` row per on-demand Fetch so credit spend is auditable against the model's stated reason (ADR-0005). One event is written for every requested-and-attempted source.
+
+- **POST** — Body (`postContentGenerationFetchEventsBodySchema`): a non-empty array (at most **`CONTENT_GENERATION_FETCH_EVENTS_MAX`**, 100) of **`{ dataSourceId (uuid), tickerId (non-empty string), reason (string), provider? (non-empty string), status }`** where **`status`** is one of `succeeded`, `gate_dropped`, `fetch_failed`. `provider` is omitted when the fetch failed. Rows are inserted independently; a failed insert is skipped without failing the batch. Response: **`{ recordedCount }`**.
+
+From agents, use SDK namespace **`contentGenerationFetchEvents`**: **`create`** for POST. The content-generation agent posts these best-effort after its fetch step; a recording failure never fails the newsletter.
+
+### Content generation citations (`POST /api/v1/content-generation/citations`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/newsletter-citation.ts`. Schemas live in `@workspace/agent-data-api-contract` (`newsletter-citation.ts`); manifest key **`contentGenerationCitations`** (custom path segment `/content-generation/citations`).
+
+Persists the newsletter bullet to cited Data Source link that citation grounding computes, as a queryable `newsletter_citation` relation (ADR-0005), so a delivered Newsletter can be traced back to its sources.
+
+- **POST** — Body (`postContentGenerationCitationsBodySchema`): **`{ newsletterId (uuid), citations: [{ dataSourceId (uuid), sectionKey (non-empty string) }] }`** (at most **`NEWSLETTER_CITATIONS_MAX`**, 200 citations). Rows are inserted independently and de-duped on the unique key `(newsletterId, dataSourceId, sectionKey)`; citations whose `dataSourceId` is unknown are skipped. Response: **`{ recordedCount }`**.
+
+From agents, use SDK namespace **`contentGenerationCitations`**: **`create`** for POST. The content-generation agent posts these best-effort after the newsletter persists; a recording failure never fails the newsletter.
 
 ```ts
 const { updatedCount } =
