@@ -74,7 +74,14 @@ model DataSource {
   url                  String
   canonicalUrl         String                @map("canonical_url")
   title                String
-  content              String
+  /// Lightweight text captured at collection without a paid fetch (search snippet or feed/meta description). Nullable only to admit legacy rows; collection drops sources that lack one.
+  description          String?               @db.Text
+  /// Full extracted page body, present only after an on-demand fetch in content-generation. Null until fetched.
+  content              String?
+  /// When a body was fetched on demand, null when never fetched.
+  fetchedAt            DateTime?             @map("fetched_at")
+  /// Provider that produced the fetched body (serper, tavily, etc.), null when never fetched.
+  fetchProvider        String?               @map("fetch_provider")
   author               String?
   source               String?
   metadata             Json?

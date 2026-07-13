@@ -240,14 +240,14 @@ const buildAnalysisCandidatePairs = async (
         tickerId: article.tickerId,
         url: article.url,
         title: article.title,
-        content: article.content,
+        content: article.content ?? "",
         createdAt: article.createdAt,
         ticker: mapTickerContext(article.ticker),
       });
       continue;
     }
 
-    const haystack = `${article.title}\n${article.content}`;
+    const haystack = `${article.title}\n${article.content ?? ""}`;
     for (const gating of gatingContexts) {
       if (classifiedTickerIds.has(gating.tickerId)) continue;
       if (gating.matcher === null || !gating.matcher.test(haystack)) continue;
@@ -256,7 +256,7 @@ const buildAnalysisCandidatePairs = async (
         tickerId: gating.tickerId,
         url: article.url,
         title: article.title,
-        content: article.content,
+        content: article.content ?? "",
         createdAt: article.createdAt,
         ticker: gating.context,
       });
@@ -325,7 +325,7 @@ export const loadAnalysisContext = async (
     tickerId: row.tickerId ?? scopedTickerId,
     url: row.url,
     title: row.title,
-    content: row.content,
+    content: row.content ?? "",
     createdAt: row.createdAt,
     ticker: mapTickerContext(row.ticker),
   }));

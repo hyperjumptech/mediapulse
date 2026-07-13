@@ -128,10 +128,10 @@ export const mapRowToListItem = (row: ListRow) => {
       : null,
     articleRelevances: row.articleRelevances.map(mapArticleRelevanceRow),
     contentPreview: truncateContentPreview(
-      row.content,
+      row.content ?? row.description ?? "",
       DATA_SOURCE_CONTENT_PREVIEW_MAX,
     ),
-    contentLength: row.content.length,
+    contentLength: (row.content ?? row.description ?? "").length,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
