@@ -24,6 +24,7 @@ const MAX_CANDIDATE_ARTICLE_SCAN = 1500;
 const CANDIDATE_ARTICLE_RECENCY_DAYS = 3;
 /** Per-(article, ticker) section upserts committed per transaction, to stay under the timeout. */
 const SECTION_UPSERT_CHUNK_SIZE = 20;
+const ACCEPTED_CAP_PER_TICKER = 50;
 
 /**
  * Thrown when the analysis POST body references data sources or tickers that do not exist.
@@ -45,7 +46,7 @@ type AnalysisDb = {
   >;
   dataSourceTickerSection: Pick<
     typeof prisma.dataSourceTickerSection,
-    "upsert"
+    "upsert" | "count"
   >;
   ticker: Pick<typeof prisma.ticker, "findMany" | "findUnique" | "findFirst">;
   searchQuerySet: Pick<typeof prisma.searchQuerySet, "findMany">;
@@ -56,6 +57,34 @@ type AnalysisDb = {
 };
 
 const defaultDb: AnalysisDb = prisma;
+
+const countAcceptedSections = (
+  tickerId: string,
+  db: Pick<AnalysisDb, "dataSourceTickerSection">,
+): Promise<number> =>
+  db.dataSourceTickerSection.count({
+    where: { tickerId, section: { not: null } },
+  } satisfies Prisma.DataSourceTickerSectionCountArgs);
+
+const computeCappedTickerIds = async (
+  tickerIds: string[],
+  cap: number,
+  db: Pick<AnalysisDb, "dataSourceTickerSection">,
+): Promise<Set<string>> => {
+  const entries = await Promise.all(
+    tickerIds.map(async (tickerId) => {
+      const accepted = await countAcceptedSections(tickerId, db);
+
+      return [tickerId, accepted] as const;
+    }),
+  );
+
+  return new Set(
+    entries
+      .filter(([, accepted]) => accepted >= cap)
+      .map(([tickerId]) => tickerId),
+  );
+};
 
 type TickerRow = {
   symbol: string;
@@ -170,6 +199,7 @@ const buildAnalysisCandidatePairs = async (
   db: Pick<
     AnalysisDb,
     | "dataSource"
+    | "dataSourceTickerSection"
     | "ticker"
     | "searchQuerySet"
     | "entityType"
@@ -201,6 +231,12 @@ const buildAnalysisCandidatePairs = async (
     select: { tickerId: true },
   } satisfies Prisma.SearchQuerySetFindManyArgs);
   const activeTickerIds = [...new Set(activeSets.map((row) => row.tickerId))];
+
+  const cappedTickerIds = await computeCappedTickerIds(
+    activeTickerIds,
+    ACCEPTED_CAP_PER_TICKER,
+    db,
+  );
 
   const activeTickers = await db.ticker.findMany({
     where: { id: { in: activeTickerIds } },
@@ -236,6 +272,7 @@ const buildAnalysisCandidatePairs = async (
 
     if (article.tickerId !== null) {
       if (classifiedTickerIds.has(article.tickerId)) continue;
+      if (cappedTickerIds.has(article.tickerId)) continue;
       pairs.push({
         id: article.id,
         tickerId: article.tickerId,
@@ -252,6 +289,7 @@ const buildAnalysisCandidatePairs = async (
     const haystack = `${article.title}\n${article.description ?? article.content ?? ""}`;
     for (const gating of gatingContexts) {
       if (classifiedTickerIds.has(gating.tickerId)) continue;
+      if (cappedTickerIds.has(gating.tickerId)) continue;
       if (gating.matcher === null || !gating.matcher.test(haystack)) continue;
       pairs.push({
         id: article.id,
@@ -429,6 +467,26 @@ export const applyAnalysisPost = async (
     });
   }
 
+  const referencedTickerIds = [
+    ...new Set(body.articleSections.map((row) => row.tickerId)),
+  ];
+  const cappedTickerIds = await computeCappedTickerIds(
+    referencedTickerIds,
+    ACCEPTED_CAP_PER_TICKER,
+    db,
+  );
+
+  let skippedByCap = 0;
+  for (const tickerId of cappedTickerIds) {
+    const result = await db.dataSource
+      .deleteMany({
+        where: { tickerId, analyzedAt: null },
+      } satisfies Prisma.DataSourceDeleteManyArgs)
+      .catch(() => undefined);
+    if (result === undefined) continue;
+    skippedByCap += result.count;
+  }
+
   const articlesRejected = body.articleSections.filter(
     (row) => row.section === null,
   ).length;
@@ -436,6 +494,8 @@ export const applyAnalysisPost = async (
   return {
     articlesScored: body.articleSections.length,
     articlesRejected,
+    skippedByCap,
+    cappedTickerCount: cappedTickerIds.size,
   };
 };
 

@@ -756,6 +756,8 @@ describe("agent-data-api", () => {
       vi.mocked(mod.applyAnalysisPost).mockResolvedValue({
         articlesScored: 1,
         articlesRejected: 0,
+        skippedByCap: 0,
+        cappedTickerCount: 0,
       });
 
       const { app } = await import("./index.js");

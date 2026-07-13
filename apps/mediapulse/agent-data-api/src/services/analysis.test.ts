@@ -16,6 +16,7 @@ import {
 } from "./analysis.js";
 
 const TICKER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const SECOND_TICKER_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const SEARCH_ARTICLE = "11111111-1111-4111-8111-111111111111";
 const CURATED_MATCH = "22222222-2222-4222-8222-222222222222";
 const CURATED_MISS = "33333333-3333-4333-8333-333333333333";
@@ -81,9 +82,18 @@ describe("loadAnalysisContext — ticker-scoped baseline", () => {
 });
 
 describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
-  const buildDb = (articles: unknown[]) => {
+  const buildDb = (
+    articles: unknown[],
+    acceptedCounts: Record<string, number> = {},
+  ) => {
     const searchQuerySet = {
       findMany: vi.fn().mockResolvedValue([{ tickerId: TICKER_ID }]),
+    };
+    const dataSourceTickerSection = {
+      count: vi.fn(
+        (args: { where: { tickerId: string } }) =>
+          acceptedCounts[args.where.tickerId] ?? 0,
+      ),
     };
     const ticker = {
       findMany: vi.fn().mockResolvedValue([
@@ -113,6 +123,7 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
 
     return {
       dataSource,
+      dataSourceTickerSection,
       searchQuerySet,
       ticker,
       entityType,
@@ -250,23 +261,150 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
     expect(result.dataSources).toEqual([]);
     expect(result.dataSourceTotalCount).toBe(0);
   });
+
+  it("excludes a search-query article whose ticker is at cap and keeps it under cap", async () => {
+    const searchArticle = {
+      id: SEARCH_ARTICLE,
+      url: "https://example.com/s",
+      title: "Search hit",
+      content: "anything",
+      createdAt: new Date("2026-01-03T00:00:00Z"),
+      tickerId: TICKER_ID,
+      ticker: {
+        symbol: "BBCA",
+        name: "Bank Central Asia",
+        sector: null,
+        industry: null,
+        subSector: null,
+        subIndustry: null,
+        businessActivity: null,
+      },
+      tickerSections: [],
+    };
+
+    const cappedDb = buildDb([searchArticle], { [TICKER_ID]: 50 });
+    const cappedResult = await loadAnalysisContext(
+      { unanalyzed: true, limit: 10 },
+      { db: cappedDb as never },
+    );
+
+    expect(cappedResult.dataSources).toEqual([]);
+    expect(cappedDb.dataSourceTickerSection.count).toHaveBeenCalledWith({
+      where: { tickerId: TICKER_ID, section: { not: null } },
+    });
+
+    const underDb = buildDb([searchArticle], { [TICKER_ID]: 49 });
+    const underResult = await loadAnalysisContext(
+      { unanalyzed: true, limit: 10 },
+      { db: underDb as never },
+    );
+
+    expect(underResult.dataSources.map((pair) => pair.id)).toEqual([
+      SEARCH_ARTICLE,
+    ]);
+  });
+
+  it("fans a curated article out to under-cap tickers but skips capped ones", async () => {
+    const searchQuerySet = {
+      findMany: vi
+        .fn()
+        .mockResolvedValue([
+          { tickerId: TICKER_ID },
+          { tickerId: SECOND_TICKER_ID },
+        ]),
+    };
+    const ticker = {
+      findMany: vi.fn().mockResolvedValue([
+        {
+          id: TICKER_ID,
+          symbol: "BBCA",
+          name: "Bank Central Asia",
+          sector: null,
+          industry: null,
+          subSector: null,
+          subIndustry: null,
+          businessActivity: null,
+        },
+        {
+          id: SECOND_TICKER_ID,
+          symbol: "BBRI",
+          name: "Bank Rakyat Indonesia",
+          sector: null,
+          industry: null,
+          subSector: null,
+          subIndustry: null,
+          businessActivity: null,
+        },
+      ]),
+      findUnique: vi.fn(),
+    };
+    const entityType = { findFirst: vi.fn().mockResolvedValue(null) };
+    const tickerEntity = { findFirst: vi.fn() };
+    const entityRelation = { findMany: vi.fn().mockResolvedValue([]) };
+    const dataSourceTickerSection = {
+      count: vi.fn((args: { where: { tickerId: string } }) =>
+        args.where.tickerId === TICKER_ID ? 50 : 0,
+      ),
+    };
+    const dataSource = {
+      findMany: vi.fn().mockResolvedValue([
+        {
+          id: CURATED_MATCH,
+          url: "https://example.com/c",
+          title: "Bank Central Asia and Bank Rakyat Indonesia rally",
+          content: "both issuers gained",
+          createdAt: new Date("2026-01-02T00:00:00Z"),
+          tickerId: null,
+          ticker: null,
+          tickerSections: [],
+        },
+      ]),
+      count: vi.fn(),
+    };
+
+    const db = {
+      dataSource,
+      dataSourceTickerSection,
+      searchQuerySet,
+      ticker,
+      entityType,
+      tickerEntity,
+      entityRelation,
+    };
+
+    const result = await loadAnalysisContext(
+      { unanalyzed: true, limit: 10 },
+      { db: db as never },
+    );
+
+    expect(result.dataSources.map((pair) => pair.tickerId)).toEqual([
+      SECOND_TICKER_ID,
+    ]);
+  });
 });
 
 describe("applyAnalysisPost", () => {
-  const buildDb = () => {
+  const buildDb = (acceptedCounts: Record<string, number> = {}) => {
     const upsert = vi.fn((args) => ({ __upsert: args }));
     const updateMany = vi.fn((args) => ({ __updateMany: args }));
     const findMany = vi.fn();
+    const deleteMany = vi.fn().mockResolvedValue({ count: 0 });
+    const count = vi.fn(
+      (args: { where: { tickerId: string } }) =>
+        acceptedCounts[args.where.tickerId] ?? 0,
+    );
     const $transaction = vi.fn((writes: unknown[]) => Promise.resolve(writes));
     return {
       db: {
-        dataSource: { findMany, updateMany },
-        dataSourceTickerSection: { upsert },
+        dataSource: { findMany, updateMany, deleteMany },
+        dataSourceTickerSection: { upsert, count },
         $transaction,
       },
       upsert,
       updateMany,
       findMany,
+      deleteMany,
+      count,
       $transaction,
     };
   };
@@ -318,7 +456,12 @@ describe("applyAnalysisPost", () => {
       where: { id: { in: [SEARCH_ARTICLE, CURATED_MATCH] } },
       data: { analyzedAt: expect.any(Date) },
     });
-    expect(result).toEqual({ articlesScored: 2, articlesRejected: 1 });
+    expect(result).toEqual({
+      articlesScored: 2,
+      articlesRejected: 1,
+      skippedByCap: 0,
+      cappedTickerCount: 0,
+    });
   });
 
   it("persists the score breakdown on create and update when provided", async () => {
@@ -452,6 +595,109 @@ describe("applyAnalysisPost", () => {
         { db: db as never },
       ),
     ).rejects.toBeInstanceOf(AnalysisPostValidationError);
+  });
+
+  it("clears leftover own sources for a ticker pushed to the cap", async () => {
+    const { db, deleteMany, findMany } = buildDb({ [TICKER_ID]: 50 });
+    deleteMany.mockResolvedValue({ count: 4 });
+    findMany.mockResolvedValue([{ id: SEARCH_ARTICLE }]);
+
+    const result = await applyAnalysisPost(
+      {
+        articleSections: [
+          {
+            dataSourceId: SEARCH_ARTICLE,
+            tickerId: TICKER_ID,
+            section: "quickHits",
+            score: 0.5,
+            reason: "x",
+          },
+        ],
+        analyzedDataSourceIds: [SEARCH_ARTICLE],
+      },
+      { db: db as never },
+    );
+
+    expect(deleteMany).toHaveBeenCalledTimes(1);
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: { tickerId: TICKER_ID, analyzedAt: null },
+    });
+    expect(result.skippedByCap).toBe(4);
+    expect(result.cappedTickerCount).toBe(1);
+  });
+
+  it("does not clear sources for a ticker still under the cap", async () => {
+    const { db, deleteMany, findMany } = buildDb({ [TICKER_ID]: 49 });
+    findMany.mockResolvedValue([{ id: SEARCH_ARTICLE }]);
+
+    await applyAnalysisPost(
+      {
+        articleSections: [
+          {
+            dataSourceId: SEARCH_ARTICLE,
+            tickerId: TICKER_ID,
+            section: "quickHits",
+            score: 0.5,
+            reason: "x",
+          },
+        ],
+        analyzedDataSourceIds: [SEARCH_ARTICLE],
+      },
+      { db: db as never },
+    );
+
+    expect(deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("queries accepted sections with the section-not-null filter", async () => {
+    const { db, count, findMany } = buildDb({ [TICKER_ID]: 50 });
+    findMany.mockResolvedValue([{ id: SEARCH_ARTICLE }]);
+
+    await applyAnalysisPost(
+      {
+        articleSections: [
+          {
+            dataSourceId: SEARCH_ARTICLE,
+            tickerId: TICKER_ID,
+            section: "quickHits",
+            score: 0.5,
+            reason: "x",
+          },
+        ],
+        analyzedDataSourceIds: [SEARCH_ARTICLE],
+      },
+      { db: db as never },
+    );
+
+    expect(count).toHaveBeenCalledWith({
+      where: { tickerId: TICKER_ID, section: { not: null } },
+    });
+  });
+
+  it("never targets ticker_id null when clearing leftovers", async () => {
+    const { db, deleteMany, findMany } = buildDb({ [TICKER_ID]: 50 });
+    findMany.mockResolvedValue([{ id: SEARCH_ARTICLE }]);
+
+    await applyAnalysisPost(
+      {
+        articleSections: [
+          {
+            dataSourceId: SEARCH_ARTICLE,
+            tickerId: TICKER_ID,
+            section: "quickHits",
+            score: 0.5,
+            reason: "x",
+          },
+        ],
+        analyzedDataSourceIds: [SEARCH_ARTICLE],
+      },
+      { db: db as never },
+    );
+
+    for (const call of deleteMany.mock.calls) {
+      expect(call[0].where.tickerId).toBe(TICKER_ID);
+      expect(call[0].where.tickerId).not.toBeNull();
+    }
   });
 });
 
