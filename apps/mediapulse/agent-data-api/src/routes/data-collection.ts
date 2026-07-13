@@ -59,6 +59,8 @@ export async function postDataCollection(context: Context): Promise<Response> {
         return {
           ...row,
           canonicalUrl,
+          description: row.description ?? null,
+          content: row.content ?? null,
           ...(row.publishedAt
             ? { publishedAt: new Date(row.publishedAt) }
             : {}),

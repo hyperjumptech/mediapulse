@@ -14,15 +14,11 @@ import {
   narrativeRunComplete,
 } from "./utilities/build-activity-narrative";
 import {
-  performWebFetch,
-  createEmptyQualityCounters,
+  isFresh,
   resolveExistingDataSourceUrls,
   resolveDeadUrls,
-  buildDeadUrlRecords,
   HostErrorTracker,
   hostFromUrl,
-  type QualityDropForDeadUrl,
-  type FetchedWebSearchResult,
   deriveRunStatus,
   type RunPolicy,
   makeDroppedOutcome,
@@ -34,10 +30,10 @@ import {
   performWebSearch,
   type WebSearchEmptyResult,
   type WebSearchFailure,
+  type WebSearchResult,
 } from "./utilities/web-search";
 import { RoundRobinCursor } from "@workspace/agent-search";
-import { buildFetchProviderConfigs } from "./utilities/fetch-provider-config";
-import { checkContent, checkFreshness } from "./utilities/filter";
+import { FRESHNESS_MAX_AGE_DAYS } from "./utilities/filter";
 import {
   classifyNoisyUrl,
   derivePublisherFromUrl,
@@ -57,14 +53,15 @@ const DEAD_URL_LOOKUP_BATCH_SIZE = 50;
 
 /**
  * Hard wall-clock budget for a single data-collection run. Once exceeded, the round
- * loop stops and the in-flight fetch stage abandons remaining URLs, so one slow or
- * hostile host cannot wedge the run (and the pipeline behind it) for hours.
+ * loop stops before the next round, so one slow or hostile host cannot wedge the run
+ * (and the pipeline behind it) for hours.
  */
 const RUN_WALL_CLOCK_BUDGET_MS = 15 * 60 * 1000;
 
 /**
- * Executes the data-collection pipeline: load search queries, run web search and fetch,
- * persist sources and failures, and record run metadata.
+ * Executes the data-collection pipeline: load search queries, run web search,
+ * persist surviving hits as Data Source descriptions with no paid fetch, record
+ * failures, and record run metadata.
  *
  * @param context - Validated `input` and `config`, plus the bearer `token` for the Agent Data API.
  * @returns Success with summary counts, or semantic failure (`success: false`) when the run status is `failed`
@@ -150,7 +147,6 @@ export async function runDataCollection(
 
   report(...narrativeRunStart(subject));
 
-  const fetchProviderConfigs = buildFetchProviderConfigs(config.web_fetch);
   const hostErrorTracker = new HostErrorTracker({
     enabled: true,
     minAttempts: 5,
@@ -200,15 +196,7 @@ export async function runDataCollection(
   let searchSuccessCount = 0;
   let searchFailedCount = 0;
   let searchEmptyCount = 0;
-  let fetchSuccessCount = 0;
-  let fetchedCount = 0;
-  let fetchFailedCount = 0;
-  // Chronicle instrumentation: per-provider fetch success counts across the run.
-  const fetchByProvider: Record<string, number> = {};
   const searchFailures: WebSearchFailure[] = [];
-  const fetchFailures: Array<
-    Awaited<ReturnType<typeof performWebFetch>>[number]["failures"][number]
-  > = [];
   const droppedByUrlReason: Record<UrlNoiseReason, number> = {
     blocked_host: 0,
     blocked_host_path: 0,
@@ -217,7 +205,7 @@ export async function runDataCollection(
   };
   let droppedByDuplicateCanonicalUrl = 0;
   let droppedByExistingCanonicalUrl = 0;
-  const droppedByContentQuality = createEmptyQualityCounters();
+  let droppedByEmptyDescription = 0;
   let droppedByDeadUrlCache = 0;
   let droppedByHostErrorRate = 0;
   const droppedByFreshnessReason: Record<string, number> = {
@@ -225,7 +213,6 @@ export async function runDataCollection(
     future_dated: 0,
     unknown_date: 0,
   };
-  let throttleEvents = 0;
 
   if (queries.length === 0) {
     refillStopReason = "no_queries";
@@ -467,67 +454,46 @@ export async function runDataCollection(
       }
 
       let persistedThisRoundCount = 0;
-      const roundQualityDrops: QualityDropForDeadUrl[] = [];
 
-      // Persist a single fetched page as soon as its fetch resolves, so each
-      // source reaches the Agent Data API immediately instead of waiting for the
-      // whole round's fetch batch to finish. Invoked per URL from performWebFetch
-      // via the onOutcome hook below.
-      const persistFetchedPage = async (
-        page: FetchedWebSearchResult,
-      ): Promise<void> => {
+      // Persist each surviving search hit directly, with no paid fetch. The hit's
+      // snippet becomes the Data Source description; the full body is fetched later,
+      // on demand, in content-generation (ADR-0001).
+      const persistHit = async (hit: WebSearchResult): Promise<void> => {
+        const urlDecision = classifyNoisyUrl(hit.url);
+        const canonicalUrl = urlDecision.blocked
+          ? hit.url
+          : urlDecision.canonicalUrl;
         const outcomeBase = {
           id: crypto.randomUUID(),
           scheduleExecutionId,
           runId,
           tickerId: input.tickerId,
           agent: "data-collection" as const,
-          url: page.url,
-          source: page.searchQueryText,
-          searchQueryId: page.searchQueryId,
+          url: canonicalUrl,
+          source: hit.searchQueryText,
+          searchQueryId: hit.searchQueryId,
           createdAt: new Date().toISOString(),
         };
 
-        const urlDecision = classifyNoisyUrl(page.url);
-        if (urlDecision.blocked) {
-          droppedByUrlReason[urlDecision.reason] += 1;
+        const description = hit.content.trim();
+        if (description === "") {
+          droppedByEmptyDescription += 1;
           outcomes.push(
-            makeDroppedOutcome(outcomeBase, {
-              reason: `url_noise_${urlDecision.reason}`,
-              detail: page.url,
-            }),
+            makeDroppedOutcome(outcomeBase, { reason: "empty_description" }),
           );
           return;
         }
 
-        const contentDecision = checkContent(
-          page.title,
-          page.content,
-          page.url,
-        );
-        if (contentDecision.blocked) {
-          droppedByContentQuality[contentDecision.reason] += 1;
-          roundQualityDrops.push({
-            url: urlDecision.canonicalUrl,
-            reason: contentDecision.reason,
-          });
-          outcomes.push(
-            makeDroppedOutcome(
-              { ...outcomeBase, url: urlDecision.canonicalUrl },
-              contentDecision.reason === "content_too_short"
-                ? {
-                    reason: contentDecision.reason,
-                    charCount: page.content.length,
-                  }
-                : { reason: contentDecision.reason },
-            ),
-          );
-          return;
-        }
-
-        const { decision: freshnessDecision, publishedAt } = checkFreshness({
-          fetchMetadata: page.fetchMetadata ?? page.jinaMetadata,
-          content: page.content,
+        const parsedPublishedAt = hit.publishedAt
+          ? new Date(hit.publishedAt)
+          : null;
+        const publishedAt =
+          parsedPublishedAt && !isNaN(parsedPublishedAt.getTime())
+            ? parsedPublishedAt
+            : null;
+        const freshnessDecision = isFresh(publishedAt, {
+          maxAgeDays: FRESHNESS_MAX_AGE_DAYS,
+          allowUnknown: true,
         });
 
         if (!freshnessDecision.fresh) {
@@ -538,138 +504,62 @@ export async function runDataCollection(
               ? {
                   reason: "freshness_too_old" as const,
                   publishedAt,
-                  maxAgeDays: 7,
+                  maxAgeDays: FRESHNESS_MAX_AGE_DAYS,
                 }
               : freshnessDecision.reason === "future_dated" && publishedAt
                 ? { reason: "freshness_future_dated" as const, publishedAt }
                 : { reason: "freshness_unknown_date" as const };
-          outcomes.push(
-            makeDroppedOutcome(
-              { ...outcomeBase, url: urlDecision.canonicalUrl },
-              freshnessContext,
-            ),
-          );
+          outcomes.push(makeDroppedOutcome(outcomeBase, freshnessContext));
           log.info(
             {
               round,
-              url: urlDecision.canonicalUrl.slice(0, 120),
+              url: canonicalUrl.slice(0, 120),
               publishedAt: publishedAt?.toISOString() ?? null,
               reason: freshnessDecision.reason,
             },
-            "dropped page outside freshness window",
+            "dropped hit outside freshness window",
           );
           return;
         }
 
-        const resolvedSource =
-          page.source ?? derivePublisherFromUrl(urlDecision.canonicalUrl);
+        const resolvedSource = derivePublisherFromUrl(canonicalUrl);
         const collectedSource: DataCollectionInput = {
-          url: urlDecision.canonicalUrl,
-          title: page.title,
-          content: page.content,
+          url: canonicalUrl,
+          title: hit.title,
+          description,
           tickerId: input.tickerId,
-          searchQueryId: page.searchQueryId,
-          ...(page.author ? { author: page.author } : {}),
+          searchQueryId: hit.searchQueryId,
           ...(resolvedSource ? { source: resolvedSource } : {}),
           ...(publishedAt ? { publishedAt: publishedAt.toISOString() } : {}),
         };
         log.info(
-          { round, url: urlDecision.canonicalUrl.slice(0, 120) },
+          { round, url: canonicalUrl.slice(0, 120) },
           "persisting collected source to Agent Data API",
         );
         await dataApiClient.dataCollection.create([collectedSource]);
-        outcomes.push(
-          makeCollectedOutcome({
-            ...outcomeBase,
-            url: urlDecision.canonicalUrl,
-          }),
-        );
+        outcomes.push(makeCollectedOutcome(outcomeBase));
         persistedThisRunCount += 1;
         persistedThisRoundCount += 1;
-        fetchSuccessCount += 1;
       };
 
-      const fetchThrottleStats = { throttleEvents: 0 };
-      const fetchAttemptResults = await performWebFetch(
-        searchSuccessesAfterHostBreaker,
-        {
-          config: { providers: fetchProviderConfigs },
-          logger: log,
-          throttleStats: fetchThrottleStats,
-          hostErrorTracker,
-          deadlineEpochMs: runDeadlineEpochMs,
-          onOutcome: async (outcome) => {
-            if (outcome.success !== null) {
-              await persistFetchedPage(outcome.success);
-            }
-          },
-        },
-      );
-      throttleEvents += fetchThrottleStats.throttleEvents;
-      const roundFetchSuccesses = fetchAttemptResults
-        .filter((outcome) => outcome.success !== null)
-        .map((outcome) => outcome.success!);
-      const roundFetchFailures = fetchAttemptResults.flatMap(
-        (outcome) => outcome.failures,
-      );
-      const roundFailedUrlCount = fetchAttemptResults.filter(
-        (outcome) => outcome.success === null,
-      ).length;
-      fetchedCount += roundFetchSuccesses.length;
-      fetchFailedCount += roundFailedUrlCount;
-      fetchFailures.push(...roundFetchFailures);
-      for (const success of roundFetchSuccesses) {
-        fetchByProvider[success.provider] =
-          (fetchByProvider[success.provider] ?? 0) + 1;
+      for (const hit of searchSuccessesAfterHostBreaker) {
+        await persistHit(hit);
       }
 
       log.info(
         {
           round,
-          fetchSuccess: persistedThisRoundCount,
-          fetchFailed: roundFailedUrlCount,
+          persisted: persistedThisRoundCount,
           droppedByUrlReason,
           droppedByDuplicateCanonicalUrl,
           droppedByExistingCanonicalUrl,
-          droppedByContentQuality,
+          droppedByEmptyDescription,
           droppedByDeadUrlCache,
           droppedByHostErrorRate,
           droppedByFreshnessReason,
-          throttleEvents,
         },
-        "web fetch stage finished",
+        "search-hit persist stage finished",
       );
-
-      {
-        const deadUrlFetchFailures = fetchAttemptResults
-          .filter((outcome) => outcome.success === null)
-          .flatMap((outcome) => outcome.failures);
-        const deadUrlRecords = buildDeadUrlRecords(
-          input.tickerId,
-          deadUrlFetchFailures,
-          roundQualityDrops,
-        );
-        if (deadUrlRecords.length > 0) {
-          try {
-            await dataApiClient.dataCollectionDeadUrlsRecord.create(
-              deadUrlRecords,
-            );
-            log.info(
-              { round, deadUrlRecordCount: deadUrlRecords.length },
-              "recorded dead URLs to negative cache",
-            );
-          } catch (recordError) {
-            log.warn(
-              {
-                round,
-                deadUrlRecordCount: deadUrlRecords.length,
-                err: recordError,
-              },
-              "failed to record dead URLs; continuing without negative cache write",
-            );
-          }
-        }
-      }
 
       const effectiveTodayCount =
         existingTodaySourceCount + persistedThisRunCount;
@@ -701,20 +591,6 @@ export async function runDataCollection(
       httpStatus: f.httpStatus,
       createdAt: new Date().toISOString(),
     })),
-    ...fetchFailures.map((f) => ({
-      id: crypto.randomUUID(),
-      runId,
-      tickerId: input.tickerId,
-      stage: "web-fetch" as const,
-      provider: f.provider,
-      searchQueryId: f.queryId,
-      url: f.url,
-      errorCategory: f.errorCategory,
-      retryable: f.retryable,
-      message: f.message,
-      httpStatus: f.httpStatus,
-      createdAt: new Date().toISOString(),
-    })),
   ];
 
   const totalSources = persistedThisRunCount;
@@ -733,11 +609,6 @@ export async function runDataCollection(
     droppedByFreshnessReason,
   ).reduce((sum, count) => sum + count, 0);
 
-  const contentQualityDropped = Object.values(droppedByContentQuality).reduce(
-    (sum, v) => sum + v,
-    0,
-  );
-
   const runDurationMs = Date.now() - startedAt.getTime();
 
   const byReason: Record<string, number> = {
@@ -745,17 +616,16 @@ export async function runDataCollection(
     freshness: droppedByFreshnessTotalCount,
     duplicate: droppedByDuplicateCanonicalUrl,
     urlNoise: droppedByUrlNoiseTotal,
-    contentQuality: contentQualityDropped,
+    emptyDescription: droppedByEmptyDescription,
     deadUrl: droppedByDeadUrlCache,
     hostErrorRate: droppedByHostErrorRate,
-    fetchFailed: fetchFailedCount,
   };
 
   const snapshot = {
     agentId: "data-collection" as const,
     cost: {
       searchCredits: searchCreditsSink.credits,
-      fetchByProvider,
+      fetchByProvider: {},
     },
     result: {
       saved: persistedThisRunCount,
@@ -786,7 +656,6 @@ export async function runDataCollection(
       {
         failureRecords: failuresPayload.length,
         searchFailed: searchFailures.length,
-        fetchFailed: fetchFailures.length,
       },
       "recording run failures to Agent Data API",
     );
@@ -815,13 +684,12 @@ export async function runDataCollection(
     status,
     searchSuccess: searchSuccessCount,
     searchEmpty: searchEmptyCount,
-    fetched: fetchedCount,
-    fetchSuccess: fetchSuccessCount,
+    persisted: persistedThisRunCount,
+    droppedByEmptyDescription,
     droppedByDeadUrlCache,
     droppedByHostErrorRate,
     droppedByFreshness: droppedByFreshnessTotalCount,
     droppedByFreshnessReason: { ...droppedByFreshnessReason },
-    throttleEvents,
     refill: {
       roundsExecuted,
       maxTotalRounds,
@@ -857,7 +725,7 @@ export async function runDataCollection(
         status,
         persisted: totalSources,
         droppedByFreshness: droppedByFreshnessTotalCount,
-        contentQualityDropped,
+        contentQualityDropped: 0,
         failureCount: failuresPayload.length,
         stopReason: refillStopReason,
         roundsExecuted,
@@ -889,7 +757,6 @@ export async function runDataCollection(
       durationMs,
       totalSources,
       failureCount: failuresPayload.length,
-      throttleEvents,
     },
     completionMessage,
   );
@@ -899,7 +766,7 @@ export async function runDataCollection(
       status,
       persisted: totalSources,
       droppedByFreshness: droppedByFreshnessTotalCount,
-      contentQualityDropped,
+      contentQualityDropped: 0,
       failureCount: failuresPayload.length,
       stopReason: refillStopReason,
       roundsExecuted,

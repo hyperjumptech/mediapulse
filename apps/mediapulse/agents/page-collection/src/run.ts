@@ -14,18 +14,11 @@ import type { ConfigSchemaType } from "./utilities/config-schema";
 import { expandSourceUrl } from "./utilities/expand-source-urls";
 import { withApiStep } from "./utilities/with-api-step";
 import {
-  performWebFetch,
-  createEmptyQualityCounters,
-  runQualityGate,
-  buildDeadUrlRecords,
   HostErrorTracker,
   hostFromUrl,
-  type QualityDropForDeadUrl,
   deriveRunStatus,
-  type WebSearchResult,
   makeDroppedOutcome,
   makeCollectedOutcome,
-  makeFailedOutcome,
   postOutcomesInChunks,
   type CollectionUrlOutcomeInput,
   RateLimiter,
@@ -41,8 +34,9 @@ import {
 } from "@workspace/agent-data-api-contract";
 
 /**
- * Executes the page-collection pipeline: expand curated source URLs, fetch article
- * content, apply the content quality gate, and persist ticker-agnostic articles.
+ * Executes the page-collection pipeline: expand curated source URLs and persist
+ * ticker-agnostic articles from the discovered feed/meta description, with no paid
+ * fetch. Articles that discovery yields no description for are dropped.
  *
  * @param context - Validated input (`listingUrl`) and config, plus bearer token.
  * @returns Success with summary counts, or semantic failure when run policy is not met.
@@ -188,7 +182,6 @@ async function executePageCollectionRun(
 
   const listingUrl = input.listingUrl;
   const runPolicy = config.runPolicy;
-  const webFetchConfig = config.providers.fetch;
   const deadUrlCacheConfig = config.resilience.deadUrlCache;
   const hostErrorBreakerConfig = config.resilience.hostErrorBreaker;
   const hostErrorTracker = new HostErrorTracker(hostErrorBreakerConfig);
@@ -221,6 +214,8 @@ async function executePageCollectionRun(
     sourceListingUrl: string;
     curatedSourceId?: string;
     publishedAt?: string;
+    title?: string;
+    description?: string;
   };
 
   const expanded = await expandSourceUrl(listingUrl, discoveryDeps, {
@@ -233,6 +228,8 @@ async function executePageCollectionRun(
     sourceListingUrl: listingUrl,
     ...(meta?.curatedSourceId ? { curatedSourceId: meta.curatedSourceId } : {}),
     ...(item.publishedAt ? { publishedAt: item.publishedAt } : {}),
+    ...(item.title ? { title: item.title } : {}),
+    ...(item.summary ? { description: item.summary } : {}),
   }));
 
   if (allCandidates.length === 0) {
@@ -264,13 +261,9 @@ async function executePageCollectionRun(
   };
   let droppedByDuplicateCanonicalUrl = 0;
   let droppedByExistingCanonicalUrl = 0;
-  const droppedByContentQuality = createEmptyQualityCounters();
+  let droppedByMissingDescription = 0;
   let droppedByDeadUrlCache = 0;
   let droppedByHostErrorRate = 0;
-  let fetchSuccessCount = 0;
-  let fetchFailedCount = 0;
-  // Chronicle instrumentation: per-provider fetch success counts across the run.
-  const fetchByProvider: Record<string, number> = {};
   let persistedCount = 0;
 
   const canonicalItemMap = new Map<string, CandidateItem>();
@@ -373,7 +366,7 @@ async function executePageCollectionRun(
   );
 
   report(
-    "Fetching article content",
+    "Collecting articles",
     `${candidatesAfterBudget.length} candidate URLs`,
   );
 
@@ -381,102 +374,46 @@ async function executePageCollectionRun(
     deadlineHit = true;
   }
 
-  const fetchInputs = !deadlineHit
-    ? candidatesAfterBudget
-        .map((url) => {
-          const item = canonicalItemMap.get(url);
-          if (!item) return undefined;
-          return {
-            url,
-            title: "",
-            content: "",
-            tickerId: "",
-            searchQueryId: "",
-            searchQueryText: "",
-            serpIndex: 0,
-          } satisfies WebSearchResult;
-        })
-        .filter((r): r is WebSearchResult => r !== undefined)
-    : [];
-
-  const fetchAttemptResults =
-    fetchInputs.length > 0
-      ? await performWebFetch(fetchInputs, {
-          config: webFetchConfig,
-          logger: log,
-          hostErrorTracker,
-        })
-      : [];
-
-  const roundQualityDrops: QualityDropForDeadUrl[] = [];
+  const candidatesToPersist = deadlineHit ? [] : candidatesAfterBudget;
   const sourcesToPersist: PostPageCollectionBody = [];
-  const fetchFailures: Array<
-    Awaited<ReturnType<typeof performWebFetch>>[number]["failures"][number]
-  > = [];
 
-  for (const outcome of fetchAttemptResults) {
-    if (outcome.success === null) {
-      fetchFailedCount += 1;
-      fetchFailures.push(...outcome.failures);
+  for (const url of candidatesToPersist) {
+    const item = canonicalItemMap.get(url);
+    if (!item) {
       continue;
     }
 
-    const page = outcome.success;
-    const urlDecision = classifyNoisyUrl(page.url);
-    const item = canonicalItemMap.get(urlDecision.canonicalUrl);
+    const outcomeBase = {
+      id: crypto.randomUUID(),
+      scheduleExecutionId,
+      runId,
+      agent: "page-collection" as const,
+      url,
+      source: item.sourceListingUrl,
+      curatedSourceId: item.curatedSourceId,
+      createdAt: new Date().toISOString(),
+    };
 
-    const contentDecision = runQualityGate(page.title, page.content, page.url);
-    if (contentDecision.blocked) {
-      droppedByContentQuality[contentDecision.reason] += 1;
-      roundQualityDrops.push({
-        url: urlDecision.canonicalUrl,
-        reason: contentDecision.reason,
-      });
+    const description = item.description?.trim();
+    if (!description) {
+      droppedByMissingDescription += 1;
       outcomes.push(
-        makeDroppedOutcome(
-          {
-            id: crypto.randomUUID(),
-            scheduleExecutionId,
-            runId,
-            agent: "page-collection",
-            url: urlDecision.canonicalUrl,
-            source: item?.sourceListingUrl,
-            curatedSourceId: item?.curatedSourceId,
-            createdAt: new Date().toISOString(),
-          },
-          { reason: contentDecision.reason },
-        ),
+        makeDroppedOutcome(outcomeBase, { reason: "empty_description" }),
       );
       continue;
     }
 
-    const resolvedSource =
-      page.source ?? derivePublisherFromUrl(urlDecision.canonicalUrl);
+    const resolvedSource = derivePublisherFromUrl(url);
     sourcesToPersist.push({
-      url: urlDecision.canonicalUrl,
-      title: page.title,
-      content: page.content,
-      ...(page.author ? { author: page.author } : {}),
+      url,
+      title: item.title ?? "",
+      description,
       ...(resolvedSource ? { source: resolvedSource } : {}),
-      curatedSourceListingUrl:
-        item?.sourceListingUrl ?? urlDecision.canonicalUrl,
+      curatedSourceListingUrl: item.sourceListingUrl,
       collectionGateStatus: "passed",
-      metadata: { provider: page.provider },
+      ...(item.publishedAt ? { publishedAt: item.publishedAt } : {}),
     });
-    fetchSuccessCount += 1;
-    fetchByProvider[page.provider] = (fetchByProvider[page.provider] ?? 0) + 1;
-    outcomes.push(
-      makeCollectedOutcome({
-        id: crypto.randomUUID(),
-        scheduleExecutionId,
-        runId,
-        agent: "page-collection",
-        url: urlDecision.canonicalUrl,
-        source: item?.sourceListingUrl,
-        curatedSourceId: item?.curatedSourceId,
-        createdAt: new Date().toISOString(),
-      }),
-    );
+    outcomes.push(makeCollectedOutcome(outcomeBase));
   }
 
   if (sourcesToPersist.length > 0) {
@@ -486,61 +423,10 @@ async function executePageCollectionRun(
     persistedCount += result.persistedCount;
   }
 
-  if (deadUrlCacheConfig.enabled) {
-    const deadUrlRecords = buildDeadUrlRecords(
-      undefined,
-      fetchFailures,
-      roundQualityDrops,
-    );
-    if (deadUrlRecords.length > 0) {
-      try {
-        await withApiStep("record dead URLs", () =>
-          dataApiClient.dataCollectionDeadUrlsRecord.create(deadUrlRecords),
-        );
-      } catch (recordError) {
-        log.warn({ err: recordError }, "failed to record dead URLs");
-      }
-    }
-  }
-
-  const failuresPayload = fetchFailures.map((f) => ({
-    id: crypto.randomUUID(),
-    runId,
-    stage: "web-fetch" as const,
-    provider: f.provider,
-    url: f.url,
-    errorCategory: f.errorCategory,
-    retryable: f.retryable,
-    message: f.message,
-    httpStatus: f.httpStatus,
-    createdAt: new Date().toISOString(),
-  }));
-
-  for (const failure of fetchFailures) {
-    if (failure.url) {
-      const item = canonicalItemMap.get(failure.url);
-      outcomes.push(
-        makeFailedOutcome(
-          {
-            id: crypto.randomUUID(),
-            scheduleExecutionId,
-            runId,
-            agent: "page-collection",
-            url: failure.url,
-            source: item?.sourceListingUrl,
-            createdAt: new Date().toISOString(),
-          },
-          failure.errorCategory,
-          failure.httpStatus,
-        ),
-      );
-    }
-  }
-
   const totalSources = persistedCount;
   const derivedStatus = deriveRunStatus({
     totalSources,
-    failureCount: failuresPayload.length,
+    failureCount: 0,
     runPolicy,
   });
   const status =
@@ -552,22 +438,18 @@ async function executePageCollectionRun(
     existing: droppedByExistingCanonicalUrl,
     duplicate: droppedByDuplicateCanonicalUrl,
     urlNoise: Object.values(droppedByUrlReason).reduce((sum, n) => sum + n, 0),
-    contentQuality: Object.values(droppedByContentQuality).reduce(
-      (sum, n) => sum + n,
-      0,
-    ),
+    missingDescription: droppedByMissingDescription,
     deadUrl: droppedByDeadUrlCache,
     hostErrorRate: droppedByHostErrorRate,
     fetchBudget: droppedByFetchBudget,
     runItemCap: droppedByRunItemCap,
-    fetchFailed: fetchFailedCount,
   };
 
   const snapshot = {
     agentId: "page-collection" as const,
     cost: {
       searchCredits: 0,
-      fetchByProvider,
+      fetchByProvider: {},
     },
     result: {
       saved: persistedCount,
@@ -603,16 +485,6 @@ async function executePageCollectionRun(
     }),
   );
 
-  if (failuresPayload.length > 0) {
-    log.warn(
-      { failureRecords: failuresPayload.length, fetchFailed: fetchFailedCount },
-      "recording page collection fetch failures",
-    );
-    await withApiStep("record fetch failures", () =>
-      dataApiClient.dataCollectionFailure.create(failuresPayload),
-    );
-  }
-
   if (outcomes.length > 0) {
     try {
       await postOutcomesInChunks(outcomes, (batch) =>
@@ -629,9 +501,8 @@ async function executePageCollectionRun(
     totalSources,
     status,
     discoveredCount: allCandidates.length,
-    fetchSuccess: fetchSuccessCount,
-    fetchFailed: fetchFailedCount,
-    droppedByContentQuality,
+    persisted: persistedCount,
+    droppedByMissingDescription,
     droppedByDeadUrlCache,
     droppedByFetchBudget,
     droppedByExistingCanonicalUrl,
@@ -660,7 +531,6 @@ async function executePageCollectionRun(
         durationMs,
         totalSources,
         minRequired,
-        failureCount: failuresPayload.length,
       },
       "page collection run completed with policy failure",
     );
@@ -696,16 +566,15 @@ async function executePageCollectionRun(
       status,
       durationMs,
       totalSources,
-      failureCount: failuresPayload.length,
     },
     completionMessage,
   );
 
-  if (fetchFailedCount > 0 || status === "partial_success") {
+  if (status === "partial_success") {
     runLogBuffer.append({
       level: "warn",
       message: completionMessage,
-      context: { fetchFailed: fetchFailedCount, persisted: totalSources },
+      context: { persisted: totalSources },
     });
   }
 
