@@ -545,6 +545,13 @@ export async function runDataCollection(
 
       for (const hit of searchSuccessesAfterHostBreaker) {
         await persistHit(hit);
+
+        if (
+          existingTodaySourceCount + persistedThisRunCount >=
+          targetSavedSources
+        ) {
+          break;
+        }
       }
 
       log.info(

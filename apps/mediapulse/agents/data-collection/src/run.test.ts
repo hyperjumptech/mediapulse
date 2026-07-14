@@ -328,7 +328,11 @@ describe("runDataCollection", () => {
       ]);
 
       const result = await runDataCollection(
-        createContext({ config: withTestConfig() }),
+        createContext({
+          config: withTestConfig({
+            collection: { targetSavedSources: 5, maxRounds: 1 },
+          }),
+        }),
       );
 
       expect(result.success).toBe(true);
@@ -429,6 +433,32 @@ describe("runDataCollection", () => {
 
     expect(result.success).toBe(true);
     expect(performWebSearch).toHaveBeenCalledTimes(2);
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(
+      (result.details?.summary as { refill?: { stopReason: string } }).refill
+        ?.stopReason,
+    ).toBe("daily_target_met");
+  });
+
+  it("caps persistence at the target within a single round", async () => {
+    vi.mocked(performWebSearch).mockResolvedValue([
+      success({ ...searchHit, url: "http://example.com/a" }),
+      success({ ...searchHit, url: "http://example.com/b" }),
+      success({ ...searchHit, url: "http://example.com/c" }),
+      success({ ...searchHit, url: "http://example.com/d" }),
+      success({ ...searchHit, url: "http://example.com/e" }),
+    ]);
+
+    const result = await runDataCollection(
+      createContext({
+        config: withTestConfig({
+          collection: { targetSavedSources: 2, maxRounds: 3 },
+        }),
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(performWebSearch).toHaveBeenCalledTimes(1);
     expect(createMock).toHaveBeenCalledTimes(2);
     expect(
       (result.details?.summary as { refill?: { stopReason: string } }).refill

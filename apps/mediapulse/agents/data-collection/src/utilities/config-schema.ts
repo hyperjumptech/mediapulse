@@ -110,7 +110,7 @@ const collectionSchema = z
       .number()
       .int()
       .positive()
-      .default(15)
+      .default(50)
       .describe(
         "Stop the repeat loop once this many successful sources exist for the ticker today (UTC).",
       ),
