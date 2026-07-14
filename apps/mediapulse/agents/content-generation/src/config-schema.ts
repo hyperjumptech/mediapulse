@@ -286,6 +286,7 @@ export const CONTENT_GENERATION_CONSTANTS = {
     dedupeArticlesWithinSection: true,
     dedupeScope: "newsletter",
     withinRunDedupSimilarity: 0.55,
+    withinRunTitleDedupSimilarity: 0.5,
   },
   /**
    * Cross-day (cross-run) dedup so consecutive newsletters do not repeat points.
