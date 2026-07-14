@@ -29,6 +29,7 @@ import {
   type FetchSourceBodiesResult,
   type RequestedFetchSource,
 } from "./fetch-source-bodies.js";
+import { selectSectionCoverageSeeds } from "./lib/section-coverage-seeds.js";
 import { translateNewsletter } from "./translate-newsletter.js";
 import type { TranslationTargetLanguage } from "./translate-newsletter.js";
 import {
@@ -391,20 +392,38 @@ export async function run({
 
   const sourceById = new Map(sources.map((s) => [s.dataSourceId, s]));
   const requestedFetchSources: RequestedFetchSource[] = [];
-  for (const request of fetchRequests) {
-    const source = sourceById.get(request.dataSourceId);
-    if (!source) {
-      continue;
+  const requestedIds = new Set<string>();
+  const pushFetchSource = (dataSourceId: string, reason: string) => {
+    if (requestedIds.has(dataSourceId)) {
+      return;
     }
+    const source = sourceById.get(dataSourceId);
+    if (!source) {
+      return;
+    }
+    requestedIds.add(dataSourceId);
     requestedFetchSources.push({
       dataSourceId: source.dataSourceId,
       url: source.url,
       title: source.title,
-      reason: request.reason,
+      reason,
       ...(typeof source.sectionScore === "number"
         ? { sectionScore: source.sectionScore }
         : {}),
     });
+  };
+
+  // Guarantee the top candidate of every publishable section gets a body, so a section is never
+  // dropped at grounding merely because the on-demand triage skipped its highest-scored article.
+  for (const seed of selectSectionCoverageSeeds(
+    sources,
+    CONTENT_GENERATION_CONSTANTS.requireCitation.sections,
+  )) {
+    pushFetchSource(seed.dataSourceId, seed.reason);
+  }
+
+  for (const request of fetchRequests) {
+    pushFetchSource(request.dataSourceId, request.reason);
   }
 
   let fetchResult: FetchSourceBodiesResult = {
@@ -792,6 +811,17 @@ export async function run({
     }),
     "completed",
   );
+  const groundingReportRows = (generated.citationGroundingReports ?? []).map(
+    (report) => ({
+      sectionKey: report.sectionKey,
+      articleIndex: report.articleIndex,
+      overlapScore: Math.round(report.overlapScore * 1000) / 1000,
+      decision: report.decision.kind,
+      ...(report.decision.kind !== "pass"
+        ? { reason: report.decision.reason }
+        : {}),
+    }),
+  );
   const successDetails: Record<string, unknown> = {
     fetch: fetchResult.counters,
     ...(generated.sectionFillSnapshot !== undefined
@@ -805,6 +835,13 @@ export async function run({
           },
         }
       : {}),
+    grounding: {
+      summary: generated.citationGroundingSummary,
+      reports: groundingReportRows,
+      ...(generated.requireCitationSummary !== undefined
+        ? { requireCitation: generated.requireCitationSummary }
+        : {}),
+    },
   };
   await writeDiagnostic({
     dataApiClient,
