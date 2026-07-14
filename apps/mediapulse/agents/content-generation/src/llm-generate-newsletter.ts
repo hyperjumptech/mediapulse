@@ -31,6 +31,7 @@ import {
   dedupeAgainstRecentBullets,
   type RecentBullet,
 } from "./lib/cross-run-dedup.js";
+import { filterDemotedQuickHits } from "./lib/quickhits-relevance.js";
 import { isRetryableLlmError } from "./llm-classify-error.js";
 import {
   groundNewsletterCitations,
@@ -190,6 +191,8 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
   citationGroundingSummary?: CitationGroundingSummary;
   /** Require-citation pruning counters from the final transform. */
   requireCitationSummary?: PruneSummary;
+  /** Count of Quick Hits removed for being weakly-relevant structured-section demotions. */
+  quickHitsDemotionRemoved?: number;
   /** Per-section bullet counts and removed-section list from the final resolved newsletter. */
   sectionFillSnapshot?: SectionFillSnapshot;
   newsletterCitations?: NewsletterCitationLink[];
@@ -712,6 +715,24 @@ export async function generateNewsletterWithLlm(
     }
   }
 
+  const quickHitsFiltered = filterDemotedQuickHits(
+    resolved,
+    promptSources,
+    CONTENT_GENERATION_CONSTANTS.quickHitsDemotionMinScore,
+  );
+  resolved = quickHitsFiltered.resolved;
+  if (quickHitsFiltered.removedCount > 0) {
+    logger.info(
+      {
+        tickerId: context.tickerId,
+        removedCount: quickHitsFiltered.removedCount,
+        minScore: CONTENT_GENERATION_CONSTANTS.quickHitsDemotionMinScore,
+        event: "quickhits_demotion_filter",
+      },
+      `Quick Hits relevance filter: removed ${String(quickHitsFiltered.removedCount)} low-score demoted item(s)`,
+    );
+  }
+
   const content = formatIndustryNewsletterWire(resolved);
 
   const rawTitle =
@@ -740,6 +761,7 @@ export async function generateNewsletterWithLlm(
     citationGroundingReports,
     citationGroundingSummary,
     requireCitationSummary,
+    quickHitsDemotionRemoved: quickHitsFiltered.removedCount,
     sectionFillSnapshot: {
       bySection: computeNewsletterSectionFill(resolved),
       sectionsRemoved: prunedSectionsRemoved,

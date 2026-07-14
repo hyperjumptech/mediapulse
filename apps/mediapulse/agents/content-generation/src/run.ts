@@ -842,6 +842,9 @@ export async function run({
         ? { requireCitation: generated.requireCitationSummary }
         : {}),
     },
+    ...(generated.quickHitsDemotionRemoved !== undefined
+      ? { quickHitsDemotionRemoved: generated.quickHitsDemotionRemoved }
+      : {}),
   };
   await writeDiagnostic({
     dataApiClient,
