@@ -37,7 +37,7 @@
   // Repeat-loop targets: keep collecting until the ticker has this many saved
   // sources today, or maxRounds is reached.
   "collection": {
-    "targetSavedSources": 15,
+    "targetSavedSources": 50,
     "maxRounds": 3,
   },
 }

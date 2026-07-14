@@ -65,7 +65,7 @@ describe("dataCollectionAgentConfigSchema", () => {
     ]);
     expect(parsed.web_search_locales).toEqual([{ gl: "id", hl: "id" }]);
     expect(parsed.collection).toEqual({
-      targetSavedSources: 15,
+      targetSavedSources: 50,
       maxRounds: 3,
       startupJitterMs: 30_000,
     });
@@ -84,7 +84,7 @@ describe("dataCollectionAgentConfigSchema", () => {
     });
 
     expect(parsed.collection.maxRounds).toBe(5);
-    expect(parsed.collection.targetSavedSources).toBe(15);
+    expect(parsed.collection.targetSavedSources).toBe(50);
     expect(parsed.web_fetch).toHaveLength(6);
   });
 
