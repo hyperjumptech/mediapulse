@@ -367,9 +367,9 @@ describe("renderNewsletterEmail", () => {
 
     // Assert — three anchors, one per source, labelled with the item title.
     // React inserts <!-- --> between static and dynamic text nodes in JSX.
-    expect(html).toMatch(/Read <!-- -->Fed holds rates steady/);
-    expect(html).toMatch(/Read <!-- -->Apple beats estimates/);
-    expect(html).toMatch(/Read <!-- -->Oil prices dip/);
+    expect(html).toMatch(/Read: <!-- -->Fed holds rates steady/);
+    expect(html).toMatch(/Read: <!-- -->Apple beats estimates/);
+    expect(html).toMatch(/Read: <!-- -->Oil prices dip/);
     expect(html).toContain('href="https://example.com/fed"');
     expect(html).toContain('href="https://example.com/apple"');
     expect(html).toContain('href="https://example.com/oil"');
@@ -404,7 +404,7 @@ describe("renderNewsletterEmail", () => {
     });
 
     // Assert — only one anchor (for the item with URL), labelled with the item title.
-    expect(html).toMatch(/Read <!-- -->With URL/);
+    expect(html).toMatch(/Read: <!-- -->With URL/);
     expect(html).toContain('href="https://example.com/with-url"');
     expect(html).not.toMatch(/href=""/);
   });
@@ -502,6 +502,46 @@ describe("renderNewsletterEmail", () => {
     expect(html).toContain("The sector is shifting rapidly.");
     expect(html).toContain('href="https://lead.example/article"');
     expect(text).toContain("https://lead.example/article");
+  });
+
+  it("uses the lead article title, not the display heading, for the Read link when a TITLE is present", async () => {
+    const industryBody = [
+      "MP_NEWSLETTER",
+      "",
+      "BEGIN industry-pulse",
+      "DISPLAY_HEADING",
+      "Growing BNPL Financing in Indonesia",
+      "TITLE Indonesia's Digital Banking Evolution and Trends",
+      "PROSE",
+      "Paylater services reached Rp43.28 trillion.",
+      "Read the full article: https://lead.example/digital-banking",
+      "END",
+      "",
+      "BEGIN quick-hits",
+      "DISPLAY_HEADING",
+      "Quick Hits",
+      "ITEM",
+      "Hit one",
+      "ITEM",
+      "Hit two",
+      "ITEM",
+      "Hit three",
+      "ITEM",
+      "Hit four",
+      "ITEM",
+      "Hit five",
+      "END",
+    ].join("\n");
+
+    const { html } = await renderNewsletterEmail({
+      title: "Industry Briefing",
+      bodyText: industryBody,
+    });
+
+    expect(html).toMatch(
+      /Read: <!-- -->Indonesia&#x27;s Digital Banking Evolution and Trends/,
+    );
+    expect(html).toContain('href="https://lead.example/digital-banking"');
   });
 
   it("renders the industry-pulse standfirst with no source link when the lead has no url", async () => {

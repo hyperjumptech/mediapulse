@@ -96,6 +96,14 @@ export const formatIndustryNewsletterWire = (
       DISPLAY_HEADING,
       collapseHeadingLine(briefing.industryPulse.displayHeading),
     ];
+    if (
+      briefing.industryPulse.title !== undefined &&
+      briefing.industryPulse.title.trim().length > 0
+    ) {
+      pulseLines.push(
+        `${TITLE} ${collapseHeadingLine(briefing.industryPulse.title)}`,
+      );
+    }
     pushBylineLines(pulseLines, briefing.industryPulse);
     pulseLines.push(
       PROSE,
@@ -127,7 +135,7 @@ export const formatIndustryNewsletterWire = (
     for (const b of bullets) {
       lines.push(BULLET);
       if (b.title !== undefined && b.title.trim().length > 0) {
-        lines.push(`${TITLE} ${b.title.trim()}`);
+        lines.push(`${TITLE} ${collapseHeadingLine(b.title)}`);
       }
       pushBylineLines(lines, b);
       lines.push(withOptionalReadLine(stripArticleMarkers(b.text), b.url));
@@ -204,7 +212,7 @@ export const formatIndustryNewsletterWire = (
         for (const b of d.bullets) {
           lines.push(BULLET);
           if (b.title !== undefined && b.title.trim().length > 0) {
-            lines.push(`${TITLE} ${b.title.trim()}`);
+            lines.push(`${TITLE} ${collapseHeadingLine(b.title)}`);
           }
           pushBylineLines(lines, b);
           lines.push(withOptionalReadLine(stripArticleMarkers(b.text), b.url));
@@ -228,7 +236,7 @@ export const formatIndustryNewsletterWire = (
       for (const item of briefing.quickHits.items) {
         qhLines.push(ITEM);
         if (item.title !== undefined && item.title.trim().length > 0) {
-          qhLines.push(`${TITLE} ${item.title.trim()}`);
+          qhLines.push(`${TITLE} ${collapseHeadingLine(item.title)}`);
         }
         pushBylineLines(qhLines, item);
         qhLines.push(

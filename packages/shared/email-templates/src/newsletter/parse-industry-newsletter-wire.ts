@@ -22,6 +22,7 @@ const READ_FULL_ARTICLE_LINE_REGEX = new RegExp(
 export type ParsedIndustryPulseSection = {
   machineKey: "industry-pulse";
   displayHeading: string;
+  title?: string;
   prose: string;
   url?: string;
   author?: string;
@@ -190,6 +191,15 @@ export const parseIndustryNewsletterWire = (
     i += 1;
 
     if (machineKey === "industry-pulse") {
+      let pulseTitle: string | undefined;
+      const maybePulseTitleLine = (lines[i] ?? "").trim();
+      if (maybePulseTitleLine.startsWith(TITLE_PREFIX)) {
+        const value = maybePulseTitleLine.slice(TITLE_PREFIX.length).trim();
+        if (value.length > 0) {
+          pulseTitle = value;
+        }
+        i += 1;
+      }
       const pulseByline = readByline();
       if ((lines[i] ?? "").trim() !== "PROSE") {
         return undefined;
@@ -204,6 +214,7 @@ export const parseIndustryNewsletterWire = (
       sections.push({
         machineKey: "industry-pulse",
         displayHeading,
+        ...(pulseTitle !== undefined ? { title: pulseTitle } : {}),
         prose,
         ...(url !== undefined ? { url } : {}),
         ...pulseByline,
