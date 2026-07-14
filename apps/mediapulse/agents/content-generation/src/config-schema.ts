@@ -289,6 +289,11 @@ export const CONTENT_GENERATION_CONSTANTS = {
     withinRunTitleDedupSimilarity: 0.5,
   },
   /**
+   * Minimum section-fit score for an article assigned to a structured section to survive being
+   * placed in Quick Hits. Keeps weakly-relevant items from being demoted into Quick Hits as filler.
+   */
+  quickHitsDemotionMinScore: 0.7,
+  /**
    * Cross-day (cross-run) dedup so consecutive newsletters do not repeat points.
    * Hardcoded (not Hermes config) to match the rest of this agent's pipeline.
    */
