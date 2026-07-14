@@ -234,9 +234,9 @@ export const ContentGenerationConfigSchema = z.object({
     .number()
     .int()
     .positive()
-    .default(10)
+    .default(18)
     .describe(
-      "Maximum on-demand fetches per generation run. When the triage pass requests more, the overflow is prioritized by sectionScore descending and the rest proceed on description alone.",
+      "Maximum on-demand fetches per generation run. Sized to cover the section-coverage seeds (one per publishable section) plus triage requests. When requests exceed the budget, the overflow is prioritized by sectionScore descending and the rest proceed on description alone.",
     ),
 });
 

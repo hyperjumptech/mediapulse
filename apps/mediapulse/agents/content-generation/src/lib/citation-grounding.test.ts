@@ -101,6 +101,120 @@ describe("scoreBulletAgainstArticle", () => {
     // Assert
     expect(score).toBeLessThan(0.18);
   });
+
+  it("grounds a faithful bullet against a short description-only source", () => {
+    // Setup
+    const shortSource: SourceForGeneration = {
+      url: "https://example.com/bpjph-halal",
+      title: "BPJPH 2026 halal year",
+      content: "Halal certification becomes mandatory in 2026.",
+    };
+
+    // Act
+    const score = scoreBulletAgainstArticle(
+      "BPJPH declared 2026 the year of halal, and halal certification becomes mandatory in 2026 for food and beverage producers across Indonesia, a material change for coffee chains.",
+      shortSource,
+    );
+
+    // Assert
+    expect(score).toBeGreaterThanOrEqual(0.18);
+  });
+
+  it("does not ground an unrelated bullet against a short description-only source", () => {
+    // Setup
+    const shortSource: SourceForGeneration = {
+      url: "https://example.com/bpjph-halal",
+      title: "BPJPH 2026 halal year",
+      content: "Halal certification becomes mandatory in 2026.",
+    };
+
+    // Act
+    const score = scoreBulletAgainstArticle(
+      "Nickel ore shipments rose across Sulawesi smelters last quarter.",
+      shortSource,
+    );
+
+    // Assert
+    expect(score).toBeLessThan(0.18);
+  });
+
+  it("grounds a faithful bullet against a long full-body article where Jaccard cannot", () => {
+    // Setup
+    const longSource: SourceForGeneration = {
+      url: "https://example.com/bpjph-mandate",
+      title:
+        "BPJPH will require halal certification for food and beverage products starting October 2026",
+      content:
+        "BPJPH will require halal certification for food and beverage products sold in Indonesia starting October 2026. The agency said the mandatory halal certification covers food, beverage, cosmetics, and pharmaceutical goods, from micro enterprises to large exporters and importers. The head of BPJPH declared 2026 the year of halal for Indonesia and described it as a driver of national economic competitiveness. Officials said halal certification is now a symbol of quality, cleanliness, transparency, and traceability, and invited more than seventy countries to align their halal regulation and standards. The certification requirement is based on a government regulation issued in 2024 and applies across the domestic market for producers of every size.",
+    };
+
+    // Act
+    const score = scoreBulletAgainstArticle(
+      "BPJPH will require halal certification for food and beverage products sold in Indonesia starting October 2026.",
+      longSource,
+    );
+
+    // Assert
+    expect(score).toBeGreaterThanOrEqual(0.18);
+  });
+
+  it("grounds a faithful English bullet against an Indonesian-language source via shared anchors", () => {
+    // Setup
+    const indonesianSource: SourceForGeneration = {
+      url: "https://example.com/bpjph-id",
+      title: "BPJPH Wajibkan Sertifikasi Halal Mulai Oktober 2026",
+      content:
+        "Badan Penyelenggara Jaminan Produk Halal BPJPH mewajibkan sertifikasi halal untuk produk makanan, minuman, kosmetik, dan farmasi mulai 18 Oktober 2026 di Indonesia. Kebijakan halal ini menyasar usaha mikro hingga perusahaan besar.",
+    };
+
+    // Act
+    const score = scoreBulletAgainstArticle(
+      "BPJPH will require halal certification for food and beverage products in Indonesia from October 2026.",
+      indonesianSource,
+    );
+
+    // Assert
+    expect(score).toBeGreaterThanOrEqual(0.18);
+  });
+
+  it("does not ground an unrelated English bullet against an Indonesian-language source", () => {
+    // Setup
+    const indonesianSource: SourceForGeneration = {
+      url: "https://example.com/bpjph-id",
+      title: "BPJPH Wajibkan Sertifikasi Halal Mulai Oktober 2026",
+      content:
+        "Badan Penyelenggara Jaminan Produk Halal BPJPH mewajibkan sertifikasi halal untuk produk makanan, minuman, kosmetik, dan farmasi mulai 18 Oktober 2026 di Indonesia.",
+    };
+
+    // Act
+    const score = scoreBulletAgainstArticle(
+      "Telkomsel launched a new 5G network across Papua with a large capital investment.",
+      indonesianSource,
+    );
+
+    // Assert
+    expect(score).toBeLessThan(0.18);
+  });
+
+  it("does not ground an unrelated bullet against a long full-body article", () => {
+    // Setup
+    const longSource: SourceForGeneration = {
+      url: "https://example.com/bpjph-mandate",
+      title:
+        "BPJPH will require halal certification for food and beverage products starting October 2026",
+      content:
+        "BPJPH will require halal certification for food and beverage products sold in Indonesia starting October 2026. The agency said the mandatory halal certification covers food, beverage, cosmetics, and pharmaceutical goods, from micro enterprises to large exporters and importers. The head of BPJPH declared 2026 the year of halal for Indonesia and described it as a driver of national economic competitiveness.",
+    };
+
+    // Act
+    const score = scoreBulletAgainstArticle(
+      "Telkomsel launched a new 5G network across Jakarta with a large investment this quarter.",
+      longSource,
+    );
+
+    // Assert
+    expect(score).toBeLessThan(0.18);
+  });
 });
 
 describe("groundNewsletterCitations", () => {

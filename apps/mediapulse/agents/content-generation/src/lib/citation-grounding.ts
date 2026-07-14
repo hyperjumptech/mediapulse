@@ -48,6 +48,38 @@ const SHINGLE_SIZE = 3;
 const ARTICLE_BODY_CHAR_LIMIT = 2000;
 const NUMERIC_PATTERN = /\d+(?:[.,]\d+)?/g;
 
+/**
+ * Above this many article shingles the source is treated as a full body and scored on Jaccard
+ * alone. At or below it the source is description-only, where Jaccard under-scores a faithful
+ * bullet (the bullet is longer than the snippet), so a containment fallback also applies.
+ */
+const SHORT_SOURCE_SHINGLE_MAX = 50;
+
+/** Minimum shared distinctive 3-grams before the short-source containment fallback can ground a bullet. */
+const MIN_CONTAINMENT_SHARED = 2;
+
+/** Minimum shared entity/number anchors before the language-neutral fallback can ground a bullet. */
+const MIN_SHARED_ANCHORS = 3;
+
+/**
+ * Distinctive, translation-stable tokens (named entities and multi-digit figures) from a token list.
+ * Short common words are excluded so the anchor overlap keys on names and numbers, which survive an
+ * English-bullet / Indonesian-source language gap where word n-grams do not.
+ *
+ * @param tokens - Case-folded, stopword-filtered tokens (from `tokenize`).
+ * @returns The set of anchor tokens.
+ */
+const distinctiveAnchorTokens = (tokens: readonly string[]): Set<string> => {
+  const anchors = new Set<string>();
+  for (const token of tokens) {
+    if (token.length >= 4 || /^\d{2,}$/.test(token)) {
+      anchors.add(token);
+    }
+  }
+
+  return anchors;
+};
+
 const SECTION_MIN_COUNTS: Partial<Record<string, number>> = {
   competitiveLandscape: 2,
   dealsAndMovements: 1,
@@ -105,6 +137,28 @@ export const shingleJaccardSimilarity = (
 };
 
 /**
+ * Counts shingles present in both sets.
+ *
+ * @param left - First shingle set.
+ * @param right - Second shingle set.
+ */
+export const shingleIntersectionCount = (
+  left: Set<string>,
+  right: Set<string>,
+): number => {
+  const [small, large] =
+    left.size <= right.size ? [left, right] : [right, left];
+  let count = 0;
+  for (const shingle of small) {
+    if (large.has(shingle)) {
+      count += 1;
+    }
+  }
+
+  return count;
+};
+
+/**
  * Returns true when a distinctive numeric figure in the bullet appears in the article text.
  *
  * Single-digit figures are ignored: a lone digit (e.g. the "5" in "5G") matches almost
@@ -149,9 +203,51 @@ export const scoreBulletAgainstArticle = (
 ): number => {
   const numericBonus = options.numericBonus ?? 0.2;
   const articleText = `${article.title}\n${article.content.slice(0, ARTICLE_BODY_CHAR_LIMIT)}`;
-  const bulletShingles = buildWordShingles(tokenize(bulletText));
-  const articleShingles = buildWordShingles(tokenize(articleText));
+  const bulletTokens = tokenize(bulletText);
+  const articleTokens = tokenize(articleText);
+  const bulletShingles = buildWordShingles(bulletTokens);
+  const articleShingles = buildWordShingles(articleTokens);
+  const shared = shingleIntersectionCount(bulletShingles, articleShingles);
   let score = shingleJaccardSimilarity(bulletShingles, articleShingles);
+
+  // Grounding asks "is the bullet supported by the article", which is containment, not Jaccard.
+  // Jaccard is dominated by article length: a fully-supported ~18-shingle bullet against a
+  // ~200-shingle body scores ~0.09, below any sane floor, so structured-section bullets citing a
+  // full article body can never ground under Jaccard. Both containment directions are guarded by a
+  // minimum shared-3-gram count so a lone coincidental match cannot ground a bullet.
+  if (shared >= MIN_CONTAINMENT_SHARED) {
+    // Long/full-body sources: how much of the bullet appears in the article.
+    if (bulletShingles.size > 0) {
+      score = Math.max(score, shared / bulletShingles.size);
+    }
+    // Short (description-only) sources: a faithful bullet outweighs the snippet, so measure how
+    // fully the snippet appears in the bullet instead.
+    if (
+      articleShingles.size > 0 &&
+      articleShingles.size <= SHORT_SOURCE_SHINGLE_MAX
+    ) {
+      score = Math.max(score, shared / articleShingles.size);
+    }
+  }
+
+  // Language-neutral anchor overlap: the newsletter is written in English from mostly Indonesian
+  // sources, so a faithful bullet shares no word 3-grams with its article and scores ~0. Named
+  // entities and figures survive translation (tokens are case-folded), so ground on how many of the
+  // bullet's distinctive anchors appear in the article, guarded by a minimum shared count so reusing
+  // one or two names cannot ground a fabricated claim.
+  const bulletAnchors = distinctiveAnchorTokens(bulletTokens);
+  if (bulletAnchors.size > 0) {
+    const articleAnchors = distinctiveAnchorTokens(articleTokens);
+    let sharedAnchors = 0;
+    for (const anchor of bulletAnchors) {
+      if (articleAnchors.has(anchor)) {
+        sharedAnchors += 1;
+      }
+    }
+    if (sharedAnchors >= MIN_SHARED_ANCHORS) {
+      score = Math.max(score, sharedAnchors / bulletAnchors.size);
+    }
+  }
 
   if (score > 0 && bulletNumbersMatchArticle(bulletText, articleText)) {
     score = Math.min(1, score + numericBonus);

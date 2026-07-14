@@ -15,7 +15,7 @@ describe("ContentGenerationConfigSchema", () => {
     expect(parsed.model.model).toBe("{{AI_MODEL}}");
     expect(parsed.model.baseUrl).toBe("{{AI_BASE_URL}}");
     expect(parsed.duplicateGuard.timezone).toBe("Asia/Jakarta");
-    expect(parsed.maxFetchesPerRun).toBe(10);
+    expect(parsed.maxFetchesPerRun).toBe(18);
     expect(parsed.fetch.providers[0]?.type).toBe("serper");
     expect(parsed.resilience.deadUrlCache.enabled).toBe(true);
     expect(parsed.resilience.hostErrorBreaker.enabled).toBe(true);
