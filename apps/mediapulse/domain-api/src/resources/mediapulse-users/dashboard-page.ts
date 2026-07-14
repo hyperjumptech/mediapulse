@@ -26,6 +26,7 @@ const mediapulseUsersMetadataBlock = {
   type: "keyValue",
   label: "User",
   rows: [
+    { field: "id", label: "User id", copyAction: true },
     { field: "email", label: "Email", copyAction: true },
     { field: "name", label: "Name" },
     { field: "enabled", label: "Enabled" },

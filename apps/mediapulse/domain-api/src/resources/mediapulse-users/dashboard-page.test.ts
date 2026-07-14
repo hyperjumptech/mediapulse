@@ -14,6 +14,16 @@ describe("mediapulseUsersDashboardPage", () => {
 
     expect(labels).toEqual(["User", "Subscriptions"]);
 
+    const user = mediapulseUsersDashboardPage.detailBlocks?.find(
+      (block) => block.label === "User",
+    );
+    expect(user).toMatchObject({
+      type: "keyValue",
+      rows: expect.arrayContaining([
+        { field: "id", label: "User id", copyAction: true },
+      ]),
+    });
+
     const subscriptions = mediapulseUsersDashboardPage.detailBlocks?.find(
       (block) => block.label === "Subscriptions",
     );
