@@ -794,4 +794,8 @@ describe("SYSTEM_PROMPT — lead attribution fidelity", () => {
   it("forbids attributing a cause or driver the cited article does not state", () => {
     expect(SYSTEM_PROMPT).toContain("do not attribute a cause or driver");
   });
+
+  it("requires the subject to preserve forecast vs realized modality", () => {
+    expect(SYSTEM_PROMPT).toContain("do not phrase it as an accomplished fact");
+  });
 });

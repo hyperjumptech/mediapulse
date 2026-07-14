@@ -251,8 +251,10 @@ export type ContentGenerationConfig = z.output<
  * single, predictable pipeline.
  */
 export const CONTENT_GENERATION_CONSTANTS = {
-  /** Number of top news articles to feed into the prompt. */
+  /** Maximum number of articles fed into the prompt, across all sections. */
   topNewsCount: 30,
+  /** Maximum articles taken from any one section, so a dense section cannot crowd out the rest. */
+  topNewsPerSection: 8,
   /** Per-request timeout in milliseconds for LLM calls. */
   requestTimeoutMs: 120_000,
   /** Source truncation budgets for the LLM context window. */

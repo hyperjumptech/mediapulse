@@ -330,4 +330,62 @@ describe("groundNewsletterCitations", () => {
     ).toBe(true);
     expect(result.summary.floorPreserved).toBe(2);
   });
+
+  it("keeps only the minimum highest-overlap quick hits when grounding fails", () => {
+    // Setup: 3 grounded + 4 failing quick hits; the floor of 5 should keep the 3 grounded plus
+    // exactly 2 of the failures, not pad with all four.
+    const structure = minimalStructure({
+      quickHits: {
+        displayHeading: "Hits",
+        items: [
+          {
+            title: "G1",
+            text: "Bank Central Asia reported first-quarter net profit of Rp 12.4 trillion.",
+            articleIndex: 1,
+          },
+          {
+            title: "G2",
+            text: "Bank Central Asia first-quarter net profit reached Rp 12.4 trillion, beating estimates.",
+            articleIndex: 1,
+          },
+          {
+            title: "G3",
+            text: "Bank Central Asia reported Rp 12.4 trillion in first-quarter net profit as margins expanded.",
+            articleIndex: 1,
+          },
+          {
+            title: "F1",
+            text: "Rain is forecast over the weekend.",
+            articleIndex: 1,
+          },
+          {
+            title: "F2",
+            text: "A local festival drew large crowds.",
+            articleIndex: 1,
+          },
+          {
+            title: "F3",
+            text: "Traffic congestion worsened downtown.",
+            articleIndex: 1,
+          },
+          {
+            title: "F4",
+            text: "A new cafe opened in the suburbs.",
+            articleIndex: 1,
+          },
+        ],
+      },
+    });
+
+    // Act
+    const result = groundNewsletterCitations(structure, [bcaArticle], {
+      policy: "drop",
+      minOverlapScore: 0.18,
+      numericBonus: 0.2,
+    });
+
+    // Assert
+    expect(result.structure.quickHits.items).toHaveLength(5);
+    expect(result.quickHitsKeptDespiteFailedGrounding).toBe(2);
+  });
 });

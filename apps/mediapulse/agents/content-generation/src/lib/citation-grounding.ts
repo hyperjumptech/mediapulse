@@ -423,18 +423,29 @@ export const groundNewsletterCitations = (
       .map((row) => `${row.sectionKey}:${String(row.bulletIndex)}`);
 
     if (sectionRows.length - dropKeys.length < sectionMin) {
-      for (const key of dropKeys) {
-        const row = sectionRows.find(
-          (candidate) =>
-            `${candidate.sectionKey}:${String(candidate.bulletIndex)}` === key,
-        );
-        if (row === undefined) {
-          continue;
-        }
-        if (sectionKey === "quickHits") {
+      if (sectionKey === "quickHits") {
+        // Keep only enough failed quick hits to meet the schema minimum, and keep the
+        // highest-overlap ones, so the section satisfies the count without padding with the
+        // weakest ungrounded items.
+        const needed = sectionMin - (sectionRows.length - dropKeys.length);
+        const rescueKeys = dropKeys
+          .map((key) => {
+            const row = sectionRows.find(
+              (candidate) =>
+                `${candidate.sectionKey}:${String(candidate.bulletIndex)}` ===
+                key,
+            );
+            return { key, overlapScore: row?.overlapScore ?? 0 };
+          })
+          .sort((left, right) => right.overlapScore - left.overlapScore)
+          .slice(0, Math.max(0, needed))
+          .map((entry) => entry.key);
+        for (const key of rescueKeys) {
           decisions.set(key, { kind: "pass" });
           quickHitsKeptDespiteFailedGrounding += 1;
-        } else {
+        }
+      } else {
+        for (const key of dropKeys) {
           const prior = decisions.get(key);
           if (prior?.kind === "drop") {
             decisions.set(key, {
