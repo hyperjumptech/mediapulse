@@ -1,4 +1,9 @@
-import type { DashboardViewInput, DetailBlock } from "@hermes/domain-contract";
+import type {
+  DashboardViewInput,
+  DetailBlock,
+  DetailBlockBadgeVariant,
+} from "@hermes/domain-contract";
+import { MEDIAPULSE_NEWSLETTER_SECTIONS } from "@workspace/agent-data-api-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   createdAtDateRangeListFilter,
@@ -21,6 +26,17 @@ export const newslettersHermesPathSegment = "newsletters" as const;
  * fixtures stay in sync.
  */
 export const NEWSLETTER_STALE_SET_HOURS = 24 as const;
+
+/**
+ * Badge variant for each newsletter-section label in the "Articles cited" table. Keyed by the human
+ * label (the `publishedSection` value) so the badge renders consistently for every canonical section.
+ */
+export const SECTION_BADGE_VARIANTS_BY_LABEL: Record<
+  string,
+  DetailBlockBadgeVariant
+> = Object.fromEntries(
+  MEDIAPULSE_NEWSLETTER_SECTIONS.map((section) => [section.label, "outline"]),
+);
 
 /**
  * `keyValue` block describing the newsletter metadata header. The ticker name
@@ -79,28 +95,53 @@ const newslettersBodyBlock = {
 } satisfies DetailBlock;
 
 /**
- * `subTable` block bound to `citations` — deduplicated `[title](url)` and
- * `Read the full article: <url>` references in the newsletter body. The `url`
- * column renders as an external link with `rel="noopener noreferrer"`. The
- * caption template surfaces the unique-count alongside the section header so
- * reviewers can sanity-check at a glance.
+ * `subTable` block bound to `citedArticles` — the articles cited by this newsletter, read from the
+ * `newsletter_citation` table and joined to the section, score, and reason article-analysis assigned
+ * for this ticker plus the search query that surfaced each one. Gives a reviewer a straight line from
+ * the shipped newsletter back to the query and reasoning behind every citation. Rows are grouped by
+ * published section in newsletter order (server-sorted in `buildCitedArticles`). The Section column
+ * carries an inconsistency marker when the published section differs from the article-analysis
+ * classification, and the "Classified as" column names the original section for those re-placements.
  */
-const newslettersCitationsBlock = {
+const newslettersCitedArticlesBlock = {
   type: "subTable",
-  label: "Citations",
-  field: "citations",
-  captionTemplate: "Citations ({citations.length} unique)",
-  emptyState: "No citations parsed from this newsletter.",
+  label: "Articles cited",
+  field: "citedArticles",
+  captionTemplate: "Articles cited ({citedArticles.length})",
+  emptyState: "No citations recorded for this newsletter.",
   columns: [
-    { field: "title", label: "Title", type: "text" },
-    { field: "domain", label: "Domain", type: "text" },
+    {
+      field: "title",
+      label: "Title",
+      type: "text",
+      truncate: 80,
+      linkTemplate: "/dashboard/{integrationId}/data-sources/{id}",
+    },
+    {
+      field: "publishedSection",
+      label: "Section",
+      type: "badge",
+      badgeVariants: SECTION_BADGE_VARIANTS_BY_LABEL,
+      inconsistentField: "sectionMismatch",
+    },
+    { field: "classifiedSection", label: "Classified as", type: "text" },
+    { field: "sectionScore", label: "Score", type: "number" },
+    {
+      field: "queryText",
+      label: "Query",
+      type: "text",
+      truncate: 60,
+      linkTemplate:
+        "/dashboard/{integrationId}/search-queries?tickerId={queryLinkTickerId}",
+    },
+    { field: "sectionReason", label: "Reason", type: "text", truncate: 120 },
     {
       field: "url",
       label: "URL",
       type: "text",
       linkTemplate: "{url}",
       linkExternal: true,
-      truncate: 80,
+      truncate: 60,
     },
   ],
 } satisfies DetailBlock;
@@ -203,7 +244,7 @@ const newslettersSelectedSourcesBlock = {
  */
 const newslettersSearchQueriesBlock = {
   type: "subTable",
-  label: "Search queries",
+  label: "Search queries used",
   field: "activeQuerySet.queries",
   captionTemplate:
     "Active set generated {activeQuerySet.generatedAt} (source: {activeQuerySet.generationSource})",
@@ -239,19 +280,6 @@ const newslettersEmailPreviewBlock = {
   type: "htmlPreview",
   label: "Email preview",
   field: "emailPreviewHtml",
-} satisfies DetailBlock;
-
-/**
- * `htmlPreview` block bound to `chronicleHtml` — the end-to-end generation
- * Chronicle rendered server-side. The Hermes generic renderer drops it into a
- * sandboxed iframe. A dedicated per-record route is not supported by the generic
- * dashboard (placements are `sidebar` / `agent-tab` only), so the Chronicle is
- * embedded here rather than at its own URL.
- */
-const newslettersChronicleBlock = {
-  type: "htmlPreview",
-  label: "Chronicle",
-  field: "chronicleHtml",
 } satisfies DetailBlock;
 
 /**
@@ -333,9 +361,8 @@ export const newslettersDashboardPage = {
     newslettersRecipientsBlock,
     newslettersSelectedSourcesBlock,
     newslettersSearchQueriesBlock,
-    newslettersCitationsBlock,
+    newslettersCitedArticlesBlock,
     newslettersEmailPreviewBlock,
-    newslettersChronicleBlock,
     newslettersHermesLinksBlock,
   ],
   customActions: newslettersCustomActionsForManifest,
