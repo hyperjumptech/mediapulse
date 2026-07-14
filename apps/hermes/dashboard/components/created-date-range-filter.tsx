@@ -23,6 +23,24 @@ type CreatedDateRangeFilterProps = {
 };
 
 /**
+ * Drops `from`/`to` from preserve params so they are not duplicated as hidden
+ * inputs alongside the visible date controls in this form.
+ *
+ * @param preserveParams - Caller-supplied params to keep across submit/clear.
+ * @returns Params excluding keys owned by the date inputs.
+ */
+const omitOwnedDateRangeParams = (
+  preserveParams: CreatedDateRangeFilterPreserveParams,
+): CreatedDateRangeFilterPreserveParams => {
+  const next: CreatedDateRangeFilterPreserveParams = {};
+  for (const [key, value] of Object.entries(preserveParams)) {
+    if (key === "from" || key === "to") continue;
+    next[key] = value;
+  }
+  return next;
+};
+
+/**
  * Reusable created-date range filter using HTML date inputs (`from` / `to` query params).
  * Supports a single day (same from/to), from-only, or to-only bounds.
  */
@@ -34,9 +52,10 @@ export const CreatedDateRangeFilter = ({
   showActions = true,
 }: CreatedDateRangeFilterProps) => {
   const { hasActiveFilters } = useCreatedDateRangeFilter({ from, to });
+  const safePreserveParams = omitOwnedDateRangeParams(preserveParams);
 
   const clearParams = new URLSearchParams();
-  for (const [key, value] of Object.entries(preserveParams)) {
+  for (const [key, value] of Object.entries(safePreserveParams)) {
     clearParams.set(key, value);
   }
   const clearHref =
@@ -53,7 +72,7 @@ export const CreatedDateRangeFilter = ({
         role="search"
         aria-label="Filter by created date"
       >
-        {Object.entries(preserveParams).map(([key, value]) => (
+        {Object.entries(safePreserveParams).map(([key, value]) => (
           <input key={key} type="hidden" name={key} value={value} />
         ))}
         <div className="flex flex-col gap-1">

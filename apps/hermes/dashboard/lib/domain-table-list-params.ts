@@ -3,7 +3,10 @@ import type {
   TableV1MetaResponse,
 } from "@hermes/domain-contract";
 
-export type DomainTableSearchParams = Record<string, string | undefined>;
+export type DomainTableSearchParams = Record<
+  string,
+  string | string[] | undefined
+>;
 
 export type DomainTableListParamsParsed = {
   page: number;
@@ -13,6 +16,21 @@ export type DomainTableListParamsParsed = {
   sortDir: "asc" | "desc";
   /** Parsed filter query params keyed by URL param name. */
   filters: Record<string, string>;
+};
+
+/**
+ * Returns the first string value from a Next.js search param that may be duplicated.
+ *
+ * @param value - Raw search param value (`string`, `string[]`, or undefined).
+ * @returns The first non-array string, or `undefined` when empty.
+ */
+export const firstSearchParamValue = (
+  value: string | string[] | undefined,
+): string | undefined => {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return value;
 };
 
 /**
@@ -32,14 +50,14 @@ export const parseDomainTableFilterValues = (
     if (filter.ui === "date-range") {
       const fromKey = filter.rangeParams?.from ?? "from";
       const toKey = filter.rangeParams?.to ?? "to";
-      const from = searchParams[fromKey]?.trim();
-      const to = searchParams[toKey]?.trim();
+      const from = firstSearchParamValue(searchParams[fromKey])?.trim();
+      const to = firstSearchParamValue(searchParams[toKey])?.trim();
       if (from) filters[fromKey] = from;
       if (to) filters[toKey] = to;
       continue;
     }
 
-    const value = searchParams[filter.key]?.trim();
+    const value = firstSearchParamValue(searchParams[filter.key])?.trim();
     if (value) {
       filters[filter.key] = value;
     }
@@ -75,12 +93,19 @@ export const parseDomainTableSearchParams = (
   searchParams: DomainTableSearchParams,
   listFilters: TableV1ListFilterDefinition[] = [],
 ): Omit<DomainTableListParamsParsed, "sortBy" | "sortDir"> => {
-  const page = Math.max(1, Number.parseInt(searchParams.page ?? "1", 10) || 1);
+  const page = Math.max(
+    1,
+    Number.parseInt(firstSearchParamValue(searchParams.page) ?? "1", 10) || 1,
+  );
   const pageSize = Math.min(
     100,
-    Math.max(1, Number.parseInt(searchParams.size ?? "15", 10) || 15),
+    Math.max(
+      1,
+      Number.parseInt(firstSearchParamValue(searchParams.size) ?? "15", 10) ||
+        15,
+    ),
   );
-  const query = searchParams.q?.trim() || undefined;
+  const query = firstSearchParamValue(searchParams.q)?.trim() || undefined;
 
   return {
     page,
@@ -98,14 +123,15 @@ export const parseDomainTableSearchParams = (
  * @returns `sortBy` and `sortDir` for the domain list API.
  */
 export const resolveDomainTableListSort = (
-  searchParams: { sort?: string; dir?: string },
+  searchParams: DomainTableSearchParams,
   meta: Pick<TableV1MetaResponse, "sortableFields" | "defaultSort">,
 ): { sortBy?: string; sortDir: "asc" | "desc" } => {
-  const urlSort = searchParams.sort?.trim();
+  const urlSort = firstSearchParamValue(searchParams.sort)?.trim();
   if (urlSort && meta.sortableFields.includes(urlSort)) {
     return {
       sortBy: urlSort,
-      sortDir: searchParams.dir === "asc" ? "asc" : "desc",
+      sortDir:
+        firstSearchParamValue(searchParams.dir) === "asc" ? "asc" : "desc",
     };
   }
   if (meta.defaultSort) {
@@ -140,10 +166,14 @@ export const buildDomainTableListParams = (
 };
 
 /**
- * Query params to preserve across search, sort, pagination, and filter forms.
+ * Query params to preserve across search, sort, and pagination links.
+ *
+ * Includes active filter keys so those controls keep filters in the URL.
+ * Do not pass this map into the filter form — use
+ * {@link buildDomainTableFilterFormPreserveParams} instead.
  *
  * @param params - Parsed list params including resolved sort.
- * @returns URL query keys (`sort`, `dir`, filters) for hidden inputs and links.
+ * @returns URL query keys (`sort`, `dir`, filters) for links.
  */
 export const buildDomainTablePreserveParams = (
   params: DomainTableListParamsParsed,
@@ -152,6 +182,30 @@ export const buildDomainTablePreserveParams = (
   if (params.sortBy) {
     extra.sort = params.sortBy;
     extra.dir = params.sortDir;
+  }
+  return extra;
+};
+
+/**
+ * Query params the filter GET form should preserve as hidden inputs.
+ *
+ * Excludes filter keys (and date-range `from`/`to`) because the form already
+ * renders visible controls for those names. Including them causes duplicate
+ * query params on submit and can crash server parsing.
+ *
+ * @param params - Parsed list params including resolved sort and search.
+ * @returns URL query keys (`sort`, `dir`, `q`) owned by other list controls.
+ */
+export const buildDomainTableFilterFormPreserveParams = (
+  params: DomainTableListParamsParsed,
+): Record<string, string> => {
+  const extra: Record<string, string> = {};
+  if (params.sortBy) {
+    extra.sort = params.sortBy;
+    extra.dir = params.sortDir;
+  }
+  if (params.query) {
+    extra.q = params.query;
   }
   return extra;
 };

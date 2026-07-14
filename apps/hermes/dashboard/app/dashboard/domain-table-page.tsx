@@ -35,8 +35,8 @@ import {
 } from "@/lib/domain-table-form-schema";
 import {
   buildDomainTableFilterExtraParams,
+  buildDomainTableFilterFormPreserveParams,
   buildDomainTableListParams,
-  buildDomainTablePreserveParams,
   type DomainTableSearchParams,
 } from "@/lib/domain-table-list-params";
 
@@ -110,7 +110,8 @@ export const DomainTablePage = async ({
   const meta = await getDomainTableMeta(integrationId, resource);
   const params = buildDomainTableListParams(resolved, meta);
   const list = await getDomainTableList(integrationId, resource, params);
-  const preserveParams = buildDomainTablePreserveParams(params);
+  const filterFormPreserveParams =
+    buildDomainTableFilterFormPreserveParams(params);
   const filterExtraParams = buildDomainTableFilterExtraParams(params.filters);
   const listFilters = meta.listFilters ?? [];
   const showListFilters = listFilters.length > 0;
@@ -231,7 +232,7 @@ export const DomainTablePage = async ({
           listFilters={listFilters}
           filterOptions={meta.filterOptions}
           filterValues={params.filters}
-          preserveParams={preserveParams}
+          preserveParams={filterFormPreserveParams}
         />
       ) : null}
 
