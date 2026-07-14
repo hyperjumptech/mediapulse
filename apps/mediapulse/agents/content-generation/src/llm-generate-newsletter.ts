@@ -665,6 +665,7 @@ export async function generateNewsletterWithLlm(
   const withinRunDeduped: WithinRunDedupResult = dedupeWithinRun(
     resolved,
     requireCitation.withinRunDedupSimilarity,
+    requireCitation.withinRunTitleDedupSimilarity,
   );
   resolved = withinRunDeduped.resolved;
 

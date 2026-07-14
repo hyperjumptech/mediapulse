@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { IndustryNewsletterResolved } from "../industry-newsletter-urls.js";
-import { pruneNewsletterToCitedRows } from "./prune-uncited-rows.js";
+import {
+  dedupeWithinRun,
+  pruneNewsletterToCitedRows,
+} from "./prune-uncited-rows.js";
 
 const CITED_URL_A = "https://source.example/a";
 const CITED_URL_B = "https://source.example/b";
@@ -447,5 +450,56 @@ describe("pruneNewsletterToCitedRows — section removal", () => {
 
     expect(pruned.competitiveLandscape?.bullets).toHaveLength(2);
     expect(summary.bulletsRemovedDuplicateTitle).toBe(0);
+  });
+});
+
+describe("dedupeWithinRun — reworded near-duplicate titles", () => {
+  it("drops a second item whose title is a reworded headline of the same event", () => {
+    const resolved: IndustryNewsletterResolved = {
+      subject: "S",
+      quickHits: {
+        displayHeading: "Hits",
+        items: [
+          {
+            title: "Telkomsel hadirkan tiga site baru di Kabupaten Kupang",
+            text: "Operator memperluas cakupan layanan di wilayah timur.",
+            url: "https://source.example/antara",
+          },
+          {
+            title:
+              "Telkomsel Perkuat Jaringan, Tiga Site Baru Hadir di Kabupaten Kupang",
+            text: "Perusahaan menambah infrastruktur untuk mendukung pengguna lokal.",
+            url: "https://source.example/pancar",
+          },
+        ],
+      },
+    };
+    const result = dedupeWithinRun(resolved);
+    expect(result.removedCount).toBe(1);
+    expect(result.resolved.quickHits?.items).toHaveLength(1);
+  });
+
+  it("keeps two distinct stories that share only a few title tokens", () => {
+    const resolved: IndustryNewsletterResolved = {
+      subject: "S",
+      quickHits: {
+        displayHeading: "Hits",
+        items: [
+          {
+            title: "Telkomsel raih tiga penghargaan AI global",
+            text: "Perusahaan diakui atas inovasi kecerdasan buatan.",
+            url: "https://source.example/awards",
+          },
+          {
+            title: "Telkom tuntaskan streamlining sepuluh entitas",
+            text: "Restrukturisasi mempercepat transformasi bisnis.",
+            url: "https://source.example/streamline",
+          },
+        ],
+      },
+    };
+    const result = dedupeWithinRun(resolved);
+    expect(result.removedCount).toBe(0);
+    expect(result.resolved.quickHits?.items).toHaveLength(2);
   });
 });

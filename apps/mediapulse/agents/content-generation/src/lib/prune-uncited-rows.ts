@@ -366,6 +366,8 @@ export type WithinRunDedupResult = {
 
 type ResolvedItem = IndustryBulletResolved | IndustryQuickHitResolved;
 
+const DEFAULT_TITLE_DEDUP_SIMILARITY = 0.5;
+
 const scoreItemSimilarity = (
   left: ResolvedItem,
   right: ResolvedItem,
@@ -378,11 +380,27 @@ const scoreItemSimilarity = (
   return shingleJaccardSimilarity(leftShingles, rightShingles);
 };
 
+// Bag-of-words over titles, not 3-grams: reworded headlines of one event keep the same token set
+// but few shared 3-grams, so text similarity misses them.
+const scoreTitleSimilarity = (
+  left: ResolvedItem,
+  right: ResolvedItem,
+): number => {
+  if (left.title === undefined || right.title === undefined) {
+    return 0;
+  }
+  const leftTokens = new Set(tokenize(left.title));
+  const rightTokens = new Set(tokenize(right.title));
+
+  return shingleJaccardSimilarity(leftTokens, rightTokens);
+};
+
 const dedupeItems = <T extends ResolvedItem>(
   items: T[],
   seenTitles: Set<string>,
   corpus: ResolvedItem[],
   minSimilarity: number,
+  titleMinSimilarity: number,
 ): { kept: T[]; removedCount: number } => {
   const kept: T[] = [];
   let removedCount = 0;
@@ -403,8 +421,10 @@ const dedupeItems = <T extends ResolvedItem>(
 
     let isDuplicate = false;
     for (const seenItem of corpus) {
-      const similarity = scoreItemSimilarity(item, seenItem);
-      if (similarity >= minSimilarity) {
+      if (
+        scoreItemSimilarity(item, seenItem) >= minSimilarity ||
+        scoreTitleSimilarity(item, seenItem) >= titleMinSimilarity
+      ) {
         isDuplicate = true;
         break;
       }
@@ -439,6 +459,7 @@ const dedupeItems = <T extends ResolvedItem>(
 export const dedupeWithinRun = (
   resolved: IndustryNewsletterResolved,
   minSimilarity: number = 0.55,
+  titleMinSimilarity: number = DEFAULT_TITLE_DEDUP_SIMILARITY,
 ): WithinRunDedupResult => {
   const seenTitles = new Set<string>();
   const corpus: ResolvedItem[] = [];
@@ -447,7 +468,7 @@ export const dedupeWithinRun = (
   const dedupeSection = <T extends ResolvedItem>(
     items: T[],
   ): { kept: T[]; removedCount: number } =>
-    dedupeItems(items, seenTitles, corpus, minSimilarity);
+    dedupeItems(items, seenTitles, corpus, minSimilarity, titleMinSimilarity);
 
   let competitiveLandscape = resolved.competitiveLandscape;
   if (competitiveLandscape !== undefined) {
