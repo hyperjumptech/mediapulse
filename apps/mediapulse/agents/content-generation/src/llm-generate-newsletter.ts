@@ -39,6 +39,7 @@ import {
   type CitationGroundingSummary,
 } from "./lib/citation-grounding.js";
 import { retryWithBackoff } from "./lib/retry.js";
+import { selectSourcesPerSection } from "./lib/select-sources-per-section.js";
 import { truncateSources } from "./lib/truncate-sources.js";
 import type { SourceForGeneration } from "./types.js";
 
@@ -338,7 +339,7 @@ Focus on what is happening outside the company — macro forces, regulatory shif
 You receive exactly {{topNewsCount}} numbered articles (Article 1 … Article {{topNewsCount}}). Ground claims in those articles. When a bullet or quick hit should link to a source in the final email, set "articleIndex" to the 1-based article number from that list. Never output URLs in JSON; the system injects them. Never write "(Article N)", "(cited Article N)", "(see Article N)", or bare article numbers inside any "text" or "prose" field; citations are expressed only via "articleIndex", and the system renders the visible link.
 
 Return JSON matching this shape (camelCase keys):
-- "subject": short email subject title only (under ~48 chars), sector-relevant headline text. Do not include a "SYMBOL Pulse:" prefix — the system adds that automatically. Avoid repeating {{tickerSymbol}} in the title when the prefix already identifies the ticker.
+- "subject": short email subject title only (under ~48 chars), sector-relevant headline text. Do not include a "SYMBOL Pulse:" prefix — the system adds that automatically. Avoid repeating {{tickerSymbol}} in the title when the prefix already identifies the ticker. Keep the subject faithful to the actual state of the lead story: when the story is a forecast, prediction, risk, or possibility, do not phrase it as an accomplished fact (for example write "could surge" or "may rise", not "surges").
 - "industryPulse": { "displayHeading", "prose", "articleIndex" } — short lead framing the industry story (no bullet characters in prose). Set "articleIndex" to the single most representative article the lead summarizes; use null when the lead does not lean on a specific article.
 - "competitiveLandscape": { "displayHeading", "bullets" } — 2–3 bullets about {{tickerName}}'s COMPETITORS, not {{tickerName}} itself — peer positioning, rival launches, share shifts, competitive threats. Each bullet should name a competitor. Each bullet { "title", "text", "articleIndex" } where "title" is a short headline (under 60 chars) naming the story, "text" is the full bullet sentence, and articleIndex is a 1-based article number or null when uncited.
 - "dealsAndMovements": { "displayHeading", "bullets" } — 1–3 bullets; each bullet { "title", "text", "articleIndex" } with the same title and articleIndex rules.
@@ -519,8 +520,13 @@ export async function generateNewsletterWithLlm(
 ): Promise<GeneratedContentWithProvenance> {
   const generateFn = deps.generateObjectFn ?? defaultGenerateNewsletterObject;
 
-  const { topNewsCount, requestTimeoutMs, truncation, retry } =
-    CONTENT_GENERATION_CONSTANTS;
+  const {
+    topNewsCount,
+    topNewsPerSection,
+    requestTimeoutMs,
+    truncation,
+    retry,
+  } = CONTENT_GENERATION_CONSTANTS;
 
   // Truncate sources per hardcoded character limits before building prompts.
   // Sources are tail-truncated per-source, then the overall total is capped by
@@ -531,9 +537,14 @@ export async function generateNewsletterWithLlm(
     truncation.maxTotalContextChars,
   );
 
-  // Pre-select up to N sources for the prompt, then group them by their
-  // authoritative upstream section so the prompt presents articles section-by-section.
-  const selectedSources = truncatedSources.slice(0, topNewsCount);
+  // Pre-select sources fairly across sections (top-per-section, not a single global score cut),
+  // then group them by their authoritative upstream section so the prompt presents articles
+  // section-by-section.
+  const selectedSources = selectSourcesPerSection(
+    truncatedSources,
+    topNewsPerSection,
+    topNewsCount,
+  );
   const promptSources = groupSourcesBySection(selectedSources);
   const effectiveTopNewsCount = promptSources.length;
 
