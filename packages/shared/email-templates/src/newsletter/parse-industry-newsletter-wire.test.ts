@@ -99,6 +99,60 @@ describe("parseIndustryNewsletterWire", () => {
     }
   });
 
+  it("peels the trailing url even when the read label was translated to another language", () => {
+    // Setup: the translation pass localizes the "Read the full article" label; the URL must still be extracted.
+    const wire = [
+      INDUSTRY_NEWSLETTER_WIRE_MARKER,
+      "",
+      "BEGIN industry-pulse",
+      "DISPLAY_HEADING",
+      "Perkembangan Regulasi dalam Pertambangan",
+      "SOURCE Fajar",
+      "PROSE",
+      "Pembaruan regulasi terbaru di sektor pertambangan Indonesia.",
+      "Baca artikel lengkapnya: https://fajar.example/reklamasi-dan-rkab",
+      "END",
+      "",
+      "BEGIN quick-hits",
+      "DISPLAY_HEADING",
+      "Sorotan Singkat",
+      "ITEM",
+      "TITLE Harga Batu Bara DMO ke Pembangkit Disarankan Naik Jadi US$90",
+      "SOURCE Bloombergtechnoz",
+      "Forum Pertambangan merekomendasikan revisi harga batu bara.",
+      "Baca artikel lengkapnya: https://bloombergtechnoz.example/harga-batu-bara",
+      "END",
+    ].join("\n");
+
+    const parsed = parseIndustryNewsletterWire(wire);
+    const pulseSection = parsed?.sections.find(
+      (s) => s.machineKey === "industry-pulse",
+    );
+    const quickHits = parsed?.sections.find(
+      (s) => s.machineKey === "quick-hits",
+    );
+
+    expect(pulseSection?.machineKey).toBe("industry-pulse");
+    if (pulseSection?.machineKey === "industry-pulse") {
+      expect(pulseSection.prose).toBe(
+        "Pembaruan regulasi terbaru di sektor pertambangan Indonesia.",
+      );
+      expect(pulseSection.url).toBe("https://fajar.example/reklamasi-dan-rkab");
+    }
+    expect(quickHits?.machineKey).toBe("quick-hits");
+    if (quickHits?.machineKey === "quick-hits") {
+      expect(quickHits.items[0]?.text).toBe(
+        "Forum Pertambangan merekomendasikan revisi harga batu bara.",
+      );
+      expect(quickHits.items[0]?.url).toBe(
+        "https://bloombergtechnoz.example/harga-batu-bara",
+      );
+      expect(quickHits.items[0]?.title).toBe(
+        "Harga Batu Bara DMO ke Pembangkit Disarankan Naik Jadi US$90",
+      );
+    }
+  });
+
   it("leaves url undefined when industry-pulse prose has no trailing source line", () => {
     const wire = [
       INDUSTRY_NEWSLETTER_WIRE_MARKER,

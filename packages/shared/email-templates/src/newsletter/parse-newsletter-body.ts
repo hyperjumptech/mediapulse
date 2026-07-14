@@ -3,14 +3,14 @@ import {
   type IndustryParsedNewsletterBody,
 } from "./parse-industry-newsletter-wire.js";
 
-/** Visible label used for the per-item source link emitted by the content generator. */
-const READ_FULL_ARTICLE_LABEL = "Read the full article";
-
-/** Matches a trailing `Read the full article: <url>` line at the end of a summary block. */
-const READ_FULL_ARTICLE_LINE_REGEX = new RegExp(
-  String.raw`(?:^|\n)\s*` + READ_FULL_ARTICLE_LABEL + String.raw`:\s*(\S+)\s*$`,
-  "i",
-);
+/**
+ * Matches the trailing citation line ending in a URL at the end of a summary block.
+ *
+ * The "Read the full article" label is machine plumbing that the translation pass may
+ * localize (e.g. Indonesian "Baca artikel lengkapnya: <url>"), so the URL is matched
+ * structurally rather than by the English label to keep links intact in every language.
+ */
+const TRAILING_SOURCE_URL_REGEX = /(?:^|\n)[^\n]*?(https?:\/\/\S+)\s*$/;
 
 /** Matches a leading `N. <title>` line at the start of an item chunk. */
 const ITEM_HEADING_REGEX = /^\s*(\d+)\.\s+(.+?)\s*(?:\n|$)/;
@@ -60,7 +60,7 @@ const SEPARATOR = "\n---\n";
  */
 function extractSourceUrl(block: string): { summary: string; url?: string } {
   const trimmed = block.trim();
-  const match = READ_FULL_ARTICLE_LINE_REGEX.exec(trimmed);
+  const match = TRAILING_SOURCE_URL_REGEX.exec(trimmed);
   if (match === null) {
     return { summary: trimmed };
   }

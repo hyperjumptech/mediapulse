@@ -5,18 +5,21 @@
  */
 export const INDUSTRY_NEWSLETTER_WIRE_MARKER = "MP_NEWSLETTER";
 
-const READ_FULL_ARTICLE_LABEL = "Read the full article";
-
 const TITLE_PREFIX = "TITLE ";
 
 const AUTHOR_PREFIX = "AUTHOR ";
 
 const SOURCE_PREFIX = "SOURCE ";
 
-const READ_FULL_ARTICLE_LINE_REGEX = new RegExp(
-  String.raw`(?:^|\n)\s*` + READ_FULL_ARTICLE_LABEL + String.raw`:\s*(\S+)\s*$`,
-  "i",
-);
+/**
+ * Matches the trailing citation line ending in a URL.
+ *
+ * The visible "Read the full article" label is machine plumbing (the renderer emits its
+ * own CTA), so the translation pass may localize it — e.g. Indonesian "Baca artikel
+ * lengkapnya: <url>". Matching on the trailing URL rather than the English label keeps
+ * citation links intact in every language.
+ */
+const TRAILING_SOURCE_URL_REGEX = /(?:^|\n)[^\n]*?(https?:\/\/\S+)\s*$/;
 
 /** Parsed industry-pulse block. */
 export type ParsedIndustryPulseSection = {
@@ -87,7 +90,7 @@ const splitTrailingReadLine = (
   block: string,
 ): { text: string; url?: string } => {
   const trimmed = block.trim();
-  const match = READ_FULL_ARTICLE_LINE_REGEX.exec(trimmed);
+  const match = TRAILING_SOURCE_URL_REGEX.exec(trimmed);
   if (match === null) {
     return { text: trimmed };
   }
