@@ -1,8 +1,9 @@
 import type { IndustryNewsletterStructure } from "./industry-newsletter-schema.js";
 
-/** Minimal source row used to resolve `articleIndex` into URL and byline. */
+/** Minimal source row used to resolve `articleIndex` into title, URL, and byline. */
 export type IndustryNewsletterSourceRow = {
   url: string;
+  title?: string | null;
   author?: string | null;
   source?: string | null;
 };
@@ -98,6 +99,27 @@ export const resolveArticleUrlForIndustryNewsletter = (
 };
 
 /**
+ * Resolves the source article's own title for a 1-based article index.
+ *
+ * The reader-facing "Read …" link text is the article's real title, taken verbatim
+ * from the source row, so it always matches the linked URL and is never a model-authored
+ * or translated headline.
+ *
+ * @param index - 1-based article index from the LLM, when defined.
+ * @param sources - Articles in prompt order (`Article 1` … `Article N`).
+ * @returns Trimmed article title when the index is in range and non-empty; otherwise `undefined`.
+ */
+export const resolveArticleTitleForIndustryNewsletter = (
+  index: number | undefined,
+  sources: ReadonlyArray<IndustryNewsletterSourceRow>,
+): string | undefined => {
+  if (index === undefined) return undefined;
+  const row = sources[index - 1];
+  const title = row?.title?.trim() ?? "";
+  return title.length > 0 ? title : undefined;
+};
+
+/**
  * Resolves the author/source byline for a 1-based article index.
  *
  * @param index - 1-based article index from the LLM, when defined.
@@ -134,7 +156,9 @@ export const attachIndustryNewsletterSourceUrls = (
     text: string;
     articleIndex?: number;
   }): IndustryBulletResolved => ({
-    title: b.title,
+    title:
+      resolveArticleTitleForIndustryNewsletter(b.articleIndex, sources) ??
+      b.title,
     text: b.text,
     url: resolveArticleUrlForIndustryNewsletter(b.articleIndex, sources),
     ...resolveArticleBylineForIndustryNewsletter(b.articleIndex, sources),
@@ -145,7 +169,9 @@ export const attachIndustryNewsletterSourceUrls = (
     text: string;
     articleIndex: number;
   }): IndustryQuickHitResolved => ({
-    title: h.title,
+    title:
+      resolveArticleTitleForIndustryNewsletter(h.articleIndex, sources) ??
+      h.title,
     text: h.text,
     url: resolveArticleUrlForIndustryNewsletter(h.articleIndex, sources),
     ...resolveArticleBylineForIndustryNewsletter(h.articleIndex, sources),

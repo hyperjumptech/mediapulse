@@ -81,6 +81,26 @@ describe("scoreBulletAgainstArticle", () => {
     // Assert
     expect(score).toBeLessThan(0.1);
   });
+
+  it("does not ground a fabricated bullet on a coincidental single-digit match", () => {
+    // Setup
+    const telkomArticle: SourceForGeneration = {
+      url: "https://analisadaily.com/berita/baca/1075375/telkom-transformasi-digital",
+      title:
+        "Di Usia 61 Tahun, Telkom Indonesia Gelorakan Semangat Transformasi Digital Nasional",
+      content:
+        "PT Telkom Indonesia memasuki usia ke-61 tahun dengan tajuk Siner61 Transformasi di kawasan The Telkom Hub, Jakarta.",
+    };
+
+    // Act
+    const score = scoreBulletAgainstArticle(
+      "XLSMART has deployed over 300 5G sites, with investments in AI-enabled migration and regional infrastructure around IKN.",
+      telkomArticle,
+    );
+
+    // Assert
+    expect(score).toBeLessThan(0.18);
+  });
 });
 
 describe("groundNewsletterCitations", () => {

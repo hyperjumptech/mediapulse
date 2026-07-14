@@ -105,7 +105,10 @@ export const shingleJaccardSimilarity = (
 };
 
 /**
- * Returns true when any numeric token in the bullet appears in the article text.
+ * Returns true when a distinctive numeric figure in the bullet appears in the article text.
+ *
+ * Single-digit figures are ignored: a lone digit (e.g. the "5" in "5G") matches almost
+ * every article and would ground an unrelated citation on coincidence alone.
  *
  * @param bulletText - Generated bullet or quick-hit text.
  * @param articleText - Title plus truncated body used for grounding.
@@ -115,12 +118,15 @@ export const bulletNumbersMatchArticle = (
   articleText: string,
 ): boolean => {
   const bulletNumbers = bulletText.match(NUMERIC_PATTERN) ?? [];
-  if (bulletNumbers.length === 0) {
+  const distinctiveNumbers = bulletNumbers.filter(
+    (value) => value.replace(/[.,]/g, "").length >= 2,
+  );
+  if (distinctiveNumbers.length === 0) {
     return false;
   }
 
   const normalizedArticle = articleText.replace(/,/g, "");
-  return bulletNumbers.some((value) =>
+  return distinctiveNumbers.some((value) =>
     normalizedArticle.includes(value.replace(/,/g, "")),
   );
 };
@@ -129,6 +135,8 @@ export const bulletNumbersMatchArticle = (
  * Scores how well a bullet's cited claim overlaps its source article.
  *
  * Uses 3-gram Jaccard over stopword-filtered tokens plus an optional numeric bonus.
+ * The numeric bonus only reinforces a non-zero textual overlap; it never grounds a
+ * bullet on its own, so a fabricated claim cannot pass on a coincidental shared figure.
  *
  * @param bulletText - Generated bullet or quick-hit text.
  * @param article - Cited source row from the prompt list.
@@ -145,7 +153,7 @@ export const scoreBulletAgainstArticle = (
   const articleShingles = buildWordShingles(tokenize(articleText));
   let score = shingleJaccardSimilarity(bulletShingles, articleShingles);
 
-  if (bulletNumbersMatchArticle(bulletText, articleText)) {
+  if (score > 0 && bulletNumbersMatchArticle(bulletText, articleText)) {
     score = Math.min(1, score + numericBonus);
   }
 
