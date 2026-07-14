@@ -8,6 +8,7 @@ import {
 import { industryNewsletterStructureSchema } from "./industry-newsletter-schema.js";
 import {
   attachIndustryNewsletterSourceUrls,
+  resolveArticleTitleForIndustryNewsletter,
   resolveArticleUrlForIndustryNewsletter,
   type IndustryNewsletterResolved,
 } from "./industry-newsletter-urls.js";
@@ -28,6 +29,44 @@ describe("resolveArticleUrlForIndustryNewsletter", () => {
     expect(resolveArticleUrlForIndustryNewsletter(2, sources)).toBe(
       "https://b.example",
     );
+  });
+});
+
+describe("resolveArticleTitleForIndustryNewsletter", () => {
+  const sources = [
+    {
+      url: "https://rri.co.id/.../stable-telecom-ecosystem-crucial-for-5g-development-govt",
+      title: "Stable Telecom Ecosystem Crucial for 5G Development: Govt",
+    },
+    { url: "https://b.example", title: "  Second Article Title  " },
+    { url: "https://c.example" },
+  ];
+
+  it("returns undefined for undefined or out-of-range indices", () => {
+    expect(
+      resolveArticleTitleForIndustryNewsletter(undefined, sources),
+    ).toBeUndefined();
+    expect(
+      resolveArticleTitleForIndustryNewsletter(0, sources),
+    ).toBeUndefined();
+    expect(
+      resolveArticleTitleForIndustryNewsletter(4, sources),
+    ).toBeUndefined();
+  });
+
+  it("returns the source article title verbatim (trimmed) for in-range indices", () => {
+    expect(resolveArticleTitleForIndustryNewsletter(1, sources)).toBe(
+      "Stable Telecom Ecosystem Crucial for 5G Development: Govt",
+    );
+    expect(resolveArticleTitleForIndustryNewsletter(2, sources)).toBe(
+      "Second Article Title",
+    );
+  });
+
+  it("returns undefined when the source row has no title", () => {
+    expect(
+      resolveArticleTitleForIndustryNewsletter(3, sources),
+    ).toBeUndefined();
   });
 });
 
@@ -159,6 +198,39 @@ describe("attachIndustryNewsletterSourceUrls", () => {
     expect(disruptorsOrTech.format).toBe("bullets");
     if (disruptorsOrTech.format === "bullets") {
       expect(disruptorsOrTech.bullets[0]?.url).toBe("https://two.example");
+    }
+  });
+
+  it("uses the source article title, not the model headline, for cited rows", () => {
+    const sources = [
+      {
+        url: "https://rri.co.id/.../stable-telecom-ecosystem-crucial-for-5g-development-govt",
+        title: "Stable Telecom Ecosystem Crucial for 5G Development: Govt",
+      },
+      {
+        url: "https://analisadaily.com/.../di-usia-61-tahun-telkom-indonesia",
+        title:
+          "Di Usia 61 Tahun, Telkom Indonesia Gelorakan Semangat Transformasi Digital Nasional",
+      },
+    ];
+    const resolved = attachIndustryNewsletterSourceUrls(briefing, sources);
+    const competitiveLandscape = resolved.competitiveLandscape!;
+    const disruptorsOrTech = resolved.disruptorsOrTech!;
+
+    // Bullet cites Article 1: title is the real article title, matching the URL.
+    expect(competitiveLandscape.bullets[0]?.title).toBe(
+      "Stable Telecom Ecosystem Crucial for 5G Development: Govt",
+    );
+    expect(competitiveLandscape.bullets[0]?.url).toContain(
+      "stable-telecom-ecosystem-crucial-for-5g-development-govt",
+    );
+    // Uncited bullet (bad index 99) keeps no URL and falls back to the model title.
+    expect(competitiveLandscape.bullets[1]?.url).toBeUndefined();
+    expect(competitiveLandscape.bullets[1]?.title).toBe("T2");
+    if (disruptorsOrTech.format === "bullets") {
+      expect(disruptorsOrTech.bullets[0]?.title).toBe(
+        "Di Usia 61 Tahun, Telkom Indonesia Gelorakan Semangat Transformasi Digital Nasional",
+      );
     }
   });
 });
