@@ -141,4 +141,74 @@ describe("DomainTableListFilters", () => {
     expect(screen.getByRole("option", { name: "Yes" })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Clear filters/i })).toBeTruthy();
   });
+
+  it("does not emit duplicate filter names when preserving sort and search", () => {
+    // Setup
+    const { container } = render(
+      <DomainTableListFilters
+        basePath="/dashboard/mediapulse/data-sources"
+        listFilters={[
+          {
+            key: "tickerId",
+            label: "Ticker",
+            ui: "select",
+            optionsMetaKey: "tickerOptions",
+          },
+          {
+            key: "collectionSource",
+            label: "Collected by",
+            ui: "select",
+            optionsMetaKey: "collectionSourceOptions",
+          },
+          {
+            key: "createdAt",
+            label: "Created",
+            ui: "date-range",
+            rangeParams: { from: "from", to: "to" },
+          },
+        ]}
+        filterOptions={{
+          tickerOptions: [{ value: "ticker-1", label: "Acme" }],
+          collectionSourceOptions: [
+            { value: "page-collection", label: "Page Collection" },
+            { value: "data-collection", label: "Data Collection" },
+          ],
+        }}
+        filterValues={{
+          tickerId: "ticker-1",
+          collectionSource: "page-collection",
+          from: "2026-07-01",
+          to: "2026-07-14",
+        }}
+        preserveParams={{
+          sort: "createdAt",
+          dir: "desc",
+          q: "acme",
+        }}
+      />,
+    );
+
+    // Act
+    const namedControls = Array.from(
+      container.querySelectorAll<HTMLInputElement | HTMLSelectElement>(
+        "input[name], select[name]",
+      ),
+    );
+    const names = namedControls.map((control) => control.name);
+    const clearHref = screen
+      .getByRole("link", { name: /Clear filters/i })
+      .getAttribute("href");
+
+    // Assert
+    expect(names.filter((name) => name === "tickerId")).toHaveLength(1);
+    expect(names.filter((name) => name === "collectionSource")).toHaveLength(1);
+    expect(names.filter((name) => name === "from")).toHaveLength(1);
+    expect(names.filter((name) => name === "to")).toHaveLength(1);
+    expect(names.filter((name) => name === "sort")).toHaveLength(1);
+    expect(names.filter((name) => name === "dir")).toHaveLength(1);
+    expect(names.filter((name) => name === "q")).toHaveLength(1);
+    expect(clearHref).toBe(
+      "/dashboard/mediapulse/data-sources?sort=createdAt&dir=desc&q=acme",
+    );
+  });
 });

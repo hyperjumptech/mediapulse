@@ -33,4 +33,41 @@ describe("CreatedDateRangeFilter", () => {
 
     expect(screen.queryByRole("link", { name: "Clear dates" })).toBeNull();
   });
+
+  it("omits from and to from hidden preserve inputs to avoid duplicates", () => {
+    // Setup
+    const { container } = render(
+      <CreatedDateRangeFilter
+        basePath="/dashboard/mediapulse/newsletters"
+        from="2026-05-01"
+        to="2026-05-31"
+        preserveParams={{
+          sort: "createdAt",
+          dir: "desc",
+          from: "2026-01-01",
+          to: "2026-01-31",
+          q: "acme",
+        }}
+      />,
+    );
+
+    // Act
+    const namedControls = Array.from(
+      container.querySelectorAll<HTMLInputElement>("input[name]"),
+    );
+    const names = namedControls.map((control) => control.name);
+    const clearHref = screen
+      .getByRole("link", { name: "Clear dates" })
+      .getAttribute("href");
+
+    // Assert
+    expect(names.filter((name) => name === "from")).toHaveLength(1);
+    expect(names.filter((name) => name === "to")).toHaveLength(1);
+    expect(names.filter((name) => name === "sort")).toHaveLength(1);
+    expect(names.filter((name) => name === "q")).toHaveLength(1);
+    expect(screen.getByLabelText("From date")).toHaveValue("2026-05-01");
+    expect(clearHref).toBe(
+      "/dashboard/mediapulse/newsletters?sort=createdAt&dir=desc&q=acme",
+    );
+  });
 });
