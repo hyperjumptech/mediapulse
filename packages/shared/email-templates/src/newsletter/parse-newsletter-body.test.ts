@@ -61,6 +61,34 @@ describe("parseNewsletterBody", () => {
     });
   });
 
+  it("extracts the source url even when the read label was translated", () => {
+    // Setup: translation localizes "Read the full article"; the URL must still peel off the summary.
+    const bodyText = [
+      "EXECUTIVE SUMMARY",
+      "",
+      "Ringkasan pasar hari ini.",
+      "",
+      "---",
+      "",
+      "TOP 1 NEWS",
+      "",
+      "1. Fed holds rates steady",
+      "Bank sentral mempertahankan suku bunga.",
+      "Baca artikel lengkapnya: https://example.com/fed",
+    ].join("\n");
+
+    // Act
+    const result = expectLegacyBody(bodyText);
+
+    // Assert
+    expect(result!.topNewsItems[0]).toEqual({
+      number: 1,
+      title: "Fed holds rates steady",
+      summary: "Bank sentral mempertahankan suku bunga.",
+      url: "https://example.com/fed",
+    });
+  });
+
   it("parses a well-formed body with 5 news items (different N)", () => {
     // Setup
     const bodyText = [
