@@ -22,6 +22,8 @@ import {
   postOutcomesInChunks,
   type CollectionUrlOutcomeInput,
   RateLimiter,
+  isFresh,
+  extractDateFromUrl,
 } from "@workspace/agent-ingestion";
 import {
   classifyNoisyUrl,
@@ -32,6 +34,9 @@ import {
   PAGE_COLLECTION_EXISTING_URLS_MAX,
   type PostPageCollectionBody,
 } from "@workspace/agent-data-api-contract";
+
+/** Freshness window in days. Pages older than this are dropped; undated pages are kept. */
+const FRESHNESS_MAX_AGE_DAYS = 7;
 
 /**
  * Executes the page-collection pipeline: expand curated source URLs and persist
@@ -264,6 +269,7 @@ async function executePageCollectionRun(
   let droppedByMissingDescription = 0;
   let droppedByDeadUrlCache = 0;
   let droppedByHostErrorRate = 0;
+  let droppedByFreshness = 0;
   let persistedCount = 0;
 
   const canonicalItemMap = new Map<string, CandidateItem>();
@@ -403,6 +409,33 @@ async function executePageCollectionRun(
       continue;
     }
 
+    const feedPublishedAt = item.publishedAt
+      ? new Date(item.publishedAt)
+      : null;
+    const publishedAt =
+      feedPublishedAt && !isNaN(feedPublishedAt.getTime())
+        ? feedPublishedAt
+        : extractDateFromUrl(url);
+    const freshnessDecision = isFresh(publishedAt, {
+      maxAgeDays: FRESHNESS_MAX_AGE_DAYS,
+      allowUnknown: true,
+    });
+    if (!freshnessDecision.fresh) {
+      droppedByFreshness += 1;
+      const freshnessContext =
+        freshnessDecision.reason === "too_old" && publishedAt
+          ? {
+              reason: "freshness_too_old" as const,
+              publishedAt,
+              maxAgeDays: FRESHNESS_MAX_AGE_DAYS,
+            }
+          : freshnessDecision.reason === "future_dated" && publishedAt
+            ? { reason: "freshness_future_dated" as const, publishedAt }
+            : { reason: "freshness_unknown_date" as const };
+      outcomes.push(makeDroppedOutcome(outcomeBase, freshnessContext));
+      continue;
+    }
+
     const resolvedSource = derivePublisherFromUrl(url);
     sourcesToPersist.push({
       url,
@@ -411,7 +444,7 @@ async function executePageCollectionRun(
       ...(resolvedSource ? { source: resolvedSource } : {}),
       curatedSourceListingUrl: item.sourceListingUrl,
       collectionGateStatus: "passed",
-      ...(item.publishedAt ? { publishedAt: item.publishedAt } : {}),
+      ...(publishedAt ? { publishedAt: publishedAt.toISOString() } : {}),
     });
     outcomes.push(makeCollectedOutcome(outcomeBase));
   }
@@ -439,6 +472,7 @@ async function executePageCollectionRun(
     duplicate: droppedByDuplicateCanonicalUrl,
     urlNoise: Object.values(droppedByUrlReason).reduce((sum, n) => sum + n, 0),
     missingDescription: droppedByMissingDescription,
+    freshness: droppedByFreshness,
     deadUrl: droppedByDeadUrlCache,
     hostErrorRate: droppedByHostErrorRate,
     fetchBudget: droppedByFetchBudget,
@@ -503,6 +537,7 @@ async function executePageCollectionRun(
     discoveredCount: allCandidates.length,
     persisted: persistedCount,
     droppedByMissingDescription,
+    droppedByFreshness,
     droppedByDeadUrlCache,
     droppedByFetchBudget,
     droppedByExistingCanonicalUrl,

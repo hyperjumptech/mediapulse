@@ -5,19 +5,18 @@ export type FetchMetadata = {
   usage?: { tokens?: number };
 };
 
-/** @deprecated Use {@link FetchMetadata} instead. */
-export type JinaFetchMetadata = FetchMetadata;
-
 export type ExtractPublishedDateInput = {
   fetchMetadata?: FetchMetadata;
-  /** @deprecated Use {@link ExtractPublishedDateInput.fetchMetadata} instead. */
-  jinaMetadata?: FetchMetadata;
   content: string;
+  url?: string;
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MAX_AGE_YEARS = 10;
 const HEAD_SCAN_CHARS = 4_000;
+
+const URL_DATE_YMD = /\/(\d{4})\/(\d{2})\/(\d{2})(?=\/|$|[?#-])/;
+const URL_DATE_YM = /\/(\d{4})\/(\d{2})(?=\/|$|[?#])/;
 
 const JSON_LD_DATE_PUBLISHED = /"datePublished"\s*:\s*"([^"]+)"/i;
 const META_ARTICLE_PUBLISHED_TIME =
@@ -118,9 +117,36 @@ const extractFromContent = (content: string, now: Date): Date | null => {
 };
 
 /**
- * Extracts the best-effort publication date from fetch metadata and page content.
+ * Extracts a publication date from a `/YYYY/MM/DD/` or `/YYYY/MM/` slug in the URL path.
  *
- * @param input - Fetch metadata and fetched content.
+ * @param url - The source URL.
+ * @param now - Reference time for sanity-range validation.
+ * @returns Parsed publication date, or `null` when the path carries no valid date.
+ */
+export const extractDateFromUrl = (
+  url: string,
+  now: Date = new Date(),
+): Date | null => {
+  const ymd = url.match(URL_DATE_YMD);
+  if (ymd) {
+    const parsed = parseInSanityRange(`${ymd[1]}-${ymd[2]}-${ymd[3]}`, now);
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  const ym = url.match(URL_DATE_YM);
+  if (ym) {
+    return parseInSanityRange(`${ym[1]}-${ym[2]}-01`, now);
+  }
+
+  return null;
+};
+
+/**
+ * Extracts the best-effort publication date from fetch metadata, page content, and the URL slug.
+ *
+ * @param input - Fetch metadata, fetched content, and the source URL.
  * @param now - Reference time for sanity-range validation.
  * @returns Parsed publication date, or `null` when no reliable signal is found.
  */
@@ -128,11 +154,15 @@ export const extractPublishedDate = (
   input: ExtractPublishedDateInput,
   now: Date = new Date(),
 ): Date | null => {
-  const metadata = input.fetchMetadata ?? input.jinaMetadata;
-  const fromMetadata = extractFromFetchMetadata(metadata, now);
+  const fromMetadata = extractFromFetchMetadata(input.fetchMetadata, now);
   if (fromMetadata) {
     return fromMetadata;
   }
 
-  return extractFromContent(input.content, now);
+  const fromContent = extractFromContent(input.content, now);
+  if (fromContent) {
+    return fromContent;
+  }
+
+  return input.url ? extractDateFromUrl(input.url, now) : null;
 };

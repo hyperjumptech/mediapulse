@@ -27,8 +27,6 @@ export interface WebSearchResult {
   serpIndex: number;
   /** Optional fetch provider metadata captured during web fetch. */
   fetchMetadata?: FetchMetadata;
-  /** @deprecated Use {@link WebSearchResult.fetchMetadata} instead. */
-  jinaMetadata?: FetchMetadata;
 }
 
 export type WebFetchProviderName = Extract<
