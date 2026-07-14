@@ -304,7 +304,7 @@ export const DefaultNewsletterEmail = ({
                 {bullet.url !== undefined && bullet.url !== "" ? (
                   <Text className="m-0 mt-2 text-sm leading-normal text-body">
                     <Link href={bullet.url} className={emailLinkClassName}>
-                      Read {bulletCtaLabel}
+                      Read: {bulletCtaLabel}
                     </Link>
                   </Text>
                 ) : null}
@@ -341,7 +341,7 @@ export const DefaultNewsletterEmail = ({
                 {item.url !== undefined && item.url !== "" ? (
                   <Text className="m-0 mt-2 text-sm leading-normal text-body">
                     <Link href={item.url} className={emailLinkClassName}>
-                      Read {itemCtaLabel}
+                      Read: {itemCtaLabel}
                     </Link>
                   </Text>
                 ) : null}
@@ -363,6 +363,10 @@ export const DefaultNewsletterEmail = ({
       ? parsed.sections.find(
           (section) => section.machineKey === "industry-pulse",
         )
+      : undefined;
+  const leadCtaLabel =
+    industryPulseSection?.machineKey === "industry-pulse"
+      ? (industryPulseSection.title ?? industryPulseSection.displayHeading)
       : undefined;
   const industryBodySections =
     parsed?.format === "industry"
@@ -411,7 +415,7 @@ export const DefaultNewsletterEmail = ({
                   href={industryPulseSection.url}
                   className={emailLinkClassName}
                 >
-                  Read {industryPulseSection.displayHeading}
+                  Read: {leadCtaLabel}
                 </Link>
               </Text>
             ) : null}
@@ -461,7 +465,7 @@ export const DefaultNewsletterEmail = ({
                   {item.url !== undefined && item.url !== "" ? (
                     <Text className="m-0 mt-2 text-sm leading-normal text-body">
                       <Link href={item.url} className={emailLinkClassName}>
-                        Read {item.title}
+                        Read: {item.title}
                       </Link>
                     </Text>
                   ) : null}

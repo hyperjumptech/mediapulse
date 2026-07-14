@@ -58,6 +58,7 @@ export type IndustryNewsletterResolved = {
   industryPulse?: {
     displayHeading: string;
     prose: string;
+    title?: string;
     url?: string;
     author?: string;
     source?: string;
@@ -194,6 +195,10 @@ export const attachIndustryNewsletterSourceUrls = (
     briefing.industryPulse.articleIndex,
     sources,
   );
+  const leadTitle = resolveArticleTitleForIndustryNewsletter(
+    briefing.industryPulse.articleIndex,
+    sources,
+  );
   const leadByline = resolveArticleBylineForIndustryNewsletter(
     briefing.industryPulse.articleIndex,
     sources,
@@ -204,6 +209,7 @@ export const attachIndustryNewsletterSourceUrls = (
     industryPulse: {
       displayHeading: briefing.industryPulse.displayHeading,
       prose: briefing.industryPulse.prose,
+      ...(leadTitle !== undefined ? { title: leadTitle } : {}),
       ...(leadUrl !== undefined ? { url: leadUrl } : {}),
       ...leadByline,
     },

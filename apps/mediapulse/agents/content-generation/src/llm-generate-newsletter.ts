@@ -347,7 +347,7 @@ Headings ("displayHeading") are short subtitle phrases only — never repeat the
 
 Each article lists an "Assigned section". That assignment is authoritative — place that article in the named section (industryPulse, competitiveLandscape, dealsAndMovements, regulatoryPolicyWatch, disruptorsOrTech, or quickHits). Only fall back to your own judgement for articles with no assigned section.
 
-Every bullet and quick hit must summarize exactly one article and set articleIndex to that one article. Do not blend multiple articles into one bullet, and do not reuse the same article for two bullets in a section.
+Every bullet and quick hit must summarize exactly one article and set articleIndex to that one article. The "text" must faithfully summarize that specific article using only facts stated in it: do not invent figures, company names, deals, or events that are not in that article, and never attribute another company's actions to the subject of the cited article. The reader-facing link shown with each item is that article's own title, so the summary must describe the same story as its cited article. Do not blend multiple articles into one bullet, and do not reuse the same article for two bullets in a section.
 
 Item titles must be unique across the entire newsletter (all bullets in all sections and all quick-hit items). Every title must name a distinct story. Do not reuse the same headline or a near-identical paraphrase for two different items.
 

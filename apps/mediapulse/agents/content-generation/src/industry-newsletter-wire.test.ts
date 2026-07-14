@@ -631,6 +631,75 @@ describe("formatIndustryNewsletterWire", () => {
     }
   });
 
+  it("carries the lead article title verbatim through the wire round-trip", () => {
+    const resolved = attachIndustryNewsletterSourceUrls(
+      industryNewsletterStructureSchema.parse({
+        subject: "S",
+        industryPulse: {
+          displayHeading: "Growing BNPL Financing in Indonesia",
+          prose: "Grounded prose.",
+          articleIndex: 1,
+        },
+        competitiveLandscape: {
+          displayHeading: "C",
+          bullets: [
+            { title: "T1", text: "c1", articleIndex: 1 },
+            { title: "T2", text: "c2", articleIndex: 1 },
+          ],
+        },
+        dealsAndMovements: {
+          displayHeading: "D",
+          bullets: [{ title: "T3", text: "d1" }],
+        },
+        regulatoryPolicyWatch: {
+          displayHeading: "R",
+          bullets: [{ title: "T4", text: "r1" }],
+        },
+        disruptorsOrTech: { format: "prose", displayHeading: "X", prose: "pr" },
+        quickHits: {
+          displayHeading: "Q",
+          items: [
+            { title: "Q1", text: "h1", articleIndex: 1 },
+            { title: "Q2", text: "h2", articleIndex: 1 },
+            { title: "Q3", text: "h3", articleIndex: 1 },
+            { title: "Q4", text: "h4", articleIndex: 1 },
+            { title: "Q5", text: "h5", articleIndex: 1 },
+          ],
+        },
+      }),
+      [
+        {
+          url: "https://bank.example/indonesia-digital-banking-evolution",
+          title: "Indonesia's Digital Banking Evolution and Trends",
+        },
+      ],
+    );
+
+    // The lead carries the real article title, distinct from the model displayHeading.
+    expect(resolved.industryPulse?.title).toBe(
+      "Indonesia's Digital Banking Evolution and Trends",
+    );
+
+    const wire = formatIndustryNewsletterWire(resolved);
+    expect(wire).toContain(
+      "TITLE Indonesia's Digital Banking Evolution and Trends",
+    );
+
+    const parsed = parseIndustryNewsletterWire(wire);
+    const pulseSection = parsed?.sections.find(
+      (s) => s.machineKey === "industry-pulse",
+    );
+    expect(pulseSection?.machineKey).toBe("industry-pulse");
+    if (pulseSection?.machineKey === "industry-pulse") {
+      expect(pulseSection.title).toBe(
+        "Indonesia's Digital Banking Evolution and Trends",
+      );
+      expect(pulseSection.displayHeading).toBe(
+        "Growing BNPL Financing in Indonesia",
+      );
+    }
+  });
+
   it("omits industry-pulse when the resolved lead is undefined", () => {
     const resolved: IndustryNewsletterResolved = {
       subject: "S",
