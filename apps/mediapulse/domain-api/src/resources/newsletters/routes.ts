@@ -1,6 +1,5 @@
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import { prisma, Prisma } from "@mediapulse/database";
-import { parseNewsletterCitations } from "@workspace/email-templates/parse-newsletter-citations";
 import { logger } from "@workspace/logger";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -11,8 +10,7 @@ import { parseCreatedDateBound } from "../../lib/parse-created-date-bound";
 import { parsePagination } from "../../lib/list-pagination";
 import { newslettersTableV1CustomActionRegistrations } from "./custom-actions";
 import { findActiveQuerySetForNewsletter } from "./active-query-set";
-import { renderNewsletterChronicleHtml } from "../../hermes-dashboard/content-views/render-newsletter-chronicle-html";
-import { buildChronicle } from "./build-chronicle";
+import { buildCitedArticles } from "./build-cited-articles";
 import { buildHermesLinks } from "./build-hermes-links";
 import {
   buildRecipients,
@@ -150,10 +148,10 @@ newslettersRoutes.get("/:id", async (c) => {
   const [
     recipientsResult,
     selectedSourcesResult,
+    citedArticles,
     activeQuerySet,
     hermesLinks,
     emailPreviewHtml,
-    chronicle,
   ] = await Promise.all([
     buildRecipients(row.id, row.tickerId, {
       userTicker: prisma.userTicker,
@@ -162,6 +160,9 @@ newslettersRoutes.get("/:id", async (c) => {
     }),
     buildSelectedSources(row.id, row.tickerId, row.createdAt, {
       dataSource: prisma.dataSource,
+    }),
+    buildCitedArticles(row.id, row.tickerId, {
+      newsletterCitation: prisma.newsletterCitation,
     }),
     findActiveQuerySetForNewsletter(row.tickerId, row.createdAt, {
       searchQuerySet: prisma.searchQuerySet,
@@ -179,15 +180,6 @@ newslettersRoutes.get("/:id", async (c) => {
       },
       { logger },
     ),
-    buildChronicle(row, {
-      searchQuerySet: prisma.searchQuerySet,
-      dataCollectionRun: prisma.dataCollectionRun,
-      pageCollectionRun: prisma.pageCollectionRun,
-      dataSourceTickerSection: prisma.dataSourceTickerSection,
-      articleAnalysisRun: prisma.articleAnalysisRun,
-      contentGenerationRun: prisma.contentGenerationRun,
-      deliveryRun: prisma.deliveryRun,
-    }),
   ]);
 
   for (const entry of recipientsResult.notAttemptedAtSendTime) {
@@ -211,13 +203,10 @@ newslettersRoutes.get("/:id", async (c) => {
     );
   }
 
-  const citations = parseNewsletterCitations(row.content);
-
   return c.json(
     mapRowToDetailItem(row, {
       emailPreviewHtml,
-      chronicleHtml: renderNewsletterChronicleHtml(chronicle),
-      citations,
+      citedArticles,
       recipients: recipientsResult.recipients,
       recipientsTruncated: recipientsResult.truncated,
       recipientsCap: NEWSLETTER_DETAIL_RECIPIENTS_CAP,
@@ -233,39 +222,6 @@ newslettersRoutes.get("/:id", async (c) => {
       hermesLinks,
     }),
   );
-});
-
-newslettersRoutes.get("/:id/chronicle", async (c) => {
-  const id = c.req.param("id");
-  const newsletter = await prisma.newsletter.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      tickerId: true,
-      subject: true,
-      createdAt: true,
-      model: true,
-      promptTokens: true,
-      completionTokens: true,
-      totalTokens: true,
-    },
-  } satisfies Prisma.NewsletterFindUniqueArgs);
-
-  if (!newsletter) {
-    return c.json({ message: "Newsletter not found" }, 404);
-  }
-
-  const chronicle = await buildChronicle(newsletter, {
-    searchQuerySet: prisma.searchQuerySet,
-    dataCollectionRun: prisma.dataCollectionRun,
-    pageCollectionRun: prisma.pageCollectionRun,
-    dataSourceTickerSection: prisma.dataSourceTickerSection,
-    articleAnalysisRun: prisma.articleAnalysisRun,
-    contentGenerationRun: prisma.contentGenerationRun,
-    deliveryRun: prisma.deliveryRun,
-  });
-
-  return c.json(chronicle);
 });
 
 registerTableV1CustomActionRoutes(

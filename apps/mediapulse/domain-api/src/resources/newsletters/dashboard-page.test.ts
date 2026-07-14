@@ -18,6 +18,16 @@ const findBlock = (label: string): DetailBlock => {
   return block;
 };
 
+const findColumn = (blockLabel: string, columnLabel: string) => {
+  const block = findBlock(blockLabel);
+  if (block.type !== "subTable") {
+    throw new Error(`not a subTable: ${blockLabel}`);
+  }
+  const column = block.columns.find((entry) => entry.label === columnLabel);
+  if (!column) throw new Error(`column not found: ${columnLabel}`);
+  return column;
+};
+
 describe("newslettersDashboardPage section rules", () => {
   it("declares a recipients rule that fires when delivered < enabled", () => {
     const recipients = findBlock("Recipients");
@@ -69,7 +79,7 @@ describe("newslettersDashboardPage section rules", () => {
   });
 
   it("declares a search-queries rule that uses hoursBetween > 24", () => {
-    const queries = findBlock("Search queries");
+    const queries = findBlock("Search queries used");
     expect(queries.sectionRule).toMatchObject({
       badge: "muted",
       label: "stale set",
@@ -91,5 +101,32 @@ describe("newslettersDashboardPage section rules", () => {
         activeQuerySet: { generatedAt: "2026-05-14T00:00:00.000Z" },
       }),
     ).toBe(false);
+  });
+});
+
+describe("newslettersDashboardPage articles-cited block", () => {
+  it("binds to citedArticles and links the title to the data-source detail", () => {
+    const block = findBlock("Articles cited");
+    expect(block.type).toBe("subTable");
+    if (block.type !== "subTable") return;
+    expect(block.field).toBe("citedArticles");
+
+    const title = findColumn("Articles cited", "Title");
+    expect(title.linkTemplate).toBe(
+      "/dashboard/{integrationId}/data-sources/{id}",
+    );
+  });
+
+  it("marks the Section badge inconsistent on a section re-placement", () => {
+    const section = findColumn("Articles cited", "Section");
+    expect(section.type).toBe("badge");
+    expect(section.inconsistentField).toBe("sectionMismatch");
+  });
+
+  it("routes the Query link through queryLinkTickerId so curated rows render plain text", () => {
+    const query = findColumn("Articles cited", "Query");
+    expect(query.linkTemplate).toBe(
+      "/dashboard/{integrationId}/search-queries?tickerId={queryLinkTickerId}",
+    );
   });
 });
