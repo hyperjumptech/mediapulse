@@ -64,6 +64,7 @@ export {
 
 export {
   extractPublishedDate,
+  extractDateFromUrl,
   type FetchMetadata,
   type ExtractPublishedDateInput,
 } from "./date-extractor";

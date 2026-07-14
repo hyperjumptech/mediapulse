@@ -228,31 +228,11 @@ const relevanceGateSchema = z.object({
     .describe("Minimum alias matches required to keep a page."),
 });
 
-const freshnessGateSchema = z.object({
-  enabled: z
-    .boolean()
-    .default(true)
-    .describe("When enabled, pages outside the freshness window are dropped."),
-  maxAgeDays: z
-    .number()
-    .int()
-    .positive()
-    .default(14)
-    .describe("Maximum article age in days when a publish date is known."),
-  allowUnknown: z
-    .boolean()
-    .default(true)
-    .describe("Keep pages when no publish date can be extracted."),
-});
-
 const gatesSchema = z
   .object({
     relevance: relevanceGateSchema
       .default({})
       .describe("Ticker and industry relevance filtering."),
-    freshness: freshnessGateSchema
-      .default({})
-      .describe("Publish-date freshness filtering."),
   })
   .default({})
   .describe("Pre-persistence content gates.");

@@ -15,6 +15,7 @@ import {
 } from "./utilities/build-activity-narrative";
 import {
   isFresh,
+  extractDateFromUrl,
   resolveExistingDataSourceUrls,
   resolveDeadUrls,
   HostErrorTracker,
@@ -490,7 +491,7 @@ export async function runDataCollection(
         const publishedAt =
           parsedPublishedAt && !isNaN(parsedPublishedAt.getTime())
             ? parsedPublishedAt
-            : null;
+            : extractDateFromUrl(canonicalUrl);
         const freshnessDecision = isFresh(publishedAt, {
           maxAgeDays: FRESHNESS_MAX_AGE_DAYS,
           allowUnknown: true,

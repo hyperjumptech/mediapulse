@@ -40,8 +40,6 @@ export interface WebSearchResult {
   publishedAt?: string;
   /** Optional fetch provider metadata captured during web fetch. */
   fetchMetadata?: FetchMetadata;
-  /** @deprecated Use {@link WebSearchResult.fetchMetadata} instead. */
-  jinaMetadata?: FetchMetadata;
 }
 
 export interface WebSearchSuccess {
