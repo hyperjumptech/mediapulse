@@ -13,6 +13,7 @@ import {
   collectNewsletterCitations,
   generateNewsletterWithLlm,
   groupSourcesBySection,
+  SYSTEM_PROMPT,
   type GenerateNewsletterObjectFn,
 } from "./llm-generate-newsletter.js";
 import type { IndustryNewsletterResolved } from "./industry-newsletter-urls.js";
@@ -782,5 +783,15 @@ describe("generateNewsletterWithLlm — cross-day dedup", () => {
     expect(result.resolvedUserPrompt).not.toContain("AVOID REPEATING");
     expect(result.crossRunDedupSummary).toBeUndefined();
     expect(result.content).toContain(DUP_TEXT);
+  });
+});
+
+describe("SYSTEM_PROMPT — lead attribution fidelity", () => {
+  it("binds the Industry Pulse lead to its single cited article", () => {
+    expect(SYSTEM_PROMPT).toContain("Industry Pulse lead");
+  });
+
+  it("forbids attributing a cause or driver the cited article does not state", () => {
+    expect(SYSTEM_PROMPT).toContain("do not attribute a cause or driver");
   });
 });
