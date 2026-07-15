@@ -31,6 +31,10 @@ import {
   dedupeAgainstRecentBullets,
   type RecentBullet,
 } from "./lib/cross-run-dedup.js";
+import {
+  dedupeCrossSectionEvents,
+  type EventDedupDrop,
+} from "./lib/event-dedup.js";
 import { filterDemotedQuickHits } from "./lib/quickhits-relevance.js";
 import { isRetryableLlmError } from "./llm-classify-error.js";
 import {
@@ -201,6 +205,11 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
   crossRunDedupSummary?: {
     removedCount: number;
     bySection: Record<string, number>;
+  };
+  /** Cross-section same-event dedup counters and per-drop provenance, present when it removed rows. */
+  crossSectionEventDedupSummary?: {
+    removedCount: number;
+    drops: EventDedupDrop[];
   };
 }
 
@@ -695,6 +704,35 @@ export async function generateNewsletterWithLlm(
     );
   }
 
+  // Cross-section event dedup: drop a bullet whose event already ships in a higher-priority section
+  // but worded differently enough that the lexical within-run pass missed it.
+  let crossSectionEventDedupSummary:
+    | { removedCount: number; drops: EventDedupDrop[] }
+    | undefined;
+  if (CONTENT_GENERATION_CONSTANTS.eventDedup.enabled) {
+    const eventDeduped = dedupeCrossSectionEvents(
+      resolved,
+      CONTENT_GENERATION_CONSTANTS.eventDedup.minSharedAnchors,
+      CONTENT_GENERATION_CONSTANTS.eventDedup.minContainment,
+    );
+    resolved = eventDeduped.resolved;
+    if (eventDeduped.removedCount > 0) {
+      crossSectionEventDedupSummary = {
+        removedCount: eventDeduped.removedCount,
+        drops: eventDeduped.drops,
+      };
+      logger.info(
+        {
+          tickerId: context.tickerId,
+          removedCount: eventDeduped.removedCount,
+          drops: eventDeduped.drops,
+          event: "cross_section_event_dedup",
+        },
+        `Cross-section event dedup: removed ${String(eventDeduped.removedCount)} same-event bullet(s)`,
+      );
+    }
+  }
+
   // Cross-day dedup: drop bullets that repeat recently published newsletters. Runs only when a
   // recent-bullet corpus was supplied (run.ts fetches it when crossRunDedup is enabled).
   let crossRunDedupSummary:
@@ -779,5 +817,6 @@ export async function generateNewsletterWithLlm(
     },
     newsletterCitations: collectNewsletterCitations(resolved, promptSources),
     ...(crossRunDedupSummary ? { crossRunDedupSummary } : {}),
+    ...(crossSectionEventDedupSummary ? { crossSectionEventDedupSummary } : {}),
   };
 }

@@ -845,6 +845,9 @@ export async function run({
     ...(generated.quickHitsDemotionRemoved !== undefined
       ? { quickHitsDemotionRemoved: generated.quickHitsDemotionRemoved }
       : {}),
+    ...(generated.crossSectionEventDedupSummary !== undefined
+      ? { crossSectionEventDedup: generated.crossSectionEventDedupSummary }
+      : {}),
   };
   await writeDiagnostic({
     dataApiClient,

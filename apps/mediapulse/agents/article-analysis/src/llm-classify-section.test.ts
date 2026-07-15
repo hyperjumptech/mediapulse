@@ -350,6 +350,85 @@ describe("rejectEmptySource", () => {
   });
 });
 
+/** A single section carrying its real issuer-relevance rule id (`rp-sector-impact`). */
+const issuerCapCriteria: AcceptanceCriteriaRule[] = [
+  {
+    section: "regulatoryPolicyWatch",
+    criteria: [
+      { id: "rp-regulatory-topic", text: "Include if regulatory." },
+      { id: "rp-authority-named", text: "Include if an authority is named." },
+      { id: "rp-sector-impact", text: "Include if it affects the issuer." },
+      { id: "rp-actionable-change", text: "Include if it is a change." },
+      { id: "rp-cited-source", text: "Include if cited." },
+    ],
+  },
+];
+
+const issuerCapIds = issuerCapCriteria.flatMap((rule) =>
+  rule.criteria.map((criterion) => criterion.id),
+);
+
+const evaluateIssuerCap = (matchedIds: string[]): CriterionEvaluation[] =>
+  issuerCapIds.map((id) => ({
+    id,
+    matched: matchedIds.includes(id),
+    note: matchedIds.includes(id) ? "evidence present" : "absent",
+  }));
+
+describe("scoreFromEvaluations issuer-relevance cap", () => {
+  it("caps the fit score when the winning section's issuer-relevance rule is unmatched", () => {
+    const result = scoreFromEvaluations(
+      evaluateIssuerCap([
+        "rp-regulatory-topic",
+        "rp-authority-named",
+        "rp-actionable-change",
+      ]),
+      issuerCapCriteria,
+    );
+
+    expect(result.section).toBe("regulatoryPolicyWatch");
+    expect(result.score).toBe(0.4);
+    expect(result.scoreBreakdown.matched).toBe(3);
+    expect(result.reason).toContain("rp-sector-impact unmatched");
+  });
+
+  it("keeps the full score when the issuer-relevance rule is matched", () => {
+    const result = scoreFromEvaluations(
+      evaluateIssuerCap([
+        "rp-regulatory-topic",
+        "rp-authority-named",
+        "rp-sector-impact",
+        "rp-actionable-change",
+      ]),
+      issuerCapCriteria,
+    );
+
+    expect(result.section).toBe("regulatoryPolicyWatch");
+    expect(result.score).toBe(0.8);
+    expect(result.reason).not.toContain("capped");
+  });
+
+  it("does not raise a score already below the cap", () => {
+    const result = scoreFromEvaluations(
+      evaluateIssuerCap(["rp-regulatory-topic"]),
+      issuerCapCriteria,
+    );
+
+    expect(result.score).toBe(0.2);
+  });
+
+  it("does not cap a section whose rules carry no issuer-relevance id", () => {
+    const result = scoreFromEvaluations(
+      evaluate(["cl1", "cl2", "cl3"]),
+      criteria,
+    );
+
+    expect(result.section).toBe("competitiveLandscape");
+    expect(result.score).toBeCloseTo(0.6);
+    expect(result.reason).not.toContain("capped");
+  });
+});
+
 describe("criteriaHash", () => {
   it("is stable for the same criteria and changes when text changes", () => {
     const edited: AcceptanceCriteriaRule[] = [

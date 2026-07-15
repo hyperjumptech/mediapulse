@@ -39,6 +39,29 @@ export const ISSUER_RELEVANCE_CRITERION_ID = "gate-issuer-relevance";
 const ISSUER_RELEVANCE_CRITERION_TEXT =
   "Include if the article is genuinely about, or materially concerns, the named issuer or its stated sector/industry — not merely a coincidental match on the ticker symbol, company name, or a similarly-spelled/branded but unrelated entity, place, or topic.";
 
+/**
+ * The issuer-relevance rule id in each section of `DEFAULT_ACCEPTANCE_CRITERIA`. Code-owned like the
+ * global gate so it needs no agent-config migration: when the winning section earns its score on
+ * issuer-agnostic rules while its issuer-relevance rule is unmatched, the fit score is capped below
+ * the ship line. This corroborates the single global gate boolean (which the model can false-positive
+ * on a coincidental venue or keyword match) with a second judgment the model already makes.
+ * `industryPulse` is macro/sector-wide by design and has no issuer-specific rule. A custom config that
+ * renames these ids simply skips the cap.
+ */
+export const ISSUER_RELEVANCE_RULE_IDS: ReadonlySet<string> = new Set([
+  "cl-issuer-relevant",
+  "dm-material",
+  "rp-sector-impact",
+  "dt-issuer-sector-relevant",
+  "qh-sector-related",
+]);
+
+/**
+ * Fit-score ceiling for a section won on issuer-agnostic rules while its issuer-relevance rule is
+ * unmatched. Below the content-generation Quick Hits demotion floor (0.7) so the item does not ship.
+ */
+export const ISSUER_UNMATCHED_SCORE_CAP = 0.4;
+
 /** One per-rule judgment returned by the model. */
 export type CriterionEvaluation = {
   id: string;
@@ -327,6 +350,18 @@ export const scoreFromEvaluations = (
     note: noteFor(criterion.id),
   }));
 
+  // Corroborate the global issuer gate with the winning section's own issuer-relevance rule: an
+  // article that won a section on issuer-agnostic rules while this rule is unmatched is on-topic but
+  // issuer-irrelevant, so cap its fit score below the ship line without changing the section choice.
+  const winnerIssuerRule = winnerCriteria.find((criterion) =>
+    ISSUER_RELEVANCE_RULE_IDS.has(criterion.id),
+  );
+  const issuerRelevanceUnmatched =
+    winnerIssuerRule !== undefined && !isMatched(winnerIssuerRule.id);
+  const score = issuerRelevanceUnmatched
+    ? Math.min(winner.fraction, ISSUER_UNMATCHED_SCORE_CAP)
+    : winner.fraction;
+
   const label = labelById.get(winner.section) ?? winner.section;
   const matchedIds = criteriaBreakdown
     .filter((criterion) => criterion.matched)
@@ -340,13 +375,17 @@ export const scoreFromEvaluations = (
           .map((criterion) => `${criterion.id} (${criterion.note})`)
           .join(", ")}.`
       : "";
+  const issuerCapText =
+    issuerRelevanceUnmatched && winnerIssuerRule !== undefined
+      ? ` Issuer-relevance rule ${winnerIssuerRule.id} unmatched; fit score capped at ${ISSUER_UNMATCHED_SCORE_CAP.toFixed(2)}.`
+      : "";
   const reason = capReason(
-    `${label} — matched ${winner.matched}/${winner.total}${matchedText}.${missedText}`,
+    `${label} — matched ${winner.matched}/${winner.total}${matchedText}.${missedText}${issuerCapText}`,
   );
 
   return {
     section: winner.section,
-    score: winner.fraction,
+    score,
     reason,
     scoreBreakdown: {
       section: winner.section,
