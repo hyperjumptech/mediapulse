@@ -32,6 +32,10 @@ import {
   postContentGenerationCitationsResponseSchema,
 } from "./newsletter-citation.js";
 import {
+  postContentGenerationSectionsBodySchema,
+  postContentGenerationSectionsResponseSchema,
+} from "./newsletter-section.js";
+import {
   postNewsletterTranslationBodySchema,
   postNewsletterTranslationResponseSchema,
 } from "./newsletter-translation.js";
@@ -321,6 +325,22 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postContentGenerationCitationsBodySchema,
         response: postContentGenerationCitationsResponseSchema,
+      },
+    },
+  },
+  contentGenerationSections: {
+    v1: {
+      pathSegment: "/content-generation/sections",
+      post: {
+        body: postContentGenerationSectionsBodySchema,
+        response: postContentGenerationSectionsResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/content-generation/sections",
+      post: {
+        body: postContentGenerationSectionsBodySchema,
+        response: postContentGenerationSectionsResponseSchema,
       },
     },
   },

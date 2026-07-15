@@ -10,6 +10,7 @@ import { parseCreatedDateBound } from "../../lib/parse-created-date-bound";
 import { parsePagination } from "../../lib/list-pagination";
 import { newslettersTableV1CustomActionRegistrations } from "./custom-actions";
 import { findQuerySetForNewsletter } from "./active-query-set";
+import { buildContentGeneration } from "./build-content-generation";
 import { buildSourceAnalysis } from "./build-source-analysis";
 import { buildSourceCollection } from "./build-source-collection";
 import { buildHermesLinks } from "./build-hermes-links";
@@ -149,6 +150,7 @@ newslettersRoutes.get("/:id", async (c) => {
     recipientsResult,
     sourceCollection,
     sourceAnalysis,
+    contentGeneration,
     activeQuerySet,
     hermesLinks,
     emailPreviewHtml,
@@ -167,6 +169,9 @@ newslettersRoutes.get("/:id", async (c) => {
       newsletterCitation: prisma.newsletterCitation,
       articleAnalysisRun: prisma.articleAnalysisRun,
       dataSourceTickerSection: prisma.dataSourceTickerSection,
+    }),
+    buildContentGeneration(row, {
+      newsletterSection: prisma.newsletterSection,
     }),
     findQuerySetForNewsletter(row.searchQuerySetId, {
       searchQuerySet: prisma.searchQuerySet,
@@ -212,6 +217,7 @@ newslettersRoutes.get("/:id", async (c) => {
       emailPreviewHtml,
       sourceCollection,
       sourceAnalysis,
+      contentGeneration,
       recipients: recipientsResult.recipients,
       recipientsTruncated: recipientsResult.truncated,
       recipientsCap: NEWSLETTER_DETAIL_RECIPIENTS_CAP,

@@ -24,6 +24,7 @@ import {
 } from "./routes/content-generation.js";
 import { postContentGenerationFetchEvents } from "./routes/fetch-event.js";
 import { postContentGenerationCitations } from "./routes/newsletter-citation.js";
+import { postContentGenerationSections } from "./routes/newsletter-section.js";
 import { postDataCollectionExistingUrls } from "./routes/data-collection-existing-urls.js";
 import {
   postDataCollectionDeadUrlsLookup,
@@ -163,6 +164,9 @@ const routeHandlers = {
   },
   contentGenerationCitations: {
     post: postContentGenerationCitations,
+  },
+  contentGenerationSections: {
+    post: postContentGenerationSections,
   },
   newsletterTranslation: {
     post: postNewsletterTranslationHandler,

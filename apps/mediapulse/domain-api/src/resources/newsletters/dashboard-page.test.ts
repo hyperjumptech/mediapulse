@@ -218,16 +218,15 @@ describe("newslettersDashboardPage source-analysis stage", () => {
     expect(assigned.block.columns.map((column) => column.label)).toEqual([
       "Article",
       "Score",
-      "Reason",
     ]);
     expect(assigned.block.columns[0]?.linkExternal).toBe(true);
-    expect(assigned.block.columns[0]?.descriptionField).toBe("classifiedLabel");
     expect(assigned.block.columns[0]?.minWidth).toBe(320);
     const scoreColumn = assigned.block.columns.find(
       (column) => column.label === "Score",
     );
-    expect(scoreColumn?.type).toBe("badge");
-    expect(scoreColumn?.badgeVariantField).toBe("scoreVariant");
+    expect(scoreColumn?.type).toBe("text");
+    expect(scoreColumn?.colorField).toBe("scoreVariant");
+    expect(scoreColumn?.descriptionField).toBe("reason");
 
     expect(rejected?.countField).toBe("sourceAnalysis.rejected");
     expect(rejected?.block.type).toBe("subTable");
@@ -237,5 +236,50 @@ describe("newslettersDashboardPage source-analysis stage", () => {
       "Article",
       "Reason",
     ]);
+  });
+});
+
+describe("newslettersDashboardPage content-generation stage", () => {
+  it("groups the stage KPI cards and a per-section results table in one panel", () => {
+    const panel = findBlock("Content Generation Stage");
+    expect(panel.type).toBe("panel");
+    if (panel.type !== "panel") return;
+
+    const statCards = panel.blocks.find((block) => block.type === "statCards");
+    expect(statCards?.type).toBe("statCards");
+    if (statCards?.type !== "statCards") return;
+    expect(statCards.cards.map((card) => card.label)).toEqual([
+      "Agent",
+      "Generated Date",
+      "LLM Model",
+      "LLM Tokens",
+    ]);
+    expect(statCards.cards.map((card) => card.field)).toEqual([
+      "contentGeneration.agentLabel",
+      "contentGeneration.generatedAtLabel",
+      "contentGeneration.model",
+      "contentGeneration.tokensTotalLabel",
+    ]);
+
+    const results = panel.blocks.find(
+      (block) =>
+        block.type === "subTable" && block.field === "contentGeneration.rows",
+    );
+    expect(results?.type).toBe("subTable");
+    if (results?.type !== "subTable") return;
+    expect(results.label).toBe("Results");
+    expect(results.hideHeader).toBe(true);
+    expect(results.sectionHeaderField).toBe("isSection");
+    expect(results.columns).toHaveLength(1);
+    expect(results.columns[0]?.field).toBe("label");
+    expect(results.columns[0]?.muted).toBe(true);
+    expect(results.columns[0]?.descriptionField).toBe("title");
+    expect(results.columns[0]?.descriptionLinkTemplate).toBe("{url}");
+    expect(results.columns[0]?.linkExternal).toBe(true);
+  });
+
+  it("keeps the standalone Email preview block for now", () => {
+    const preview = findBlock("Email preview");
+    expect(preview.type).toBe("htmlPreview");
   });
 });

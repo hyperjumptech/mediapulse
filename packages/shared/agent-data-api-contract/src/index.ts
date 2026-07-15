@@ -180,6 +180,18 @@ export {
   type PostContentGenerationCitationsResponse,
 } from "./newsletter-citation.js";
 export {
+  NEWSLETTER_SECTIONS_MAX,
+  NEWSLETTER_SECTION_ITEMS_MAX,
+  newsletterSectionItemSchema,
+  newsletterSectionSchema,
+  postContentGenerationSectionsBodySchema,
+  postContentGenerationSectionsResponseSchema,
+  type NewsletterSectionItem,
+  type NewsletterSection,
+  type PostContentGenerationSectionsBody,
+  type PostContentGenerationSectionsResponse,
+} from "./newsletter-section.js";
+export {
   newsletterLanguageSchema,
   postNewsletterTranslationBodySchema,
   postNewsletterTranslationResponseSchema,

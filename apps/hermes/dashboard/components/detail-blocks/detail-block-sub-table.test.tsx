@@ -273,4 +273,118 @@ describe("DetailBlockSubTableView", () => {
     const table = screen.getByRole("table");
     expect(within(table).getAllByRole("row")).toHaveLength(11);
   });
+
+  it("renders section-header rows spanning all columns when sectionHeaderField is set", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          label: "Results",
+          hideHeader: true,
+          sectionHeaderField: "isSection",
+          columns: [
+            {
+              field: "label",
+              label: "Article",
+              type: "text",
+              linkTemplate: "{url}",
+              linkExternal: true,
+            },
+          ],
+        }}
+        data={{
+          rows: [
+            { label: "Industry Pulse", url: null, isSection: true },
+            { label: "Alpha", url: "https://example.com/a", isSection: false },
+          ],
+        }}
+      />,
+    );
+
+    const header = screen.getByText("Industry Pulse");
+    expect(header.closest("td")).toHaveAttribute("colspan", "1");
+    expect(header.closest("a")).toBeNull();
+    expect(screen.getByRole("link", { name: "Alpha" })).toHaveAttribute(
+      "href",
+      "https://example.com/a",
+    );
+  });
+
+  it("renders descriptionField as a link when descriptionLinkTemplate is set", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          label: "Results",
+          hideHeader: true,
+          columns: [
+            {
+              field: "label",
+              label: "Article",
+              type: "text",
+              descriptionField: "title",
+              descriptionLinkTemplate: "{url}",
+              linkExternal: true,
+            },
+          ],
+        }}
+        data={{
+          rows: [
+            {
+              label: "The board approved a record payout.",
+              title: "Telkom declares dividend",
+              url: "https://example.com/d",
+              isSection: false,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText("The board approved a record payout."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Telkom declares dividend" }),
+    ).toHaveAttribute("href", "https://example.com/d");
+  });
+
+  it("colors a value from colorField and mutes when muted is set", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          label: "Assigned",
+          columns: [
+            {
+              field: "score",
+              label: "Score",
+              type: "text",
+              colorField: "band",
+              descriptionField: "reason",
+            },
+            { field: "note", label: "Note", type: "text", muted: true },
+          ],
+        }}
+        data={{
+          rows: [
+            {
+              score: "0.9",
+              band: "success",
+              reason: "Direct coverage.",
+              note: "supporting text",
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("0.9").className).toContain("text-green-600");
+    expect(screen.getByText("supporting text").className).toContain(
+      "text-muted-foreground",
+    );
+  });
 });

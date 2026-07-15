@@ -29,9 +29,9 @@ export type SourceAnalysisEntryPayload = {
   title: string;
   url: string;
   sectionLabel: string;
-  classifiedLabel: string;
   score: number | null;
   scoreLabel: string;
+  scoreLine: string;
   scoreVariant: SourceAnalysisScoreVariant | null;
   reason: string;
 };
@@ -67,6 +67,12 @@ export type BuildSourceAnalysisDeps = {
 
 const sectionLabel = (section: string | null): string =>
   section === null ? "—" : (SECTION_LABEL_BY_ID.get(section) ?? section);
+
+const compactNumber = (value: number): string =>
+  new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
 
 /** Bands a 0–1 section-fit score into a green / orange / red badge variant. */
 const scoreVariantFor = (
@@ -217,6 +223,7 @@ export const buildSourceAnalysis = async (
       const section = tickerSection?.section ?? null;
       const label = sectionLabel(section);
       const score = tickerSection?.sectionScore ?? null;
+      const scoreLabel = score === null ? "—" : score.toLocaleString("en-US");
 
       return {
         order: sectionOrder(section),
@@ -225,9 +232,9 @@ export const buildSourceAnalysis = async (
           title: dataSource.title,
           url: dataSource.url,
           sectionLabel: label,
-          classifiedLabel: `Classified as ${label}`,
           score,
-          scoreLabel: score === null ? "—" : score.toLocaleString("en-US"),
+          scoreLabel,
+          scoreLine: `${scoreLabel} - ${label}`,
           scoreVariant: scoreVariantFor(score),
           reason: tickerSection?.sectionReason ?? "",
         } satisfies SourceAnalysisEntryPayload,
@@ -261,7 +268,7 @@ export const buildSourceAnalysis = async (
     agentLabel,
     generatedAtLabel: latestRunAt ? formatGeneratedAt(latestRunAt) : "—",
     modelLabel,
-    tokensTotalLabel: totalTokens.toLocaleString("en-US"),
+    tokensTotalLabel: compactNumber(totalTokens),
     tokensBreakdownLabel: `Input ${promptTokens.toLocaleString("en-US")} · Output ${completionTokens.toLocaleString("en-US")} · Reasoning ${reasoningTokens.toLocaleString("en-US")}`,
     assigned,
     rejected,
