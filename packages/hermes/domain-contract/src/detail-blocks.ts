@@ -211,25 +211,6 @@ export const detailBlockLeafSchema = z.discriminatedUnion("type", [
   detailBlockSubTableSchema,
 ]);
 
-/** Block kinds a `panel` may contain — leaf blocks plus stat cards, no further nesting. */
-export const detailBlockPanelChildSchema = z.discriminatedUnion("type", [
-  detailBlockKeyValueSchema,
-  detailBlockMarkdownSchema,
-  detailBlockHtmlPreviewSchema,
-  detailBlockSubTableSchema,
-  detailBlockStatCardsSchema,
-]);
-
-/**
- * `panel` block — groups several child blocks inside one bordered card under a shared heading, so a
- * multi-part section (e.g. stage KPI cards plus a results table) reads as a single unit.
- */
-export const detailBlockPanelSchema = z.object({
-  type: z.literal("panel"),
-  ...detailBlockCommonShape,
-  blocks: z.array(detailBlockPanelChildSchema).min(1),
-});
-
 /** One tab inside a `tabs` block — a label plus a leaf block to render. */
 export const detailBlockTabSchema = z.object({
   label: z.string().min(1),
@@ -245,6 +226,26 @@ export const detailBlockTabsSchema = z.object({
   type: z.literal("tabs"),
   ...detailBlockCommonShape,
   tabs: z.array(detailBlockTabSchema).min(1),
+});
+
+/** Block kinds a `panel` may contain — leaf blocks, stat cards, and tabs; no further nesting. */
+export const detailBlockPanelChildSchema = z.discriminatedUnion("type", [
+  detailBlockKeyValueSchema,
+  detailBlockMarkdownSchema,
+  detailBlockHtmlPreviewSchema,
+  detailBlockSubTableSchema,
+  detailBlockStatCardsSchema,
+  detailBlockTabsSchema,
+]);
+
+/**
+ * `panel` block — groups several child blocks inside one bordered card under a shared heading, so a
+ * multi-part section (e.g. stage KPI cards plus a results table) reads as a single unit.
+ */
+export const detailBlockPanelSchema = z.object({
+  type: z.literal("panel"),
+  ...detailBlockCommonShape,
+  blocks: z.array(detailBlockPanelChildSchema).min(1),
 });
 
 /**

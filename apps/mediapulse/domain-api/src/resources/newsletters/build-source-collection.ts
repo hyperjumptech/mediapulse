@@ -10,7 +10,7 @@ const STAGE_TIMEZONE = "Asia/Jakarta";
 /** Label shown in the Query column for sources that did not come from a search query. */
 export const CURATED_SOURCE_LABEL = "Curated source" as const;
 
-/** Shape of one collected-source row in the source-collection stage results table. */
+/** Shape of one collected-source row in the Collected results tab. */
 export type SourceCollectionEntryPayload = {
   id: string;
   title: string;
@@ -19,24 +19,33 @@ export type SourceCollectionEntryPayload = {
   queryText: string;
 };
 
+/** Shape of one dropped/failed URL row in the Dropped results tab. */
+export type SourceCollectionDroppedPayload = {
+  id: string;
+  url: string;
+  agentLabel: string;
+  reason: string;
+};
+
 /** Shape of the source-collection stage payload exposed by the detail handler. */
 export type SourceCollectionPayload = {
-  agentsLabel: string;
   generatedAtLabel: string;
   creditsTotalLabel: string;
   creditsBreakdownLabel: string;
-  totalLabel: string;
+  collectedTotalLabel: string;
+  droppedTotalLabel: string;
   sources: SourceCollectionEntryPayload[];
+  dropped: SourceCollectionDroppedPayload[];
 };
 
 /** Prisma collaborator surface for {@link buildSourceCollection}. */
 export type BuildSourceCollectionDeps = {
   newsletterCitation: Pick<typeof prisma.newsletterCitation, "findMany">;
   dataCollectionRun: Pick<typeof prisma.dataCollectionRun, "findMany">;
+  collectionUrlOutcome: Pick<typeof prisma.collectionUrlOutcome, "findMany">;
 };
 
 type RunFields = {
-  agentId: string | null;
   agentVersion: string | null;
   searchCredits: number;
   searchCreditsByProvider: Record<string, number>;
@@ -57,7 +66,6 @@ const toRecordOfNumbers = (value: unknown): Record<string, number> => {
 const readRunSnapshot = (snapshot: Prisma.JsonValue | null): RunFields => {
   if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
     return {
-      agentId: null,
       agentVersion: null,
       searchCredits: 0,
       searchCreditsByProvider: {},
@@ -78,7 +86,6 @@ const readRunSnapshot = (snapshot: Prisma.JsonValue | null): RunFields => {
       : 0;
 
   return {
-    agentId: typeof record.agentId === "string" ? record.agentId : null,
     agentVersion:
       typeof record.agentVersion === "string" ? record.agentVersion : null,
     searchCredits,
@@ -86,13 +93,15 @@ const readRunSnapshot = (snapshot: Prisma.JsonValue | null): RunFields => {
   };
 };
 
-const agentLabel = (agentId: string, agentVersion: string | null): string =>
-  agentVersion ? `${agentId} - ${agentVersion}` : agentId;
-
 const providerLabel = (provider: string): string =>
   provider.length > 0
     ? `${provider[0]!.toUpperCase()}${provider.slice(1)}`
     : provider;
+
+const outcomeAgentLabel = (agent: string): string =>
+  agent === "page_collection"
+    ? COLLECTION_SOURCE_LABEL["page-collection"]
+    : COLLECTION_SOURCE_LABEL["data-collection"];
 
 const formatGeneratedAt = (date: Date): string => {
   const datePart = new Intl.DateTimeFormat("en-US", {
@@ -113,14 +122,15 @@ const formatGeneratedAt = (date: Date): string => {
 
 /**
  * Assembles the source-collection stage for a newsletter from its exact citation join: the distinct
- * cited sources, and the collection runs that produced them (traced via each source's
- * `dataCollectionRunId`). KPIs cover the agents and versions that collected them, when they ran, the
- * search credits those runs spent, and the total cited-source count. Every figure is scoped to the
- * sources this newsletter actually cited rather than the ticker's wider collection funnel.
+ * cited sources (the Collected tab), the URLs the same runs dropped or failed (the Dropped tab, via
+ * `CollectionUrlOutcome` scoped to those runs), and the runs' timing and search-credit spend. Runs
+ * are traced through each cited source's `dataCollectionRunId`, so every figure is scoped to the exact
+ * runs behind this newsletter rather than the ticker's wider collection funnel. Each Agent label
+ * carries the collecting agent's version, read from the run snapshot.
  *
  * @param newsletterId - Newsletter whose cited sources to collect.
- * @param deps - Prisma `newsletterCitation` and `dataCollectionRun` delegates.
- * @returns The stage KPIs and the ordered list of cited sources.
+ * @param deps - Prisma `newsletterCitation`, `dataCollectionRun`, and `collectionUrlOutcome` delegates.
+ * @returns The stage KPIs, the collected sources, and the dropped URLs.
  */
 export const buildSourceCollection = async (
   newsletterId: string,
@@ -154,29 +164,6 @@ export const buildSourceCollection = async (
   }
   const dataSources = [...uniqueSources.values()];
 
-  const sources = dataSources.map((dataSource) => {
-    const collectionSource = classifyCollectionSource(
-      dataSource.searchQueryId !== null,
-    );
-
-    return {
-      id: dataSource.id,
-      title: dataSource.title,
-      url: dataSource.url,
-      agentLabel: COLLECTION_SOURCE_LABEL[collectionSource],
-      queryText:
-        dataSource.searchQuery?.text ??
-        (collectionSource === "page-collection" ? CURATED_SOURCE_LABEL : "—"),
-    } satisfies SourceCollectionEntryPayload;
-  });
-  sources.sort((left, right) => {
-    if (left.agentLabel !== right.agentLabel) {
-      return left.agentLabel.localeCompare(right.agentLabel);
-    }
-
-    return left.title.localeCompare(right.title);
-  });
-
   const runIds = [
     ...new Set(
       dataSources
@@ -185,30 +172,45 @@ export const buildSourceCollection = async (
     ),
   ];
 
-  const runs =
+  const [runs, droppedRows] =
     runIds.length > 0
-      ? await deps.dataCollectionRun.findMany({
-          where: { id: { in: runIds } },
-          select: {
-            id: true,
-            startedAt: true,
-            completedAt: true,
-            snapshot: true,
-          },
-        } satisfies Prisma.DataCollectionRunFindManyArgs)
-      : [];
+      ? await Promise.all([
+          deps.dataCollectionRun.findMany({
+            where: { id: { in: runIds } },
+            select: {
+              id: true,
+              startedAt: true,
+              completedAt: true,
+              snapshot: true,
+            },
+          } satisfies Prisma.DataCollectionRunFindManyArgs),
+          deps.collectionUrlOutcome.findMany({
+            where: {
+              runId: { in: runIds },
+              status: { in: ["dropped", "failed"] },
+            },
+            select: {
+              id: true,
+              url: true,
+              runId: true,
+              agent: true,
+              reason: true,
+              reasonDetail: true,
+            },
+            orderBy: { createdAt: "desc" },
+          } satisfies Prisma.CollectionUrlOutcomeFindManyArgs),
+        ])
+      : [[], []];
 
-  const agentLabels = new Set<string>();
+  const versionByRunId = new Map<string, string>();
   const creditsByProvider = new Map<string, number>();
   let totalCredits = 0;
   let latestRunAt: Date | null = null;
 
   for (const run of runs) {
-    const { agentId, agentVersion, searchCredits, searchCreditsByProvider } =
+    const { agentVersion, searchCredits, searchCreditsByProvider } =
       readRunSnapshot(run.snapshot);
-    if (agentId) {
-      agentLabels.add(agentLabel(agentId, agentVersion));
-    }
+    if (agentVersion) versionByRunId.set(run.id, agentVersion);
     totalCredits += searchCredits;
     for (const [provider, credits] of Object.entries(searchCreditsByProvider)) {
       creditsByProvider.set(
@@ -223,12 +225,43 @@ export const buildSourceCollection = async (
     }
   }
 
-  const agentsLabel =
-    agentLabels.size > 0
-      ? [...agentLabels].sort().join(" · ")
-      : [...new Set(sources.map((source) => source.agentLabel))]
-          .sort()
-          .join(" · ") || "—";
+  const withVersion = (label: string, runId: string | null): string => {
+    const version = runId ? versionByRunId.get(runId) : undefined;
+    return version ? `${label} ${version}` : label;
+  };
+
+  const sources = dataSources.map((dataSource) => {
+    const collectionSource = classifyCollectionSource(
+      dataSource.searchQueryId !== null,
+    );
+
+    return {
+      id: dataSource.id,
+      title: dataSource.title,
+      url: dataSource.url,
+      agentLabel: withVersion(
+        COLLECTION_SOURCE_LABEL[collectionSource],
+        dataSource.dataCollectionRunId,
+      ),
+      queryText:
+        dataSource.searchQuery?.text ??
+        (collectionSource === "page-collection" ? CURATED_SOURCE_LABEL : "—"),
+    } satisfies SourceCollectionEntryPayload;
+  });
+  sources.sort((left, right) => {
+    if (left.agentLabel !== right.agentLabel) {
+      return left.agentLabel.localeCompare(right.agentLabel);
+    }
+
+    return left.title.localeCompare(right.title);
+  });
+
+  const dropped = droppedRows.map((outcome) => ({
+    id: outcome.id,
+    url: outcome.url,
+    agentLabel: withVersion(outcomeAgentLabel(outcome.agent), outcome.runId),
+    reason: outcome.reasonDetail ?? outcome.reason ?? "—",
+  }));
 
   const creditsBreakdownLabel =
     creditsByProvider.size > 0
@@ -244,11 +277,12 @@ export const buildSourceCollection = async (
       : "No cost recorded";
 
   return {
-    agentsLabel,
     generatedAtLabel: latestRunAt ? formatGeneratedAt(latestRunAt) : "—",
     creditsTotalLabel: totalCredits.toLocaleString("en-US"),
     creditsBreakdownLabel,
-    totalLabel: sources.length.toLocaleString("en-US"),
+    collectedTotalLabel: sources.length.toLocaleString("en-US"),
+    droppedTotalLabel: dropped.length.toLocaleString("en-US"),
     sources,
+    dropped,
   };
 };

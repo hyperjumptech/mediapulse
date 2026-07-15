@@ -24,7 +24,6 @@ const citationRow = (overrides: {
 
 const runRow = (overrides: {
   id: string;
-  agentId?: string | null;
   agentVersion?: string | null;
   searchCredits?: number;
   byProvider?: Record<string, number>;
@@ -38,9 +37,6 @@ const runRow = (overrides: {
       ? new Date("2026-07-13T06:00:00.000Z")
       : overrides.completedAt,
   snapshot: {
-    ...(overrides.agentId === null
-      ? {}
-      : { agentId: overrides.agentId ?? "data-collection" }),
     ...(overrides.agentVersion ? { agentVersion: overrides.agentVersion } : {}),
     cost: {
       searchCredits: overrides.searchCredits ?? 0,
@@ -49,31 +45,51 @@ const runRow = (overrides: {
   },
 });
 
+const outcomeRow = (overrides: {
+  id: string;
+  url: string;
+  runId: string;
+  agent: string;
+  reason?: string | null;
+  reasonDetail?: string | null;
+}) => ({
+  id: overrides.id,
+  url: overrides.url,
+  runId: overrides.runId,
+  agent: overrides.agent,
+  reason: overrides.reason ?? null,
+  reasonDetail: overrides.reasonDetail ?? null,
+});
+
 describe("buildSourceCollection", () => {
-  it("queries citations scoped to the newsletter and skips runs when unlinked", async () => {
+  it("scopes the query to the newsletter and skips runs and outcomes when unlinked", async () => {
     const citationFindMany = vi.fn().mockResolvedValue([]);
     const runFindMany = vi.fn();
+    const outcomeFindMany = vi.fn();
 
     const result = await buildSourceCollection("nl-1", {
       newsletterCitation: { findMany: citationFindMany },
       dataCollectionRun: { findMany: runFindMany },
+      collectionUrlOutcome: { findMany: outcomeFindMany },
     });
 
     expect(citationFindMany.mock.calls[0]?.[0]?.where).toEqual({
       newsletterId: "nl-1",
     });
     expect(runFindMany).not.toHaveBeenCalled();
+    expect(outcomeFindMany).not.toHaveBeenCalled();
     expect(result).toStrictEqual({
-      agentsLabel: "—",
       generatedAtLabel: "—",
       creditsTotalLabel: "0",
       creditsBreakdownLabel: "No cost recorded",
-      totalLabel: "0",
+      collectedTotalLabel: "0",
+      droppedTotalLabel: "0",
       sources: [],
+      dropped: [],
     });
   });
 
-  it("builds stage KPIs from the runs behind the cited sources", async () => {
+  it("builds KPIs, versioned collected sources, and dropped URLs from the exact runs", async () => {
     const citationFindMany = vi.fn().mockResolvedValue([
       citationRow({
         dataSourceId: "ds-data",
@@ -94,7 +110,6 @@ describe("buildSourceCollection", () => {
     const runFindMany = vi.fn().mockResolvedValue([
       runRow({
         id: "run-data",
-        agentId: "data-collection",
         agentVersion: "1.0.0",
         searchCredits: 42,
         byProvider: { serper: 30, tavily: 12 },
@@ -102,74 +117,78 @@ describe("buildSourceCollection", () => {
       }),
       runRow({
         id: "run-page",
-        agentId: "page-collection",
         agentVersion: "2.0.0",
         searchCredits: 0,
         completedAt: new Date("2026-07-12T06:00:00.000Z"),
       }),
     ]);
+    const outcomeFindMany = vi.fn().mockResolvedValue([
+      outcomeRow({
+        id: "o1",
+        url: "https://old.example/x",
+        runId: "run-data",
+        agent: "data_collection",
+        reason: "freshness_too_old",
+        reasonDetail: "Published 2019-03-12, older than the 30-day window",
+      }),
+      outcomeRow({
+        id: "o2",
+        url: "https://dupe.example/y",
+        runId: "run-page",
+        agent: "page_collection",
+        reason: "duplicate",
+      }),
+    ]);
 
     const result = await buildSourceCollection("nl-1", {
       newsletterCitation: { findMany: citationFindMany },
       dataCollectionRun: { findMany: runFindMany },
+      collectionUrlOutcome: { findMany: outcomeFindMany },
     });
 
-    expect(runFindMany.mock.calls[0]?.[0]?.where).toEqual({
-      id: { in: ["run-data", "run-page"] },
+    expect(outcomeFindMany.mock.calls[0]?.[0]?.where).toEqual({
+      runId: { in: ["run-data", "run-page"] },
+      status: { in: ["dropped", "failed"] },
     });
-    expect(result.agentsLabel).toBe(
-      "data-collection - 1.0.0 · page-collection - 2.0.0",
-    );
     expect(result.generatedAtLabel).toBe("July 13, 2026 at 13:00");
     expect(result.creditsTotalLabel).toBe("42");
     expect(result.creditsBreakdownLabel).toBe("Serper 30 · Tavily 12");
-    expect(result.totalLabel).toBe("2");
-  });
-
-  it("orders results by collector then title with query text and curated fallback", async () => {
-    const citationFindMany = vi.fn().mockResolvedValue([
-      citationRow({
-        dataSourceId: "ds-page",
-        title: "Zeta curated",
-        url: "https://curated.example/z",
-        searchQueryId: null,
-        dataCollectionRunId: "run-page",
-      }),
-      citationRow({
-        dataSourceId: "ds-data",
-        title: "Alpha search hit",
-        url: "https://reuters.com/a",
-        searchQueryId: "sq-1",
-        queryText: "bank earnings",
-        dataCollectionRunId: "run-data",
-      }),
-    ]);
-    const runFindMany = vi.fn().mockResolvedValue([]);
-
-    const result = await buildSourceCollection("nl-1", {
-      newsletterCitation: { findMany: citationFindMany },
-      dataCollectionRun: { findMany: runFindMany },
-    });
+    expect(result.collectedTotalLabel).toBe("2");
+    expect(result.droppedTotalLabel).toBe("2");
 
     expect(result.sources).toStrictEqual([
       {
         id: "ds-data",
         title: "Alpha search hit",
         url: "https://reuters.com/a",
-        agentLabel: "Data Collection",
+        agentLabel: "Data Collection 1.0.0",
         queryText: "bank earnings",
       },
       {
         id: "ds-page",
         title: "Zeta curated",
         url: "https://curated.example/z",
-        agentLabel: "Page Collection",
+        agentLabel: "Page Collection 2.0.0",
         queryText: "Curated source",
+      },
+    ]);
+    expect(result.dropped).toStrictEqual([
+      {
+        id: "o1",
+        url: "https://old.example/x",
+        agentLabel: "Data Collection 1.0.0",
+        reason: "Published 2019-03-12, older than the 30-day window",
+      },
+      {
+        id: "o2",
+        url: "https://dupe.example/y",
+        agentLabel: "Page Collection 2.0.0",
+        reason: "duplicate",
       },
     ]);
   });
 
-  it("falls back to source collectors for the agents label when no runs are linked", async () => {
+  it("leaves agent labels unversioned when the linked run is missing", async () => {
     const citationFindMany = vi.fn().mockResolvedValue([
       citationRow({
         dataSourceId: "ds-1",
@@ -178,7 +197,7 @@ describe("buildSourceCollection", () => {
         sectionKey: "industryPulse",
         searchQueryId: "sq-1",
         queryText: "earnings",
-        dataCollectionRunId: null,
+        dataCollectionRunId: "run-missing",
       }),
       citationRow({
         dataSourceId: "ds-1",
@@ -187,19 +206,21 @@ describe("buildSourceCollection", () => {
         sectionKey: "quickHits",
         searchQueryId: "sq-1",
         queryText: "earnings",
-        dataCollectionRunId: null,
+        dataCollectionRunId: "run-missing",
       }),
     ]);
-    const runFindMany = vi.fn();
+    const runFindMany = vi.fn().mockResolvedValue([]);
+    const outcomeFindMany = vi.fn().mockResolvedValue([]);
 
     const result = await buildSourceCollection("nl-1", {
       newsletterCitation: { findMany: citationFindMany },
       dataCollectionRun: { findMany: runFindMany },
+      collectionUrlOutcome: { findMany: outcomeFindMany },
     });
 
-    expect(runFindMany).not.toHaveBeenCalled();
-    expect(result.totalLabel).toBe("1");
-    expect(result.agentsLabel).toBe("Data Collection");
+    expect(result.collectedTotalLabel).toBe("1");
+    expect(result.droppedTotalLabel).toBe("0");
+    expect(result.sources[0]?.agentLabel).toBe("Data Collection");
     expect(result.generatedAtLabel).toBe("—");
   });
 });

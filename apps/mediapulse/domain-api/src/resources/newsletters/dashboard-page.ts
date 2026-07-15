@@ -191,11 +191,11 @@ const newslettersQueryStageBlock = {
 } satisfies DetailBlock;
 
 /**
- * `panel` grouping the source-collection stage into one card: KPI cards (the collecting agents and
- * versions, when they ran, the search credits those runs spent with a per-agent breakdown, and the
- * total cited-source count) above a results table listing each cited source, its collector, and the
- * search query that surfaced it. All figures come from this newsletter's exact citation join traced
- * to the collection runs behind those sources, not the ticker's wider collection funnel.
+ * `panel` grouping the source-collection stage into one card: KPI cards (when the runs ran, the
+ * search credits they spent with a per-provider breakdown, and the collected/dropped counts) above a
+ * Collected/Dropped tab pair. Collected lists each cited source with its versioned agent and query;
+ * Dropped lists the URLs those same runs dropped or failed, with the reason. All figures come from
+ * this newsletter's exact citation join traced to the collection runs behind those sources.
  */
 const newslettersSourceStageBlock = {
   type: "panel",
@@ -204,7 +204,6 @@ const newslettersSourceStageBlock = {
     {
       type: "statCards",
       cards: [
-        { label: "Agents", field: "sourceCollection.agentsLabel" },
         {
           label: "Generated Date",
           field: "sourceCollection.generatedAtLabel",
@@ -214,27 +213,68 @@ const newslettersSourceStageBlock = {
           field: "sourceCollection.creditsTotalLabel",
           tooltipField: "sourceCollection.creditsBreakdownLabel",
         },
-        { label: "Total Results", field: "sourceCollection.totalLabel" },
+        {
+          label: "Total Collected",
+          field: "sourceCollection.collectedTotalLabel",
+        },
+        {
+          label: "Total Dropped",
+          field: "sourceCollection.droppedTotalLabel",
+        },
       ],
     },
     {
-      type: "subTable",
-      label: "Results",
-      field: "sourceCollection.sources",
-      rowLimitOptions: [5, 10],
-      rowLimitDefaultAll: true,
-      emptyState: "No sources cited by this newsletter.",
-      columns: [
+      type: "tabs",
+      tabs: [
         {
-          field: "title",
-          label: "Article",
-          type: "text",
-          truncate: 80,
-          linkTemplate: "{url}",
-          linkExternal: true,
+          label: "Collected",
+          block: {
+            type: "subTable",
+            field: "sourceCollection.sources",
+            rowLimitOptions: [5, 10],
+            rowLimitDefaultAll: true,
+            emptyState: "No sources cited by this newsletter.",
+            columns: [
+              {
+                field: "title",
+                label: "Article",
+                type: "text",
+                truncate: 80,
+                linkTemplate: "{url}",
+                linkExternal: true,
+              },
+              { field: "agentLabel", label: "Agent", type: "text" },
+              {
+                field: "queryText",
+                label: "Query",
+                type: "text",
+                truncate: 60,
+              },
+            ],
+          },
         },
-        { field: "agentLabel", label: "Agent", type: "text" },
-        { field: "queryText", label: "Query", type: "text", truncate: 60 },
+        {
+          label: "Dropped",
+          block: {
+            type: "subTable",
+            field: "sourceCollection.dropped",
+            rowLimitOptions: [10, 25],
+            emptyState:
+              "No dropped URLs recorded for the runs behind this newsletter.",
+            columns: [
+              {
+                field: "url",
+                label: "URL",
+                type: "text",
+                truncate: 80,
+                linkTemplate: "{url}",
+                linkExternal: true,
+              },
+              { field: "agentLabel", label: "Agent", type: "text" },
+              { field: "reason", label: "Reason", type: "text", truncate: 100 },
+            ],
+          },
+        },
       ],
     },
   ],
