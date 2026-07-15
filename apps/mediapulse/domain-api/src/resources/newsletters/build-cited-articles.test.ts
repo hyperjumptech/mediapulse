@@ -105,30 +105,7 @@ describe("buildCitedArticles", () => {
     expect(result[0]?.publishedSection).toBe("Industry Pulse");
   });
 
-  it("flags a section re-placement and names the original classification", async () => {
-    const findMany = vi.fn().mockResolvedValue([
-      citationRow({
-        dataSourceId: "moved",
-        title: "Re-placed item",
-        url: "https://example.com/moved",
-        sectionKey: "quickHits",
-        searchQueryId: "sq",
-        queryText: "policy",
-        classifiedSection: "regulatoryPolicyWatch",
-        sectionScore: 0.55,
-      }),
-    ]);
-
-    const [row] = await buildCitedArticles("nl-1", "tk-1", {
-      newsletterCitation: { findMany },
-    });
-
-    expect(row?.sectionMismatch).toBe(true);
-    expect(row?.publishedSection).toBe("Quick Hits");
-    expect(row?.classifiedSection).toBe("Regulatory & Policy Watch");
-  });
-
-  it("labels curated sources and clears the query link target", async () => {
+  it("labels a curated source with the curated-source query text", async () => {
     const findMany = vi.fn().mockResolvedValue([
       citationRow({
         dataSourceId: "curated",
@@ -145,12 +122,10 @@ describe("buildCitedArticles", () => {
       newsletterCitation: { findMany },
     });
 
-    expect(row?.collectionSource).toBe("page-collection");
     expect(row?.queryText).toBe("Curated source");
-    expect(row?.queryLinkTickerId).toBe("");
   });
 
-  it("keeps sectionMismatch false when no article-analysis classification exists", async () => {
+  it("returns a null score when no article-analysis classification exists", async () => {
     const findMany = vi.fn().mockResolvedValue([
       citationRow({
         dataSourceId: "unscored",
@@ -166,9 +141,7 @@ describe("buildCitedArticles", () => {
       newsletterCitation: { findMany },
     });
 
-    expect(row?.sectionMismatch).toBe(false);
-    expect(row?.classifiedSection).toBe("");
     expect(row?.sectionScore).toBeNull();
-    expect(row?.queryLinkTickerId).toBe("tk-1");
+    expect(row?.queryText).toBe("misc");
   });
 });

@@ -14,6 +14,8 @@ describe("mapRowToDetailItem", () => {
       strategySnapshot: { queryCount: 2 },
       generationSource: "hybrid_v1",
       agentJobId: null,
+      agentId: null,
+      agentVersion: null,
       createdAt: new Date("2026-03-20T11:00:00.000Z"),
       updatedAt: new Date("2026-03-20T12:30:00.000Z"),
       ticker: { id: "ticker-1", symbol: "AAPL", name: "Apple" },

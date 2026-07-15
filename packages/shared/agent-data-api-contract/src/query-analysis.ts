@@ -40,6 +40,8 @@ export const postQueryAnalysisBodySchema = z.object({
   generationSource: z.string().trim().min(1),
   activate: z.boolean().default(true),
   agentJobId: z.string().trim().min(1).optional(),
+  agentId: z.string().trim().min(1).optional(),
+  agentVersion: z.string().trim().min(1).optional(),
 });
 
 export const queryAnalysisTickerSchema = z.object({

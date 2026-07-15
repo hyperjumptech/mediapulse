@@ -51,7 +51,7 @@ export const DetailBlockSectionHeader = ({
   return (
     <div className="flex items-center gap-2">
       {showLabel ? (
-        <h2 className="text-sm font-medium text-muted-foreground">{label}</h2>
+        <h2 className="text-base font-semibold text-foreground">{label}</h2>
       ) : null}
       {matches && sectionRule ? (
         <Badge variant={mapVariant(sectionRule.badge)}>

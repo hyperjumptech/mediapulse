@@ -1,10 +1,7 @@
 import { MEDIAPULSE_NEWSLETTER_SECTIONS } from "@workspace/agent-data-api-contract";
 import type { Prisma, prisma } from "@mediapulse/database";
 
-import {
-  classifyCollectionSource,
-  type CollectionSource,
-} from "../data-sources/collection-source";
+import { classifyCollectionSource } from "../data-sources/collection-source";
 
 /** Label shown in the Query column for sources that did not come from a search query. */
 export const CURATED_SOURCE_LABEL = "Curated source" as const;
@@ -32,11 +29,7 @@ export type CitedArticlePayload = {
   publishedSection: string;
   sectionScore: number | null;
   sectionReason: string;
-  collectionSource: CollectionSource;
   queryText: string;
-  queryLinkTickerId: string;
-  classifiedSection: string;
-  sectionMismatch: boolean;
 };
 
 /** Prisma collaborator surface for {@link buildCitedArticles}. */
@@ -51,9 +44,7 @@ export type BuildCitedArticlesDeps = {
  * citation.
  *
  * Rows are ordered by published newsletter section (canonical display order), then section-fit
- * score descending, then title. When the published section differs from the article-analysis
- * classification, `sectionMismatch` is set and `classifiedSection` carries the original label so a
- * re-placement is visible.
+ * score descending, then title.
  *
  * @param newsletterId - Newsletter whose citations to collect.
  * @param tickerId - Ticker the newsletter belongs to; scopes the per-ticker section classification.
@@ -94,9 +85,6 @@ export const buildCitedArticles = async (
     const collectionSource = classifyCollectionSource(
       dataSource.searchQueryId !== null,
     );
-    const classifiedSectionKey = tickerSection?.section ?? null;
-    const sectionMismatch =
-      classifiedSectionKey !== null && classifiedSectionKey !== row.sectionKey;
 
     return {
       id: dataSource.id,
@@ -106,15 +94,9 @@ export const buildCitedArticles = async (
       publishedSection: sectionLabel(row.sectionKey),
       sectionScore: tickerSection?.sectionScore ?? null,
       sectionReason: tickerSection?.sectionReason ?? "",
-      collectionSource,
       queryText:
         dataSource.searchQuery?.text ??
         (collectionSource === "page-collection" ? CURATED_SOURCE_LABEL : ""),
-      queryLinkTickerId: collectionSource === "data-collection" ? tickerId : "",
-      classifiedSection: sectionMismatch
-        ? sectionLabel(classifiedSectionKey)
-        : "",
-      sectionMismatch,
     } satisfies CitedArticlePayload;
   });
 

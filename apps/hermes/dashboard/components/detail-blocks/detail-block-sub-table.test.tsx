@@ -40,6 +40,85 @@ describe("DetailBlockSubTableView", () => {
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 
+  it("renders a descriptionField as a muted line beneath the cell value", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "queries",
+          label: "Search queries used",
+          columns: [
+            {
+              field: "text",
+              label: "Query",
+              type: "text",
+              descriptionField: "intent",
+            },
+          ],
+        }}
+        data={{
+          queries: [{ text: "coffee prices outlook", intent: "breaking" }],
+        }}
+      />,
+    );
+    expect(screen.getByText("coffee prices outlook")).toBeInTheDocument();
+    expect(screen.getByText("breaking")).toBeInTheDocument();
+  });
+
+  it("renders an overlineField as a muted line above the cell value", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "citedArticles",
+          label: "Articles cited",
+          columns: [
+            {
+              field: "title",
+              label: "Title",
+              type: "text",
+              linkTemplate: "{url}",
+              linkExternal: true,
+              overlineField: "publishedSection",
+            },
+          ],
+        }}
+        data={{
+          citedArticles: [
+            {
+              title: "Auction concludes",
+              url: "https://example.com/auction",
+              publishedSection: "Regulatory & Policy Watch",
+            },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByText("Regulatory & Policy Watch")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Auction concludes" }),
+    ).toBeInTheDocument();
+  });
+
+  it("omits the column header row when hideHeader is set", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "queries",
+          label: "Search Queries",
+          hideHeader: true,
+          columns: [{ field: "text", label: "Query", type: "text" }],
+        }}
+        data={{ queries: [{ text: "coffee prices outlook" }] }}
+      />,
+    );
+    expect(screen.getByText("coffee prices outlook")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("columnheader", { name: "Query" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders the empty-state copy when the array is empty", () => {
     render(
       <DetailBlockSubTableView

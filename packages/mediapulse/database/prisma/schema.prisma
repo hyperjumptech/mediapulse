@@ -496,6 +496,8 @@ model SearchQuerySet {
   strategySnapshot Json     @map("strategy_snapshot")
   generationSource String   @map("generation_source")
   agentJobId       String?  @map("agent_job_id")
+  agentId          String?  @map("agent_id")
+  agentVersion     String?  @map("agent_version")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 

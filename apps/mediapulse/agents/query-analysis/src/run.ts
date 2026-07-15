@@ -29,6 +29,8 @@ import {
   PROBE_LOCALES,
   PROBE_MIN_RESULTS,
   PROBE_TIMEOUT_MS,
+  QUERY_ANALYSIS_AGENT_ID,
+  QUERY_ANALYSIS_AGENT_VERSION,
   QUERY_COUNT,
   RECON_CONCURRENCY,
   RECON_MAX_COMPETITORS,
@@ -344,7 +346,7 @@ export const runQueryAnalysis = async (
   }));
 
   const strategySnapshot = {
-    agentVersion: "3.0.0",
+    agentVersion: QUERY_ANALYSIS_AGENT_VERSION,
     generationSource: "self_driving_v1",
     ...(contract !== undefined ? { contractVersion: contract.version } : {}),
     llmUsage: {
@@ -397,6 +399,8 @@ export const runQueryAnalysis = async (
     strategySnapshot,
     activate: true,
     queries: finalized.queries,
+    agentId: QUERY_ANALYSIS_AGENT_ID,
+    agentVersion: QUERY_ANALYSIS_AGENT_VERSION,
     ...(hermesCorrelation?.jobId !== undefined
       ? { agentJobId: hermesCorrelation.jobId }
       : {}),

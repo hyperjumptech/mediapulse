@@ -889,6 +889,8 @@ describe("agent-data-api", () => {
         strategySnapshot: {},
         generationSource: "hybrid_v1",
         agentJobId: null,
+        agentId: null,
+        agentVersion: null,
         createdAt: new Date("2026-03-20T00:00:00.000Z"),
         updatedAt: new Date("2026-03-20T00:00:00.000Z"),
       });

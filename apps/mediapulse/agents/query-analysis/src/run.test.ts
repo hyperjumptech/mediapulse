@@ -239,6 +239,8 @@ describe("runQueryAnalysis — cold run (cache miss)", () => {
     expect(body.generationSource).toBe("self_driving_v1");
     expect(body.activate).toBe(true);
     expect(body.queries.length).toBeGreaterThan(0);
+    expect(body.agentId).toBe("query-analysis");
+    expect(body.agentVersion).toBe("3.0.0");
     expect(body.strategySnapshot.agentVersion).toBe("3.0.0");
     expect(body.strategySnapshot.llmUsage.cacheHit).toBe(false);
     expect(body.strategySnapshot.llmUsage.totalTokens).toBe(270);

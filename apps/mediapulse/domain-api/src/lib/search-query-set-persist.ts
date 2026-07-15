@@ -19,6 +19,8 @@ export type CreateSearchQuerySetInput = {
   generationSource: string;
   strategySnapshot: Record<string, unknown>;
   agentJobId?: string;
+  agentId?: string;
+  agentVersion?: string;
   generatedAt?: Date;
   queries: SearchQuerySetPersistQueryInput[];
 };
@@ -108,6 +110,8 @@ export const createSearchQuerySet = async (
       generationSource: input.generationSource,
       strategySnapshot: input.strategySnapshot as Prisma.InputJsonObject,
       agentJobId: input.agentJobId,
+      agentId: input.agentId,
+      agentVersion: input.agentVersion,
       searchQueries: {
         create: input.queries.map((query) => ({
           tickerId: input.tickerId,

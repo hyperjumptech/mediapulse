@@ -1,5 +1,9 @@
 import type { SearchLocale } from "@workspace/agent-search";
 
+/** Identity recorded on each generated SearchQuerySet for provenance. */
+export const QUERY_ANALYSIS_AGENT_ID = "query-analysis";
+export const QUERY_ANALYSIS_AGENT_VERSION = "3.0.0";
+
 /** Query phrasing languages the pipeline builds candidates in. */
 export const LANGUAGES = ["id", "en"] as const;
 

@@ -51,35 +51,8 @@ describe("newslettersDashboardPage section rules", () => {
     ).toBe(false);
   });
 
-  it("declares a selected-sources rule that fires when the array is empty", () => {
-    const sources = findBlock("Selected sources");
-    expect(sources.sectionRule).toMatchObject({
-      badge: "muted",
-      label: "no sources",
-    });
-
-    const ast = parseDetailBlockRule(sources.sectionRule!.when);
-    expect(evaluateDetailBlockRule(ast, { selectedSources: [] })).toBe(true);
-    expect(evaluateDetailBlockRule(ast, { selectedSources: [{}] })).toBe(false);
-  });
-
-  it("selected-sources block has a badge Collected by column with correct variants", () => {
-    const sources = findBlock("Selected sources");
-    expect(sources.type).toBe("subTable");
-    if (sources.type !== "subTable") return;
-
-    const column = sources.columns.find((col) => col.label === "Collected by");
-    expect(column).toBeDefined();
-    expect(column?.type).toBe("badge");
-    expect(column?.field).toBe("collectionSourceLabel");
-    expect(column?.badgeVariants).toMatchObject({
-      "Page Collection": "success",
-      "Data Collection": "outline",
-    });
-  });
-
   it("declares a search-queries rule that uses hoursBetween > 24", () => {
-    const queries = findBlock("Search queries used");
+    const queries = findBlock("Search Queries");
     expect(queries.sectionRule).toMatchObject({
       badge: "muted",
       label: "stale set",
@@ -105,28 +78,24 @@ describe("newslettersDashboardPage section rules", () => {
 });
 
 describe("newslettersDashboardPage articles-cited block", () => {
-  it("binds to citedArticles and links the title to the data-source detail", () => {
+  it("binds to citedArticles and links the title out to the article URL", () => {
     const block = findBlock("Articles cited");
     expect(block.type).toBe("subTable");
     if (block.type !== "subTable") return;
     expect(block.field).toBe("citedArticles");
 
     const title = findColumn("Articles cited", "Title");
-    expect(title.linkTemplate).toBe(
-      "/dashboard/{integrationId}/data-sources/{id}",
-    );
+    expect(title.linkTemplate).toBe("{url}");
+    expect(title.linkExternal).toBe(true);
   });
 
-  it("marks the Section badge inconsistent on a section re-placement", () => {
-    const section = findColumn("Articles cited", "Section");
-    expect(section.type).toBe("badge");
-    expect(section.inconsistentField).toBe("sectionMismatch");
+  it("shows the published section as an overline above the title", () => {
+    const title = findColumn("Articles cited", "Title");
+    expect(title.overlineField).toBe("publishedSection");
   });
 
-  it("routes the Query link through queryLinkTickerId so curated rows render plain text", () => {
+  it("renders the Query as plain text without a link", () => {
     const query = findColumn("Articles cited", "Query");
-    expect(query.linkTemplate).toBe(
-      "/dashboard/{integrationId}/search-queries?tickerId={queryLinkTickerId}",
-    );
+    expect(query.linkTemplate).toBeUndefined();
   });
 });
