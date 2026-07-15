@@ -191,6 +191,55 @@ const newslettersQueryStageBlock = {
 } satisfies DetailBlock;
 
 /**
+ * `panel` grouping the source-collection stage into one card: KPI cards (total cited sources, the
+ * data-collection vs page-collection split, and distinct publishers) above a results table listing
+ * each cited source with its collector as an overline and its publisher and collected date beneath.
+ * All figures come from this newsletter's exact citation join, so they reflect only the sources it
+ * used rather than the ticker's wider collection funnel.
+ */
+const newslettersSourceStageBlock = {
+  type: "panel",
+  label: "Source Collection Stage",
+  blocks: [
+    {
+      type: "statCards",
+      cards: [
+        { label: "Sources", field: "sourceCollection.totalLabel" },
+        {
+          label: "Data Collection",
+          field: "sourceCollection.dataCollectionLabel",
+        },
+        {
+          label: "Page Collection",
+          field: "sourceCollection.pageCollectionLabel",
+        },
+        { label: "Publishers", field: "sourceCollection.publishersLabel" },
+      ],
+    },
+    {
+      type: "subTable",
+      label: "Results",
+      field: "sourceCollection.sources",
+      hideHeader: true,
+      rowLimitOptions: [5, 10],
+      emptyState: "No sources cited by this newsletter.",
+      columns: [
+        {
+          field: "title",
+          label: "Source",
+          type: "text",
+          truncate: 80,
+          linkTemplate: "{url}",
+          linkExternal: true,
+          overlineField: "collectorLabel",
+          descriptionField: "meta",
+        },
+      ],
+    },
+  ],
+} satisfies DetailBlock;
+
+/**
  * `htmlPreview` block bound to `emailPreviewHtml` — the production
  * `default-newsletter` React Email template rendered server-side against the
  * newsletter's data. The Hermes generic renderer drops this into a sandboxed
@@ -280,6 +329,7 @@ export const newslettersDashboardPage = {
     newslettersMetadataBlock,
     newslettersRecipientsBlock,
     newslettersQueryStageBlock,
+    newslettersSourceStageBlock,
     newslettersCitedArticlesBlock,
     newslettersEmailPreviewBlock,
     newslettersHermesLinksBlock,

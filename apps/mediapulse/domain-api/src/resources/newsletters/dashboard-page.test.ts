@@ -137,3 +137,47 @@ describe("newslettersDashboardPage query-generation stage", () => {
     expect(results).toBeDefined();
   });
 });
+
+describe("newslettersDashboardPage source-collection stage", () => {
+  it("groups the stage KPI cards and results table in one panel", () => {
+    const panel = findBlock("Source Collection Stage");
+    expect(panel.type).toBe("panel");
+    if (panel.type !== "panel") return;
+
+    const statCards = panel.blocks.find((block) => block.type === "statCards");
+    expect(statCards?.type).toBe("statCards");
+    if (statCards?.type !== "statCards") return;
+    expect(statCards.cards.map((card) => card.label)).toEqual([
+      "Sources",
+      "Data Collection",
+      "Page Collection",
+      "Publishers",
+    ]);
+    expect(statCards.cards.map((card) => card.field)).toEqual([
+      "sourceCollection.totalLabel",
+      "sourceCollection.dataCollectionLabel",
+      "sourceCollection.pageCollectionLabel",
+      "sourceCollection.publishersLabel",
+    ]);
+  });
+
+  it("binds the results table to the cited sources with collector and meta lines", () => {
+    const panel = findBlock("Source Collection Stage");
+    if (panel.type !== "panel") return;
+
+    const results = panel.blocks.find(
+      (block) =>
+        block.type === "subTable" && block.field === "sourceCollection.sources",
+    );
+    expect(results?.type).toBe("subTable");
+    if (results?.type !== "subTable") return;
+    expect(results.hideHeader).toBe(true);
+    expect(results.rowLimitOptions).toEqual([5, 10]);
+
+    const [title] = results.columns;
+    expect(title?.linkTemplate).toBe("{url}");
+    expect(title?.linkExternal).toBe(true);
+    expect(title?.overlineField).toBe("collectorLabel");
+    expect(title?.descriptionField).toBe("meta");
+  });
+});
