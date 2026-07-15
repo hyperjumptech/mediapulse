@@ -26,6 +26,7 @@ export type CollectionUrlOutcomeReason =
  */
 export const REASON_LABELS: Record<string, string> = {
   url_noise_blocked_host: "Blocked host",
+  url_noise_low_value_source: "Low-value static or market-research source",
   url_noise_blocked_host_path: "Blocked host path",
   url_noise_blocked_path: "Blocked path",
   url_noise_blocked_extension: "Blocked file extension",
@@ -80,6 +81,7 @@ export const describeOutcomeReason = (
 ): { reason: string; reasonDetail: string } => {
   switch (context.reason) {
     case "url_noise_blocked_host":
+    case "url_noise_low_value_source":
     case "url_noise_blocked_host_path":
     case "url_noise_blocked_path":
     case "url_noise_blocked_extension": {

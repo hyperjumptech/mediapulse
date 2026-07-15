@@ -255,4 +255,46 @@ describe("classifyNoisyUrl", () => {
       expect(decision.canonicalUrl).toMatch(/^https:\/\//);
     }
   });
+
+  it.each([
+    {
+      name: "Statista statistics page",
+      url: "https://www.statista.com/statistics/271639/coffee-consumption-worldwide/",
+    },
+    {
+      name: "Statista consent-wall root",
+      url: "https://www.statista.com/",
+    },
+    {
+      name: "Precedence Research market-size page",
+      url: "https://www.precedenceresearch.com/coffee-market",
+    },
+    {
+      name: "Grand View Research report",
+      url: "https://www.grandviewresearch.com/industry-analysis/coffee-market",
+    },
+    {
+      name: "MarketsandMarkets report",
+      url: "https://www.marketsandmarkets.com/Market-Reports/coffee-market-259114694.html",
+    },
+    {
+      name: "Market-research host with a news-shaped path (host block wins)",
+      url: "https://www.mordorintelligence.com/news/coffee-market-update",
+    },
+  ])("low-value source block: $name", ({ url }) => {
+    const decision = classifyNoisyUrl(url);
+
+    expect(decision.blocked).toBe(true);
+    if (decision.blocked) {
+      expect(decision.reason).toBe("low_value_source");
+    }
+  });
+
+  it("does not block a legitimate news story that merely mentions market size", () => {
+    const decision = classifyNoisyUrl(
+      "https://www.reuters.com/business/coffee-prices-hit-record-2026-07-14/",
+    );
+
+    expect(decision.blocked).toBe(false);
+  });
 });

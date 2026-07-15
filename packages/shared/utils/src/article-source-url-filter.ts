@@ -17,6 +17,28 @@ const BLOCKED_HOST_PATTERNS = [
 ] as const;
 
 /**
+ * Statistics portals and market-research report mills. These publish static, often paywalled or
+ * consent-walled data pages ("market size to hit USD X by 20YY", key-statistics dashboards), never
+ * dated news, so they are blocked host-wide regardless of path. Kept separate from
+ * {@link BLOCKED_HOST_PATTERNS} so the drop reason distinguishes low-value data pages from social
+ * and scraper hosts.
+ */
+const LOW_VALUE_SOURCE_HOST_PATTERNS = [
+  /(^|\.)statista\.com$/i,
+  /(^|\.)precedenceresearch\.com$/i,
+  /(^|\.)grandviewresearch\.com$/i,
+  /(^|\.)marketsandmarkets\.com$/i,
+  /(^|\.)mordorintelligence\.com$/i,
+  /(^|\.)fortunebusinessinsights\.com$/i,
+  /(^|\.)imarcgroup\.com$/i,
+  /(^|\.)alliedmarketresearch\.com$/i,
+  /(^|\.)researchandmarkets\.com$/i,
+  /(^|\.)marketresearchfuture\.com$/i,
+  /(^|\.)futuremarketinsights\.com$/i,
+  /(^|\.)verifiedmarketresearch\.com$/i,
+] as const;
+
+/**
  * Host + path pairs for ticker hubs and scrapers where `/news/` is still a feed, not a story.
  * Evaluated before article-path overrides.
  */
@@ -123,6 +145,7 @@ const BLOCKED_PATH_PATTERNS = [
 
 export type UrlNoiseReason =
   | "blocked_host"
+  | "low_value_source"
   | "blocked_host_path"
   | "blocked_path"
   | "blocked_extension";
@@ -198,6 +221,12 @@ export const classifyNoisyUrl = (rawUrl: string): UrlNoiseDecision => {
 
   if (BLOCKED_HOST_PATTERNS.some((pattern) => pattern.test(hostname))) {
     return { blocked: true, reason: "blocked_host", canonicalUrl };
+  }
+
+  if (
+    LOW_VALUE_SOURCE_HOST_PATTERNS.some((pattern) => pattern.test(hostname))
+  ) {
+    return { blocked: true, reason: "low_value_source", canonicalUrl };
   }
 
   if (

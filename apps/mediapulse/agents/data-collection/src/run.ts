@@ -200,6 +200,7 @@ export async function runDataCollection(
   const searchFailures: WebSearchFailure[] = [];
   const droppedByUrlReason: Record<UrlNoiseReason, number> = {
     blocked_host: 0,
+    low_value_source: 0,
     blocked_host_path: 0,
     blocked_path: 0,
     blocked_extension: 0,
