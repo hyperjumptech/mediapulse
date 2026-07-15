@@ -131,6 +131,8 @@ model DataSourceTickerSection {
   sectionReason         String?  @map("section_reason") @db.Text
   /// Self-describing snapshot of the per-rule scoring behind sectionScore/sectionReason.
   sectionScoreBreakdown Json?    @map("section_score_breakdown")
+  /// Exact article-analysis run that produced this classification; null for pre-provenance rows.
+  articleAnalysisRunId  String?  @map("article_analysis_run_id")
   analyzedAt            DateTime @default(now()) @map("analyzed_at")
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
@@ -140,6 +142,7 @@ model DataSourceTickerSection {
 
   @@unique([dataSourceId, tickerId])
   @@index([tickerId, section, analyzedAt])
+  @@index([articleAnalysisRunId])
   @@map("data_source_ticker_section")
 }
 
@@ -820,8 +823,10 @@ model ArticleAnalysisRun {
   status              DataCollectionRunStatus
 
   model            String?
+  agentVersion     String? @map("agent_version")
   promptTokens     Int     @default(0) @map("prompt_tokens")
   completionTokens Int     @default(0) @map("completion_tokens")
+  reasoningTokens  Int     @default(0) @map("reasoning_tokens")
   totalTokens      Int     @default(0) @map("total_tokens")
 
   scored     Int     @default(0)

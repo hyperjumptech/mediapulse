@@ -21,6 +21,7 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/tabs";
 
+import { DetailBlockEmptyState } from "./detail-block-empty-state";
 import { DetailBlockSectionHeader } from "./detail-block-section-header";
 import { DetailBlockHtmlPreviewView } from "./detail-block-html-preview";
 import { DetailBlockKeyValueView } from "./detail-block-key-value";
@@ -40,6 +41,18 @@ const stripLabel = <T extends DetailBlockLeaf>(block: T): T => ({
 
 const defaultLimitValue = (block: DetailBlockSubTable): string =>
   block.rowLimitDefaultAll ? ALL_VALUE : String(block.rowLimitOptions?.[0]);
+
+const tabCount = (
+  data: unknown,
+  countField: string | undefined,
+): number | undefined => {
+  if (countField === undefined) return undefined;
+  const value = resolvePath(data, countField);
+  if (Array.isArray(value)) return value.length;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  return undefined;
+};
 
 const rowsForField = (
   data: unknown,
@@ -85,9 +98,7 @@ const renderTabBody = (
     const rows = rowsForField(data, block.field);
     if (rows.length === 0) {
       return (
-        <p className="text-sm text-muted-foreground">
-          {block.emptyState ?? "No items."}
-        </p>
+        <DetailBlockEmptyState message={block.emptyState ?? "No items."} />
       );
     }
     const limit = limitValue === ALL_VALUE ? rows.length : Number(limitValue);
@@ -148,11 +159,22 @@ export const DetailBlockTabsView = ({
       >
         <div className="flex items-center justify-between gap-2">
           <TabsList>
-            {block.tabs.map((tab, index) => (
-              <TabsTrigger key={`tab-trigger-${index}`} value={`tab-${index}`}>
-                {tab.label}
-              </TabsTrigger>
-            ))}
+            {block.tabs.map((tab, index) => {
+              const count = tabCount(data, tab.countField);
+              return (
+                <TabsTrigger
+                  key={`tab-trigger-${index}`}
+                  value={`tab-${index}`}
+                >
+                  {tab.label}
+                  {count !== undefined ? (
+                    <span className="text-muted-foreground ml-1.5 text-xs tabular-nums">
+                      {count}
+                    </span>
+                  ) : null}
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
           {activeOptions ? (
             <Select

@@ -11,6 +11,7 @@ import { parsePagination } from "../../lib/list-pagination";
 import { newslettersTableV1CustomActionRegistrations } from "./custom-actions";
 import { findQuerySetForNewsletter } from "./active-query-set";
 import { buildCitedArticles } from "./build-cited-articles";
+import { buildSourceAnalysis } from "./build-source-analysis";
 import { buildSourceCollection } from "./build-source-collection";
 import { buildHermesLinks } from "./build-hermes-links";
 import {
@@ -149,6 +150,7 @@ newslettersRoutes.get("/:id", async (c) => {
     recipientsResult,
     citedArticles,
     sourceCollection,
+    sourceAnalysis,
     activeQuerySet,
     hermesLinks,
     emailPreviewHtml,
@@ -165,6 +167,11 @@ newslettersRoutes.get("/:id", async (c) => {
       newsletterCitation: prisma.newsletterCitation,
       dataCollectionRun: prisma.dataCollectionRun,
       collectionUrlOutcome: prisma.collectionUrlOutcome,
+    }),
+    buildSourceAnalysis(row.id, row.tickerId, {
+      newsletterCitation: prisma.newsletterCitation,
+      articleAnalysisRun: prisma.articleAnalysisRun,
+      dataSourceTickerSection: prisma.dataSourceTickerSection,
     }),
     findQuerySetForNewsletter(row.searchQuerySetId, {
       searchQuerySet: prisma.searchQuerySet,
@@ -210,6 +217,7 @@ newslettersRoutes.get("/:id", async (c) => {
       emailPreviewHtml,
       citedArticles,
       sourceCollection,
+      sourceAnalysis,
       recipients: recipientsResult.recipients,
       recipientsTruncated: recipientsResult.truncated,
       recipientsCap: NEWSLETTER_DETAIL_RECIPIENTS_CAP,

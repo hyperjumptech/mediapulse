@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select";
 
+import { DetailBlockEmptyState } from "./detail-block-empty-state";
 import { DetailBlockSectionHeader } from "./detail-block-section-header";
 import { DetailBlockSubTableContent } from "./detail-block-sub-table";
 
@@ -77,9 +78,7 @@ export const DetailBlockSubTableRowLimit = ({
         </Select>
       </div>
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {emptyState ?? "No items."}
-        </p>
+        <DetailBlockEmptyState message={emptyState ?? "No items."} />
       ) : (
         <DetailBlockSubTableContent
           columns={columns}

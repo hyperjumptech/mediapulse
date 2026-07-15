@@ -4,6 +4,7 @@ import type { ActiveQuerySetPayload } from "./active-query-set";
 import type { CitedArticlePayload } from "./build-cited-articles";
 import type { HermesLinksPayload } from "./build-hermes-links";
 import type { RecipientPayload } from "./build-recipients";
+import type { SourceAnalysisPayload } from "./build-source-analysis";
 import type { SourceCollectionPayload } from "./build-source-collection";
 
 /** Row shape passed to {@link mapRowToDetailItem}. */
@@ -42,6 +43,7 @@ export type DetailItem = {
   emailPreviewHtml: string;
   citedArticles: CitedArticlePayload[];
   sourceCollection: SourceCollectionPayload;
+  sourceAnalysis: SourceAnalysisPayload;
   recipients: RecipientPayload[];
   recipientsTruncated: boolean;
   recipientsCap: number;
@@ -64,6 +66,7 @@ export const mapRowToDetailItem = (
     emailPreviewHtml: string;
     citedArticles: CitedArticlePayload[];
     sourceCollection: SourceCollectionPayload;
+    sourceAnalysis: SourceAnalysisPayload;
     recipients: RecipientPayload[];
     recipientsTruncated: boolean;
     recipientsCap: number;
@@ -95,6 +98,7 @@ export const mapRowToDetailItem = (
   emailPreviewHtml: parts.emailPreviewHtml,
   citedArticles: parts.citedArticles,
   sourceCollection: parts.sourceCollection,
+  sourceAnalysis: parts.sourceAnalysis,
   recipients: parts.recipients,
   recipientsTruncated: parts.recipientsTruncated,
   recipientsCap: parts.recipientsCap,

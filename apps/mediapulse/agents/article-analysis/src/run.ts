@@ -10,6 +10,7 @@ import type { PostAnalysisScoreBreakdown } from "@workspace/agent-data-api-contr
 import crypto from "node:crypto";
 
 import type { ArticleAnalysisConfig } from "./config-schema.js";
+import { ARTICLE_ANALYSIS_AGENT_VERSION } from "./constants.js";
 import type { ArticleAnalysisInput } from "./schemas/article-analysis-input-schema.js";
 import {
   classifyArticleSection,
@@ -212,6 +213,7 @@ export async function run(
     } = await dataApiClient.analysis.create({
       articleSections,
       analyzedDataSourceIds,
+      articleAnalysisRunId: runId,
     });
 
     totalScored += articlesScored;
@@ -280,8 +282,10 @@ export async function run(
       completedAt: new Date().toISOString(),
       status,
       model: config.acceptance.model,
+      agentVersion: ARTICLE_ANALYSIS_AGENT_VERSION,
       promptTokens: usageTotals.promptTokens,
       completionTokens: usageTotals.completionTokens,
+      reasoningTokens: usageTotals.reasoningTokens,
       totalTokens: usageTotals.totalTokens,
       scored: totalScored,
       rejected: totalRejected,
