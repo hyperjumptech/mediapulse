@@ -15,7 +15,7 @@ export type SourceCollectionEntryPayload = {
   id: string;
   title: string;
   url: string;
-  agentLabel: string;
+  agentLine: string;
   queryText: string;
 };
 
@@ -23,7 +23,7 @@ export type SourceCollectionEntryPayload = {
 export type SourceCollectionDroppedPayload = {
   id: string;
   url: string;
-  agentLabel: string;
+  agentLine: string;
   reason: string;
   reasonDetail: string;
 };
@@ -226,9 +226,9 @@ export const buildSourceCollection = async (
     }
   }
 
-  const withVersion = (label: string, runId: string | null): string => {
+  const agentLine = (label: string, runId: string | null): string => {
     const version = runId ? versionByRunId.get(runId) : undefined;
-    return version ? `${label} ${version}` : label;
+    return version ? `From ${label} ${version}` : `From ${label}`;
   };
 
   const sources = dataSources.map((dataSource) => {
@@ -240,7 +240,7 @@ export const buildSourceCollection = async (
       id: dataSource.id,
       title: dataSource.title,
       url: dataSource.url,
-      agentLabel: withVersion(
+      agentLine: agentLine(
         COLLECTION_SOURCE_LABEL[collectionSource],
         dataSource.dataCollectionRunId,
       ),
@@ -250,8 +250,8 @@ export const buildSourceCollection = async (
     } satisfies SourceCollectionEntryPayload;
   });
   sources.sort((left, right) => {
-    if (left.agentLabel !== right.agentLabel) {
-      return left.agentLabel.localeCompare(right.agentLabel);
+    if (left.agentLine !== right.agentLine) {
+      return left.agentLine.localeCompare(right.agentLine);
     }
 
     return left.title.localeCompare(right.title);
@@ -260,7 +260,7 @@ export const buildSourceCollection = async (
   const dropped = droppedRows.map((outcome) => ({
     id: outcome.id,
     url: outcome.url,
-    agentLabel: withVersion(outcomeAgentLabel(outcome.agent), outcome.runId),
+    agentLine: agentLine(outcomeAgentLabel(outcome.agent), outcome.runId),
     reason: outcome.reason ?? "—",
     reasonDetail: outcome.reasonDetail ?? "",
   }));

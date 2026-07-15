@@ -242,8 +242,8 @@ const newslettersSourceStageBlock = {
                 truncate: 80,
                 linkTemplate: "{url}",
                 linkExternal: true,
+                descriptionField: "agentLine",
               },
-              { field: "agentLabel", label: "Agent", type: "text" },
               {
                 field: "queryText",
                 label: "Query",
@@ -270,8 +270,8 @@ const newslettersSourceStageBlock = {
                 noWrap: true,
                 linkTemplate: "{url}",
                 linkExternal: true,
+                descriptionField: "agentLine",
               },
-              { field: "agentLabel", label: "Agent", type: "text" },
               {
                 field: "reason",
                 label: "Reason",

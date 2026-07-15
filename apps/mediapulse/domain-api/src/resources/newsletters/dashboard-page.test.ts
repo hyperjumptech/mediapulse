@@ -183,20 +183,20 @@ describe("newslettersDashboardPage source-collection stage", () => {
     expect(collected.block.rowLimitDefaultAll).toBe(true);
     expect(collected.block.columns.map((column) => column.label)).toEqual([
       "Article",
-      "Agent",
       "Query",
     ]);
     expect(collected.block.columns[0]?.linkExternal).toBe(true);
+    expect(collected.block.columns[0]?.descriptionField).toBe("agentLine");
 
     expect(dropped?.block.type).toBe("subTable");
     if (dropped?.block.type !== "subTable") return;
     expect(dropped.block.field).toBe("sourceCollection.dropped");
     expect(dropped.block.columns.map((column) => column.label)).toEqual([
       "Article URL",
-      "Agent",
       "Reason",
     ]);
     expect(dropped.block.columns[0]?.noWrap).toBe(true);
+    expect(dropped.block.columns[0]?.descriptionField).toBe("agentLine");
     const reasonColumn = dropped.block.columns.find(
       (column) => column.field === "reason",
     );
