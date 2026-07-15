@@ -173,6 +173,11 @@ export const detailBlockSubTableSchema = z.object({
    * header and limits the visible rows client-side. The first option is the default.
    */
   rowLimitOptions: z.array(z.number().int().positive()).min(1).optional(),
+  /**
+   * When true (and `rowLimitOptions` is set), the selector starts on "All" instead of the first
+   * option, so the table shows every row until the reader narrows it.
+   */
+  rowLimitDefaultAll: z.boolean().optional(),
 });
 
 /**

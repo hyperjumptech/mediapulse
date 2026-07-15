@@ -250,6 +250,7 @@ export const DetailBlockSubTableView = ({
         emptyState={block.emptyState}
         hideHeader={block.hideHeader}
         options={block.rowLimitOptions}
+        defaultAll={block.rowLimitDefaultAll}
       />
     );
   }

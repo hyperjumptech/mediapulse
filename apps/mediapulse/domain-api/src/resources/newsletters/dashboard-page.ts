@@ -222,6 +222,7 @@ const newslettersSourceStageBlock = {
       label: "Results",
       field: "sourceCollection.sources",
       rowLimitOptions: [5, 10],
+      rowLimitDefaultAll: true,
       emptyState: "No sources cited by this newsletter.",
       columns: [
         {

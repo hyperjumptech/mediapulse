@@ -178,6 +178,7 @@ describe("newslettersDashboardPage source-collection stage", () => {
     expect(results?.type).toBe("subTable");
     if (results?.type !== "subTable") return;
     expect(results.rowLimitOptions).toEqual([5, 10]);
+    expect(results.rowLimitDefaultAll).toBe(true);
     expect(results.columns.map((column) => column.label)).toEqual([
       "Article",
       "Agent",
