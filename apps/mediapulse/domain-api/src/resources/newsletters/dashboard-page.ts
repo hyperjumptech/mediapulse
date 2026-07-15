@@ -63,35 +63,6 @@ const newslettersMetadataBlock = {
 } satisfies DetailBlock;
 
 /**
- * `subTable` block bound to `citedArticles` — the articles cited by this newsletter, read from the
- * `newsletter_citation` table and joined to the section, score, and reason article-analysis assigned
- * for this ticker plus the search query that surfaced each one. Gives a reviewer a straight line from
- * the shipped newsletter back to the query and reasoning behind every citation. Rows are grouped by
- * published section in newsletter order (server-sorted in `buildCitedArticles`). The Title links out
- * to the article and carries its published section as an overline.
- */
-const newslettersCitedArticlesBlock = {
-  type: "subTable",
-  label: "Articles cited",
-  field: "citedArticles",
-  emptyState: "No citations recorded for this newsletter.",
-  columns: [
-    {
-      field: "title",
-      label: "Title",
-      type: "text",
-      truncate: 80,
-      linkTemplate: "{url}",
-      linkExternal: true,
-      overlineField: "publishedSection",
-    },
-    { field: "sectionScore", label: "Score", type: "number" },
-    { field: "queryText", label: "Query", type: "text", truncate: 60 },
-    { field: "sectionReason", label: "Reason", type: "text", truncate: 120 },
-  ],
-} satisfies DetailBlock;
-
-/**
  * `subTable` block bound to `recipients` (PRD §5). Each row carries
  * `displayName` (`Name <email>` or email), the four-state status badge with
  * its `inconsistent` marker, the Resend email id, attempts, error category,
@@ -288,6 +259,95 @@ const newslettersSourceStageBlock = {
 } satisfies DetailBlock;
 
 /**
+ * `panel` grouping the source-analysis stage into one card: KPI cards (when the analysis runs ran,
+ * the LLM model, the token spend with a per-input/output breakdown, and the assigned/rejected counts)
+ * above an Assigned/Rejected tab pair. Assigned lists each cited source with its analysis section,
+ * fit score, and reason; Rejected lists the sources those same runs rejected for this ticker. All
+ * figures come from this newsletter's exact citation join traced to the article-analysis runs behind
+ * those sources.
+ */
+const newslettersSourceAnalysisStageBlock = {
+  type: "panel",
+  label: "Source Analysis Stage",
+  blocks: [
+    {
+      type: "statCards",
+      cards: [
+        { label: "Agent", field: "sourceAnalysis.agentLabel" },
+        {
+          label: "Generated Date",
+          field: "sourceAnalysis.generatedAtLabel",
+        },
+        { label: "LLM Model", field: "sourceAnalysis.modelLabel" },
+        {
+          label: "LLM Tokens",
+          field: "sourceAnalysis.tokensTotalLabel",
+          tooltipField: "sourceAnalysis.tokensBreakdownLabel",
+        },
+      ],
+    },
+    {
+      type: "tabs",
+      tabs: [
+        {
+          label: "Assigned",
+          countField: "sourceAnalysis.assigned",
+          block: {
+            type: "subTable",
+            field: "sourceAnalysis.assigned",
+            rowLimitOptions: [5, 10],
+            rowLimitDefaultAll: true,
+            emptyState: "No analysed sources cited by this newsletter.",
+            columns: [
+              {
+                field: "title",
+                label: "Article",
+                type: "text",
+                truncate: 80,
+                minWidth: 320,
+                linkTemplate: "{url}",
+                linkExternal: true,
+                descriptionField: "classifiedLabel",
+              },
+              {
+                field: "scoreLabel",
+                label: "Score",
+                type: "badge",
+                noWrap: true,
+                badgeVariantField: "scoreVariant",
+              },
+              { field: "reason", label: "Reason", type: "text" },
+            ],
+          },
+        },
+        {
+          label: "Rejected",
+          countField: "sourceAnalysis.rejected",
+          block: {
+            type: "subTable",
+            field: "sourceAnalysis.rejected",
+            rowLimitOptions: [10, 25],
+            emptyState:
+              "No rejected sources recorded for the runs behind this newsletter.",
+            columns: [
+              {
+                field: "title",
+                label: "Article",
+                type: "text",
+                truncate: 80,
+                linkTemplate: "{url}",
+                linkExternal: true,
+              },
+              { field: "reason", label: "Reason", type: "text" },
+            ],
+          },
+        },
+      ],
+    },
+  ],
+} satisfies DetailBlock;
+
+/**
  * `htmlPreview` block bound to `emailPreviewHtml` — the production
  * `default-newsletter` React Email template rendered server-side against the
  * newsletter's data. The Hermes generic renderer drops this into a sandboxed
@@ -378,7 +438,7 @@ export const newslettersDashboardPage = {
     newslettersRecipientsBlock,
     newslettersQueryStageBlock,
     newslettersSourceStageBlock,
-    newslettersCitedArticlesBlock,
+    newslettersSourceAnalysisStageBlock,
     newslettersEmailPreviewBlock,
     newslettersHermesLinksBlock,
   ],

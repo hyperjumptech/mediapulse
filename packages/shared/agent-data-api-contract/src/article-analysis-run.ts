@@ -15,8 +15,11 @@ export const articleAnalysisRunInputSchema = z.object({
   status: articleAnalysisRunStatusSchema,
   /** Classification LLM model id. */
   model: z.string().optional(),
+  /** Article-analysis agent version that produced this run. */
+  agentVersion: z.string().optional(),
   promptTokens: z.number().int().nonnegative().default(0),
   completionTokens: z.number().int().nonnegative().default(0),
+  reasoningTokens: z.number().int().nonnegative().default(0),
   totalTokens: z.number().int().nonnegative().default(0),
   /** (article, ticker) pairs classified into a section this run. */
   scored: z.number().int().nonnegative().default(0),

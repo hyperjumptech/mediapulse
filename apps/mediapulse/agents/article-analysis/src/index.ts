@@ -4,6 +4,10 @@ import { z } from "zod";
 
 import { articleAnalysisConfigSchema } from "./config-schema.js";
 import {
+  ARTICLE_ANALYSIS_AGENT_ID,
+  ARTICLE_ANALYSIS_AGENT_VERSION,
+} from "./constants.js";
+import {
   articleAnalysisInputSchema,
   type ArticleAnalysisInput,
 } from "./schemas/article-analysis-input-schema.js";
@@ -19,8 +23,8 @@ const app = createAgentApp<
   typeof articleAnalysisConfigSchema
 >(
   {
-    agentId: "article-analysis",
-    agentVersion: "4.0.0",
+    agentId: ARTICLE_ANALYSIS_AGENT_ID,
+    agentVersion: ARTICLE_ANALYSIS_AGENT_VERSION,
     description:
       "Loads unanalyzed articles and, for each, has the model judge every per-section inclusion rule as matched or not. The winning section and a deterministic fit score (matched/total) are computed in code, then persisted as section/sectionScore/sectionReason plus a per-rule score breakdown, and the article is marked analyzed.",
     inputSchema: articleAnalysisInputSchema,

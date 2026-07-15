@@ -138,6 +138,12 @@ describe("article-analysis run — empty-source skip and description classificat
     expect(posted.analyzedDataSourceIds).toEqual(
       expect.arrayContaining([EMPTY_SOURCE.id, DESCRIBED_SOURCE.id]),
     );
+    expect(posted.articleAnalysisRunId).toEqual(expect.any(String));
+
+    const runRecord = articleAnalysisRunCreate.mock.calls[0]![0];
+
+    expect(runRecord.id).toBe(posted.articleAnalysisRunId);
+    expect(runRecord.agentVersion).toBe("4.0.0");
   });
 
   it("does not thread a brief when no contract is attached", async () => {

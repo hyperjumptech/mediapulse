@@ -434,6 +434,7 @@ export const applyAnalysisPost = async (
           sectionScore: row.score,
           sectionReason: row.reason,
           sectionScoreBreakdown,
+          articleAnalysisRunId: body.articleAnalysisRunId ?? null,
           analyzedAt,
         },
         update: {
@@ -441,6 +442,7 @@ export const applyAnalysisPost = async (
           sectionScore: row.score,
           sectionReason: row.reason,
           sectionScoreBreakdown,
+          articleAnalysisRunId: body.articleAnalysisRunId ?? null,
           analyzedAt,
         },
       } satisfies Prisma.DataSourceTickerSectionUpsertArgs);

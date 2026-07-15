@@ -18,6 +18,7 @@ import {
 } from "@workspace/ui/components/table";
 
 import { DetailBlockCopyButton } from "./detail-block-copy-button";
+import { DetailBlockEmptyState } from "./detail-block-empty-state";
 import { DetailBlockSectionHeader } from "./detail-block-section-header";
 import { DetailBlockSubTablePaginator } from "./detail-block-sub-table-paginator";
 import { DetailBlockSubTableRowLimit } from "./detail-block-sub-table-row-limit";
@@ -77,7 +78,11 @@ export const DetailBlockSubTableCell = ({
     column.truncate && text !== "—" ? truncate(text, column.truncate) : text;
 
   if (column.type === "badge") {
-    const variant = column.badgeVariants?.[String(value)];
+    const variant = column.badgeVariantField
+      ? (resolvePath(row, column.badgeVariantField) as
+          | DetailBlockBadgeVariant
+          | undefined)
+      : column.badgeVariants?.[String(value)];
     const inconsistent = column.inconsistentField
       ? Boolean(resolvePath(row, column.inconsistentField))
       : false;
@@ -162,7 +167,7 @@ export const DetailBlockSubTableCell = ({
       ) : null}
       {primary}
       {descriptionText ? (
-        <span className="text-xs text-muted-foreground">{descriptionText}</span>
+        <span className="text-muted-foreground text-sm">{descriptionText}</span>
       ) : null}
     </span>
   );
@@ -190,7 +195,14 @@ export const DetailBlockSubTableContent = ({
         <TableHeader>
           <TableRow>
             {columns.map((column) => (
-              <TableHead key={column.field}>{column.label}</TableHead>
+              <TableHead
+                key={column.field}
+                style={
+                  column.minWidth ? { minWidth: column.minWidth } : undefined
+                }
+              >
+                {column.label}
+              </TableHead>
             ))}
           </TableRow>
         </TableHeader>
@@ -202,7 +214,12 @@ export const DetailBlockSubTableContent = ({
           return (
             <TableRow key={rowKey}>
               {columns.map((column) => (
-                <TableCell key={`${rowKey}-${column.field}`}>
+                <TableCell
+                  key={`${rowKey}-${column.field}`}
+                  style={
+                    column.minWidth ? { minWidth: column.minWidth } : undefined
+                  }
+                >
                   <DetailBlockSubTableCell
                     column={column}
                     row={row}
@@ -273,9 +290,7 @@ export const DetailBlockSubTableView = ({
         <p className="text-xs text-muted-foreground">{caption}</p>
       ) : null}
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {block.emptyState ?? "No items."}
-        </p>
+        <DetailBlockEmptyState message={block.emptyState ?? "No items."} />
       ) : shouldPaginate ? (
         <DetailBlockSubTablePaginator
           columns={block.columns}

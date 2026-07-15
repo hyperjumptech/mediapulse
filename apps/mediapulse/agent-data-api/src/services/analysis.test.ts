@@ -464,6 +464,36 @@ describe("applyAnalysisPost", () => {
     });
   });
 
+  it("stamps the article-analysis run id on each section row", async () => {
+    const { db, upsert, findMany } = buildDb();
+    findMany.mockResolvedValue([{ id: SEARCH_ARTICLE }]);
+    const runId = "99999999-9999-4999-8999-999999999999";
+
+    await applyAnalysisPost(
+      {
+        articleSections: [
+          {
+            dataSourceId: SEARCH_ARTICLE,
+            tickerId: TICKER_ID,
+            section: "dealsAndMovements",
+            score: 0.9,
+            reason: "deal",
+          },
+        ],
+        analyzedDataSourceIds: [SEARCH_ARTICLE],
+        articleAnalysisRunId: runId,
+      },
+      { db: db as never },
+    );
+
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ articleAnalysisRunId: runId }),
+        update: expect.objectContaining({ articleAnalysisRunId: runId }),
+      }),
+    );
+  });
+
   it("persists the score breakdown on create and update when provided", async () => {
     const { db, upsert, findMany } = buildDb();
     findMany.mockResolvedValue([{ id: SEARCH_ARTICLE }]);

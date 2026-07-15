@@ -99,6 +99,8 @@ export const postAnalysisBodySchema = z.object({
     .default([]),
   /** Marks the processed articles as analyzed at the article level (covers rejected rows too). */
   analyzedDataSourceIds: z.array(z.string().uuid()).default([]),
+  /** Exact run that produced these classifications; stamped on each section row for provenance. */
+  articleAnalysisRunId: z.string().uuid().optional(),
 });
 
 /** Per-article issuer context for section classification (null for ticker-agnostic rows). */

@@ -120,6 +120,8 @@ export const detailBlockSubTableColumnSchema = z.object({
   truncate: z.number().int().positive().optional(),
   /** Keep the cell value on a single line (no wrapping); the table scrolls horizontally instead. */
   noWrap: z.boolean().optional(),
+  /** Minimum column width in pixels, so a short column keeps some breathing room in a wide table. */
+  minWidth: z.number().int().positive().optional(),
   /**
    * Optional secondary field path rendered as a muted line beneath the cell value, so one column can
    * carry a primary value with a subtitle (e.g. a query with its intent below). Non-badge columns only.
@@ -132,6 +134,12 @@ export const detailBlockSubTableColumnSchema = z.object({
    * (`success` / `warning` / `destructive` / `muted` / `outline`).
    */
   badgeVariants: z.record(detailBlockBadgeVariantSchema).optional(),
+  /**
+   * For `type: "badge"` only — path to a field whose value is the badge variant name directly. Use
+   * when the variant is computed server-side (e.g. a score band) rather than mapped from the cell
+   * value. Takes precedence over `badgeVariants`.
+   */
+  badgeVariantField: z.string().min(1).optional(),
   /**
    * Optional `inconsistent` marker field. When the row's value at that path is
    * truthy, the badge cell shows a `!` adornment with a tooltip.
@@ -216,6 +224,11 @@ export const detailBlockLeafSchema = z.discriminatedUnion("type", [
 /** One tab inside a `tabs` block — a label plus a leaf block to render. */
 export const detailBlockTabSchema = z.object({
   label: z.string().min(1),
+  /**
+   * Optional path to a value shown as a count beside the tab label. An array resolves to its
+   * length; a number renders as-is. Absent or unresolved values render no count.
+   */
+  countField: z.string().optional(),
   block: detailBlockLeafSchema,
 });
 

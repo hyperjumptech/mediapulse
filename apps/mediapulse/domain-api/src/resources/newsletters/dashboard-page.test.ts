@@ -27,16 +27,6 @@ const findBlock = (label: string): DetailBlock => {
   return block;
 };
 
-const findColumn = (blockLabel: string, columnLabel: string) => {
-  const block = findBlock(blockLabel);
-  if (block.type !== "subTable") {
-    throw new Error(`not a subTable: ${blockLabel}`);
-  }
-  const column = block.columns.find((entry) => entry.label === columnLabel);
-  if (!column) throw new Error(`column not found: ${columnLabel}`);
-  return column;
-};
-
 describe("newslettersDashboardPage section rules", () => {
   it("declares a recipients rule that fires when delivered < enabled", () => {
     const recipients = findBlock("Recipients");
@@ -83,29 +73,6 @@ describe("newslettersDashboardPage section rules", () => {
         activeQuerySet: { generatedAt: "2026-05-14T00:00:00.000Z" },
       }),
     ).toBe(false);
-  });
-});
-
-describe("newslettersDashboardPage articles-cited block", () => {
-  it("binds to citedArticles and links the title out to the article URL", () => {
-    const block = findBlock("Articles cited");
-    expect(block.type).toBe("subTable");
-    if (block.type !== "subTable") return;
-    expect(block.field).toBe("citedArticles");
-
-    const title = findColumn("Articles cited", "Title");
-    expect(title.linkTemplate).toBe("{url}");
-    expect(title.linkExternal).toBe(true);
-  });
-
-  it("shows the published section as an overline above the title", () => {
-    const title = findColumn("Articles cited", "Title");
-    expect(title.overlineField).toBe("publishedSection");
-  });
-
-  it("renders the Query as plain text without a link", () => {
-    const query = findColumn("Articles cited", "Query");
-    expect(query.linkTemplate).toBeUndefined();
   });
 });
 
@@ -201,5 +168,74 @@ describe("newslettersDashboardPage source-collection stage", () => {
       (column) => column.field === "reason",
     );
     expect(reasonColumn?.descriptionField).toBe("reasonDetail");
+  });
+});
+
+describe("newslettersDashboardPage source-analysis stage", () => {
+  it("groups the stage KPI cards and results table in one panel", () => {
+    const panel = findBlock("Source Analysis Stage");
+    expect(panel.type).toBe("panel");
+    if (panel.type !== "panel") return;
+
+    const statCards = panel.blocks.find((block) => block.type === "statCards");
+    expect(statCards?.type).toBe("statCards");
+    if (statCards?.type !== "statCards") return;
+    expect(statCards.cards.map((card) => card.label)).toEqual([
+      "Agent",
+      "Generated Date",
+      "LLM Model",
+      "LLM Tokens",
+    ]);
+    expect(statCards.cards.map((card) => card.field)).toEqual([
+      "sourceAnalysis.agentLabel",
+      "sourceAnalysis.generatedAtLabel",
+      "sourceAnalysis.modelLabel",
+      "sourceAnalysis.tokensTotalLabel",
+    ]);
+    const tokensCard = statCards.cards.find(
+      (card) => card.label === "LLM Tokens",
+    );
+    expect(tokensCard?.tooltipField).toBe(
+      "sourceAnalysis.tokensBreakdownLabel",
+    );
+  });
+
+  it("splits the results into Assigned and Rejected tabs", () => {
+    const panel = findBlock("Source Analysis Stage");
+    if (panel.type !== "panel") return;
+
+    const tabs = panel.blocks.find((block) => block.type === "tabs");
+    expect(tabs?.type).toBe("tabs");
+    if (tabs?.type !== "tabs") return;
+    expect(tabs.tabs.map((tab) => tab.label)).toEqual(["Assigned", "Rejected"]);
+
+    const [assigned, rejected] = tabs.tabs;
+    expect(assigned?.countField).toBe("sourceAnalysis.assigned");
+    expect(assigned?.block.type).toBe("subTable");
+    if (assigned?.block.type !== "subTable") return;
+    expect(assigned.block.field).toBe("sourceAnalysis.assigned");
+    expect(assigned.block.rowLimitDefaultAll).toBe(true);
+    expect(assigned.block.columns.map((column) => column.label)).toEqual([
+      "Article",
+      "Score",
+      "Reason",
+    ]);
+    expect(assigned.block.columns[0]?.linkExternal).toBe(true);
+    expect(assigned.block.columns[0]?.descriptionField).toBe("classifiedLabel");
+    expect(assigned.block.columns[0]?.minWidth).toBe(320);
+    const scoreColumn = assigned.block.columns.find(
+      (column) => column.label === "Score",
+    );
+    expect(scoreColumn?.type).toBe("badge");
+    expect(scoreColumn?.badgeVariantField).toBe("scoreVariant");
+
+    expect(rejected?.countField).toBe("sourceAnalysis.rejected");
+    expect(rejected?.block.type).toBe("subTable");
+    if (rejected?.block.type !== "subTable") return;
+    expect(rejected.block.field).toBe("sourceAnalysis.rejected");
+    expect(rejected.block.columns.map((column) => column.label)).toEqual([
+      "Article",
+      "Reason",
+    ]);
   });
 });

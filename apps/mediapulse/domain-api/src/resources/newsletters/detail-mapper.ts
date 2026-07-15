@@ -1,9 +1,9 @@
 import type { Prisma } from "@mediapulse/database";
 
 import type { ActiveQuerySetPayload } from "./active-query-set";
-import type { CitedArticlePayload } from "./build-cited-articles";
 import type { HermesLinksPayload } from "./build-hermes-links";
 import type { RecipientPayload } from "./build-recipients";
+import type { SourceAnalysisPayload } from "./build-source-analysis";
 import type { SourceCollectionPayload } from "./build-source-collection";
 
 /** Row shape passed to {@link mapRowToDetailItem}. */
@@ -40,8 +40,8 @@ export type DetailItem = {
   totalTokens: number | null;
   content: string;
   emailPreviewHtml: string;
-  citedArticles: CitedArticlePayload[];
   sourceCollection: SourceCollectionPayload;
+  sourceAnalysis: SourceAnalysisPayload;
   recipients: RecipientPayload[];
   recipientsTruncated: boolean;
   recipientsCap: number;
@@ -62,8 +62,8 @@ export const mapRowToDetailItem = (
   row: NewsletterDetailRow,
   parts: {
     emailPreviewHtml: string;
-    citedArticles: CitedArticlePayload[];
     sourceCollection: SourceCollectionPayload;
+    sourceAnalysis: SourceAnalysisPayload;
     recipients: RecipientPayload[];
     recipientsTruncated: boolean;
     recipientsCap: number;
@@ -93,8 +93,8 @@ export const mapRowToDetailItem = (
   totalTokens: row.totalTokens,
   content: row.content,
   emailPreviewHtml: parts.emailPreviewHtml,
-  citedArticles: parts.citedArticles,
   sourceCollection: parts.sourceCollection,
+  sourceAnalysis: parts.sourceAnalysis,
   recipients: parts.recipients,
   recipientsTruncated: parts.recipientsTruncated,
   recipientsCap: parts.recipientsCap,
