@@ -21,6 +21,13 @@ const asText = (value: unknown): string =>
 const asOptionalText = (value: unknown): string | undefined =>
   typeof value === "string" && value.length > 0 ? value : undefined;
 
+const VALUE_COLOR_BY_VARIANT: Record<string, string> = {
+  success: "text-green-600 dark:text-green-500",
+  warning: "text-amber-600 dark:text-amber-500",
+  destructive: "text-red-600 dark:text-red-500",
+  muted: "text-muted-foreground",
+};
+
 /**
  * Renders a `statCards` detail block — a responsive row of KPI cards, each with a label, a prominent
  * value, and an optional help icon whose tooltip reveals a breakdown.
@@ -46,6 +53,13 @@ export const DetailBlockStatCardsView = ({
         const tooltipText = card.tooltipField
           ? asOptionalText(resolvePath(data, card.tooltipField))
           : undefined;
+        const colorVariant = card.colorField
+          ? resolvePath(data, card.colorField)
+          : undefined;
+        const colorClass =
+          typeof colorVariant === "string"
+            ? VALUE_COLOR_BY_VARIANT[colorVariant]
+            : undefined;
         return (
           <Card
             key={`${card.label}-${String(index)}`}
@@ -66,7 +80,9 @@ export const DetailBlockStatCardsView = ({
                 </Tooltip>
               ) : null}
             </span>
-            <span className="text-lg font-semibold text-foreground">
+            <span
+              className={`text-lg font-semibold ${colorClass ?? "text-foreground"}`}
+            >
               {asText(resolvePath(data, card.field))}
             </span>
           </Card>

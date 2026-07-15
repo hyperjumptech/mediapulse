@@ -11,6 +11,7 @@ import { parsePagination } from "../../lib/list-pagination";
 import { newslettersTableV1CustomActionRegistrations } from "./custom-actions";
 import { findQuerySetForNewsletter } from "./active-query-set";
 import { buildContentGeneration } from "./build-content-generation";
+import { buildDelivery } from "./build-delivery";
 import { buildSourceAnalysis } from "./build-source-analysis";
 import { buildSourceCollection } from "./build-source-collection";
 import { buildHermesLinks } from "./build-hermes-links";
@@ -191,6 +192,15 @@ newslettersRoutes.get("/:id", async (c) => {
     ),
   ]);
 
+  const delivery = await buildDelivery(
+    row.id,
+    {
+      delivered: recipientsResult.deliveredCount,
+      total: recipientsResult.totalCount,
+    },
+    { deliveryRun: prisma.deliveryRun },
+  );
+
   for (const entry of recipientsResult.notAttemptedAtSendTime) {
     logger.warn(
       {
@@ -218,6 +228,7 @@ newslettersRoutes.get("/:id", async (c) => {
       sourceCollection,
       sourceAnalysis,
       contentGeneration,
+      delivery,
       recipients: recipientsResult.recipients,
       recipientsTruncated: recipientsResult.truncated,
       recipientsCap: NEWSLETTER_DETAIL_RECIPIENTS_CAP,

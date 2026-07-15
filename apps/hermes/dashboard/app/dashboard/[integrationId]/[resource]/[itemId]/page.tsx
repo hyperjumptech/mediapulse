@@ -18,16 +18,23 @@ import {
 import { DATA_SOURCE_EXPANSIONS_PATH_SEGMENT } from "@/lib/data-source-expansion-template-meta";
 
 /**
- * Resolves a detail page title from the first manifest column when present.
+ * Resolves a detail page title. Prefers the manifest's `detailTitleField` (a field on the detail row)
+ * and falls back to the first column's formatted value.
  *
  * @param columns - Table columns from domain meta.
  * @param row - Detail row payload from the domain API.
+ * @param detailTitleField - Optional field key to use for the title.
  * @returns Display title for the page header.
  */
 const resolveDomainTableDetailTitle = (
   columns: DomainTableColumnForDisplay[] | undefined,
   row: Record<string, unknown>,
+  detailTitleField?: string,
 ): string => {
+  if (detailTitleField) {
+    const raw = row[detailTitleField];
+    if (typeof raw === "string" && raw.trim().length > 0) return raw;
+  }
   const primary = columns?.[0];
   if (!primary) return "Detail";
   const value = formatDomainTableCellValue(primary, row[primary.key]);
@@ -63,7 +70,11 @@ const ViewDomainTableItemPage = async ({
   const basePath = `/dashboard/${integrationId}/${resource}`;
   const detailBlocks = meta.detailBlocks;
   const blockData = { ...row, integrationId, resource, itemId };
-  const title = resolveDomainTableDetailTitle(meta.columns, row);
+  const title = resolveDomainTableDetailTitle(
+    meta.columns,
+    row,
+    meta.detailTitleField,
+  );
 
   if (detailBlocks && detailBlocks.length > 0) {
     return (

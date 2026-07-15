@@ -28,28 +28,6 @@ const findBlock = (label: string): DetailBlock => {
 };
 
 describe("newslettersDashboardPage section rules", () => {
-  it("declares a recipients rule that fires when delivered < enabled", () => {
-    const recipients = findBlock("Recipients");
-    expect(recipients.sectionRule).toMatchObject({
-      badge: "warning",
-      label: "partial delivery",
-    });
-
-    const ast = parseDetailBlockRule(recipients.sectionRule!.when);
-    expect(
-      evaluateDetailBlockRule(ast, {
-        recipientsDeliveredCount: 3,
-        recipientsEnabledAtSendTime: 5,
-      }),
-    ).toBe(true);
-    expect(
-      evaluateDetailBlockRule(ast, {
-        recipientsDeliveredCount: 5,
-        recipientsEnabledAtSendTime: 5,
-      }),
-    ).toBe(false);
-  });
-
   it("declares a search-queries rule that uses hoursBetween > 24", () => {
     const queries = findBlock("Results");
     expect(queries.sectionRule).toMatchObject({
@@ -277,9 +255,59 @@ describe("newslettersDashboardPage content-generation stage", () => {
     expect(results.columns[0]?.descriptionLinkTemplate).toBe("{url}");
     expect(results.columns[0]?.linkExternal).toBe(true);
   });
+});
 
-  it("keeps the standalone Email preview block for now", () => {
-    const preview = findBlock("Email preview");
-    expect(preview.type).toBe("htmlPreview");
+describe("newslettersDashboardPage delivery stage", () => {
+  it("groups the delivery KPI cards with an Outcome color and delivered count", () => {
+    const panel = findBlock("Delivery Stage");
+    expect(panel.type).toBe("panel");
+    if (panel.type !== "panel") return;
+
+    const statCards = panel.blocks.find((block) => block.type === "statCards");
+    expect(statCards?.type).toBe("statCards");
+    if (statCards?.type !== "statCards") return;
+    expect(statCards.cards.map((card) => card.label)).toEqual([
+      "Agent",
+      "Delivered Date",
+      "Outcome",
+      "Delivered",
+    ]);
+    expect(statCards.cards.map((card) => card.field)).toEqual([
+      "delivery.agentLabel",
+      "delivery.deliveredAtLabel",
+      "delivery.outcomeLabel",
+      "delivery.deliveredLabel",
+    ]);
+    const outcomeCard = statCards.cards.find(
+      (card) => card.label === "Outcome",
+    );
+    expect(outcomeCard?.colorField).toBe("delivery.outcomeVariant");
+  });
+
+  it("splits recipients and the email preview into tabs", () => {
+    const panel = findBlock("Delivery Stage");
+    if (panel.type !== "panel") return;
+
+    const tabs = panel.blocks.find((block) => block.type === "tabs");
+    expect(tabs?.type).toBe("tabs");
+    if (tabs?.type !== "tabs") return;
+    expect(tabs.tabs.map((tab) => tab.label)).toEqual([
+      "Recipients",
+      "Email Preview",
+    ]);
+
+    const [recipients, preview] = tabs.tabs;
+    expect(recipients?.countField).toBe("recipients");
+    expect(recipients?.block.type).toBe("subTable");
+    if (recipients?.block.type !== "subTable") return;
+    expect(recipients.block.field).toBe("recipients");
+    expect(recipients.block.columns.map((column) => column.label)).toEqual([
+      "Recipient",
+      "Status",
+    ]);
+
+    expect(preview?.block.type).toBe("htmlPreview");
+    if (preview?.block.type !== "htmlPreview") return;
+    expect(preview.block.field).toBe("emailPreviewHtml");
   });
 });
