@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 import {
   resolvePath,
   type DetailBlockLeaf,
@@ -31,6 +29,7 @@ import {
   DetailBlockSubTableContent,
   DetailBlockSubTableView,
 } from "./detail-block-sub-table";
+import { useDetailBlockTabs } from "./use-detail-block-tabs";
 
 const ALL_VALUE = "all";
 
@@ -121,12 +120,12 @@ export const DetailBlockTabsView = ({
   block: DetailBlockTabs;
   data: unknown;
 }) => {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [limitByTab, setLimitByTab] = useState<Record<number, string>>({});
+  const { activeIndex, setActiveIndex, limitForTab, setLimitForTab } =
+    useDetailBlockTabs();
 
   const limitFor = (tabIndex: number, tabBlock: DetailBlockLeaf): string =>
     tabBlock.type === "subTable" && tabBlock.rowLimitOptions
-      ? (limitByTab[tabIndex] ?? defaultLimitValue(tabBlock))
+      ? (limitForTab(tabIndex) ?? defaultLimitValue(tabBlock))
       : ALL_VALUE;
 
   const activeBlock = block.tabs[activeIndex]?.block;
@@ -158,9 +157,7 @@ export const DetailBlockTabsView = ({
           {activeOptions ? (
             <Select
               value={limitFor(activeIndex, activeBlock as DetailBlockLeaf)}
-              onValueChange={(value) =>
-                setLimitByTab((prev) => ({ ...prev, [activeIndex]: value }))
-              }
+              onValueChange={(value) => setLimitForTab(activeIndex, value)}
             >
               <SelectTrigger className="h-8 w-[5.5rem] text-xs">
                 <SelectValue />
