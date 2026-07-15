@@ -264,7 +264,7 @@ const newslettersSourceStageBlock = {
             columns: [
               {
                 field: "url",
-                label: "URL",
+                label: "Article URL",
                 type: "text",
                 truncate: 80,
                 linkTemplate: "{url}",

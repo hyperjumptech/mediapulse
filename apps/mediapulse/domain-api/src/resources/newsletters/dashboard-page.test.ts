@@ -192,7 +192,7 @@ describe("newslettersDashboardPage source-collection stage", () => {
     if (dropped?.block.type !== "subTable") return;
     expect(dropped.block.field).toBe("sourceCollection.dropped");
     expect(dropped.block.columns.map((column) => column.label)).toEqual([
-      "URL",
+      "Article URL",
       "Agent",
       "Reason",
     ]);
