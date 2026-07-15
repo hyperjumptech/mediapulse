@@ -71,6 +71,7 @@ describe("generateQueryCandidates", () => {
       promptTokens: 20,
       completionTokens: 10,
       totalTokens: 30,
+      reasoningTokens: 0,
     });
   });
 

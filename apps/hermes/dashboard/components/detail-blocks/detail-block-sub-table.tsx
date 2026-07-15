@@ -20,6 +20,7 @@ import {
 import { DetailBlockCopyButton } from "./detail-block-copy-button";
 import { DetailBlockSectionHeader } from "./detail-block-section-header";
 import { DetailBlockSubTablePaginator } from "./detail-block-sub-table-paginator";
+import { DetailBlockSubTableRowLimit } from "./detail-block-sub-table-row-limit";
 
 const mapBadgeVariant = (
   variant: DetailBlockBadgeVariant,
@@ -237,6 +238,21 @@ export const DetailBlockSubTableView = ({
   const caption = block.captionTemplate
     ? renderCaptionTemplate(block.captionTemplate, data)
     : undefined;
+  if (block.rowLimitOptions !== undefined) {
+    return (
+      <DetailBlockSubTableRowLimit
+        label={block.label}
+        sectionRule={block.sectionRule}
+        data={data}
+        columns={block.columns}
+        rows={rows}
+        rowContext={data}
+        emptyState={block.emptyState}
+        hideHeader={block.hideHeader}
+        options={block.rowLimitOptions}
+      />
+    );
+  }
   const shouldPaginate =
     typeof block.pageSize === "number" && rows.length > block.pageSize;
   return (

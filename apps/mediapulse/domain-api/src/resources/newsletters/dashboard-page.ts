@@ -143,28 +143,49 @@ const newslettersRecipientsBlock = {
 } satisfies DetailBlock;
 
 /**
- * `subTable` block bound to `activeQuerySet.queries` (PRD §5). Each row links
- * to the search-queries page filtered by this newsletter's ticker.
+ * `panel` grouping the query-analysis stage into one card: KPI cards (agent + version, when it ran,
+ * the LLM model, and token spend from the set's columns and `strategySnapshot.llmUsage`) above a
+ * results table snapshotting the queries in the active set, each with its intent beneath.
  */
-const newslettersSearchQueriesBlock = {
-  type: "subTable",
-  label: "Search Queries",
-  field: "activeQuerySet.queries",
-  captionTemplate: "{activeQuerySet.provenanceLabel}",
-  hideHeader: true,
-  emptyState: "No active SearchQuerySet on this newsletter's generation date.",
-  sectionRule: {
-    when: `hoursBetween(activeQuerySet.generatedAt, createdAt) > ${NEWSLETTER_STALE_SET_HOURS}`,
-    badge: "muted",
-    label: "stale set",
-  },
-  columns: [
+const newslettersQueryStageBlock = {
+  type: "panel",
+  label: "Query Generation Stage",
+  blocks: [
     {
-      field: "text",
-      label: "Query",
-      type: "text",
-      truncate: 80,
-      descriptionField: "intent",
+      type: "statCards",
+      cards: [
+        { label: "Agent", field: "activeQuerySet.agentLabel" },
+        { label: "Generated Date", field: "activeQuerySet.generatedAtLabel" },
+        { label: "LLM Model", field: "activeQuerySet.model" },
+        {
+          label: "LLM Tokens",
+          field: "activeQuerySet.tokensTotalLabel",
+          tooltipField: "activeQuerySet.tokensBreakdownLabel",
+        },
+      ],
+    },
+    {
+      type: "subTable",
+      label: "Results",
+      field: "activeQuerySet.queries",
+      hideHeader: true,
+      rowLimitOptions: [5, 10],
+      emptyState:
+        "No active SearchQuerySet on this newsletter's generation date.",
+      sectionRule: {
+        when: `hoursBetween(activeQuerySet.generatedAt, createdAt) > ${NEWSLETTER_STALE_SET_HOURS}`,
+        badge: "muted",
+        label: "stale set",
+      },
+      columns: [
+        {
+          field: "text",
+          label: "Query",
+          type: "text",
+          truncate: 80,
+          descriptionField: "intent",
+        },
+      ],
     },
   ],
 } satisfies DetailBlock;
@@ -258,7 +279,7 @@ export const newslettersDashboardPage = {
   detailBlocks: [
     newslettersMetadataBlock,
     newslettersRecipientsBlock,
-    newslettersSearchQueriesBlock,
+    newslettersQueryStageBlock,
     newslettersCitedArticlesBlock,
     newslettersEmailPreviewBlock,
     newslettersHermesLinksBlock,
