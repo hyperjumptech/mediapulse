@@ -1,7 +1,6 @@
 import type { Prisma } from "@mediapulse/database";
 
 import type { ActiveQuerySetPayload } from "./active-query-set";
-import type { CitedArticlePayload } from "./build-cited-articles";
 import type { HermesLinksPayload } from "./build-hermes-links";
 import type { RecipientPayload } from "./build-recipients";
 import type { SourceAnalysisPayload } from "./build-source-analysis";
@@ -41,7 +40,6 @@ export type DetailItem = {
   totalTokens: number | null;
   content: string;
   emailPreviewHtml: string;
-  citedArticles: CitedArticlePayload[];
   sourceCollection: SourceCollectionPayload;
   sourceAnalysis: SourceAnalysisPayload;
   recipients: RecipientPayload[];
@@ -64,7 +62,6 @@ export const mapRowToDetailItem = (
   row: NewsletterDetailRow,
   parts: {
     emailPreviewHtml: string;
-    citedArticles: CitedArticlePayload[];
     sourceCollection: SourceCollectionPayload;
     sourceAnalysis: SourceAnalysisPayload;
     recipients: RecipientPayload[];
@@ -96,7 +93,6 @@ export const mapRowToDetailItem = (
   totalTokens: row.totalTokens,
   content: row.content,
   emailPreviewHtml: parts.emailPreviewHtml,
-  citedArticles: parts.citedArticles,
   sourceCollection: parts.sourceCollection,
   sourceAnalysis: parts.sourceAnalysis,
   recipients: parts.recipients,

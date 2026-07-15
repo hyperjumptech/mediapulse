@@ -10,7 +10,6 @@ import { parseCreatedDateBound } from "../../lib/parse-created-date-bound";
 import { parsePagination } from "../../lib/list-pagination";
 import { newslettersTableV1CustomActionRegistrations } from "./custom-actions";
 import { findQuerySetForNewsletter } from "./active-query-set";
-import { buildCitedArticles } from "./build-cited-articles";
 import { buildSourceAnalysis } from "./build-source-analysis";
 import { buildSourceCollection } from "./build-source-collection";
 import { buildHermesLinks } from "./build-hermes-links";
@@ -148,7 +147,6 @@ newslettersRoutes.get("/:id", async (c) => {
 
   const [
     recipientsResult,
-    citedArticles,
     sourceCollection,
     sourceAnalysis,
     activeQuerySet,
@@ -159,9 +157,6 @@ newslettersRoutes.get("/:id", async (c) => {
       userTicker: prisma.userTicker,
       newsletterDeliveryCheckpoint: prisma.newsletterDeliveryCheckpoint,
       deliveryRun: prisma.deliveryRun,
-    }),
-    buildCitedArticles(row.id, row.tickerId, {
-      newsletterCitation: prisma.newsletterCitation,
     }),
     buildSourceCollection(row.id, {
       newsletterCitation: prisma.newsletterCitation,
@@ -215,7 +210,6 @@ newslettersRoutes.get("/:id", async (c) => {
   return c.json(
     mapRowToDetailItem(row, {
       emailPreviewHtml,
-      citedArticles,
       sourceCollection,
       sourceAnalysis,
       recipients: recipientsResult.recipients,

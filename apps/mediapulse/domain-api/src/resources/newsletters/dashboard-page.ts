@@ -63,35 +63,6 @@ const newslettersMetadataBlock = {
 } satisfies DetailBlock;
 
 /**
- * `subTable` block bound to `citedArticles` — the articles cited by this newsletter, read from the
- * `newsletter_citation` table and joined to the section, score, and reason article-analysis assigned
- * for this ticker plus the search query that surfaced each one. Gives a reviewer a straight line from
- * the shipped newsletter back to the query and reasoning behind every citation. Rows are grouped by
- * published section in newsletter order (server-sorted in `buildCitedArticles`). The Title links out
- * to the article and carries its published section as an overline.
- */
-const newslettersCitedArticlesBlock = {
-  type: "subTable",
-  label: "Articles cited",
-  field: "citedArticles",
-  emptyState: "No citations recorded for this newsletter.",
-  columns: [
-    {
-      field: "title",
-      label: "Title",
-      type: "text",
-      truncate: 80,
-      linkTemplate: "{url}",
-      linkExternal: true,
-      overlineField: "publishedSection",
-    },
-    { field: "sectionScore", label: "Score", type: "number" },
-    { field: "queryText", label: "Query", type: "text", truncate: 60 },
-    { field: "sectionReason", label: "Reason", type: "text", truncate: 120 },
-  ],
-} satisfies DetailBlock;
-
-/**
  * `subTable` block bound to `recipients` (PRD §5). Each row carries
  * `displayName` (`Name <email>` or email), the four-state status badge with
  * its `inconsistent` marker, the Resend email id, attempts, error category,
@@ -468,7 +439,6 @@ export const newslettersDashboardPage = {
     newslettersQueryStageBlock,
     newslettersSourceStageBlock,
     newslettersSourceAnalysisStageBlock,
-    newslettersCitedArticlesBlock,
     newslettersEmailPreviewBlock,
     newslettersHermesLinksBlock,
   ],

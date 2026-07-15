@@ -27,16 +27,6 @@ const findBlock = (label: string): DetailBlock => {
   return block;
 };
 
-const findColumn = (blockLabel: string, columnLabel: string) => {
-  const block = findBlock(blockLabel);
-  if (block.type !== "subTable") {
-    throw new Error(`not a subTable: ${blockLabel}`);
-  }
-  const column = block.columns.find((entry) => entry.label === columnLabel);
-  if (!column) throw new Error(`column not found: ${columnLabel}`);
-  return column;
-};
-
 describe("newslettersDashboardPage section rules", () => {
   it("declares a recipients rule that fires when delivered < enabled", () => {
     const recipients = findBlock("Recipients");
@@ -83,29 +73,6 @@ describe("newslettersDashboardPage section rules", () => {
         activeQuerySet: { generatedAt: "2026-05-14T00:00:00.000Z" },
       }),
     ).toBe(false);
-  });
-});
-
-describe("newslettersDashboardPage articles-cited block", () => {
-  it("binds to citedArticles and links the title out to the article URL", () => {
-    const block = findBlock("Articles cited");
-    expect(block.type).toBe("subTable");
-    if (block.type !== "subTable") return;
-    expect(block.field).toBe("citedArticles");
-
-    const title = findColumn("Articles cited", "Title");
-    expect(title.linkTemplate).toBe("{url}");
-    expect(title.linkExternal).toBe(true);
-  });
-
-  it("shows the published section as an overline above the title", () => {
-    const title = findColumn("Articles cited", "Title");
-    expect(title.overlineField).toBe("publishedSection");
-  });
-
-  it("renders the Query as plain text without a link", () => {
-    const query = findColumn("Articles cited", "Query");
-    expect(query.linkTemplate).toBeUndefined();
   });
 });
 
