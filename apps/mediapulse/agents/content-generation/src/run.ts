@@ -673,6 +673,22 @@ export async function run({
         );
       }
     }
+
+    const newsletterSections = generated.newsletterSections ?? [];
+    if (persistedNewsletterId !== null && newsletterSections.length > 0) {
+      const newsletterId = persistedNewsletterId;
+      try {
+        await dataApiClient.contentGenerationSections.create({
+          newsletterId,
+          sections: newsletterSections,
+        });
+      } catch (sectionErr) {
+        logger.error(
+          { tickerId: input.tickerId, newsletterId, err: sectionErr },
+          "Failed to record newsletter sections (best-effort, skipping)",
+        );
+      }
+    }
   } catch (err) {
     const code = classifyPersistError(err);
     const outcome: AgentOutcome = { outcome: code, skipped: false };

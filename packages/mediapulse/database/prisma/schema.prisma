@@ -108,6 +108,7 @@ model DataSource {
   tickerSections         DataSourceTickerSection[]
   fetchEvents            FetchEvent[]
   newsletterCitations    NewsletterCitation[]
+  newsletterSectionItems NewsletterSectionItem[]
 
   @@index([curatedSourceId])
   @@index([collectionGateStatus, analyzedAt])
@@ -214,9 +215,48 @@ model Newsletter {
   feedback            NewsletterFeedback[]
   translations        NewsletterTranslation[]
   citations           NewsletterCitation[]
+  sections            NewsletterSection[]
 
   @@index([searchQuerySetId])
   @@map("newsletter")
+}
+
+/// One section of a shipped newsletter as content-generation wrote it: the section's heading and, for
+/// a prose section, its summary. The exact grounded structure, persisted at generation time.
+model NewsletterSection {
+  id           String   @id @default(uuid())
+  newsletterId String   @map("newsletter_id")
+  sectionKey   String   @map("section_key")
+  heading      String
+  summary      String?  @db.Text
+  position     Int
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  newsletter Newsletter              @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
+  items      NewsletterSectionItem[]
+
+  @@index([newsletterId, position])
+  @@map("newsletter_section")
+}
+
+/// One written entry (bullet/quick hit) within a `NewsletterSection`: the headline and summary the
+/// agent wrote, linked to its source article when the entry cited one.
+model NewsletterSectionItem {
+  id           String   @id @default(uuid())
+  sectionId    String   @map("section_id")
+  title        String   @db.Text
+  summary      String   @db.Text
+  url          String?
+  dataSourceId String?  @map("data_source_id")
+  position     Int
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  section    NewsletterSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  dataSource DataSource?       @relation(fields: [dataSourceId], references: [id], onDelete: SetNull)
+
+  @@index([sectionId, position])
+  @@index([dataSourceId])
+  @@map("newsletter_section_item")
 }
 
 model FetchEvent {

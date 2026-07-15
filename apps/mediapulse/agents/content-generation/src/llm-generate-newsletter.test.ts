@@ -11,6 +11,7 @@ import {
   buildAvoidRecentBulletsBlock,
   buildCompetitorPromptBlock,
   collectNewsletterCitations,
+  collectNewsletterSections,
   generateNewsletterWithLlm,
   groupSourcesBySection,
   SYSTEM_PROMPT,
@@ -179,6 +180,87 @@ describe("collectNewsletterCitations", () => {
 
     expect(citations).toEqual([
       { dataSourceId: "ds-a", sectionKey: "dealsAndMovements" },
+    ]);
+  });
+});
+
+describe("collectNewsletterSections", () => {
+  const sectionSources: SourceForGeneration[] = [
+    {
+      dataSourceId: "ds-a",
+      url: "https://example.com/a",
+      title: "Story A",
+      content: "Content A.",
+    },
+    {
+      dataSourceId: "ds-b",
+      url: "https://example.com/b",
+      title: "Story B",
+      content: "Content B.",
+    },
+  ];
+
+  it("builds sections in canonical order with prose summaries and linked items", () => {
+    const resolved: IndustryNewsletterResolved = {
+      subject: "S",
+      industryPulse: {
+        displayHeading: "Pulse Lead",
+        prose: "The lead prose.",
+        url: "https://example.com/a",
+      },
+      dealsAndMovements: {
+        displayHeading: "Deals",
+        bullets: [
+          {
+            title: "Deal one",
+            text: "Body one.",
+            url: "https://example.com/b",
+          },
+          { title: "Deal two", text: "Body two." },
+        ],
+      },
+    };
+
+    const sections = collectNewsletterSections(resolved, sectionSources);
+
+    expect(sections).toEqual([
+      {
+        sectionKey: "industryPulse",
+        heading: "Pulse Lead",
+        summary: null,
+        position: 0,
+        items: [
+          {
+            title: "Story A",
+            summary: "The lead prose.",
+            url: "https://example.com/a",
+            dataSourceId: "ds-a",
+            position: 0,
+          },
+        ],
+      },
+      {
+        sectionKey: "dealsAndMovements",
+        heading: "Deals",
+        summary: null,
+        position: 1,
+        items: [
+          {
+            title: "Deal one",
+            summary: "Body one.",
+            url: "https://example.com/b",
+            dataSourceId: "ds-b",
+            position: 0,
+          },
+          {
+            title: "Deal two",
+            summary: "Body two.",
+            url: null,
+            dataSourceId: null,
+            position: 1,
+          },
+        ],
+      },
     ]);
   });
 });

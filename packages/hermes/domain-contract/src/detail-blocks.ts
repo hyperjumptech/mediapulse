@@ -122,11 +122,24 @@ export const detailBlockSubTableColumnSchema = z.object({
   noWrap: z.boolean().optional(),
   /** Minimum column width in pixels, so a short column keeps some breathing room in a wide table. */
   minWidth: z.number().int().positive().optional(),
+  /** When true, render the (non-link) cell value in muted foreground, for supporting/secondary text. */
+  muted: z.boolean().optional(),
+  /**
+   * Path to a field whose value is a badge variant name (`success` / `warning` / `destructive` /
+   * `muted`), used to color the (non-link) cell text — e.g. a banded score shown as colored text
+   * rather than a badge.
+   */
+  colorField: z.string().min(1).optional(),
   /**
    * Optional secondary field path rendered as a muted line beneath the cell value, so one column can
    * carry a primary value with a subtitle (e.g. a query with its intent below). Non-badge columns only.
    */
   descriptionField: z.string().min(1).optional(),
+  /**
+   * When set with `descriptionField`, renders the description as a link built from this URL template
+   * (resolved against the row), so the subtitle can be a clickable title. Uses `linkExternal`.
+   */
+  descriptionLinkTemplate: z.string().min(1).optional(),
   /** When true, render a copy-to-clipboard button for the cell value. */
   copyAction: z.boolean().optional(),
   /**
@@ -164,6 +177,12 @@ export const detailBlockSubTableSchema = z.object({
    * label would just be noise (e.g. a query list where each row already reads as a query).
    */
   hideHeader: z.boolean().optional(),
+  /**
+   * Optional boolean field path marking a row as a full-width section header — rendered as a
+   * spanning heading (the first column's value) that groups the rows beneath it, rather than a
+   * normal data row. Use for a single-column list grouped under section headings.
+   */
+  sectionHeaderField: z.string().min(1).optional(),
   /** Empty-state copy when the array is empty. */
   emptyState: z.string().min(1).optional(),
   /**

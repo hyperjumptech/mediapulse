@@ -161,7 +161,7 @@ describe("buildSourceAnalysis", () => {
     expect(result.agentLabel).toBe("article-analysis - 4.0.0");
     expect(result.generatedAtLabel).toBe("July 13, 2026 at 13:00");
     expect(result.modelLabel).toBe("claude-opus-4-8");
-    expect(result.tokensTotalLabel).toBe("1,500");
+    expect(result.tokensTotalLabel).toBe("1.5K");
     expect(result.tokensBreakdownLabel).toBe(
       "Input 1,200 · Output 300 · Reasoning 150",
     );
@@ -172,9 +172,9 @@ describe("buildSourceAnalysis", () => {
         title: "Beta assigned",
         url: "https://reuters.com/b",
         sectionLabel: "Industry Pulse",
-        classifiedLabel: "Classified as Industry Pulse",
         score: 0.6,
         scoreLabel: "0.6",
+        scoreLine: "0.6 - Industry Pulse",
         scoreVariant: "warning",
         reason: "Broad sector trend.",
       },
@@ -183,9 +183,9 @@ describe("buildSourceAnalysis", () => {
         title: "Alpha assigned",
         url: "https://reuters.com/a",
         sectionLabel: "Deals & Movements",
-        classifiedLabel: "Classified as Deals & Movements",
         score: 0.9,
         scoreLabel: "0.9",
+        scoreLine: "0.9 - Deals & Movements",
         scoreVariant: "success",
         reason: "Direct M&A coverage of the issuer.",
       },

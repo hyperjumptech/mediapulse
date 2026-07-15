@@ -151,6 +151,165 @@ export const collectNewsletterCitations = (
   return citations;
 };
 
+/** One written entry within a section, linked to its source article when it cited one. */
+export type NewsletterSectionItemLink = {
+  title: string;
+  summary: string;
+  url: string | null;
+  dataSourceId: string | null;
+  position: number;
+};
+
+/** One section of the shipped newsletter: heading, optional prose summary, and its written items. */
+export type NewsletterSectionLink = {
+  sectionKey: string;
+  heading: string;
+  summary: string | null;
+  position: number;
+  items: NewsletterSectionItemLink[];
+};
+
+/**
+ * Builds the exact grounded section structure from the final resolved newsletter, in canonical
+ * section order. Prose sections carry their prose as the summary and no items; bullet and quick-hit
+ * sections carry each written entry (headline, summary, and resolved source link) as an item.
+ *
+ * @param resolved - Final resolved newsletter after all pruning passes.
+ * @param sources - Prompt sources, used to resolve each entry's URL back to its data source id.
+ * @returns Sections with their items, ready to persist.
+ */
+export const collectNewsletterSections = (
+  resolved: IndustryNewsletterResolved,
+  sources: readonly SourceForGeneration[],
+): NewsletterSectionLink[] => {
+  const dataSourceIdByUrl = new Map<string, string>();
+  const titleByUrl = new Map<string, string>();
+  for (const source of sources) {
+    if (source.url.length > 0) {
+      if (source.dataSourceId !== undefined) {
+        dataSourceIdByUrl.set(source.url, source.dataSourceId);
+      }
+      const title = source.title?.trim();
+      if (title) {
+        titleByUrl.set(source.url, title);
+      }
+    }
+  }
+
+  const itemFor = (
+    entry: { title?: string; text: string; url?: string },
+    position: number,
+  ): NewsletterSectionItemLink => {
+    const title = entry.title?.trim() ?? "";
+    const text = entry.text.trim();
+
+    return {
+      title: title || text,
+      summary: text,
+      url: entry.url ?? null,
+      dataSourceId:
+        entry.url !== undefined
+          ? (dataSourceIdByUrl.get(entry.url) ?? null)
+          : null,
+      position,
+    };
+  };
+
+  const sections: NewsletterSectionLink[] = [];
+  const pushProse = (
+    sectionKey: string,
+    section: { displayHeading: string; prose: string },
+  ): void => {
+    sections.push({
+      sectionKey,
+      heading: section.displayHeading,
+      summary: section.prose,
+      position: sections.length,
+      items: [],
+    });
+  };
+  const pushEntries = (
+    sectionKey: string,
+    heading: string,
+    entries: ReadonlyArray<{ title?: string; text: string; url?: string }>,
+  ): void => {
+    sections.push({
+      sectionKey,
+      heading,
+      summary: null,
+      position: sections.length,
+      items: entries.map(itemFor),
+    });
+  };
+
+  if (resolved.industryPulse) {
+    const pulse = resolved.industryPulse;
+    const pulseTitle =
+      pulse.title?.trim() ||
+      (pulse.url ? titleByUrl.get(pulse.url) : undefined);
+    if (pulse.url && pulseTitle) {
+      sections.push({
+        sectionKey: "industryPulse",
+        heading: pulse.displayHeading,
+        summary: null,
+        position: sections.length,
+        items: [
+          {
+            title: pulseTitle,
+            summary: pulse.prose.trim(),
+            url: pulse.url,
+            dataSourceId: dataSourceIdByUrl.get(pulse.url) ?? null,
+            position: 0,
+          },
+        ],
+      });
+    } else {
+      pushProse("industryPulse", pulse);
+    }
+  }
+  if (resolved.competitiveLandscape) {
+    pushEntries(
+      "competitiveLandscape",
+      resolved.competitiveLandscape.displayHeading,
+      resolved.competitiveLandscape.bullets,
+    );
+  }
+  if (resolved.dealsAndMovements) {
+    pushEntries(
+      "dealsAndMovements",
+      resolved.dealsAndMovements.displayHeading,
+      resolved.dealsAndMovements.bullets,
+    );
+  }
+  if (resolved.regulatoryPolicyWatch) {
+    pushEntries(
+      "regulatoryPolicyWatch",
+      resolved.regulatoryPolicyWatch.displayHeading,
+      resolved.regulatoryPolicyWatch.bullets,
+    );
+  }
+  if (resolved.disruptorsOrTech) {
+    if (resolved.disruptorsOrTech.format === "prose") {
+      pushProse("disruptorsOrTech", resolved.disruptorsOrTech);
+    } else {
+      pushEntries(
+        "disruptorsOrTech",
+        resolved.disruptorsOrTech.displayHeading,
+        resolved.disruptorsOrTech.bullets,
+      );
+    }
+  }
+  if (resolved.quickHits) {
+    pushEntries(
+      "quickHits",
+      resolved.quickHits.displayHeading,
+      resolved.quickHits.items,
+    );
+  }
+
+  return sections;
+};
+
 /** Structured newsletter content returned after a successful LLM call. */
 export interface GeneratedContent {
   /** Compelling email subject line (under ~60 chars). */
@@ -201,6 +360,8 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
   /** Per-section bullet counts and removed-section list from the final resolved newsletter. */
   sectionFillSnapshot?: SectionFillSnapshot;
   newsletterCitations?: NewsletterCitationLink[];
+  /** The exact grounded section structure (heading + summary + written items) as generated. */
+  newsletterSections?: NewsletterSectionLink[];
   /** Cross-day dedup counters, present when a recent-bullet corpus was provided. */
   crossRunDedupSummary?: {
     removedCount: number;
@@ -816,6 +977,7 @@ export async function generateNewsletterWithLlm(
       sectionsRemoved: prunedSectionsRemoved,
     },
     newsletterCitations: collectNewsletterCitations(resolved, promptSources),
+    newsletterSections: collectNewsletterSections(resolved, promptSources),
     ...(crossRunDedupSummary ? { crossRunDedupSummary } : {}),
     ...(crossSectionEventDedupSummary ? { crossSectionEventDedupSummary } : {}),
   };

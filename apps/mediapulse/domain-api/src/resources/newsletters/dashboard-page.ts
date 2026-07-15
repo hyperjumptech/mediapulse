@@ -307,16 +307,14 @@ const newslettersSourceAnalysisStageBlock = {
                 minWidth: 320,
                 linkTemplate: "{url}",
                 linkExternal: true,
-                descriptionField: "classifiedLabel",
               },
               {
-                field: "scoreLabel",
+                field: "scoreLine",
                 label: "Score",
-                type: "badge",
-                noWrap: true,
-                badgeVariantField: "scoreVariant",
+                type: "text",
+                colorField: "scoreVariant",
+                descriptionField: "reason",
               },
-              { field: "reason", label: "Reason", type: "text" },
             ],
           },
         },
@@ -338,9 +336,57 @@ const newslettersSourceAnalysisStageBlock = {
                 linkTemplate: "{url}",
                 linkExternal: true,
               },
-              { field: "reason", label: "Reason", type: "text" },
+              { field: "reason", label: "Reason", type: "text", muted: true },
             ],
           },
+        },
+      ],
+    },
+  ],
+} satisfies DetailBlock;
+
+/**
+ * `panel` grouping the content-generation stage into one card: KPI cards (the writing agent and
+ * version, when it ran, the LLM model, and its token spend) above a Structure table. The table lists
+ * each newsletter section the agent filled with the number of items it wrote and the citations that
+ * landed in it, read from this newsletter and the exact content-generation run that produced it.
+ */
+const newslettersContentGenerationStageBlock = {
+  type: "panel",
+  label: "Content Generation Stage",
+  blocks: [
+    {
+      type: "statCards",
+      cards: [
+        { label: "Agent", field: "contentGeneration.agentLabel" },
+        {
+          label: "Generated Date",
+          field: "contentGeneration.generatedAtLabel",
+        },
+        { label: "LLM Model", field: "contentGeneration.model" },
+        {
+          label: "LLM Tokens",
+          field: "contentGeneration.tokensTotalLabel",
+          tooltipField: "contentGeneration.tokensBreakdownLabel",
+        },
+      ],
+    },
+    {
+      type: "subTable",
+      label: "Results",
+      field: "contentGeneration.rows",
+      hideHeader: true,
+      sectionHeaderField: "isSection",
+      emptyState: "No sections recorded for this newsletter.",
+      columns: [
+        {
+          field: "label",
+          label: "Article",
+          type: "text",
+          muted: true,
+          descriptionField: "title",
+          descriptionLinkTemplate: "{url}",
+          linkExternal: true,
         },
       ],
     },
@@ -439,6 +485,7 @@ export const newslettersDashboardPage = {
     newslettersQueryStageBlock,
     newslettersSourceStageBlock,
     newslettersSourceAnalysisStageBlock,
+    newslettersContentGenerationStageBlock,
     newslettersEmailPreviewBlock,
     newslettersHermesLinksBlock,
   ],

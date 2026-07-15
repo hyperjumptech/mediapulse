@@ -36,6 +36,13 @@ const mapBadgeVariant = (
 const truncate = (value: string, limit: number): string =>
   value.length > limit ? `${value.slice(0, limit)}…` : value;
 
+const TEXT_COLOR_BY_VARIANT: Record<string, string> = {
+  success: "text-green-600 dark:text-green-500",
+  warning: "text-amber-600 dark:text-amber-500",
+  destructive: "text-red-600 dark:text-red-500",
+  muted: "text-muted-foreground",
+};
+
 const formatCellValue = (
   column: DetailBlockSubTableColumn,
   value: unknown,
@@ -116,6 +123,15 @@ export const DetailBlockSubTableCell = ({
       })
     : undefined;
   const nowrapClass = column.noWrap === true ? "whitespace-nowrap" : undefined;
+  const mutedClass =
+    column.muted === true ? "text-muted-foreground" : undefined;
+  const colorVariant = column.colorField
+    ? resolvePath(row, column.colorField)
+    : undefined;
+  const colorClass =
+    typeof colorVariant === "string"
+      ? TEXT_COLOR_BY_VARIANT[colorVariant]
+      : undefined;
   const node =
     url && text !== "—" ? (
       <a
@@ -131,7 +147,10 @@ export const DetailBlockSubTableCell = ({
       </a>
     ) : (
       <span
-        className={nowrapClass}
+        className={
+          [nowrapClass, mutedClass, colorClass].filter(Boolean).join(" ") ||
+          undefined
+        }
         title={text.length > truncated.length ? text : undefined}
       >
         {truncated}
@@ -160,6 +179,16 @@ export const DetailBlockSubTableCell = ({
   if (overlineText === undefined && descriptionText === undefined) {
     return primary;
   }
+  const descriptionUrl =
+    descriptionText !== undefined && column.descriptionLinkTemplate
+      ? renderUrlTemplate(column.descriptionLinkTemplate, {
+          ...(typeof rowContext === "object" && rowContext !== null
+            ? (rowContext as Record<string, unknown>)
+            : {}),
+          ...row,
+          row: rowContext,
+        })
+      : undefined;
   return (
     <span className="flex flex-col gap-0.5">
       {overlineText ? (
@@ -167,7 +196,22 @@ export const DetailBlockSubTableCell = ({
       ) : null}
       {primary}
       {descriptionText ? (
-        <span className="text-muted-foreground text-sm">{descriptionText}</span>
+        descriptionUrl ? (
+          <a
+            href={descriptionUrl}
+            target={column.linkExternal === true ? "_blank" : undefined}
+            rel={
+              column.linkExternal === true ? "noopener noreferrer" : undefined
+            }
+            className="text-primary text-sm underline underline-offset-4"
+          >
+            {descriptionText}
+          </a>
+        ) : (
+          <span className="text-muted-foreground text-sm">
+            {descriptionText}
+          </span>
+        )
       ) : null}
     </span>
   );
@@ -183,11 +227,13 @@ export const DetailBlockSubTableContent = ({
   rows,
   rowContext,
   hideHeader,
+  sectionHeaderField,
 }: {
   columns: readonly DetailBlockSubTableColumn[];
   rows: readonly Record<string, unknown>[];
   rowContext: unknown;
   hideHeader?: boolean;
+  sectionHeaderField?: string;
 }) => (
   <div className="overflow-x-auto rounded-md border">
     <Table>
@@ -211,6 +257,25 @@ export const DetailBlockSubTableContent = ({
         {rows.map((row, rowIndex) => {
           const rowKey =
             typeof row.id === "string" ? row.id : `row-${rowIndex}`;
+          const isSectionHeader =
+            sectionHeaderField !== undefined &&
+            Boolean(resolvePath(row, sectionHeaderField));
+          if (isSectionHeader) {
+            const headerColumn = columns[0];
+            const headerText = headerColumn
+              ? String(resolvePath(row, headerColumn.field) ?? "")
+              : "";
+            return (
+              <TableRow key={rowKey} className="bg-muted/50">
+                <TableCell
+                  colSpan={columns.length}
+                  className="text-foreground font-semibold"
+                >
+                  {headerText}
+                </TableCell>
+              </TableRow>
+            );
+          }
           return (
             <TableRow key={rowKey}>
               {columns.map((column) => (
@@ -304,6 +369,7 @@ export const DetailBlockSubTableView = ({
           rows={rows}
           rowContext={data}
           hideHeader={block.hideHeader}
+          sectionHeaderField={block.sectionHeaderField}
         />
       )}
     </section>
