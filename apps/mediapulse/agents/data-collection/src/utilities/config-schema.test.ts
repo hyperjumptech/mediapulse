@@ -6,14 +6,11 @@ import {
   dataCollectionAgentConfigSchema,
   getConfigSchema,
   isUnresolvedVariablePlaceholder,
-  type FetchProviderEntry,
   type ProviderEntry,
 } from "./config-schema";
 
 /** Reads apiKey from a provider entry union (API-key providers carry it). */
-const apiKeyOf = (
-  entry: ProviderEntry | FetchProviderEntry | undefined,
-): string | undefined =>
+const apiKeyOf = (entry: ProviderEntry | undefined): string | undefined =>
   entry && "apiKey" in entry ? entry.apiKey : undefined;
 
 describe("getConfigSchema", () => {
@@ -29,7 +26,6 @@ describe("getConfigSchema", () => {
     expect(Object.keys(properties ?? {})).toEqual([
       "web_search",
       "web_search_locales",
-      "web_fetch",
       "collection",
     ]);
   });
@@ -55,14 +51,6 @@ describe("dataCollectionAgentConfigSchema", () => {
       "exa",
     ]);
     expect(apiKeyOf(parsed.web_search[0])).toBe("{{SERPER_API_KEY}}");
-    expect(parsed.web_fetch.map((entry) => entry.provider)).toEqual([
-      "serper",
-      "tavily",
-      "exa",
-      "diffbot",
-      "firecrawl",
-      "jina",
-    ]);
     expect(parsed.web_search_locales).toEqual([{ gl: "id", hl: "id" }]);
     expect(parsed.collection).toEqual({
       targetSavedSources: 50,
@@ -75,7 +63,6 @@ describe("dataCollectionAgentConfigSchema", () => {
     const parsed = dataCollectionAgentConfigSchema.parse({});
 
     expect(apiKeyOf(parsed.web_search[1])).toBe("{{TAVILY_API_KEY}}");
-    expect(apiKeyOf(parsed.web_fetch[2])).toBe("{{EXA_API_KEY}}");
   });
 
   it("keeps other defaults when only one collection field is overridden", () => {
@@ -85,62 +72,22 @@ describe("dataCollectionAgentConfigSchema", () => {
 
     expect(parsed.collection.maxRounds).toBe(5);
     expect(parsed.collection.targetSavedSources).toBe(50);
-    expect(parsed.web_fetch).toHaveLength(6);
   });
 
   it("accepts a custom provider pool", () => {
     const parsed = dataCollectionAgentConfigSchema.parse({
       web_search: [{ provider: "tavily", apiKey: "tav-key" }],
-      web_fetch: [{ provider: "exa", apiKey: "exa-key" }],
     });
 
     expect(parsed.web_search).toEqual([
       { provider: "tavily", apiKey: "tav-key" },
     ]);
-    expect(parsed.web_fetch).toEqual([{ provider: "exa", apiKey: "exa-key" }]);
   });
 
   it("rejects empty provider pools", () => {
     expect(() =>
       dataCollectionAgentConfigSchema.parse({ web_search: [] }),
     ).toThrow();
-    expect(() =>
-      dataCollectionAgentConfigSchema.parse({ web_fetch: [] }),
-    ).toThrow();
-  });
-
-  it("accepts the fetch-only providers in web_fetch", () => {
-    const parsed = dataCollectionAgentConfigSchema.parse({
-      web_fetch: [
-        { provider: "diffbot", apiKey: "diff-key" },
-        { provider: "firecrawl", apiKey: "fire-key" },
-        { provider: "jina", apiKey: "jina-key" },
-      ],
-    });
-
-    expect(parsed.web_fetch.map((entry) => entry.provider)).toEqual([
-      "diffbot",
-      "firecrawl",
-      "jina",
-    ]);
-  });
-
-  it("accepts a self-hosted Firecrawl entry with baseUrl and headers in web_fetch", () => {
-    const parsed = dataCollectionAgentConfigSchema.parse({
-      web_fetch: [
-        {
-          provider: "firecrawl_selfhosted",
-          baseUrl: "https://firecrawl.internal",
-          headers: { "X-Auth-Id": "id" },
-        },
-      ],
-    });
-
-    expect(parsed.web_fetch[0]).toMatchObject({
-      provider: "firecrawl_selfhosted",
-      baseUrl: "https://firecrawl.internal",
-      headers: { "X-Auth-Id": "id" },
-    });
   });
 
   it("accepts firecrawl and firecrawl_selfhosted in web_search", () => {
@@ -158,22 +105,6 @@ describe("dataCollectionAgentConfigSchema", () => {
       "firecrawl",
       "firecrawl_selfhosted",
     ]);
-  });
-
-  it("rejects a self-hosted Firecrawl entry without a baseUrl", () => {
-    expect(() =>
-      dataCollectionAgentConfigSchema.parse({
-        web_fetch: [{ provider: "firecrawl_selfhosted" }],
-      }),
-    ).toThrow();
-  });
-
-  it("rejects a non-self-hosted fetch provider without an API key", () => {
-    expect(() =>
-      dataCollectionAgentConfigSchema.parse({
-        web_fetch: [{ provider: "firecrawl" }],
-      }),
-    ).toThrow();
   });
 
   it("rejects fetch-only providers in web_search", () => {

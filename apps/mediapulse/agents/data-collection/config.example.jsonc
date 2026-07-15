@@ -15,18 +15,7 @@
   // and dedup before fetch. gl/hl steer Serper; Exa ignores locale.
   "web_search_locales": [{ "gl": "id", "hl": "id" }],
 
-  // Web-fetch provider pool. Same round-robin + failover behavior.
-  // Diffbot, Firecrawl, and Jina are fetch-only (no search support).
-  "web_fetch": [
-    { "provider": "serper", "apiKey": "{{SERPER_API_KEY}}" },
-    { "provider": "tavily", "apiKey": "{{TAVILY_API_KEY}}" },
-    { "provider": "exa", "apiKey": "{{EXA_API_KEY}}" },
-    { "provider": "diffbot", "apiKey": "{{DIFFBOT_API_KEY}}" },
-    { "provider": "firecrawl", "apiKey": "{{FIRECRAWL_API_KEY}}" },
-    { "provider": "jina", "apiKey": "{{JINA_API_KEY}}" },
-  ],
-
-  // LLM relevance filter (OpenAI-compatible). Judges each fetched page against
+  // LLM relevance filter (OpenAI-compatible). Judges each candidate page against
   // the agent contract brief; falls back to keyword matching on error.
   "relevance": {
     "apiKey": "{{AI_API_KEY}}",

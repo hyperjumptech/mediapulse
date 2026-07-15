@@ -85,6 +85,7 @@ model DataSource {
   tickerId             String?               @map("ticker_id")
   searchQueryId        String?               @map("search_query_id")
   curatedSourceId      String?               @map("curated_source_id")
+  dataCollectionRunId  String?               @map("data_collection_run_id")
   collectionGateStatus CollectionGateStatus? @map("collection_gate_status")
   collectionGateReason String?               @map("collection_gate_reason")
   analyzedAt           DateTime?             @map("analyzed_at")
@@ -111,6 +112,7 @@ model DataSource {
   @@index([curatedSourceId])
   @@index([collectionGateStatus, analyzedAt])
   @@index([tickerId, section])
+  @@index([dataCollectionRunId])
   @@map("data_source")
 }
 

@@ -64,6 +64,7 @@ export const persistPageCollectionArticles = async (
       tickerId: null,
       searchQueryId: null,
       curatedSourceId,
+      dataCollectionRunId: row.dataCollectionRunId ?? null,
       collectionGateStatus: row.collectionGateStatus,
       collectionGateReason: row.collectionGateReason ?? null,
       ...(row.publishedAt ? { publishedAt: new Date(row.publishedAt) } : {}),

@@ -110,19 +110,25 @@ export const DetailBlockSubTableCell = ({
         row: rowContext,
       })
     : undefined;
+  const nowrapClass = column.noWrap === true ? "whitespace-nowrap" : undefined;
   const node =
     url && text !== "—" ? (
       <a
         href={url}
         target={column.linkExternal === true ? "_blank" : undefined}
         rel={column.linkExternal === true ? "noopener noreferrer" : undefined}
-        className="text-primary underline underline-offset-4"
+        className={["text-primary underline underline-offset-4", nowrapClass]
+          .filter(Boolean)
+          .join(" ")}
         title={text.length > truncated.length ? text : undefined}
       >
         {truncated}
       </a>
     ) : (
-      <span title={text.length > truncated.length ? text : undefined}>
+      <span
+        className={nowrapClass}
+        title={text.length > truncated.length ? text : undefined}
+      >
         {truncated}
       </span>
     );
@@ -250,6 +256,7 @@ export const DetailBlockSubTableView = ({
         emptyState={block.emptyState}
         hideHeader={block.hideHeader}
         options={block.rowLimitOptions}
+        defaultAll={block.rowLimitDefaultAll}
       />
     );
   }

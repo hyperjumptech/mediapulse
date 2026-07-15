@@ -191,6 +191,103 @@ const newslettersQueryStageBlock = {
 } satisfies DetailBlock;
 
 /**
+ * `panel` grouping the source-collection stage into one card: KPI cards (when the runs ran, the
+ * search credits they spent with a per-provider breakdown, and the collected/dropped counts) above a
+ * Collected/Dropped tab pair. Collected lists each cited source with its versioned agent and query;
+ * Dropped lists the URLs those same runs dropped or failed, with the reason. All figures come from
+ * this newsletter's exact citation join traced to the collection runs behind those sources.
+ */
+const newslettersSourceStageBlock = {
+  type: "panel",
+  label: "Source Collection Stage",
+  blocks: [
+    {
+      type: "statCards",
+      cards: [
+        {
+          label: "Generated Date",
+          field: "sourceCollection.generatedAtLabel",
+        },
+        {
+          label: "Search Credits",
+          field: "sourceCollection.creditsTotalLabel",
+          tooltipField: "sourceCollection.creditsBreakdownLabel",
+        },
+        {
+          label: "Total Collected",
+          field: "sourceCollection.collectedTotalLabel",
+        },
+        {
+          label: "Total Dropped",
+          field: "sourceCollection.droppedTotalLabel",
+        },
+      ],
+    },
+    {
+      type: "tabs",
+      tabs: [
+        {
+          label: "Collected",
+          block: {
+            type: "subTable",
+            field: "sourceCollection.sources",
+            rowLimitOptions: [5, 10],
+            rowLimitDefaultAll: true,
+            emptyState: "No sources cited by this newsletter.",
+            columns: [
+              {
+                field: "title",
+                label: "Article",
+                type: "text",
+                truncate: 80,
+                linkTemplate: "{url}",
+                linkExternal: true,
+                descriptionField: "agentLine",
+              },
+              {
+                field: "queryText",
+                label: "Query",
+                type: "text",
+                truncate: 60,
+              },
+            ],
+          },
+        },
+        {
+          label: "Dropped",
+          block: {
+            type: "subTable",
+            field: "sourceCollection.dropped",
+            rowLimitOptions: [10, 25],
+            emptyState:
+              "No dropped URLs recorded for the runs behind this newsletter.",
+            columns: [
+              {
+                field: "url",
+                label: "Article URL",
+                type: "text",
+                truncate: 80,
+                noWrap: true,
+                linkTemplate: "{url}",
+                linkExternal: true,
+                descriptionField: "agentLine",
+              },
+              {
+                field: "reason",
+                label: "Reason",
+                type: "text",
+                truncate: 100,
+                descriptionField: "reasonDetail",
+              },
+            ],
+          },
+        },
+      ],
+    },
+  ],
+} satisfies DetailBlock;
+
+/**
  * `htmlPreview` block bound to `emailPreviewHtml` — the production
  * `default-newsletter` React Email template rendered server-side against the
  * newsletter's data. The Hermes generic renderer drops this into a sandboxed
@@ -280,6 +377,7 @@ export const newslettersDashboardPage = {
     newslettersMetadataBlock,
     newslettersRecipientsBlock,
     newslettersQueryStageBlock,
+    newslettersSourceStageBlock,
     newslettersCitedArticlesBlock,
     newslettersEmailPreviewBlock,
     newslettersHermesLinksBlock,

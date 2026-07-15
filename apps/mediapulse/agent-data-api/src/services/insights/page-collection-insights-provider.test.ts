@@ -27,7 +27,7 @@ function makeRun(
     status: overrides.status ?? "success",
     snapshot: {
       ...(agentId != null ? { agentId } : {}),
-      cost: { searchCredits: 0, fetchByProvider: { jina: 5 } },
+      cost: { searchCredits: 0 },
       result: {
         saved: overrides.saved ?? 5,
         excluded: overrides.excluded ?? 3,

@@ -1,6 +1,10 @@
 import { createAgentApp } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-data-collection";
 
+import {
+  DATA_COLLECTION_AGENT_ID,
+  DATA_COLLECTION_AGENT_VERSION,
+} from "./constants";
 import { ConfigSchema, type ConfigSchemaType } from "./utilities/config-schema";
 import { BodySchema, type BodySchemaType } from "./utilities/body-schema";
 import { runDataCollection } from "./run";
@@ -12,8 +16,8 @@ const app = createAgentApp<
   typeof ConfigSchema
 >(
   {
-    agentId: "data-collection",
-    agentVersion: "1.0.0",
+    agentId: DATA_COLLECTION_AGENT_ID,
+    agentVersion: DATA_COLLECTION_AGENT_VERSION,
     description:
       "Fetches market and news data for a ticker and persists it through agent-data-api.",
     inputSchema: BodySchema,

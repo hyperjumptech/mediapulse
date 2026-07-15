@@ -137,3 +137,69 @@ describe("newslettersDashboardPage query-generation stage", () => {
     expect(results).toBeDefined();
   });
 });
+
+describe("newslettersDashboardPage source-collection stage", () => {
+  it("groups the stage KPI cards and results table in one panel", () => {
+    const panel = findBlock("Source Collection Stage");
+    expect(panel.type).toBe("panel");
+    if (panel.type !== "panel") return;
+
+    const statCards = panel.blocks.find((block) => block.type === "statCards");
+    expect(statCards?.type).toBe("statCards");
+    if (statCards?.type !== "statCards") return;
+    expect(statCards.cards.map((card) => card.label)).toEqual([
+      "Generated Date",
+      "Search Credits",
+      "Total Collected",
+      "Total Dropped",
+    ]);
+    expect(statCards.cards.map((card) => card.field)).toEqual([
+      "sourceCollection.generatedAtLabel",
+      "sourceCollection.creditsTotalLabel",
+      "sourceCollection.collectedTotalLabel",
+      "sourceCollection.droppedTotalLabel",
+    ]);
+    const creditsCard = statCards.cards.find(
+      (card) => card.label === "Search Credits",
+    );
+    expect(creditsCard?.tooltipField).toBe(
+      "sourceCollection.creditsBreakdownLabel",
+    );
+  });
+
+  it("splits the results into Collected and Dropped tabs", () => {
+    const panel = findBlock("Source Collection Stage");
+    if (panel.type !== "panel") return;
+
+    const tabs = panel.blocks.find((block) => block.type === "tabs");
+    expect(tabs?.type).toBe("tabs");
+    if (tabs?.type !== "tabs") return;
+    expect(tabs.tabs.map((tab) => tab.label)).toEqual(["Collected", "Dropped"]);
+
+    const [collected, dropped] = tabs.tabs;
+    expect(collected?.block.type).toBe("subTable");
+    if (collected?.block.type !== "subTable") return;
+    expect(collected.block.field).toBe("sourceCollection.sources");
+    expect(collected.block.rowLimitDefaultAll).toBe(true);
+    expect(collected.block.columns.map((column) => column.label)).toEqual([
+      "Article",
+      "Query",
+    ]);
+    expect(collected.block.columns[0]?.linkExternal).toBe(true);
+    expect(collected.block.columns[0]?.descriptionField).toBe("agentLine");
+
+    expect(dropped?.block.type).toBe("subTable");
+    if (dropped?.block.type !== "subTable") return;
+    expect(dropped.block.field).toBe("sourceCollection.dropped");
+    expect(dropped.block.columns.map((column) => column.label)).toEqual([
+      "Article URL",
+      "Reason",
+    ]);
+    expect(dropped.block.columns[0]?.noWrap).toBe(true);
+    expect(dropped.block.columns[0]?.descriptionField).toBe("agentLine");
+    const reasonColumn = dropped.block.columns.find(
+      (column) => column.field === "reason",
+    );
+    expect(reasonColumn?.descriptionField).toBe("reasonDetail");
+  });
+});

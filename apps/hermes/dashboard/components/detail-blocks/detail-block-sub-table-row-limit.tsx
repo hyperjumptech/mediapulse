@@ -22,7 +22,8 @@ const ALL_VALUE = "all";
 
 /**
  * Renders a sub-table section with a row-count selector (the given options plus "All") at the right
- * of the header. The first option is the default, so the table starts limited to that many rows.
+ * of the header. The first option is the default, so the table starts limited to that many rows,
+ * unless `defaultAll` starts the selector on "All".
  */
 export const DetailBlockSubTableRowLimit = ({
   label,
@@ -34,6 +35,7 @@ export const DetailBlockSubTableRowLimit = ({
   emptyState,
   hideHeader,
   options,
+  defaultAll,
 }: {
   label?: string;
   sectionRule?: DetailBlockSectionRule;
@@ -44,8 +46,11 @@ export const DetailBlockSubTableRowLimit = ({
   emptyState?: string;
   hideHeader?: boolean;
   options: readonly number[];
+  defaultAll?: boolean;
 }) => {
-  const [value, setValue] = useState<string>(String(options[0]));
+  const [value, setValue] = useState<string>(
+    defaultAll ? ALL_VALUE : String(options[0]),
+  );
   const limit = value === ALL_VALUE ? rows.length : Number(value);
   const visibleRows = rows.slice(0, limit);
 

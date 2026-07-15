@@ -91,6 +91,59 @@ describe("DetailBlockTabsView", () => {
     expect(triggers[1]).toHaveAttribute("data-state", "inactive");
   });
 
+  it("renders the active tab's row-count selector on the tab bar for a subTable tab", () => {
+    render(
+      <DetailBlockTabsView
+        block={{
+          type: "tabs",
+          tabs: [
+            {
+              label: "Collected",
+              block: {
+                type: "subTable",
+                field: "sources",
+                rowLimitOptions: [5, 10],
+                rowLimitDefaultAll: true,
+                columns: [
+                  {
+                    field: "title",
+                    label: "Article",
+                    type: "text",
+                    linkTemplate: "{url}",
+                    linkExternal: true,
+                  },
+                ],
+              },
+            },
+          ],
+        }}
+        data={{
+          sources: [{ id: "s1", title: "Alpha", url: "https://example.com/a" }],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("combobox")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Alpha" })).toHaveAttribute(
+      "href",
+      "https://example.com/a",
+    );
+  });
+
+  it("shows no selector when the active tab has no row-count options", () => {
+    render(
+      <DetailBlockTabsView
+        block={{
+          type: "tabs",
+          tabs: [{ label: "Body", block: { type: "markdown", field: "body" } }],
+        }}
+        data={{ body: "Hello" }}
+      />,
+    );
+
+    expect(screen.queryByRole("combobox")).toBeNull();
+  });
+
   it("evaluates the outer section rule against the full response", () => {
     render(
       <DetailBlockTabsView

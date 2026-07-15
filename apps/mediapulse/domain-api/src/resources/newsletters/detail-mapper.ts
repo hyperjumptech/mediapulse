@@ -4,6 +4,7 @@ import type { ActiveQuerySetPayload } from "./active-query-set";
 import type { CitedArticlePayload } from "./build-cited-articles";
 import type { HermesLinksPayload } from "./build-hermes-links";
 import type { RecipientPayload } from "./build-recipients";
+import type { SourceCollectionPayload } from "./build-source-collection";
 
 /** Row shape passed to {@link mapRowToDetailItem}. */
 export type NewsletterDetailRow = Prisma.NewsletterGetPayload<{
@@ -40,6 +41,7 @@ export type DetailItem = {
   content: string;
   emailPreviewHtml: string;
   citedArticles: CitedArticlePayload[];
+  sourceCollection: SourceCollectionPayload;
   recipients: RecipientPayload[];
   recipientsTruncated: boolean;
   recipientsCap: number;
@@ -61,6 +63,7 @@ export const mapRowToDetailItem = (
   parts: {
     emailPreviewHtml: string;
     citedArticles: CitedArticlePayload[];
+    sourceCollection: SourceCollectionPayload;
     recipients: RecipientPayload[];
     recipientsTruncated: boolean;
     recipientsCap: number;
@@ -91,6 +94,7 @@ export const mapRowToDetailItem = (
   content: row.content,
   emailPreviewHtml: parts.emailPreviewHtml,
   citedArticles: parts.citedArticles,
+  sourceCollection: parts.sourceCollection,
   recipients: parts.recipients,
   recipientsTruncated: parts.recipientsTruncated,
   recipientsCap: parts.recipientsCap,

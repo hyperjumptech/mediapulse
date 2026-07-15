@@ -17,6 +17,7 @@ const dataCollectionInputSchema = z.object({
   source: z.string().optional(),
   tickerId: z.string().trim().min(1),
   searchQueryId: z.string().uuid(),
+  dataCollectionRunId: z.string().uuid().optional(),
   publishedAt: z.string().datetime().optional(),
   metadata: z.object({ provider: z.string().optional() }).optional(),
 });
