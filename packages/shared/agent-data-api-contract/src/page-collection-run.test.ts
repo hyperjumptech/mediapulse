@@ -16,7 +16,7 @@ describe("pageCollectionRunInputSchema", () => {
       snapshot: {
         agentId: "page-collection",
         agentVersion: "2.0.0",
-        cost: { searchCredits: 0 },
+        cost: { searchCredits: 0, searchCreditsByProvider: {} },
         result: {
           saved: 12,
           excluded: 4,

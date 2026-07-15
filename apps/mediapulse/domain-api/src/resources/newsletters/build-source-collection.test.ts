@@ -27,6 +27,7 @@ const runRow = (overrides: {
   agentId?: string | null;
   agentVersion?: string | null;
   searchCredits?: number;
+  byProvider?: Record<string, number>;
   completedAt?: Date | null;
   startedAt?: Date;
 }) => ({
@@ -41,7 +42,10 @@ const runRow = (overrides: {
       ? {}
       : { agentId: overrides.agentId ?? "data-collection" }),
     ...(overrides.agentVersion ? { agentVersion: overrides.agentVersion } : {}),
-    cost: { searchCredits: overrides.searchCredits ?? 0 },
+    cost: {
+      searchCredits: overrides.searchCredits ?? 0,
+      searchCreditsByProvider: overrides.byProvider ?? {},
+    },
   },
 });
 
@@ -93,6 +97,7 @@ describe("buildSourceCollection", () => {
         agentId: "data-collection",
         agentVersion: "1.0.0",
         searchCredits: 42,
+        byProvider: { serper: 30, tavily: 12 },
         completedAt: new Date("2026-07-13T06:00:00.000Z"),
       }),
       runRow({
@@ -117,9 +122,7 @@ describe("buildSourceCollection", () => {
     );
     expect(result.generatedAtLabel).toBe("July 13, 2026 at 13:00");
     expect(result.creditsTotalLabel).toBe("42");
-    expect(result.creditsBreakdownLabel).toBe(
-      "Data Collection 42 · Page Collection 0",
-    );
+    expect(result.creditsBreakdownLabel).toBe("Serper 30 · Tavily 12");
     expect(result.totalLabel).toBe("2");
   });
 

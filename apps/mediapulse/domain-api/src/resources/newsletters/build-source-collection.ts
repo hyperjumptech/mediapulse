@@ -3,7 +3,6 @@ import type { Prisma, prisma } from "@mediapulse/database";
 import {
   classifyCollectionSource,
   COLLECTION_SOURCE_LABEL,
-  type CollectionSource,
 } from "../data-sources/collection-source";
 
 const STAGE_TIMEZONE = "Asia/Jakarta";
@@ -40,11 +39,29 @@ type RunFields = {
   agentId: string | null;
   agentVersion: string | null;
   searchCredits: number;
+  searchCreditsByProvider: Record<string, number>;
+};
+
+const toRecordOfNumbers = (value: unknown): Record<string, number> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const result: Record<string, number> = {};
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof entry === "number" && Number.isFinite(entry)) {
+      result[key] = entry;
+    }
+  }
+
+  return result;
 };
 
 const readRunSnapshot = (snapshot: Prisma.JsonValue | null): RunFields => {
   if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
-    return { agentId: null, agentVersion: null, searchCredits: 0 };
+    return {
+      agentId: null,
+      agentVersion: null,
+      searchCredits: 0,
+      searchCreditsByProvider: {},
+    };
   }
   const record = snapshot as Record<string, unknown>;
   const cost =
@@ -65,16 +82,17 @@ const readRunSnapshot = (snapshot: Prisma.JsonValue | null): RunFields => {
     agentVersion:
       typeof record.agentVersion === "string" ? record.agentVersion : null,
     searchCredits,
+    searchCreditsByProvider: toRecordOfNumbers(cost?.searchCreditsByProvider),
   };
 };
 
 const agentLabel = (agentId: string, agentVersion: string | null): string =>
   agentVersion ? `${agentId} - ${agentVersion}` : agentId;
 
-const collectorLabel = (agentId: string): string =>
-  agentId in COLLECTION_SOURCE_LABEL
-    ? COLLECTION_SOURCE_LABEL[agentId as CollectionSource]
-    : agentId;
+const providerLabel = (provider: string): string =>
+  provider.length > 0
+    ? `${provider[0]!.toUpperCase()}${provider.slice(1)}`
+    : provider;
 
 const formatGeneratedAt = (date: Date): string => {
   const datePart = new Intl.DateTimeFormat("en-US", {
@@ -181,22 +199,23 @@ export const buildSourceCollection = async (
       : [];
 
   const agentLabels = new Set<string>();
-  const creditsByAgent = new Map<string, number>();
+  const creditsByProvider = new Map<string, number>();
   let totalCredits = 0;
   let latestRunAt: Date | null = null;
 
   for (const run of runs) {
-    const { agentId, agentVersion, searchCredits } = readRunSnapshot(
-      run.snapshot,
-    );
+    const { agentId, agentVersion, searchCredits, searchCreditsByProvider } =
+      readRunSnapshot(run.snapshot);
     if (agentId) {
       agentLabels.add(agentLabel(agentId, agentVersion));
-      creditsByAgent.set(
-        agentId,
-        (creditsByAgent.get(agentId) ?? 0) + searchCredits,
-      );
     }
     totalCredits += searchCredits;
+    for (const [provider, credits] of Object.entries(searchCreditsByProvider)) {
+      creditsByProvider.set(
+        provider,
+        (creditsByProvider.get(provider) ?? 0) + credits,
+      );
+    }
 
     const runAt = run.completedAt ?? run.startedAt;
     if (latestRunAt === null || runAt.getTime() > latestRunAt.getTime()) {
@@ -212,14 +231,14 @@ export const buildSourceCollection = async (
           .join(" · ") || "—";
 
   const creditsBreakdownLabel =
-    creditsByAgent.size > 0
-      ? [...creditsByAgent.entries()]
-          .sort(([leftAgent], [rightAgent]) =>
-            leftAgent.localeCompare(rightAgent),
+    creditsByProvider.size > 0
+      ? [...creditsByProvider.entries()]
+          .sort(([leftProvider], [rightProvider]) =>
+            leftProvider.localeCompare(rightProvider),
           )
           .map(
-            ([agentId, credits]) =>
-              `${collectorLabel(agentId)} ${credits.toLocaleString("en-US")}`,
+            ([provider, credits]) =>
+              `${providerLabel(provider)} ${credits.toLocaleString("en-US")}`,
           )
           .join(" · ")
       : "No cost recorded";

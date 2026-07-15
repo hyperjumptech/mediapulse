@@ -96,7 +96,7 @@ export interface WebSearchDeps {
    * Chronicle instrumentation sink: provider-reported search credits are summed
    * into `credits` across every query/locale/round when provided.
    */
-  creditsSink?: { credits: number };
+  creditsSink?: { credits: number; byProvider: Record<string, number> };
 }
 
 const SEARCH_TIMEOUT_MS = 30_000;
@@ -123,33 +123,39 @@ const searchOne = async (
     cursor: RoundRobinCursor;
     gotClient: typeof got;
     log: WebSearchLogger;
-    creditsSink?: { credits: number };
+    creditsSink?: { credits: number; byProvider: Record<string, number> };
   },
 ): Promise<WebSearchAttemptResult[]> => {
   const { providers, page, cursor, gotClient, log, creditsSink } = deps;
 
-  const dispatchProviders: DispatchProvider<SearchProviderResult>[] =
-    providers.map((built) => ({
-      name: built.name,
-      run: () =>
-        built.provider.search(query.text, {
-          gotClient,
-          locale,
-          page,
-          timeoutMs: SEARCH_TIMEOUT_MS,
-          logger: log,
-        }),
-    }));
+  const dispatchProviders: DispatchProvider<{
+    provider: string;
+    result: SearchProviderResult;
+  }>[] = providers.map((built) => ({
+    name: built.name,
+    run: async () => ({
+      provider: built.name,
+      result: await built.provider.search(query.text, {
+        gotClient,
+        locale,
+        page,
+        timeoutMs: SEARCH_TIMEOUT_MS,
+        logger: log,
+      }),
+    }),
+  }));
 
   try {
-    const result = await dispatch(
+    const { provider, result } = await dispatch(
       "search",
       dispatchProviders,
-      (candidate) => candidate.hits.length > 0,
+      (candidate) => candidate.result.hits.length > 0,
       cursor,
     );
     if (creditsSink !== undefined && result.credits !== undefined) {
       creditsSink.credits += result.credits;
+      creditsSink.byProvider[provider] =
+        (creditsSink.byProvider[provider] ?? 0) + result.credits;
     }
     const hits = result.hits;
 

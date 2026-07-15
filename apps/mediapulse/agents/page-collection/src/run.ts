@@ -109,7 +109,7 @@ export async function runPageCollection(
     const crashSnapshot = {
       agentId: PAGE_COLLECTION_AGENT_ID,
       agentVersion: PAGE_COLLECTION_AGENT_VERSION,
-      cost: { searchCredits: 0 },
+      cost: { searchCredits: 0, searchCreditsByProvider: {} },
       result: { saved: 0, excluded: 0, byReason: {} },
       timing: {
         totalMs: Date.now() - startedAt.getTime(),
@@ -491,6 +491,7 @@ async function executePageCollectionRun(
     agentVersion: PAGE_COLLECTION_AGENT_VERSION,
     cost: {
       searchCredits: 0,
+      searchCreditsByProvider: {},
     },
     result: {
       saved: persistedCount,

@@ -5,6 +5,10 @@ export const collectionRunSnapshotSchema = z.object({
   agentVersion: z.string().optional(),
   cost: z.object({
     searchCredits: z.number().int().nonnegative(),
+    searchCreditsByProvider: z.record(
+      z.string(),
+      z.number().int().nonnegative(),
+    ),
   }),
   result: z.object({
     saved: z.number().int().nonnegative(),

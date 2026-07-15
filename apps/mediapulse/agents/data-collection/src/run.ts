@@ -81,7 +81,10 @@ export async function runDataCollection(
   const runId = crypto.randomUUID();
   const scheduleExecutionId =
     hermesCorrelation?.scheduleExecutionId ?? undefined;
-  const searchCreditsSink = { credits: 0 };
+  const searchCreditsSink = {
+    credits: 0,
+    byProvider: {} as Record<string, number>,
+  };
   const outcomes: CollectionUrlOutcomeInput[] = [];
 
   const hermes = hermesCorrelation;
@@ -640,6 +643,7 @@ export async function runDataCollection(
     agentVersion: DATA_COLLECTION_AGENT_VERSION,
     cost: {
       searchCredits: searchCreditsSink.credits,
+      searchCreditsByProvider: searchCreditsSink.byProvider,
     },
     result: {
       saved: persistedThisRunCount,
