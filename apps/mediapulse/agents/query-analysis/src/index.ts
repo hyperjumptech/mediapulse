@@ -5,6 +5,10 @@ import {
   queryAnalysisConfigSchema,
   type QueryAnalysisConfig,
 } from "./config-schema";
+import {
+  QUERY_ANALYSIS_AGENT_ID,
+  QUERY_ANALYSIS_AGENT_VERSION,
+} from "./constants";
 import { runQueryAnalysis } from "./run";
 
 const inputSchema = z.object({

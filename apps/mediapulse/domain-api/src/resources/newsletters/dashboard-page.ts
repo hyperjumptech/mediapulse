@@ -1,9 +1,4 @@
-import type {
-  DashboardViewInput,
-  DetailBlock,
-  DetailBlockBadgeVariant,
-} from "@hermes/domain-contract";
-import { MEDIAPULSE_NEWSLETTER_SECTIONS } from "@workspace/agent-data-api-contract";
+import type { DashboardViewInput, DetailBlock } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
   createdAtDateRangeListFilter,
@@ -13,7 +8,6 @@ import {
   columnsFor,
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
-import { COLLECTION_SOURCE_BADGE_VARIANTS_BY_LABEL } from "../data-sources/collection-source";
 import { newslettersCustomActionsForManifest } from "./custom-actions";
 import type { ListItem } from "./list-mapper";
 
@@ -26,17 +20,6 @@ export const newslettersHermesPathSegment = "newsletters" as const;
  * fixtures stay in sync.
  */
 export const NEWSLETTER_STALE_SET_HOURS = 24 as const;
-
-/**
- * Badge variant for each newsletter-section label in the "Articles cited" table. Keyed by the human
- * label (the `publishedSection` value) so the badge renders consistently for every canonical section.
- */
-export const SECTION_BADGE_VARIANTS_BY_LABEL: Record<
-  string,
-  DetailBlockBadgeVariant
-> = Object.fromEntries(
-  MEDIAPULSE_NEWSLETTER_SECTIONS.map((section) => [section.label, "outline"]),
-);
 
 /**
  * `keyValue` block describing the newsletter metadata header. The ticker name
@@ -80,34 +63,17 @@ const newslettersMetadataBlock = {
 } satisfies DetailBlock;
 
 /**
- * `markdown` block bound to the newsletter body. Clamps at 4,000 characters
- * for bodies that exceed 10,000 characters (per PRD REQ-007); shorter bodies
- * render fully without an expander. `copyAction` is intentionally off in this
- * ticket; #466 turns it on after the polish review.
- */
-const newslettersBodyBlock = {
-  type: "markdown",
-  label: "Body",
-  field: "content",
-  clampChars: 4000,
-  clampThreshold: 10000,
-  copyAction: true,
-} satisfies DetailBlock;
-
-/**
  * `subTable` block bound to `citedArticles` — the articles cited by this newsletter, read from the
  * `newsletter_citation` table and joined to the section, score, and reason article-analysis assigned
  * for this ticker plus the search query that surfaced each one. Gives a reviewer a straight line from
  * the shipped newsletter back to the query and reasoning behind every citation. Rows are grouped by
- * published section in newsletter order (server-sorted in `buildCitedArticles`). The Section column
- * carries an inconsistency marker when the published section differs from the article-analysis
- * classification, and the "Classified as" column names the original section for those re-placements.
+ * published section in newsletter order (server-sorted in `buildCitedArticles`). The Title links out
+ * to the article and carries its published section as an overline.
  */
 const newslettersCitedArticlesBlock = {
   type: "subTable",
   label: "Articles cited",
   field: "citedArticles",
-  captionTemplate: "Articles cited ({citedArticles.length})",
   emptyState: "No citations recorded for this newsletter.",
   columns: [
     {
@@ -115,34 +81,13 @@ const newslettersCitedArticlesBlock = {
       label: "Title",
       type: "text",
       truncate: 80,
-      linkTemplate: "/dashboard/{integrationId}/data-sources/{id}",
-    },
-    {
-      field: "publishedSection",
-      label: "Section",
-      type: "badge",
-      badgeVariants: SECTION_BADGE_VARIANTS_BY_LABEL,
-      inconsistentField: "sectionMismatch",
-    },
-    { field: "classifiedSection", label: "Classified as", type: "text" },
-    { field: "sectionScore", label: "Score", type: "number" },
-    {
-      field: "queryText",
-      label: "Query",
-      type: "text",
-      truncate: 60,
-      linkTemplate:
-        "/dashboard/{integrationId}/search-queries?tickerId={queryLinkTickerId}",
-    },
-    { field: "sectionReason", label: "Reason", type: "text", truncate: 120 },
-    {
-      field: "url",
-      label: "URL",
-      type: "text",
       linkTemplate: "{url}",
       linkExternal: true,
-      truncate: 60,
+      overlineField: "publishedSection",
     },
+    { field: "sectionScore", label: "Score", type: "number" },
+    { field: "queryText", label: "Query", type: "text", truncate: 60 },
+    { field: "sectionReason", label: "Reason", type: "text", truncate: 120 },
   ],
 } satisfies DetailBlock;
 
@@ -158,8 +103,6 @@ const newslettersRecipientsBlock = {
   type: "subTable",
   label: "Recipients",
   field: "recipients",
-  captionTemplate:
-    "Recipients (delivered {recipientsDeliveredCount} / enabled at send time {recipientsEnabledAtSendTime})",
   emptyState: "No enabled subscribers for this ticker.",
   sectionRule: {
     when: "recipientsDeliveredCount < recipientsEnabledAtSendTime",
@@ -200,54 +143,15 @@ const newslettersRecipientsBlock = {
 } satisfies DetailBlock;
 
 /**
- * `subTable` block bound to `selectedSources` (PRD §5). The Title column
- * links to the data-sources detail page so reviewers can jump straight to
- * the source row. Window boundaries appear in the section caption.
- */
-const newslettersSelectedSourcesBlock = {
-  type: "subTable",
-  label: "Selected sources",
-  field: "selectedSources",
-  captionTemplate:
-    "Sources selected in window {selectedSourcesWindow.start} → {selectedSourcesWindow.end}",
-  emptyState:
-    "No selected sources match the calendar-day window for this newsletter.",
-  sectionRule: {
-    when: "selectedSources.length == 0",
-    badge: "muted",
-    label: "no sources",
-  },
-  columns: [
-    {
-      field: "title",
-      label: "Title",
-      type: "text",
-      truncate: 80,
-      linkTemplate: "/dashboard/{integrationId}/data-sources/{id}",
-    },
-    { field: "domain", label: "Domain", type: "text" },
-    { field: "score", label: "Score", type: "number" },
-    { field: "scoredAt", label: "Scored at", type: "date-time" },
-    {
-      field: "collectionSourceLabel",
-      label: "Collected by",
-      type: "badge",
-      badgeVariants: COLLECTION_SOURCE_BADGE_VARIANTS_BY_LABEL,
-    },
-  ],
-} satisfies DetailBlock;
-
-/**
  * `subTable` block bound to `activeQuerySet.queries` (PRD §5). Each row links
- * to the search-queries page filtered by this newsletter's ticker. The caption
- * shows the active set's generation date and source.
+ * to the search-queries page filtered by this newsletter's ticker.
  */
 const newslettersSearchQueriesBlock = {
   type: "subTable",
-  label: "Search queries used",
+  label: "Search Queries",
   field: "activeQuerySet.queries",
-  captionTemplate:
-    "Active set generated {activeQuerySet.generatedAt} (source: {activeQuerySet.generationSource})",
+  captionTemplate: "{activeQuerySet.provenanceLabel}",
+  hideHeader: true,
   emptyState: "No active SearchQuerySet on this newsletter's generation date.",
   sectionRule: {
     when: `hoursBetween(activeQuerySet.generatedAt, createdAt) > ${NEWSLETTER_STALE_SET_HOURS}`,
@@ -260,12 +164,8 @@ const newslettersSearchQueriesBlock = {
       label: "Query",
       type: "text",
       truncate: 80,
-      linkTemplate:
-        "/dashboard/{integrationId}/search-queries?tickerId={tickerId}",
+      descriptionField: "intent",
     },
-    { field: "intent", label: "Intent", type: "text" },
-    { field: "source", label: "Source", type: "text" },
-    { field: "rank", label: "Rank", type: "number" },
   ],
 } satisfies DetailBlock;
 
@@ -357,9 +257,7 @@ export const newslettersDashboardPage = {
   actions: { create: false, update: false, delete: false, view: true },
   detailBlocks: [
     newslettersMetadataBlock,
-    newslettersBodyBlock,
     newslettersRecipientsBlock,
-    newslettersSelectedSourcesBlock,
     newslettersSearchQueriesBlock,
     newslettersCitedArticlesBlock,
     newslettersEmailPreviewBlock,

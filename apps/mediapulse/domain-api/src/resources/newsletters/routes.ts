@@ -16,7 +16,6 @@ import {
   buildRecipients,
   NEWSLETTER_DETAIL_RECIPIENTS_CAP,
 } from "./build-recipients";
-import { buildSelectedSources } from "./build-selected-sources";
 import { buildDeliveryAggregateMap } from "./delivery-aggregate";
 import { detailInclude, mapRowToDetailItem } from "./detail-mapper";
 import { renderEmailPreview } from "./render-email-preview";
@@ -147,7 +146,6 @@ newslettersRoutes.get("/:id", async (c) => {
 
   const [
     recipientsResult,
-    selectedSourcesResult,
     citedArticles,
     activeQuerySet,
     hermesLinks,
@@ -157,9 +155,6 @@ newslettersRoutes.get("/:id", async (c) => {
       userTicker: prisma.userTicker,
       newsletterDeliveryCheckpoint: prisma.newsletterDeliveryCheckpoint,
       deliveryRun: prisma.deliveryRun,
-    }),
-    buildSelectedSources(row.id, row.tickerId, row.createdAt, {
-      dataSource: prisma.dataSource,
     }),
     buildCitedArticles(row.id, row.tickerId, {
       newsletterCitation: prisma.newsletterCitation,
@@ -213,11 +208,6 @@ newslettersRoutes.get("/:id", async (c) => {
       recipientsTotalCount: recipientsResult.totalCount,
       recipientsDeliveredCount: recipientsResult.deliveredCount,
       recipientsEnabledAtSendTime: recipientsResult.enabledAtSendTime,
-      selectedSources: selectedSourcesResult.sources,
-      selectedSourcesWindow: {
-        start: selectedSourcesResult.windowStart,
-        end: selectedSourcesResult.windowEnd,
-      },
       activeQuerySet,
       hermesLinks,
     }),

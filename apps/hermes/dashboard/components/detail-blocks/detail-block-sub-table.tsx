@@ -125,13 +125,37 @@ export const DetailBlockSubTableCell = ({
         {truncated}
       </span>
     );
-  return (
+  const primary = (
     <span className="inline-flex items-center gap-2">
       {node}
       {column.copyAction === true &&
       typeof value === "string" &&
       value.length > 0 ? (
         <DetailBlockCopyButton value={value} label={`Copy ${column.label}`} />
+      ) : null}
+    </span>
+  );
+
+  const stackedFieldValue = (field: string | undefined): string | undefined => {
+    if (field === undefined) return undefined;
+    const resolved = resolvePath(row, field);
+    return typeof resolved === "string" && resolved.length > 0
+      ? resolved
+      : undefined;
+  };
+  const overlineText = stackedFieldValue(column.overlineField);
+  const descriptionText = stackedFieldValue(column.descriptionField);
+  if (overlineText === undefined && descriptionText === undefined) {
+    return primary;
+  }
+  return (
+    <span className="flex flex-col gap-0.5">
+      {overlineText ? (
+        <span className="text-xs text-muted-foreground">{overlineText}</span>
+      ) : null}
+      {primary}
+      {descriptionText ? (
+        <span className="text-xs text-muted-foreground">{descriptionText}</span>
       ) : null}
     </span>
   );
@@ -146,20 +170,24 @@ export const DetailBlockSubTableContent = ({
   columns,
   rows,
   rowContext,
+  hideHeader,
 }: {
   columns: readonly DetailBlockSubTableColumn[];
   rows: readonly Record<string, unknown>[];
   rowContext: unknown;
+  hideHeader?: boolean;
 }) => (
   <div className="overflow-x-auto rounded-md border">
     <Table>
-      <TableHeader>
-        <TableRow>
-          {columns.map((column) => (
-            <TableHead key={column.field}>{column.label}</TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
+      {hideHeader ? null : (
+        <TableHeader>
+          <TableRow>
+            {columns.map((column) => (
+              <TableHead key={column.field}>{column.label}</TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+      )}
       <TableBody>
         {rows.map((row, rowIndex) => {
           const rowKey =
@@ -186,8 +214,8 @@ export const DetailBlockSubTableContent = ({
 /**
  * Renders a `subTable` detail block — columns from the manifest, rows from a
  * named array field on the detail response. Supports an optional caption
- * template, an empty-state string, and client-side pagination when
- * `pageSize` is set (and the row count exceeds it).
+ * template, an empty-state string, an optional hidden header, and client-side
+ * pagination when `pageSize` is set (and the row count exceeds it).
  *
  * @param props.block - Manifest definition.
  * @param props.data - Detail response object.
@@ -237,6 +265,7 @@ export const DetailBlockSubTableView = ({
           columns={block.columns}
           rows={rows}
           rowContext={data}
+          hideHeader={block.hideHeader}
         />
       )}
     </section>

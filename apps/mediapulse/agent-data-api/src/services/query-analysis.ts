@@ -79,6 +79,8 @@ export const createAndActivateQuerySet = async (
       generationSource: body.generationSource,
       strategySnapshot: body.strategySnapshot,
       agentJobId: body.agentJobId,
+      agentId: body.agentId,
+      agentVersion: body.agentVersion,
       queries: body.queries,
     },
     db,

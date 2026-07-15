@@ -14,6 +14,8 @@ describe("mapRowToListItem", () => {
       strategySnapshot: {},
       generationSource: "manual",
       agentJobId: "job-1",
+      agentId: null,
+      agentVersion: null,
       createdAt: new Date("2026-03-20T11:00:00.000Z"),
       updatedAt: new Date("2026-03-20T12:30:00.000Z"),
       ticker: { symbol: "AAPL", name: "Apple Inc." },

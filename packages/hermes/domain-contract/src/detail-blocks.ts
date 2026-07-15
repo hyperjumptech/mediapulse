@@ -118,6 +118,11 @@ export const detailBlockSubTableColumnSchema = z.object({
   linkExternal: z.boolean().optional(),
   /** Truncate text to N characters; full value shown on hover/focus. */
   truncate: z.number().int().positive().optional(),
+  /**
+   * Optional secondary field path rendered as a muted line beneath the cell value, so one column can
+   * carry a primary value with a subtitle (e.g. a query with its intent below). Non-badge columns only.
+   */
+  descriptionField: z.string().min(1).optional(),
   /** When true, render a copy-to-clipboard button for the cell value. */
   copyAction: z.boolean().optional(),
   /**
@@ -130,6 +135,12 @@ export const detailBlockSubTableColumnSchema = z.object({
    * truthy, the badge cell shows a `!` adornment with a tooltip.
    */
   inconsistentField: z.string().min(1).optional(),
+  /**
+   * Optional secondary field path rendered as a muted line above the cell value, so one column can
+   * carry a small overline/eyebrow atop a prominent value (e.g. a section label above the title).
+   * Non-badge columns only.
+   */
+  overlineField: z.string().min(1).optional(),
 });
 
 export const detailBlockSubTableSchema = z.object({
@@ -138,6 +149,11 @@ export const detailBlockSubTableSchema = z.object({
   /** Dotted field path on the response (must resolve to an array). */
   field: z.string().min(1),
   columns: z.array(detailBlockSubTableColumnSchema).min(1),
+  /**
+   * When true, the header row is not rendered. Useful for a single rich column where the column
+   * label would just be noise (e.g. a query list where each row already reads as a query).
+   */
+  hideHeader: z.boolean().optional(),
   /** Empty-state copy when the array is empty. */
   emptyState: z.string().min(1).optional(),
   /**

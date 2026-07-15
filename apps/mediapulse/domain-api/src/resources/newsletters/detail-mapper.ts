@@ -4,7 +4,6 @@ import type { ActiveQuerySetPayload } from "./active-query-set";
 import type { CitedArticlePayload } from "./build-cited-articles";
 import type { HermesLinksPayload } from "./build-hermes-links";
 import type { RecipientPayload } from "./build-recipients";
-import type { SelectedSourcePayload } from "./build-selected-sources";
 
 /** Row shape passed to {@link mapRowToDetailItem}. */
 export type NewsletterDetailRow = Prisma.NewsletterGetPayload<{
@@ -47,8 +46,6 @@ export type DetailItem = {
   recipientsTotalCount: number;
   recipientsDeliveredCount: number;
   recipientsEnabledAtSendTime: number;
-  selectedSources: SelectedSourcePayload[];
-  selectedSourcesWindow: { start: string; end: string };
   activeQuerySet: ActiveQuerySetPayload;
   hermesLinks: HermesLinksPayload;
 };
@@ -70,8 +67,6 @@ export const mapRowToDetailItem = (
     recipientsTotalCount: number;
     recipientsDeliveredCount: number;
     recipientsEnabledAtSendTime: number;
-    selectedSources: SelectedSourcePayload[];
-    selectedSourcesWindow: { start: string; end: string };
     activeQuerySet: ActiveQuerySetPayload;
     hermesLinks: HermesLinksPayload;
   },
@@ -102,8 +97,6 @@ export const mapRowToDetailItem = (
   recipientsTotalCount: parts.recipientsTotalCount,
   recipientsDeliveredCount: parts.recipientsDeliveredCount,
   recipientsEnabledAtSendTime: parts.recipientsEnabledAtSendTime,
-  selectedSources: parts.selectedSources,
-  selectedSourcesWindow: parts.selectedSourcesWindow,
   activeQuerySet: parts.activeQuerySet,
   hermesLinks: parts.hermesLinks,
 });
