@@ -98,6 +98,9 @@ type MockNewsletterDb = {
     findFirst: ReturnType<typeof vi.fn>;
     findMany: ReturnType<typeof vi.fn>;
   };
+  searchQuerySet: {
+    findFirst: ReturnType<typeof vi.fn>;
+  };
 };
 
 const createMockNewsletterDb = (): MockNewsletterDb => ({
@@ -105,6 +108,9 @@ const createMockNewsletterDb = (): MockNewsletterDb => ({
     create: vi.fn(),
     findFirst: vi.fn(),
     findMany: vi.fn(),
+  },
+  searchQuerySet: {
+    findFirst: vi.fn().mockResolvedValue({ id: "set-active" }),
   },
 });
 
@@ -345,6 +351,7 @@ describe("createNewsletter", () => {
         description: null,
         content: "Content body",
         tickerId: "ticker-1",
+        searchQuerySetId: "set-active",
         model: "gpt-4o",
         agentVersion: "1.2.3",
         configVersion: "hermes-v3",
@@ -400,6 +407,7 @@ describe("createNewsletter", () => {
         description: null,
         content: "Simple content",
         tickerId: "ticker-1",
+        searchQuerySetId: "set-active",
         model: null,
         agentVersion: null,
         configVersion: null,
@@ -410,6 +418,29 @@ describe("createNewsletter", () => {
         totalTokens: null,
       },
     });
+  });
+
+  it("links the newsletter to the ticker's active query set, or null when none", async () => {
+    const db = createMockNewsletterDb();
+    db.newsletter.create.mockResolvedValue({ id: "nl-linked" });
+    db.searchQuerySet.findFirst.mockResolvedValue(null);
+
+    await createNewsletter(
+      { subject: "s", content: "c", tickerId: "ticker-9" },
+      db as unknown as Parameters<typeof createNewsletter>[1],
+    );
+
+    expect(db.searchQuerySet.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tickerId: "ticker-9", isActive: true },
+        orderBy: { generatedAt: "desc" },
+      }),
+    );
+    expect(db.newsletter.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ searchQuerySetId: null }),
+      }),
+    );
   });
 
   it("passes description as null when omitted", async () => {

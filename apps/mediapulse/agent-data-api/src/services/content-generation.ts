@@ -45,6 +45,7 @@ type ContentGenerationDb = {
     typeof prisma.newsletter,
     "create" | "findFirst" | "findMany"
   >;
+  searchQuerySet: Pick<typeof prisma.searchQuerySet, "findFirst">;
   tickerEntity: Pick<typeof prisma.tickerEntity, "findFirst">;
   entityRelation: Pick<typeof prisma.entityRelation, "findMany">;
   entityType: Pick<typeof prisma.entityType, "findFirst">;
@@ -173,14 +174,21 @@ export const getDataSourcesForTicker = async (
  */
 export const createNewsletter = async (
   data: PostContentGenerationBody,
-  db: Pick<ContentGenerationDb, "newsletter"> = prisma,
+  db: Pick<ContentGenerationDb, "newsletter" | "searchQuerySet"> = prisma,
 ) => {
+  const activeSet = await db.searchQuerySet.findFirst({
+    where: { tickerId: data.tickerId, isActive: true },
+    orderBy: { generatedAt: "desc" },
+    select: { id: true },
+  });
+
   const newsletter = await db.newsletter.create({
     data: {
       subject: data.subject,
       description: data.description ?? null,
       content: data.content,
       tickerId: data.tickerId,
+      searchQuerySetId: activeSet?.id ?? null,
       model: data.model ?? null,
       agentVersion: data.agentVersion ?? null,
       configVersion: data.configVersion ?? null,

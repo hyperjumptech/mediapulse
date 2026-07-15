@@ -19,6 +19,7 @@ describe("newsletters list-mapper", () => {
     promptTokens: null,
     completionTokens: null,
     totalTokens: null,
+    searchQuerySetId: null,
     ticker: { symbol: "AAPL", name: "Apple Inc." },
   } satisfies NewsletterListRow;
 

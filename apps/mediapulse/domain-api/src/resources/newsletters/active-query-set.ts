@@ -18,8 +18,12 @@ export type ActiveQuerySetPayload = {
   }>;
 } | null;
 
-/** Prisma collaborator surface for {@link findActiveQuerySetForNewsletter}. */
-type SearchQuerySetDelegate = Pick<typeof prisma.searchQuerySet, "findFirst">;
+/** Prisma collaborator surface for {@link findQuerySetForNewsletter}. */
+type SearchQuerySetDelegate = Pick<typeof prisma.searchQuerySet, "findUnique">;
+
+type QuerySetRow = Prisma.SearchQuerySetGetPayload<{
+  include: { searchQueries: true };
+}>;
 
 const STAGE_TIMEZONE = "Asia/Jakarta";
 
@@ -49,40 +53,9 @@ const formatGeneratedAt = (date: Date): string => {
   return `${datePart} at ${timePart}`;
 };
 
-/**
- * Finds the SearchQuerySet that was active when the newsletter was generated: the most recent set
- * generated on or before the newsletter's `createdAt`, regardless of the current `isActive` flag.
- * This is a point-in-time snapshot, so a later query-analysis run that activates a new set does not
- * change what an old newsletter shows. Returns `null` when no set predates the newsletter.
- *
- * @param tickerId - Ticker the newsletter belongs to.
- * @param createdAt - Newsletter's `createdAt` (acts as upper bound for `generatedAt`).
- * @param deps - Prisma `searchQuerySet` delegate (defaults to the global client when wired by the route).
- * @returns The set that was active at generation time with its queries, or `null`.
- */
-export const findActiveQuerySetForNewsletter = async (
-  tickerId: string,
-  createdAt: Date,
-  deps: { searchQuerySet: SearchQuerySetDelegate },
-): Promise<ActiveQuerySetPayload> => {
-  const findFirstArgs = {
-    where: {
-      tickerId,
-      generatedAt: { lte: createdAt },
-    },
-    include: {
-      searchQueries: {
-        orderBy: [{ rank: "asc" as const }, { createdAt: "asc" as const }],
-      },
-    },
-    orderBy: { generatedAt: "desc" as const },
-  } satisfies Prisma.SearchQuerySetFindFirstArgs;
-
-  const set = await deps.searchQuerySet.findFirst(findFirstArgs);
-  if (!set) {
-    return null;
-  }
-
+const toQuerySetPayload = (
+  set: QuerySetRow,
+): NonNullable<ActiveQuerySetPayload> => {
   const agentName = set.agentId ?? "query-analysis";
   const agentLabel = set.agentVersion
     ? `${agentName} - ${set.agentVersion}`
@@ -102,6 +75,11 @@ export const findActiveQuerySetForNewsletter = async (
     toFiniteNumber(llmUsage.totalTokens) ||
     promptTokens + completionTokens + reasoningTokens;
 
+  const sortedQueries = [...set.searchQueries].sort((left, right) => {
+    if (left.rank !== right.rank) return left.rank - right.rank;
+    return left.createdAt.getTime() - right.createdAt.getTime();
+  });
+
   return {
     setId: set.id,
     generatedAt: set.generatedAt.toISOString(),
@@ -111,11 +89,37 @@ export const findActiveQuerySetForNewsletter = async (
     model,
     tokensTotalLabel: compactNumber(totalTokens),
     tokensBreakdownLabel: `Input ${promptTokens.toLocaleString("en-US")} · Output ${completionTokens.toLocaleString("en-US")} · Reasoning ${reasoningTokens.toLocaleString("en-US")}`,
-    queries: set.searchQueries.map((query) => ({
+    queries: sortedQueries.map((query) => ({
       id: query.id,
       text: query.text,
       intent: query.intent,
       rank: query.rank,
     })),
   };
+};
+
+/**
+ * Loads the exact SearchQuerySet a newsletter was generated from, via the newsletter's
+ * `searchQuerySetId` hard link. Returns `null` when the newsletter has no linked set (older
+ * newsletters that predate the column, or a set since deleted) — the detail page then shows its
+ * empty state rather than inferring a different set.
+ *
+ * @param searchQuerySetId - The newsletter's linked set id, or `null`.
+ * @param deps - Prisma `searchQuerySet` delegate.
+ * @returns The linked set with its queries, or `null`.
+ */
+export const findQuerySetForNewsletter = async (
+  searchQuerySetId: string | null,
+  deps: { searchQuerySet: SearchQuerySetDelegate },
+): Promise<ActiveQuerySetPayload> => {
+  if (searchQuerySetId === null) {
+    return null;
+  }
+
+  const set = await deps.searchQuerySet.findUnique({
+    where: { id: searchQuerySetId },
+    include: { searchQueries: true },
+  } satisfies Prisma.SearchQuerySetFindUniqueArgs);
+
+  return set ? toQuerySetPayload(set) : null;
 };

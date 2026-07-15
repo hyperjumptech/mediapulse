@@ -1,59 +1,61 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { findActiveQuerySetForNewsletter } from "./active-query-set";
+import { findQuerySetForNewsletter } from "./active-query-set";
 
-describe("findActiveQuerySetForNewsletter", () => {
-  it("resolves the point-in-time set without filtering on the current active flag", async () => {
-    const findFirst = vi.fn().mockResolvedValue(null);
+const querySetRow = (overrides: Record<string, unknown> = {}) => ({
+  id: "set-1",
+  generatedAt: new Date("2026-07-13T06:00:00.000Z"),
+  generationSource: "self_driving_v1",
+  agentId: "query-analysis",
+  agentVersion: "3.0.0",
+  strategySnapshot: {
+    llmUsage: {
+      model: "openai/gpt-4.1-mini",
+      promptTokens: 1234,
+      completionTokens: 567,
+      reasoningTokens: 8,
+      totalTokens: 1809,
+    },
+  },
+  searchQueries: [],
+  ...overrides,
+});
 
-    const result = await findActiveQuerySetForNewsletter(
-      "ticker-1",
-      new Date("2026-05-14T12:00:00.000Z"),
-      { searchQuerySet: { findFirst } },
-    );
+describe("findQuerySetForNewsletter", () => {
+  it("returns null and does not query when the newsletter has no linked set", async () => {
+    const findUnique = vi.fn();
+
+    const result = await findQuerySetForNewsletter(null, {
+      searchQuerySet: { findUnique },
+    });
 
     expect(result).toBeNull();
-    expect(findFirst).toHaveBeenCalledTimes(1);
-    const args = findFirst.mock.calls[0]?.[0];
-    expect(args).toMatchObject({
-      where: {
-        tickerId: "ticker-1",
-        generatedAt: { lte: new Date("2026-05-14T12:00:00.000Z") },
-      },
-      orderBy: { generatedAt: "desc" },
-    });
-    expect(args?.where?.isActive).toBeUndefined();
+    expect(findUnique).not.toHaveBeenCalled();
   });
 
-  it("builds stage KPIs from the set columns and its snapshot llmUsage", async () => {
-    const generatedAt = new Date("2026-07-13T06:00:00.000Z");
-    const findFirst = vi.fn().mockResolvedValue({
-      id: "set-1",
-      generatedAt,
-      generationSource: "self_driving_v1",
-      agentId: "query-analysis",
-      agentVersion: "3.0.0",
-      strategySnapshot: {
-        llmUsage: {
-          model: "openai/gpt-4.1-mini",
-          promptTokens: 1234,
-          completionTokens: 567,
-          reasoningTokens: 8,
-          totalTokens: 1809,
-        },
-      },
-      searchQueries: [],
+  it("returns null when the linked set is missing", async () => {
+    const findUnique = vi.fn().mockResolvedValue(null);
+
+    const result = await findQuerySetForNewsletter("set-x", {
+      searchQuerySet: { findUnique },
     });
 
-    const result = await findActiveQuerySetForNewsletter(
-      "ticker-1",
-      new Date("2026-07-14T12:00:00.000Z"),
-      { searchQuerySet: { findFirst } },
+    expect(result).toBeNull();
+    expect(findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "set-x" } }),
     );
+  });
+
+  it("builds stage KPIs from the linked set columns and snapshot llmUsage", async () => {
+    const findUnique = vi.fn().mockResolvedValue(querySetRow());
+
+    const result = await findQuerySetForNewsletter("set-1", {
+      searchQuerySet: { findUnique },
+    });
 
     expect(result).toStrictEqual({
       setId: "set-1",
-      generatedAt: generatedAt.toISOString(),
+      generatedAt: new Date("2026-07-13T06:00:00.000Z").toISOString(),
       generationSource: "self_driving_v1",
       agentLabel: "query-analysis - 3.0.0",
       generatedAtLabel: "July 13, 2026 at 13:00",
@@ -65,59 +67,52 @@ describe("findActiveQuerySetForNewsletter", () => {
   });
 
   it("falls back to a bare agent label and em dash model when unrecorded", async () => {
-    const findFirst = vi.fn().mockResolvedValue({
-      id: "set-1",
-      generatedAt: new Date("2026-07-13T06:00:00.000Z"),
-      generationSource: "manual_strategy",
-      agentId: null,
-      agentVersion: null,
-      strategySnapshot: {},
-      searchQueries: [],
-    });
-
-    const result = await findActiveQuerySetForNewsletter(
-      "ticker-1",
-      new Date("2026-07-14T12:00:00.000Z"),
-      { searchQuerySet: { findFirst } },
+    const findUnique = vi.fn().mockResolvedValue(
+      querySetRow({
+        agentId: null,
+        agentVersion: null,
+        strategySnapshot: {},
+      }),
     );
+
+    const result = await findQuerySetForNewsletter("set-1", {
+      searchQuerySet: { findUnique },
+    });
 
     expect(result?.agentLabel).toBe("query-analysis");
     expect(result?.model).toBe("—");
     expect(result?.tokensTotalLabel).toBe("0");
   });
 
-  it("returns queries in rank ascending order from Prisma", async () => {
-    const generatedAt = new Date("2026-05-13T08:00:00.000Z");
-    const findFirst = vi.fn().mockResolvedValue({
-      id: "set-2",
-      generatedAt,
-      generationSource: "agent_generated",
-      searchQueries: [
-        {
-          id: "q1",
-          text: "first query",
-          intent: "breaking",
-          rank: 1,
-        },
-        {
-          id: "q2",
-          text: "second query",
-          intent: "thematic",
-          rank: 2,
-        },
-      ],
-    });
-
-    const result = await findActiveQuerySetForNewsletter(
-      "ticker-1",
-      new Date("2026-05-14T12:00:00.000Z"),
-      { searchQuerySet: { findFirst } },
+  it("orders queries by rank then created time", async () => {
+    const findUnique = vi.fn().mockResolvedValue(
+      querySetRow({
+        searchQueries: [
+          {
+            id: "q2",
+            text: "second",
+            intent: "thematic",
+            rank: 2,
+            createdAt: new Date("2026-05-13T08:00:00.000Z"),
+          },
+          {
+            id: "q1",
+            text: "first",
+            intent: "breaking",
+            rank: 1,
+            createdAt: new Date("2026-05-13T08:00:00.000Z"),
+          },
+        ],
+      }),
     );
 
-    expect(result?.queries.map((q) => q.id)).toStrictEqual(["q1", "q2"]);
-    expect(result?.queries[0]).toMatchObject({
-      intent: "breaking",
-      rank: 1,
+    const result = await findQuerySetForNewsletter("set-1", {
+      searchQuerySet: { findUnique },
     });
+
+    expect(result?.queries.map((query) => query.id)).toStrictEqual([
+      "q1",
+      "q2",
+    ]);
   });
 });

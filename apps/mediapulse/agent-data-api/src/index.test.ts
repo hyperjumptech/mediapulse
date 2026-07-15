@@ -575,6 +575,7 @@ describe("agent-data-api", () => {
         promptTokens: null,
         completionTokens: null,
         totalTokens: null,
+        searchQuerySetId: null,
         createdAt: new Date("2026-03-19T00:00:00.000Z"),
         updatedAt: new Date("2026-03-19T00:00:00.000Z"),
       });
@@ -614,6 +615,7 @@ describe("agent-data-api", () => {
         promptTokens: 512,
         completionTokens: 256,
         totalTokens: 768,
+        searchQuerySetId: null,
         createdAt: new Date("2026-04-14T00:00:00.000Z"),
         updatedAt: new Date("2026-04-14T00:00:00.000Z"),
       });
