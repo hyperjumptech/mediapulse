@@ -85,7 +85,7 @@ type DataCollectionInsightsDeps = {
 
 type RunSnapshot = {
   agentId?: string;
-  cost?: { searchCredits?: number; fetchByProvider?: Record<string, number> };
+  cost?: { searchCredits?: number };
   result?: {
     saved?: number;
     excluded?: number;

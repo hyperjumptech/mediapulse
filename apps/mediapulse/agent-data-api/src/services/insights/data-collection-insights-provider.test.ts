@@ -17,7 +17,6 @@ function makeRun(
     excluded?: number;
     byReason?: Record<string, number>;
     searchCredits?: number;
-    fetchByProvider?: Record<string, number>;
     totalMs?: number;
   } = {},
 ) {
@@ -33,7 +32,6 @@ function makeRun(
       ...(agentId != null ? { agentId } : {}),
       cost: {
         searchCredits: overrides.searchCredits ?? 96,
-        fetchByProvider: overrides.fetchByProvider ?? { jina: 10 },
       },
       result: {
         saved: overrides.saved ?? 10,

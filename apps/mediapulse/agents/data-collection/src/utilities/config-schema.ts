@@ -15,69 +15,11 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 export { localeSchema, providerEntrySchema, providerNameSchema };
 export type { ProviderName, ProviderEntry, SearchLocale };
 
-/** Web providers usable for fetch. Diffbot, Firecrawl, and Jina are fetch-only. */
-export const fetchProviderNameSchema = z.enum([
-  "serper",
-  "tavily",
-  "exa",
-  "diffbot",
-  "firecrawl",
-  "firecrawl_selfhosted",
-  "jina",
-]);
-
-export type FetchProviderName = z.infer<typeof fetchProviderNameSchema>;
-
-/** Fetch providers with a fixed endpoint, authenticated with an API key. */
-const apiKeyFetchProviderEntrySchema = z.object({
-  provider: z
-    .enum(["serper", "tavily", "exa", "diffbot", "firecrawl", "jina"])
-    .describe("Fetch provider identifier."),
-  apiKey: z
-    .string()
-    .describe(
-      "Provider API key or a Hermes variable placeholder such as {{SERPER_API_KEY}}.",
-    ),
-});
-
-/** Self-hosted fetch provider: a custom base URL plus operator-supplied auth headers. */
-const selfHostedFetchProviderEntrySchema = z.object({
-  provider: z
-    .literal("firecrawl_selfhosted")
-    .describe("Fetch provider identifier."),
-  baseUrl: z.string().describe("Base URL of the self-hosted instance."),
-  headers: z
-    .record(z.string())
-    .optional()
-    .describe("Extra HTTP headers sent with every request."),
-});
-
-/**
- * A single fetch provider entry. API-key providers supply `{ provider, apiKey }`;
- * the self-hosted provider supplies `{ provider, baseUrl, headers }` instead.
- */
-const fetchProviderEntrySchema = z.discriminatedUnion("provider", [
-  apiKeyFetchProviderEntrySchema,
-  selfHostedFetchProviderEntrySchema,
-]);
-
-export type FetchProviderEntry = z.infer<typeof fetchProviderEntrySchema>;
-
 /** Default round-robin pool used for web search (search-capable providers only). */
 const defaultProviderPool: ProviderEntry[] = [
   { provider: "serper", apiKey: "{{SERPER_API_KEY}}" },
   { provider: "tavily", apiKey: "{{TAVILY_API_KEY}}" },
   { provider: "exa", apiKey: "{{EXA_API_KEY}}" },
-];
-
-/** Default round-robin pool used for web fetch, including the fetch-only providers. */
-const defaultFetchProviderPool: FetchProviderEntry[] = [
-  { provider: "serper", apiKey: "{{SERPER_API_KEY}}" },
-  { provider: "tavily", apiKey: "{{TAVILY_API_KEY}}" },
-  { provider: "exa", apiKey: "{{EXA_API_KEY}}" },
-  { provider: "diffbot", apiKey: "{{DIFFBOT_API_KEY}}" },
-  { provider: "firecrawl", apiKey: "{{FIRECRAWL_API_KEY}}" },
-  { provider: "jina", apiKey: "{{JINA_API_KEY}}" },
 ];
 
 const webSearchSchema = z
@@ -86,14 +28,6 @@ const webSearchSchema = z
   .default([...defaultProviderPool])
   .describe(
     "Web-search provider pool. Each request rotates the starting provider (round-robin) and falls back to the rest on failure.",
-  );
-
-const webFetchSchema = z
-  .array(fetchProviderEntrySchema)
-  .min(1)
-  .default([...defaultFetchProviderPool])
-  .describe(
-    "Web-fetch provider pool. Each request rotates the starting provider (round-robin) and falls back to the rest on failure.",
   );
 
 const webSearchLocalesSchema = z
@@ -126,7 +60,7 @@ const collectionSchema = z
       .nonnegative()
       .default(30_000)
       .describe(
-        "Max random delay before a run starts fetching, so concurrent ticker runs de-synchronize and avoid bursting the shared fetch-provider rate limit. 0 disables.",
+        "Max random delay before a run starts searching, so concurrent ticker runs de-synchronize and avoid bursting the shared search-provider rate limit. 0 disables.",
       ),
   })
   .default({})
@@ -136,7 +70,6 @@ const collectionSchema = z
 export const ConfigSchema = z.object({
   web_search: webSearchSchema,
   web_search_locales: webSearchLocalesSchema,
-  web_fetch: webFetchSchema,
   collection: collectionSchema,
 });
 
@@ -145,7 +78,6 @@ export const dataCollectionAgentConfigSchema = ConfigSchema;
 export type ConfigSchemaType = z.infer<typeof ConfigSchema>;
 
 export type WebSearchConfig = ConfigSchemaType["web_search"];
-export type WebFetchConfig = ConfigSchemaType["web_fetch"];
 export type CollectionConfig = ConfigSchemaType["collection"];
 
 /**

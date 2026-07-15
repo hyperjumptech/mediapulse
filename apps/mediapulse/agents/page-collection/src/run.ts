@@ -9,6 +9,10 @@ import { logger } from "@workspace/logger";
 import got from "got";
 import crypto from "node:crypto";
 
+import {
+  PAGE_COLLECTION_AGENT_ID,
+  PAGE_COLLECTION_AGENT_VERSION,
+} from "./constants";
 import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
 import { expandSourceUrl } from "./utilities/expand-source-urls";
@@ -103,8 +107,9 @@ export async function runPageCollection(
     });
 
     const crashSnapshot = {
-      agentId: "page-collection" as const,
-      cost: { searchCredits: 0, fetchByProvider: {} },
+      agentId: PAGE_COLLECTION_AGENT_ID,
+      agentVersion: PAGE_COLLECTION_AGENT_VERSION,
+      cost: { searchCredits: 0 },
       result: { saved: 0, excluded: 0, byReason: {} },
       timing: {
         totalMs: Date.now() - startedAt.getTime(),
@@ -444,6 +449,7 @@ async function executePageCollectionRun(
       description,
       ...(resolvedSource ? { source: resolvedSource } : {}),
       curatedSourceListingUrl: item.sourceListingUrl,
+      dataCollectionRunId: runId,
       collectionGateStatus: "passed",
       ...(publishedAt ? { publishedAt: publishedAt.toISOString() } : {}),
     });
@@ -481,10 +487,10 @@ async function executePageCollectionRun(
   };
 
   const snapshot = {
-    agentId: "page-collection" as const,
+    agentId: PAGE_COLLECTION_AGENT_ID,
+    agentVersion: PAGE_COLLECTION_AGENT_VERSION,
     cost: {
       searchCredits: 0,
-      fetchByProvider: {},
     },
     result: {
       saved: persistedCount,

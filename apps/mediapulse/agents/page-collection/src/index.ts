@@ -1,6 +1,10 @@
 import { createAgentApp } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-page-collection";
 
+import {
+  PAGE_COLLECTION_AGENT_ID,
+  PAGE_COLLECTION_AGENT_VERSION,
+} from "./constants";
 import { ConfigSchema, type ConfigSchemaType } from "./utilities/config-schema";
 import { BodySchema, type BodySchemaType } from "./utilities/body-schema";
 import { runPageCollection } from "./run";
@@ -12,8 +16,8 @@ const app = createAgentApp<
   typeof ConfigSchema
 >(
   {
-    agentId: "page-collection",
-    agentVersion: "2.0.0",
+    agentId: PAGE_COLLECTION_AGENT_ID,
+    agentVersion: PAGE_COLLECTION_AGENT_VERSION,
     description:
       "Discovers and fetches article pages from one curated listing source per run; use data-source expansion on listingUrl to fan out across enabled curated sources.",
     inputSchema: BodySchema,

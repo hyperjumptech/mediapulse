@@ -15,7 +15,8 @@ describe("pageCollectionRunInputSchema", () => {
       status: "success" as const,
       snapshot: {
         agentId: "page-collection",
-        cost: { searchCredits: 0, fetchByProvider: { firecrawl: 12 } },
+        agentVersion: "2.0.0",
+        cost: { searchCredits: 0 },
         result: {
           saved: 12,
           excluded: 4,
@@ -34,7 +35,7 @@ describe("pageCollectionRunInputSchema", () => {
 
     // Assert
     expect(parsed.snapshot.result.saved).toBe(12);
-    expect(parsed.snapshot.cost.fetchByProvider.firecrawl).toBe(12);
+    expect(parsed.snapshot.agentVersion).toBe("2.0.0");
   });
 
   it("rejects a run missing the snapshot", () => {

@@ -191,11 +191,11 @@ const newslettersQueryStageBlock = {
 } satisfies DetailBlock;
 
 /**
- * `panel` grouping the source-collection stage into one card: KPI cards (total cited sources, the
- * data-collection vs page-collection split, and distinct publishers) above a results table listing
- * each cited source with its collector as an overline and its publisher and collected date beneath.
- * All figures come from this newsletter's exact citation join, so they reflect only the sources it
- * used rather than the ticker's wider collection funnel.
+ * `panel` grouping the source-collection stage into one card: KPI cards (the collecting agents and
+ * versions, when they ran, the search credits those runs spent with a per-agent breakdown, and the
+ * total cited-source count) above a results table listing each cited source, its collector, and the
+ * search query that surfaced it. All figures come from this newsletter's exact citation join traced
+ * to the collection runs behind those sources, not the ticker's wider collection funnel.
  */
 const newslettersSourceStageBlock = {
   type: "panel",
@@ -204,36 +204,36 @@ const newslettersSourceStageBlock = {
     {
       type: "statCards",
       cards: [
-        { label: "Sources", field: "sourceCollection.totalLabel" },
+        { label: "Agents", field: "sourceCollection.agentsLabel" },
         {
-          label: "Data Collection",
-          field: "sourceCollection.dataCollectionLabel",
+          label: "Generated Date",
+          field: "sourceCollection.generatedAtLabel",
         },
         {
-          label: "Page Collection",
-          field: "sourceCollection.pageCollectionLabel",
+          label: "Search Credits",
+          field: "sourceCollection.creditsTotalLabel",
+          tooltipField: "sourceCollection.creditsBreakdownLabel",
         },
-        { label: "Publishers", field: "sourceCollection.publishersLabel" },
+        { label: "Total Results", field: "sourceCollection.totalLabel" },
       ],
     },
     {
       type: "subTable",
       label: "Results",
       field: "sourceCollection.sources",
-      hideHeader: true,
       rowLimitOptions: [5, 10],
       emptyState: "No sources cited by this newsletter.",
       columns: [
         {
           field: "title",
-          label: "Source",
+          label: "Article",
           type: "text",
           truncate: 80,
           linkTemplate: "{url}",
           linkExternal: true,
-          overlineField: "collectorLabel",
-          descriptionField: "meta",
         },
+        { field: "agentLabel", label: "Agent", type: "text" },
+        { field: "queryText", label: "Query", type: "text", truncate: 60 },
       ],
     },
   ],

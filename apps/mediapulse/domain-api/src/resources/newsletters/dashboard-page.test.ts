@@ -148,20 +148,26 @@ describe("newslettersDashboardPage source-collection stage", () => {
     expect(statCards?.type).toBe("statCards");
     if (statCards?.type !== "statCards") return;
     expect(statCards.cards.map((card) => card.label)).toEqual([
-      "Sources",
-      "Data Collection",
-      "Page Collection",
-      "Publishers",
+      "Agents",
+      "Generated Date",
+      "Search Credits",
+      "Total Results",
     ]);
     expect(statCards.cards.map((card) => card.field)).toEqual([
+      "sourceCollection.agentsLabel",
+      "sourceCollection.generatedAtLabel",
+      "sourceCollection.creditsTotalLabel",
       "sourceCollection.totalLabel",
-      "sourceCollection.dataCollectionLabel",
-      "sourceCollection.pageCollectionLabel",
-      "sourceCollection.publishersLabel",
     ]);
+    const creditsCard = statCards.cards.find(
+      (card) => card.label === "Search Credits",
+    );
+    expect(creditsCard?.tooltipField).toBe(
+      "sourceCollection.creditsBreakdownLabel",
+    );
   });
 
-  it("binds the results table to the cited sources with collector and meta lines", () => {
+  it("binds the results table to three columns: Article, Agent, Query", () => {
     const panel = findBlock("Source Collection Stage");
     if (panel.type !== "panel") return;
 
@@ -171,13 +177,16 @@ describe("newslettersDashboardPage source-collection stage", () => {
     );
     expect(results?.type).toBe("subTable");
     if (results?.type !== "subTable") return;
-    expect(results.hideHeader).toBe(true);
     expect(results.rowLimitOptions).toEqual([5, 10]);
+    expect(results.columns.map((column) => column.label)).toEqual([
+      "Article",
+      "Agent",
+      "Query",
+    ]);
 
-    const [title] = results.columns;
-    expect(title?.linkTemplate).toBe("{url}");
-    expect(title?.linkExternal).toBe(true);
-    expect(title?.overlineField).toBe("collectorLabel");
-    expect(title?.descriptionField).toBe("meta");
+    const [article] = results.columns;
+    expect(article?.field).toBe("title");
+    expect(article?.linkTemplate).toBe("{url}");
+    expect(article?.linkExternal).toBe(true);
   });
 });

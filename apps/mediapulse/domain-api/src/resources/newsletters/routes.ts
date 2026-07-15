@@ -163,6 +163,7 @@ newslettersRoutes.get("/:id", async (c) => {
     }),
     buildSourceCollection(row.id, {
       newsletterCitation: prisma.newsletterCitation,
+      dataCollectionRun: prisma.dataCollectionRun,
     }),
     findQuerySetForNewsletter(row.searchQuerySetId, {
       searchQuerySet: prisma.searchQuerySet,

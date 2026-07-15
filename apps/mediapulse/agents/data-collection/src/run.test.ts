@@ -17,7 +17,6 @@ const validTitle = "Bank Central Asia expands regional operations";
 const baseConfig = dataCollectionAgentConfigSchema.parse({
   web_search: [{ provider: "serper", apiKey: "serper-key" }],
   web_search_locales: [{ gl: "id", hl: "id" }],
-  web_fetch: [{ provider: "serper", apiKey: "serper-key" }],
   collection: {
     targetSavedSources: 1,
     maxRounds: 3,
@@ -38,7 +37,6 @@ const withTestConfig = (
   dataCollectionAgentConfigSchema.parse({
     web_search: baseConfig.web_search,
     web_search_locales: baseConfig.web_search_locales,
-    web_fetch: baseConfig.web_fetch,
     collection: { ...baseConfig.collection, ...overrides.collection },
   });
 
@@ -214,6 +212,7 @@ describe("runDataCollection", () => {
         description: "Snippet",
         tickerId: TICKER_ID,
         searchQueryId: "sq-1",
+        dataCollectionRunId: expect.any(String),
         source: "Example",
       },
     ]);

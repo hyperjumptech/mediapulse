@@ -5,6 +5,10 @@ import { env } from "@mediapulse/env/agents-data-collection";
 import { logger } from "@workspace/logger";
 import crypto from "node:crypto";
 
+import {
+  DATA_COLLECTION_AGENT_ID,
+  DATA_COLLECTION_AGENT_VERSION,
+} from "./constants";
 import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
 import {
@@ -531,6 +535,7 @@ export async function runDataCollection(
           description,
           tickerId: input.tickerId,
           searchQueryId: hit.searchQueryId,
+          dataCollectionRunId: runId,
           ...(resolvedSource ? { source: resolvedSource } : {}),
           ...(publishedAt ? { publishedAt: publishedAt.toISOString() } : {}),
         };
@@ -631,10 +636,10 @@ export async function runDataCollection(
   };
 
   const snapshot = {
-    agentId: "data-collection" as const,
+    agentId: DATA_COLLECTION_AGENT_ID,
+    agentVersion: DATA_COLLECTION_AGENT_VERSION,
     cost: {
       searchCredits: searchCreditsSink.credits,
-      fetchByProvider: {},
     },
     result: {
       saved: persistedThisRunCount,
