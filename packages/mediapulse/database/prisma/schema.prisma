@@ -200,14 +200,17 @@ model Newsletter {
   promptTokens     Int?    @map("prompt_tokens")
   completionTokens Int?    @map("completion_tokens")
   totalTokens      Int?    @map("total_tokens")
+  searchQuerySetId String? @map("search_query_set_id")
 
   ticker              Ticker                         @relation(fields: [tickerId], references: [id])
+  searchQuerySet      SearchQuerySet?                @relation(fields: [searchQuerySetId], references: [id], onDelete: SetNull)
   deliveryCheckpoints NewsletterDeliveryCheckpoint[]
   deliveryRuns        DeliveryRun[]
   feedback            NewsletterFeedback[]
   translations        NewsletterTranslation[]
   citations           NewsletterCitation[]
 
+  @@index([searchQuerySetId])
   @@map("newsletter")
 }
 
@@ -503,6 +506,7 @@ model SearchQuerySet {
 
   ticker        Ticker        @relation(fields: [tickerId], references: [id], onDelete: Cascade)
   searchQueries SearchQuery[]
+  newsletters   Newsletter[]
 
   @@index([tickerId, isActive])
   @@map("search_query_set")

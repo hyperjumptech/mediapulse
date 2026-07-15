@@ -9,7 +9,7 @@ import { registerTableV1CustomActionRoutes } from "../../hermes-dashboard/templa
 import { parseCreatedDateBound } from "../../lib/parse-created-date-bound";
 import { parsePagination } from "../../lib/list-pagination";
 import { newslettersTableV1CustomActionRegistrations } from "./custom-actions";
-import { findActiveQuerySetForNewsletter } from "./active-query-set";
+import { findQuerySetForNewsletter } from "./active-query-set";
 import { buildCitedArticles } from "./build-cited-articles";
 import { buildHermesLinks } from "./build-hermes-links";
 import {
@@ -159,7 +159,7 @@ newslettersRoutes.get("/:id", async (c) => {
     buildCitedArticles(row.id, row.tickerId, {
       newsletterCitation: prisma.newsletterCitation,
     }),
-    findActiveQuerySetForNewsletter(row.tickerId, row.createdAt, {
+    findQuerySetForNewsletter(row.searchQuerySetId, {
       searchQuerySet: prisma.searchQuerySet,
     }),
     buildHermesLinks(row.id, {
