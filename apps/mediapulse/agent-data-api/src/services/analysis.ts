@@ -218,14 +218,6 @@ const buildAnalysisCandidatePairs = async (
         } satisfies Prisma.DateTimeFilter)
       : ({ gte: recencyFloor } satisfies Prisma.DateTimeFilter);
 
-  const where = {
-    OR: [
-      { collectionGateStatus: "passed" as const, tickerId: null },
-      { tickerId: { not: null } },
-    ],
-    createdAt: createdAtWhere,
-  } satisfies Prisma.DataSourceWhereInput;
-
   const activeSets = await db.searchQuerySet.findMany({
     where: { isActive: true },
     select: { tickerId: true },
@@ -242,12 +234,21 @@ const buildAnalysisCandidatePairs = async (
     where: { id: { in: activeTickerIds } },
     select: { id: true, ...tickerContextSelect },
   } satisfies Prisma.TickerFindManyArgs);
-  const gatingContexts = await Promise.all(
-    activeTickers.map((ticker) => buildTickerGatingContext(ticker, db)),
-  );
+  const gatingContexts = (
+    await Promise.all(
+      activeTickers.map((ticker) => buildTickerGatingContext(ticker, db)),
+    )
+  ).filter((gating) => !cappedTickerIds.has(gating.tickerId));
 
-  const articles = await db.dataSource.findMany({
-    where,
+  const ownedArticles = await db.dataSource.findMany({
+    where: {
+      createdAt: createdAtWhere,
+      tickerId:
+        cappedTickerIds.size > 0
+          ? { not: null, notIn: [...cappedTickerIds] }
+          : { not: null },
+      tickerSections: { none: {} },
+    },
     orderBy: { createdAt: "desc" },
     take: MAX_CANDIDATE_ARTICLE_SCAN,
     select: {
@@ -259,37 +260,51 @@ const buildAnalysisCandidatePairs = async (
       createdAt: true,
       tickerId: true,
       ticker: { select: tickerContextSelect },
+    },
+  } satisfies Prisma.DataSourceFindManyArgs);
+
+  const curatedArticles = await db.dataSource.findMany({
+    where: {
+      createdAt: createdAtWhere,
+      collectionGateStatus: "passed",
+      tickerId: null,
+    },
+    orderBy: { createdAt: "desc" },
+    take: MAX_CANDIDATE_ARTICLE_SCAN,
+    select: {
+      id: true,
+      url: true,
+      title: true,
+      description: true,
+      content: true,
+      createdAt: true,
       tickerSections: { select: { tickerId: true } },
     },
   } satisfies Prisma.DataSourceFindManyArgs);
 
   const pairs: GetAnalysisResponse["dataSources"] = [];
 
-  for (const article of articles) {
+  for (const article of ownedArticles) {
+    if (article.tickerId === null) continue;
+    pairs.push({
+      id: article.id,
+      tickerId: article.tickerId,
+      url: article.url,
+      title: article.title,
+      description: article.description,
+      content: article.content,
+      createdAt: article.createdAt,
+      ticker: mapTickerContext(article.ticker),
+    });
+  }
+
+  for (const article of curatedArticles) {
     const classifiedTickerIds = new Set(
       article.tickerSections.map((row) => row.tickerId),
     );
-
-    if (article.tickerId !== null) {
-      if (classifiedTickerIds.has(article.tickerId)) continue;
-      if (cappedTickerIds.has(article.tickerId)) continue;
-      pairs.push({
-        id: article.id,
-        tickerId: article.tickerId,
-        url: article.url,
-        title: article.title,
-        description: article.description,
-        content: article.content,
-        createdAt: article.createdAt,
-        ticker: mapTickerContext(article.ticker),
-      });
-      continue;
-    }
-
     const haystack = `${article.title}\n${article.description ?? article.content ?? ""}`;
     for (const gating of gatingContexts) {
       if (classifiedTickerIds.has(gating.tickerId)) continue;
-      if (cappedTickerIds.has(gating.tickerId)) continue;
       if (gating.matcher === null || !gating.matcher.test(haystack)) continue;
       pairs.push({
         id: article.id,
@@ -303,6 +318,8 @@ const buildAnalysisCandidatePairs = async (
       });
     }
   }
+
+  pairs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   return {
     dataSources: query.limit ? pairs.slice(0, query.limit) : pairs,
