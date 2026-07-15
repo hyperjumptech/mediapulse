@@ -2,6 +2,7 @@ import type { Prisma } from "@mediapulse/database";
 
 import type { ActiveQuerySetPayload } from "./active-query-set";
 import type { ContentGenerationPayload } from "./build-content-generation";
+import type { DeliveryPayload } from "./build-delivery";
 import type { HermesLinksPayload } from "./build-hermes-links";
 import type { RecipientPayload } from "./build-recipients";
 import type { SourceAnalysisPayload } from "./build-source-analysis";
@@ -44,6 +45,7 @@ export type DetailItem = {
   sourceCollection: SourceCollectionPayload;
   sourceAnalysis: SourceAnalysisPayload;
   contentGeneration: ContentGenerationPayload;
+  delivery: DeliveryPayload;
   recipients: RecipientPayload[];
   recipientsTruncated: boolean;
   recipientsCap: number;
@@ -67,6 +69,7 @@ export const mapRowToDetailItem = (
     sourceCollection: SourceCollectionPayload;
     sourceAnalysis: SourceAnalysisPayload;
     contentGeneration: ContentGenerationPayload;
+    delivery: DeliveryPayload;
     recipients: RecipientPayload[];
     recipientsTruncated: boolean;
     recipientsCap: number;
@@ -99,6 +102,7 @@ export const mapRowToDetailItem = (
   sourceCollection: parts.sourceCollection,
   sourceAnalysis: parts.sourceAnalysis,
   contentGeneration: parts.contentGeneration,
+  delivery: parts.delivery,
   recipients: parts.recipients,
   recipientsTruncated: parts.recipientsTruncated,
   recipientsCap: parts.recipientsCap,

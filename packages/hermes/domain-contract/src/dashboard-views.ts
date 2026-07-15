@@ -171,6 +171,11 @@ export const resourceTableViewSchema = dashboardViewBaseSchema.extend({
   detailBlocks: z.array(detailBlockSchema).optional(),
   defaultSort: resourceTableDefaultSortSchema.optional(),
   listFilters: z.array(resourceTableListFilterDefinitionSchema).optional(),
+  /**
+   * Field key on the detail row to use for the detail page header title. Defaults to the first
+   * column's value when unset.
+   */
+  detailTitleField: z.string().min(1).optional(),
 });
 
 const contentViewKindSchema = z.enum(["markdown", "html", "text"]);
@@ -329,6 +334,7 @@ export const resourceTableMetaResponseSchema = z.object({
   detailBlocks: z.array(detailBlockSchema).optional(),
   defaultSort: resourceTableDefaultSortSchema.optional(),
   listFilters: z.array(resourceTableListFilterDefinitionSchema).optional(),
+  detailTitleField: z.string().min(1).optional(),
   filterOptions: z
     .record(z.string(), z.array(resourceTableSelectOptionSchema))
     .optional(),

@@ -22,94 +22,65 @@ export const newslettersHermesPathSegment = "newsletters" as const;
 export const NEWSLETTER_STALE_SET_HOURS = 24 as const;
 
 /**
- * `keyValue` block describing the newsletter metadata header. The ticker name
- * row is wired as a link back to the tickers resource so reviewers can jump
- * straight to the source. The token row uses the contract's `tokens` format to
- * render `prompt + completion = total` and gracefully handle partial nulls.
+ * `panel` grouping the delivery stage into one card: KPI cards (the delivery agent and version, when
+ * it ran, its outcome, and delivered-of-total) above a Recipients/Email Preview tab pair. Recipients
+ * lists each subscriber's exact per-run outcome; Email Preview renders the sent email. All figures
+ * come from the exact `DeliveryRun` behind this newsletter.
  */
-const newslettersMetadataBlock = {
-  type: "keyValue",
-  label: "Metadata",
-  rows: [
-    { field: "id", label: "Newsletter id", copyAction: true },
-    { field: "subject", label: "Subject", copyAction: true },
-    { field: "tickerSymbol", label: "Ticker", copyAction: true },
+const newslettersDeliveryStageBlock = {
+  type: "panel",
+  label: "Delivery Stage",
+  blocks: [
     {
-      field: "tickerName",
-      label: "Ticker name",
-      linkTemplate: "/dashboard/{integrationId}/tickers/{tickerId}",
-    },
-    { field: "createdAt", label: "Created", format: "date-time" },
-    { field: "model", label: "Model" },
-    { field: "agentVersion", label: "Agent version" },
-    { field: "configVersion", label: "Config version" },
-    { field: "promptHash", label: "Prompt hash", copyAction: true },
-    {
-      field: "configSnapshotId",
-      label: "Config snapshot id",
-      copyAction: true,
+      type: "statCards",
+      cards: [
+        { label: "Agent", field: "delivery.agentLabel" },
+        { label: "Delivered Date", field: "delivery.deliveredAtLabel" },
+        {
+          label: "Outcome",
+          field: "delivery.outcomeLabel",
+          colorField: "delivery.outcomeVariant",
+        },
+        { label: "Delivered", field: "delivery.deliveredLabel" },
+      ],
     },
     {
-      field: "totalTokens",
-      label: "Tokens",
-      format: "tokens",
-      tokenFields: {
-        prompt: "promptTokens",
-        completion: "completionTokens",
-        total: "totalTokens",
-      },
+      type: "tabs",
+      tabs: [
+        {
+          label: "Recipients",
+          countField: "recipients",
+          block: {
+            type: "subTable",
+            field: "recipients",
+            rowLimitOptions: [10, 25],
+            emptyState: "No enabled subscribers for this ticker.",
+            columns: [
+              { field: "displayName", label: "Recipient", type: "text" },
+              {
+                field: "status",
+                label: "Status",
+                type: "badge",
+                badgeVariants: {
+                  delivered: "success",
+                  failed: "destructive",
+                  skipped: "muted",
+                  not_attempted: "outline",
+                },
+                inconsistentField: "inconsistent",
+              },
+            ],
+          },
+        },
+        {
+          label: "Email Preview",
+          block: {
+            type: "htmlPreview",
+            field: "emailPreviewHtml",
+          },
+        },
+      ],
     },
-  ],
-} satisfies DetailBlock;
-
-/**
- * `subTable` block bound to `recipients` (PRD §5). Each row carries
- * `displayName` (`Name <email>` or email), the four-state status badge with
- * its `inconsistent` marker, the Resend email id, attempts, error category,
- * a truncated last-error message, and the checkpoint deliveredAt timestamp.
- * The caption template reuses the numerator/denominator from the list cell
- * via the response fields seeded by `buildRecipients`.
- */
-const newslettersRecipientsBlock = {
-  type: "subTable",
-  label: "Recipients",
-  field: "recipients",
-  emptyState: "No enabled subscribers for this ticker.",
-  sectionRule: {
-    when: "recipientsDeliveredCount < recipientsEnabledAtSendTime",
-    badge: "warning",
-    label: "partial delivery",
-  },
-  columns: [
-    { field: "displayName", label: "Subscriber", type: "text" },
-    {
-      field: "status",
-      label: "Status",
-      type: "badge",
-      badgeVariants: {
-        delivered: "success",
-        failed: "destructive",
-        skipped: "muted",
-        not_attempted: "outline",
-      },
-      inconsistentField: "inconsistent",
-    },
-    {
-      field: "resendEmailId",
-      label: "Resend id",
-      type: "text",
-      truncate: 16,
-      copyAction: true,
-    },
-    { field: "attempts", label: "Attempts", type: "number" },
-    { field: "errorCategory", label: "Error category", type: "text" },
-    {
-      field: "lastErrorMessage",
-      label: "Last error",
-      type: "text",
-      truncate: 80,
-    },
-    { field: "deliveredAt", label: "Delivered at", type: "date-time" },
   ],
 } satisfies DetailBlock;
 
@@ -394,19 +365,6 @@ const newslettersContentGenerationStageBlock = {
 } satisfies DetailBlock;
 
 /**
- * `htmlPreview` block bound to `emailPreviewHtml` — the production
- * `default-newsletter` React Email template rendered server-side against the
- * newsletter's data. The Hermes generic renderer drops this into a sandboxed
- * iframe (`sandbox="allow-popups"`), so the preview is a visual sanity check
- * rather than a forensic record of what Resend received.
- */
-const newslettersEmailPreviewBlock = {
-  type: "htmlPreview",
-  label: "Email preview",
-  field: "emailPreviewHtml",
-} satisfies DetailBlock;
-
-/**
  * `keyValue` block linking each delivery row back to the Hermes execution
  * surface. Missing template variables fall back to plain text (see
  * `renderUrlTemplate` in `@hermes/domain-contract`), which is what the
@@ -461,8 +419,6 @@ const newslettersHermesLinksBlock = {
 export const newslettersDashboardPage = {
   id: newslettersHermesPathSegment,
   label: "Newsletters",
-  description:
-    "Newsletters generated by the content-generation agent and sent by the delivery agent (read-only).",
   pathSegment: newslettersHermesPathSegment,
   kind: "resource-table" as const,
   placement: "sidebar" as const,
@@ -477,16 +433,15 @@ export const newslettersDashboardPage = {
   searchableFields: rowFieldKeysFor<ListItem>()(["subject"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["createdAt", "subject"]),
   defaultSort: { sortBy: "createdAt", sortDir: "desc" },
+  detailTitleField: "subject",
   listFilters: [tickerIdSelectListFilter, createdAtDateRangeListFilter],
   actions: { create: false, update: false, delete: false, view: true },
   detailBlocks: [
-    newslettersMetadataBlock,
-    newslettersRecipientsBlock,
     newslettersQueryStageBlock,
     newslettersSourceStageBlock,
     newslettersSourceAnalysisStageBlock,
     newslettersContentGenerationStageBlock,
-    newslettersEmailPreviewBlock,
+    newslettersDeliveryStageBlock,
     newslettersHermesLinksBlock,
   ],
   customActions: newslettersCustomActionsForManifest,

@@ -39,5 +39,6 @@ export const buildMetaPayloadForPathSegment = (
     detailBlocks: page.detailBlocks,
     defaultSort: page.defaultSort,
     listFilters: page.listFilters,
+    detailTitleField: page.detailTitleField,
   });
 };

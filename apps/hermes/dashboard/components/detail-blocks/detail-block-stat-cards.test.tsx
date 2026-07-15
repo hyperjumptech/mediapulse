@@ -74,4 +74,27 @@ describe("DetailBlockStatCardsView", () => {
 
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
+
+  it("colors the card value from colorField", () => {
+    renderWithTooltip(
+      <DetailBlockStatCardsView
+        block={{
+          type: "statCards",
+          label: "Delivery Stage",
+          cards: [
+            {
+              label: "Outcome",
+              field: "delivery.outcomeLabel",
+              colorField: "delivery.outcomeVariant",
+            },
+          ],
+        }}
+        data={{
+          delivery: { outcomeLabel: "Success", outcomeVariant: "success" },
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Success").className).toContain("text-green-600");
+  });
 });

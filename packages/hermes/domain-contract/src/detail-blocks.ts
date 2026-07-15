@@ -217,6 +217,11 @@ export const detailBlockStatCardSchema = z.object({
   label: z.string().min(1),
   field: z.string().min(1),
   tooltipField: z.string().min(1).optional(),
+  /**
+   * Path to a field whose value is a badge variant name (`success` / `warning` / `destructive` /
+   * `muted`), used to color the card's value — e.g. a delivery outcome.
+   */
+  colorField: z.string().min(1).optional(),
 });
 
 /**
