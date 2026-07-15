@@ -337,7 +337,11 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
 
     expect(cappedResult.dataSources).toEqual([]);
     expect(cappedDb.dataSourceTickerSection.count).toHaveBeenCalledWith({
-      where: { tickerId: TICKER_ID, section: { not: null } },
+      where: {
+        tickerId: TICKER_ID,
+        section: { not: null },
+        analyzedAt: { gte: expect.any(Date) },
+      },
     });
 
     const underDb = buildDb([searchArticle], { [TICKER_ID]: 49 });
@@ -804,7 +808,11 @@ describe("applyAnalysisPost", () => {
     );
 
     expect(count).toHaveBeenCalledWith({
-      where: { tickerId: TICKER_ID, section: { not: null } },
+      where: {
+        tickerId: TICKER_ID,
+        section: { not: null },
+        analyzedAt: { gte: expect.any(Date) },
+      },
     });
   });
 
