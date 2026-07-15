@@ -25,6 +25,7 @@ const CANDIDATE_ARTICLE_RECENCY_DAYS = 3;
 /** Per-(article, ticker) section upserts committed per transaction, to stay under the timeout. */
 const SECTION_UPSERT_CHUNK_SIZE = 20;
 const ACCEPTED_CAP_PER_TICKER = 50;
+const ACCEPTED_CAP_WINDOW_HOURS = 20;
 
 /**
  * Thrown when the analysis POST body references data sources or tickers that do not exist.
@@ -61,10 +62,19 @@ const defaultDb: AnalysisDb = prisma;
 const countAcceptedSections = (
   tickerId: string,
   db: Pick<AnalysisDb, "dataSourceTickerSection">,
-): Promise<number> =>
-  db.dataSourceTickerSection.count({
-    where: { tickerId, section: { not: null } },
+): Promise<number> => {
+  const cutoff = new Date(
+    Date.now() - ACCEPTED_CAP_WINDOW_HOURS * 60 * 60 * 1000,
+  );
+
+  return db.dataSourceTickerSection.count({
+    where: {
+      tickerId,
+      section: { not: null },
+      analyzedAt: { gte: cutoff },
+    },
   } satisfies Prisma.DataSourceTickerSectionCountArgs);
+};
 
 const computeCappedTickerIds = async (
   tickerIds: string[],
