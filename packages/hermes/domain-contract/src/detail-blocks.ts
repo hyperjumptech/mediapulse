@@ -118,6 +118,8 @@ export const detailBlockSubTableColumnSchema = z.object({
   linkExternal: z.boolean().optional(),
   /** Truncate text to N characters; full value shown on hover/focus. */
   truncate: z.number().int().positive().optional(),
+  /** Keep the cell value on a single line (no wrapping); the table scrolls horizontally instead. */
+  noWrap: z.boolean().optional(),
   /**
    * Optional secondary field path rendered as a muted line beneath the cell value, so one column can
    * carry a primary value with a subtitle (e.g. a query with its intent below). Non-badge columns only.

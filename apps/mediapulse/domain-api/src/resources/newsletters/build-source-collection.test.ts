@@ -177,13 +177,15 @@ describe("buildSourceCollection", () => {
         id: "o1",
         url: "https://old.example/x",
         agentLabel: "Data Collection 1.0.0",
-        reason: "Published 2019-03-12, older than the 30-day window",
+        reason: "freshness_too_old",
+        reasonDetail: "Published 2019-03-12, older than the 30-day window",
       },
       {
         id: "o2",
         url: "https://dupe.example/y",
         agentLabel: "Page Collection 2.0.0",
         reason: "duplicate",
+        reasonDetail: "",
       },
     ]);
   });

@@ -25,6 +25,7 @@ export type SourceCollectionDroppedPayload = {
   url: string;
   agentLabel: string;
   reason: string;
+  reasonDetail: string;
 };
 
 /** Shape of the source-collection stage payload exposed by the detail handler. */
@@ -260,7 +261,8 @@ export const buildSourceCollection = async (
     id: outcome.id,
     url: outcome.url,
     agentLabel: withVersion(outcomeAgentLabel(outcome.agent), outcome.runId),
-    reason: outcome.reasonDetail ?? outcome.reason ?? "—",
+    reason: outcome.reason ?? "—",
+    reasonDetail: outcome.reasonDetail ?? "",
   }));
 
   const creditsBreakdownLabel =

@@ -196,5 +196,10 @@ describe("newslettersDashboardPage source-collection stage", () => {
       "Agent",
       "Reason",
     ]);
+    expect(dropped.block.columns[0]?.noWrap).toBe(true);
+    const reasonColumn = dropped.block.columns.find(
+      (column) => column.field === "reason",
+    );
+    expect(reasonColumn?.descriptionField).toBe("reasonDetail");
   });
 });
