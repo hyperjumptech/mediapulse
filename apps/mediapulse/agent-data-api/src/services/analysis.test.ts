@@ -21,6 +21,42 @@ const SEARCH_ARTICLE = "11111111-1111-4111-8111-111111111111";
 const CURATED_MATCH = "22222222-2222-4222-8222-222222222222";
 const CURATED_MISS = "33333333-3333-4333-8333-333333333333";
 
+type CandidateArticle = {
+  tickerId: string | null;
+  tickerSections?: { tickerId: string }[];
+};
+
+const filterCandidateArticles = <Article extends CandidateArticle>(
+  articles: Article[],
+  where: {
+    tickerId?: null | { not?: null; notIn?: string[] };
+    tickerSections?: { none: Record<string, never> };
+  },
+): Article[] =>
+  articles.filter((article) => {
+    const tickerFilter = where.tickerId;
+    if (tickerFilter === null) {
+      if (article.tickerId !== null) return false;
+    } else if (tickerFilter !== undefined) {
+      if (tickerFilter.not === null && article.tickerId === null) return false;
+      if (
+        tickerFilter.notIn !== undefined &&
+        article.tickerId !== null &&
+        tickerFilter.notIn.includes(article.tickerId)
+      ) {
+        return false;
+      }
+    }
+    if (
+      where.tickerSections?.none &&
+      (article.tickerSections?.length ?? 0) > 0
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+
 describe("loadAnalysisContext — ticker-scoped baseline", () => {
   it("counts a ticker's unanalyzed articles and maps issuer context", async () => {
     const rows = [
@@ -117,7 +153,11 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
     const tickerEntity = { findFirst: vi.fn() };
     const entityRelation = { findMany: vi.fn().mockResolvedValue([]) };
     const dataSource = {
-      findMany: vi.fn().mockResolvedValue(articles),
+      findMany: vi.fn((args: { where: never }) =>
+        Promise.resolve(
+          filterCandidateArticles(articles as CandidateArticle[], args.where),
+        ),
+      ),
       count: vi.fn(),
     };
 
@@ -182,10 +222,17 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
     expect(db.dataSource.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          OR: [
-            { collectionGateStatus: "passed", tickerId: null },
-            { tickerId: { not: null } },
-          ],
+          tickerId: { not: null },
+          tickerSections: { none: {} },
+          createdAt: { gte: expect.any(Date) },
+        }),
+      }),
+    );
+    expect(db.dataSource.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tickerId: null,
+          collectionGateStatus: "passed",
           createdAt: { gte: expect.any(Date) },
         }),
       }),
@@ -346,19 +393,22 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
         args.where.tickerId === TICKER_ID ? 50 : 0,
       ),
     };
+    const curatedArticles = [
+      {
+        id: CURATED_MATCH,
+        url: "https://example.com/c",
+        title: "Bank Central Asia and Bank Rakyat Indonesia rally",
+        content: "both issuers gained",
+        createdAt: new Date("2026-01-02T00:00:00Z"),
+        tickerId: null,
+        ticker: null,
+        tickerSections: [],
+      },
+    ];
     const dataSource = {
-      findMany: vi.fn().mockResolvedValue([
-        {
-          id: CURATED_MATCH,
-          url: "https://example.com/c",
-          title: "Bank Central Asia and Bank Rakyat Indonesia rally",
-          content: "both issuers gained",
-          createdAt: new Date("2026-01-02T00:00:00Z"),
-          tickerId: null,
-          ticker: null,
-          tickerSections: [],
-        },
-      ]),
+      findMany: vi.fn((args: { where: never }) =>
+        Promise.resolve(filterCandidateArticles(curatedArticles, args.where)),
+      ),
       count: vi.fn(),
     };
 
@@ -380,6 +430,60 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
     expect(result.dataSources.map((pair) => pair.tickerId)).toEqual([
       SECOND_TICKER_ID,
     ]);
+  });
+
+  it("excludes capped tickers in SQL so an uncapped ticker's backlog is not starved", async () => {
+    const cappedOwned = {
+      id: SEARCH_ARTICLE,
+      url: "https://example.com/capped",
+      title: "Capped ticker news",
+      content: "anything",
+      createdAt: new Date("2026-01-05T00:00:00Z"),
+      tickerId: TICKER_ID,
+      ticker: {
+        symbol: "BBCA",
+        name: "Bank Central Asia",
+        sector: null,
+        industry: null,
+        subSector: null,
+        subIndustry: null,
+        businessActivity: null,
+      },
+      tickerSections: [],
+    };
+    const uncappedOwned = {
+      id: CURATED_MATCH,
+      url: "https://example.com/uncapped",
+      title: "Uncapped ticker news",
+      content: "anything",
+      createdAt: new Date("2026-01-04T00:00:00Z"),
+      tickerId: SECOND_TICKER_ID,
+      ticker: {
+        symbol: "SOHO",
+        name: "Soho",
+        sector: null,
+        industry: null,
+        subSector: null,
+        subIndustry: null,
+        businessActivity: null,
+      },
+      tickerSections: [],
+    };
+
+    const db = buildDb([cappedOwned, uncappedOwned], { [TICKER_ID]: 50 });
+    const result = await loadAnalysisContext(
+      { unanalyzed: true, limit: 10 },
+      { db: db as never },
+    );
+
+    expect(db.dataSource.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tickerId: { not: null, notIn: [TICKER_ID] },
+        }),
+      }),
+    );
+    expect(result.dataSources.map((pair) => pair.id)).toEqual([CURATED_MATCH]);
   });
 });
 
