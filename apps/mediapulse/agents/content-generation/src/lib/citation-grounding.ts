@@ -69,7 +69,9 @@ const MIN_SHARED_ANCHORS = 3;
  * @param tokens - Case-folded, stopword-filtered tokens (from `tokenize`).
  * @returns The set of anchor tokens.
  */
-const distinctiveAnchorTokens = (tokens: readonly string[]): Set<string> => {
+export const distinctiveAnchorTokens = (
+  tokens: readonly string[],
+): Set<string> => {
   const anchors = new Set<string>();
   for (const token of tokens) {
     if (token.length >= 4 || /^\d{2,}$/.test(token)) {

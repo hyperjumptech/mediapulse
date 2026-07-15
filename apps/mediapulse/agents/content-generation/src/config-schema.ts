@@ -296,6 +296,19 @@ export const CONTENT_GENERATION_CONSTANTS = {
    */
   quickHitsDemotionMinScore: 0.7,
   /**
+   * Cross-section same-event dedup: drop a bullet whose distinctive entity/number anchors overlap an
+   * event already shipped in a higher-priority section, catching the same story worded differently
+   * that lexical title/text dedup misses. Runs after within-run dedup on the resolved newsletter.
+   */
+  eventDedup: {
+    /** Kill switch: when false, no cross-section event dedup runs. */
+    enabled: true,
+    /** Minimum shared anchors before two bullets are treated as the same event. */
+    minSharedAnchors: 4,
+    /** Minimum anchor containment (`shared / smaller set`) alongside the shared-count guard. */
+    minContainment: 0.4,
+  },
+  /**
    * Cross-day (cross-run) dedup so consecutive newsletters do not repeat points.
    * Hardcoded (not Hermes config) to match the rest of this agent's pipeline.
    */
