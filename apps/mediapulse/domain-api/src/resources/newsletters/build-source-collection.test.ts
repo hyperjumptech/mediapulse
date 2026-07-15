@@ -161,14 +161,14 @@ describe("buildSourceCollection", () => {
         id: "ds-data",
         title: "Alpha search hit",
         url: "https://reuters.com/a",
-        agentLine: "From Data Collection 1.0.0",
+        agentLine: "By Data Collection 1.0.0",
         queryText: "bank earnings",
       },
       {
         id: "ds-page",
         title: "Zeta curated",
         url: "https://curated.example/z",
-        agentLine: "From Page Collection 2.0.0",
+        agentLine: "By Page Collection 2.0.0",
         queryText: "Curated source",
       },
     ]);
@@ -176,14 +176,14 @@ describe("buildSourceCollection", () => {
       {
         id: "o1",
         url: "https://old.example/x",
-        agentLine: "From Data Collection 1.0.0",
+        agentLine: "By Data Collection 1.0.0",
         reason: "freshness_too_old",
         reasonDetail: "Published 2019-03-12, older than the 30-day window",
       },
       {
         id: "o2",
         url: "https://dupe.example/y",
-        agentLine: "From Page Collection 2.0.0",
+        agentLine: "By Page Collection 2.0.0",
         reason: "duplicate",
         reasonDetail: "",
       },
@@ -222,7 +222,7 @@ describe("buildSourceCollection", () => {
 
     expect(result.collectedTotalLabel).toBe("1");
     expect(result.droppedTotalLabel).toBe("0");
-    expect(result.sources[0]?.agentLine).toBe("From Data Collection");
+    expect(result.sources[0]?.agentLine).toBe("By Data Collection");
     expect(result.generatedAtLabel).toBe("—");
   });
 });

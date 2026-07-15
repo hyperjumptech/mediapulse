@@ -228,7 +228,7 @@ export const buildSourceCollection = async (
 
   const agentLine = (label: string, runId: string | null): string => {
     const version = runId ? versionByRunId.get(runId) : undefined;
-    return version ? `From ${label} ${version}` : `From ${label}`;
+    return version ? `By ${label} ${version}` : `By ${label}`;
   };
 
   const sources = dataSources.map((dataSource) => {
