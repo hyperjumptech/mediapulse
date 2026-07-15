@@ -168,6 +168,31 @@ export const detailBlockSubTableSchema = z.object({
    * so aggregate badges (e.g. "partial delivery") keep firing across pages.
    */
   pageSize: z.number().int().positive().optional(),
+  /**
+   * When set, a row-count selector (these options plus "All") renders at the right of the section
+   * header and limits the visible rows client-side. The first option is the default.
+   */
+  rowLimitOptions: z.array(z.number().int().positive()).min(1).optional(),
+});
+
+/**
+ * One KPI card in a `statCards` block: a label, a primary value, and an optional tooltip field whose
+ * value is revealed on hovering a help icon beside the label.
+ */
+export const detailBlockStatCardSchema = z.object({
+  label: z.string().min(1),
+  field: z.string().min(1),
+  tooltipField: z.string().min(1).optional(),
+});
+
+/**
+ * `statCards` block — a responsive row of KPI cards, each with a label, a prominent value, and an
+ * optional muted sub-line. Reads better than a key-value list for a few headline metrics.
+ */
+export const detailBlockStatCardsSchema = z.object({
+  type: z.literal("statCards"),
+  ...detailBlockCommonShape,
+  cards: z.array(detailBlockStatCardSchema).min(1),
 });
 
 /**
@@ -180,6 +205,25 @@ export const detailBlockLeafSchema = z.discriminatedUnion("type", [
   detailBlockHtmlPreviewSchema,
   detailBlockSubTableSchema,
 ]);
+
+/** Block kinds a `panel` may contain — leaf blocks plus stat cards, no further nesting. */
+export const detailBlockPanelChildSchema = z.discriminatedUnion("type", [
+  detailBlockKeyValueSchema,
+  detailBlockMarkdownSchema,
+  detailBlockHtmlPreviewSchema,
+  detailBlockSubTableSchema,
+  detailBlockStatCardsSchema,
+]);
+
+/**
+ * `panel` block — groups several child blocks inside one bordered card under a shared heading, so a
+ * multi-part section (e.g. stage KPI cards plus a results table) reads as a single unit.
+ */
+export const detailBlockPanelSchema = z.object({
+  type: z.literal("panel"),
+  ...detailBlockCommonShape,
+  blocks: z.array(detailBlockPanelChildSchema).min(1),
+});
 
 /** One tab inside a `tabs` block — a label plus a leaf block to render. */
 export const detailBlockTabSchema = z.object({
@@ -207,6 +251,8 @@ export const detailBlockSchema = z.discriminatedUnion("type", [
   detailBlockMarkdownSchema,
   detailBlockHtmlPreviewSchema,
   detailBlockSubTableSchema,
+  detailBlockStatCardsSchema,
+  detailBlockPanelSchema,
   detailBlockTabsSchema,
 ]);
 
@@ -221,6 +267,10 @@ export type DetailBlockHtmlPreview = z.infer<
   typeof detailBlockHtmlPreviewSchema
 >;
 export type DetailBlockSubTable = z.infer<typeof detailBlockSubTableSchema>;
+export type DetailBlockStatCards = z.infer<typeof detailBlockStatCardsSchema>;
+export type DetailBlockStatCard = z.infer<typeof detailBlockStatCardSchema>;
+export type DetailBlockPanel = z.infer<typeof detailBlockPanelSchema>;
+export type DetailBlockPanelChild = z.infer<typeof detailBlockPanelChildSchema>;
 export type DetailBlockSubTableColumn = z.infer<
   typeof detailBlockSubTableColumnSchema
 >;

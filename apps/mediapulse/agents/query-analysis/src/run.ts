@@ -354,6 +354,7 @@ export const runQueryAnalysis = async (
       promptTokens: usageTotals.promptTokens,
       completionTokens: usageTotals.completionTokens,
       totalTokens: usageTotals.totalTokens,
+      reasoningTokens: usageTotals.reasoningTokens,
       calls: usageTotals.calls,
       cacheHit,
     },

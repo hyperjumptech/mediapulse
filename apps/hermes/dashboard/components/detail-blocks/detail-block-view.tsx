@@ -1,8 +1,12 @@
 import type { DetailBlock } from "@hermes/domain-contract";
 
+import { Card } from "@workspace/ui/components/card";
+
+import { DetailBlockSectionHeader } from "./detail-block-section-header";
 import { DetailBlockHtmlPreviewView } from "./detail-block-html-preview";
 import { DetailBlockKeyValueView } from "./detail-block-key-value";
 import { DetailBlockMarkdownView } from "./detail-block-markdown";
+import { DetailBlockStatCardsView } from "./detail-block-stat-cards";
 import { DetailBlockSubTableView } from "./detail-block-sub-table";
 import { DetailBlockTabsView } from "./detail-block-tabs";
 
@@ -31,6 +35,29 @@ export const DetailBlockView = ({
   }
   if (block.type === "subTable") {
     return <DetailBlockSubTableView block={block} data={data} />;
+  }
+  if (block.type === "statCards") {
+    return <DetailBlockStatCardsView block={block} data={data} />;
+  }
+  if (block.type === "panel") {
+    return (
+      <Card className="gap-4 p-4 shadow-none">
+        <DetailBlockSectionHeader
+          label={block.label}
+          sectionRule={block.sectionRule}
+          data={data}
+        />
+        <div className="flex flex-col gap-4">
+          {block.blocks.map((child, index) => (
+            <DetailBlockView
+              key={`${child.type}-${String(index)}`}
+              block={child}
+              data={data}
+            />
+          ))}
+        </div>
+      </Card>
+    );
   }
   if (block.type === "tabs") {
     return <DetailBlockTabsView block={block} data={data} />;

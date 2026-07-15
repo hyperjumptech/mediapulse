@@ -13,6 +13,7 @@ export type NormalizedLlmUsage = {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  reasoningTokens: number;
 };
 
 /** Sink invoked once per chat-model call with its normalized usage. */
@@ -26,6 +27,7 @@ export type TokenUsageTotals = {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  reasoningTokens: number;
   embeddingTokens: number;
   /** Number of chat-model calls that reported usage. */
   calls: number;
@@ -49,6 +51,7 @@ export type AiSdkUsage = {
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
+  reasoningTokens?: number;
 };
 
 /**
@@ -69,8 +72,9 @@ export const extractLlmUsage = (
   const promptTokens = usage.inputTokens ?? 0;
   const completionTokens = usage.outputTokens ?? 0;
   const totalTokens = usage.totalTokens ?? promptTokens + completionTokens;
+  const reasoningTokens = usage.reasoningTokens ?? 0;
 
-  return { promptTokens, completionTokens, totalTokens };
+  return { promptTokens, completionTokens, totalTokens, reasoningTokens };
 };
 
 /**
@@ -86,6 +90,7 @@ export const createTokenUsageAccumulator = (): TokenUsageAccumulator => {
     promptTokens: 0,
     completionTokens: 0,
     totalTokens: 0,
+    reasoningTokens: 0,
     embeddingTokens: 0,
     calls: 0,
   };
@@ -95,6 +100,7 @@ export const createTokenUsageAccumulator = (): TokenUsageAccumulator => {
       running.promptTokens += usage.promptTokens;
       running.completionTokens += usage.completionTokens;
       running.totalTokens += usage.totalTokens;
+      running.reasoningTokens += usage.reasoningTokens;
       running.calls += 1;
     },
     onEmbeddingUsage: (usage) => {

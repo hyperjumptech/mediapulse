@@ -10,10 +10,19 @@ import {
   newslettersDashboardPage,
 } from "./dashboard-page";
 
+const allBlocks = (): DetailBlock[] => {
+  const blocks: DetailBlock[] = [];
+  for (const block of newslettersDashboardPage.detailBlocks ?? []) {
+    blocks.push(block);
+    if (block.type === "panel") {
+      blocks.push(...block.blocks);
+    }
+  }
+  return blocks;
+};
+
 const findBlock = (label: string): DetailBlock => {
-  const block = newslettersDashboardPage.detailBlocks?.find(
-    (entry) => entry.label === label,
-  );
+  const block = allBlocks().find((entry) => entry.label === label);
   if (!block) throw new Error(`block not found: ${label}`);
   return block;
 };
@@ -52,7 +61,7 @@ describe("newslettersDashboardPage section rules", () => {
   });
 
   it("declares a search-queries rule that uses hoursBetween > 24", () => {
-    const queries = findBlock("Search Queries");
+    const queries = findBlock("Results");
     expect(queries.sectionRule).toMatchObject({
       badge: "muted",
       label: "stale set",
@@ -97,5 +106,34 @@ describe("newslettersDashboardPage articles-cited block", () => {
   it("renders the Query as plain text without a link", () => {
     const query = findColumn("Articles cited", "Query");
     expect(query.linkTemplate).toBeUndefined();
+  });
+});
+
+describe("newslettersDashboardPage query-generation stage", () => {
+  it("groups the stage KPI cards and results table in one panel", () => {
+    const panel = findBlock("Query Generation Stage");
+    expect(panel.type).toBe("panel");
+    if (panel.type !== "panel") return;
+
+    const statCards = panel.blocks.find((block) => block.type === "statCards");
+    expect(statCards?.type).toBe("statCards");
+    if (statCards?.type !== "statCards") return;
+    expect(statCards.cards.map((card) => card.label)).toEqual([
+      "Agent",
+      "Generated Date",
+      "LLM Model",
+      "LLM Tokens",
+    ]);
+    const tokensCard = statCards.cards.find(
+      (card) => card.label === "LLM Tokens",
+    );
+    expect(tokensCard?.tooltipField).toBe(
+      "activeQuerySet.tokensBreakdownLabel",
+    );
+
+    const results = panel.blocks.find(
+      (block) => block.type === "subTable" && block.label === "Results",
+    );
+    expect(results).toBeDefined();
   });
 });
