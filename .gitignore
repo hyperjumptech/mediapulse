@@ -75,4 +75,6 @@ prds/
 .claude/
 
 docs
+reviews
 CONTEXT.md
+ACCEPTANCE_CRITERIA*.md

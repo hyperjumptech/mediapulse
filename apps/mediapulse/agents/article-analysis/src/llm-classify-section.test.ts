@@ -70,6 +70,61 @@ describe("buildSectionClassificationMessages", () => {
     expect(String(user.content)).toContain("Acme announced an acquisition.");
   });
 
+  it("substitutes ticker placeholders in the rendered rules", () => {
+    const messages = buildSectionClassificationMessages({
+      title: "Coffee bean prices climb",
+      content: "Arabica futures rose.",
+      acceptanceCriteria: [
+        {
+          section: "industryPulse",
+          criteria: [
+            {
+              id: "ip-x",
+              text: "Include if it moves {{INDUSTRY}} for {{TICKER}}.",
+            },
+          ],
+        },
+      ],
+      ticker: {
+        symbol: "FORE",
+        name: "PT Fore Kopi Indonesia Tbk",
+        sector: "Barang Konsumen Primer",
+        industry: "Minuman",
+        subIndustry: "Minuman Ringan",
+        businessActivity: "Bisnis Kedai Kopi",
+      },
+    });
+    const user = messages[1]!;
+
+    expect(String(user.content)).toContain(
+      "  - ip-x: Include if it moves Minuman for FORE.",
+    );
+    expect(String(user.content)).not.toContain("{{INDUSTRY}}");
+  });
+
+  it("falls back to generic phrasing when no ticker is provided", () => {
+    const messages = buildSectionClassificationMessages({
+      title: "Coffee bean prices climb",
+      content: "Arabica futures rose.",
+      acceptanceCriteria: [
+        {
+          section: "industryPulse",
+          criteria: [
+            {
+              id: "ip-x",
+              text: "Include if it moves {{INDUSTRY}} for {{TICKER}}.",
+            },
+          ],
+        },
+      ],
+    });
+    const user = messages[1]!;
+
+    expect(String(user.content)).toContain(
+      "  - ip-x: Include if it moves the issuer's industry for the issuer.",
+    );
+  });
+
   it("includes the issuer context line when tickerContext is provided", () => {
     const messages = buildSectionClassificationMessages({
       title: "Rival bank cuts rates",

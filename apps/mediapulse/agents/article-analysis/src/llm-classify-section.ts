@@ -16,6 +16,7 @@ import { z } from "zod";
 
 import {
   flattenAcceptanceCriteria,
+  substituteTickerPlaceholders,
   type AcceptanceCriteriaRule,
 } from "./config-schema.js";
 
@@ -112,13 +113,16 @@ const SYSTEM_PROMPT = [
 ].join(" ");
 
 /**
- * Renders the inclusion rules grouped by section (with each section's human label) for the prompt.
+ * Renders the inclusion rules grouped by section (with each section's human label) for the prompt,
+ * substituting each rule's ticker placeholders from `ticker` (fallbacks apply when it is `null`).
  *
  * @param acceptanceCriteria - Per-section rules from agent config.
+ * @param ticker - Per-article ticker context, or `null` for ticker-agnostic articles.
  * @returns A prompt block listing each section and its `- <id>: <text>` rules.
  */
 const renderCriteria = (
   acceptanceCriteria: AcceptanceCriteriaRule[],
+  ticker: AnalysisTickerContext | null,
 ): string => {
   const labelById = new Map<string, string>(
     MEDIAPULSE_NEWSLETTER_SECTIONS.map((section) => [
@@ -131,7 +135,10 @@ const renderCriteria = (
     .map((rule) => {
       const label = labelById.get(rule.section) ?? rule.section;
       const rules = rule.criteria
-        .map((criterion) => `  - ${criterion.id}: ${criterion.text}`)
+        .map(
+          (criterion) =>
+            `  - ${criterion.id}: ${substituteTickerPlaceholders(criterion.text, ticker)}`,
+        )
         .join("\n");
 
       return `${rule.section} (${label}):\n${rules}`;
@@ -181,6 +188,7 @@ export const buildSectionClassificationMessages = (params: {
   title: string;
   content: string;
   acceptanceCriteria: AcceptanceCriteriaRule[];
+  ticker?: AnalysisTickerContext | null;
   tickerContext?: string;
   brief?: string;
 }): ModelMessage[] => {
@@ -191,7 +199,7 @@ export const buildSectionClassificationMessages = (params: {
   );
   const userContent = [
     "Newsletter sections and inclusion rules:",
-    renderCriteria(params.acceptanceCriteria),
+    renderCriteria(params.acceptanceCriteria, params.ticker ?? null),
     "",
     ...(params.tickerContext
       ? [
@@ -430,6 +438,7 @@ export const classifyArticleSection = async (params: {
   title: string;
   content: string;
   acceptanceCriteria: AcceptanceCriteriaRule[];
+  ticker?: AnalysisTickerContext | null;
   tickerContext?: string;
   brief?: string;
   /** Chronicle instrumentation: invoked with token usage per classification. */
@@ -457,6 +466,7 @@ export const classifyArticleSection = async (params: {
       title: params.title,
       content: params.content,
       acceptanceCriteria: params.acceptanceCriteria,
+      ticker: params.ticker ?? null,
       ...(params.tickerContext ? { tickerContext: params.tickerContext } : {}),
       ...(params.brief !== undefined ? { brief: params.brief } : {}),
     }),
