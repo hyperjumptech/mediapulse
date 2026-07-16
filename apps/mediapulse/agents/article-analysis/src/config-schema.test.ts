@@ -1,10 +1,24 @@
-import { NEWSLETTER_SECTION_IDS } from "@workspace/agent-data-api-contract";
+import {
+  NEWSLETTER_SECTION_IDS,
+  type AnalysisTickerContext,
+} from "@workspace/agent-data-api-contract";
 import { describe, expect, it } from "vitest";
 
 import {
+  ACCEPTANCE_CRITERIA_PLACEHOLDERS,
   articleAnalysisConfigSchema,
   flattenAcceptanceCriteria,
+  substituteTickerPlaceholders,
 } from "./config-schema.js";
+
+const foreTicker: AnalysisTickerContext = {
+  symbol: "FORE",
+  name: "PT Fore Kopi Indonesia Tbk",
+  sector: "Barang Konsumen Primer",
+  industry: "Minuman",
+  subIndustry: "Minuman Ringan",
+  businessActivity: "Bisnis Kedai Kopi",
+};
 
 describe("articleAnalysisConfigSchema", () => {
   it("applies acceptance credential defaults", () => {
@@ -88,6 +102,74 @@ describe("articleAnalysisConfigSchema", () => {
         ],
       }),
     ).toThrow();
+  });
+});
+
+describe("substituteTickerPlaceholders", () => {
+  it("substitutes every placeholder from a fully populated ticker", () => {
+    const resolved = substituteTickerPlaceholders(
+      "{{TICKER}} ({{TICKER_NAME}}) in {{INDUSTRY}}/{{SUB_INDUSTRY}} under {{SECTOR}}, doing {{BUSINESS_ACTIVITY}}",
+      foreTicker,
+    );
+
+    expect(resolved).toBe(
+      "FORE (PT Fore Kopi Indonesia Tbk) in Minuman/Minuman Ringan under Barang Konsumen Primer, doing Bisnis Kedai Kopi",
+    );
+  });
+
+  it("falls back to a generic phrase for a null field", () => {
+    const resolved = substituteTickerPlaceholders(
+      "specific to {{INDUSTRY}}, not the broad {{SECTOR}} sector",
+      { ...foreTicker, industry: null, sector: null },
+    );
+
+    expect(resolved).toBe(
+      "specific to the issuer's industry, not the broad overall sector",
+    );
+  });
+
+  it("falls back for every placeholder when the ticker context is null", () => {
+    const resolved = substituteTickerPlaceholders(
+      "{{TICKER}} in {{INDUSTRY}} ({{SUB_INDUSTRY}})",
+      null,
+    );
+
+    expect(resolved).toBe(
+      "the issuer in the issuer's industry (the issuer's product market)",
+    );
+  });
+
+  it("substitutes repeated occurrences of the same placeholder", () => {
+    const resolved = substituteTickerPlaceholders(
+      "{{TICKER}} and {{TICKER}} again",
+      foreTicker,
+    );
+
+    expect(resolved).toBe("FORE and FORE again");
+  });
+
+  it("maps every placeholder field to a real ticker-context key", () => {
+    const tickerKeys = new Set(Object.keys(foreTicker));
+
+    for (const placeholder of ACCEPTANCE_CRITERIA_PLACEHOLDERS) {
+      expect(tickerKeys.has(placeholder.field)).toBe(true);
+    }
+  });
+});
+
+describe("acceptanceCriteria default placeholders", () => {
+  it("uses only declared placeholder tokens in the seeded rule text", () => {
+    const config = articleAnalysisConfigSchema.parse({});
+    const declaredTokens = new Set<string>(
+      ACCEPTANCE_CRITERIA_PLACEHOLDERS.map((placeholder) => placeholder.token),
+    );
+    const usedTokens = flattenAcceptanceCriteria(
+      config.acceptanceCriteria,
+    ).flatMap((criterion) => criterion.text.match(/\{\{[^}]+\}\}/g) ?? []);
+
+    for (const token of usedTokens) {
+      expect(declaredTokens.has(token)).toBe(true);
+    }
   });
 });
 

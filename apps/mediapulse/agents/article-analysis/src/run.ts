@@ -173,6 +173,7 @@ export async function run(
                 title: dataSource.title,
                 content: classifiedText,
                 acceptanceCriteria: config.acceptanceCriteria,
+                ticker: dataSource.ticker,
                 ...(tickerContext ? { tickerContext } : {}),
                 ...(contract?.brief ? { brief: contract.brief } : {}),
                 onUsage: tokenUsage.onUsage,
