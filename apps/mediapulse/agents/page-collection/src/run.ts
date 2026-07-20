@@ -16,6 +16,11 @@ import {
 import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
 import { expandSourceUrl } from "./utilities/expand-source-urls";
+import {
+  buildRelevanceMatchText,
+  createTickerRelevanceMatcher,
+  type TickerRelevanceMatcher,
+} from "./utilities/match-ticker-relevance";
 import { withApiStep } from "./utilities/with-api-step";
 import {
   HostErrorTracker,
@@ -45,7 +50,8 @@ const FRESHNESS_MAX_AGE_DAYS = 7;
 /**
  * Executes the page-collection pipeline: expand curated source URLs and persist
  * ticker-agnostic articles from the discovered feed/meta description, with no paid
- * fetch. Articles that discovery yields no description for are dropped.
+ * fetch. Articles that discovery yields no description for, or that mention no
+ * tracked ticker, are dropped.
  *
  * @param context - Validated input (`listingUrl`) and config, plus bearer token.
  * @returns Success with summary counts, or semantic failure when run policy is not met.
@@ -276,7 +282,15 @@ async function executePageCollectionRun(
   let droppedByDeadUrlCache = 0;
   let droppedByHostErrorRate = 0;
   let droppedByFreshness = 0;
+  let droppedByRelevance = 0;
+  let relevanceMatchedCount = 0;
   let persistedCount = 0;
+
+  const relevanceMatcher = await loadTickerRelevanceMatcher(
+    dataApiClient,
+    log,
+    runLogBuffer,
+  );
 
   const canonicalItemMap = new Map<string, CandidateItem>();
 
@@ -367,14 +381,14 @@ async function executePageCollectionRun(
     return true;
   });
 
-  const perRunFetchBudget = collectionConfig.perRunFetchBudget;
-  const droppedByFetchBudget = Math.max(
+  const perRunCandidateBudget = collectionConfig.perRunCandidateBudget;
+  const droppedByCandidateBudget = Math.max(
     0,
-    candidatesAfterHostBreaker.length - perRunFetchBudget,
+    candidatesAfterHostBreaker.length - perRunCandidateBudget,
   );
   const candidatesAfterBudget = candidatesAfterHostBreaker.slice(
     0,
-    perRunFetchBudget,
+    perRunCandidateBudget,
   );
 
   report(
@@ -442,6 +456,22 @@ async function executePageCollectionRun(
       continue;
     }
 
+    if (relevanceMatcher) {
+      const relevanceText = buildRelevanceMatchText(item.title, description);
+      const relevanceMatch = relevanceMatcher.match(relevanceText);
+      if (!relevanceMatch) {
+        droppedByRelevance += 1;
+        outcomes.push(
+          makeDroppedOutcome(outcomeBase, {
+            reason: "relevance_no_match",
+            headChars: relevanceText.length,
+          }),
+        );
+        continue;
+      }
+      relevanceMatchedCount += 1;
+    }
+
     const resolvedSource = derivePublisherFromUrl(url);
     sourcesToPersist.push({
       url,
@@ -454,6 +484,28 @@ async function executePageCollectionRun(
       ...(publishedAt ? { publishedAt: publishedAt.toISOString() } : {}),
     });
     outcomes.push(makeCollectedOutcome(outcomeBase));
+  }
+
+  if (relevanceMatcher) {
+    const relevanceEvaluatedCount = relevanceMatchedCount + droppedByRelevance;
+    log.info(
+      {
+        relevanceEvaluatedCount,
+        relevanceMatchedCount,
+        relevanceUnmatchedCount: droppedByRelevance,
+      },
+      "page collection ticker relevance filtering summary",
+    );
+    if (droppedByRelevance > 0) {
+      runLogBuffer.append({
+        level: "info",
+        message: `Dropped ${droppedByRelevance} of ${relevanceEvaluatedCount} candidates with no tracked-ticker mention`,
+        context: {
+          relevanceMatchedCount,
+          relevanceUnmatchedCount: droppedByRelevance,
+        },
+      });
+    }
   }
 
   if (sourcesToPersist.length > 0) {
@@ -480,9 +532,10 @@ async function executePageCollectionRun(
     urlNoise: Object.values(droppedByUrlReason).reduce((sum, n) => sum + n, 0),
     missingDescription: droppedByMissingDescription,
     freshness: droppedByFreshness,
+    relevance: droppedByRelevance,
     deadUrl: droppedByDeadUrlCache,
     hostErrorRate: droppedByHostErrorRate,
-    fetchBudget: droppedByFetchBudget,
+    candidateBudget: droppedByCandidateBudget,
     runItemCap: droppedByRunItemCap,
   };
 
@@ -546,8 +599,11 @@ async function executePageCollectionRun(
     persisted: persistedCount,
     droppedByMissingDescription,
     droppedByFreshness,
+    droppedByRelevance,
+    relevanceMatchedCount,
+    relevanceFilteringApplied: relevanceMatcher !== null,
     droppedByDeadUrlCache,
-    droppedByFetchBudget,
+    droppedByCandidateBudget,
     droppedByExistingCanonicalUrl,
     droppedByDuplicateCanonicalUrl,
     droppedByUrlNoise: Object.values(droppedByUrlReason).reduce(
@@ -629,6 +685,55 @@ async function executePageCollectionRun(
     details: { summary },
     ...(completionLogs.length > 0 ? { logs: completionLogs } : {}),
   };
+}
+
+/**
+ * Loads the ticker relevance matcher for this run.
+ *
+ * @param dataApiClient - Agent Data API client.
+ * @param log - Run logger.
+ * @param runLogBuffer - Buffer surfaced on the agent response.
+ * @returns A matcher, or `null` when filtering must be skipped for this run.
+ */
+async function loadTickerRelevanceMatcher(
+  dataApiClient: ReturnType<typeof createAgentDataApiClient>,
+  log: PageCollectionLogger,
+  runLogBuffer: ReturnType<typeof createRunLogBuffer>,
+): Promise<TickerRelevanceMatcher | null> {
+  try {
+    const { tickers } = await withApiStep("load ticker relevance terms", () =>
+      dataApiClient.tickerRelevanceTerms.get({}),
+    );
+    const matcher = createTickerRelevanceMatcher(tickers);
+    if (matcher.isEmpty) {
+      log.warn(
+        { tickerCount: tickers.length },
+        "ticker relevance terms are empty; skipping relevance filtering",
+      );
+      runLogBuffer.append({
+        level: "warn",
+        message:
+          "Ticker relevance terms are empty; relevance filtering skipped",
+        context: { tickerCount: tickers.length },
+      });
+
+      return null;
+    }
+
+    return matcher;
+  } catch (error) {
+    log.warn(
+      { err: error },
+      "failed to load ticker relevance terms; skipping relevance filtering",
+    );
+    runLogBuffer.append({
+      level: "warn",
+      message:
+        "Failed to load ticker relevance terms; relevance filtering skipped",
+    });
+
+    return null;
+  }
 }
 
 /**

@@ -21,7 +21,7 @@ type RunSummary = {
   fetchFailed?: number;
   droppedByContentQuality?: Record<string, number>;
   droppedByDeadUrlCache?: number;
-  droppedByFetchBudget?: number;
+  droppedByCandidateBudget?: number;
   droppedByExistingCanonicalUrl?: number;
   droppedByDuplicateCanonicalUrl?: number;
   droppedByUrlNoise?: number;

@@ -9,19 +9,6 @@ import { ConfigSchema, type ConfigSchemaType } from "./utilities/config-schema";
 const SOURCE_URL = "https://example.com/article-one";
 
 const baseConfig = ConfigSchema.parse({
-  providers: {
-    fetch: {
-      providers: [
-        {
-          type: "jina",
-          baseUrl: "https://fetch.example",
-          authentication: { type: "bearer" },
-          rateLimit: { requests: 1, perSeconds: 1 },
-          concurrency: 4,
-        },
-      ],
-    },
-  },
   runPolicy: {
     minSuccessfulSources: 1,
     failOnZeroSuccess: true,
@@ -49,6 +36,7 @@ const deadUrlsLookupMock = vi.fn();
 const runCreateMock = vi.fn();
 const outcomeCreateMock = vi.fn();
 const pageRunCreateMock = vi.fn();
+const tickerRelevanceTermsGetMock = vi.fn();
 
 vi.mock("@workspace/agent-data-api-client", () => ({
   createAgentDataApiClient: vi.fn(() => ({
@@ -59,12 +47,13 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     dataCollectionRun: { create: runCreateMock },
     collectionUrlOutcome: { create: outcomeCreateMock },
     pageCollectionRun: { create: pageRunCreateMock },
+    tickerRelevanceTerms: { get: tickerRelevanceTermsGetMock },
   })),
 }));
 
 vi.mock("./utilities/expand-source-urls", () => ({
   expandSourceUrl: vi.fn(async (url: string) => [
-    { url, title: "Article title", summary: "Feed description" },
+    { url, title: "BBCA article title", summary: "BBCA feed description" },
   ]),
   looksLikeSitemapUrl: vi.fn(() => false),
   looksLikeFeedUrl: vi.fn(() => false),
@@ -90,7 +79,11 @@ describe("runPageCollection", () => {
     vi.clearAllMocks();
 
     vi.mocked(expandSourceUrl).mockResolvedValue([
-      { url: SOURCE_URL, title: "Article title", summary: "Feed description" },
+      {
+        url: SOURCE_URL,
+        title: "BBCA article title",
+        summary: "BBCA feed description",
+      },
     ]);
 
     resolveSourcesCreateMock.mockResolvedValue({
@@ -113,6 +106,15 @@ describe("runPageCollection", () => {
     runCreateMock.mockResolvedValue({});
     outcomeCreateMock.mockResolvedValue({ message: "Success" });
     pageRunCreateMock.mockResolvedValue({});
+    tickerRelevanceTermsGetMock.mockResolvedValue({
+      tickers: [
+        {
+          id: "44444444-4444-4444-a444-444444444444",
+          symbol: "BBCA",
+          terms: ["BBCA", "Bank Central Asia"],
+        },
+      ],
+    });
   });
 
   afterEach(() => {
@@ -130,8 +132,8 @@ describe("runPageCollection", () => {
     expect(persistedSource.curatedSourceListingUrl).toBe(SOURCE_URL);
     expect(persistedSource.collectionGateStatus).toBe("passed");
     expect(persistedSource.url).toBe(SOURCE_URL);
-    expect(persistedSource.title).toBe("Article title");
-    expect(persistedSource.description).toBe("Feed description");
+    expect(persistedSource.title).toBe("BBCA article title");
+    expect(persistedSource.description).toBe("BBCA feed description");
     expect(persistedSource).not.toHaveProperty("content");
   });
 
@@ -185,9 +187,9 @@ describe("runPageCollection", () => {
     const newUrl = "https://example.com/new-article";
 
     vi.mocked(expandSourceUrl).mockResolvedValue([
-      { url: existingUrl, summary: "Existing summary" },
-      { url: newUrl, summary: "New summary" },
-      { url: newUrl, summary: "New summary" },
+      { url: existingUrl, summary: "BBCA existing summary" },
+      { url: newUrl, summary: "BBCA new summary" },
+      { url: newUrl, summary: "BBCA new summary" },
     ]);
 
     existingUrlsCreateMock.mockResolvedValue({ existingUrls: [existingUrl] });
@@ -206,6 +208,90 @@ describe("runPageCollection", () => {
         droppedByMissingDescription: 0,
         totalSources: 1,
       }),
+    );
+  });
+
+  it("drops candidates with no tracked-ticker mention and records the outcome", async () => {
+    vi.mocked(expandSourceUrl).mockResolvedValue([
+      {
+        url: SOURCE_URL,
+        title: "Unrelated headline",
+        summary: "Nothing about any tracked company here",
+      },
+    ]);
+
+    const result = await runPageCollection(createContext());
+
+    expect(result.success).toBe(false);
+    expect(pageCollectionCreateMock).not.toHaveBeenCalled();
+    expect(result.details?.summary).toEqual(
+      expect.objectContaining({
+        droppedByRelevance: 1,
+        relevanceMatchedCount: 0,
+        relevanceFilteringApplied: true,
+      }),
+    );
+    expect(outcomeCreateMock).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "dropped",
+          reason: "relevance_no_match",
+        }),
+      ]),
+    );
+  });
+
+  it("counts matched candidates without dropping them", async () => {
+    const result = await runPageCollection(createContext());
+
+    expect(result.success).toBe(true);
+    expect(result.details?.summary).toEqual(
+      expect.objectContaining({
+        droppedByRelevance: 0,
+        relevanceMatchedCount: 1,
+        relevanceFilteringApplied: true,
+      }),
+    );
+  });
+
+  it("skips relevance filtering when the terms lookup fails", async () => {
+    tickerRelevanceTermsGetMock.mockRejectedValue(new Error("API unavailable"));
+    vi.mocked(expandSourceUrl).mockResolvedValue([
+      {
+        url: SOURCE_URL,
+        title: "Unrelated headline",
+        summary: "Nothing about any tracked company here",
+      },
+    ]);
+
+    const result = await runPageCollection(createContext());
+
+    expect(result.success).toBe(true);
+    expect(pageCollectionCreateMock).toHaveBeenCalledOnce();
+    expect(result.details?.summary).toEqual(
+      expect.objectContaining({
+        droppedByRelevance: 0,
+        relevanceFilteringApplied: false,
+      }),
+    );
+  });
+
+  it("skips relevance filtering when no active ticker has terms", async () => {
+    tickerRelevanceTermsGetMock.mockResolvedValue({ tickers: [] });
+    vi.mocked(expandSourceUrl).mockResolvedValue([
+      {
+        url: SOURCE_URL,
+        title: "Unrelated headline",
+        summary: "Nothing about any tracked company here",
+      },
+    ]);
+
+    const result = await runPageCollection(createContext());
+
+    expect(result.success).toBe(true);
+    expect(pageCollectionCreateMock).toHaveBeenCalledOnce();
+    expect(result.details?.summary).toEqual(
+      expect.objectContaining({ relevanceFilteringApplied: false }),
     );
   });
 });

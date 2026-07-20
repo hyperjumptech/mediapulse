@@ -1,242 +1,6 @@
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
-const concurrencySchema = z
-  .number()
-  .int()
-  .min(1)
-  .max(16)
-  .default(2)
-  .describe("Maximum parallel requests for this stage.");
-
-const retrySchema = z
-  .object({
-    maxAttempts: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe("Maximum retry attempts after a retryable failure."),
-    baseDelayMs: z
-      .number()
-      .int()
-      .positive()
-      .describe("Initial backoff delay in milliseconds."),
-    maxDelayMs: z
-      .number()
-      .int()
-      .positive()
-      .describe("Maximum backoff delay in milliseconds."),
-  })
-  .describe("Retry policy for transient HTTP failures.");
-
-/** Fetch providers fail fast and rely on the ordered provider chain for fallback. */
-const fetchDefaultRetry = {
-  maxAttempts: 1,
-  baseDelayMs: 1000,
-  maxDelayMs: 10_000,
-} as const;
-
-const authenticationSchema = z.object({
-  type: z
-    .enum(["bearer", "none"])
-    .describe("Authentication style for outbound provider requests."),
-  apiKey: z
-    .string()
-    .optional()
-    .describe(
-      "Provider API key or a Hermes variable placeholder such as {{SERPER_API_KEY}}.",
-    ),
-  headerName: z
-    .string()
-    .optional()
-    .describe("HTTP header name when the provider expects a header token."),
-});
-
-const rateLimitSchema = z.object({
-  requests: z
-    .number()
-    .int()
-    .positive()
-    .describe("Maximum requests allowed within the sliding window."),
-  perSeconds: z
-    .number()
-    .positive()
-    .describe("Sliding window length in seconds for rate limiting."),
-});
-
-export const fetchProviderConfigSchema = z.object({
-  type: z
-    .string()
-    .describe(
-      "Fetch adapter identifier such as serper, diffbot, firecrawl, or jina.",
-    ),
-  baseUrl: z.string().describe("Provider base URL for this adapter."),
-  authentication: authenticationSchema.describe(
-    "Provider credentials or Hermes variable placeholders.",
-  ),
-  headers: z
-    .record(z.string())
-    .optional()
-    .describe(
-      "Extra HTTP headers merged into every request. Values may be Hermes variable placeholders.",
-    ),
-  rateLimit: rateLimitSchema.describe(
-    "Sliding-window request budget for this fetch provider.",
-  ),
-  concurrency: concurrencySchema,
-  timeoutMs: z
-    .number()
-    .int()
-    .positive()
-    .default(30_000)
-    .optional()
-    .describe("HTTP request timeout in milliseconds."),
-  retry: retrySchema.default(fetchDefaultRetry).optional(),
-});
-
-/** Recommended Serper scrape provider defaults for the fetch chain. */
-export const defaultSerperFetchProvider = {
-  type: "serper",
-  baseUrl: "https://scrape.serper.dev",
-  authentication: {
-    type: "none" as const,
-    apiKey: "{{SERPER_API_KEY}}",
-    headerName: "X-API-KEY",
-  },
-  rateLimit: { requests: 1, perSeconds: 1 },
-  concurrency: 1,
-  timeoutMs: 45_000,
-  retry: fetchDefaultRetry,
-};
-
-/** Recommended Diffbot provider defaults for the fetch chain. */
-export const defaultDiffbotFetchProvider = {
-  type: "diffbot",
-  baseUrl: "https://api.diffbot.com",
-  authentication: {
-    type: "none" as const,
-    apiKey: "{{DIFFBOT_API_KEY}}",
-  },
-  rateLimit: { requests: 1, perSeconds: 1 },
-  concurrency: 1,
-  timeoutMs: 45_000,
-  retry: fetchDefaultRetry,
-};
-
-/** Recommended Firecrawl provider defaults for the fetch chain. */
-export const defaultFirecrawlFetchProvider = {
-  type: "firecrawl",
-  baseUrl: "https://api.firecrawl.dev",
-  authentication: {
-    type: "bearer" as const,
-    apiKey: "{{FIRECRAWL_API_KEY}}",
-    headerName: "Authorization",
-  },
-  rateLimit: { requests: 1, perSeconds: 1 },
-  concurrency: 1,
-  timeoutMs: 45_000,
-  retry: fetchDefaultRetry,
-};
-
-/** Recommended Jina provider defaults for the fetch chain. */
-export const defaultJinaFetchProvider = {
-  type: "jina",
-  baseUrl: "https://r.jina.ai/",
-  authentication: {
-    type: "bearer" as const,
-    apiKey: "{{JINA_API_KEY}}",
-    headerName: "Authorization",
-  },
-  rateLimit: { requests: 2, perSeconds: 1 },
-  concurrency: 1,
-  timeoutMs: 45_000,
-  retry: fetchDefaultRetry,
-};
-
-/** Default ordered fetch-provider chain: Serper, then Diffbot, then Firecrawl, then Jina. */
-export const defaultFetchProviders = [
-  defaultSerperFetchProvider,
-  defaultDiffbotFetchProvider,
-  defaultFirecrawlFetchProvider,
-  defaultJinaFetchProvider,
-] as const;
-
-const fetchProvidersSchema = z.object({
-  providers: z
-    .array(fetchProviderConfigSchema)
-    .min(1)
-    .default([...defaultFetchProviders])
-    .describe(
-      "Ordered fetch-provider chain. The first provider is tried for each URL; later providers run only after earlier failures.",
-    ),
-});
-
-const providersSchema = z
-  .object({
-    fetch: fetchProvidersSchema
-      .default({})
-      .describe("Ordered web-fetch provider chain settings."),
-  })
-  .default({})
-  .describe("External fetch providers used by the pipeline.");
-
-export const discoveryStrategyEnum = z.enum([
-  "rss",
-  "sitemap",
-  "generic-links",
-]);
-
-const curatedSourceSchema = z.object({
-  listingUrl: z.string().url().describe("URL of the listing page or feed."),
-  strategy: discoveryStrategyEnum
-    .default("rss")
-    .describe(
-      "What kind of URL this source is: rss feed, sitemap, or a generic listing page scraped for same-host links.",
-    ),
-  enabled: z
-    .boolean()
-    .default(true)
-    .describe("When false, this source is skipped during discovery."),
-  maxItems: z
-    .number()
-    .int()
-    .positive()
-    .optional()
-    .describe("Maximum items to return from this source per run."),
-});
-
-const relevanceGateSchema = z.object({
-  enabled: z
-    .boolean()
-    .default(true)
-    .describe(
-      "When enabled, pages must mention the ticker or industry aliases.",
-    ),
-  headChars: z
-    .number()
-    .int()
-    .positive()
-    .default(3000)
-    .describe(
-      "Number of leading content characters scanned for alias matches.",
-    ),
-  minMatches: z
-    .number()
-    .int()
-    .positive()
-    .default(1)
-    .describe("Minimum alias matches required to keep a page."),
-});
-
-const gatesSchema = z
-  .object({
-    relevance: relevanceGateSchema
-      .default({})
-      .describe("Ticker and industry relevance filtering."),
-  })
-  .default({})
-  .describe("Pre-persistence content gates.");
-
 const deadUrlCacheSchema = z.object({
   enabled: z
     .boolean()
@@ -350,15 +114,15 @@ const collectionSchema = z
       .positive()
       .default(500)
       .describe(
-        "Maximum candidate URLs taken from discovery before fetch. Excess items are dropped and logged.",
+        "Maximum candidate URLs taken from discovery. Excess items are dropped and logged.",
       ),
-    perRunFetchBudget: z
+    perRunCandidateBudget: z
       .number()
       .int()
       .positive()
       .default(50)
       .describe(
-        "Maximum URLs sent to the fetch stage in a single run. Applied after dead-URL and host-breaker filtering.",
+        "Maximum candidate URLs carried forward in a single run. Applied after dead-URL and host-breaker filtering.",
       ),
   })
   .default({})
@@ -380,7 +144,6 @@ const runTimingSchema = z
 
 /** Zod schema for agent config grouped for Hermes form sections. */
 export const ConfigSchema = z.object({
-  providers: providersSchema,
   resilience: resilienceSchema,
   discoveryCache: discoveryCacheSchema,
   discovery: discoverySchema,
@@ -392,8 +155,6 @@ export const ConfigSchema = z.object({
 export const pageCollectionAgentConfigSchema = ConfigSchema;
 
 export type ConfigSchemaType = z.infer<typeof ConfigSchema>;
-
-export type FetchProvidersConfig = ConfigSchemaType["providers"]["fetch"];
 
 /**
  * Minimal JSON Schema type used for the /config response.

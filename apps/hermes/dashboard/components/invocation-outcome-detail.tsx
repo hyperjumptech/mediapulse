@@ -71,7 +71,7 @@ const RunSummaryCounters = ({ summary }: RunSummaryCountersProps) => {
   pushNumber("Dropped (already collected)", "droppedByExistingCanonicalUrl");
   pushNumber("Dropped (dead URL cache)", "droppedByDeadUrlCache");
   pushNumber("Dropped (host error rate)", "droppedByHostErrorRate");
-  pushNumber("Dropped (fetch budget)", "droppedByFetchBudget");
+  pushNumber("Dropped (candidate budget)", "droppedByCandidateBudget");
   pushNumber("Fetch success", "fetchSuccess");
   pushNumber("Fetch failed", "fetchFailed");
   pushNumber("Persisted", "totalSources");
