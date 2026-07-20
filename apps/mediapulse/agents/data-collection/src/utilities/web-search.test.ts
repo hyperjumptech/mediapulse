@@ -63,7 +63,7 @@ describe("performWebSearch", () => {
         id: "q1",
         text: "search",
         tickerId: "ticker-1",
-        intent: "breaking",
+        intent: "industryPulse",
         rank: 1,
       },
     ];
@@ -127,7 +127,7 @@ describe("performWebSearch", () => {
         id: "q1",
         text: "search",
         tickerId: "ticker-1",
-        intent: "breaking",
+        intent: "industryPulse",
         rank: 1,
       },
     ];
@@ -163,7 +163,7 @@ describe("performWebSearch", () => {
         id: "q1",
         text: "search",
         tickerId: "ticker-1",
-        intent: "breaking",
+        intent: "industryPulse",
         rank: 1,
       },
     ];
@@ -200,7 +200,7 @@ describe("performWebSearch", () => {
         id: "q1",
         text: "search",
         tickerId: "ticker-1",
-        intent: "breaking",
+        intent: "industryPulse",
         rank: 1,
       },
     ];

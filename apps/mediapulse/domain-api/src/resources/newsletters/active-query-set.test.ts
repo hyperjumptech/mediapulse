@@ -98,7 +98,7 @@ describe("findQuerySetForNewsletter", () => {
           {
             id: "q1",
             text: "first",
-            intent: "breaking",
+            intent: "industryPulse",
             rank: 1,
             createdAt: new Date("2026-05-13T08:00:00.000Z"),
           },

@@ -10,10 +10,7 @@ import {
 import type { Classification, MarketContext } from "../pipeline/context";
 import type { Candidate, Language } from "../pipeline/types";
 import type { DiscoveredEntity } from "../discovery/schema";
-import {
-  generatedCandidateSchema,
-  queryAnalysisIntentForNumber,
-} from "./schema";
+import { generatedCandidateSchema } from "./schema";
 import GENERATION_SYSTEM_PROMPT_TEMPLATE from "./generation-system-prompt.txt";
 
 export interface GenerationLogger {
@@ -58,12 +55,12 @@ const decodeElements = (elements: unknown[]): Candidate[] =>
   elements.flatMap((element) => {
     const parsed = generatedCandidateSchema.safeParse(element);
     if (!parsed.success) return [];
-    const intent = queryAnalysisIntentForNumber(parsed.data.i);
-    if (intent === null) return [];
-    const text = stripTrailingPunctuation(parsed.data.s.trim());
+    const text = stripTrailingPunctuation(parsed.data.text.trim());
     if (text.length === 0) return [];
 
-    return [{ text, intent, language: parsed.data.l }];
+    return [
+      { text, intent: parsed.data.intent, language: parsed.data.language },
+    ];
   });
 
 const extractErrorText = (error: unknown): string | undefined =>
@@ -166,8 +163,8 @@ const buildPrompt = (input: GenerateQueryCandidatesInput): string => {
       ? [
           "",
           "Recent signals from this company's market and its rivals (real headlines).",
-          "Use them to make the competitor, cost, demand, industry, and trend queries",
-          "concrete and current. Still cover every intent 1-11 as instructed:",
+          "Use them to make the industry, competitor, deal, regulatory, and disruption",
+          "queries concrete and current. Still cover every intent 1-5 as instructed:",
           ...input.reconSignals.map((signal) => `- ${signal}`),
         ]
       : []),

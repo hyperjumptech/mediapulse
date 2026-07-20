@@ -10,14 +10,14 @@ describe("buildQueryDecisions", () => {
     const survivors: ProbeSurvivor[] = [
       {
         text: "Fore Coffee ekspansi gerai",
-        intent: "deals",
+        intent: "dealsAndMovements",
         language: "id",
         hits: 42,
         rank: 1,
       },
       {
         text: "Fore Coffee kinerja kuartal",
-        intent: "fundamental",
+        intent: "dealsAndMovements",
         language: "id",
         hits: 10,
         rank: 2,
@@ -26,13 +26,17 @@ describe("buildQueryDecisions", () => {
     const dropped: ProbedCandidate[] = [
       {
         text: "Fore Coffee obscure query",
-        intent: "industry_trend",
+        intent: "industryPulse",
         language: "id",
         hits: 0,
       },
     ];
     const finalized: FinalizedQuery[] = [
-      { text: "Fore Coffee ekspansi gerai", intent: "deals", rank: 1 },
+      {
+        text: "Fore Coffee ekspansi gerai",
+        intent: "dealsAndMovements",
+        rank: 1,
+      },
     ];
 
     // Act
@@ -61,10 +65,15 @@ describe("buildQueryDecisions", () => {
   it("marks a dropped candidate reinstated into the finalized set as included", () => {
     // Setup
     const dropped: ProbedCandidate[] = [
-      { text: "Reinstated query", intent: "deals", language: "en", hits: 1 },
+      {
+        text: "Reinstated query",
+        intent: "dealsAndMovements",
+        language: "en",
+        hits: 1,
+      },
     ];
     const finalized: FinalizedQuery[] = [
-      { text: "Reinstated query", intent: "deals", rank: 1 },
+      { text: "Reinstated query", intent: "dealsAndMovements", rank: 1 },
     ];
 
     // Act

@@ -44,32 +44,72 @@ describe("normalizeQueryText", () => {
 describe("dedupeCandidates", () => {
   it("keeps the first occurrence per normalized text", () => {
     const deduped = dedupeCandidates([
-      candidate("Bank Mandiri", "competitor"),
-      candidate("bank mandiri", "competitor", "en"),
-      candidate("OJK", "regulatory"),
+      candidate("Bank Mandiri", "competitiveLandscape"),
+      candidate("bank mandiri", "competitiveLandscape", "en"),
+      candidate("OJK", "regulatoryPolicyWatch"),
     ]);
     expect(deduped.map((c) => c.text)).toEqual(["Bank Mandiri", "OJK"]);
   });
 });
 
 describe("stagePriorityForIntent / capToBudget", () => {
-  it("orders own-company > competitor > regulator > industry", () => {
-    expect(stagePriorityForIntent("breaking")).toBe(0);
-    expect(stagePriorityForIntent("competitor")).toBe(1);
-    expect(stagePriorityForIntent("regulatory")).toBe(2);
-    expect(stagePriorityForIntent("industry_trend")).toBe(3);
+  it("orders deals > competitor > regulator > industry > disruption", () => {
+    expect(stagePriorityForIntent("dealsAndMovements")).toBe(0);
+    expect(stagePriorityForIntent("competitiveLandscape")).toBe(1);
+    expect(stagePriorityForIntent("regulatoryPolicyWatch")).toBe(2);
+    expect(stagePriorityForIntent("industryPulse")).toBe(3);
+    expect(stagePriorityForIntent("disruptorsOrTech")).toBe(4);
   });
 
-  it("caps to budget by stage priority", () => {
+  it("takes one candidate per intent in stage-priority order", () => {
     const capped = capToBudget(
       [
-        candidate("theme", "industry_trend"),
-        candidate("BBRI", "breaking"),
-        candidate("Bank Mandiri", "competitor"),
+        candidate("theme", "industryPulse"),
+        candidate("BBRI rights issue", "dealsAndMovements"),
+        candidate("Bank Mandiri", "competitiveLandscape"),
       ],
       2,
     );
-    expect(capped.map((c) => c.text)).toEqual(["BBRI", "Bank Mandiri"]);
+
+    expect(capped.map((c) => c.text)).toEqual([
+      "BBRI rights issue",
+      "Bank Mandiri",
+    ]);
+  });
+
+  it("does not let one over-generated intent starve another", () => {
+    const candidates = [
+      ...Array.from({ length: 10 }, (_unused, index) =>
+        candidate(`deal ${index}`, "dealsAndMovements"),
+      ),
+      candidate("tech shift", "disruptorsOrTech"),
+    ];
+
+    const capped = capToBudget(candidates, 6);
+
+    expect(capped.map((c) => c.text)).toContain("tech shift");
+    expect(capped.filter((c) => c.intent === "dealsAndMovements")).toHaveLength(
+      5,
+    );
+  });
+
+  it("falls back to the remaining intents once one runs out of candidates", () => {
+    const capped = capToBudget(
+      [
+        candidate("deal one", "dealsAndMovements"),
+        candidate("theme one", "industryPulse"),
+        candidate("theme two", "industryPulse"),
+        candidate("theme three", "industryPulse"),
+      ],
+      4,
+    );
+
+    expect(capped.map((c) => c.text)).toEqual([
+      "deal one",
+      "theme one",
+      "theme two",
+      "theme three",
+    ]);
   });
 });
 
@@ -86,9 +126,9 @@ describe("runYieldProbe", () => {
     const result = await runYieldProbe(
       {
         candidates: [
-          candidate("BBRI", "breaking"),
-          candidate("Bank Mandiri", "competitor"),
-          candidate("dead query", "industry_trend"),
+          candidate("BBRI", "industryPulse"),
+          candidate("Bank Mandiri", "competitiveLandscape"),
+          candidate("dead query", "industryPulse"),
         ],
         providers,
         locales: [{ gl: "id", hl: "id" }],
@@ -127,8 +167,8 @@ describe("runYieldProbe", () => {
     const result = await runYieldProbe(
       {
         candidates: [
-          candidate("provider down", "industry_trend"),
-          candidate("BBRI", "breaking"),
+          candidate("provider down", "industryPulse"),
+          candidate("BBRI", "industryPulse"),
         ],
         providers,
         locales: [{ gl: "id", hl: "id" }],
@@ -161,8 +201,8 @@ describe("runYieldProbe", () => {
     const probe = runYieldProbe(
       {
         candidates: [
-          candidate("hung query", "breaking"),
-          candidate("BBRI", "breaking"),
+          candidate("hung query", "industryPulse"),
+          candidate("BBRI", "industryPulse"),
         ],
         providers,
         locales: [{ gl: "id", hl: "id" }],
@@ -197,9 +237,9 @@ describe("runYieldProbe", () => {
     const result = await runYieldProbe(
       {
         candidates: [
-          candidate("theme", "industry_trend"),
-          candidate("BBRI", "breaking"),
-          candidate("Bank Mandiri", "competitor"),
+          candidate("theme", "industryPulse"),
+          candidate("BBRI", "dealsAndMovements"),
+          candidate("Bank Mandiri", "competitiveLandscape"),
         ],
         providers,
         locales: [{ gl: "id", hl: "id" }],

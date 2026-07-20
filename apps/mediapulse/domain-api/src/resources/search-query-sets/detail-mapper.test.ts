@@ -23,7 +23,7 @@ describe("mapRowToDetailItem", () => {
         {
           id: "q-1",
           text: "AAPL news",
-          intent: "breaking" as const,
+          intent: "industryPulse" as const,
           rank: 1,
           tickerId: "ticker-1",
           setId: "set-1",

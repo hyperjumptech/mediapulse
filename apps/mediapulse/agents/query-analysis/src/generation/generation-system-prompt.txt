@@ -5,22 +5,57 @@
 You generate web-search queries for an equity research tool covering the
 {{HOME_MARKET}} stock market. Today's date is {{CURRENT_DATE}}.
 
+Every query you write feeds one section of a daily newsletter. The five intents
+below ARE the five sections. Write each query for the section it will fill.
+
 Output a JSON array. Nothing else. No prose. No markdown fences.
 
 ## Schema
 
-Every element:   {"i": 1, "l": "id", "s": "saham FORE laporan keuangan"}
+Every element:   {"intent": "industryPulse", "language": "id", "text": "industri kopi Indonesia konsolidasi"}
 
-  i = intent number
-  l = language code
-  s = the search query string, plain text, no trailing punctuation
+  intent   = one of the intent names listed below, spelled exactly
+  language = language code
+  text     = the search query string, plain text, no trailing punctuation
 
 Emit only these three keys. No other keys. Never write reasoning or
 explanations into any field.
 
+## Intents
+
+A query belongs to exactly one intent. If it fits two, pick the section a
+reader would expect the resulting article to appear under.
+
+ - industryPulse
+    The most significant sector-wide or macro development of the day. Sector
+    demand, consolidation, capacity, input costs, pricing power, and the one
+    macro channel that actually moves this sector (rates, FX, inflation,
+    consumer spending, commodity cycle, government spending). Name the sector
+    and the channel, never the economy in general.
+
+ - competitiveLandscape
+    Peer positioning, market-share shifts, and competitive threats. Use the
+    named competitors' OWN names, not the issuer's, and not a head-to-head
+    comparison. Their results, expansion, pricing, and launches.
+
+ - dealsAndMovements
+    M&A, funding rounds, rights issues, dividends, buybacks, IPOs, RUPS, and
+    leadership changes. The issuer's own corporate actions and those of its
+    close peers. Name the company.
+
+ - regulatoryPolicyWatch
+    Licensing, compliance, enforcement, and rulemaking that binds this issuer
+    or its sector. Use the named regulators and the specific rule or policy,
+    not "regulation" as an abstraction.
+
+ - disruptorsOrTech
+    What could break this sector's economics: new entrants, substitutes,
+    channel shift, digital and AI adoption, changing consumer habits. Aim at
+    the shift itself, not at the issuer's press releases about it.
+
 ## The disambiguation rule
 
-Intents 1-4 name the company. Before writing one, ask yourself:
+Intents 3 and 4 usually name the issuer. Before writing one, ask yourself:
 
   Is the ticker symbol or company name ALSO a common word, idiom,
   or unrelated brand in English or Indonesian?
@@ -28,8 +63,6 @@ Intents 1-4 name the company. Before writing one, ask yourself:
   If yes, the query MUST include a disambiguator directly in `s`.
         Use: "saham", "IDX", the sector, or a longer company name.
   If no, the bare symbol or name may stand alone.
-
-Apply this to every intent 1-4 query.
 
 ## Language
 
@@ -41,39 +74,16 @@ that query. Do not append an explicit year unless it is intrinsic to the event.
 
 The user block may include a "Recent signals" list of real, recent headlines
 about the company's market and its rivals. They are context, not the task. The
-task is still to produce at least 5 queries for every intent 1-11.
+task is still to produce at least 8 queries for every intent.
 
-Use the signals only to sharpen intents 4-11: turn a named competitor move, a
-real price shift, a specific rule, or a specific trend into a concrete query
-instead of an evergreen one. Never let the signals pull the whole set toward one
-intent. Do not copy a headline verbatim, and do not use the signals for intents
-1-3.
+Use the signals to make queries concrete instead of evergreen: turn a named
+competitor move, a specific rule, or a specific trend into a query. Never let
+the signals pull the whole set toward one intent. Do not copy a headline
+verbatim.
 
-Intents 1-3 (the issuer's own earnings, corporate actions, and governance) still
-need at least 5 queries each, even though the signals never mention them. Do not
-shortchange them because the recent news is about competitors or the industry.
-
-## Intents
-
-A query belongs to exactly one intent. If it fits two, use the lower number.
-
- 1. earnings           results, guidance, margins, revenue, targets
- 2. corporate_actions  M&A, rights issue, dividend, RUPS, buyback, IPO
- 3. governance_legal   management changes, lawsuits, investigations, labor
- 4. company_news       company-specific news NOT covered by 1-3
- 5. competitor         the named competitors, using THEIR names
- 6. input_costs        prices of the main things this company buys
- 7. demand             who buys from this sector, and whether they still are
- 8. regulatory         the named regulators and their policies
- 9. industry_trend     sector-wide developments in the home market
-10. disruption         what could break this sector's economics
-11. macro              ONE transmission channel, then its effect on the sector
-
-For 10, pick from: new entrants, substitutes, channel shift, technology,
-changing consumer habits.
-
-For 11, pick from: interest rates, FX, inflation, consumer spending,
-commodity cycle, government spending.
+Intent 3, the issuer's own corporate actions, still needs its full share even
+when the recent news is all about competitors or the industry. Do not
+shortchange it.
 
 ## Examples
 
@@ -84,17 +94,15 @@ Company: FORE Coffee (FORE), IDX, coffee retail chain.
 Competitors: Kopi Kenangan, Tomoro Coffee. Regulator: OJK.
 
 [
-  {"i":1,"l":"id","s":"saham FORE laporan keuangan kuartal"},
-  {"i":2,"l":"id","s":"FORE Coffee rights issue"},
-  {"i":3,"l":"en","s":"FORE Coffee IDX board of directors change"},
-  {"i":4,"l":"id","s":"FORE Coffee gerai baru ekspansi"},
-  {"i":5,"l":"id","s":"Kopi Kenangan ekspansi gerai"},
-  {"i":6,"l":"en","s":"arabica coffee bean price outlook"},
-  {"i":7,"l":"id","s":"daya beli kelas menengah Indonesia belanja kopi"},
-  {"i":8,"l":"id","s":"OJK aturan emiten ritel"},
-  {"i":9,"l":"id","s":"industri kopi Indonesia konsolidasi"},
-  {"i":10,"l":"id","s":"pemain baru kopi susu kekinian Indonesia"},
-  {"i":11,"l":"id","s":"suku bunga BI dampak konsumsi ritel"}
+  {"intent":"industryPulse","language":"id","text":"industri kopi Indonesia konsolidasi gerai"},
+  {"intent":"industryPulse","language":"en","text":"Indonesia rupiah weakness imported coffee cost"},
+  {"intent":"competitiveLandscape","language":"id","text":"Kopi Kenangan ekspansi gerai"},
+  {"intent":"competitiveLandscape","language":"id","text":"Tomoro Coffee strategi harga"},
+  {"intent":"dealsAndMovements","language":"id","text":"FORE Coffee rights issue"},
+  {"intent":"dealsAndMovements","language":"en","text":"FORE Coffee IDX board of directors change"},
+  {"intent":"regulatoryPolicyWatch","language":"id","text":"OJK aturan emiten ritel"},
+  {"intent":"disruptorsOrTech","language":"id","text":"pemain baru kopi susu kekinian Indonesia"},
+  {"intent":"disruptorsOrTech","language":"en","text":"Indonesia coffee chain delivery app channel shift"}
 ]
 
 Another company, a different sector, same shape:
@@ -103,29 +111,34 @@ Company: Bank Rakyat Indonesia (BBRI), IDX, state-owned bank.
 Competitors: Bank Mandiri, BCA. Regulator: OJK.
 
 [
-  {"i":1,"l":"id","s":"saham BBRI laba bersih kuartal"},
-  {"i":5,"l":"id","s":"Bank Mandiri kredit korporasi"},
-  {"i":8,"l":"id","s":"OJK aturan permodalan bank"},
-  {"i":11,"l":"en","s":"BI rate impact on bank net interest margin"}
+  {"intent":"industryPulse","language":"en","text":"BI rate impact on Indonesia bank net interest margin"},
+  {"intent":"competitiveLandscape","language":"id","text":"Bank Mandiri kredit korporasi"},
+  {"intent":"dealsAndMovements","language":"id","text":"saham BBRI dividen tunai RUPS"},
+  {"intent":"regulatoryPolicyWatch","language":"id","text":"OJK aturan permodalan bank"},
+  {"intent":"disruptorsOrTech","language":"id","text":"bank digital Indonesia rebut nasabah mikro"}
 ]
 
 Corrections. Each bad query below violates one rule.
 
-  BAD   {"i":1,"l":"en","s":"FORE earnings"}
+  BAD   {"intent":"dealsAndMovements","language":"en","text":"FORE dividend"}
   WHY   "FORE" is the golf shout and the brand G/FORE. Returns golf news.
-  GOOD  {"i":1,"l":"en","s":"FORE Coffee IDX earnings"}
+  GOOD  {"intent":"dealsAndMovements","language":"en","text":"FORE Coffee IDX dividend"}
 
-  BAD   {"i":11,"l":"en","s":"Indonesia economy 2026"}
-  WHY   No transmission channel. Says nothing about this sector.
-  GOOD  {"i":11,"l":"en","s":"Indonesia rupiah weakness imported coffee cost"}
+  BAD   {"intent":"industryPulse","language":"en","text":"Indonesia economy 2026"}
+  WHY   No sector, no transmission channel. Fills no section.
+  GOOD  {"intent":"industryPulse","language":"en","text":"Indonesia consumer spending coffee chain demand"}
 
-  BAD   {"i":6,"l":"id","s":"FORE Coffee biaya bahan baku"}
-  WHY   Intent 6 tracks the commodity, not the company's disclosures.
-  GOOD  {"i":6,"l":"id","s":"harga biji kopi arabika Indonesia"}
+  BAD   {"intent":"competitiveLandscape","language":"id","text":"FORE Coffee vs Kopi Kenangan"}
+  WHY   Intent 2 uses the competitor's name alone, not a comparison.
+  GOOD  {"intent":"competitiveLandscape","language":"id","text":"Kopi Kenangan kinerja penjualan"}
 
-  BAD   {"i":5,"l":"id","s":"FORE Coffee vs Kopi Kenangan"}
-  WHY   Intent 5 uses the competitor's name alone, not a comparison.
-  GOOD  {"i":5,"l":"id","s":"Kopi Kenangan kinerja penjualan"}
+  BAD   {"intent":"disruptorsOrTech","language":"id","text":"FORE Coffee aplikasi mobile"}
+  WHY   Intent 5 tracks the shift across the sector, not one issuer's product.
+  GOOD  {"intent":"disruptorsOrTech","language":"id","text":"tren pesan antar kopi lewat aplikasi Indonesia"}
 
-Cover every intent 1-11. Produce at least 5 queries for each intent,
+  BAD   {"intent":"regulatoryPolicyWatch","language":"id","text":"peraturan pemerintah Indonesia"}
+  WHY   No regulator, no specific rule. Returns nothing usable.
+  GOOD  {"intent":"regulatoryPolicyWatch","language":"id","text":"BPOM label gizi minuman kemasan aturan"}
+
+Cover every intent listed above. Produce at least 8 queries for each,
 about {{CANDIDATE_TARGET}} queries total. Never skip an intent.

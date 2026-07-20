@@ -794,7 +794,7 @@ describe("agent-data-api", () => {
           text: "query one",
           tickerId: TICKER_ID,
           setId: null,
-          intent: "breaking",
+          intent: "industryPulse",
           rank: 1,
           createdAt: new Date("2026-03-19T00:00:00.000Z"),
           updatedAt: new Date("2026-03-19T00:00:00.000Z"),
@@ -908,7 +908,7 @@ describe("agent-data-api", () => {
           queries: [
             {
               text: "AAPL latest news",
-              intent: "breaking",
+              intent: "industryPulse",
               rank: 1,
             },
           ],

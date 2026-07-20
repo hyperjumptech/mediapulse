@@ -25,7 +25,9 @@ const baseInput = {
   ai,
 };
 
-const okResult = (candidates: { i: number; l: string; s: string }[]) => ({
+const okResult = (
+  candidates: { intent: string; language: string; text: string }[],
+) => ({
   object: candidates,
   usage: { inputTokens: 20, outputTokens: 10, totalTokens: 30 },
 });
@@ -36,9 +38,21 @@ describe("generateQueryCandidates", () => {
     const onUsage = vi.fn();
     const generate = vi.fn().mockResolvedValue(
       okResult([
-        { i: 1, l: "id", s: "saham FORE laporan keuangan" },
-        { i: 5, l: "id", s: "Kopi Kenangan ekspansi gerai" },
-        { i: 11, l: "id", s: "suku bunga BI dampak konsumsi ritel" },
+        {
+          intent: "dealsAndMovements",
+          language: "id",
+          text: "saham FORE dividen tunai",
+        },
+        {
+          intent: "competitiveLandscape",
+          language: "id",
+          text: "Kopi Kenangan ekspansi gerai",
+        },
+        {
+          intent: "industryPulse",
+          language: "id",
+          text: "suku bunga BI dampak konsumsi ritel",
+        },
       ]),
     );
 
@@ -52,18 +66,18 @@ describe("generateQueryCandidates", () => {
     // Assert
     expect(result).toEqual([
       {
-        text: "saham FORE laporan keuangan",
-        intent: "fundamental",
+        text: "saham FORE dividen tunai",
+        intent: "dealsAndMovements",
         language: "id",
       },
       {
         text: "Kopi Kenangan ekspansi gerai",
-        intent: "competitor",
+        intent: "competitiveLandscape",
         language: "id",
       },
       {
         text: "suku bunga BI dampak konsumsi ritel",
-        intent: "macro",
+        intent: "industryPulse",
         language: "id",
       },
     ]);
@@ -75,18 +89,34 @@ describe("generateQueryCandidates", () => {
     });
   });
 
-  it("drops candidates whose intent number is out of range", async () => {
+  it("drops candidates whose intent is not a known intent", async () => {
     // Setup
-    const generate = vi
-      .fn()
-      .mockResolvedValue(okResult([{ i: 5, l: "id", s: "Kopi Kenangan" }]));
+    const generate = vi.fn().mockResolvedValue(
+      okResult([
+        {
+          intent: "competitiveLandscape",
+          language: "id",
+          text: "Kopi Kenangan",
+        },
+        {
+          intent: "breaking",
+          language: "id",
+          text: "retired intent name",
+        },
+        {
+          intent: "notAnIntent",
+          language: "id",
+          text: "never was an intent",
+        },
+      ]),
+    );
 
     // Act
     const result = await generateQueryCandidates({ ...baseInput, generate });
 
     // Assert
     expect(result).toEqual([
-      { text: "Kopi Kenangan", intent: "competitor", language: "id" },
+      { text: "Kopi Kenangan", intent: "competitiveLandscape", language: "id" },
     ]);
   });
 
@@ -94,7 +124,9 @@ describe("generateQueryCandidates", () => {
     // Setup
     const generate = vi
       .fn()
-      .mockResolvedValue(okResult([{ i: 5, l: "en", s: "x" }]));
+      .mockResolvedValue(
+        okResult([{ intent: "disruptorsOrTech", language: "en", text: "x" }]),
+      );
 
     // Act
     await generateQueryCandidates({ ...baseInput, generate });
@@ -116,7 +148,9 @@ describe("generateQueryCandidates", () => {
     // Setup
     const generate = vi
       .fn()
-      .mockResolvedValue(okResult([{ i: 5, l: "en", s: "x" }]));
+      .mockResolvedValue(
+        okResult([{ intent: "disruptorsOrTech", language: "en", text: "x" }]),
+      );
 
     // Act
     await generateQueryCandidates({ ...baseInput, generate });
@@ -133,7 +167,9 @@ describe("generateQueryCandidates", () => {
     // Setup
     const generate = vi
       .fn()
-      .mockResolvedValue(okResult([{ i: 5, l: "en", s: "x" }]));
+      .mockResolvedValue(
+        okResult([{ intent: "disruptorsOrTech", language: "en", text: "x" }]),
+      );
 
     // Act
     await generateQueryCandidates({ ...baseInput, generate });
@@ -149,10 +185,26 @@ describe("generateQueryCandidates", () => {
     // Setup
     const generate = vi.fn().mockResolvedValue(
       okResult([
-        { i: 11, l: "id", s: "Perkembangan ekonomi Indonesia," },
-        { i: 1, l: "id", s: "saham FORE IDX." },
-        { i: 5, l: "id", s: "berita kopi kenangan;" },
-        { i: 2, l: "id", s: "apa itu RUPS FORE?" },
+        {
+          intent: "industryPulse",
+          language: "id",
+          text: "Perkembangan ekonomi Indonesia,",
+        },
+        {
+          intent: "dealsAndMovements",
+          language: "id",
+          text: "saham FORE IDX.",
+        },
+        {
+          intent: "competitiveLandscape",
+          language: "id",
+          text: "berita kopi kenangan;",
+        },
+        {
+          intent: "regulatoryPolicyWatch",
+          language: "id",
+          text: "apa itu RUPS FORE?",
+        },
       ]),
     );
 
@@ -172,7 +224,9 @@ describe("generateQueryCandidates", () => {
     // Setup
     const generate = vi
       .fn()
-      .mockResolvedValue(okResult([{ i: 5, l: "en", s: "x" }]));
+      .mockResolvedValue(
+        okResult([{ intent: "disruptorsOrTech", language: "en", text: "x" }]),
+      );
 
     // Act
     await generateQueryCandidates({ ...baseInput, generate });
@@ -196,7 +250,9 @@ describe("generateQueryCandidates", () => {
     // Setup
     const generate = vi
       .fn()
-      .mockResolvedValue(okResult([{ i: 5, l: "en", s: "x" }]));
+      .mockResolvedValue(
+        okResult([{ intent: "disruptorsOrTech", language: "en", text: "x" }]),
+      );
 
     // Act
     await generateQueryCandidates({ ...baseInput, generate });
@@ -224,13 +280,22 @@ describe("generateQueryCandidates", () => {
       text: JSON.stringify({
         elements: [
           {
-            i: 1,
-            l: "id",
-            q: "a reasoning string the model wrongly wrote here",
-            s: "saham FORE laporan keuangan",
+            intent: "dealsAndMovements",
+            language: "id",
+            reasoning: "a reasoning string the model wrongly wrote here",
+            text: "saham FORE laporan keuangan",
           },
-          { i: 5, l: "id", q: null, s: "Kopi Kenangan ekspansi gerai" },
-          { i: 99, l: "id", s: "out of range, dropped" },
+          {
+            intent: "competitiveLandscape",
+            language: "id",
+            reasoning: null,
+            text: "Kopi Kenangan ekspansi gerai",
+          },
+          {
+            intent: "notAnIntent",
+            language: "id",
+            text: "unknown intent, dropped",
+          },
         ],
       }),
     });
@@ -248,12 +313,12 @@ describe("generateQueryCandidates", () => {
     expect(result).toEqual([
       {
         text: "saham FORE laporan keuangan",
-        intent: "fundamental",
+        intent: "dealsAndMovements",
         language: "id",
       },
       {
         text: "Kopi Kenangan ekspansi gerai",
-        intent: "competitor",
+        intent: "competitiveLandscape",
         language: "id",
       },
     ]);

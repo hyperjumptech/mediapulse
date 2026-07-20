@@ -45,9 +45,9 @@ describe("buildSearchQueryListWhere", () => {
   it("filters by intent", () => {
     expect(
       buildSearchQueryListWhere({
-        intent: "breaking",
+        intent: "industryPulse",
       }),
-    ).toEqual({ intent: "breaking" });
+    ).toEqual({ intent: "industryPulse" });
   });
 
   it("filters active-set yes via set.isActive true", () => {
@@ -80,7 +80,7 @@ describe("buildSearchQueryListWhere", () => {
     const where = buildSearchQueryListWhere({
       q: "nvidia",
       tickerId: "11111111-1111-4111-a111-111111111111",
-      intent: "breaking",
+      intent: "industryPulse",
       isActive: true,
     });
     expect(where).toEqual({
@@ -107,7 +107,7 @@ describe("buildSearchQueryListWhere", () => {
           ],
         },
         { tickerId: "11111111-1111-4111-a111-111111111111" },
-        { intent: "breaking" },
+        { intent: "industryPulse" },
         { set: { isActive: true } },
       ],
     });

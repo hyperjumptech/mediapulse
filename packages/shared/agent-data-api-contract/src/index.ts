@@ -393,7 +393,6 @@ export {
 export {
   MEDIAPULSE_NEWSLETTER_SECTIONS,
   NEWSLETTER_SECTION_IDS,
-  SECTION_BY_INTENT,
   summarizeSectionCoverage,
   type NewsletterSectionId,
 } from "./newsletter-sections.js";

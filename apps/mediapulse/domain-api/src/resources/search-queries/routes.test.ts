@@ -40,8 +40,8 @@ describe("searchQueriesRoutes", () => {
       },
     ] as never);
     vi.mocked(prisma.searchQuery.findMany).mockResolvedValue([
-      { intent: "breaking" },
-      { intent: "competitor" },
+      { intent: "industryPulse" },
+      { intent: "competitiveLandscape" },
     ] as never);
 
     const res = await searchQueriesRoutes.request("http://localhost/meta", {
@@ -69,7 +69,7 @@ describe("searchQueriesRoutes", () => {
     ]);
     expect(
       body.filterOptions?.intentOptions?.some(
-        (option) => option.value === "breaking",
+        (option) => option.value === "industryPulse",
       ),
     ).toBe(true);
     expect(body.filterOptions?.sourceOptions).toBeUndefined();
@@ -80,7 +80,7 @@ describe("searchQueriesRoutes", () => {
     vi.mocked(prisma.searchQuery.count).mockResolvedValue(0);
 
     const res = await searchQueriesRoutes.request(
-      "http://localhost/?tickerId=11111111-1111-4111-a111-111111111111&intent=breaking&isActive=true&from=2026-05-01",
+      "http://localhost/?tickerId=11111111-1111-4111-a111-111111111111&intent=industryPulse&isActive=true&from=2026-05-01",
       { method: "GET" },
     );
 
@@ -90,7 +90,7 @@ describe("searchQueriesRoutes", () => {
         where: {
           AND: [
             { tickerId: "11111111-1111-4111-a111-111111111111" },
-            { intent: "breaking" },
+            { intent: "industryPulse" },
             { set: { isActive: true } },
             {
               createdAt: {
