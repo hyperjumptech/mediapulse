@@ -19,7 +19,6 @@ export type NewsletterDeliveryAggregate = {
 export type ListItem = {
   id: string;
   subject: string;
-  description: string | null;
   tickerId: string;
   tickerSymbol: string;
   tickerName: string;
@@ -47,7 +46,6 @@ export function mapRowToListItem(
   return {
     id: row.id,
     subject: row.subject,
-    description: row.description,
     tickerId: row.tickerId,
     tickerSymbol: row.ticker.symbol,
     tickerName: row.ticker.name,

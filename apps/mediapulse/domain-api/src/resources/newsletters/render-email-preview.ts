@@ -1,5 +1,8 @@
 import { parseNewsletterEmailSubject } from "@workspace/email-templates/newsletter-email-subject";
-import { renderNewsletterEmail } from "@workspace/email-templates";
+import {
+  readNewsletterDocument,
+  renderNewsletterEmail,
+} from "@workspace/email-templates";
 
 import type { Logger } from "@workspace/logger";
 
@@ -40,8 +43,19 @@ export type RenderEmailPreviewDeps = {
 const PREVIEW_UNSUBSCRIBE_URL = "https://example.com/preview/unsubscribe";
 
 /**
+ * Shown instead of the rendered email when a newsletter predates the JSON document
+ * format. Those bodies are plain wire text, and rendering them would dump raw
+ * `MP_NEWSLETTER` markers into the dashboard.
+ */
+const LEGACY_FORMAT_NOTICE =
+  "<p>This newsletter was generated before the current content format and cannot be previewed. Its delivered email is unaffected.</p>";
+
+/**
  * Renders the production `default-newsletter` React Email template for the
  * given newsletter and returns the HTML string for the `htmlPreview` block.
+ *
+ * A body that is not a valid newsletter document predates this format and returns a
+ * short notice rather than a dump of raw wire text.
  *
  * Rendering failures do not propagate: the function returns a tiny safe
  * placeholder paragraph and logs a structured warning that does not contain
@@ -68,6 +82,10 @@ export const renderEmailPreview = async (
       });
       return { html: result.html };
     });
+
+  if (readNewsletterDocument(input.bodyText) === undefined) {
+    return LEGACY_FORMAT_NOTICE;
+  }
 
   try {
     const emailTitle = parseNewsletterEmailSubject(input.subject).title;

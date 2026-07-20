@@ -192,7 +192,6 @@ model DiscoverySourceHealth {
 model Newsletter {
   id          String   @id @default(uuid())
   subject     String
-  description String?
   content     String
   tickerId    String   @map("ticker_id")
   createdAt   DateTime @default(now()) @map("created_at")

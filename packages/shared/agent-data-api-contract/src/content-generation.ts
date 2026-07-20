@@ -8,7 +8,6 @@ export const getContentGenerationQuerySchema = z.object({
 
 export const postContentGenerationBodySchema = z.object({
   subject: z.string(),
-  description: z.string().optional(),
   content: z.string(),
   tickerId: z.string().trim().min(1),
   model: z.string().optional(),

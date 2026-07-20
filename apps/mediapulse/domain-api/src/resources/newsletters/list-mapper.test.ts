@@ -6,7 +6,6 @@ describe("newsletters list-mapper", () => {
   const baseRow = {
     id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     subject: "Apple weekly digest",
-    description: null,
     content: "# body",
     tickerId: "11111111-1111-4111-a111-111111111111",
     createdAt: new Date("2026-05-01T00:00:00.000Z"),
@@ -32,7 +31,6 @@ describe("newsletters list-mapper", () => {
     expect(item).toEqual({
       id: baseRow.id,
       subject: "Apple weekly digest",
-      description: null,
       tickerId: baseRow.tickerId,
       tickerSymbol: "AAPL",
       tickerName: "Apple Inc.",

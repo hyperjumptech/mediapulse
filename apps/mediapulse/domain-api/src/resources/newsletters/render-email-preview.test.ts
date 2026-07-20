@@ -2,6 +2,23 @@ import { describe, expect, it, vi } from "vitest";
 
 import { renderEmailPreview } from "./render-email-preview";
 
+const DOCUMENT_BODY = JSON.stringify({
+  version: 1,
+  sections: [
+    {
+      key: "industry-pulse",
+      articles: [
+        {
+          title: "Fixed broadband carries a flat quarter",
+          source: "Market Wire",
+          url: "https://example.com/broadband",
+          points: ["Net adds carried sector revenue growth."],
+        },
+      ],
+    },
+  ],
+});
+
 describe("renderEmailPreview", () => {
   it("returns the renderer's HTML on success", async () => {
     const renderHtml = vi
@@ -12,7 +29,7 @@ describe("renderEmailPreview", () => {
       {
         newsletterId: "nl-1",
         subject: "Apple weekly digest",
-        bodyText: "Hello",
+        bodyText: DOCUMENT_BODY,
         tickerSymbol: "AAPL",
       },
       { renderHtml },
@@ -22,7 +39,7 @@ describe("renderEmailPreview", () => {
     expect(renderHtml).toHaveBeenCalledTimes(1);
     expect(renderHtml).toHaveBeenCalledWith({
       title: "Apple weekly digest",
-      bodyText: "Hello",
+      bodyText: DOCUMENT_BODY,
       tickerSymbol: "AAPL",
       unsubscribeUrl: "https://example.com/preview/unsubscribe",
     });
@@ -37,7 +54,7 @@ describe("renderEmailPreview", () => {
       {
         newsletterId: "nl-1",
         subject: "AAPL Pulse: Apple weekly digest",
-        bodyText: "Hello",
+        bodyText: DOCUMENT_BODY,
         tickerSymbol: "AAPL",
       },
       { renderHtml },
@@ -45,7 +62,7 @@ describe("renderEmailPreview", () => {
 
     expect(renderHtml).toHaveBeenCalledWith({
       title: "Apple weekly digest",
-      bodyText: "Hello",
+      bodyText: DOCUMENT_BODY,
       tickerSymbol: "AAPL",
       unsubscribeUrl: "https://example.com/preview/unsubscribe",
     });
@@ -61,7 +78,7 @@ describe("renderEmailPreview", () => {
       {
         newsletterId: "nl-err",
         subject: "Subject",
-        bodyText: "Body",
+        bodyText: DOCUMENT_BODY,
         tickerSymbol: "AAPL",
       },
       { renderHtml, logger: { warn } },
@@ -86,7 +103,7 @@ describe("renderEmailPreview", () => {
       {
         newsletterId: "nl-x",
         subject: "Subject",
-        bodyText: "Body",
+        bodyText: DOCUMENT_BODY,
         tickerSymbol: "AAPL",
       },
       { renderHtml },
@@ -96,8 +113,27 @@ describe("renderEmailPreview", () => {
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
   });
 
-  it("does not throw when the newsletter has empty optional fields", async () => {
-    const renderHtml = vi.fn().mockResolvedValue({ html: "<html></html>" });
+  it("shows a format notice for a newsletter stored in the legacy wire format", async () => {
+    const renderHtml = vi.fn();
+
+    const html = await renderEmailPreview(
+      {
+        newsletterId: "nl-legacy",
+        subject: "AAPL Pulse: Old issue",
+        bodyText:
+          "MP_NEWSLETTER\n\nBEGIN industry-pulse\nDISPLAY_HEADING\nOld\nPROSE\nOld body.\nEND\n",
+        tickerSymbol: "AAPL",
+      },
+      { renderHtml },
+    );
+
+    expect(html).toContain("before the current content format");
+    expect(html).not.toContain("MP_NEWSLETTER");
+    expect(renderHtml).not.toHaveBeenCalled();
+  });
+
+  it("shows the format notice rather than throwing on an empty body", async () => {
+    const renderHtml = vi.fn();
 
     const html = await renderEmailPreview(
       {
@@ -109,6 +145,7 @@ describe("renderEmailPreview", () => {
       { renderHtml },
     );
 
-    expect(html).toBe("<html></html>");
+    expect(html).toContain("before the current content format");
+    expect(renderHtml).not.toHaveBeenCalled();
   });
 });
