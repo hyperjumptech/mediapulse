@@ -2,7 +2,11 @@ import { Heading, Hr, Link, Section, Text } from "@react-email/components";
 import { Fragment, type ReactElement } from "react";
 
 import { parseNewsletterBody } from "./parse-newsletter-body.js";
-import type { ParsedIndustrySection } from "./parse-industry-newsletter-wire.js";
+import type {
+  NewsletterArticle,
+  NewsletterSection,
+  NewsletterSectionKey,
+} from "./newsletter-document.js";
 import { renderInlineMarkdownLinks } from "./render-inline-markdown-links.js";
 import {
   DEFAULT_HYPERJUMP_SITE_URL,
@@ -17,9 +21,9 @@ export interface DefaultNewsletterEmailProps {
   /** Shown as the main title inside the email body (typically matches the message subject). */
   title: string;
   /**
-   * Newsletter body as plain text with optional inline markdown links `[label](https://…)`
-   * in section copy; structured bodies also use EXECUTIVE SUMMARY / TOP N NEWS markers.
-   * Inline https links are rendered as clickable anchors (see {@link renderInlineMarkdownLinks}).
+   * Newsletter body. A JSON newsletter document renders as structured sections; anything
+   * else renders as plain text with inline markdown links `[label](https://…)` turned into
+   * anchors (see {@link renderInlineMarkdownLinks}).
    */
   bodyText: string;
   /** Optional footer line (e.g. unsubscribe placeholder). */
@@ -62,16 +66,107 @@ export {
   DEFAULT_HYPERJUMP_SITE_URL,
 } from "../shared/email-shell.js";
 
-/** Canonical section labels keyed by wire `machineKey`. */
-const SECTION_LABELS: Partial<
-  Record<ParsedIndustrySection["machineKey"], string>
+/** Reader-facing name and remit of one newsletter section. */
+interface SectionCopy {
+  /** Canonical section label rendered as the section heading. */
+  label: string;
+  /** Plain-language explanation of what the section collects. */
+  description: string;
+}
+
+/**
+ * Section labels and descriptions keyed by language, then by section key.
+ *
+ * The section names are Mediapulse vocabulary, so each one states which kinds of
+ * stories it collects rather than assuming the reader already knows the term.
+ * Descriptions are held to a narrow length band per language so the glossary box
+ * reads as an even block.
+ */
+export const SECTION_COPY: Record<
+  FooterLanguage,
+  Record<NewsletterSectionKey, SectionCopy>
 > = {
-  "industry-pulse": "Industry Pulse",
-  "competitive-landscape": "Competitive Landscape",
-  "deals-and-movements": "Deals & Movements",
-  "regulatory-policy-watch": "Regulatory & Policy Watch",
-  "disruptors-or-tech": "Disruptors & Tech",
-  "quick-hits": "Quick Hits",
+  en: {
+    "industry-pulse": {
+      label: "Industry Pulse",
+      description:
+        "The biggest stories affecting the whole industry, and why they matter right now.",
+    },
+    "competitive-landscape": {
+      label: "Competitive Landscape",
+      description:
+        "What competing companies are doing, and where they are gaining or losing ground.",
+    },
+    "deals-and-movements": {
+      label: "Deals & Movements",
+      description:
+        "Companies buying, merging, raising money, teaming up, or changing their leaders.",
+    },
+    "regulatory-policy-watch": {
+      label: "Regulatory & Policy Watch",
+      description:
+        "New rules and government decisions that change what companies are allowed to do.",
+    },
+    "disruptors-or-tech": {
+      label: "Disruptors & Tech",
+      description:
+        "New technology and new companies that could change how the whole industry works.",
+    },
+    "quick-hits": {
+      label: "Quick Hits",
+      description:
+        "Short news items worth knowing about, each with a link if you want to read more.",
+    },
+  },
+  id: {
+    "industry-pulse": {
+      label: "Sorotan Industri",
+      description:
+        "Berita terbesar yang memengaruhi seluruh industri, dan mengapa itu penting kini.",
+    },
+    "competitive-landscape": {
+      label: "Peta Persaingan",
+      description:
+        "Apa yang dilakukan pesaing, dan di mana mereka menguat atau justru melemah kini.",
+    },
+    "deals-and-movements": {
+      label: "Aksi Korporasi",
+      description:
+        "Perusahaan membeli, merger, menggalang dana, bermitra, atau berganti pemimpin.",
+    },
+    "regulatory-policy-watch": {
+      label: "Pantauan Regulasi",
+      description:
+        "Aturan baru dan keputusan pemerintah yang mengubah ruang gerak perusahaan kini.",
+    },
+    "disruptors-or-tech": {
+      label: "Disrupsi & Teknologi",
+      description:
+        "Teknologi dan pemain baru yang bisa mengubah cara kerja seluruh industri ini.",
+    },
+    "quick-hits": {
+      label: "Sekilas Info",
+      description:
+        "Kabar singkat yang perlu diketahui, lengkap dengan tautan untuk baca lanjutan.",
+    },
+  },
+};
+
+/** Heading for the closing glossary box, keyed by language. */
+const GLOSSARY_TITLE: Record<FooterLanguage, string> = {
+  en: "What do these sections mean?",
+  id: "Apa arti bagian-bagian ini?",
+};
+
+/**
+ * Label for an article's source link, keyed by language.
+ *
+ * Deliberately generic: the article title is rendered directly above the link, so
+ * repeating it in the link text would print the same words twice.
+ */
+const READ_MORE_LABEL: Record<FooterLanguage, string> = {
+  en: "Read more…",
+  id: "Baca selengkapnya…",
 };
 
 /** Newsletter footer language. Alias of the shared {@link EmailLanguage}. */
@@ -116,38 +211,6 @@ const FOOTER_COPY: Record<FooterLanguage, FooterCopy> = {
 };
 
 /**
- * Splits a section display heading into an eyebrow label and subtitle.
- *
- * @param machineKey - Wire section key.
- * @param displayHeading - Model-provided heading text.
- * @returns Eyebrow and subtitle parts for rendering.
- */
-export const decomposeSectionHeading = (
-  machineKey: ParsedIndustrySection["machineKey"],
-  displayHeading: string,
-): { eyebrow: string | null; subtitle: string | null } => {
-  const label = SECTION_LABELS[machineKey];
-  if (label === undefined) {
-    return { eyebrow: null, subtitle: displayHeading };
-  }
-
-  // Strip "Label / " prefix if the model included it (backward compat with old wire data)
-  const prefix = `${label} / `;
-  if (displayHeading.toLowerCase().startsWith(prefix.toLowerCase())) {
-    const subtitle = displayHeading.slice(prefix.length).trim();
-    return { eyebrow: label, subtitle: subtitle.length > 0 ? subtitle : null };
-  }
-
-  // When the heading is just the label itself, render it once instead of
-  // repeating it as both eyebrow and subtitle.
-  if (displayHeading.trim().toLowerCase() === label.toLowerCase()) {
-    return { eyebrow: label, subtitle: null };
-  }
-
-  return { eyebrow: label, subtitle: displayHeading };
-};
-
-/**
  * Builds the byline line shown above an article.
  *
  * @param byline - Optional author and source for the article.
@@ -166,45 +229,75 @@ export const formatArticleByline = (byline: {
 };
 
 /**
- * Renders a section header as an eyebrow kicker plus subtitle, or a plain label.
+ * Renders a section header as the canonical section label.
  *
- * @param machineKey - Wire section key.
- * @param displayHeading - Model-provided heading text.
- * @returns React Email heading elements for the section.
+ * @param sectionKey - Canonical section key.
+ * @param language - Language for the section label.
+ * @returns React Email heading element for the section.
  */
 export const renderSectionHeader = (
-  machineKey: ParsedIndustrySection["machineKey"],
-  displayHeading: string,
-): ReactElement => {
-  const { eyebrow, subtitle } = decomposeSectionHeading(
-    machineKey,
-    displayHeading,
-  );
-  const label = SECTION_LABELS[machineKey] ?? displayHeading;
+  sectionKey: NewsletterSectionKey,
+  language: FooterLanguage = "en",
+): ReactElement => (
+  <Heading
+    as="h2"
+    className="m-0 mb-5 border-0 border-b-2 border-solid border-ink pb-2 text-xl font-bold leading-tight tracking-[-0.01em] text-ink"
+  >
+    {SECTION_COPY[language][sectionKey].label}
+  </Heading>
+);
 
-  if (subtitle === null) {
-    return (
-      <Heading
-        as="h2"
-        className="m-0 mb-3 text-lg font-semibold leading-tight text-ink"
-      >
-        {label}
-      </Heading>
-    );
+/**
+ * Reports whether a parsed section has content worth rendering.
+ *
+ * @param section - Parsed wire section.
+ * @returns `true` when the section renders at least one row or a non-empty prose block.
+ */
+export const hasRenderableContent = (section: NewsletterSection): boolean =>
+  section.articles.some((article) => article.points.length > 0);
+
+/**
+ * Renders the closing glossary box explaining the section names used above.
+ *
+ * Only sections actually present in this issue are listed, in the order they were
+ * rendered, so the glossary never defines a section the reader did not see.
+ *
+ * @param sections - Sections rendered in this issue, in display order.
+ * @param language - Language for the box title, labels, and descriptions.
+ * @returns Glossary box, or `null` when no section is present.
+ */
+export const renderSectionGlossary = (
+  sections: readonly NewsletterSection[],
+  language: FooterLanguage = "en",
+): ReactElement | null => {
+  if (sections.length === 0) {
+    return null;
   }
 
+  const entries = sections.map((section) => ({
+    key: section.key,
+    ...SECTION_COPY[language][section.key],
+  }));
+
   return (
-    <>
-      <Text className="m-0 mb-1 text-xs font-semibold uppercase leading-snug tracking-[0.06em] text-muted">
-        {eyebrow ?? label}
-      </Text>
+    <Section className="rounded-lg border border-solid border-rule bg-canvas p-5">
       <Heading
         as="h2"
-        className="m-0 mb-3 text-lg font-semibold leading-tight text-ink"
+        className="m-0 mb-3 text-base font-semibold leading-tight text-ink"
       >
-        {subtitle}
+        {GLOSSARY_TITLE[language]}
       </Heading>
-    </>
+      {entries.map((entry) => (
+        <Section key={`glossary-${entry.key}`} className="mb-3">
+          <Text className="m-0 text-sm font-semibold leading-snug text-ink">
+            {entry.label}
+          </Text>
+          <Text className="m-0 text-sm leading-normal text-muted">
+            {entry.description}
+          </Text>
+        </Section>
+      ))}
+    </Section>
   );
 };
 
@@ -226,14 +319,13 @@ export const buildDefaultFooterNote = (
 /**
  * Default HTML newsletter layout for Mediapulse delivery.
  *
- * When `bodyText` follows a structured format (legacy executive summary + top news,
- * or `MP_NEWSLETTER` industry briefing wire), the content is rendered as labelled
- * sections with separated items.
+ * When `bodyText` is a valid newsletter document, it renders as labelled sections.
  * Otherwise it falls back to pre-wrapped plain-text rendering.
  *
- * Industry briefings render the Industry Pulse prose as a lead standfirst under the
- * title. The footer carries a Mediapulse / Hyperjump branding block directly above
- * the subscription disclaimer.
+ * Industry briefings omit the body title and render every section, Industry Pulse
+ * included, as a block under its canonical section label, and close with a glossary
+ * box defining those labels. The footer carries a
+ * Mediapulse / Hyperjump branding block directly above the subscription disclaimer.
  *
  * @param props.title - Heading text in the body.
  * @param props.bodyText - Main content; structured plain text or free-form.
@@ -254,126 +346,68 @@ export const DefaultNewsletterEmail = ({
   hyperjumpSiteUrl = DEFAULT_HYPERJUMP_SITE_URL,
   language = "en",
 }: DefaultNewsletterEmailProps): ReactElement => {
-  const parsed = parseNewsletterBody(bodyText);
+  const document = parseNewsletterBody(bodyText);
   const copy = FOOTER_COPY[language];
   const resolvedFooterNote =
     footerNote ?? buildDefaultFooterNote(tickerSymbol, language);
   const unsubscribeTarget = tickerSymbol ?? copy.unsubscribeFallback;
 
-  const renderIndustrySection = (
-    section: ParsedIndustrySection,
-    index: number,
+  const renderArticle = (
+    article: NewsletterArticle,
+    sectionKey: NewsletterSectionKey,
+    articleIndex: number,
+    isLast: boolean,
   ): ReactElement => {
-    if (
-      section.machineKey === "disruptors-or-tech" &&
-      "format" in section &&
-      section.format === "prose"
-    ) {
-      return (
-        <Section key={`${section.machineKey}-${String(index)}`}>
-          {renderSectionHeader(section.machineKey, section.displayHeading)}
-          <Text className="m-0 whitespace-pre-wrap text-base leading-relaxed text-body">
-            {renderInlineMarkdownLinks(section.prose, link)}
+    const byline = formatArticleByline(article);
+
+    return (
+      <Section key={`${sectionKey}-a-${String(articleIndex)}`}>
+        <Text className="m-0 mb-1 text-[17px] font-semibold leading-snug text-ink">
+          {article.title}
+        </Text>
+        {byline !== undefined ? (
+          <Text className="m-0 mb-3 text-xs font-normal uppercase leading-normal tracking-[0.04em] text-faint">
+            {byline}
           </Text>
-        </Section>
-      );
-    }
-
-    if ("bullets" in section) {
-      if (section.bullets.length === 0) {
-        return <Fragment key={`${section.machineKey}-${String(index)}`} />;
-      }
-      return (
-        <Section key={`${section.machineKey}-${String(index)}`}>
-          {renderSectionHeader(section.machineKey, section.displayHeading)}
-          {section.bullets.map((bullet, bulletIndex) => {
-            const bulletCtaLabel = bullet.title ?? bullet.text;
-            const bulletByline = formatArticleByline(bullet);
-            return (
-              <Section
-                key={`${String(section.machineKey)}-b-${String(bulletIndex)}`}
-              >
-                {bulletByline !== undefined ? (
-                  <Text className="m-0 mb-1 text-xs font-normal leading-normal text-muted">
-                    {bulletByline}
-                  </Text>
-                ) : null}
-                <Text className="m-0 text-base leading-relaxed text-body">
-                  {renderInlineMarkdownLinks(bullet.text, link)}
-                </Text>
-                {bullet.url !== undefined && bullet.url !== "" ? (
-                  <Text className="m-0 mt-2 text-sm leading-normal text-body">
-                    <Link href={bullet.url} className={emailLinkClassName}>
-                      Read: {bulletCtaLabel}
-                    </Link>
-                  </Text>
-                ) : null}
-                {bulletIndex < section.bullets.length - 1 ? (
-                  <Hr className="my-4 border-0 border-t border-rule" />
-                ) : null}
-              </Section>
-            );
-          })}
-        </Section>
-      );
-    }
-
-    if (section.machineKey === "quick-hits") {
-      if (section.items.length === 0) {
-        return <Fragment key={`${section.machineKey}-${String(index)}`} />;
-      }
-      return (
-        <Section key={`${section.machineKey}-${String(index)}`}>
-          {renderSectionHeader(section.machineKey, section.displayHeading)}
-          {section.items.map((item, itemIndex) => {
-            const itemCtaLabel = item.title ?? item.text;
-            const itemByline = formatArticleByline(item);
-            return (
-              <Section key={`qh-${String(itemIndex)}`}>
-                {itemByline !== undefined ? (
-                  <Text className="m-0 mb-1 text-xs font-normal leading-normal text-muted">
-                    {itemByline}
-                  </Text>
-                ) : null}
-                <Text className="m-0 text-base leading-relaxed text-body">
-                  {renderInlineMarkdownLinks(item.text, link)}
-                </Text>
-                {item.url !== undefined && item.url !== "" ? (
-                  <Text className="m-0 mt-2 text-sm leading-normal text-body">
-                    <Link href={item.url} className={emailLinkClassName}>
-                      Read: {itemCtaLabel}
-                    </Link>
-                  </Text>
-                ) : null}
-                {itemIndex < section.items.length - 1 ? (
-                  <Hr className="my-4 border-0 border-t border-rule" />
-                ) : null}
-              </Section>
-            );
-          })}
-        </Section>
-      );
-    }
-
-    return <Fragment key={`unknown-${String(index)}`} />;
+        ) : null}
+        <ul className="m-0 mb-0 list-disc pl-5 text-[15px] leading-[1.65] text-body">
+          {article.points.map((point, pointIndex) => (
+            <li key={`p-${String(pointIndex)}`} className="mb-2 pl-1">
+              {renderInlineMarkdownLinks(point, link)}
+            </li>
+          ))}
+        </ul>
+        <Text className="m-0 mt-3 text-sm font-medium leading-normal">
+          <Link href={article.url} className={emailLinkClassName}>
+            {READ_MORE_LABEL[language]}
+          </Link>
+        </Text>
+        {isLast ? null : <Hr className="my-6 border-0 border-t border-rule" />}
+      </Section>
+    );
   };
 
-  const industryPulseSection =
-    parsed?.format === "industry"
-      ? parsed.sections.find(
-          (section) => section.machineKey === "industry-pulse",
-        )
-      : undefined;
-  const leadCtaLabel =
-    industryPulseSection?.machineKey === "industry-pulse"
-      ? (industryPulseSection.title ?? industryPulseSection.displayHeading)
-      : undefined;
+  const renderIndustrySection = (
+    section: NewsletterSection,
+    index: number,
+  ): ReactElement => (
+    <Section key={`${section.key}-${String(index)}`}>
+      {renderSectionHeader(section.key, language)}
+      {section.articles.map((article, articleIndex) =>
+        renderArticle(
+          article,
+          section.key,
+          articleIndex,
+          articleIndex === section.articles.length - 1,
+        ),
+      )}
+    </Section>
+  );
+
+  const isIndustryFormat = document !== undefined;
   const industryBodySections =
-    parsed?.format === "industry"
-      ? parsed.sections.filter(
-          (section) => section.machineKey !== "industry-pulse",
-        )
-      : [];
+    document?.sections.filter(hasRenderableContent) ?? [];
+  const sectionGlossary = renderSectionGlossary(industryBodySections, language);
 
   return (
     <EmailShell
@@ -394,89 +428,31 @@ export const DefaultNewsletterEmail = ({
           : {}),
       }}
     >
-      <Section>
-        <EmailHeading>{title}</EmailHeading>
-        {industryPulseSection !== undefined ? (
-          <>
-            {(() => {
-              const leadByline = formatArticleByline(industryPulseSection);
-              return leadByline !== undefined ? (
-                <Text className="m-0 mb-1 text-xs font-normal leading-normal text-muted">
-                  {leadByline}
-                </Text>
-              ) : null;
-            })()}
-            <Text className="m-0 whitespace-pre-wrap text-[17px] leading-relaxed text-body">
-              {renderInlineMarkdownLinks(industryPulseSection.prose, link)}
-            </Text>
-            {industryPulseSection.url !== undefined ? (
-              <Text className="m-0 mt-2 text-sm leading-normal text-body">
-                <Link
-                  href={industryPulseSection.url}
-                  className={emailLinkClassName}
-                >
-                  Read: {leadCtaLabel}
-                </Link>
-              </Text>
-            ) : null}
-          </>
-        ) : null}
-      </Section>
-      <Hr className="my-6 border-0 border-t border-rule" />
-      {parsed !== undefined ? (
-        parsed.format === "industry" ? (
-          <>
-            {industryBodySections.map((section, index) => (
-              <Fragment key={`sec-${String(index)}`}>
-                {index > 0 ? (
-                  <Hr className="my-6 border-0 border-t border-rule" />
-                ) : null}
-                {renderIndustrySection(section, index)}
-              </Fragment>
-            ))}
-          </>
-        ) : (
-          <>
-            <Heading
-              as="h2"
-              className="m-0 mb-3 text-lg font-semibold leading-tight text-ink"
-            >
-              Executive Summary
-            </Heading>
-            <Text className="m-0 whitespace-pre-wrap text-base leading-relaxed text-body">
-              {renderInlineMarkdownLinks(parsed.executiveSummary, link)}
-            </Text>
-            <Hr className="my-6 border-0 border-t border-rule" />
-            <Heading
-              as="h2"
-              className="m-0 mb-3 text-lg font-semibold leading-tight text-ink"
-            >
-              Top News
-            </Heading>
-            {parsed.topNewsItems.map(
-              (item: (typeof parsed.topNewsItems)[number], index: number) => (
-                <Section key={item.number}>
-                  <Text className="m-0 mb-2 text-base font-semibold leading-normal text-body">
-                    {item.number}. {item.title}
-                  </Text>
-                  <Text className="m-0 text-base leading-relaxed text-body">
-                    {renderInlineMarkdownLinks(item.summary, link)}
-                  </Text>
-                  {item.url !== undefined && item.url !== "" ? (
-                    <Text className="m-0 mt-2 text-sm leading-normal text-body">
-                      <Link href={item.url} className={emailLinkClassName}>
-                        Read: {item.title}
-                      </Link>
-                    </Text>
-                  ) : null}
-                  {index < parsed.topNewsItems.length - 1 ? (
-                    <Hr className="my-4 border-0 border-t border-rule" />
-                  ) : null}
-                </Section>
-              ),
-            )}
-          </>
-        )
+      {isIndustryFormat ? null : (
+        <>
+          <Section>
+            <EmailHeading>{title}</EmailHeading>
+          </Section>
+          <Hr className="my-6 border-0 border-t border-rule" />
+        </>
+      )}
+      {document !== undefined ? (
+        <>
+          {industryBodySections.map((section, index) => (
+            <Fragment key={`sec-${String(index)}`}>
+              {index > 0 ? (
+                <Hr className="my-6 border-0 border-t border-rule" />
+              ) : null}
+              {renderIndustrySection(section, index)}
+            </Fragment>
+          ))}
+          {sectionGlossary !== null ? (
+            <>
+              <Hr className="my-6 border-0 border-t border-rule" />
+              {sectionGlossary}
+            </>
+          ) : null}
+        </>
       ) : (
         <Text className="m-0 whitespace-pre-wrap text-base leading-relaxed text-body">
           {renderInlineMarkdownLinks(bodyText, link)}
@@ -487,77 +463,147 @@ export const DefaultNewsletterEmail = ({
 };
 
 /** Shared sample props for the preview wrappers (English base; id flips `language`). */
+/** Shared sample props for the preview wrappers (English base; id flips `language`). */
 export const NEWSLETTER_PREVIEW_PROPS = {
   title: "ACME Weekly: Fixed broadband steadies the sector",
-  bodyText: [
-    "MP_NEWSLETTER",
-    "",
-    "BEGIN industry-pulse",
-    "DISPLAY_HEADING",
-    "The sector repairs, quietly",
-    "SOURCE Market Wire",
-    "PROSE",
-    "The telecom sector is repairing rather than roaring. Fixed broadband net adds are carrying revenue growth while prepaid ARPU stays flat, and operators are leaning on bundling and home fiber to defend margins into the second half.",
-    "Read the full article: https://example.com/sector/broadband-outlook",
-    "END",
-    "",
-    "BEGIN competitive-landscape",
-    "DISPLAY_HEADING",
-    "Competitive Landscape / Fiber is the new battleground",
-    "BULLET",
-    "TITLE Acme extends home-fiber lead",
-    "AUTHOR Jane Doe",
-    "SOURCE Market Wire",
-    "Acme Telecom added roughly 320,000 home-fiber subscribers in the quarter, widening its lead as rivals struggle to match its backbone reach in secondary cities.",
-    "Read the full article: https://example.com/acme/home-fiber",
-    "BULLET",
-    "TITLE Contoso Mobile leans on convergence",
-    "Contoso Mobile pushed converged mobile-plus-home plans to lift retention, trading near-term ARPU for lower churn in contested urban clusters.",
-    "Read the full article: https://example.com/contoso/convergence",
-    "END",
-    "",
-    "BEGIN deals-and-movements",
-    "DISPLAY_HEADING",
-    "Deals & Movements",
-    "BULLET",
-    "TITLE Northwind closes tower acquisition",
-    "Northwind Towers completed the purchase of about 2,800 sites, building the largest independent tower portfolio in the region.",
-    "Read the full article: https://example.com/northwind/tower-deal",
-    "END",
-    "",
-    "BEGIN regulatory-policy-watch",
-    "DISPLAY_HEADING",
-    "Regulatory & Policy Watch / Spectrum on the agenda",
-    "BULLET",
-    "The regulator signaled a mid-band spectrum auction for next year, a prerequisite for wider 5G coverage beyond the largest cities.",
-    "Read the full article: https://example.com/policy/spectrum-auction",
-    "END",
-    "",
-    "BEGIN disruptors-or-tech",
-    "DISPLAY_HEADING",
-    "Disruptors & Tech / AI moves to the edge",
-    "FORMAT",
-    "prose",
-    "PROSE",
-    "Operators are piloting AI-driven network optimization to squeeze more capacity from existing sites, while fixed-wireless access is emerging as a cheaper path to homes that fiber has not yet reached.",
-    "END",
-    "",
-    "BEGIN quick-hits",
-    "DISPLAY_HEADING",
-    "Quick Hits",
-    "ITEM",
-    "Acme reaffirmed its full-year capex guidance.",
-    "ITEM",
-    "Contoso Mobile reported steady data traffic growth.",
-    "Read the full article: https://example.com/contoso/data-traffic",
-    "ITEM",
-    "Fabrikam expanded prepaid promotions ahead of the holiday quarter.",
-    "ITEM",
-    "A new submarine cable landing was approved in the east.",
-    "ITEM",
-    "The board reaffirmed its dividend timeline for the year.",
-    "END",
-  ].join("\n"),
+  bodyText: JSON.stringify({
+    version: 1,
+    sections: [
+      {
+        key: "industry-pulse",
+        articles: [
+          {
+            title: "Fixed broadband carries a flat quarter",
+            author: "Jane Doe",
+            source: "Market Wire",
+            url: "https://example.com/sector/broadband-outlook",
+            points: [
+              "Fixed broadband net adds carried sector revenue growth for a third quarter.",
+              "Prepaid ARPU stayed flat, leaving bundling as the main defence of margins.",
+              "Operators guided to a second half that repairs rather than accelerates.",
+            ],
+          },
+          {
+            title: "Home fiber becomes the sector's growth engine",
+            source: "Telecom Daily",
+            url: "https://example.com/sector/fiber-growth-engine",
+            points: [
+              "Home fiber now drives most incremental revenue at the top four operators.",
+              "Capex is shifting from mobile densification toward fiber backhaul.",
+            ],
+          },
+        ],
+      },
+      {
+        key: "competitive-landscape",
+        articles: [
+          {
+            title: "Acme extends home-fiber lead",
+            author: "Jane Doe",
+            source: "Market Wire",
+            url: "https://example.com/acme/home-fiber",
+            points: [
+              "Added roughly 320,000 home-fiber subscribers in the quarter.",
+              "Widened its lead as rivals struggled to match backbone reach.",
+              "Growth concentrated in secondary cities rather than the capital.",
+            ],
+          },
+          {
+            title: "Contoso Mobile leans on convergence",
+            source: "Telecom Daily",
+            url: "https://example.com/contoso/convergence",
+            points: [
+              "Pushed converged mobile-plus-home plans to lift retention.",
+              "Traded near-term ARPU for lower churn in contested urban clusters.",
+            ],
+          },
+        ],
+      },
+      {
+        key: "deals-and-movements",
+        articles: [
+          {
+            title: "Northwind closes tower acquisition",
+            source: "Deal Register",
+            url: "https://example.com/northwind/tower-deal",
+            points: [
+              "Completed the purchase of about 2,800 tower sites.",
+              "Creates the largest independent tower portfolio in the region.",
+              "Funded with a mix of new debt and an equity injection.",
+            ],
+          },
+        ],
+      },
+      {
+        key: "regulatory-policy-watch",
+        articles: [
+          {
+            title: "Regulator signals mid-band spectrum auction",
+            source: "Policy Brief",
+            url: "https://example.com/policy/spectrum-auction",
+            points: [
+              "An auction was signalled for next year, the first since 2021.",
+              "Mid-band spectrum is a prerequisite for 5G beyond the largest cities.",
+            ],
+          },
+        ],
+      },
+      {
+        key: "disruptors-or-tech",
+        articles: [
+          {
+            title: "AI lands in network planning",
+            source: "Market Wire",
+            url: "https://example.com/tech/ai-network-planning",
+            points: [
+              "Operators are piloting AI-driven network optimization.",
+              "Early results squeeze more capacity out of existing sites.",
+              "No new spectrum is required to capture the gain.",
+            ],
+          },
+          {
+            title: "Fixed wireless fills the fiber gap",
+            url: "https://example.com/tech/fixed-wireless-access",
+            points: [
+              "Fixed-wireless access is emerging as a cheaper path to unserved homes.",
+              "Most attractive outside cities, where fiber payback is long.",
+            ],
+          },
+        ],
+      },
+      {
+        key: "quick-hits",
+        articles: [
+          {
+            title: "Acme holds full-year capex guidance",
+            source: "Market Wire",
+            url: "https://example.com/acme/capex-guidance",
+            points: [
+              "Reaffirmed its full-year capex guidance at the earnings call.",
+              "No change to the fiber build target for the year.",
+            ],
+          },
+          {
+            title: "Contoso data traffic keeps climbing",
+            source: "Telecom Daily",
+            url: "https://example.com/contoso/data-traffic",
+            points: [
+              "Reported steady double-digit data traffic growth.",
+              "Growth is now led by fixed wireless rather than mobile.",
+            ],
+          },
+          {
+            title: "Fabrikam widens prepaid promotions",
+            url: "https://example.com/fabrikam/prepaid-promotions",
+            points: [
+              "Expanded prepaid promotions ahead of the holiday quarter.",
+              "Targets the price-sensitive segment rivals have been ceding.",
+            ],
+          },
+        ],
+      },
+    ],
+  }),
   unsubscribeUrl: "https://example.com/api/unsubscribe?token=preview",
   tickerSymbol: "ACME",
   mediapulseSiteUrl: DEFAULT_MEDIAPULSE_SITE_URL,

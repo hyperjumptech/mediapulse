@@ -9,11 +9,19 @@ export {
   parseNewsletterEmailSubject,
   type ParsedNewsletterEmailSubject,
 } from "./newsletter/newsletter-email-subject.js";
+export { parseNewsletterBody } from "./newsletter/parse-newsletter-body.js";
 export {
-  parseNewsletterBody,
-  type LegacyParsedNewsletterBody,
-  type ParsedNewsletterBody,
-} from "./newsletter/parse-newsletter-body.js";
+  readNewsletterDocument,
+  MAX_ARTICLES_PER_SECTION,
+  MAX_POINTS_PER_ARTICLE,
+  MAX_POINT_LENGTH,
+  NEWSLETTER_SECTION_KEYS,
+  newsletterDocumentSchema,
+  type NewsletterArticle,
+  type NewsletterDocument,
+  type NewsletterSection,
+  type NewsletterSectionKey,
+} from "./newsletter/newsletter-document.js";
 export {
   parseNewsletterCitations,
   unwrapInlineFormatting,

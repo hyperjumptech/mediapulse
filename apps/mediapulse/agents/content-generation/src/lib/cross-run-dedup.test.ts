@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { IndustryNewsletterResolved } from "../industry-newsletter-urls.js";
+import type { NewsletterDocument } from "@workspace/email-templates/newsletter-document";
 
 import {
   dedupeAgainstRecentBullets,
@@ -9,121 +9,115 @@ import {
 
 const URL_A = "https://source.example/a";
 const URL_B = "https://source.example/b";
-const basePulse = { displayHeading: "Pulse", prose: "Lead prose." };
 
 const REPEATED_TEXT =
   "Rival launches new premium coffee subscription service nationwide next quarter";
 const NOVEL_TEXT =
   "Regulator approves updated banking capital adequacy framework guidance today";
 
+const article = (title: string, text: string, url: string) => ({
+  title,
+  url,
+  points: [text],
+});
+
+const sectionOf = (document: NewsletterDocument, key: string) =>
+  document.sections.find((section) => section.key === key);
+
 describe("dedupeAgainstRecentBullets", () => {
   it("is a no-op when the recent corpus is empty", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      competitiveLandscape: {
-        displayHeading: "Competition",
-        bullets: [{ text: REPEATED_TEXT, url: URL_A }],
-      },
+    const document: NewsletterDocument = {
+      version: 1,
+      sections: [
+        {
+          key: "competitive-landscape",
+          articles: [article("Rival", REPEATED_TEXT, URL_A)],
+        },
+      ],
     };
 
-    const result = dedupeAgainstRecentBullets(resolved, []);
+    const result = dedupeAgainstRecentBullets(document, []);
 
     expect(result.removedCount).toBe(0);
-    expect(result.resolved).toBe(resolved);
+    expect(result.document).toBe(document);
   });
 
-  it("drops a bullet that repeats a recent bullet and keeps a novel one", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      competitiveLandscape: {
-        displayHeading: "Competition",
-        bullets: [
-          { text: REPEATED_TEXT, url: URL_A },
-          { text: NOVEL_TEXT, url: URL_B },
-        ],
-      },
+  it("drops an article that repeats a recent bullet and keeps a novel one", () => {
+    const document: NewsletterDocument = {
+      version: 1,
+      sections: [
+        {
+          key: "competitive-landscape",
+          articles: [
+            article("Rival", REPEATED_TEXT, URL_A),
+            article("Regulator", NOVEL_TEXT, URL_B),
+          ],
+        },
+      ],
     };
     const recent: RecentBullet[] = [
       { sectionKey: "competitiveLandscape", bulletText: REPEATED_TEXT },
     ];
 
-    const result = dedupeAgainstRecentBullets(resolved, recent);
+    const result = dedupeAgainstRecentBullets(document, recent);
+    const section = sectionOf(result.document, "competitive-landscape");
 
-    expect(result.resolved.competitiveLandscape?.bullets).toHaveLength(1);
-    expect(result.resolved.competitiveLandscape?.bullets[0]?.text).toBe(
-      NOVEL_TEXT,
-    );
+    expect(section?.articles).toHaveLength(1);
+    expect(section?.articles[0]?.points[0]).toBe(NOVEL_TEXT);
     expect(result.removedCount).toBe(1);
-    expect(result.bySection.competitiveLandscape).toBe(1);
-  });
-
-  it("keeps uncited bullets (no url) even when their text repeats a recent bullet", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      dealsAndMovements: {
-        displayHeading: "Deals",
-        bullets: [{ text: REPEATED_TEXT }],
-      },
-    };
-    const recent: RecentBullet[] = [
-      { sectionKey: "dealsAndMovements", bulletText: REPEATED_TEXT },
-    ];
-
-    const result = dedupeAgainstRecentBullets(resolved, recent);
-
-    expect(result.resolved.dealsAndMovements?.bullets).toHaveLength(1);
-    expect(result.removedCount).toBe(0);
+    expect(result.bySection["competitive-landscape"]).toBe(1);
   });
 
   it("never empties a section: rescues the most novel item when every item repeats", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      dealsAndMovements: {
-        displayHeading: "Deals",
-        bullets: [
-          { text: REPEATED_TEXT, url: URL_A },
-          { text: NOVEL_TEXT, url: URL_B },
-        ],
-      },
+    const document: NewsletterDocument = {
+      version: 1,
+      sections: [
+        {
+          key: "deals-and-movements",
+          articles: [
+            article("Rival", REPEATED_TEXT, URL_A),
+            article("Regulator", NOVEL_TEXT, URL_B),
+          ],
+        },
+      ],
     };
-    // Both generated bullets match a recent bullet, so both would drop without the floor.
+    // Both generated articles match a recent bullet, so both would drop without the floor.
     const recent: RecentBullet[] = [
       { sectionKey: "dealsAndMovements", bulletText: REPEATED_TEXT },
       { sectionKey: "dealsAndMovements", bulletText: NOVEL_TEXT },
     ];
 
-    const result = dedupeAgainstRecentBullets(resolved, recent);
+    const result = dedupeAgainstRecentBullets(document, recent);
+    const section = sectionOf(result.document, "deals-and-movements");
 
-    expect(result.resolved.dealsAndMovements).toBeDefined();
-    expect(result.resolved.dealsAndMovements?.bullets).toHaveLength(1);
+    expect(section).toBeDefined();
+    expect(section?.articles).toHaveLength(1);
     expect(result.removedCount).toBe(1);
-    expect(result.bySection.dealsAndMovements).toBe(1);
+    expect(result.bySection["deals-and-movements"]).toBe(1);
   });
 
-  it("applies to quickHits items", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      quickHits: {
-        displayHeading: "Quick hits",
-        items: [
-          { text: REPEATED_TEXT, url: URL_A },
-          { text: NOVEL_TEXT, url: URL_B },
-        ],
-      },
+  it("applies to quick-hits articles", () => {
+    const document: NewsletterDocument = {
+      version: 1,
+      sections: [
+        {
+          key: "quick-hits",
+          articles: [
+            article("Rival", REPEATED_TEXT, URL_A),
+            article("Regulator", NOVEL_TEXT, URL_B),
+          ],
+        },
+      ],
     };
     const recent: RecentBullet[] = [
       { sectionKey: "quickHits", bulletText: REPEATED_TEXT },
     ];
 
-    const result = dedupeAgainstRecentBullets(resolved, recent);
+    const result = dedupeAgainstRecentBullets(document, recent);
+    const section = sectionOf(result.document, "quick-hits");
 
-    expect(result.resolved.quickHits?.items).toHaveLength(1);
-    expect(result.resolved.quickHits?.items[0]?.text).toBe(NOVEL_TEXT);
-    expect(result.bySection.quickHits).toBe(1);
+    expect(section?.articles).toHaveLength(1);
+    expect(section?.articles[0]?.points[0]).toBe(NOVEL_TEXT);
+    expect(result.bySection["quick-hits"]).toBe(1);
   });
 });

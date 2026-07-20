@@ -3,10 +3,15 @@ import { generateObject } from "ai";
 import type { z } from "zod";
 
 import {
+  MEDIAPULSE_NEWSLETTER_SECTIONS,
   NEWSLETTER_SECTION_IDS,
   type NewsletterSectionId,
 } from "@workspace/agent-data-api-contract";
 import { applyContractBrief } from "@workspace/agent-runtime";
+import type {
+  NewsletterDocument,
+  NewsletterSectionKey,
+} from "@workspace/email-templates/newsletter-document";
 import { formatNewsletterEmailSubject } from "@workspace/email-templates/newsletter-email-subject";
 import { logger } from "@workspace/logger";
 
@@ -14,13 +19,8 @@ import {
   CONTENT_GENERATION_CONSTANTS,
   type ResolvedContentGenerationConfig,
 } from "./config-schema.js";
-import { formatIndustryNewsletterWire } from "./format-industry-newsletter.js";
-import {
-  industryNewsletterStructureLlmSchema,
-  industryNewsletterStructureSchema,
-} from "./industry-newsletter-schema.js";
-import { attachIndustryNewsletterSourceUrls } from "./industry-newsletter-urls.js";
-import type { IndustryNewsletterResolved } from "./industry-newsletter-urls.js";
+import { newsletterDraftSchema } from "./newsletter-draft-schema.js";
+import { resolveNewsletterDraft } from "./resolve-newsletter-draft.js";
 import {
   dedupeWithinRun,
   pruneNewsletterToCitedRows,
@@ -49,49 +49,62 @@ import type { SourceForGeneration } from "./types.js";
 
 export type { SourceForGeneration };
 
-/** Per-section bullet and removal counts from the final resolved newsletter. */
+/** Maps a stored document section key to the camelCase id the agent-data-api contract stores. */
+export const SECTION_ID_BY_DOCUMENT_KEY: Record<
+  NewsletterSectionKey,
+  NewsletterSectionId
+> = {
+  "industry-pulse": "industryPulse",
+  "competitive-landscape": "competitiveLandscape",
+  "deals-and-movements": "dealsAndMovements",
+  "regulatory-policy-watch": "regulatoryPolicyWatch",
+  "disruptors-or-tech": "disruptorsOrTech",
+  "quick-hits": "quickHits",
+};
+
+const DOCUMENT_KEY_BY_SECTION_ID = Object.fromEntries(
+  Object.entries(SECTION_ID_BY_DOCUMENT_KEY).map(([documentKey, sectionId]) => [
+    sectionId,
+    documentKey as NewsletterSectionKey,
+  ]),
+) as Record<NewsletterSectionId, NewsletterSectionKey>;
+
+const SECTION_LABEL_BY_ID = Object.fromEntries(
+  MEDIAPULSE_NEWSLETTER_SECTIONS.map((section) => [section.id, section.label]),
+) as Record<NewsletterSectionId, string>;
+
+/** Per-section article and removal counts from the final newsletter document. */
 export type SectionFillSnapshot = {
   bySection: Record<NewsletterSectionId, { citedBullets: number }>;
   sectionsRemoved: NewsletterSectionId[];
 };
 
 /**
- * Counts cited bullets shipped per newsletter section from the final resolved structure.
- * Prose sections (`industryPulse`, `disruptorsOrTech` when format=prose) count as 1 item each.
- * Sections absent in the resolved structure contribute 0.
+ * Counts cited articles shipped per newsletter section from the final document.
+ * Sections absent from the document contribute 0.
  *
- * @param resolved - Final resolved newsletter after all pruning passes.
- * @returns Per-section bullet counts.
+ * @param document - Final document after all pruning passes.
+ * @returns Per-section article counts.
  */
 export const computeNewsletterSectionFill = (
-  resolved: import("./industry-newsletter-urls.js").IndustryNewsletterResolved,
+  document: NewsletterDocument,
 ): Record<NewsletterSectionId, { citedBullets: number }> => {
-  const disruptorsOrTechCount =
-    resolved.disruptorsOrTech === undefined
-      ? 0
-      : resolved.disruptorsOrTech.format === "bullets"
-        ? resolved.disruptorsOrTech.bullets.length
-        : 1;
+  const countByDocumentKey = new Map<string, number>();
+  for (const section of document.sections) {
+    countByDocumentKey.set(
+      section.key,
+      (countByDocumentKey.get(section.key) ?? 0) + section.articles.length,
+    );
+  }
 
   return Object.fromEntries(
-    NEWSLETTER_SECTION_IDS.map((id) => {
-      let citedBullets: number;
-      if (id === "industryPulse") {
-        citedBullets = resolved.industryPulse !== undefined ? 1 : 0;
-      } else if (id === "competitiveLandscape") {
-        citedBullets = resolved.competitiveLandscape?.bullets.length ?? 0;
-      } else if (id === "dealsAndMovements") {
-        citedBullets = resolved.dealsAndMovements?.bullets.length ?? 0;
-      } else if (id === "regulatoryPolicyWatch") {
-        citedBullets = resolved.regulatoryPolicyWatch?.bullets.length ?? 0;
-      } else if (id === "disruptorsOrTech") {
-        citedBullets = disruptorsOrTechCount;
-      } else {
-        citedBullets = resolved.quickHits?.items.length ?? 0;
-      }
-
-      return [id, { citedBullets }];
-    }),
+    NEWSLETTER_SECTION_IDS.map((id) => [
+      id,
+      {
+        citedBullets:
+          countByDocumentKey.get(DOCUMENT_KEY_BY_SECTION_ID[id]) ?? 0,
+      },
+    ]),
   ) as Record<NewsletterSectionId, { citedBullets: number }>;
 };
 
@@ -101,7 +114,7 @@ export type NewsletterCitationLink = {
 };
 
 export const collectNewsletterCitations = (
-  resolved: IndustryNewsletterResolved,
+  document: NewsletterDocument,
   sources: readonly SourceForGeneration[],
 ): NewsletterCitationLink[] => {
   const dataSourceIdByUrl = new Map<string, string>();
@@ -113,45 +126,27 @@ export const collectNewsletterCitations = (
 
   const seen = new Set<string>();
   const citations: NewsletterCitationLink[] = [];
-  const add = (sectionKey: string, url: string | undefined): void => {
-    if (url === undefined) {
-      return;
-    }
-    const dataSourceId = dataSourceIdByUrl.get(url);
-    if (dataSourceId === undefined) {
-      return;
-    }
-    const dedupeKey = `${dataSourceId}:${sectionKey}`;
-    if (seen.has(dedupeKey)) {
-      return;
-    }
-    seen.add(dedupeKey);
-    citations.push({ dataSourceId, sectionKey });
-  };
 
-  add("industryPulse", resolved.industryPulse?.url);
-  for (const bullet of resolved.competitiveLandscape?.bullets ?? []) {
-    add("competitiveLandscape", bullet.url);
-  }
-  for (const bullet of resolved.dealsAndMovements?.bullets ?? []) {
-    add("dealsAndMovements", bullet.url);
-  }
-  for (const bullet of resolved.regulatoryPolicyWatch?.bullets ?? []) {
-    add("regulatoryPolicyWatch", bullet.url);
-  }
-  if (resolved.disruptorsOrTech?.format === "bullets") {
-    for (const bullet of resolved.disruptorsOrTech.bullets) {
-      add("disruptorsOrTech", bullet.url);
+  for (const section of document.sections) {
+    const sectionKey = SECTION_ID_BY_DOCUMENT_KEY[section.key];
+    for (const article of section.articles) {
+      const dataSourceId = dataSourceIdByUrl.get(article.url);
+      if (dataSourceId === undefined) {
+        continue;
+      }
+      const dedupeKey = `${dataSourceId}:${sectionKey}`;
+      if (seen.has(dedupeKey)) {
+        continue;
+      }
+      seen.add(dedupeKey);
+      citations.push({ dataSourceId, sectionKey });
     }
-  }
-  for (const item of resolved.quickHits?.items ?? []) {
-    add("quickHits", item.url);
   }
 
   return citations;
 };
 
-/** One written entry within a section, linked to its source article when it cited one. */
+/** One written entry within a section, linked to its source article. */
 export type NewsletterSectionItemLink = {
   title: string;
   summary: string;
@@ -160,7 +155,7 @@ export type NewsletterSectionItemLink = {
   position: number;
 };
 
-/** One section of the shipped newsletter: heading, optional prose summary, and its written items. */
+/** One section of the shipped newsletter: heading and its written items. */
 export type NewsletterSectionLink = {
   sectionKey: string;
   heading: string;
@@ -170,154 +165,51 @@ export type NewsletterSectionLink = {
 };
 
 /**
- * Builds the exact grounded section structure from the final resolved newsletter, in canonical
- * section order. Prose sections carry their prose as the summary and no items; bullet and quick-hit
- * sections carry each written entry (headline, summary, and resolved source link) as an item.
+ * Builds the grounded section structure from the final document, in document order.
  *
- * @param resolved - Final resolved newsletter after all pruning passes.
- * @param sources - Prompt sources, used to resolve each entry's URL back to its data source id.
+ * The document carries no display heading, so each row stores the canonical section label from the
+ * agent-data-api contract, which is what the reader sees above that section.
+ *
+ * @param document - Final document after all pruning passes.
+ * @param sources - Prompt sources, used to resolve each article's URL back to its data source id.
  * @returns Sections with their items, ready to persist.
  */
 export const collectNewsletterSections = (
-  resolved: IndustryNewsletterResolved,
+  document: NewsletterDocument,
   sources: readonly SourceForGeneration[],
 ): NewsletterSectionLink[] => {
   const dataSourceIdByUrl = new Map<string, string>();
-  const titleByUrl = new Map<string, string>();
   for (const source of sources) {
-    if (source.url.length > 0) {
-      if (source.dataSourceId !== undefined) {
-        dataSourceIdByUrl.set(source.url, source.dataSourceId);
-      }
-      const title = source.title?.trim();
-      if (title) {
-        titleByUrl.set(source.url, title);
-      }
+    if (source.url.length > 0 && source.dataSourceId !== undefined) {
+      dataSourceIdByUrl.set(source.url, source.dataSourceId);
     }
   }
 
-  const itemFor = (
-    entry: { title?: string; text: string; url?: string },
-    position: number,
-  ): NewsletterSectionItemLink => {
-    const title = entry.title?.trim() ?? "";
-    const text = entry.text.trim();
+  return document.sections.map((section, position) => {
+    const sectionKey = SECTION_ID_BY_DOCUMENT_KEY[section.key];
 
     return {
-      title: title || text,
-      summary: text,
-      url: entry.url ?? null,
-      dataSourceId:
-        entry.url !== undefined
-          ? (dataSourceIdByUrl.get(entry.url) ?? null)
-          : null,
-      position,
-    };
-  };
-
-  const sections: NewsletterSectionLink[] = [];
-  const pushProse = (
-    sectionKey: string,
-    section: { displayHeading: string; prose: string },
-  ): void => {
-    sections.push({
       sectionKey,
-      heading: section.displayHeading,
-      summary: section.prose,
-      position: sections.length,
-      items: [],
-    });
-  };
-  const pushEntries = (
-    sectionKey: string,
-    heading: string,
-    entries: ReadonlyArray<{ title?: string; text: string; url?: string }>,
-  ): void => {
-    sections.push({
-      sectionKey,
-      heading,
+      heading: SECTION_LABEL_BY_ID[sectionKey],
       summary: null,
-      position: sections.length,
-      items: entries.map(itemFor),
-    });
-  };
-
-  if (resolved.industryPulse) {
-    const pulse = resolved.industryPulse;
-    const pulseTitle =
-      pulse.title?.trim() ||
-      (pulse.url ? titleByUrl.get(pulse.url) : undefined);
-    if (pulse.url && pulseTitle) {
-      sections.push({
-        sectionKey: "industryPulse",
-        heading: pulse.displayHeading,
-        summary: null,
-        position: sections.length,
-        items: [
-          {
-            title: pulseTitle,
-            summary: pulse.prose.trim(),
-            url: pulse.url,
-            dataSourceId: dataSourceIdByUrl.get(pulse.url) ?? null,
-            position: 0,
-          },
-        ],
-      });
-    } else {
-      pushProse("industryPulse", pulse);
-    }
-  }
-  if (resolved.competitiveLandscape) {
-    pushEntries(
-      "competitiveLandscape",
-      resolved.competitiveLandscape.displayHeading,
-      resolved.competitiveLandscape.bullets,
-    );
-  }
-  if (resolved.dealsAndMovements) {
-    pushEntries(
-      "dealsAndMovements",
-      resolved.dealsAndMovements.displayHeading,
-      resolved.dealsAndMovements.bullets,
-    );
-  }
-  if (resolved.regulatoryPolicyWatch) {
-    pushEntries(
-      "regulatoryPolicyWatch",
-      resolved.regulatoryPolicyWatch.displayHeading,
-      resolved.regulatoryPolicyWatch.bullets,
-    );
-  }
-  if (resolved.disruptorsOrTech) {
-    if (resolved.disruptorsOrTech.format === "prose") {
-      pushProse("disruptorsOrTech", resolved.disruptorsOrTech);
-    } else {
-      pushEntries(
-        "disruptorsOrTech",
-        resolved.disruptorsOrTech.displayHeading,
-        resolved.disruptorsOrTech.bullets,
-      );
-    }
-  }
-  if (resolved.quickHits) {
-    pushEntries(
-      "quickHits",
-      resolved.quickHits.displayHeading,
-      resolved.quickHits.items,
-    );
-  }
-
-  return sections;
+      position,
+      items: section.articles.map((article, itemPosition) => ({
+        title: article.title,
+        summary: article.points.join(" "),
+        url: article.url,
+        dataSourceId: dataSourceIdByUrl.get(article.url) ?? null,
+        position: itemPosition,
+      })),
+    };
+  });
 };
 
 /** Structured newsletter content returned after a successful LLM call. */
 export interface GeneratedContent {
   /** Compelling email subject line (under ~60 chars). */
   subject: string;
-  /** Formatted plain-text newsletter body (`MP_NEWSLETTER` industry wire). */
+  /** Newsletter body: a JSON `newsletterDocumentSchema` document. */
   content: string;
-  /** Optional executive summary for newsletter preview or listing. */
-  description?: string;
 }
 
 /**
@@ -349,7 +241,7 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
    * Present only when the model reports them (gpt-5/o-series with reasoning effort set).
    */
   structuredReasoningTokens?: number;
-  /** Per-bullet grounding reports from the citation safety net. */
+  /** Per-article grounding reports from the citation safety net. */
   citationGroundingReports?: BulletGroundingReport[];
   /** Rolled-up citation grounding counters for run details. */
   citationGroundingSummary?: CitationGroundingSummary;
@@ -357,10 +249,10 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
   requireCitationSummary?: PruneSummary;
   /** Count of Quick Hits removed for being weakly-relevant structured-section demotions. */
   quickHitsDemotionRemoved?: number;
-  /** Per-section bullet counts and removed-section list from the final resolved newsletter. */
+  /** Per-section article counts and removed-section list from the final document. */
   sectionFillSnapshot?: SectionFillSnapshot;
   newsletterCitations?: NewsletterCitationLink[];
-  /** The exact grounded section structure (heading + summary + written items) as generated. */
+  /** The exact grounded section structure (heading + written items) as generated. */
   newsletterSections?: NewsletterSectionLink[];
   /** Cross-day dedup counters, present when a recent-bullet corpus was provided. */
   crossRunDedupSummary?: {
@@ -377,7 +269,7 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
 /** Minimal arguments for a single `generateObject` call for newsletter generation. */
 export type GenerateNewsletterObjectArgs = {
   model: ReturnType<ReturnType<typeof createOpenAI>>;
-  schema: typeof industryNewsletterStructureLlmSchema;
+  schema: typeof newsletterDraftSchema;
   system: string;
   prompt: string;
   /** Should always be 0 — we manage our own retry loop via retryWithBackoff. */
@@ -396,7 +288,7 @@ export type GenerateNewsletterObjectUsage = {
 
 /** Result of a single `generateObject` call for newsletter generation. */
 export type GenerateNewsletterObjectResult = {
-  object: z.infer<typeof industryNewsletterStructureSchema>;
+  object: z.infer<typeof newsletterDraftSchema>;
   /**
    * Token usage from the AI SDK response.
    * Present when the model/provider returns usage data; absent otherwise.
@@ -506,24 +398,35 @@ Use {{tickerName}} ({{tickerSymbol}}) to orient the industry intelligence lens. 
 
 Focus on what is happening outside the company — macro forces, regulatory shifts, competitive moves, technology disruption. Do not include earnings guidance, internal financial projections, or company-specific forecast commentary.
 
-You receive exactly {{topNewsCount}} numbered articles (Article 1 … Article {{topNewsCount}}). Ground claims in those articles. When a bullet or quick hit should link to a source in the final email, set "articleIndex" to the 1-based article number from that list. Never output URLs in JSON; the system injects them. Never write "(Article N)", "(cited Article N)", "(see Article N)", or bare article numbers inside any "text" or "prose" field; citations are expressed only via "articleIndex", and the system renders the visible link.
+You receive exactly {{topNewsCount}} numbered articles (Article 1 … Article {{topNewsCount}}). Ground claims in those articles. Set "articleIndex" to the 1-based article number from that list. Never output URLs in JSON; the system injects them. Never write "(Article N)", "(cited Article N)", "(see Article N)", or bare article numbers inside any "title" or "points" text; citations are expressed only via "articleIndex", and the system renders the visible link.
 
-Return JSON matching this shape (camelCase keys):
+Return JSON matching this shape:
 - "subject": short email subject title only (under ~48 chars), sector-relevant headline text. Do not include a "SYMBOL Pulse:" prefix — the system adds that automatically. Avoid repeating {{tickerSymbol}} in the title when the prefix already identifies the ticker. Keep the subject faithful to the actual state of the lead story: when the story is a forecast, prediction, risk, or possibility, do not phrase it as an accomplished fact (for example write "could surge" or "may rise", not "surges").
-- "industryPulse": { "displayHeading", "prose", "articleIndex" } — short lead framing the industry story (no bullet characters in prose). Set "articleIndex" to the single most representative article the lead summarizes; use null when the lead does not lean on a specific article.
-- "competitiveLandscape": { "displayHeading", "bullets" } — 2–3 bullets about {{tickerName}}'s COMPETITORS, not {{tickerName}} itself — peer positioning, rival launches, share shifts, competitive threats. Each bullet should name a competitor. Each bullet { "title", "text", "articleIndex" } where "title" is a short headline (under 60 chars) naming the story, "text" is the full bullet sentence, and articleIndex is a 1-based article number or null when uncited.
-- "dealsAndMovements": { "displayHeading", "bullets" } — 1–3 bullets; each bullet { "title", "text", "articleIndex" } with the same title and articleIndex rules.
-- "regulatoryPolicyWatch": { "displayHeading", "bullets" } — 1–3 bullets; same title and articleIndex rules.
-- "disruptorsOrTech": either { "format": "prose", "displayHeading", "prose" } OR { "format": "bullets", "displayHeading", "bullets" } with 1–3 bullets (each bullet has "title", "text", "articleIndex" with the same rules).
-- "quickHits": { "displayHeading", "items" } — 5–7 items; each item { "title", "text", "articleIndex" } where "title" is a short headline (under 60 chars), "text" is the sentence, and articleIndex is required.
+- "sections": an array of sections. Each section is { "key", "articles" }.
 
-Headings ("displayHeading") are short subtitle phrases only — never repeat the section label or use "Label / Subtitle" format. Keep JSON valid; use null for optional blocks and uncited articleIndex values.
+"key" is one of: "industry-pulse", "competitive-landscape", "deals-and-movements", "regulatory-policy-watch", "disruptors-or-tech", "quick-hits". Emit a section only when you have at least one article for it, and never emit the same key twice.
 
-Each article lists an "Assigned section". That assignment is authoritative — place that article in the named section (industryPulse, competitiveLandscape, dealsAndMovements, regulatoryPolicyWatch, disruptorsOrTech, or quickHits). Only fall back to your own judgement for articles with no assigned section.
+Every section has the same shape. There is no lead section and no prose section.
+- "articles": 1–3 articles per section. Each article is { "title", "points", "articleIndex" }.
+- "title": a short headline naming the story, under 60 characters.
+- "points": 1–3 key takeaways from that article. Each is AT MOST 100 characters.
 
-Every bullet, quick hit, and the Industry Pulse lead (whenever it sets articleIndex) must summarize exactly one article and set articleIndex to that one article. The "text" (or the lead "prose") must faithfully summarize that specific article using only facts stated in it: do not invent figures, company names, deals, or events that are not in that article, do not attribute a cause or driver (for example what is driving demand, a price move, or a policy) that the cited article does not state, and never attribute another company's actions to the subject of the cited article. The reader-facing link shown with each item is that article's own title, so the summary must describe the same story as its cited article. Do not blend multiple articles into one bullet or lead, and do not reuse the same article for two bullets in a section.
+Write points the way a busy reader wants them: the single most important fact first, then only what genuinely adds to it. Lead with the concrete thing — the number, the name, the decision, the change. Cut throat-clearing ("The article reports that", "It is worth noting"), scene-setting, and hedging. One fact per point, no bullet characters, no leading dashes. If an article only carries one thing worth knowing, write one point; never pad to three.
+- "articleIndex": the 1-based article number this article summarizes. Always required.
 
-Item titles must be unique across the entire newsletter (all bullets in all sections and all quick-hit items). Every title must name a distinct story. Do not reuse the same headline or a near-identical paraphrase for two different items.
+Section guidance:
+- "industry-pulse": the biggest stories affecting the whole industry.
+- "competitive-landscape": {{tickerName}}'s COMPETITORS, not {{tickerName}} itself — peer positioning, rival launches, share shifts. Each article should name a competitor.
+- "deals-and-movements": M&A, funding, partnerships, leadership changes.
+- "regulatory-policy-watch": rules, licensing, enforcement, policy.
+- "disruptors-or-tech": new technology and new entrants.
+- "quick-hits": smaller stories still worth surfacing.
+
+Each article lists an "Assigned section". That assignment is authoritative — place that article in the named section ("industry-pulse", "competitive-landscape", "deals-and-movements", "regulatory-policy-watch", "disruptors-or-tech", or "quick-hits"). Only fall back to your own judgement for articles with no assigned section.
+
+Every article must summarize exactly one source article and set articleIndex to it. The "points" must faithfully summarize that specific article using only facts stated in it: do not invent figures, company names, deals, or events that are not in that article, do not attribute a cause or driver (for example what is driving demand, a price move, or a policy) that the cited article does not state, and never attribute another company's actions to the subject of the cited article. The reader-facing link shown with each item is that article's own title, so the summary must describe the same story as its cited article. Do not blend multiple source articles into one article entry, and do not reuse the same source article twice in a section.
+
+Titles must be unique across the entire newsletter. Every title must name a distinct story. Do not reuse the same headline or a near-identical paraphrase for two different items.
 
 Cross-section duplication is forbidden. Do not cover the same story in two different sections, even from different angles. Do not write two items about the same event in different sections. Each article (by articleIndex) may be cited at most once across the entire newsletter — if an article is used in one section, it must not appear in any other section or in quickHits.`;
 
@@ -536,8 +439,8 @@ Write one JSON industry briefing using the {{topNewsCount}} numbered articles be
 
 Rules reminder:
 - Industry and competitive lens; no trading advice.
-- Use "articleIndex" to point at Article 1 … Article {{topNewsCount}} from this prompt. Set articleIndex to null on a bullet when there is no clear single-article grounding.
-- Quick hits must all include articleIndex.
+- Use "articleIndex" to point at Article 1 … Article {{topNewsCount}} from this prompt. Every article entry must have one.
+- Every point must be at most 100 characters.
 
 {{sourceSummaries}}`;
 
@@ -653,8 +556,8 @@ export function buildUserPrompt(
  * Pipeline: truncate sources to the hardcoded context budgets, group them by
  * their authoritative upstream `section`, run a single structured `generateObject`
  * call (wrapped in `retryWithBackoff`), apply the always-on citation safety net
- * (grounding + require-citation prune), attach source URLs, and serialize to the
- * `MP_NEWSLETTER` plain-text wire format. The model's own subject is used.
+ * (grounding), resolve each `articleIndex` into a grounded URL and byline, prune and
+ * dedupe, then serialize the document to JSON. The model's own subject is used.
  *
  * Returns the generated content together with token usage and the exact prompt
  * strings sent to the model, enabling the caller to compute provenance fields.
@@ -767,7 +670,7 @@ export async function generateNewsletterWithLlm(
     async () => {
       return generateFn({
         model,
-        schema: industryNewsletterStructureLlmSchema,
+        schema: newsletterDraftSchema,
         system: systemPrompt,
         prompt,
         maxRetries: 0,
@@ -779,13 +682,13 @@ export async function generateNewsletterWithLlm(
     { sleepFn: deps.sleepFn },
   );
 
-  const { object: finalStructure, usage } = result;
+  const { object: draft, usage } = result;
 
   // -------------------------------------------------------------------------
   // Citation safety net (always on)
   // -------------------------------------------------------------------------
   const grounding = CONTENT_GENERATION_CONSTANTS.citationGrounding;
-  const grounded = groundNewsletterCitations(finalStructure, promptSources, {
+  const grounded = groundNewsletterCitations(draft, promptSources, {
     policy: grounding.policy,
     minOverlapScore: grounding.minOverlapScore,
     numericBonus: grounding.numericBonus,
@@ -818,22 +721,39 @@ export async function generateNewsletterWithLlm(
     "Citation grounding summary",
   );
 
-  let resolved = attachIndustryNewsletterSourceUrls(
-    grounded.structure,
-    promptSources,
-  );
+  const resolvedDraft = resolveNewsletterDraft(grounded.draft, promptSources);
+  let document = resolvedDraft.document;
+
+  if (
+    resolvedDraft.report.articlesDroppedUnresolvedIndex > 0 ||
+    resolvedDraft.report.sectionsDroppedEmpty > 0
+  ) {
+    logger.info(
+      {
+        tickerId: context.tickerId,
+        ...resolvedDraft.report,
+        event: "newsletter_draft_resolve",
+      },
+      "Newsletter draft resolution dropped unresolvable rows",
+    );
+  }
 
   const requireCitation = CONTENT_GENERATION_CONSTANTS.requireCitation;
-  const pruned = pruneNewsletterToCitedRows(resolved, {
-    sections: requireCitation.sections,
+  const pruned = pruneNewsletterToCitedRows(document, {
+    sections: requireCitation.sections.map(
+      (sectionId) => DOCUMENT_KEY_BY_SECTION_ID[sectionId],
+    ),
     dedupeArticlesWithinSection: requireCitation.dedupeArticlesWithinSection,
     dedupeScope: requireCitation.dedupeScope,
   });
-  resolved = pruned.resolved;
+  document = pruned.document;
   const requireCitationSummary = pruned.summary;
   const prunedSectionsRemoved: NewsletterSectionId[] = pruned.reports
     .filter((report) => report.sectionRemoved)
-    .map((report) => report.sectionKey as NewsletterSectionId);
+    .map(
+      (report) =>
+        SECTION_ID_BY_DOCUMENT_KEY[report.sectionKey as NewsletterSectionKey],
+    );
 
   logger.info(
     {
@@ -847,11 +767,11 @@ export async function generateNewsletterWithLlm(
   );
 
   const withinRunDeduped: WithinRunDedupResult = dedupeWithinRun(
-    resolved,
+    document,
     requireCitation.withinRunDedupSimilarity,
     requireCitation.withinRunTitleDedupSimilarity,
   );
-  resolved = withinRunDeduped.resolved;
+  document = withinRunDeduped.document;
 
   if (withinRunDeduped.removedCount > 0) {
     logger.info(
@@ -872,11 +792,11 @@ export async function generateNewsletterWithLlm(
     | undefined;
   if (CONTENT_GENERATION_CONSTANTS.eventDedup.enabled) {
     const eventDeduped = dedupeCrossSectionEvents(
-      resolved,
+      document,
       CONTENT_GENERATION_CONSTANTS.eventDedup.minSharedAnchors,
       CONTENT_GENERATION_CONSTANTS.eventDedup.minContainment,
     );
-    resolved = eventDeduped.resolved;
+    document = eventDeduped.document;
     if (eventDeduped.removedCount > 0) {
       crossSectionEventDedupSummary = {
         removedCount: eventDeduped.removedCount,
@@ -901,11 +821,11 @@ export async function generateNewsletterWithLlm(
     | undefined;
   if (recentBullets.length > 0) {
     const crossRunDeduped = dedupeAgainstRecentBullets(
-      resolved,
+      document,
       recentBullets,
       CONTENT_GENERATION_CONSTANTS.crossRunDedup.similarity,
     );
-    resolved = crossRunDeduped.resolved;
+    document = crossRunDeduped.document;
     crossRunDedupSummary = {
       removedCount: crossRunDeduped.removedCount,
       bySection: crossRunDeduped.bySection,
@@ -926,11 +846,11 @@ export async function generateNewsletterWithLlm(
   }
 
   const quickHitsFiltered = filterDemotedQuickHits(
-    resolved,
+    document,
     promptSources,
     CONTENT_GENERATION_CONSTANTS.quickHitsDemotionMinScore,
   );
-  resolved = quickHitsFiltered.resolved;
+  document = quickHitsFiltered.document;
   if (quickHitsFiltered.removedCount > 0) {
     logger.info(
       {
@@ -943,11 +863,11 @@ export async function generateNewsletterWithLlm(
     );
   }
 
-  const content = formatIndustryNewsletterWire(resolved);
+  const content = JSON.stringify(document);
 
   const rawTitle =
-    finalStructure.subject.trim().length > 0
-      ? finalStructure.subject.trim()
+    draft.subject.trim().length > 0
+      ? draft.subject.trim()
       : "Your daily briefing";
   const subject = formatNewsletterEmailSubject(
     context.tickerSymbol ?? "",
@@ -957,9 +877,6 @@ export async function generateNewsletterWithLlm(
   return {
     subject,
     content,
-    // Reads the pre-prune finalStructure, so this is safe even when the resolved
-    // lead was later removed by the require-citation pass.
-    description: finalStructure.industryPulse.prose.trim() || undefined,
     promptTokens: usage?.promptTokens ?? null,
     completionTokens: usage?.completionTokens ?? null,
     totalTokens: usage?.totalTokens ?? null,
@@ -973,11 +890,11 @@ export async function generateNewsletterWithLlm(
     requireCitationSummary,
     quickHitsDemotionRemoved: quickHitsFiltered.removedCount,
     sectionFillSnapshot: {
-      bySection: computeNewsletterSectionFill(resolved),
+      bySection: computeNewsletterSectionFill(document),
       sectionsRemoved: prunedSectionsRemoved,
     },
-    newsletterCitations: collectNewsletterCitations(resolved, promptSources),
-    newsletterSections: collectNewsletterSections(resolved, promptSources),
+    newsletterCitations: collectNewsletterCitations(document, promptSources),
+    newsletterSections: collectNewsletterSections(document, promptSources),
     ...(crossRunDedupSummary ? { crossRunDedupSummary } : {}),
     ...(crossSectionEventDedupSummary ? { crossSectionEventDedupSummary } : {}),
   };

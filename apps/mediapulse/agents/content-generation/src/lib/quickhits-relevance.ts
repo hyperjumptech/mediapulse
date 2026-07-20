@@ -1,4 +1,8 @@
-import type { IndustryNewsletterResolved } from "../industry-newsletter-urls.js";
+import type {
+  NewsletterDocument,
+  NewsletterSection,
+} from "@workspace/email-templates/newsletter-document";
+
 import type { SourceForGeneration } from "../types.js";
 
 const STRUCTURED_SECTIONS = new Set<string>([
@@ -9,7 +13,7 @@ const STRUCTURED_SECTIONS = new Set<string>([
 ]);
 
 export type FilterDemotedQuickHitsResult = {
-  resolved: IndustryNewsletterResolved;
+  document: NewsletterDocument;
   removedCount: number;
 };
 
@@ -19,19 +23,21 @@ export type FilterDemotedQuickHitsResult = {
  * weakly-relevant one (the padding pattern where an off-topic item is demoted into Quick Hits with
  * stretched prose) is removed. Items assigned Quick Hits, or with no resolvable source, are kept.
  *
- * @param resolved - Newsletter after grounding, prune, and dedup.
+ * @param document - Document after grounding, prune, and dedup.
  * @param sources - Prompt sources carrying each article's assigned `section` and `sectionScore`.
  * @param minScore - Minimum section-fit score a demoted structured article must clear to stay.
- * @returns The newsletter with low-relevance demoted Quick Hits removed, and how many were removed.
+ * @returns The document with low-relevance demoted Quick Hits removed, and how many were removed.
  */
 export const filterDemotedQuickHits = (
-  resolved: IndustryNewsletterResolved,
+  document: NewsletterDocument,
   sources: readonly SourceForGeneration[],
   minScore: number,
 ): FilterDemotedQuickHitsResult => {
-  const quickHits = resolved.quickHits;
+  const quickHits = document.sections.find(
+    (section) => section.key === "quick-hits",
+  );
   if (quickHits === undefined) {
-    return { resolved, removedCount: 0 };
+    return { document, removedCount: 0 };
   }
 
   const metaByUrl = new Map<
@@ -50,11 +56,8 @@ export const filterDemotedQuickHits = (
     }
   }
 
-  const kept = quickHits.items.filter((item) => {
-    if (item.url === undefined) {
-      return true;
-    }
-    const meta = metaByUrl.get(item.url);
+  const kept = quickHits.articles.filter((article) => {
+    const meta = metaByUrl.get(article.url);
     if (
       meta === undefined ||
       meta.section === null ||
@@ -67,17 +70,21 @@ export const filterDemotedQuickHits = (
     return (meta.sectionScore ?? 0) >= minScore;
   });
 
-  const removedCount = quickHits.items.length - kept.length;
+  const removedCount = quickHits.articles.length - kept.length;
   if (removedCount === 0) {
-    return { resolved, removedCount: 0 };
+    return { document, removedCount: 0 };
   }
 
-  const next: IndustryNewsletterResolved = { ...resolved };
-  if (kept.length > 0) {
-    next.quickHits = { ...quickHits, items: kept };
-  } else {
-    delete next.quickHits;
+  const sections: NewsletterSection[] = [];
+  for (const section of document.sections) {
+    if (section.key !== "quick-hits") {
+      sections.push(section);
+      continue;
+    }
+    if (kept.length > 0) {
+      sections.push({ key: section.key, articles: kept });
+    }
   }
 
-  return { resolved: next, removedCount };
+  return { document: { version: 1, sections }, removedCount };
 };

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import type { IndustryNewsletterResolved } from "../industry-newsletter-urls.js";
+import type {
+  NewsletterArticle,
+  NewsletterDocument,
+  NewsletterSectionKey,
+} from "@workspace/email-templates/newsletter-document";
+
 import {
   dedupeWithinRun,
   pruneNewsletterToCitedRows,
@@ -8,381 +13,350 @@ import {
 
 const CITED_URL_A = "https://source.example/a";
 const CITED_URL_B = "https://source.example/b";
-const CITED_URL_C = "https://source.example/c";
 
-const basePulse = { displayHeading: "Pulse", prose: "Lead prose." };
+/**
+ * An article whose grounded URL is empty. `resolveNewsletterDraft` drops these before the prune
+ * pass runs, so this is the shape the prune pass's uncited branch still guards against.
+ */
+const uncited = (title: string): NewsletterArticle => ({
+  title,
+  url: "",
+  points: [title],
+});
+
+const article = (
+  title: string,
+  url: string,
+  points: string[] = [title],
+): NewsletterArticle => ({ title, url, points });
+
+const document = (
+  sections: Array<{ key: NewsletterSectionKey; articles: NewsletterArticle[] }>,
+): NewsletterDocument => ({ version: 1, sections });
+
+const sectionOf = (result: NewsletterDocument, key: string) =>
+  result.sections.find((section) => section.key === key);
 
 describe("pruneNewsletterToCitedRows — uncited rows dropped", () => {
-  it("keeps cited bullets and drops uncited ones; counts removedBullets correctly", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      competitiveLandscape: {
-        displayHeading: "Competition",
-        bullets: [
-          { text: "Cited A", url: CITED_URL_A },
-          { text: "No citation" },
-          { text: "Cited B", url: CITED_URL_B },
+  it("keeps cited articles and drops uncited ones; counts removedBullets correctly", () => {
+    const input = document([
+      {
+        key: "competitive-landscape",
+        articles: [
+          article("Cited A", CITED_URL_A),
+          uncited("No citation"),
+          article("Cited B", CITED_URL_B),
         ],
       },
-    };
+    ]);
 
     const {
-      resolved: pruned,
+      document: pruned,
       reports,
       summary,
-    } = pruneNewsletterToCitedRows(resolved);
+    } = pruneNewsletterToCitedRows(input);
+    const section = sectionOf(pruned, "competitive-landscape");
 
-    expect(pruned.competitiveLandscape?.bullets).toHaveLength(2);
-    expect(pruned.competitiveLandscape?.bullets[0]?.text).toBe("Cited A");
-    expect(pruned.competitiveLandscape?.bullets[1]?.text).toBe("Cited B");
+    expect(section?.articles).toHaveLength(2);
+    expect(section?.articles[0]?.title).toBe("Cited A");
+    expect(section?.articles[1]?.title).toBe("Cited B");
 
-    const report = reports.find((r) => r.sectionKey === "competitiveLandscape");
+    const report = reports.find(
+      (entry) => entry.sectionKey === "competitive-landscape",
+    );
+
     expect(report?.removedBullets).toBe(1);
     expect(report?.sectionRemoved).toBe(false);
-
     expect(summary.bulletsRemovedUncited).toBe(1);
     expect(summary.bulletsRemovedDuplicate).toBe(0);
     expect(summary.sectionsKept).toBe(1);
     expect(summary.sectionsRemoved).toBe(0);
   });
 
-  it("treats a bullet with url undefined as uncited (out-of-range articleIndex resolves to undefined)", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      dealsAndMovements: {
-        displayHeading: "Deals",
-        bullets: [
-          { text: "Good deal", url: CITED_URL_A },
-          { text: "Bad index" },
-        ],
+  it("treats an article with an empty url as uncited", () => {
+    const input = document([
+      {
+        key: "deals-and-movements",
+        articles: [article("Good deal", CITED_URL_A), uncited("Bad index")],
       },
-    };
+    ]);
 
-    const { resolved: pruned, summary } = pruneNewsletterToCitedRows(resolved);
+    const { document: pruned, summary } = pruneNewsletterToCitedRows(input);
 
-    expect(pruned.dealsAndMovements?.bullets).toHaveLength(1);
+    expect(sectionOf(pruned, "deals-and-movements")?.articles).toHaveLength(1);
     expect(summary.bulletsRemovedUncited).toBe(1);
   });
 
-  it("quick-hits without url are dropped; items with url are kept", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      quickHits: {
-        displayHeading: "Quick Hits",
-        items: [
-          { text: "Cited", url: CITED_URL_A },
-          { text: "Uncited" },
-          { text: "Cited too", url: CITED_URL_B },
+  it("quick-hits without url are dropped; articles with url are kept", () => {
+    const input = document([
+      {
+        key: "quick-hits",
+        articles: [
+          article("Cited", CITED_URL_A),
+          uncited("Uncited"),
+          article("Cited too", CITED_URL_B),
         ],
       },
-    };
+    ]);
 
-    const { resolved: pruned, summary } = pruneNewsletterToCitedRows(resolved);
+    const { document: pruned, summary } = pruneNewsletterToCitedRows(input);
 
-    expect(pruned.quickHits?.items).toHaveLength(2);
+    expect(sectionOf(pruned, "quick-hits")?.articles).toHaveLength(2);
     expect(summary.bulletsRemovedUncited).toBe(1);
   });
 });
 
 describe("pruneNewsletterToCitedRows — duplicate article dedup", () => {
-  it("keeps first bullet per URL within a section, drops later duplicates", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      competitiveLandscape: {
-        displayHeading: "Competition",
-        bullets: [
-          { text: "First cite A", url: CITED_URL_A },
-          { text: "Second cite A", url: CITED_URL_A },
-          { text: "First cite B", url: CITED_URL_B },
+  it("keeps first article per URL within a section, drops later duplicates", () => {
+    const input = document([
+      {
+        key: "competitive-landscape",
+        articles: [
+          article("First cite A", CITED_URL_A),
+          article("Second cite A", CITED_URL_A),
+          article("First cite B", CITED_URL_B),
         ],
       },
-    };
+    ]);
 
     const {
-      resolved: pruned,
+      document: pruned,
       reports,
       summary,
-    } = pruneNewsletterToCitedRows(resolved);
+    } = pruneNewsletterToCitedRows(input);
+    const section = sectionOf(pruned, "competitive-landscape");
 
-    expect(pruned.competitiveLandscape?.bullets).toHaveLength(2);
-    expect(pruned.competitiveLandscape?.bullets[0]?.text).toBe("First cite A");
-    expect(pruned.competitiveLandscape?.bullets[1]?.text).toBe("First cite B");
+    expect(section?.articles).toHaveLength(2);
+    expect(section?.articles[0]?.title).toBe("First cite A");
+    expect(section?.articles[1]?.title).toBe("First cite B");
 
-    const report = reports.find((r) => r.sectionKey === "competitiveLandscape");
+    const report = reports.find(
+      (entry) => entry.sectionKey === "competitive-landscape",
+    );
+
     expect(report?.removedForDuplicate).toBe(1);
     expect(summary.bulletsRemovedDuplicate).toBe(1);
     expect(summary.bulletsRemovedUncited).toBe(0);
   });
 
   it("dedupeScope 'section' isolates dedup per section — same URL allowed in different sections", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      competitiveLandscape: {
-        displayHeading: "Competition",
-        bullets: [{ text: "CL bullet", url: CITED_URL_A }],
+    const input = document([
+      {
+        key: "competitive-landscape",
+        articles: [article("CL article", CITED_URL_A)],
       },
-      dealsAndMovements: {
-        displayHeading: "Deals",
-        bullets: [{ text: "Deals bullet", url: CITED_URL_A }],
+      {
+        key: "deals-and-movements",
+        articles: [article("Deals article", CITED_URL_A)],
       },
-    };
+    ]);
 
-    const { resolved: pruned, summary } = pruneNewsletterToCitedRows(resolved, {
+    const { document: pruned, summary } = pruneNewsletterToCitedRows(input, {
       dedupeScope: "section",
     });
 
-    expect(pruned.competitiveLandscape?.bullets).toHaveLength(1);
-    expect(pruned.dealsAndMovements?.bullets).toHaveLength(1);
+    expect(sectionOf(pruned, "competitive-landscape")?.articles).toHaveLength(
+      1,
+    );
+    expect(sectionOf(pruned, "deals-and-movements")?.articles).toHaveLength(1);
     expect(summary.bulletsRemovedDuplicate).toBe(0);
   });
 
-  it("dedupeScope 'newsletter' drops second section bullet reusing an article from a prior section", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      competitiveLandscape: {
-        displayHeading: "Competition",
-        bullets: [{ text: "CL bullet", url: CITED_URL_A }],
+  it("dedupeScope 'newsletter' drops a later section article reusing an article from a prior section", () => {
+    const input = document([
+      {
+        key: "competitive-landscape",
+        articles: [article("CL article", CITED_URL_A)],
       },
-      dealsAndMovements: {
-        displayHeading: "Deals",
-        bullets: [
-          { text: "Deals bullet citing same article", url: CITED_URL_A },
-          { text: "Deals bullet citing new article", url: CITED_URL_B },
+      {
+        key: "deals-and-movements",
+        articles: [
+          article("Deals article citing same article", CITED_URL_A),
+          article("Deals article citing new article", CITED_URL_B),
         ],
       },
-    };
+    ]);
 
-    const { resolved: pruned, summary } = pruneNewsletterToCitedRows(resolved, {
+    const { document: pruned, summary } = pruneNewsletterToCitedRows(input, {
       dedupeScope: "newsletter",
     });
+    const deals = sectionOf(pruned, "deals-and-movements");
 
-    expect(pruned.competitiveLandscape?.bullets).toHaveLength(1);
-    expect(pruned.dealsAndMovements?.bullets).toHaveLength(1);
-    expect(pruned.dealsAndMovements?.bullets[0]?.text).toBe(
-      "Deals bullet citing new article",
+    expect(sectionOf(pruned, "competitive-landscape")?.articles).toHaveLength(
+      1,
     );
+    expect(deals?.articles).toHaveLength(1);
+    expect(deals?.articles[0]?.title).toBe("Deals article citing new article");
     expect(summary.bulletsRemovedDuplicate).toBe(1);
   });
 
   it("dedupeArticlesWithinSection false disables dedup entirely", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      competitiveLandscape: {
-        displayHeading: "Competition",
-        bullets: [
-          { text: "First", url: CITED_URL_A },
-          { text: "Duplicate", url: CITED_URL_A },
+    const input = document([
+      {
+        key: "competitive-landscape",
+        articles: [
+          article("First", CITED_URL_A),
+          article("Duplicate", CITED_URL_A),
         ],
       },
-    };
+    ]);
 
-    const { resolved: pruned, summary } = pruneNewsletterToCitedRows(resolved, {
+    const { document: pruned, summary } = pruneNewsletterToCitedRows(input, {
       dedupeArticlesWithinSection: false,
     });
 
-    expect(pruned.competitiveLandscape?.bullets).toHaveLength(2);
+    expect(sectionOf(pruned, "competitive-landscape")?.articles).toHaveLength(
+      2,
+    );
     expect(summary.bulletsRemovedDuplicate).toBe(0);
   });
 });
 
 describe("pruneNewsletterToCitedRows — section removal", () => {
-  it("removes a section when all its bullets are uncited", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      regulatoryPolicyWatch: {
-        displayHeading: "Policy",
-        bullets: [{ text: "Uncited bullet" }],
+  it("removes a section when all its articles are uncited", () => {
+    const input = document([
+      {
+        key: "regulatory-policy-watch",
+        articles: [uncited("Uncited article")],
       },
-    };
+    ]);
 
     const {
-      resolved: pruned,
+      document: pruned,
       reports,
       summary,
-    } = pruneNewsletterToCitedRows(resolved);
+    } = pruneNewsletterToCitedRows(input);
 
-    expect(pruned.regulatoryPolicyWatch).toBeUndefined();
+    expect(sectionOf(pruned, "regulatory-policy-watch")).toBeUndefined();
 
     const report = reports.find(
-      (r) => r.sectionKey === "regulatoryPolicyWatch",
+      (entry) => entry.sectionKey === "regulatory-policy-watch",
     );
+
     expect(report?.sectionRemoved).toBe(true);
     expect(report?.removedBullets).toBe(1);
-
     expect(summary.sectionsRemoved).toBe(1);
     expect(summary.sectionsKept).toBe(0);
   });
 
-  it("keeps a section with exactly one cited bullet (the min-one floor)", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      dealsAndMovements: {
-        displayHeading: "Deals",
-        bullets: [{ text: "One good deal", url: CITED_URL_A }],
+  it("keeps a section with exactly one cited article (the min-one floor)", () => {
+    const input = document([
+      {
+        key: "deals-and-movements",
+        articles: [article("One good deal", CITED_URL_A)],
       },
-    };
+    ]);
 
-    const { resolved: pruned, summary } = pruneNewsletterToCitedRows(resolved);
+    const { document: pruned, summary } = pruneNewsletterToCitedRows(input);
 
-    expect(pruned.dealsAndMovements?.bullets).toHaveLength(1);
+    expect(sectionOf(pruned, "deals-and-movements")?.articles).toHaveLength(1);
     expect(summary.sectionsRemoved).toBe(0);
     expect(summary.sectionsKept).toBe(1);
   });
 
-  it("removes disruptorsOrTech bullets variant when all bullets are uncited", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      disruptorsOrTech: {
-        format: "bullets",
-        displayHeading: "Tech",
-        bullets: [{ text: "Uncited tech" }],
-      },
-    };
+  it("removes disruptors-or-tech when all its articles are uncited", () => {
+    const input = document([
+      { key: "disruptors-or-tech", articles: [uncited("Uncited tech")] },
+    ]);
 
-    const { resolved: pruned, summary } = pruneNewsletterToCitedRows(resolved);
+    const { document: pruned, summary } = pruneNewsletterToCitedRows(input);
 
-    expect(pruned.disruptorsOrTech).toBeUndefined();
+    expect(sectionOf(pruned, "disruptors-or-tech")).toBeUndefined();
     expect(summary.sectionsRemoved).toBe(1);
   });
 
-  it("removes disruptorsOrTech prose variant as uncited", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      disruptorsOrTech: {
-        format: "prose",
-        displayHeading: "Tech",
-        prose: "Innovation is happening.",
-      },
-    };
+  it("removes industry-pulse when uncited and industry-pulse is in sections", () => {
+    const input = document([
+      { key: "industry-pulse", articles: [uncited("Sector summary")] },
+    ]);
 
     const {
-      resolved: pruned,
+      document: pruned,
       reports,
       summary,
-    } = pruneNewsletterToCitedRows(resolved);
+    } = pruneNewsletterToCitedRows(input, { sections: ["industry-pulse"] });
 
-    expect(pruned.disruptorsOrTech).toBeUndefined();
-    const report = reports.find((r) => r.sectionKey === "disruptorsOrTech");
-    expect(report?.sectionRemoved).toBe(true);
-    expect(report?.removedBullets).toBe(0);
-    expect(summary.sectionsRemoved).toBe(1);
-    expect(summary.sectionsKept).toBe(0);
-  });
+    expect(sectionOf(pruned, "industry-pulse")).toBeUndefined();
 
-  it("removes industryPulse when uncited and industryPulse is in sections", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: { displayHeading: "Lead", prose: "Sector summary." },
-    };
+    const report = reports.find(
+      (entry) => entry.sectionKey === "industry-pulse",
+    );
 
-    const {
-      resolved: pruned,
-      reports,
-      summary,
-    } = pruneNewsletterToCitedRows(resolved, { sections: ["industryPulse"] });
-
-    expect(pruned.industryPulse).toBeUndefined();
-    const report = reports.find((r) => r.sectionKey === "industryPulse");
     expect(report?.sectionRemoved).toBe(true);
     expect(summary.sectionsRemoved).toBe(1);
     expect(summary.sectionsKept).toBe(0);
   });
 
-  it("keeps industryPulse when cited and industryPulse is in sections", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: {
-        displayHeading: "Lead",
-        prose: "Sector summary.",
-        url: CITED_URL_A,
+  it("keeps industry-pulse when cited and industry-pulse is in sections", () => {
+    const input = document([
+      {
+        key: "industry-pulse",
+        articles: [article("Sector summary", CITED_URL_A)],
       },
-    };
+    ]);
 
-    const { resolved: pruned, summary } = pruneNewsletterToCitedRows(resolved, {
-      sections: ["industryPulse"],
+    const { document: pruned, summary } = pruneNewsletterToCitedRows(input, {
+      sections: ["industry-pulse"],
     });
 
-    expect(pruned.industryPulse).toBeDefined();
-    expect(pruned.industryPulse?.url).toBe(CITED_URL_A);
+    expect(sectionOf(pruned, "industry-pulse")?.articles[0]?.url).toBe(
+      CITED_URL_A,
+    );
     expect(summary.sectionsKept).toBe(1);
     expect(summary.sectionsRemoved).toBe(0);
   });
 
   it("skips sections not in the configured sections list", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      competitiveLandscape: {
-        displayHeading: "Competition",
-        bullets: [{ text: "Uncited" }],
-      },
-      dealsAndMovements: {
-        displayHeading: "Deals",
-        bullets: [{ text: "Uncited" }],
-      },
-    };
+    const input = document([
+      { key: "competitive-landscape", articles: [uncited("Uncited CL")] },
+      { key: "deals-and-movements", articles: [uncited("Uncited deals")] },
+    ]);
 
-    const { resolved: pruned, summary } = pruneNewsletterToCitedRows(resolved, {
-      sections: ["dealsAndMovements"],
+    const { document: pruned, summary } = pruneNewsletterToCitedRows(input, {
+      sections: ["deals-and-movements"],
     });
 
-    // competitiveLandscape was not in scope — passes through unchanged
-    expect(pruned.competitiveLandscape?.bullets).toHaveLength(1);
-    // dealsAndMovements was in scope and had no cited rows — removed
-    expect(pruned.dealsAndMovements).toBeUndefined();
+    // competitive-landscape was not in scope — passes through unchanged
+    expect(sectionOf(pruned, "competitive-landscape")?.articles).toHaveLength(
+      1,
+    );
+    // deals-and-movements was in scope and had no cited rows — removed
+    expect(sectionOf(pruned, "deals-and-movements")).toBeUndefined();
     expect(summary.sectionsRemoved).toBe(1);
   });
 
-  it("removes quickHits section when all items are uncited", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      quickHits: {
-        displayHeading: "Quick Hits",
-        items: [{ text: "No url" }, { text: "Also no url" }],
+  it("removes quick-hits section when all articles are uncited", () => {
+    const input = document([
+      {
+        key: "quick-hits",
+        articles: [uncited("No url"), uncited("Also no url")],
       },
-    };
+    ]);
 
-    const { resolved: pruned, summary } = pruneNewsletterToCitedRows(resolved);
+    const { document: pruned, summary } = pruneNewsletterToCitedRows(input);
 
-    expect(pruned.quickHits).toBeUndefined();
+    expect(sectionOf(pruned, "quick-hits")).toBeUndefined();
     expect(summary.sectionsRemoved).toBe(1);
   });
 
   it("produces correct aggregate summary across multiple sections", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      competitiveLandscape: {
-        displayHeading: "Competition",
-        bullets: [{ text: "Cited", url: CITED_URL_A }, { text: "Uncited" }],
+    const input = document([
+      {
+        key: "competitive-landscape",
+        articles: [article("Cited", CITED_URL_A), uncited("Uncited")],
       },
-      dealsAndMovements: {
-        displayHeading: "Deals",
-        bullets: [{ text: "Uncited only" }],
-      },
-      quickHits: {
-        displayHeading: "Quick Hits",
-        items: [
-          { text: "Cited A", url: CITED_URL_A },
-          { text: "Cited A dup", url: CITED_URL_A },
-          { text: "Cited B", url: CITED_URL_B },
+      { key: "deals-and-movements", articles: [uncited("Uncited only")] },
+      {
+        key: "quick-hits",
+        articles: [
+          article("Cited A", CITED_URL_A),
+          article("Cited A dup", CITED_URL_A),
+          article("Cited B", CITED_URL_B),
         ],
       },
-    };
+    ]);
 
-    const { summary } = pruneNewsletterToCitedRows(resolved);
+    const { summary } = pruneNewsletterToCitedRows(input);
 
     expect(summary.bulletsRemovedUncited).toBe(2);
     expect(summary.bulletsRemovedDuplicate).toBe(1);
@@ -390,116 +364,104 @@ describe("pruneNewsletterToCitedRows — section removal", () => {
     expect(summary.sectionsKept).toBe(2);
   });
 
-  it("drops bullets with duplicate normalized titles across sections", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      competitiveLandscape: {
-        displayHeading: "Competition",
-        bullets: [
-          {
-            title: "Rival A Launches",
-            text: "Rival A launched.",
-            url: CITED_URL_A,
-          },
-          {
-            title: "Market Share Grows",
-            text: "Market share grew.",
-            url: CITED_URL_B,
-          },
+  it("drops articles with duplicate normalized titles across sections", () => {
+    const input = document([
+      {
+        key: "competitive-landscape",
+        articles: [
+          article("Rival A Launches", CITED_URL_A, ["Rival A launched."]),
+          article("Market Share Grows", CITED_URL_B, ["Market share grew."]),
         ],
       },
-      dealsAndMovements: {
-        displayHeading: "Deals",
-        bullets: [
-          {
-            title: "Rival A launches.",
-            text: "Rival A deal.",
-            url: CITED_URL_B,
-          },
+      {
+        key: "deals-and-movements",
+        articles: [
+          article("Rival A launches.", CITED_URL_B, ["Rival A deal."]),
         ],
       },
-    };
+    ]);
 
-    const { resolved: pruned, summary } = pruneNewsletterToCitedRows(resolved);
+    const { document: pruned, summary } = pruneNewsletterToCitedRows(input);
 
-    const competitiveBullets = pruned.competitiveLandscape?.bullets ?? [];
-    const dealsBullets = pruned.dealsAndMovements?.bullets ?? [];
-
-    expect(competitiveBullets).toHaveLength(2);
-    expect(dealsBullets).toHaveLength(0);
+    expect(sectionOf(pruned, "competitive-landscape")?.articles).toHaveLength(
+      2,
+    );
+    expect(sectionOf(pruned, "deals-and-movements")).toBeUndefined();
     expect(summary.bulletsRemovedDuplicateTitle).toBe(1);
   });
 
   it("dedupeTitlesWithinNewsletter false skips title dedup", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: basePulse,
-      competitiveLandscape: {
-        displayHeading: "Competition",
-        bullets: [
-          { title: "Same Title", text: "First.", url: CITED_URL_A },
-          { title: "Same Title", text: "Second.", url: CITED_URL_B },
+    const input = document([
+      {
+        key: "competitive-landscape",
+        articles: [
+          article("Same Title", CITED_URL_A, ["First."]),
+          article("Same Title", CITED_URL_B, ["Second."]),
         ],
       },
-    };
+    ]);
 
-    const { resolved: pruned, summary } = pruneNewsletterToCitedRows(resolved, {
+    const { document: pruned, summary } = pruneNewsletterToCitedRows(input, {
       dedupeTitlesWithinNewsletter: false,
     });
 
-    expect(pruned.competitiveLandscape?.bullets).toHaveLength(2);
+    expect(sectionOf(pruned, "competitive-landscape")?.articles).toHaveLength(
+      2,
+    );
     expect(summary.bulletsRemovedDuplicateTitle).toBe(0);
   });
 });
 
 describe("dedupeWithinRun — reworded near-duplicate titles", () => {
-  it("drops a second item whose title is a reworded headline of the same event", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      quickHits: {
-        displayHeading: "Hits",
-        items: [
-          {
-            title: "Telkomsel hadirkan tiga site baru di Kabupaten Kupang",
-            text: "Operator memperluas cakupan layanan di wilayah timur.",
-            url: "https://source.example/antara",
-          },
-          {
-            title:
-              "Telkomsel Perkuat Jaringan, Tiga Site Baru Hadir di Kabupaten Kupang",
-            text: "Perusahaan menambah infrastruktur untuk mendukung pengguna lokal.",
-            url: "https://source.example/pancar",
-          },
+  it("drops a second article whose title is a reworded headline of the same event", () => {
+    const input = document([
+      {
+        key: "quick-hits",
+        articles: [
+          article(
+            "Telkomsel hadirkan tiga site baru di Kabupaten Kupang",
+            "https://source.example/antara",
+            ["Operator memperluas cakupan layanan di wilayah timur."],
+          ),
+          article(
+            "Telkomsel Perkuat Jaringan, Tiga Site Baru Hadir di Kabupaten Kupang",
+            "https://source.example/pancar",
+            [
+              "Perusahaan menambah infrastruktur untuk mendukung pengguna lokal.",
+            ],
+          ),
         ],
       },
-    };
-    const result = dedupeWithinRun(resolved);
+    ]);
+
+    const result = dedupeWithinRun(input);
+
     expect(result.removedCount).toBe(1);
-    expect(result.resolved.quickHits?.items).toHaveLength(1);
+    expect(sectionOf(result.document, "quick-hits")?.articles).toHaveLength(1);
   });
 
   it("keeps two distinct stories that share only a few title tokens", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      quickHits: {
-        displayHeading: "Hits",
-        items: [
-          {
-            title: "Telkomsel raih tiga penghargaan AI global",
-            text: "Perusahaan diakui atas inovasi kecerdasan buatan.",
-            url: "https://source.example/awards",
-          },
-          {
-            title: "Telkom tuntaskan streamlining sepuluh entitas",
-            text: "Restrukturisasi mempercepat transformasi bisnis.",
-            url: "https://source.example/streamline",
-          },
+    const input = document([
+      {
+        key: "quick-hits",
+        articles: [
+          article(
+            "Telkomsel raih tiga penghargaan AI global",
+            "https://source.example/awards",
+            ["Perusahaan diakui atas inovasi kecerdasan buatan."],
+          ),
+          article(
+            "Telkom tuntaskan streamlining sepuluh entitas",
+            "https://source.example/streamline",
+            ["Restrukturisasi mempercepat transformasi bisnis."],
+          ),
         ],
       },
-    };
-    const result = dedupeWithinRun(resolved);
+    ]);
+
+    const result = dedupeWithinRun(input);
+
     expect(result.removedCount).toBe(0);
-    expect(result.resolved.quickHits?.items).toHaveLength(2);
+    expect(sectionOf(result.document, "quick-hits")?.articles).toHaveLength(2);
   });
 });

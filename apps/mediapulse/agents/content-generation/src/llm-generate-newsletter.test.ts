@@ -1,7 +1,8 @@
 import { APICallError, NoObjectGeneratedError, TypeValidationError } from "ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { parseIndustryNewsletterWire } from "@workspace/email-templates/parse-industry-newsletter-wire";
+import type { NewsletterDocument } from "@workspace/email-templates/newsletter-document";
+import { readNewsletterDocument } from "@workspace/email-templates/newsletter-document";
 
 import {
   CONTENT_GENERATION_CONSTANTS,
@@ -17,8 +18,7 @@ import {
   SYSTEM_PROMPT,
   type GenerateNewsletterObjectFn,
 } from "./llm-generate-newsletter.js";
-import type { IndustryNewsletterResolved } from "./industry-newsletter-urls.js";
-import type { IndustryNewsletterStructure } from "./industry-newsletter-schema.js";
+import type { NewsletterDraft } from "./newsletter-draft-schema.js";
 import type { SourceForGeneration } from "./types.js";
 
 afterEach(() => {
@@ -36,74 +36,63 @@ const baseConfig = resolveContentGenerationConfig({
 
 const noopSleepFn = vi.fn().mockResolvedValue(undefined);
 
-/** Minimal valid industry briefing object returned by the mocked LLM. */
-const minimalIndustryBrief = (
-  patch: Partial<IndustryNewsletterStructure> = {},
-): IndustryNewsletterStructure => ({
+const CL_TEXT =
+  "Rival A expanded its branches across eastern Indonesia this quarter.";
+const DEALS_TEXT =
+  "A merger between two regional lenders closed on Friday morning.";
+const QUICK_TEXT =
+  "Nickel ore shipments rose across Sulawesi smelters last quarter.";
+
+/** Minimal valid draft returned by the mocked LLM, grounded against `testSources`. */
+const minimalDraft = (): NewsletterDraft => ({
   subject: "Market Rally Continues",
-  industryPulse: {
-    displayHeading: "Pulse",
-    prose: "Stocks rose for the third day.",
-    articleIndex: 1,
-  },
-  competitiveLandscape: {
-    displayHeading: "Competitive",
-    bullets: [
-      { title: "T1", text: "Rival A expanded its branches.", articleIndex: 1 },
-      { title: "T2", text: "Rival B cut its fees.", articleIndex: 2 },
-    ],
-  },
-  dealsAndMovements: {
-    displayHeading: "Deals",
-    bullets: [{ title: "T3", text: "A merger closed.", articleIndex: 3 }],
-  },
-  regulatoryPolicyWatch: {
-    displayHeading: "Regulatory",
-    bullets: [{ title: "T4", text: "New rules took effect.", articleIndex: 1 }],
-  },
-  disruptorsOrTech: {
-    format: "prose",
-    displayHeading: "Disruptors",
-    prose: "Innovation forward.",
-  },
-  quickHits: {
-    displayHeading: "Quick",
-    items: [
-      { title: "Q1", text: "h1", articleIndex: 1 },
-      { title: "Q2", text: "h2", articleIndex: 2 },
-      { title: "Q3", text: "h3", articleIndex: 3 },
-      { title: "Q4", text: "h4", articleIndex: 1 },
-      { title: "Q5", text: "h5", articleIndex: 2 },
-    ],
-  },
-  ...patch,
+  sections: [
+    {
+      key: "competitive-landscape",
+      articles: [
+        { title: "Rival A expands", points: [CL_TEXT], articleIndex: 1 },
+      ],
+    },
+    {
+      key: "deals-and-movements",
+      articles: [
+        { title: "Merger closes", points: [DEALS_TEXT], articleIndex: 2 },
+      ],
+    },
+    {
+      key: "quick-hits",
+      articles: [{ title: "Nickel up", points: [QUICK_TEXT], articleIndex: 3 }],
+    },
+  ],
 });
 
 function makeSuccessfulGenerateFn(
-  patch: Partial<IndustryNewsletterStructure> = {},
+  patch: Partial<NewsletterDraft> = {},
 ): GenerateNewsletterObjectFn {
   return vi.fn().mockResolvedValue({
-    object: { ...minimalIndustryBrief(), ...patch },
+    object: { ...minimalDraft(), ...patch },
   });
 }
 
+// Sources are grouped by their upstream section before prompting, so prompt order is
+// competitiveLandscape, dealsAndMovements, quickHits — which is what `articleIndex` refers to.
 const testSources: SourceForGeneration[] = [
   {
     url: "https://example.com/a",
     title: "Story A",
-    content: "Content A.",
+    content: `Content A. ${QUICK_TEXT}`,
     section: "quickHits",
   },
   {
     url: "https://example.com/b",
     title: "Story B",
-    content: "Content B.",
+    content: `Content B. ${CL_TEXT}`,
     section: "competitiveLandscape",
   },
   {
     url: "https://example.com/c",
     title: "Story C",
-    content: "Content C.",
+    content: `Content C. ${DEALS_TEXT}`,
     section: "dealsAndMovements",
   },
 ];
@@ -135,25 +124,32 @@ describe("collectNewsletterCitations", () => {
     },
   ];
 
-  it("maps cited bullet urls back to their data source ids per section", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: {
-        displayHeading: "Pulse",
-        prose: "Lead.",
-        url: "https://example.com/a",
-      },
-      competitiveLandscape: {
-        displayHeading: "C",
-        bullets: [{ title: "T", text: "t", url: "https://example.com/b" }],
-      },
-      quickHits: {
-        displayHeading: "Q",
-        items: [{ title: "Q1", text: "q", url: "https://example.com/a" }],
-      },
+  it("maps cited article urls back to their data source ids per section", () => {
+    const document: NewsletterDocument = {
+      version: 1,
+      sections: [
+        {
+          key: "industry-pulse",
+          articles: [
+            { title: "Lead", url: "https://example.com/a", points: ["Lead."] },
+          ],
+        },
+        {
+          key: "competitive-landscape",
+          articles: [
+            { title: "T", url: "https://example.com/b", points: ["t"] },
+          ],
+        },
+        {
+          key: "quick-hits",
+          articles: [
+            { title: "Q1", url: "https://example.com/a", points: ["q"] },
+          ],
+        },
+      ],
     };
 
-    const citations = collectNewsletterCitations(resolved, citationSources);
+    const citations = collectNewsletterCitations(document, citationSources);
 
     expect(citations).toEqual([
       { dataSourceId: "ds-a", sectionKey: "industryPulse" },
@@ -162,21 +158,22 @@ describe("collectNewsletterCitations", () => {
     ]);
   });
 
-  it("de-dupes repeats within a section and skips unlinked or unknown urls", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      dealsAndMovements: {
-        displayHeading: "D",
-        bullets: [
-          { title: "T1", text: "t1", url: "https://example.com/a" },
-          { title: "T2", text: "t2", url: "https://example.com/a" },
-          { title: "T3", text: "t3" },
-          { title: "T4", text: "t4", url: "https://example.com/unknown" },
-        ],
-      },
+  it("de-dupes repeats within a section and skips unknown urls", () => {
+    const document: NewsletterDocument = {
+      version: 1,
+      sections: [
+        {
+          key: "deals-and-movements",
+          articles: [
+            { title: "T1", url: "https://example.com/a", points: ["t1"] },
+            { title: "T2", url: "https://example.com/a", points: ["t2"] },
+            { title: "T4", url: "https://example.com/unknown", points: ["t4"] },
+          ],
+        },
+      ],
     };
 
-    const citations = collectNewsletterCitations(resolved, citationSources);
+    const citations = collectNewsletterCitations(document, citationSources);
 
     expect(citations).toEqual([
       { dataSourceId: "ds-a", sectionKey: "dealsAndMovements" },
@@ -200,38 +197,49 @@ describe("collectNewsletterSections", () => {
     },
   ];
 
-  it("builds sections in canonical order with prose summaries and linked items", () => {
-    const resolved: IndustryNewsletterResolved = {
-      subject: "S",
-      industryPulse: {
-        displayHeading: "Pulse Lead",
-        prose: "The lead prose.",
-        url: "https://example.com/a",
-      },
-      dealsAndMovements: {
-        displayHeading: "Deals",
-        bullets: [
-          {
-            title: "Deal one",
-            text: "Body one.",
-            url: "https://example.com/b",
-          },
-          { title: "Deal two", text: "Body two." },
-        ],
-      },
+  it("builds sections in document order with canonical headings and linked items", () => {
+    const document: NewsletterDocument = {
+      version: 1,
+      sections: [
+        {
+          key: "industry-pulse",
+          articles: [
+            {
+              title: "The lead story",
+              url: "https://example.com/a",
+              points: ["The lead prose."],
+            },
+          ],
+        },
+        {
+          key: "deals-and-movements",
+          articles: [
+            {
+              title: "Deal one",
+              url: "https://example.com/b",
+              points: ["Body one.", "Body two."],
+            },
+            {
+              title: "Deal two",
+              url: "https://example.com/unknown",
+              points: ["Body three."],
+            },
+          ],
+        },
+      ],
     };
 
-    const sections = collectNewsletterSections(resolved, sectionSources);
+    const sections = collectNewsletterSections(document, sectionSources);
 
     expect(sections).toEqual([
       {
         sectionKey: "industryPulse",
-        heading: "Pulse Lead",
+        heading: "Industry Pulse",
         summary: null,
         position: 0,
         items: [
           {
-            title: "Story A",
+            title: "The lead story",
             summary: "The lead prose.",
             url: "https://example.com/a",
             dataSourceId: "ds-a",
@@ -241,21 +249,21 @@ describe("collectNewsletterSections", () => {
       },
       {
         sectionKey: "dealsAndMovements",
-        heading: "Deals",
+        heading: "Deals & Movements",
         summary: null,
         position: 1,
         items: [
           {
             title: "Deal one",
-            summary: "Body one.",
+            summary: "Body one. Body two.",
             url: "https://example.com/b",
             dataSourceId: "ds-b",
             position: 0,
           },
           {
             title: "Deal two",
-            summary: "Body two.",
-            url: null,
+            summary: "Body three.",
+            url: "https://example.com/unknown",
             dataSourceId: null,
             position: 1,
           },
@@ -301,7 +309,7 @@ describe("groupSourcesBySection", () => {
 // ---------------------------------------------------------------------------
 
 describe("generateNewsletterWithLlm — happy path", () => {
-  it("returns subject, content body, and description on success", async () => {
+  it("returns subject and a JSON document body on success", async () => {
     const generateObjectFn = makeSuccessfulGenerateFn();
 
     const result = await generateNewsletterWithLlm(
@@ -313,7 +321,7 @@ describe("generateNewsletterWithLlm — happy path", () => {
 
     expect(result.subject).toContain("Market Rally Continues");
     expect(result.content.length).toBeGreaterThan(0);
-    expect(result.description).toBe("Stocks rose for the third day.");
+    expect(readNewsletterDocument(result.content)?.sections).toHaveLength(3);
   });
 
   it("prepends the ticker symbol prefix to the subject", async () => {
@@ -357,7 +365,7 @@ describe("generateNewsletterWithLlm — happy path", () => {
 
   it("passes the hardcoded request timeout and maxRetries 0 to generateObjectFn", async () => {
     const generateObjectFn = vi.fn().mockResolvedValue({
-      object: minimalIndustryBrief(),
+      object: minimalDraft(),
     });
 
     await generateNewsletterWithLlm(testSources, baseConfig, testContext, {
@@ -464,7 +472,7 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
     const generateObjectFn = vi
       .fn()
       .mockRejectedValueOnce(error)
-      .mockResolvedValueOnce({ object: minimalIndustryBrief() });
+      .mockResolvedValueOnce({ object: minimalDraft() });
 
     const result = await generateNewsletterWithLlm(
       testSources,
@@ -485,7 +493,7 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
 describe("generateNewsletterWithLlm — token usage and provenance", () => {
   it("returns token counts when usage is present", async () => {
     const generateObjectFn = vi.fn().mockResolvedValue({
-      object: minimalIndustryBrief(),
+      object: minimalDraft(),
       usage: { promptTokens: 100, completionTokens: 40, totalTokens: 140 },
     });
 
@@ -503,7 +511,7 @@ describe("generateNewsletterWithLlm — token usage and provenance", () => {
 
   it("returns null for token fields when usage is absent", async () => {
     const generateObjectFn = vi.fn().mockResolvedValue({
-      object: minimalIndustryBrief(),
+      object: minimalDraft(),
     });
 
     const result = await generateNewsletterWithLlm(
@@ -623,7 +631,7 @@ describe("generateNewsletterWithLlm — require-citation pruning", () => {
     expect(result.requireCitationSummary).toBeDefined();
   });
 
-  it("keeps cited rows in the rendered newsletter wire", async () => {
+  it("keeps cited rows in the stored document", async () => {
     const generateObjectFn = makeSuccessfulGenerateFn();
 
     const result = await generateNewsletterWithLlm(
@@ -633,8 +641,14 @@ describe("generateNewsletterWithLlm — require-citation pruning", () => {
       { generateObjectFn },
     );
 
-    const parsed = parseIndustryNewsletterWire(result.content);
-    expect(parsed).not.toBeNull();
+    const parsed = readNewsletterDocument(result.content);
+
+    expect(parsed).toBeDefined();
+    expect(parsed?.sections.map((section) => section.key)).toEqual([
+      "competitive-landscape",
+      "deals-and-movements",
+      "quick-hits",
+    ]);
   });
 });
 
@@ -820,13 +834,15 @@ const crossRunSources: SourceForGeneration[] = [
 
 const crossRunGenerateFn = (): GenerateNewsletterObjectFn =>
   makeSuccessfulGenerateFn({
-    competitiveLandscape: {
-      displayHeading: "Competitive",
-      bullets: [
-        { title: "Dup", text: DUP_TEXT, articleIndex: 1 },
-        { title: "Novel", text: NOVEL_TEXT, articleIndex: 2 },
-      ],
-    },
+    sections: [
+      {
+        key: "competitive-landscape",
+        articles: [
+          { title: "Dup", points: [DUP_TEXT], articleIndex: 1 },
+          { title: "Novel", points: [NOVEL_TEXT], articleIndex: 2 },
+        ],
+      },
+    ],
   });
 
 describe("generateNewsletterWithLlm — cross-day dedup", () => {
@@ -849,7 +865,9 @@ describe("generateNewsletterWithLlm — cross-day dedup", () => {
 
     // Post-generation drop removed the repeated bullet, kept the novel one.
     expect(result.crossRunDedupSummary?.removedCount).toBe(1);
-    expect(result.crossRunDedupSummary?.bySection.competitiveLandscape).toBe(1);
+    expect(
+      result.crossRunDedupSummary?.bySection["competitive-landscape"],
+    ).toBe(1);
     expect(result.content).toContain(NOVEL_TEXT);
     expect(result.content).not.toContain(DUP_TEXT);
   });
@@ -868,9 +886,11 @@ describe("generateNewsletterWithLlm — cross-day dedup", () => {
   });
 });
 
-describe("SYSTEM_PROMPT — lead attribution fidelity", () => {
-  it("binds the Industry Pulse lead to its single cited article", () => {
-    expect(SYSTEM_PROMPT).toContain("Industry Pulse lead");
+describe("SYSTEM_PROMPT — attribution fidelity", () => {
+  it("binds every article to exactly one cited source article", () => {
+    expect(SYSTEM_PROMPT).toContain(
+      "Every article must summarize exactly one source article",
+    );
   });
 
   it("forbids attributing a cause or driver the cited article does not state", () => {

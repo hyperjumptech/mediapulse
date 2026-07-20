@@ -26,7 +26,6 @@ export type DetailItem = {
   id: string;
   title: string;
   subject: string;
-  description: string | null;
   tickerId: string;
   tickerSymbol: string;
   tickerName: string;
@@ -83,7 +82,6 @@ export const mapRowToDetailItem = (
   id: row.id,
   title: row.subject,
   subject: row.subject,
-  description: row.description,
   tickerId: row.tickerId,
   tickerSymbol: row.ticker.symbol,
   tickerName: row.ticker.name,

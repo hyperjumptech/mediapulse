@@ -635,9 +635,6 @@ export async function run({
     const persistResult = await dataApiClient.contentGeneration.create({
       subject: generated.subject,
       content: generated.content,
-      ...(generated.description && {
-        description: generated.description,
-      }),
       tickerId: input.tickerId,
       // Provenance fields (MP-CGA-008)
       model: provenanceModel,

@@ -7,7 +7,7 @@ import type {
 
 import type { Prisma } from "@mediapulse/database";
 
-import { flattenBulletsFromNewsletterWire } from "../lib/flatten-newsletter-wire-bullets.js";
+import { flattenBulletsFromNewsletterDocument } from "../lib/flatten-newsletter-bullets.js";
 import {
   findIssuerAnchorForTicker,
   getCompetitorsForTicker,
@@ -185,7 +185,6 @@ export const createNewsletter = async (
   const newsletter = await db.newsletter.create({
     data: {
       subject: data.subject,
-      description: data.description ?? null,
       content: data.content,
       tickerId: data.tickerId,
       searchQuerySetId: activeSet?.id ?? null,
@@ -351,7 +350,7 @@ export const getRecentNewsletterBullets = async (
   }> = [];
 
   for (const row of rows) {
-    const flattened = flattenBulletsFromNewsletterWire(
+    const flattened = flattenBulletsFromNewsletterDocument(
       row.id,
       row.content,
       row.createdAt.toISOString(),
