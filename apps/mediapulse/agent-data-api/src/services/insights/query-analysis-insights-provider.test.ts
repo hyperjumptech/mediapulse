@@ -355,7 +355,7 @@ describe("createQueryAnalysisInsightsProvider", () => {
     expect(() => insightsPayloadSchema.parse(payload)).not.toThrow();
   });
 
-  it("does not surface quickHits as a zero-coverage alert even when all sets report it", async () => {
+  it("surfaces quickHits as a zero-coverage alert like any other section", async () => {
     const snapshotWithQuickHitsZero = {
       ...baseSnapshot,
       sectionCoverage: {
@@ -377,7 +377,9 @@ describe("createQueryAnalysisInsightsProvider", () => {
     const quickHitsAlert = payload.alerts.find((alert) =>
       alert.id.includes("quickHits"),
     );
-    expect(quickHitsAlert).toBeUndefined();
+
+    expect(quickHitsAlert).toBeDefined();
+    expect(quickHitsAlert?.severity).toBe("warning");
   });
 
   it("does not surface competitiveLandscape as zero-coverage when it is covered in >50% of sets", async () => {

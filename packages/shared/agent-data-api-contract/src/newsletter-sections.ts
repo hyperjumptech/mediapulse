@@ -49,8 +49,8 @@ export const NEWSLETTER_SECTION_IDS: readonly NewsletterSectionId[] =
 
 /**
  * Maps every QueryAnalysisIntent to the newsletter section it primarily feeds.
- * `null` means the intent has no dedicated section and flows to industryPulse or quickHits at
- * generation time. This is the authoritative record of the current intent→section alignment.
+ * `null` means the intent has no dedicated section. This is the authoritative record of the
+ * current intent→section alignment.
  */
 export const SECTION_BY_INTENT: Record<
   QueryAnalysisIntent,
@@ -72,17 +72,6 @@ export const SECTION_BY_INTENT: Record<
   geopolitical: null,
   wildcard: null,
 };
-
-/**
- * Sections that are intentionally excluded from the zero-coverage alert.
- *
- * `quickHits` is a catch-all populated at generation time from any homeless-intent
- * queries — it has no dedicated upstream search intent and is never expected to show
- * up with a positive count in {@link summarizeSectionCoverage}. Alerting on it would
- * produce a permanently firing false-positive.
- */
-export const ZERO_COVERAGE_EXCLUDED_SECTIONS: ReadonlySet<NewsletterSectionId> =
-  new Set<NewsletterSectionId>(["quickHits"]);
 
 /**
  * Summarises how many of the given intents map to each newsletter section.

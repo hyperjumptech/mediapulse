@@ -5,7 +5,6 @@ import { QUERY_ANALYSIS_INTENTS } from "./query-analysis.js";
 import {
   NEWSLETTER_SECTION_IDS,
   SECTION_BY_INTENT,
-  ZERO_COVERAGE_EXCLUDED_SECTIONS,
   summarizeSectionCoverage,
 } from "./newsletter-sections.js";
 
@@ -144,23 +143,5 @@ describe("summarizeSectionCoverage", () => {
       expect(result[sectionId].count).toBe(0);
       expect(result[sectionId].share).toBe(0);
     }
-  });
-});
-
-describe("ZERO_COVERAGE_EXCLUDED_SECTIONS", () => {
-  it("contains quickHits", () => {
-    expect(ZERO_COVERAGE_EXCLUDED_SECTIONS.has("quickHits")).toBe(true);
-  });
-
-  it("does not contain competitiveLandscape", () => {
-    expect(ZERO_COVERAGE_EXCLUDED_SECTIONS.has("competitiveLandscape")).toBe(
-      false,
-    );
-  });
-
-  it("does not contain dealsAndMovements", () => {
-    expect(ZERO_COVERAGE_EXCLUDED_SECTIONS.has("dealsAndMovements")).toBe(
-      false,
-    );
   });
 });

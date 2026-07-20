@@ -4,7 +4,6 @@ import type {
   InsightAlert,
   InsightSection,
 } from "@workspace/agent-data-api-contract";
-import { ZERO_COVERAGE_EXCLUDED_SECTIONS } from "@workspace/agent-data-api-contract";
 
 import type {
   AgentInsightsProvider,
@@ -298,8 +297,6 @@ export function createQueryAnalysisInsightsProvider(
       }
 
       // Recurring zero-coverage sections (present in >50% of sets with the field).
-      // Catch-all sections (e.g. quickHits) are excluded because they have no
-      // dedicated upstream search intent and would produce a permanently firing alert.
       const zeroCoverageFrequency = new Map<string, number>();
       let setsWithCoverage = 0;
       for (const snap of snapshots) {
@@ -307,7 +304,6 @@ export function createQueryAnalysisInsightsProvider(
         if (!Array.isArray(zeroCoverage)) continue;
         setsWithCoverage += 1;
         for (const section of zeroCoverage) {
-          if (ZERO_COVERAGE_EXCLUDED_SECTIONS.has(section as never)) continue;
           zeroCoverageFrequency.set(
             section,
             (zeroCoverageFrequency.get(section) ?? 0) + 1,

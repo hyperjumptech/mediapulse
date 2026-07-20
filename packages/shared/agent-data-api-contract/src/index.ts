@@ -386,7 +386,6 @@ export {
   MEDIAPULSE_NEWSLETTER_SECTIONS,
   NEWSLETTER_SECTION_IDS,
   SECTION_BY_INTENT,
-  ZERO_COVERAGE_EXCLUDED_SECTIONS,
   summarizeSectionCoverage,
   type NewsletterSectionId,
 } from "./newsletter-sections.js";
