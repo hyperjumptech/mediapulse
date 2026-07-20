@@ -1,5 +1,8 @@
+import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { describe, expect, it } from "vitest";
+
+import { fetchProviderEntrySchema } from "@workspace/agent-ingestion";
 
 import {
   CONTENT_GENERATION_CONSTANTS,
@@ -16,7 +19,7 @@ describe("ContentGenerationConfigSchema", () => {
     expect(parsed.model.baseUrl).toBe("{{AI_BASE_URL}}");
     expect(parsed.duplicateGuard.timezone).toBe("Asia/Jakarta");
     expect(parsed.maxFetchesPerRun).toBe(18);
-    expect(parsed.fetch.providers[0]?.type).toBe("serper");
+    expect(parsed.fetch.providers[0]?.provider).toBe("serper");
     expect(parsed.resilience.deadUrlCache.enabled).toBe(true);
     expect(parsed.resilience.hostErrorBreaker.enabled).toBe(true);
   });
@@ -24,6 +27,18 @@ describe("ContentGenerationConfigSchema", () => {
   it("accepts an explicit maxFetchesPerRun and fetch provider chain", () => {
     const parsed = ContentGenerationConfigSchema.parse({
       maxFetchesPerRun: 3,
+      fetch: {
+        providers: [{ provider: "tavily", apiKey: "sk-fetch" }],
+      },
+    });
+
+    expect(parsed.maxFetchesPerRun).toBe(3);
+    expect(parsed.fetch.providers).toHaveLength(1);
+    expect(parsed.fetch.providers[0]?.provider).toBe("tavily");
+  });
+
+  it("still parses a stored legacy fetch provider chain", () => {
+    const parsed = ContentGenerationConfigSchema.parse({
       fetch: {
         providers: [
           {
@@ -36,9 +51,19 @@ describe("ContentGenerationConfigSchema", () => {
       },
     });
 
-    expect(parsed.maxFetchesPerRun).toBe(3);
-    expect(parsed.fetch.providers).toHaveLength(1);
-    expect(parsed.fetch.providers[0]?.type).toBe("tavily");
+    expect(parsed.fetch.providers[0]).toEqual({
+      provider: "tavily",
+      apiKey: "sk-fetch",
+      rateLimit: { requests: 2, perSeconds: 1 },
+    });
+  });
+
+  it("rejects a misspelled fetch provider name", () => {
+    const result = ContentGenerationConfigSchema.safeParse({
+      fetch: { providers: [{ provider: "diffbott", apiKey: "sk" }] },
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it("rejects a non-positive maxFetchesPerRun", () => {
@@ -103,6 +128,33 @@ describe("ContentGenerationConfigSchema", () => {
     expect(schemaStr).toContain("baseUrl");
     expect(schemaStr).toContain("duplicateGuard");
     expect(schemaStr).toContain("timezone");
+  });
+
+  it("publishes the fetch provider enum so Hermes renders a dropdown", () => {
+    const jsonSchema = zodToJsonSchema(ContentGenerationConfigSchema, {
+      $refStrategy: "none",
+    });
+
+    const schemaStr = JSON.stringify(jsonSchema);
+
+    expect(schemaStr).toContain(
+      '"enum":["serper","jina","firecrawl","diffbot","tavily","exa"]',
+    );
+    expect(schemaStr).toContain('"const":"firecrawl_selfhosted"');
+  });
+
+  it("publishes a provider schema identical to the unwrapped union", () => {
+    const wrapped = zodToJsonSchema(z.array(fetchProviderEntrySchema), {
+      $refStrategy: "none",
+    });
+    const bare = zodToJsonSchema(
+      z.array(
+        (fetchProviderEntrySchema as z.ZodEffects<z.ZodTypeAny>).innerType(),
+      ),
+      { $refStrategy: "none" },
+    );
+
+    expect(JSON.stringify(wrapped)).toBe(JSON.stringify(bare));
   });
 });
 

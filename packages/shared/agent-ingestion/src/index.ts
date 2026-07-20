@@ -19,6 +19,15 @@ export {
   type FetchProviderConfig,
 } from "./fetch-providers/registry";
 
+export {
+  fetchProviderNameSchema,
+  fetchProviderEntrySchema,
+  expandFetchProviderEntry,
+  expandFetchProviderEntries,
+  type FetchProviderName,
+  type FetchProviderEntry,
+} from "./fetch-providers/schemas";
+
 export type {
   FetchProvider,
   NormalizedFetchData,

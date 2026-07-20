@@ -29,7 +29,7 @@ export type RunCounters = {
   droppedByFreshnessReason?: Record<string, number>;
   droppedByDeadUrl?: number;
   droppedByHostErrorRate?: number;
-  droppedByFetchBudget?: number;
+  droppedByCandidateBudget?: number;
   droppedByRunItemCap?: number;
   droppedByExistingCanonicalUrl?: number;
   droppedByDuplicateCanonicalUrl?: number;

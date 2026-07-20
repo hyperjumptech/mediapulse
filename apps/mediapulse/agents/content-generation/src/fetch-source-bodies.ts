@@ -1,5 +1,6 @@
 import {
   buildDeadUrlRecords,
+  expandFetchProviderEntries,
   HostErrorTracker,
   hostFromUrl,
   performWebFetch,
@@ -173,7 +174,7 @@ export async function fetchSourceBodies(
   }));
 
   const outcomes = await performFetch(fetchInputs, {
-    config: config.fetch,
+    config: { providers: expandFetchProviderEntries(config.fetch.providers) },
     ...(log ? { logger: log } : {}),
     hostErrorTracker,
   });
