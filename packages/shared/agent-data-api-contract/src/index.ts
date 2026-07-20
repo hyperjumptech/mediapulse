@@ -324,6 +324,14 @@ export {
   type GetTickerResponse,
   type TickerPeer,
 } from "./ticker.js";
+export {
+  getTickerRelevanceTermsQuerySchema,
+  getTickerRelevanceTermsResponseSchema,
+  tickerRelevanceTermsItemSchema,
+  type GetTickerRelevanceTermsQuery,
+  type GetTickerRelevanceTermsResponse,
+  type TickerRelevanceTermsItem,
+} from "./ticker-relevance-terms.js";
 export * from "./user-registration.js";
 export * from "./newsletter-feedback.js";
 export {

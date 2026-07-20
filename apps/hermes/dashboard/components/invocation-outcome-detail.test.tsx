@@ -55,7 +55,7 @@ describe("InvocationOutcomeDetailView", () => {
           droppedByHostErrorRate: 0,
           droppedByRunItemCap: 0,
           droppedByDeadUrlCache: 0,
-          droppedByFetchBudget: 0,
+          droppedByCandidateBudget: 0,
           fetchSuccess: 0,
           fetchFailed: 0,
           droppedByContentQuality: { content_too_short: 2 },

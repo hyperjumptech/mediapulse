@@ -18,7 +18,7 @@ export type CollectionUrlOutcomeReason =
   | "fetch_failed"
   | "empty_description"
   | "prefilter_alias_mismatch"
-  | "dropped_by_fetch_budget"
+  | "dropped_by_candidate_budget"
   | "dropped_by_run_item_cap";
 
 /**
@@ -48,14 +48,19 @@ export const REASON_LABELS: Record<string, string> = {
   fetch_failed: "Fetch failed",
   empty_description: "No description available at collection",
   prefilter_alias_mismatch: "Pre-filter: no ticker/industry mention",
-  dropped_by_fetch_budget: "Fetch budget exhausted for this run",
+  dropped_by_candidate_budget: "Candidate budget exhausted for this run",
   dropped_by_run_item_cap: "Run item cap reached",
 };
 
 type DropOutcomeContext =
   | { reason: `url_noise_${UrlNoiseReason}`; detail: string }
   | { reason: QualityDropReason; charCount?: number; minChars?: number }
-  | { reason: "relevance_no_match"; tickerSymbol: string; headChars: number }
+  | {
+      reason: "relevance_no_match";
+      /** Omitted by ticker-agnostic collectors, which match against every tracked ticker. */
+      tickerSymbol?: string;
+      headChars: number;
+    }
   | { reason: "freshness_too_old"; publishedAt: Date; maxAgeDays: number }
   | { reason: "freshness_future_dated"; publishedAt: Date }
   | { reason: "freshness_unknown_date" }
@@ -66,7 +71,7 @@ type DropOutcomeContext =
   | { reason: "fetch_failed"; errorCategory: string; httpStatus?: number }
   | { reason: "empty_description" }
   | { reason: "prefilter_alias_mismatch" }
-  | { reason: "dropped_by_fetch_budget" }
+  | { reason: "dropped_by_candidate_budget" }
   | { reason: "dropped_by_run_item_cap" };
 
 /**
@@ -115,11 +120,14 @@ export const describeOutcomeReason = (
       };
     }
 
-    case "relevance_no_match":
+    case "relevance_no_match": {
+      const subject = context.tickerSymbol ?? "any tracked ticker";
+
       return {
         reason: context.reason,
-        reasonDetail: `No mention of ${context.tickerSymbol} or its industry in the first ${context.headChars} chars`,
+        reasonDetail: `No mention of ${subject} or its industry in the first ${String(context.headChars)} chars`,
       };
+    }
 
     case "freshness_too_old": {
       const dateStr = context.publishedAt.toISOString().slice(0, 10);
@@ -187,10 +195,10 @@ export const describeOutcomeReason = (
         reasonDetail: "Pre-filter: no ticker or industry mention detected",
       };
 
-    case "dropped_by_fetch_budget":
+    case "dropped_by_candidate_budget":
       return {
         reason: context.reason,
-        reasonDetail: "Fetch budget exhausted for this run",
+        reasonDetail: "Candidate budget exhausted for this run",
       };
 
     case "dropped_by_run_item_cap":

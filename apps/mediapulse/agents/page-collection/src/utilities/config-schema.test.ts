@@ -11,18 +11,24 @@ describe("ConfigSchema", () => {
     expect(result.resilience.deadUrlCache.enabled).toBe(true);
     expect(result.resilience.hostErrorBreaker.enabled).toBe(true);
     expect(result.runPolicy.minSuccessfulSources).toBe(1);
-    expect(result.collection.perRunFetchBudget).toBe(50);
+    expect(result.collection.perRunCandidateBudget).toBe(50);
   });
 
-  it("accepts fetch provider overrides", async () => {
+  it("accepts collection cap overrides", async () => {
     const result = await ConfigSchema.parseAsync({
-      collection: { perRunFetchBudget: 20 },
+      collection: { perRunCandidateBudget: 20 },
     });
 
-    expect(result.collection.perRunFetchBudget).toBe(20);
+    expect(result.collection.perRunCandidateBudget).toBe(20);
   });
 
-  it("round-trips a self-hosted Firecrawl provider with custom headers", async () => {
+  it("no longer exposes a fetch provider group", async () => {
+    const result = await ConfigSchema.parseAsync({});
+
+    expect(result).not.toHaveProperty("providers");
+  });
+
+  it("strips stored fetch provider keys instead of rejecting them", async () => {
     const result = await ConfigSchema.parseAsync({
       providers: {
         fetch: {
@@ -31,25 +37,16 @@ describe("ConfigSchema", () => {
               type: "firecrawl_selfhosted",
               baseUrl: "https://firecrawl.internal",
               authentication: { type: "none" },
-              headers: {
-                "X-Auth-Id": "id",
-                "X-Auth-Secret": "secret",
-              },
               rateLimit: { requests: 1, perSeconds: 1 },
             },
           ],
         },
       },
+      runPolicy: { minSuccessfulSources: 2 },
     });
 
-    expect(result.providers.fetch.providers[0]).toMatchObject({
-      type: "firecrawl_selfhosted",
-      baseUrl: "https://firecrawl.internal",
-      headers: {
-        "X-Auth-Id": "id",
-        "X-Auth-Secret": "secret",
-      },
-    });
+    expect(result).not.toHaveProperty("providers");
+    expect(result.runPolicy.minSuccessfulSources).toBe(2);
   });
 });
 

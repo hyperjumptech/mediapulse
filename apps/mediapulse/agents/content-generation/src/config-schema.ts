@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { fetchProviderEntrySchema } from "@workspace/agent-ingestion";
+
 import type { NewsletterSectionId } from "@workspace/agent-data-api-contract";
 
 const modelSchema = z
@@ -47,105 +49,14 @@ const duplicateGuardSchema = z
     "Skip-if-duplicate precheck window (one newsletter per ticker per calendar day in timezone).",
   );
 
-const fetchDefaultRetry = {
-  maxAttempts: 1,
-  baseDelayMs: 1000,
-  maxDelayMs: 10_000,
-} as const;
-
-const fetchAuthenticationSchema = z.object({
-  type: z
-    .enum(["bearer", "none"])
-    .describe("Authentication style for outbound provider requests."),
-  apiKey: z
-    .string()
-    .optional()
-    .describe(
-      "Provider API key or a Hermes variable placeholder such as {{SERPER_API_KEY}}.",
-    ),
-  headerName: z
-    .string()
-    .optional()
-    .describe("HTTP header name when the provider expects a header token."),
-});
-
-const fetchRateLimitSchema = z.object({
-  requests: z
-    .number()
-    .int()
-    .positive()
-    .describe("Maximum requests allowed within the sliding window."),
-  perSeconds: z
-    .number()
-    .positive()
-    .describe("Sliding window length in seconds for rate limiting."),
-});
-
-const fetchRetrySchema = z.object({
-  maxAttempts: z
-    .number()
-    .int()
-    .nonnegative()
-    .describe("Maximum retry attempts after a retryable failure."),
-  baseDelayMs: z
-    .number()
-    .int()
-    .positive()
-    .describe("Initial backoff delay in milliseconds."),
-  maxDelayMs: z
-    .number()
-    .int()
-    .positive()
-    .describe("Maximum backoff delay in milliseconds."),
-});
-
-const fetchProviderConfigSchema = z.object({
-  type: z
-    .string()
-    .describe(
-      "Fetch adapter identifier such as serper, diffbot, firecrawl, or jina.",
-    ),
-  baseUrl: z.string().describe("Provider base URL for this adapter."),
-  authentication: fetchAuthenticationSchema.describe(
-    "Provider credentials or Hermes variable placeholders.",
-  ),
-  headers: z
-    .record(z.string())
-    .optional()
-    .describe("Extra HTTP headers merged into every request."),
-  rateLimit: fetchRateLimitSchema.describe(
-    "Sliding-window request budget for this fetch provider.",
-  ),
-  concurrency: z.number().int().min(1).max(16).default(2).optional(),
-  timeoutMs: z.number().int().positive().default(30_000).optional(),
-  retry: fetchRetrySchema.default(fetchDefaultRetry).optional(),
-});
-
 const defaultSerperFetchProvider = {
-  type: "serper",
-  baseUrl: "https://scrape.serper.dev",
-  authentication: {
-    type: "none" as const,
-    apiKey: "{{SERPER_API_KEY}}",
-    headerName: "X-API-KEY",
-  },
-  rateLimit: { requests: 1, perSeconds: 1 },
-  concurrency: 1,
-  timeoutMs: 45_000,
-  retry: fetchDefaultRetry,
+  provider: "serper" as const,
+  apiKey: "{{SERPER_API_KEY}}",
 };
 
 const defaultDiffbotFetchProvider = {
-  type: "diffbot",
-  baseUrl: "https://api.diffbot.com",
-  authentication: {
-    type: "none" as const,
-    apiKey: "{{DIFFBOT_API_KEY}}",
-  },
-  rateLimit: { requests: 1, perSeconds: 1 },
-  concurrency: 1,
-  timeoutMs: 45_000,
-  retry: fetchDefaultRetry,
+  provider: "diffbot" as const,
+  apiKey: "{{DIFFBOT_API_KEY}}",
 };
 
 const defaultFetchProviders = [
@@ -156,7 +67,7 @@ const defaultFetchProviders = [
 const fetchSchema = z
   .object({
     providers: z
-      .array(fetchProviderConfigSchema)
+      .array(fetchProviderEntrySchema)
       .min(1)
       .default([...defaultFetchProviders])
       .describe(

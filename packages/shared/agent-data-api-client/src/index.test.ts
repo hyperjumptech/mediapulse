@@ -825,6 +825,41 @@ describe("createAgentDataApiClient", () => {
     expect(result.tickers).toHaveLength(1);
     expect(result.tickers[0]?.symbol).toBe("BBCA");
   });
+
+  it("builds tickerRelevanceTerms GET and parses per-ticker terms", async () => {
+    const getFn = vi.fn().mockResolvedValue({
+      body: JSON.stringify({
+        tickers: [
+          {
+            id: "11111111-1111-4111-a111-111111111111",
+            symbol: "BBCA",
+            terms: ["BBCA", "Bank Central Asia Tbk", "Keuangan"],
+          },
+        ],
+      }),
+      statusCode: 200,
+    });
+    const client = createAgentDataApiClient({
+      baseUrl: "http://agent-data-api",
+      token: "test-token",
+      getFn,
+    });
+
+    const result = await client.tickerRelevanceTerms.get({});
+
+    expect(getFn).toHaveBeenCalledWith(
+      `http://agent-data-api${agentDataApiPathname(AGENT_DATA_API_DEFAULT_VERSION, "tickerRelevanceTerms")}`,
+      expect.objectContaining({
+        headers: { Authorization: "test-token" },
+      }),
+    );
+    expect(result.tickers).toHaveLength(1);
+    expect(result.tickers[0]?.terms).toEqual([
+      "BBCA",
+      "Bank Central Asia Tbk",
+      "Keuangan",
+    ]);
+  });
 });
 
 describe("agent-data-api path helpers", () => {
@@ -843,6 +878,12 @@ describe("agent-data-api path helpers", () => {
   it("maps userRegistrationTickers resource key to path segment", () => {
     expect(camelCaseResourceKeyToPathSegment("userRegistrationTickers")).toBe(
       "/user-registration-tickers",
+    );
+  });
+
+  it("maps tickerRelevanceTerms resource key to path segment", () => {
+    expect(camelCaseResourceKeyToPathSegment("tickerRelevanceTerms")).toBe(
+      "/ticker-relevance-terms",
     );
   });
 

@@ -155,6 +155,10 @@ import {
 } from "./query-analysis-run.js";
 import { getTickerQuerySchema, getTickerResponseSchema } from "./ticker.js";
 import {
+  getTickerRelevanceTermsQuerySchema,
+  getTickerRelevanceTermsResponseSchema,
+} from "./ticker-relevance-terms.js";
+import {
   getSectionCoverageRollupQuerySchema,
   getSectionCoverageRollupResponseSchema,
 } from "./section-coverage-rollup.js";
@@ -696,6 +700,20 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       get: {
         query: getTickerQuerySchema,
         response: getTickerResponseSchema,
+      },
+    },
+  },
+  tickerRelevanceTerms: {
+    v1: {
+      get: {
+        query: getTickerRelevanceTermsQuerySchema,
+        response: getTickerRelevanceTermsResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: getTickerRelevanceTermsQuerySchema,
+        response: getTickerRelevanceTermsResponseSchema,
       },
     },
   },

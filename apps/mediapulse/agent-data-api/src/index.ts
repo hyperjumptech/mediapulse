@@ -82,6 +82,7 @@ import {
 } from "./routes/user-registration.js";
 import { postNewsletterFeedbackRecordHandler } from "./routes/newsletter-feedback.js";
 import { getTicker } from "./routes/ticker.js";
+import { getTickerRelevanceTerms } from "./routes/ticker-relevance-terms.js";
 import {
   getQueryAnalysis,
   postQueryAnalysis,
@@ -222,6 +223,9 @@ const routeHandlers = {
   },
   ticker: {
     get: getTicker,
+  },
+  tickerRelevanceTerms: {
+    get: getTickerRelevanceTerms,
   },
   deliveryRun: {
     get: getDeliveryRun,
