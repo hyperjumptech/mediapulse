@@ -1,8 +1,8 @@
 import type {
-  IndustryBulletResolved,
-  IndustryNewsletterResolved,
-  IndustryQuickHitResolved,
-} from "../industry-newsletter-urls.js";
+  NewsletterArticle,
+  NewsletterDocument,
+  NewsletterSection,
+} from "@workspace/email-templates/newsletter-document";
 
 import {
   distinctiveAnchorTokens,
@@ -10,7 +10,7 @@ import {
 } from "./citation-grounding.js";
 import { tokenize } from "./phrase-link-injector.js";
 
-/** One dropped bullet, recorded so a reviewer can see which event it collapsed into. */
+/** One dropped article, recorded so a reviewer can see which event it collapsed into. */
 export type EventDedupDrop = {
   sectionKey: string;
   matchedSectionKey: string;
@@ -21,41 +21,41 @@ export type EventDedupDrop = {
 
 /** Outcome of the cross-section same-event dedup pass. */
 export type EventDedupResult = {
-  resolved: IndustryNewsletterResolved;
+  document: NewsletterDocument;
   removedCount: number;
   drops: EventDedupDrop[];
 };
 
 /**
- * Minimum shared distinctive anchors (named entities and multi-digit figures) before two bullets are
- * treated as the same event. Higher than the grounding anchor guard because a false merge here drops
- * real content, so precision matters more than recall.
+ * Minimum shared distinctive anchors (named entities and multi-digit figures) before two articles
+ * are treated as the same event. Higher than the grounding anchor guard because a false merge here
+ * drops real content, so precision matters more than recall.
  */
 export const EVENT_DEDUP_MIN_SHARED_ANCHORS = 4;
 
 /**
  * Minimum anchor containment (`shared / smaller anchor set`) alongside the shared-count guard. Uses
- * containment rather than Jaccard so a short bullet whose anchors are a subset of a longer lead or
- * bullet still matches, which Jaccard under-scores.
+ * containment rather than Jaccard so a short article whose anchors are a subset of a longer one
+ * still matches, which Jaccard under-scores.
  */
 export const EVENT_DEDUP_MIN_CONTAINMENT = 0.4;
-
-type ResolvedItem = IndustryBulletResolved | IndustryQuickHitResolved;
 
 /** An event already shipped in a higher-priority section, keyed by its distinctive anchors. */
 type EventEntry = { sectionKey: string; anchors: Set<string> };
 
 type EventMatch = { entry: EventEntry; shared: number; containment: number };
 
-const anchorsFor = (item: { title?: string; text: string }): Set<string> =>
-  distinctiveAnchorTokens(tokenize(`${item.title ?? ""} ${item.text}`));
+const anchorsFor = (article: NewsletterArticle): Set<string> =>
+  distinctiveAnchorTokens(
+    tokenize(`${article.title} ${article.points.join(" ")}`),
+  );
 
 const roundTwo = (value: number): number => Math.round(value * 100) / 100;
 
 /**
- * Finds the strongest already-shipped event an item's anchors match, or `undefined` when none clears
- * both the shared-count and containment guards. Ties on shared count keep the first (higher-priority)
- * entry, since the corpus is filled in section-priority order.
+ * Finds the strongest already-shipped event an article's anchors match, or `undefined` when none
+ * clears both the shared-count and containment guards. Ties on shared count keep the first
+ * (higher-priority) entry, since the corpus is filled in section-priority order.
  */
 const findEventMatch = (
   anchors: Set<string>,
@@ -89,27 +89,22 @@ const findEventMatch = (
 };
 
 /**
- * Filters one section against the growing corpus of higher-priority events, dropping bullets whose
- * anchors match an already-shipped event and adding survivors to the corpus. Uncited items (no `url`)
- * are always kept. Unlike the cross-day pass this has no per-section floor: a section whose only
- * bullets duplicate higher-priority events is correctly emptied (the best-placed copy already ships),
- * and the caller drops an empty section to `undefined`.
+ * Filters one section against the growing corpus of higher-priority events, dropping articles whose
+ * anchors match an already-shipped event and adding survivors to the corpus. Unlike the cross-day
+ * pass this has no per-section floor: a section whose only articles duplicate higher-priority events
+ * is correctly emptied (the best-placed copy already ships), and the caller omits an empty section.
  */
-const applySection = <Item extends ResolvedItem>(
+const applySection = (
   sectionKey: string,
-  items: Item[],
+  articles: ReadonlyArray<NewsletterArticle>,
   corpus: EventEntry[],
   drops: EventDedupDrop[],
   minShared: number,
   minContainment: number,
-): Item[] => {
-  const kept: Item[] = [];
-  for (const item of items) {
-    if (item.url === undefined) {
-      kept.push(item);
-      continue;
-    }
-    const anchors = anchorsFor(item);
+): NewsletterArticle[] => {
+  const kept: NewsletterArticle[] = [];
+  for (const article of articles) {
+    const anchors = anchorsFor(article);
     const match = findEventMatch(anchors, corpus, minShared, minContainment);
     if (match !== undefined) {
       drops.push({
@@ -117,11 +112,11 @@ const applySection = <Item extends ResolvedItem>(
         matchedSectionKey: match.entry.sectionKey,
         sharedAnchors: match.shared,
         containment: roundTwo(match.containment),
-        title: item.title ?? "",
+        title: article.title,
       });
       continue;
     }
-    kept.push(item);
+    kept.push(article);
     if (anchors.size > 0) {
       corpus.push({ sectionKey, anchors });
     }
@@ -131,102 +126,44 @@ const applySection = <Item extends ResolvedItem>(
 };
 
 /**
- * Removes bullets that repeat, in a lower-priority section, an event already shipped in a
+ * Removes articles that repeat, in a lower-priority section, an event already shipped in a
  * higher-priority section but worded differently enough that lexical title/text dedup misses it.
  *
- * Runs after {@link dedupeWithinRun} on the resolved structure. Events are keyed by distinctive,
- * translation-stable anchors (named entities and multi-digit figures). Sections are processed in
- * canonical priority order (Industry Pulse lead first), so the highest-priority placement of an event
- * wins and later duplicates drop. A section whose bullets all duplicate higher-priority events is
- * dropped to `undefined`.
+ * Events are keyed by distinctive, translation-stable anchors (named entities and multi-digit
+ * figures). Sections are processed in the document's canonical order, so the highest-priority
+ * placement of an event wins and later duplicates drop. A section whose articles all duplicate
+ * higher-priority events is omitted from the result.
  *
- * @param resolved - Resolved newsletter after URL attachment, citation pruning, and within-run dedup.
- * @param minSharedAnchors - Minimum shared anchors before two bullets are the same event.
+ * @param document - Document after citation pruning and within-run dedup.
+ * @param minSharedAnchors - Minimum shared anchors before two articles are the same event.
  * @param minContainment - Minimum anchor containment alongside the shared-count guard.
  */
 export const dedupeCrossSectionEvents = (
-  resolved: IndustryNewsletterResolved,
+  document: NewsletterDocument,
   minSharedAnchors: number = EVENT_DEDUP_MIN_SHARED_ANCHORS,
   minContainment: number = EVENT_DEDUP_MIN_CONTAINMENT,
 ): EventDedupResult => {
   const corpus: EventEntry[] = [];
   const drops: EventDedupDrop[] = [];
-  const next: IndustryNewsletterResolved = { ...resolved };
+  const sections: NewsletterSection[] = [];
 
-  // Seed the Industry Pulse lead as the highest-priority event. The lead itself is never dropped;
-  // it only suppresses lower-section bullets that cover the same event.
-  if (next.industryPulse !== undefined) {
-    const leadAnchors = anchorsFor({
-      ...(next.industryPulse.title !== undefined
-        ? { title: next.industryPulse.title }
-        : {}),
-      text: next.industryPulse.prose,
-    });
-    if (leadAnchors.size > 0) {
-      corpus.push({ sectionKey: "industryPulse", anchors: leadAnchors });
-    }
-  }
-
-  const runSection = <Item extends ResolvedItem>(
-    sectionKey: string,
-    items: Item[],
-  ): Item[] =>
-    applySection(
-      sectionKey,
-      items,
+  for (const section of document.sections) {
+    const kept = applySection(
+      section.key,
+      section.articles,
       corpus,
       drops,
       minSharedAnchors,
       minContainment,
     );
-
-  if (next.competitiveLandscape !== undefined) {
-    const kept = runSection(
-      "competitiveLandscape",
-      next.competitiveLandscape.bullets,
-    );
-    next.competitiveLandscape =
-      kept.length > 0
-        ? { ...next.competitiveLandscape, bullets: kept }
-        : undefined;
+    if (kept.length > 0) {
+      sections.push({ key: section.key, articles: kept });
+    }
   }
 
-  if (next.dealsAndMovements !== undefined) {
-    const kept = runSection(
-      "dealsAndMovements",
-      next.dealsAndMovements.bullets,
-    );
-    next.dealsAndMovements =
-      kept.length > 0
-        ? { ...next.dealsAndMovements, bullets: kept }
-        : undefined;
-  }
-
-  if (next.regulatoryPolicyWatch !== undefined) {
-    const kept = runSection(
-      "regulatoryPolicyWatch",
-      next.regulatoryPolicyWatch.bullets,
-    );
-    next.regulatoryPolicyWatch =
-      kept.length > 0
-        ? { ...next.regulatoryPolicyWatch, bullets: kept }
-        : undefined;
-  }
-
-  if (
-    next.disruptorsOrTech !== undefined &&
-    next.disruptorsOrTech.format === "bullets"
-  ) {
-    const kept = runSection("disruptorsOrTech", next.disruptorsOrTech.bullets);
-    next.disruptorsOrTech =
-      kept.length > 0 ? { ...next.disruptorsOrTech, bullets: kept } : undefined;
-  }
-
-  if (next.quickHits !== undefined) {
-    const kept = runSection("quickHits", next.quickHits.items);
-    next.quickHits =
-      kept.length > 0 ? { ...next.quickHits, items: kept } : undefined;
-  }
-
-  return { resolved: next, removedCount: drops.length, drops };
+  return {
+    document: { version: 1, sections },
+    removedCount: drops.length,
+    drops,
+  };
 };

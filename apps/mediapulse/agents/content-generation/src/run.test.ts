@@ -140,8 +140,21 @@ function makeGetResponse(
 
 const generatedNewsletter: LlmGenerate.GeneratedContentWithProvenance = {
   subject: "BBCA Pulse: Daily Briefing",
-  content: "INDUSTRY PULSE\nMarkets rose.\n\nQUICK HITS\n1. Story A",
-  description: "Markets rose for the third day.",
+  content: JSON.stringify({
+    version: 1,
+    sections: [
+      {
+        key: "industry-pulse",
+        articles: [
+          {
+            title: "Markets rise",
+            url: "https://example.com/a",
+            points: ["Markets rose."],
+          },
+        ],
+      },
+    ],
+  }),
   promptTokens: 100,
   completionTokens: 50,
   totalTokens: 150,

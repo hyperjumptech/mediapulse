@@ -1,9 +1,11 @@
 import type {
-  IndustryBulletResolved,
-  IndustryDisruptorsOrTechResolved,
-  IndustryNewsletterResolved,
-  IndustryQuickHitResolved,
-} from "../industry-newsletter-urls.js";
+  NewsletterArticle,
+  NewsletterDocument,
+  NewsletterSection,
+  NewsletterSectionKey,
+} from "@workspace/email-templates/newsletter-document";
+import { NEWSLETTER_SECTION_KEYS } from "@workspace/email-templates/newsletter-document";
+
 import {
   buildWordShingles,
   shingleJaccardSimilarity,
@@ -30,18 +32,12 @@ export type PruneSummary = {
   sectionsKept: number;
 };
 
-export type PruneSectionKey =
-  | "industryPulse"
-  | "competitiveLandscape"
-  | "dealsAndMovements"
-  | "regulatoryPolicyWatch"
-  | "disruptorsOrTech"
-  | "quickHits";
+export type PruneSectionKey = NewsletterSectionKey;
 
 export type PruneOptions = {
-  /** Which body sections to apply pruning to. Defaults to all five. */
+  /** Which sections to apply pruning to. Defaults to all canonical sections. */
   sections?: ReadonlyArray<PruneSectionKey>;
-  /** When true, two rows citing the same article URL in the same scope are deduped. */
+  /** When true, two articles citing the same URL in the same scope are deduped. */
   dedupeArticlesWithinSection?: boolean;
   /**
    * Controls whether dedup tracks seen URLs per-section ('section') or across
@@ -49,28 +45,23 @@ export type PruneOptions = {
    */
   dedupeScope?: "section" | "newsletter";
   /**
-   * When true, drops items whose normalized title duplicates an earlier item's title
+   * When true, drops articles whose normalized title duplicates an earlier article's title
    * across the entire newsletter. Defaults to true.
    */
   dedupeTitlesWithinNewsletter?: boolean;
 };
 
 export type PruneNewsletterResult = {
-  resolved: IndustryNewsletterResolved;
+  document: NewsletterDocument;
   reports: PruneReport[];
   summary: PruneSummary;
 };
 
-const ALL_SECTIONS: ReadonlyArray<PruneSectionKey> = [
-  "competitiveLandscape",
-  "dealsAndMovements",
-  "regulatoryPolicyWatch",
-  "disruptorsOrTech",
-  "quickHits",
-];
+const ALL_SECTIONS: ReadonlyArray<PruneSectionKey> = NEWSLETTER_SECTION_KEYS;
 
-/** A row is cited iff `url` resolved to a non-empty string during `attachIndustryNewsletterSourceUrls`. */
-const isRowCited = (row: { url?: string }): boolean => row.url !== undefined;
+/** An article is cited iff `resolveNewsletterDraft` attached a non-empty grounded URL. */
+const isRowCited = (article: NewsletterArticle): boolean =>
+  article.url.trim().length > 0;
 
 /** Normalizes a title for uniqueness comparison: lowercase, collapse whitespace, strip trailing punctuation. */
 const normalizeTitle = (title: string): string =>
@@ -81,47 +72,48 @@ const normalizeTitle = (title: string): string =>
     .replace(/[.,;!?]+$/, "")
     .trim();
 
-function pruneRows<T extends { url?: string }>(
-  rows: ReadonlyArray<T>,
+function pruneRows(
+  articles: ReadonlyArray<NewsletterArticle>,
   seenUrls: Set<string>,
   dedupeEnabled: boolean,
-): { kept: T[]; removedUncited: number; removedDuplicate: number } {
+): {
+  kept: NewsletterArticle[];
+  removedUncited: number;
+  removedDuplicate: number;
+} {
   let removedUncited = 0;
   let removedDuplicate = 0;
-  const kept: T[] = [];
+  const kept: NewsletterArticle[] = [];
 
-  for (const row of rows) {
-    if (!isRowCited(row)) {
+  for (const article of articles) {
+    if (!isRowCited(article)) {
       removedUncited++;
       continue;
     }
     if (dedupeEnabled) {
-      const url = row.url!;
-      if (seenUrls.has(url)) {
+      if (seenUrls.has(article.url)) {
         removedDuplicate++;
         continue;
       }
-      seenUrls.add(url);
+      seenUrls.add(article.url);
     }
-    kept.push(row);
+    kept.push(article);
   }
 
   return { kept, removedUncited, removedDuplicate };
 }
 
 /**
- * Removes uncited and duplicate-article rows from a resolved newsletter.
+ * Removes uncited and duplicate-article rows from a newsletter document.
  *
- * Operates on the resolved structure (URLs already attached) so "cited" is
- * a direct `url !== undefined` check. A section that drops to zero cited rows
- * is set to `undefined`.
+ * A section that drops to zero cited articles is removed from the document.
  *
- * @param resolved - Resolved newsletter (post URL attachment).
+ * @param document - Stored document produced by `resolveNewsletterDraft`.
  * @param opts - Which sections to prune and dedup settings.
- * @returns Pruned resolved structure, per-section reports, and rolled-up summary.
+ * @returns Pruned document, per-section reports, and rolled-up summary.
  */
 export function pruneNewsletterToCitedRows(
-  resolved: IndustryNewsletterResolved,
+  document: NewsletterDocument,
   opts: PruneOptions = {},
 ): PruneNewsletterResult {
   const configuredSections = opts.sections ?? ALL_SECTIONS;
@@ -138,22 +130,23 @@ export function pruneNewsletterToCitedRows(
 
   const seenTitles = new Set<string>();
 
-  const filterByTitle = <T extends { title?: string }>(rows: T[]): T[] => {
-    if (!dedupeTitles) return rows;
-    const kept: T[] = [];
-    for (const row of rows) {
-      if (row.title === undefined) {
-        kept.push(row);
-        continue;
-      }
-      const normalized = normalizeTitle(row.title);
+  const filterByTitle = (
+    articles: NewsletterArticle[],
+  ): NewsletterArticle[] => {
+    if (!dedupeTitles) {
+      return articles;
+    }
+    const kept: NewsletterArticle[] = [];
+    for (const article of articles) {
+      const normalized = normalizeTitle(article.title);
       if (seenTitles.has(normalized)) {
         bulletsRemovedDuplicateTitle++;
         continue;
       }
       seenTitles.add(normalized);
-      kept.push(row);
+      kept.push(article);
     }
+
     return kept;
   };
 
@@ -163,190 +156,43 @@ export function pruneNewsletterToCitedRows(
   const getSeenUrls = (): Set<string> =>
     dedupeScope === "newsletter" ? newsletterSeenUrls : new Set<string>();
 
-  const shouldPrune = (key: PruneSectionKey): boolean =>
+  const shouldPrune = (key: NewsletterSectionKey): boolean =>
     (configuredSections as ReadonlyArray<string>).includes(key);
 
-  // --- industryPulse ---
-  let industryPulse = resolved.industryPulse;
-  if (shouldPrune("industryPulse") && industryPulse !== undefined) {
-    if (industryPulse.url === undefined) {
-      industryPulse = undefined;
-      sectionsRemoved++;
-      reports.push({
-        sectionKey: "industryPulse",
-        removedBullets: 0,
-        removedForDuplicate: 0,
-        sectionRemoved: true,
-      });
-    } else {
-      sectionsKept++;
-    }
-  }
+  const sections: NewsletterSection[] = [];
 
-  // --- competitiveLandscape ---
-  let competitiveLandscape = resolved.competitiveLandscape;
-  if (
-    shouldPrune("competitiveLandscape") &&
-    competitiveLandscape !== undefined
-  ) {
+  for (const section of document.sections) {
+    if (!shouldPrune(section.key)) {
+      sections.push(section);
+      continue;
+    }
+
     const {
       kept: citedKept,
       removedUncited,
       removedDuplicate,
-    } = pruneRows(competitiveLandscape.bullets, getSeenUrls(), dedupeEnabled);
+    } = pruneRows(section.articles, getSeenUrls(), dedupeEnabled);
     bulletsRemovedUncited += removedUncited;
     bulletsRemovedDuplicate += removedDuplicate;
     const kept = filterByTitle(citedKept);
     const sectionRemoved = kept.length === 0;
     reports.push({
-      sectionKey: "competitiveLandscape",
+      sectionKey: section.key,
       removedBullets: removedUncited,
       removedForDuplicate: removedDuplicate,
       sectionRemoved,
     });
+
     if (sectionRemoved) {
       sectionsRemoved++;
-      competitiveLandscape = undefined;
-    } else {
-      sectionsKept++;
-      competitiveLandscape = { ...competitiveLandscape, bullets: kept };
+      continue;
     }
-  }
-
-  // --- dealsAndMovements ---
-  let dealsAndMovements = resolved.dealsAndMovements;
-  if (shouldPrune("dealsAndMovements") && dealsAndMovements !== undefined) {
-    const {
-      kept: citedKept,
-      removedUncited,
-      removedDuplicate,
-    } = pruneRows(dealsAndMovements.bullets, getSeenUrls(), dedupeEnabled);
-    bulletsRemovedUncited += removedUncited;
-    bulletsRemovedDuplicate += removedDuplicate;
-    const kept = filterByTitle(citedKept);
-    const sectionRemoved = kept.length === 0;
-    reports.push({
-      sectionKey: "dealsAndMovements",
-      removedBullets: removedUncited,
-      removedForDuplicate: removedDuplicate,
-      sectionRemoved,
-    });
-    if (sectionRemoved) {
-      sectionsRemoved++;
-      dealsAndMovements = undefined;
-    } else {
-      sectionsKept++;
-      dealsAndMovements = { ...dealsAndMovements, bullets: kept };
-    }
-  }
-
-  // --- regulatoryPolicyWatch ---
-  let regulatoryPolicyWatch = resolved.regulatoryPolicyWatch;
-  if (
-    shouldPrune("regulatoryPolicyWatch") &&
-    regulatoryPolicyWatch !== undefined
-  ) {
-    const {
-      kept: citedKept,
-      removedUncited,
-      removedDuplicate,
-    } = pruneRows(regulatoryPolicyWatch.bullets, getSeenUrls(), dedupeEnabled);
-    bulletsRemovedUncited += removedUncited;
-    bulletsRemovedDuplicate += removedDuplicate;
-    const kept = filterByTitle(citedKept);
-    const sectionRemoved = kept.length === 0;
-    reports.push({
-      sectionKey: "regulatoryPolicyWatch",
-      removedBullets: removedUncited,
-      removedForDuplicate: removedDuplicate,
-      sectionRemoved,
-    });
-    if (sectionRemoved) {
-      sectionsRemoved++;
-      regulatoryPolicyWatch = undefined;
-    } else {
-      sectionsKept++;
-      regulatoryPolicyWatch = { ...regulatoryPolicyWatch, bullets: kept };
-    }
-  }
-
-  // --- disruptorsOrTech ---
-  let disruptorsOrTech: IndustryDisruptorsOrTechResolved | undefined =
-    resolved.disruptorsOrTech;
-  if (shouldPrune("disruptorsOrTech") && disruptorsOrTech !== undefined) {
-    if (disruptorsOrTech.format === "prose") {
-      // Prose variant has no citation mechanism — always removed as uncited.
-      disruptorsOrTech = undefined;
-      sectionsRemoved++;
-      reports.push({
-        sectionKey: "disruptorsOrTech",
-        removedBullets: 0,
-        removedForDuplicate: 0,
-        sectionRemoved: true,
-      });
-    } else {
-      const {
-        kept: citedKept,
-        removedUncited,
-        removedDuplicate,
-      } = pruneRows(disruptorsOrTech.bullets, getSeenUrls(), dedupeEnabled);
-      bulletsRemovedUncited += removedUncited;
-      bulletsRemovedDuplicate += removedDuplicate;
-      const kept = filterByTitle(citedKept);
-      const sectionRemoved = kept.length === 0;
-      reports.push({
-        sectionKey: "disruptorsOrTech",
-        removedBullets: removedUncited,
-        removedForDuplicate: removedDuplicate,
-        sectionRemoved,
-      });
-      if (sectionRemoved) {
-        sectionsRemoved++;
-        disruptorsOrTech = undefined;
-      } else {
-        sectionsKept++;
-        disruptorsOrTech = { ...disruptorsOrTech, bullets: kept };
-      }
-    }
-  }
-
-  // --- quickHits ---
-  let quickHits = resolved.quickHits;
-  if (shouldPrune("quickHits") && quickHits !== undefined) {
-    const {
-      kept: citedKept,
-      removedUncited,
-      removedDuplicate,
-    } = pruneRows(quickHits.items, getSeenUrls(), dedupeEnabled);
-    bulletsRemovedUncited += removedUncited;
-    bulletsRemovedDuplicate += removedDuplicate;
-    const kept = filterByTitle(citedKept);
-    const sectionRemoved = kept.length === 0;
-    reports.push({
-      sectionKey: "quickHits",
-      removedBullets: removedUncited,
-      removedForDuplicate: removedDuplicate,
-      sectionRemoved,
-    });
-    if (sectionRemoved) {
-      sectionsRemoved++;
-      quickHits = undefined;
-    } else {
-      sectionsKept++;
-      quickHits = { ...quickHits, items: kept };
-    }
+    sectionsKept++;
+    sections.push({ key: section.key, articles: kept });
   }
 
   return {
-    resolved: {
-      subject: resolved.subject,
-      ...(industryPulse !== undefined ? { industryPulse } : {}),
-      ...(competitiveLandscape !== undefined ? { competitiveLandscape } : {}),
-      ...(dealsAndMovements !== undefined ? { dealsAndMovements } : {}),
-      ...(regulatoryPolicyWatch !== undefined ? { regulatoryPolicyWatch } : {}),
-      ...(disruptorsOrTech !== undefined ? { disruptorsOrTech } : {}),
-      ...(quickHits !== undefined ? { quickHits } : {}),
-    },
+    document: { version: 1, sections },
     reports,
     summary: {
       sectionsRemoved,
@@ -360,22 +206,23 @@ export function pruneNewsletterToCitedRows(
 
 /** Outcome of the within-run semantic dedup pass. */
 export type WithinRunDedupResult = {
-  resolved: IndustryNewsletterResolved;
+  document: NewsletterDocument;
   removedCount: number;
 };
 
-type ResolvedItem = IndustryBulletResolved | IndustryQuickHitResolved;
-
 const DEFAULT_TITLE_DEDUP_SIMILARITY = 0.5;
 
+const articleComparisonText = (article: NewsletterArticle): string =>
+  `${article.title} ${article.points.join(" ")}`;
+
 const scoreItemSimilarity = (
-  left: ResolvedItem,
-  right: ResolvedItem,
+  left: NewsletterArticle,
+  right: NewsletterArticle,
 ): number => {
-  const leftText = `${left.title ?? ""} ${left.text}`;
-  const rightText = `${right.title ?? ""} ${right.text}`;
-  const leftShingles = buildWordShingles(tokenize(leftText));
-  const rightShingles = buildWordShingles(tokenize(rightText));
+  const leftShingles = buildWordShingles(tokenize(articleComparisonText(left)));
+  const rightShingles = buildWordShingles(
+    tokenize(articleComparisonText(right)),
+  );
 
   return shingleJaccardSimilarity(leftShingles, rightShingles);
 };
@@ -383,47 +230,37 @@ const scoreItemSimilarity = (
 // Bag-of-words over titles, not 3-grams: reworded headlines of one event keep the same token set
 // but few shared 3-grams, so text similarity misses them.
 const scoreTitleSimilarity = (
-  left: ResolvedItem,
-  right: ResolvedItem,
+  left: NewsletterArticle,
+  right: NewsletterArticle,
 ): number => {
-  if (left.title === undefined || right.title === undefined) {
-    return 0;
-  }
   const leftTokens = new Set(tokenize(left.title));
   const rightTokens = new Set(tokenize(right.title));
 
   return shingleJaccardSimilarity(leftTokens, rightTokens);
 };
 
-const dedupeItems = <T extends ResolvedItem>(
-  items: T[],
+const dedupeItems = (
+  articles: ReadonlyArray<NewsletterArticle>,
   seenTitles: Set<string>,
-  corpus: ResolvedItem[],
+  corpus: NewsletterArticle[],
   minSimilarity: number,
   titleMinSimilarity: number,
-): { kept: T[]; removedCount: number } => {
-  const kept: T[] = [];
+): { kept: NewsletterArticle[]; removedCount: number } => {
+  const kept: NewsletterArticle[] = [];
   let removedCount = 0;
 
-  for (const item of items) {
-    if (item.url === undefined) {
-      kept.push(item);
+  for (const article of articles) {
+    const normalizedTitle = normalizeTitle(article.title);
+    if (seenTitles.has(normalizedTitle)) {
+      removedCount++;
       continue;
     }
 
-    if (item.title !== undefined) {
-      const normalizedTitle = normalizeTitle(item.title);
-      if (seenTitles.has(normalizedTitle)) {
-        removedCount++;
-        continue;
-      }
-    }
-
     let isDuplicate = false;
-    for (const seenItem of corpus) {
+    for (const seenArticle of corpus) {
       if (
-        scoreItemSimilarity(item, seenItem) >= minSimilarity ||
-        scoreTitleSimilarity(item, seenItem) >= titleMinSimilarity
+        scoreItemSimilarity(article, seenArticle) >= minSimilarity ||
+        scoreTitleSimilarity(article, seenArticle) >= titleMinSimilarity
       ) {
         isDuplicate = true;
         break;
@@ -435,92 +272,52 @@ const dedupeItems = <T extends ResolvedItem>(
       continue;
     }
 
-    if (item.title !== undefined) {
-      seenTitles.add(normalizeTitle(item.title));
-    }
-    corpus.push(item);
-    kept.push(item);
+    seenTitles.add(normalizedTitle);
+    corpus.push(article);
+    kept.push(article);
   }
 
   return { kept, removedCount };
 };
 
 /**
- * Removes semantically near-duplicate items from a resolved newsletter using
- * n-gram Jaccard similarity over item text and normalized title matching.
+ * Removes semantically near-duplicate articles from a newsletter document using
+ * n-gram Jaccard similarity over article text and normalized title matching.
  *
- * Operates newsletter-wide: an item kept in an earlier section can suppress a
+ * Operates newsletter-wide: an article kept in an earlier section can suppress a
  * duplicate in a later section.
  *
- * @param resolved - Resolved newsletter after URL attachment and citation pruning.
- * @param minSimilarity - Jaccard threshold above which two items are considered
+ * @param document - Document after citation pruning.
+ * @param minSimilarity - Jaccard threshold above which two articles are considered
  *   the same story (default 0.55).
+ * @param titleMinSimilarity - Token-overlap threshold for titles.
  */
 export const dedupeWithinRun = (
-  resolved: IndustryNewsletterResolved,
+  document: NewsletterDocument,
   minSimilarity: number = 0.55,
   titleMinSimilarity: number = DEFAULT_TITLE_DEDUP_SIMILARITY,
 ): WithinRunDedupResult => {
   const seenTitles = new Set<string>();
-  const corpus: ResolvedItem[] = [];
+  const corpus: NewsletterArticle[] = [];
+  const sections: NewsletterSection[] = [];
   let totalRemoved = 0;
 
-  const dedupeSection = <T extends ResolvedItem>(
-    items: T[],
-  ): { kept: T[]; removedCount: number } =>
-    dedupeItems(items, seenTitles, corpus, minSimilarity, titleMinSimilarity);
-
-  let competitiveLandscape = resolved.competitiveLandscape;
-  if (competitiveLandscape !== undefined) {
-    const { kept, removedCount } = dedupeSection(competitiveLandscape.bullets);
+  for (const section of document.sections) {
+    const { kept, removedCount } = dedupeItems(
+      section.articles,
+      seenTitles,
+      corpus,
+      minSimilarity,
+      titleMinSimilarity,
+    );
     totalRemoved += removedCount;
-    competitiveLandscape =
-      kept.length > 0 ? { ...competitiveLandscape, bullets: kept } : undefined;
-  }
-
-  let dealsAndMovements = resolved.dealsAndMovements;
-  if (dealsAndMovements !== undefined) {
-    const { kept, removedCount } = dedupeSection(dealsAndMovements.bullets);
-    totalRemoved += removedCount;
-    dealsAndMovements =
-      kept.length > 0 ? { ...dealsAndMovements, bullets: kept } : undefined;
-  }
-
-  let regulatoryPolicyWatch = resolved.regulatoryPolicyWatch;
-  if (regulatoryPolicyWatch !== undefined) {
-    const { kept, removedCount } = dedupeSection(regulatoryPolicyWatch.bullets);
-    totalRemoved += removedCount;
-    regulatoryPolicyWatch =
-      kept.length > 0 ? { ...regulatoryPolicyWatch, bullets: kept } : undefined;
-  }
-
-  let disruptorsOrTech = resolved.disruptorsOrTech;
-  if (disruptorsOrTech !== undefined && disruptorsOrTech.format === "bullets") {
-    const { kept, removedCount } = dedupeSection(disruptorsOrTech.bullets);
-    totalRemoved += removedCount;
-    disruptorsOrTech =
-      kept.length > 0 ? { ...disruptorsOrTech, bullets: kept } : undefined;
-  }
-
-  let quickHits = resolved.quickHits;
-  if (quickHits !== undefined) {
-    const { kept, removedCount } = dedupeSection(quickHits.items);
-    totalRemoved += removedCount;
-    quickHits = kept.length > 0 ? { ...quickHits, items: kept } : undefined;
+    if (kept.length > 0) {
+      sections.push({ key: section.key, articles: kept });
+    }
   }
 
   return {
-    resolved: {
-      subject: resolved.subject,
-      ...(resolved.industryPulse !== undefined
-        ? { industryPulse: resolved.industryPulse }
-        : {}),
-      ...(competitiveLandscape !== undefined ? { competitiveLandscape } : {}),
-      ...(dealsAndMovements !== undefined ? { dealsAndMovements } : {}),
-      ...(regulatoryPolicyWatch !== undefined ? { regulatoryPolicyWatch } : {}),
-      ...(disruptorsOrTech !== undefined ? { disruptorsOrTech } : {}),
-      ...(quickHits !== undefined ? { quickHits } : {}),
-    },
+    document: { version: 1, sections },
     removedCount: totalRemoved,
   };
 };

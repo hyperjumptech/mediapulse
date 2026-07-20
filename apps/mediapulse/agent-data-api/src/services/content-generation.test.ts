@@ -156,8 +156,8 @@ describe("getDataSourcesForTicker", () => {
           id: "ds-low",
           url: "https://example.com/low",
           title: "Low score",
-          description: null,
           content: "Low",
+          description: null,
           author: null,
           source: null,
           searchQueryId: null,
@@ -312,7 +312,6 @@ describe("createNewsletter", () => {
       id: "nl-1",
       tickerId: "ticker-1",
       subject: "Market Update",
-      description: null,
       content: "Content body",
       model: "gpt-4o",
       agentVersion: "1.2.3",
@@ -348,7 +347,6 @@ describe("createNewsletter", () => {
     expect(db.newsletter.create).toHaveBeenCalledWith({
       data: {
         subject: "Market Update",
-        description: null,
         content: "Content body",
         tickerId: "ticker-1",
         searchQuerySetId: "set-active",
@@ -376,7 +374,6 @@ describe("createNewsletter", () => {
       id: "nl-2",
       tickerId: "ticker-1",
       subject: "Simple Subject",
-      description: null,
       content: "Simple content",
       model: null,
       agentVersion: null,
@@ -404,7 +401,6 @@ describe("createNewsletter", () => {
     expect(db.newsletter.create).toHaveBeenCalledWith({
       data: {
         subject: "Simple Subject",
-        description: null,
         content: "Simple content",
         tickerId: "ticker-1",
         searchQuerySetId: "set-active",
@@ -439,49 +435,6 @@ describe("createNewsletter", () => {
     expect(db.newsletter.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ searchQuerySetId: null }),
-      }),
-    );
-  });
-
-  it("passes description as null when omitted", async () => {
-    // Setup
-    const db = createMockNewsletterDb();
-    const createdAt = new Date("2026-04-14T00:00:00.000Z");
-    const updatedAt = new Date("2026-04-14T00:00:00.000Z");
-    db.newsletter.create.mockResolvedValue({
-      id: "nl-3",
-      tickerId: "ticker-1",
-      subject: "No Desc Subject",
-      description: null,
-      content: "No desc content",
-      model: null,
-      agentVersion: null,
-      configVersion: null,
-      promptHash: null,
-      configSnapshotId: null,
-      promptTokens: null,
-      completionTokens: null,
-      totalTokens: null,
-      createdAt,
-      updatedAt,
-    });
-
-    // Act
-    await createNewsletter(
-      {
-        subject: "No Desc Subject",
-        content: "No desc content",
-        tickerId: "ticker-1",
-      },
-      db as unknown as Parameters<typeof createNewsletter>[1],
-    );
-
-    // Assert
-    expect(db.newsletter.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          description: null,
-        }),
       }),
     );
   });
@@ -624,23 +577,30 @@ describe("getRecentNewsletterBullets", () => {
   it("flattens bullets from recent newsletters within the lookback window", async () => {
     // Setup
     const db = createMockNewsletterDb();
-    const wire = [
-      "MP_NEWSLETTER",
-      "",
-      "BEGIN competitive-landscape",
-      "DISPLAY_HEADING",
-      "Competition",
-      "BULLET",
-      "Rival A underbid.",
-      "BULLET",
-      "Fleet oversupply.",
-      "END",
-      "",
-    ].join("\n");
+    const document = JSON.stringify({
+      version: 1,
+      sections: [
+        {
+          key: "competitive-landscape",
+          articles: [
+            {
+              title: "Rival A underbids",
+              url: "https://example.com/rival-a",
+              points: ["Rival A underbid."],
+            },
+            {
+              title: "Fleet oversupply",
+              url: "https://example.com/fleet",
+              points: ["Fleet oversupply."],
+            },
+          ],
+        },
+      ],
+    });
     db.newsletter.findMany.mockResolvedValue([
       {
         id: "nl-1",
-        content: wire,
+        content: document,
         createdAt: new Date("2026-04-20T12:00:00.000Z"),
       },
     ]);

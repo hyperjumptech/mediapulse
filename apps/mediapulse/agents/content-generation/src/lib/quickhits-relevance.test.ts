@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { IndustryNewsletterResolved } from "../industry-newsletter-urls.js";
+import type { NewsletterDocument } from "@workspace/email-templates/newsletter-document";
+
 import type { SourceForGeneration } from "../types.js";
 import { filterDemotedQuickHits } from "./quickhits-relevance.js";
 
@@ -12,22 +13,27 @@ const source = (
   ...overrides,
 });
 
-const withQuickHits = (
-  items: IndustryNewsletterResolved["quickHits"] extends infer Q
-    ? Q extends { items: infer I }
-      ? I
-      : never
-    : never,
-): IndustryNewsletterResolved => ({
-  subject: "S",
-  quickHits: { displayHeading: "Hits", items },
+const article = (title: string, url: string) => ({
+  title,
+  url,
+  points: ["t"],
 });
+
+const withQuickHits = (
+  articles: Array<{ title: string; url: string; points: string[] }>,
+): NewsletterDocument => ({
+  version: 1,
+  sections: [{ key: "quick-hits", articles }],
+});
+
+const quickHitsOf = (document: NewsletterDocument) =>
+  document.sections.find((section) => section.key === "quick-hits");
 
 describe("filterDemotedQuickHits", () => {
   it("drops a low-score structured-section article demoted into Quick Hits", () => {
-    const resolved = withQuickHits([
-      { title: "Off-topic", text: "t", url: "https://x/off" },
-      { title: "Real hit", text: "t", url: "https://x/keep" },
+    const document = withQuickHits([
+      article("Off-topic", "https://x/off"),
+      article("Real hit", "https://x/keep"),
     ]);
     const sources = [
       source({
@@ -42,18 +48,16 @@ describe("filterDemotedQuickHits", () => {
       }),
     ];
 
-    const result = filterDemotedQuickHits(resolved, sources, 0.7);
+    const result = filterDemotedQuickHits(document, sources, 0.7);
 
     expect(result.removedCount).toBe(1);
-    expect(result.resolved.quickHits?.items.map((i) => i.url)).toEqual([
-      "https://x/keep",
-    ]);
+    expect(
+      quickHitsOf(result.document)?.articles.map((quickHit) => quickHit.url),
+    ).toEqual(["https://x/keep"]);
   });
 
   it("keeps a high-score structured article the model placed in Quick Hits", () => {
-    const resolved = withQuickHits([
-      { title: "Strong", text: "t", url: "https://x/strong" },
-    ]);
+    const document = withQuickHits([article("Strong", "https://x/strong")]);
     const sources = [
       source({
         url: "https://x/strong",
@@ -62,31 +66,29 @@ describe("filterDemotedQuickHits", () => {
       }),
     ];
 
-    const result = filterDemotedQuickHits(resolved, sources, 0.7);
+    const result = filterDemotedQuickHits(document, sources, 0.7);
 
     expect(result.removedCount).toBe(0);
-    expect(result.resolved.quickHits?.items).toHaveLength(1);
+    expect(quickHitsOf(result.document)?.articles).toHaveLength(1);
   });
 
   it("keeps items assigned Quick Hits and items with no resolvable source", () => {
-    const resolved = withQuickHits([
-      { title: "Assigned QH", text: "t", url: "https://x/qh" },
-      { title: "Unknown", text: "t", url: "https://x/unknown" },
+    const document = withQuickHits([
+      article("Assigned QH", "https://x/qh"),
+      article("Unknown", "https://x/unknown"),
     ]);
     const sources = [
       source({ url: "https://x/qh", section: "quickHits", sectionScore: 0.2 }),
     ];
 
-    const result = filterDemotedQuickHits(resolved, sources, 0.7);
+    const result = filterDemotedQuickHits(document, sources, 0.7);
 
     expect(result.removedCount).toBe(0);
-    expect(result.resolved.quickHits?.items).toHaveLength(2);
+    expect(quickHitsOf(result.document)?.articles).toHaveLength(2);
   });
 
   it("removes the Quick Hits section when every item is a low-score demotion", () => {
-    const resolved = withQuickHits([
-      { title: "Off", text: "t", url: "https://x/a" },
-    ]);
+    const document = withQuickHits([article("Off", "https://x/a")]);
     const sources = [
       source({
         url: "https://x/a",
@@ -95,9 +97,34 @@ describe("filterDemotedQuickHits", () => {
       }),
     ];
 
-    const result = filterDemotedQuickHits(resolved, sources, 0.7);
+    const result = filterDemotedQuickHits(document, sources, 0.7);
 
     expect(result.removedCount).toBe(1);
-    expect(result.resolved.quickHits).toBeUndefined();
+    expect(quickHitsOf(result.document)).toBeUndefined();
+  });
+
+  it("leaves other sections untouched", () => {
+    const document: NewsletterDocument = {
+      version: 1,
+      sections: [
+        {
+          key: "deals-and-movements",
+          articles: [article("Deal", "https://x/deal")],
+        },
+        { key: "quick-hits", articles: [article("Off", "https://x/a")] },
+      ],
+    };
+    const sources = [
+      source({
+        url: "https://x/a",
+        section: "dealsAndMovements",
+        sectionScore: 0.4,
+      }),
+    ];
+
+    const result = filterDemotedQuickHits(document, sources, 0.7);
+
+    expect(result.document.sections).toHaveLength(1);
+    expect(result.document.sections[0]?.key).toBe("deals-and-movements");
   });
 });

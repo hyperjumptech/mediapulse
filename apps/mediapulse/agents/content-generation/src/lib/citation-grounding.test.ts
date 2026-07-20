@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { IndustryNewsletterStructure } from "../industry-newsletter-schema.js";
+import type { NewsletterDraft } from "../newsletter-draft-schema.js";
 import {
   groundNewsletterCitations,
   scoreBulletAgainstArticle,
@@ -21,43 +21,22 @@ const miningArticle: SourceForGeneration = {
     "Mining contractors shipped higher nickel ore volumes as smelter demand picked up across eastern Indonesia.",
 };
 
-const minimalStructure = (
-  patch: Partial<IndustryNewsletterStructure> = {},
-): IndustryNewsletterStructure => ({
-  subject: "Weekly briefing",
-  industryPulse: { displayHeading: "Pulse", prose: "Markets moved." },
-  competitiveLandscape: {
-    displayHeading: "Competitive",
-    bullets: [
-      { title: "T1", text: "Peer A expanded share.", articleIndex: 1 },
-      { title: "T2", text: "Peer B held steady.", articleIndex: 1 },
-    ],
-  },
-  dealsAndMovements: {
-    displayHeading: "Deals",
-    bullets: [{ title: "T3", text: "No major deals.", articleIndex: 1 }],
-  },
-  regulatoryPolicyWatch: {
-    displayHeading: "Policy",
-    bullets: [{ title: "T4", text: "Rules unchanged.", articleIndex: 1 }],
-  },
-  disruptorsOrTech: {
-    format: "prose",
-    displayHeading: "Tech",
-    prose: "Automation continued.",
-  },
-  quickHits: {
-    displayHeading: "Hits",
-    items: [
-      { title: "Q1", text: "Hit 1", articleIndex: 1 },
-      { title: "Q2", text: "Hit 2", articleIndex: 1 },
-      { title: "Q3", text: "Hit 3", articleIndex: 1 },
-      { title: "Q4", text: "Hit 4", articleIndex: 1 },
-      { title: "Q5", text: "Hit 5", articleIndex: 1 },
-    ],
-  },
-  ...patch,
+const draftArticle = (
+  title: string,
+  text: string,
+  articleIndex = 1,
+): NewsletterDraft["sections"][number]["articles"][number] => ({
+  title,
+  points: [text],
+  articleIndex,
 });
+
+const minimalDraft = (
+  sections: NewsletterDraft["sections"],
+): NewsletterDraft => ({ subject: "Weekly briefing", sections });
+
+const sectionOf = (draft: NewsletterDraft, key: string) =>
+  draft.sections.find((section) => section.key === key);
 
 describe("scoreBulletAgainstArticle", () => {
   it("scores grounded earnings bullets above threshold with numeric bonus", () => {
@@ -218,174 +197,180 @@ describe("scoreBulletAgainstArticle", () => {
 });
 
 describe("groundNewsletterCitations", () => {
-  it("unlinks low-overlap optional bullets under unlink policy", () => {
+  it("removes low-overlap articles under unlink policy", () => {
     // Setup
-    const structure = minimalStructure({
-      competitiveLandscape: {
-        displayHeading: "Competitive",
-        bullets: [
-          {
-            title: "T1",
-            text: "BCA reported Q1 net profit of Rp 12.4 trillion",
-            articleIndex: 1,
-          },
-          {
-            title: "T2",
-            text: "Unrelated mining shipment volumes rose.",
-            articleIndex: 2,
-          },
+    const draft = minimalDraft([
+      {
+        key: "competitive-landscape",
+        articles: [
+          draftArticle(
+            "T1",
+            "BCA reported Q1 net profit of Rp 12.4 trillion",
+            1,
+          ),
+          draftArticle("T2", "Unrelated mining shipment volumes rose.", 2),
         ],
       },
-    });
+    ]);
 
     // Act
-    const result = groundNewsletterCitations(
-      structure,
-      [bcaArticle, miningArticle],
-      {
-        policy: "unlink",
-        minOverlapScore: 0.18,
-        numericBonus: 0.2,
-      },
-    );
+    const result = groundNewsletterCitations(draft, [bcaArticle, bcaArticle], {
+      policy: "unlink",
+      minOverlapScore: 0.18,
+      numericBonus: 0.2,
+    });
 
     // Assert
-    const badBullet = result.structure.competitiveLandscape.bullets[1];
-    expect(badBullet?.text).toContain("mining shipment");
-    expect(badBullet?.articleIndex).toBeUndefined();
+    const section = sectionOf(result.draft, "competitive-landscape");
+
+    expect(section?.articles).toHaveLength(1);
+    expect(section?.articles[0]?.title).toBe("T1");
+
     const report = result.reports.find(
       (entry) =>
-        entry.sectionKey === "competitiveLandscape" && entry.bulletIndex === 1,
+        entry.sectionKey === "competitive-landscape" && entry.bulletIndex === 1,
     );
+
     expect(report?.decision.kind).toBe("unlink");
+    expect(result.summary.unlinked).toBe(1);
   });
 
-  it("downgrades competitiveLandscape drops to unlink at the schema floor", () => {
-    // Setup
-    const structure = minimalStructure({
-      competitiveLandscape: {
-        displayHeading: "Competitive",
-        bullets: [
-          {
-            title: "T1",
-            text: "Unrelated mining shipment volumes rose.",
-            articleIndex: 1,
-          },
-          {
-            title: "T2",
-            text: "Another unrelated nickel export headline.",
-            articleIndex: 1,
-          },
+  it("downgrades drops to unlink at the section floor", () => {
+    // Setup: every article in the section fails, so the floor converts each drop to unlink.
+    const draft = minimalDraft([
+      {
+        key: "competitive-landscape",
+        articles: [
+          draftArticle("T1", "Unrelated mining shipment volumes rose.", 1),
+          draftArticle("T2", "Another unrelated nickel export headline.", 1),
         ],
       },
-      dealsAndMovements: {
-        displayHeading: "Deals",
-        bullets: [{ title: "T3", text: "No major deals this week." }],
-      },
-      regulatoryPolicyWatch: {
-        displayHeading: "Policy",
-        bullets: [{ title: "T4", text: "Rules unchanged this week." }],
-      },
-      quickHits: {
-        displayHeading: "Hits",
-        items: [
-          {
-            title: "Q1",
-            text: "Nickel ore volumes increased.",
-            articleIndex: 1,
-          },
-          { title: "Q2", text: "Smelter demand picked up.", articleIndex: 1 },
-          {
-            title: "Q3",
-            text: "Mining contractors shipped more ore.",
-            articleIndex: 1,
-          },
-          {
-            title: "Q4",
-            text: "Eastern Indonesia output rose.",
-            articleIndex: 1,
-          },
-          {
-            title: "Q5",
-            text: "Higher nickel ore volumes noted.",
-            articleIndex: 1,
-          },
-        ],
-      },
-    });
+    ]);
 
     // Act
-    const result = groundNewsletterCitations(structure, [miningArticle], {
+    const result = groundNewsletterCitations(draft, [bcaArticle], {
       policy: "drop",
       minOverlapScore: 0.18,
       numericBonus: 0.2,
     });
 
     // Assert
-    expect(result.structure.competitiveLandscape.bullets).toHaveLength(2);
     expect(
-      result.structure.competitiveLandscape.bullets.every(
-        (bullet) => bullet.articleIndex === undefined,
-      ),
+      result.reports.every((report) => report.decision.kind === "unlink"),
     ).toBe(true);
     expect(result.summary.floorPreserved).toBe(2);
+    expect(sectionOf(result.draft, "competitive-landscape")).toBeUndefined();
   });
 
-  it("keeps only the minimum highest-overlap quick hits when grounding fails", () => {
-    // Setup: 3 grounded + 4 failing quick hits; the floor of 5 should keep the 3 grounded plus
-    // exactly 2 of the failures, not pad with all four.
-    const structure = minimalStructure({
-      quickHits: {
-        displayHeading: "Hits",
-        items: [
-          {
-            title: "G1",
-            text: "Bank Central Asia reported first-quarter net profit of Rp 12.4 trillion.",
-            articleIndex: 1,
-          },
-          {
-            title: "G2",
-            text: "Bank Central Asia first-quarter net profit reached Rp 12.4 trillion, beating estimates.",
-            articleIndex: 1,
-          },
-          {
-            title: "G3",
-            text: "Bank Central Asia reported Rp 12.4 trillion in first-quarter net profit as margins expanded.",
-            articleIndex: 1,
-          },
-          {
-            title: "F1",
-            text: "Rain is forecast over the weekend.",
-            articleIndex: 1,
-          },
-          {
-            title: "F2",
-            text: "A local festival drew large crowds.",
-            articleIndex: 1,
-          },
-          {
-            title: "F3",
-            text: "Traffic congestion worsened downtown.",
-            articleIndex: 1,
-          },
-          {
-            title: "F4",
-            text: "A new cafe opened in the suburbs.",
-            articleIndex: 1,
-          },
+  it("keeps a passing article without invoking the floor", () => {
+    // Setup
+    const draft = minimalDraft([
+      {
+        key: "quick-hits",
+        articles: [
+          draftArticle(
+            "G1",
+            "Bank Central Asia reported first-quarter net profit of Rp 12.4 trillion.",
+            1,
+          ),
+          draftArticle("F1", "Rain is forecast over the weekend.", 1),
         ],
       },
-    });
+    ]);
 
     // Act
-    const result = groundNewsletterCitations(structure, [bcaArticle], {
+    const result = groundNewsletterCitations(draft, [bcaArticle], {
       policy: "drop",
       minOverlapScore: 0.18,
       numericBonus: 0.2,
     });
 
     // Assert
-    expect(result.structure.quickHits.items).toHaveLength(5);
-    expect(result.quickHitsKeptDespiteFailedGrounding).toBe(2);
+    expect(sectionOf(result.draft, "quick-hits")?.articles).toHaveLength(1);
+    expect(result.quickHitsKeptDespiteFailedGrounding).toBe(0);
+  });
+
+  it("rescues the highest-overlap quick hit when every quick hit fails grounding", () => {
+    // Setup: the threshold is raised so all three quick hits fail, F2 by the smallest margin.
+    // The floor must keep exactly one, and it must be F2.
+    const draft = minimalDraft([
+      {
+        key: "quick-hits",
+        articles: [
+          draftArticle("F1", "Rain is forecast over the weekend.", 1),
+          draftArticle(
+            "F2",
+            "Bank Central Asia margins were mentioned somewhere.",
+            1,
+          ),
+          draftArticle("F3", "Traffic congestion worsened downtown.", 1),
+        ],
+      },
+    ]);
+
+    // Act
+    const result = groundNewsletterCitations(draft, [bcaArticle], {
+      policy: "drop",
+      minOverlapScore: 0.9,
+      numericBonus: 0.2,
+    });
+
+    // Assert
+    const kept = sectionOf(result.draft, "quick-hits");
+
+    expect(kept?.articles).toHaveLength(1);
+    expect(kept?.articles[0]?.title).toBe("F2");
+    expect(result.quickHitsKeptDespiteFailedGrounding).toBe(1);
+  });
+
+  it("passes every article through under warn policy", () => {
+    // Setup
+    const draft = minimalDraft([
+      {
+        key: "deals-and-movements",
+        articles: [draftArticle("T1", "Completely unrelated headline.", 1)],
+      },
+    ]);
+
+    // Act
+    const result = groundNewsletterCitations(draft, [bcaArticle], {
+      policy: "warn",
+      minOverlapScore: 0.18,
+      numericBonus: 0.2,
+    });
+
+    // Assert
+    expect(
+      sectionOf(result.draft, "deals-and-movements")?.articles,
+    ).toHaveLength(1);
+    expect(result.summary.dropped).toBe(0);
+    expect(result.summary.unlinked).toBe(0);
+  });
+
+  it("treats an out-of-range articleIndex as no_source", () => {
+    // Setup
+    const draft = minimalDraft([
+      {
+        key: "deals-and-movements",
+        articles: [draftArticle("T1", "A deal closed.", 99)],
+      },
+    ]);
+
+    // Act
+    const result = groundNewsletterCitations(draft, [bcaArticle], {
+      policy: "drop",
+      minOverlapScore: 0.18,
+      numericBonus: 0.2,
+    });
+
+    // Assert
+    const report = result.reports[0];
+
+    expect(
+      report?.decision.kind === "unlink" || report?.decision.kind === "drop",
+    ).toBe(true);
+    expect(
+      report?.decision.kind !== "pass" ? report?.decision.reason : undefined,
+    ).toBe("no_source");
   });
 });

@@ -1,5 +1,4 @@
-import type { IndustryNewsletterStructure } from "../industry-newsletter-schema.js";
-import { industryNewsletterStructureSchema } from "../industry-newsletter-schema.js";
+import type { NewsletterDraft } from "../newsletter-draft-schema.js";
 import type { SourceForGeneration } from "../types.js";
 import { tokenize } from "./phrase-link-injector.js";
 
@@ -37,7 +36,7 @@ export type CitationGroundingOptions = {
 };
 
 export type GroundNewsletterCitationsResult = {
-  structure: IndustryNewsletterStructure;
+  draft: NewsletterDraft;
   reports: BulletGroundingReport[];
   summary: CitationGroundingSummary;
   /** Quick-hit rows kept despite failed grounding to preserve schema minimums. */
@@ -82,13 +81,11 @@ export const distinctiveAnchorTokens = (
   return anchors;
 };
 
-const SECTION_MIN_COUNTS: Partial<Record<string, number>> = {
-  competitiveLandscape: 2,
-  dealsAndMovements: 1,
-  regulatoryPolicyWatch: 1,
-  "disruptorsOrTech.bullets": 1,
-  quickHits: 5,
-};
+/**
+ * Articles a section must retain after grounding. The floor exists to satisfy the stored
+ * document's schema minimum, which is one article per section for every section.
+ */
+const SECTION_MIN_ARTICLES = 1;
 
 /**
  * Builds word n-gram shingles from tokenized text.
@@ -261,7 +258,6 @@ export const scoreBulletAgainstArticle = (
 type PendingCitationRow = {
   sectionKey: string;
   bulletIndex: number;
-  text: string;
   articleIndex: number;
   overlapScore: number;
   reason: "low_overlap" | "no_source" | null;
@@ -284,109 +280,52 @@ export const percentile = (values: readonly number[], p: number): number => {
 };
 
 /**
- * Applies the configured policy to one optional bullet row.
+ * Verifies newsletter citations against source overlap.
  *
- * @param bullet - Bullet with optional citation.
- * @param decision - Grounding decision for this row.
- */
-const applyOptionalBulletDecision = <
-  T extends { text: string; articleIndex?: number },
->(
-  bullet: T,
-  decision: GroundingDecision,
-): Omit<T, "articleIndex"> | T | null => {
-  if (decision.kind === "drop") {
-    return null;
-  }
-  if (decision.kind === "unlink") {
-    const { articleIndex: _articleIndex, ...rest } = bullet;
-    return rest as Omit<T, "articleIndex">;
-  }
-  return bullet;
-};
-
-/**
- * Verifies and optionally mutates newsletter citations against source overlap.
+ * An article that fails grounding cannot be stored: the document schema requires a `url`, so an
+ * `unlink` decision removes the article exactly as a `drop` does. The two remain distinct in the
+ * reports so the run-details counters keep their prior meaning.
  *
- * @param structure - Validated LLM newsletter JSON.
+ * @param draft - Validated model output.
  * @param sources - Ordered prompt sources (`Article 1` first).
  * @param opts - Grounding policy and scoring thresholds.
  */
 export const groundNewsletterCitations = (
-  structure: IndustryNewsletterStructure,
+  draft: NewsletterDraft,
   sources: readonly SourceForGeneration[],
   opts: CitationGroundingOptions,
 ): GroundNewsletterCitationsResult => {
-  const next: IndustryNewsletterStructure = structuredClone(structure);
   const pending: PendingCitationRow[] = [];
   const reports: BulletGroundingReport[] = [];
 
-  const queueBulletArray = (
-    sectionKey: string,
-    bullets: Array<{ text: string; articleIndex?: number }>,
-  ) => {
-    bullets.forEach((bullet, bulletIndex) => {
-      if (bullet.articleIndex === undefined) {
-        return;
-      }
-
-      const article = sources[bullet.articleIndex - 1];
+  for (const section of draft.sections) {
+    section.articles.forEach((article, bulletIndex) => {
+      const source = sources[article.articleIndex - 1];
       let overlapScore = 0;
       let reason: "low_overlap" | "no_source" | null = null;
 
-      if (article === undefined) {
+      if (source === undefined) {
         reason = "no_source";
       } else {
-        overlapScore = scoreBulletAgainstArticle(bullet.text, article, {
-          numericBonus: opts.numericBonus,
-        });
+        overlapScore = scoreBulletAgainstArticle(
+          article.points.join(" "),
+          source,
+          { numericBonus: opts.numericBonus },
+        );
         if (overlapScore < opts.minOverlapScore) {
           reason = "low_overlap";
         }
       }
 
       pending.push({
-        sectionKey,
+        sectionKey: section.key,
         bulletIndex,
-        text: bullet.text,
-        articleIndex: bullet.articleIndex,
+        articleIndex: article.articleIndex,
         overlapScore,
         reason,
       });
     });
-  };
-
-  queueBulletArray("competitiveLandscape", next.competitiveLandscape.bullets);
-  queueBulletArray("dealsAndMovements", next.dealsAndMovements.bullets);
-  queueBulletArray("regulatoryPolicyWatch", next.regulatoryPolicyWatch.bullets);
-
-  if (next.disruptorsOrTech.format === "bullets") {
-    queueBulletArray("disruptorsOrTech.bullets", next.disruptorsOrTech.bullets);
   }
-
-  next.quickHits.items.forEach((item, bulletIndex) => {
-    pending.push({
-      sectionKey: "quickHits",
-      bulletIndex,
-      text: item.text,
-      articleIndex: item.articleIndex,
-      overlapScore: 0,
-      reason: null,
-    });
-    const row = pending[pending.length - 1]!;
-    const article = sources[row.articleIndex - 1];
-    if (article === undefined) {
-      row.reason = "no_source";
-      row.overlapScore = 0;
-      return;
-    }
-    row.overlapScore = scoreBulletAgainstArticle(row.text, article, {
-      numericBonus: opts.numericBonus,
-    });
-    if (row.overlapScore < opts.minOverlapScore) {
-      row.reason = "low_overlap";
-    }
-  });
 
   const decide = (row: PendingCitationRow): GroundingDecision => {
     if (row.reason === null) {
@@ -395,153 +334,91 @@ export const groundNewsletterCitations = (
     if (opts.policy === "warn") {
       return { kind: "pass" };
     }
-    if (row.sectionKey === "quickHits") {
+    if (row.sectionKey === "quick-hits") {
       return { kind: "drop", reason: row.reason };
     }
     if (opts.policy === "unlink") {
       return { kind: "unlink", reason: row.reason };
     }
+
     return { kind: "drop", reason: row.reason };
   };
 
+  const decisionKeyFor = (row: PendingCitationRow): string =>
+    `${row.sectionKey}:${String(row.bulletIndex)}`;
+
   const decisions = new Map<string, GroundingDecision>();
   for (const row of pending) {
-    decisions.set(`${row.sectionKey}:${String(row.bulletIndex)}`, decide(row));
+    decisions.set(decisionKeyFor(row), decide(row));
   }
 
   let floorPreserved = 0;
   let quickHitsKeptDespiteFailedGrounding = 0;
 
-  for (const [sectionKey, minCount] of Object.entries(SECTION_MIN_COUNTS)) {
-    const sectionMin = minCount ?? 0;
-    const sectionRows = pending.filter((row) => row.sectionKey === sectionKey);
-    const dropKeys = sectionRows
-      .filter((row) => {
-        const decision = decisions.get(
-          `${row.sectionKey}:${String(row.bulletIndex)}`,
-        );
-        return decision?.kind === "drop";
-      })
-      .map((row) => `${row.sectionKey}:${String(row.bulletIndex)}`);
+  for (const section of draft.sections) {
+    const sectionRows = pending.filter((row) => row.sectionKey === section.key);
+    const removedRows = sectionRows.filter(
+      (row) => decisions.get(decisionKeyFor(row))?.kind !== "pass",
+    );
 
-    if (sectionRows.length - dropKeys.length < sectionMin) {
-      if (sectionKey === "quickHits") {
-        // Keep only enough failed quick hits to meet the schema minimum, and keep the
-        // highest-overlap ones, so the section satisfies the count without padding with the
-        // weakest ungrounded items.
-        const needed = sectionMin - (sectionRows.length - dropKeys.length);
-        const rescueKeys = dropKeys
-          .map((key) => {
-            const row = sectionRows.find(
-              (candidate) =>
-                `${candidate.sectionKey}:${String(candidate.bulletIndex)}` ===
-                key,
-            );
-            return { key, overlapScore: row?.overlapScore ?? 0 };
-          })
-          .sort((left, right) => right.overlapScore - left.overlapScore)
-          .slice(0, Math.max(0, needed))
-          .map((entry) => entry.key);
-        for (const key of rescueKeys) {
-          decisions.set(key, { kind: "pass" });
-          quickHitsKeptDespiteFailedGrounding += 1;
-        }
-      } else {
-        for (const key of dropKeys) {
-          const prior = decisions.get(key);
-          if (prior?.kind === "drop") {
-            decisions.set(key, {
-              kind: "unlink",
-              reason: prior.reason,
-            });
-            floorPreserved += 1;
-          }
-        }
+    if (sectionRows.length - removedRows.length >= SECTION_MIN_ARTICLES) {
+      continue;
+    }
+
+    const rescueNeeded =
+      SECTION_MIN_ARTICLES - (sectionRows.length - removedRows.length);
+    if (section.key === "quick-hits") {
+      // Keep only enough failed quick hits to meet the schema minimum, and keep the
+      // highest-overlap ones, so the section satisfies the count without padding with the
+      // weakest ungrounded items.
+      const rescued = [...removedRows]
+        .sort((left, right) => right.overlapScore - left.overlapScore)
+        .slice(0, Math.max(0, rescueNeeded));
+      for (const row of rescued) {
+        decisions.set(decisionKeyFor(row), { kind: "pass" });
+        quickHitsKeptDespiteFailedGrounding += 1;
+      }
+      continue;
+    }
+
+    for (const row of removedRows) {
+      const prior = decisions.get(decisionKeyFor(row));
+      if (prior?.kind === "drop") {
+        decisions.set(decisionKeyFor(row), {
+          kind: "unlink",
+          reason: prior.reason,
+        });
+        floorPreserved += 1;
       }
     }
   }
 
-  const applyBulletArray = (
-    sectionKey: string,
-    bullets: Array<{ title: string; text: string; articleIndex?: number }>,
-  ): Array<{ title: string; text: string; articleIndex?: number }> => {
-    return bullets.flatMap((bullet, bulletIndex) => {
-      if (bullet.articleIndex === undefined) {
-        return [bullet];
-      }
-
+  const groundedSections: NewsletterDraft["sections"] = [];
+  for (const section of draft.sections) {
+    const keptArticles = section.articles.filter((article, bulletIndex) => {
       const decision = decisions.get(
-        `${sectionKey}:${String(bulletIndex)}`,
-      ) ?? {
-        kind: "pass" as const,
-      };
+        `${section.key}:${String(bulletIndex)}`,
+      ) ?? { kind: "pass" as const };
       const row = pending.find(
         (candidate) =>
-          candidate.sectionKey === sectionKey &&
+          candidate.sectionKey === section.key &&
           candidate.bulletIndex === bulletIndex,
       );
       reports.push({
-        sectionKey,
+        sectionKey: section.key,
         bulletIndex,
-        articleIndex: bullet.articleIndex,
+        articleIndex: article.articleIndex,
         overlapScore: row?.overlapScore ?? 0,
         decision,
       });
 
-      const applied = applyOptionalBulletDecision(bullet, decision);
-      return applied === null ? [] : [applied];
-    });
-  };
-
-  next.competitiveLandscape.bullets = applyBulletArray(
-    "competitiveLandscape",
-    next.competitiveLandscape.bullets,
-  ) as IndustryNewsletterStructure["competitiveLandscape"]["bullets"];
-  next.dealsAndMovements.bullets = applyBulletArray(
-    "dealsAndMovements",
-    next.dealsAndMovements.bullets,
-  ) as IndustryNewsletterStructure["dealsAndMovements"]["bullets"];
-  next.regulatoryPolicyWatch.bullets = applyBulletArray(
-    "regulatoryPolicyWatch",
-    next.regulatoryPolicyWatch.bullets,
-  ) as IndustryNewsletterStructure["regulatoryPolicyWatch"]["bullets"];
-
-  if (next.disruptorsOrTech.format === "bullets") {
-    const bullets = applyBulletArray(
-      "disruptorsOrTech.bullets",
-      next.disruptorsOrTech.bullets,
-    );
-    next.disruptorsOrTech = {
-      format: "bullets",
-      displayHeading: next.disruptorsOrTech.displayHeading,
-      bullets,
-    };
-  }
-
-  next.quickHits.items = next.quickHits.items.flatMap((item, bulletIndex) => {
-    const decision = decisions.get(`quickHits:${String(bulletIndex)}`) ?? {
-      kind: "pass" as const,
-    };
-    const row = pending.find(
-      (candidate) =>
-        candidate.sectionKey === "quickHits" &&
-        candidate.bulletIndex === bulletIndex,
-    );
-    reports.push({
-      sectionKey: "quickHits",
-      bulletIndex,
-      articleIndex: item.articleIndex,
-      overlapScore: row?.overlapScore ?? 0,
-      decision,
+      return decision.kind === "pass";
     });
 
-    if (decision.kind === "drop") {
-      return [];
+    if (keptArticles.length > 0) {
+      groundedSections.push({ key: section.key, articles: keptArticles });
     }
-    return [item];
-  }) as IndustryNewsletterStructure["quickHits"]["items"];
-
-  industryNewsletterStructureSchema.parse(next);
+  }
 
   const overlapScores = reports.map((report) => report.overlapScore);
   const summary: CitationGroundingSummary = {
@@ -555,7 +432,7 @@ export const groundNewsletterCitations = (
   };
 
   return {
-    structure: next,
+    draft: { subject: draft.subject, sections: groundedSections },
     reports,
     summary,
     quickHitsKeptDespiteFailedGrounding,
