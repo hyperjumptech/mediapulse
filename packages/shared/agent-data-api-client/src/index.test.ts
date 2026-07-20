@@ -20,7 +20,7 @@ describe("createAgentDataApiClient", () => {
             id: "11111111-1111-4111-a111-111111111111",
             text: "earnings update",
             tickerId: "11111111-1111-4111-a111-111111111111",
-            intent: "breaking",
+            intent: "industryPulse",
             rank: 1,
           },
         ],
@@ -532,7 +532,7 @@ describe("createAgentDataApiClient", () => {
       queries: [
         {
           text: "AAPL latest news",
-          intent: "breaking",
+          intent: "industryPulse",
           rank: 1,
         },
       ],

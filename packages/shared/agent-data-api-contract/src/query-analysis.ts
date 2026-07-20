@@ -1,22 +1,18 @@
 import { z } from "zod";
 
-/** All supported query-analysis intent labels (contract source of truth). */
+/**
+ * All supported query-analysis intent labels (contract source of truth).
+ *
+ * Each intent is named for the newsletter section it feeds, so an intent *is* a section id.
+ * `quickHits` is deliberately absent: it is a classification-time destination for articles that
+ * fit no section, never something a query searches for.
+ */
 export const QUERY_ANALYSIS_INTENTS = [
-  "breaking",
-  "kg_change",
-  "fundamental",
-  "sentiment",
-  "competitor",
-  "supply_chain",
-  "esg",
-  "macro",
-  "technical",
-  "regulatory",
-  "technology_trend",
-  "geopolitical",
-  "industry_trend",
-  "deals",
-  "wildcard",
+  "industryPulse",
+  "competitiveLandscape",
+  "dealsAndMovements",
+  "regulatoryPolicyWatch",
+  "disruptorsOrTech",
 ] as const;
 
 export const queryAnalysisIntentSchema = z.enum(QUERY_ANALYSIS_INTENTS);

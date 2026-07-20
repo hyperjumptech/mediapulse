@@ -33,18 +33,18 @@ const baseSnapshot = {
     {
       text: "AAPL earnings",
       source: "llm",
-      intent: "breaking",
+      intent: "industryPulse",
       persona: "value-investor",
     },
     {
       text: "AAPL fundamentals",
       source: "deterministic",
-      intent: "fundamental",
+      intent: "dealsAndMovements",
     },
     {
       text: "AAPL sentiment",
       source: "llm",
-      intent: "sentiment",
+      intent: "regulatoryPolicyWatch",
       persona: "trader",
     },
   ],
@@ -60,15 +60,19 @@ function makeSets(count: number, offsetMs = WINDOW_MS / 2) {
 }
 
 function makeQueries(setIds: string[]) {
-  const intents = ["breaking", "fundamental", "sentiment"] as const;
+  const intents = [
+    "industryPulse",
+    "dealsAndMovements",
+    "regulatoryPolicyWatch",
+  ] as const;
   return setIds.flatMap((setId, i) => [
     {
       id: `q-${setId}-0`,
       setId,
-      intent: intents[i % 3] ?? "breaking",
+      intent: intents[i % 3] ?? "industryPulse",
     },
-    { id: `q-${setId}-1`, setId, intent: "competitor" },
-    { id: `q-${setId}-2`, setId, intent: "breaking" },
+    { id: `q-${setId}-1`, setId, intent: "competitiveLandscape" },
+    { id: `q-${setId}-2`, setId, intent: "industryPulse" },
   ]);
 }
 
@@ -166,7 +170,7 @@ describe("createQueryAnalysisInsightsProvider", () => {
     const snapshotNoPersona = {
       ...baseSnapshot,
       queryAttribution: [
-        { text: "AAPL earnings", source: "llm", intent: "breaking" },
+        { text: "AAPL earnings", source: "llm", intent: "industryPulse" },
       ],
     };
     const sets = [
@@ -192,12 +196,12 @@ describe("createQueryAnalysisInsightsProvider", () => {
   it("intent categoryBar counts SearchQuery.intent values", async () => {
     const sets = makeSets(1);
     const queries = [
-      { id: "q-0", setId: "set-0", intent: "breaking" },
-      { id: "q-1", setId: "set-0", intent: "breaking" },
+      { id: "q-0", setId: "set-0", intent: "industryPulse" },
+      { id: "q-1", setId: "set-0", intent: "industryPulse" },
       {
         id: "q-2",
         setId: "set-0",
-        intent: "fundamental",
+        intent: "dealsAndMovements",
       },
     ];
 
@@ -212,10 +216,10 @@ describe("createQueryAnalysisInsightsProvider", () => {
     expect(intentSection?.widget.kind).toBe("categoryBar");
 
     if (intentSection?.widget.kind === "categoryBar") {
-      const breakingBar = intentSection.widget.bars.find(
-        (b) => b.label === "breaking",
+      const industryPulseBar = intentSection.widget.bars.find(
+        (b) => b.label === "industryPulse",
       );
-      expect(breakingBar?.value).toBe(2);
+      expect(industryPulseBar?.value).toBe(2);
     }
   });
 

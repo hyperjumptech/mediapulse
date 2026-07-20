@@ -46,11 +46,15 @@ const discoveredRegulators = [
 ];
 
 const generatedCandidates = [
-  { i: 4, l: "id", s: "BBRI" },
-  { i: 4, l: "id", s: "Bank Rakyat Indonesia" },
-  { i: 5, l: "id", s: "Bank Mandiri" },
-  { i: 8, l: "id", s: "OJK" },
-  { i: 9, l: "id", s: "industri Bank Indonesia" },
+  { intent: "dealsAndMovements", language: "id", text: "BBRI" },
+  {
+    intent: "dealsAndMovements",
+    language: "id",
+    text: "Bank Rakyat Indonesia",
+  },
+  { intent: "competitiveLandscape", language: "id", text: "Bank Mandiri" },
+  { intent: "regulatoryPolicyWatch", language: "id", text: "OJK" },
+  { intent: "industryPulse", language: "id", text: "industri Bank Indonesia" },
 ];
 
 /** Builds a fresh mock agent-data-api client. */
@@ -475,8 +479,8 @@ describe("runQueryAnalysis — yield probe", () => {
       body.queries.map((query: { intent: string }) => query.intent),
     );
     // Reinstated coverage spans the dedicated-intent sections.
-    expect(intents.has("competitor")).toBe(true);
-    expect(intents.has("regulatory")).toBe(true);
-    expect(intents.has("industry_trend")).toBe(true);
+    expect(intents.has("competitiveLandscape")).toBe(true);
+    expect(intents.has("regulatoryPolicyWatch")).toBe(true);
+    expect(intents.has("industryPulse")).toBe(true);
   });
 });

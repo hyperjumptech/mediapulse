@@ -20,21 +20,11 @@ enum Sentiment {
 }
 
 enum SearchQueryIntent {
-  breaking
-  kg_change
-  fundamental
-  sentiment
-  competitor
-  supply_chain
-  esg
-  macro
-  technical
-  regulatory
-  technology_trend
-  geopolitical
-  industry_trend
-  deals
-  wildcard
+  industryPulse
+  competitiveLandscape
+  dealsAndMovements
+  regulatoryPolicyWatch
+  disruptorsOrTech
 }
 
 enum CollectionGateStatus {
@@ -502,7 +492,7 @@ model SearchQuery {
   text      String
   tickerId  String            @map("ticker_id")
   setId     String?           @map("set_id")
-  intent    SearchQueryIntent @default(breaking)
+  intent    SearchQueryIntent @default(industryPulse)
   rank      Int               @default(1)
   createdAt DateTime          @default(now()) @map("created_at")
   updatedAt DateTime          @updatedAt @map("updated_at")

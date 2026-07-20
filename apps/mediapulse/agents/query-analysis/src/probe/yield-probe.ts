@@ -62,19 +62,20 @@ export const normalizeQueryText = (text: string): string =>
 
 /**
  * Stage priority for budget capping. Lower is higher priority:
- * own-company (0) > competitor (1) > regulator (2) > industry (3).
+ * own-company deals (0) > competitor (1) > regulator (2) > industry (3) > disruption (4).
  */
 export const stagePriorityForIntent = (intent: QueryAnalysisIntent): number => {
   switch (intent) {
-    case "breaking":
-    case "deals":
+    case "dealsAndMovements":
       return 0;
-    case "competitor":
+    case "competitiveLandscape":
       return 1;
-    case "regulatory":
+    case "regulatoryPolicyWatch":
       return 2;
-    default:
+    case "industryPulse":
       return 3;
+    case "disruptorsOrTech":
+      return 4;
   }
 };
 
@@ -94,21 +95,50 @@ export const dedupeCandidates = (candidates: Candidate[]): Candidate[] => {
   return deduped;
 };
 
-/** Caps candidates to `budget`, preferring higher-priority stages. */
+/**
+ * Caps candidates to `budget` by taking one candidate per intent in rotation, visiting intents
+ * in stage-priority order. Every intent keeps a fair share of the probe budget, so a single
+ * over-generated intent cannot starve another of the candidates it needs to fill its slots.
+ */
 export const capToBudget = (
   candidates: Candidate[],
   budget: number,
 ): Candidate[] => {
-  const withOrder = candidates.map((candidate, index) => ({
-    candidate,
-    index,
-    priority: stagePriorityForIntent(candidate.intent),
-  }));
-  withOrder.sort(
-    (left, right) => left.priority - right.priority || left.index - right.index,
-  );
+  const byIntent = new Map<QueryAnalysisIntent, Candidate[]>();
+  for (const candidate of candidates) {
+    const list = byIntent.get(candidate.intent) ?? [];
+    list.push(candidate);
+    byIntent.set(candidate.intent, list);
+  }
 
-  return withOrder.slice(0, budget).map((entry) => entry.candidate);
+  const queues = [...byIntent.entries()]
+    .sort(
+      ([leftIntent], [rightIntent]) =>
+        stagePriorityForIntent(leftIntent) -
+        stagePriorityForIntent(rightIntent),
+    )
+    .map(([, list]) => list);
+
+  const capped: Candidate[] = [];
+  for (let round = 0; capped.length < budget; round += 1) {
+    let tookAny = false;
+    for (const queue of queues) {
+      const candidate = queue[round];
+      if (candidate === undefined) {
+        continue;
+      }
+      tookAny = true;
+      capped.push(candidate);
+      if (capped.length >= budget) {
+        break;
+      }
+    }
+    if (!tookAny) {
+      break;
+    }
+  }
+
+  return capped;
 };
 
 /** Runs an async worker over items with bounded concurrency, preserving order. */

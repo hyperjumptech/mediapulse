@@ -47,7 +47,7 @@ const searchHit: WebSearchResult = {
   tickerId: TICKER_ID,
   searchQueryId: "sq-1",
   searchQueryText: "test query",
-  searchQueryIntent: "breaking",
+  searchQueryIntent: "industryPulse",
   searchQueryRank: 1,
   serpIndex: 0,
 };

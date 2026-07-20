@@ -63,7 +63,7 @@ export const searchQuerySetCreateFormJsonSchema =
     ),
     queries: jsonTextareaProperty(
       "Queries",
-      'JSON array of objects: [{ "text": "...", "intent": "breaking"|"kg_change"|"fundamental", "rank": 1 }, ...]',
+      'JSON array of objects: [{ "text": "...", "intent": "industryPulse"|"competitiveLandscape"|"dealsAndMovements"|"regulatoryPolicyWatch"|"disruptorsOrTech", "rank": 1 }, ...]',
     ),
   });
 

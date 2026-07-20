@@ -6,47 +6,51 @@ import {
   queryAnalysisIntentSchema,
   queryAnalysisPostQuerySchema,
   queryAnalysisTickerSchema,
+  QUERY_ANALYSIS_INTENTS,
 } from "./query-analysis.js";
 
 describe("queryAnalysisIntentSchema", () => {
-  it("accepts legacy breaking intent rows", () => {
+  it("accepts every section-aligned intent", () => {
+    for (const intent of QUERY_ANALYSIS_INTENTS) {
+      const result = queryAnalysisIntentSchema.safeParse(intent);
+
+      expect(result.success, `intent '${intent}' was rejected`).toBe(true);
+    }
+  });
+
+  it("accepts industryPulse query rows", () => {
     const parsed = queryAnalysisPostQuerySchema.parse({
-      text: "ACME latest news",
-      intent: "breaking",
+      text: "industri kopi Indonesia konsolidasi",
+      intent: "industryPulse",
       rank: 1,
     });
-    expect(parsed.intent).toBe("breaking");
+    expect(parsed.intent).toBe("industryPulse");
   });
 
-  it("accepts new esg intent rows", () => {
-    const parsed = queryAnalysisPostQuerySchema.parse({
-      text: "Acme Co ESG controversies",
-      intent: "esg",
-      rank: 3,
-    });
-    expect(parsed.intent).toBe("esg");
-  });
-
-  it("accepts industry-focused intent rows", () => {
+  it("accepts regulatoryPolicyWatch query rows", () => {
     const parsed = queryAnalysisPostQuerySchema.parse({
       text: "Indonesian telecom regulatory licensing",
-      intent: "regulatory",
+      intent: "regulatoryPolicyWatch",
       rank: 4,
     });
-    expect(parsed.intent).toBe("regulatory");
-  });
-
-  it("accepts wildcard intent rows", () => {
-    const parsed = queryAnalysisPostQuerySchema.parse({
-      text: "Oblique cultural narrative angle",
-      intent: "wildcard",
-      rank: 10,
-    });
-    expect(parsed.intent).toBe("wildcard");
+    expect(parsed.intent).toBe("regulatoryPolicyWatch");
   });
 
   it("rejects unknown intent labels", () => {
     const result = queryAnalysisIntentSchema.safeParse("unknown_intent");
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects retired intent labels", () => {
+    for (const retired of ["breaking", "esg", "wildcard", "competitor"]) {
+      const result = queryAnalysisIntentSchema.safeParse(retired);
+
+      expect(result.success, `intent '${retired}' was accepted`).toBe(false);
+    }
+  });
+
+  it("rejects quickHits, which no query feeds", () => {
+    const result = queryAnalysisIntentSchema.safeParse("quickHits");
     expect(result.success).toBe(false);
   });
 });

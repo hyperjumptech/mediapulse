@@ -22,8 +22,6 @@ import {
   DISCOVERY_MAX_REGULATORS,
   GENERATION_MIN_SURVIVORS,
   LANGUAGES,
-  PER_INTENT_FLOOR,
-  PER_INTENT_MAX,
   PROBE_BUDGET,
   PROBE_CONCURRENCY,
   PROBE_LOCALES,
@@ -31,7 +29,7 @@ import {
   PROBE_TIMEOUT_MS,
   QUERY_ANALYSIS_AGENT_ID,
   QUERY_ANALYSIS_AGENT_VERSION,
-  QUERY_COUNT,
+  QUERIES_PER_INTENT,
   RECON_CONCURRENCY,
   RECON_MAX_COMPETITORS,
   RECON_MAX_QUERIES,
@@ -70,10 +68,10 @@ export type RunQueryAnalysisDeps = {
  * Flow: load GET context, derive classification, look up the `ticker_discovery`
  * cache (invalidated on TTL expiry or a contract-version change), discover
  * competitors/regulators on miss (steered by the contract brief) and write the
- * cache, generate query candidates via LLM (own-company/deals/competitor/
- * regulator/industry themes, steered by the contract brief), probe each for
- * yield, retry with targeted feedback on zero-hit candidates, guarantee section
- * coverage, and persist the ranked set.
+ * cache, generate query candidates via LLM (one intent per newsletter section,
+ * steered by the contract brief), probe each for yield, retry with targeted
+ * feedback on zero-hit candidates, and persist a fixed budget of queries per
+ * section.
  *
  * @param context - Agent run context with validated input/config, token, and contract.
  * @param deps - Injectable collaborators for tests.
@@ -234,8 +232,8 @@ export const runQueryAnalysis = async (
     "query analysis recon complete",
   );
 
-  // Generate query candidates via LLM (own-company/deals/competitor/regulator/industry
-  // themes), probe each for yield, and retry with feedback on zero-hit candidates.
+  // Generate query candidates via LLM (one intent per newsletter section), probe each
+  // for yield, and retry with feedback on zero-hit candidates.
   const generationStartMs = now();
   const generation = await generateAndProbeCandidates(
     {
@@ -291,9 +289,7 @@ export const runQueryAnalysis = async (
   const finalized = finalizeQueries({
     survivors: generation.survivors,
     dropped: generation.dropped,
-    queryCount: QUERY_COUNT,
-    perIntentFloor: PER_INTENT_FLOOR,
-    perIntentMax: PER_INTENT_MAX,
+    queriesPerIntent: QUERIES_PER_INTENT,
   });
   const finalizeMs = now() - finalizeStartMs;
 

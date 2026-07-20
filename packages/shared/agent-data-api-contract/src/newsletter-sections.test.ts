@@ -4,110 +4,63 @@ import { describe, expect, it } from "vitest";
 import { QUERY_ANALYSIS_INTENTS } from "./query-analysis.js";
 import {
   NEWSLETTER_SECTION_IDS,
-  SECTION_BY_INTENT,
   summarizeSectionCoverage,
 } from "./newsletter-sections.js";
 
-describe("SECTION_BY_INTENT", () => {
-  it("covers every QueryAnalysisIntent as a key", () => {
+describe("QUERY_ANALYSIS_INTENTS", () => {
+  it("names every intent after a newsletter section", () => {
+    const sectionIds = new Set<string>(NEWSLETTER_SECTION_IDS);
     for (const intent of QUERY_ANALYSIS_INTENTS) {
       expect(
-        Object.prototype.hasOwnProperty.call(SECTION_BY_INTENT, intent),
-        `SECTION_BY_INTENT missing key: ${intent}`,
+        sectionIds.has(intent),
+        `intent '${intent}' is not a NewsletterSectionId`,
       ).toBe(true);
     }
   });
 
-  it("has no keys beyond the known intent list", () => {
-    const intentSet = new Set<string>(QUERY_ANALYSIS_INTENTS);
-    for (const key of Object.keys(SECTION_BY_INTENT)) {
-      expect(
-        intentSet.has(key),
-        `unexpected key in SECTION_BY_INTENT: ${key}`,
-      ).toBe(true);
-    }
+  it("excludes quickHits, which no query feeds", () => {
+    const intents = new Set<string>(QUERY_ANALYSIS_INTENTS);
+
+    expect(intents.has("quickHits")).toBe(false);
   });
 
-  it("every non-null value is a valid NewsletterSectionId", () => {
-    const sectionSet = new Set<string>(NEWSLETTER_SECTION_IDS);
-    for (const [intent, sectionId] of Object.entries(SECTION_BY_INTENT)) {
-      if (sectionId !== null) {
-        expect(
-          sectionSet.has(sectionId),
-          `SECTION_BY_INTENT['${intent}'] = '${sectionId}' is not a valid NewsletterSectionId`,
-        ).toBe(true);
-      }
-    }
-  });
+  it("covers every section except quickHits", () => {
+    const intents = new Set<string>(QUERY_ANALYSIS_INTENTS);
+    const unfedSections = NEWSLETTER_SECTION_IDS.filter(
+      (sectionId) => !intents.has(sectionId),
+    );
 
-  it("maps competitor to competitiveLandscape", () => {
-    expect(SECTION_BY_INTENT.competitor).toBe("competitiveLandscape");
-  });
-
-  it("maps regulatory to regulatoryPolicyWatch", () => {
-    expect(SECTION_BY_INTENT.regulatory).toBe("regulatoryPolicyWatch");
-  });
-
-  it("maps technology_trend and technical to disruptorsOrTech", () => {
-    expect(SECTION_BY_INTENT.technology_trend).toBe("disruptorsOrTech");
-    expect(SECTION_BY_INTENT.technical).toBe("disruptorsOrTech");
-  });
-
-  it("maps industry_trend to industryPulse", () => {
-    expect(SECTION_BY_INTENT.industry_trend).toBe("industryPulse");
-  });
-
-  it("maps deals to dealsAndMovements", () => {
-    expect(SECTION_BY_INTENT.deals).toBe("dealsAndMovements");
-  });
-
-  it("maps homeless intents to null", () => {
-    const homelessIntents = [
-      "breaking",
-      "kg_change",
-      "fundamental",
-      "sentiment",
-      "supply_chain",
-      "esg",
-      "macro",
-      "geopolitical",
-      "wildcard",
-    ] as const;
-    for (const intent of homelessIntents) {
-      expect(SECTION_BY_INTENT[intent]).toBeNull();
-    }
+    expect(unfedSections).toEqual(["quickHits"]);
   });
 });
 
 describe("summarizeSectionCoverage", () => {
   it("returns an entry for every section id, including zero-coverage ones", () => {
-    const result = summarizeSectionCoverage(["breaking", "sentiment", "macro"]);
+    const result = summarizeSectionCoverage([
+      "industryPulse",
+      "dealsAndMovements",
+    ]);
     for (const sectionId of NEWSLETTER_SECTION_IDS) {
       expect(result).toHaveProperty(sectionId);
     }
   });
 
-  it("zero-coverage sections have count 0 and share 0", () => {
-    const result = summarizeSectionCoverage(["competitor"]);
+  it("always reports zero coverage for quickHits", () => {
+    const result = summarizeSectionCoverage([
+      "competitiveLandscape",
+      "industryPulse",
+    ]);
 
     expect(result.quickHits.count).toBe(0);
     expect(result.quickHits.share).toBe(0);
   });
 
-  it("credits dealsAndMovements when the deals intent is present", () => {
-    const result = summarizeSectionCoverage(["deals", "deals", "regulatory"]);
-
-    expect(result.dealsAndMovements.count).toBe(2);
-    expect(result.dealsAndMovements.share).toBeGreaterThan(0);
-    expect(result.regulatoryPolicyWatch.count).toBe(1);
-  });
-
-  it("counts queries per mapped section correctly", () => {
+  it("counts queries per section correctly", () => {
     const result = summarizeSectionCoverage([
-      "competitor",
-      "competitor",
-      "regulatory",
-      "industry_trend",
+      "competitiveLandscape",
+      "competitiveLandscape",
+      "regulatoryPolicyWatch",
+      "industryPulse",
     ]);
 
     expect(result.competitiveLandscape.count).toBe(2);
@@ -116,25 +69,30 @@ describe("summarizeSectionCoverage", () => {
     expect(result.dealsAndMovements.count).toBe(0);
   });
 
-  it("shares sum to 1.0 over sections with positive count when all intents are classified", () => {
+  it("credits dealsAndMovements when that intent is present", () => {
     const result = summarizeSectionCoverage([
-      "competitor",
-      "regulatory",
-      "industry_trend",
-      "technology_trend",
+      "dealsAndMovements",
+      "dealsAndMovements",
+      "regulatoryPolicyWatch",
     ]);
-    const totalShare = NEWSLETTER_SECTION_IDS.filter(
-      (id) => result[id].count > 0,
-    ).reduce((sum, id) => sum + result[id].share, 0);
 
-    expect(totalShare).toBeCloseTo(1.0);
+    expect(result.dealsAndMovements.count).toBe(2);
+    expect(result.dealsAndMovements.share).toBeGreaterThan(0);
+    expect(result.regulatoryPolicyWatch.count).toBe(1);
   });
 
-  it("homeless intents do not count toward any section's share denominator", () => {
-    const result = summarizeSectionCoverage(["competitor", "breaking"]);
+  it("shares sum to 1.0 over sections with positive count", () => {
+    const result = summarizeSectionCoverage([
+      "competitiveLandscape",
+      "regulatoryPolicyWatch",
+      "industryPulse",
+      "disruptorsOrTech",
+    ]);
+    const totalShare = NEWSLETTER_SECTION_IDS.filter(
+      (sectionId) => result[sectionId].count > 0,
+    ).reduce((sum, sectionId) => sum + result[sectionId].share, 0);
 
-    expect(result.competitiveLandscape.count).toBe(1);
-    expect(result.competitiveLandscape.share).toBeCloseTo(1.0);
+    expect(totalShare).toBeCloseTo(1.0);
   });
 
   it("returns all zeros on empty input", () => {

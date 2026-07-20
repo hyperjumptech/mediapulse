@@ -27,7 +27,9 @@ const baseInput = {
 };
 
 /** Fake `generateObject` returning a fixed candidate batch each call. */
-const makeGenerate = (batches: { i: number; l: string; s: string }[][]) => {
+const makeGenerate = (
+  batches: { intent: string; language: string; text: string }[][],
+) => {
   const generate = vi.fn();
   for (const batch of batches) {
     generate.mockResolvedValueOnce({
@@ -52,7 +54,15 @@ const makeCountHits = (hitsByText: Record<string, number>) =>
 describe("generateAndProbeCandidates", () => {
   it("stops after the first attempt when nothing comes back zero-hit", async () => {
     // Setup
-    const generate = makeGenerate([[{ i: 4, l: "id", s: "saham FORE IDX" }]]);
+    const generate = makeGenerate([
+      [
+        {
+          intent: "regulatoryPolicyWatch",
+          language: "id",
+          text: "saham FORE IDX",
+        },
+      ],
+    ]);
     const countHits = makeCountHits({ "saham FORE IDX": 5 });
 
     // Act
@@ -70,8 +80,14 @@ describe("generateAndProbeCandidates", () => {
   it("retries with the zero-hit texts as excludeQueries, and re-probes only the delta", async () => {
     // Setup
     const generate = makeGenerate([
-      [{ i: 4, l: "id", s: "FORE" }],
-      [{ i: 4, l: "id", s: "saham FORE IDX" }],
+      [{ intent: "regulatoryPolicyWatch", language: "id", text: "FORE" }],
+      [
+        {
+          intent: "regulatoryPolicyWatch",
+          language: "id",
+          text: "saham FORE IDX",
+        },
+      ],
     ]);
     const countHits = makeCountHits({
       FORE: 0,
@@ -98,8 +114,12 @@ describe("generateAndProbeCandidates", () => {
     // Setup
     const generate = makeGenerate([
       [
-        { i: 4, l: "id", s: "saham FORE IDX" },
-        { i: 4, l: "id", s: "FORE" },
+        {
+          intent: "regulatoryPolicyWatch",
+          language: "id",
+          text: "saham FORE IDX",
+        },
+        { intent: "regulatoryPolicyWatch", language: "id", text: "FORE" },
       ],
     ]);
     const countHits = makeCountHits({ "saham FORE IDX": 5, FORE: 0 });
@@ -120,9 +140,9 @@ describe("generateAndProbeCandidates", () => {
   it("stops after GENERATION_MAX_ATTEMPTS even if every attempt is zero-hit", async () => {
     // Setup
     const generate = makeGenerate([
-      [{ i: 4, l: "id", s: "a" }],
-      [{ i: 4, l: "id", s: "b" }],
-      [{ i: 4, l: "id", s: "c" }],
+      [{ intent: "regulatoryPolicyWatch", language: "id", text: "a" }],
+      [{ intent: "regulatoryPolicyWatch", language: "id", text: "b" }],
+      [{ intent: "regulatoryPolicyWatch", language: "id", text: "c" }],
     ]);
     const countHits = makeCountHits({});
 

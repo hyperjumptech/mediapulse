@@ -26,15 +26,20 @@ export type FinalizeResult = {
   reinstated: string[];
 };
 
+/**
+ * Selects the persisted query set: the top `queriesPerIntent` candidates by probe hits for each
+ * intent, drawn from survivors and probe-dropped candidates alike so an intent still fills its
+ * budget when nothing it generated yielded search results.
+ *
+ * @param params - Probe survivors, probe-dropped candidates, and the per-intent query budget.
+ * @returns Ranked queries plus per-intent, per-section, and language telemetry.
+ */
 export const finalizeQueries = (params: {
   survivors: ProbeSurvivor[];
   dropped: ProbedCandidate[];
-  queryCount: number;
-  perIntentFloor: number;
-  perIntentMax: number;
+  queriesPerIntent: number;
 }): FinalizeResult => {
-  const { survivors, dropped, queryCount, perIntentFloor, perIntentMax } =
-    params;
+  const { survivors, dropped, queriesPerIntent } = params;
 
   const survivorKeys = new Set(
     survivors.map((survivor) => normalizeQueryText(survivor.text)),
@@ -65,46 +70,17 @@ export const finalizeQueries = (params: {
 
   const chosen: ProbedCandidate[] = [];
   const chosenKeys = new Set<string>();
-  const intentCount = new Map<QueryAnalysisIntent, number>();
-  const addCandidate = (candidate: ProbedCandidate): boolean => {
-    if (chosen.length >= queryCount) {
-      return false;
-    }
-    const key = normalizeQueryText(candidate.text);
-    if (chosenKeys.has(key)) {
-      return false;
-    }
-    chosenKeys.add(key);
-    chosen.push(candidate);
-    intentCount.set(
-      candidate.intent,
-      (intentCount.get(candidate.intent) ?? 0) + 1,
-    );
-
-    return true;
-  };
-
   for (const list of byIntent.values()) {
-    for (const candidate of list.slice(0, perIntentFloor)) {
-      addCandidate(candidate);
+    for (const candidate of list.slice(0, queriesPerIntent)) {
+      chosenKeys.add(normalizeQueryText(candidate.text));
+      chosen.push(candidate);
     }
-  }
-
-  const rest = pool
-    .filter((candidate) => !chosenKeys.has(normalizeQueryText(candidate.text)))
-    .sort((left, right) => right.hits - left.hits);
-  for (const candidate of rest) {
-    if ((intentCount.get(candidate.intent) ?? 0) >= perIntentMax) {
-      continue;
-    }
-    addCandidate(candidate);
   }
 
   ensureLanguageMix(
     chosen,
     chosenKeys,
     [...pool].sort((left, right) => right.hits - left.hits),
-    [],
   );
 
   chosen.sort((left, right) => right.hits - left.hits);
@@ -154,9 +130,7 @@ const ensureLanguageMix = (
   chosen: ProbedCandidate[],
   chosenKeys: Set<string>,
   pool: ProbedCandidate[],
-  protectedTexts: string[],
 ): void => {
-  const protectedKeys = new Set(protectedTexts);
   const languages: Language[] = ["id", "en"];
   for (const language of languages) {
     const hasLanguage = chosen.some(
@@ -174,14 +148,12 @@ const ensureLanguageMix = (
       continue;
     }
     let evictIndex = -1;
-    for (let index = chosen.length - 1; index >= 0; index -= 1) {
+    let lowestHits = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < chosen.length; index += 1) {
       const candidate = chosen[index];
-      if (
-        candidate !== undefined &&
-        !protectedKeys.has(normalizeQueryText(candidate.text))
-      ) {
+      if (candidate !== undefined && candidate.hits <= lowestHits) {
+        lowestHits = candidate.hits;
         evictIndex = index;
-        break;
       }
     }
     if (evictIndex === -1) {
