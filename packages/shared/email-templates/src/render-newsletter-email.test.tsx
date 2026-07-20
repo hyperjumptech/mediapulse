@@ -5,6 +5,25 @@ import {
   DEFAULT_MEDIAPULSE_SITE_URL,
   renderNewsletterEmail,
 } from "./index.js";
+import {
+  NEWSLETTER_PREVIEW_PROPS,
+  SECTION_COPY,
+} from "./newsletter/default-newsletter.js";
+import {
+  MAX_POINTS_PER_ARTICLE,
+  MAX_POINT_LENGTH,
+  readNewsletterDocument,
+  type NewsletterDocument,
+} from "./newsletter/newsletter-document.js";
+
+/**
+ * Serializes a type-checked newsletter document into a stored body string.
+ *
+ * @param sections - Sections of a valid document.
+ * @returns The body string as it would be stored in `Newsletter.content`.
+ */
+const buildDocumentBody = (sections: NewsletterDocument["sections"]): string =>
+  JSON.stringify({ version: 1, sections } satisfies NewsletterDocument);
 
 describe("renderNewsletterEmail", () => {
   it("returns html and plain text containing the title", async () => {
@@ -93,72 +112,6 @@ describe("renderNewsletterEmail", () => {
         },
       ),
     ).rejects.toThrow("render exploded");
-  });
-
-  it("renders structured body text with labelled sections", async () => {
-    // Setup
-    const structuredBody = [
-      "EXECUTIVE SUMMARY",
-      "",
-      "Markets rallied today as tech earnings exceeded expectations.",
-      "",
-      "---",
-      "",
-      "TOP 3 NEWS",
-      "",
-      "1. Fed holds rates steady",
-      "The Federal Reserve announced no change to interest rates.",
-      "",
-      "2. Apple beats estimates",
-      "Apple reported record quarterly revenue.",
-      "",
-      "3. Oil prices dip",
-      "Crude oil fell 2% amid easing tensions.",
-    ].join("\n");
-
-    // Act
-    const { html } = await renderNewsletterEmail({
-      title: "Morning Briefing",
-      bodyText: structuredBody,
-    });
-
-    // Assert
-    expect(html).toContain("Executive Summary");
-    expect(html).toContain("Top News");
-    expect(html).not.toContain("TOP 3 NEWS");
-    expect(html).not.toContain("EXECUTIVE SUMMARY");
-  });
-
-  it("renders structured news items with numbered bold titles", async () => {
-    // Setup
-    const structuredBody = [
-      "EXECUTIVE SUMMARY",
-      "",
-      "Markets rallied today.",
-      "",
-      "---",
-      "",
-      "TOP 2 NEWS",
-      "",
-      "1. Fed holds rates steady",
-      "The Federal Reserve announced no change.",
-      "",
-      "2. Apple beats estimates",
-      "Apple reported record quarterly revenue.",
-    ].join("\n");
-
-    // Act
-    const { html } = await renderNewsletterEmail({
-      title: "Morning Briefing",
-      bodyText: structuredBody,
-    });
-
-    // Assert
-    const stripped = html.replace(/<!-- -->/g, "");
-    expect(stripped).toContain("1. Fed holds rates steady");
-    expect(stripped).toContain("The Federal Reserve announced no change.");
-    expect(stripped).toContain("2. Apple beats estimates");
-    expect(html).toContain("Apple reported record quarterly revenue.");
   });
 
   it("falls back to plain text rendering for unstructured body text", async () => {
@@ -335,361 +288,247 @@ describe("renderNewsletterEmail", () => {
     expect(text).toMatch(/reply to this email/i);
   });
 
-  it("renders a CTA link with the item title below each top-news item that has a source URL", async () => {
+  it("renders a Read more link for each industry article", async () => {
     // Setup
-    const structuredBody = [
-      "EXECUTIVE SUMMARY",
-      "",
-      "Markets rallied today.",
-      "",
-      "---",
-      "",
-      "TOP 3 NEWS",
-      "",
-      "1. Fed holds rates steady",
-      "The Federal Reserve announced no change.",
-      "Read the full article: https://example.com/fed",
-      "",
-      "2. Apple beats estimates",
-      "Apple reported record quarterly revenue.",
-      "Read the full article: https://example.com/apple",
-      "",
-      "3. Oil prices dip",
-      "Crude oil fell 2%.",
-      "Read the full article: https://example.com/oil",
-    ].join("\n");
+    const industryBody = buildDocumentBody([
+      {
+        key: "industry-pulse",
+        articles: [
+          {
+            title: "The sector is shifting",
+            url: "https://lead.example/article",
+            points: ["The sector is shifting rapidly."],
+          },
+        ],
+      },
+      {
+        key: "quick-hits",
+        articles: [
+          {
+            title: "Hit one",
+            url: "https://example.com/hit-one",
+            points: ["Hit one detail."],
+          },
+        ],
+      },
+    ]);
 
     // Act
-    const { html, text } = await renderNewsletterEmail({
-      title: "Morning Briefing",
-      bodyText: structuredBody,
-    });
-
-    // Assert — three anchors, one per source, labelled with the item title.
-    // React inserts <!-- --> between static and dynamic text nodes in JSX.
-    expect(html).toMatch(/Read: <!-- -->Fed holds rates steady/);
-    expect(html).toMatch(/Read: <!-- -->Apple beats estimates/);
-    expect(html).toMatch(/Read: <!-- -->Oil prices dip/);
-    expect(html).toContain('href="https://example.com/fed"');
-    expect(html).toContain('href="https://example.com/apple"');
-    expect(html).toContain('href="https://example.com/oil"');
-    expect(text).toContain("https://example.com/fed");
-    expect(text).toContain("https://example.com/apple");
-    expect(text).toContain("https://example.com/oil");
-  });
-
-  it("omits the source link cleanly when a top-news item has no URL", async () => {
-    // Setup
-    const structuredBody = [
-      "EXECUTIVE SUMMARY",
-      "",
-      "Markets rallied today.",
-      "",
-      "---",
-      "",
-      "TOP 2 NEWS",
-      "",
-      "1. With URL",
-      "Summary with source.",
-      "Read the full article: https://example.com/with-url",
-      "",
-      "2. Without URL",
-      "Summary without source.",
-    ].join("\n");
-
-    // Act
-    const { html } = await renderNewsletterEmail({
-      title: "Morning Briefing",
-      bodyText: structuredBody,
-    });
-
-    // Assert — only one anchor (for the item with URL), labelled with the item title.
-    expect(html).toMatch(/Read: <!-- -->With URL/);
-    expect(html).toContain('href="https://example.com/with-url"');
-    expect(html).not.toMatch(/href=""/);
-  });
-
-  it("strips the raw source-link line from top-news summary paragraphs", async () => {
-    // Setup
-    const structuredBody = [
-      "EXECUTIVE SUMMARY",
-      "",
-      "Markets rallied today.",
-      "",
-      "---",
-      "",
-      "TOP 1 NEWS",
-      "",
-      "1. Fed holds rates steady",
-      "The Federal Reserve announced no change to interest rates.",
-      "Read the full article: https://example.com/fed",
-    ].join("\n");
-
-    // Act
-    const { html } = await renderNewsletterEmail({
-      title: "Morning Briefing",
-      bodyText: structuredBody,
-    });
-
-    // Assert — the summary paragraph does not still contain "Read the full article: <url>".
-    expect(html).not.toMatch(
-      /announced no change to interest rates\.\s*Read the full article:/,
-    );
-  });
-
-  it("renders markdown links in structured summaries as HTML anchors", async () => {
-    const articleUrl = "https://www.investing.com/equities/bnk-central-as";
-    const structuredBody = [
-      "EXECUTIVE SUMMARY",
-      "",
-      "Overview with [Bank Central Asia](" + articleUrl + ") in the lead.",
-      "",
-      "---",
-      "",
-      "TOP 1 NEWS",
-      "",
-      "1. BBCA profit strength",
-      "[Bank Central Asia](" + articleUrl + ") reported strong net profit.",
-    ].join("\n");
-
-    const { html, text } = await renderNewsletterEmail({
-      title: "BBCA digest",
-      bodyText: structuredBody,
-    });
-
-    expect(html).toMatch(
-      /<a[^>]+href=["']?https:\/\/www\.investing\.com\/equities\/bnk-central-as["']?/i,
-    );
-    expect(html).toContain("Bank Central Asia");
-    expect(html).not.toContain("[Bank Central Asia](");
-    expect(text).toContain("Bank Central Asia");
-    expect(text).toContain(articleUrl);
-  });
-
-  it("renders a Read link below the industry-pulse standfirst when the lead has a url", async () => {
-    const industryBody = [
-      "MP_NEWSLETTER",
-      "",
-      "BEGIN industry-pulse",
-      "DISPLAY_HEADING",
-      "The Pulse",
-      "PROSE",
-      "The sector is shifting rapidly.",
-      "Read the full article: https://lead.example/article",
-      "END",
-      "",
-      "BEGIN quick-hits",
-      "DISPLAY_HEADING",
-      "Quick Hits",
-      "ITEM",
-      "Hit one",
-      "ITEM",
-      "Hit two",
-      "ITEM",
-      "Hit three",
-      "ITEM",
-      "Hit four",
-      "ITEM",
-      "Hit five",
-      "END",
-    ].join("\n");
-
     const { html, text } = await renderNewsletterEmail({
       title: "Industry Briefing",
       bodyText: industryBody,
     });
 
+    // Assert
     expect(html).toContain("The sector is shifting rapidly.");
     expect(html).toContain('href="https://lead.example/article"');
+    expect(html).toContain('href="https://example.com/hit-one"');
+    expect(html).toContain("Read more");
     expect(text).toContain("https://lead.example/article");
   });
 
-  it("uses the lead article title, not the display heading, for the Read link when a TITLE is present", async () => {
-    const industryBody = [
-      "MP_NEWSLETTER",
-      "",
-      "BEGIN industry-pulse",
-      "DISPLAY_HEADING",
-      "Growing BNPL Financing in Indonesia",
-      "TITLE Indonesia's Digital Banking Evolution and Trends",
-      "PROSE",
-      "Paylater services reached Rp43.28 trillion.",
-      "Read the full article: https://lead.example/digital-banking",
-      "END",
-      "",
-      "BEGIN quick-hits",
-      "DISPLAY_HEADING",
-      "Quick Hits",
-      "ITEM",
-      "Hit one",
-      "ITEM",
-      "Hit two",
-      "ITEM",
-      "Hit three",
-      "ITEM",
-      "Hit four",
-      "ITEM",
-      "Hit five",
-      "END",
-    ].join("\n");
+  it("labels the article link generically instead of repeating the article title", async () => {
+    // Setup
+    const industryBody = buildDocumentBody([
+      {
+        key: "industry-pulse",
+        articles: [
+          {
+            title: "Indonesia's Digital Banking Evolution and Trends",
+            url: "https://lead.example/digital-banking",
+            points: ["Paylater services reached Rp43.28 trillion."],
+          },
+        ],
+      },
+    ]);
 
+    // Act
     const { html } = await renderNewsletterEmail({
       title: "Industry Briefing",
       bodyText: industryBody,
     });
 
-    expect(html).toMatch(
-      /Read: <!-- -->Indonesia&#x27;s Digital Banking Evolution and Trends/,
+    // Assert
+    const stripped = html.replace(/<!-- -->/g, "");
+
+    expect(stripped).toContain(
+      "Indonesia&#x27;s Digital Banking Evolution and Trends",
+    );
+    expect(stripped).toContain("Read more");
+    expect(stripped).not.toMatch(
+      /Read more[^<]*Indonesia&#x27;s Digital Banking/,
     );
     expect(html).toContain('href="https://lead.example/digital-banking"');
   });
 
-  it("renders the industry-pulse standfirst with no source link when the lead has no url", async () => {
-    const industryBody = [
-      "MP_NEWSLETTER",
-      "",
-      "BEGIN industry-pulse",
-      "DISPLAY_HEADING",
-      "The Pulse",
-      "PROSE",
-      "The sector is quiet this week.",
-      "END",
-      "",
-      "BEGIN quick-hits",
-      "DISPLAY_HEADING",
-      "Quick Hits",
-      "ITEM",
-      "Hit one",
-      "ITEM",
-      "Hit two",
-      "ITEM",
-      "Hit three",
-      "ITEM",
-      "Hit four",
-      "ITEM",
-      "Hit five",
-      "END",
-    ].join("\n");
+  it("never leaks a raw read-the-full-article label into the rendered body", async () => {
+    // Setup
+    const industryBody = buildDocumentBody([
+      {
+        key: "industry-pulse",
+        articles: [
+          {
+            title: "A quiet week",
+            url: "https://example.com/quiet-week",
+            points: ["The sector is quiet this week."],
+          },
+        ],
+      },
+    ]);
 
+    // Act
     const { html } = await renderNewsletterEmail({
       title: "Industry Briefing",
       bodyText: industryBody,
     });
 
+    // Assert
     expect(html).toContain("The sector is quiet this week.");
     expect(html).not.toContain("Read the full article");
   });
 
-  it("renders a body starting at the first body section when industry-pulse is absent from the wire", async () => {
-    const industryBody = [
-      "MP_NEWSLETTER",
-      "",
-      "BEGIN quick-hits",
-      "DISPLAY_HEADING",
-      "Quick Hits",
-      "ITEM",
-      "Hit one",
-      "ITEM",
-      "Hit two",
-      "ITEM",
-      "Hit three",
-      "ITEM",
-      "Hit four",
-      "ITEM",
-      "Hit five",
-      "END",
-    ].join("\n");
+  it("renders a body starting at the first section present when industry-pulse is absent", async () => {
+    // Setup
+    const industryBody = buildDocumentBody([
+      {
+        key: "quick-hits",
+        articles: [
+          {
+            title: "Hit one",
+            url: "https://example.com/hit-one",
+            points: ["Hit one detail."],
+          },
+          {
+            title: "Hit two",
+            url: "https://example.com/hit-two",
+            points: ["Hit two detail."],
+          },
+          {
+            title: "Hit three",
+            url: "https://example.com/hit-three",
+            points: ["Hit three detail."],
+          },
+        ],
+      },
+    ]);
 
+    // Act
     const { html } = await renderNewsletterEmail({
       title: "Industry Briefing",
       bodyText: industryBody,
     });
 
-    expect(html).not.toContain("BEGIN industry-pulse");
-    expect(html).toContain("Hit one");
+    // Assert
+    const stripped = html.replace(/<!-- -->/g, "");
+
+    expect(stripped).toContain(SECTION_COPY.en["quick-hits"].label);
+    expect(stripped).not.toContain(SECTION_COPY.en["industry-pulse"].label);
+    expect(stripped).toContain("Hit one");
+    expect(stripped).toContain("Hit two");
+    expect(stripped).toContain("Hit three");
   });
 
-  it("renders industry wire bodies with a lead standfirst and eyebrow section headers", async () => {
-    const industryBody = [
-      "MP_NEWSLETTER",
-      "",
-      "BEGIN industry-pulse",
-      "DISPLAY_HEADING",
-      "Industry Pulse / Repairing rather than roaring",
-      "PROSE",
-      "The telecom market that is repairing rather than roaring sets the tone for this week.",
-      "END",
-      "",
-      "BEGIN competitive-landscape",
-      "DISPLAY_HEADING",
-      "Competitive Landscape / Battle lines redrawn",
-      "BULLET",
-      "First mover extended its lead.",
-      "BULLET",
-      "Second player responded with pricing.",
-      "END",
-      "",
-      "BEGIN deals-and-movements",
-      "DISPLAY_HEADING",
-      "Deals & Movements",
-      "BULLET",
-      "A regional acquisition closed.",
-      "END",
-      "",
-      "BEGIN regulatory-policy-watch",
-      "DISPLAY_HEADING",
-      "Regulatory & Policy Watch / Spectrum watch",
-      "BULLET",
-      "Agencies hinted at tighter oversight.",
-      "END",
-      "",
-      "BEGIN disruptors-or-tech",
-      "DISPLAY_HEADING",
-      "Disruptors & Tech / AI at the edge",
-      "FORMAT",
-      "prose",
-      "PROSE",
-      "Founders keep shipping faster release cycles.",
-      "END",
-      "",
-      "BEGIN quick-hits",
-      "DISPLAY_HEADING",
-      "Quick Hits / Five things worth a skim",
-      "ITEM",
-      "Hit one",
-      "ITEM",
-      "Hit two",
-      "ITEM",
-      "Hit three",
-      "ITEM",
-      "Hit four",
-      "ITEM",
-      "Hit five",
-      "END",
-    ].join("\n");
+  it("renders industry documents with canonical section labels, a glossary, and no body title", async () => {
+    // Setup
+    const industryBody = buildDocumentBody([
+      {
+        key: "industry-pulse",
+        articles: [
+          {
+            title: "Repairing rather than roaring",
+            url: "https://example.com/pulse",
+            points: [
+              "The telecom market is repairing rather than roaring this week.",
+            ],
+          },
+        ],
+      },
+      {
+        key: "competitive-landscape",
+        articles: [
+          {
+            title: "Battle lines redrawn",
+            url: "https://example.com/competition",
+            points: [
+              "First mover extended its lead.",
+              "Second player responded with pricing.",
+            ],
+          },
+        ],
+      },
+      {
+        key: "deals-and-movements",
+        articles: [
+          {
+            title: "Deals desk",
+            url: "https://example.com/deals",
+            points: ["A regional acquisition closed."],
+          },
+        ],
+      },
+      {
+        key: "regulatory-policy-watch",
+        articles: [
+          {
+            title: "Spectrum watch",
+            url: "https://example.com/policy",
+            points: ["Agencies hinted at tighter oversight."],
+          },
+        ],
+      },
+      {
+        key: "disruptors-or-tech",
+        articles: [
+          {
+            title: "AI at the edge",
+            url: "https://example.com/tech",
+            points: ["Founders keep shipping faster release cycles."],
+          },
+        ],
+      },
+      {
+        key: "quick-hits",
+        articles: [
+          {
+            title: "Hit one",
+            url: "https://example.com/hit-one",
+            points: ["Hit one detail."],
+          },
+          {
+            title: "Hit two",
+            url: "https://example.com/hit-two",
+            points: ["Hit two detail."],
+          },
+          {
+            title: "Hit three",
+            url: "https://example.com/hit-three",
+            points: ["Hit three detail."],
+          },
+        ],
+      },
+    ]);
 
+    // Act
     const { html, text } = await renderNewsletterEmail({
       title: "TLKM industry briefing",
       bodyText: industryBody,
       tickerSymbol: "TLKM",
     });
 
+    // Assert
     const stripped = html.replace(/<!-- -->/g, "");
 
     expect(stripped).toContain(
-      "The telecom market that is repairing rather than roaring sets the tone for this week.",
+      "The telecom market is repairing rather than roaring this week.",
     );
-    expect(stripped).not.toMatch(/Industry Pulse\s*\/\s*Repairing/i);
-    expect(stripped).not.toContain(
-      "Industry Pulse / Repairing rather than roaring",
-    );
-    expect(stripped).toContain("Competitive Landscape");
-    expect(stripped).toContain("Battle lines redrawn");
-    expect(stripped).not.toContain(
-      "Competitive Landscape / Battle lines redrawn",
+    expect(stripped).toContain(SECTION_COPY.en["industry-pulse"].label);
+    expect(stripped).toContain(SECTION_COPY.en["competitive-landscape"].label);
+    expect(stripped).not.toMatch(/<h1[^>]*>[^<]*TLKM industry briefing/i);
+    expect(stripped).toContain("What do these sections mean?");
+    expect(stripped).toContain(
+      "Companies buying, merging, raising money, teaming up, or changing their leaders.",
     );
     expect(stripped).toContain("A regional acquisition closed.");
-    expect(stripped).not.toMatch(/Deals\s*(?:\/|&amp;|&)\s*Movements\s*\//);
     expect(html).not.toMatch(/Quote of the Week/i);
     expect(html).not.toMatch(/Read, Watch, Listen/i);
     expect(html).not.toMatch(/this digest covers/i);
@@ -698,15 +537,239 @@ describe("renderNewsletterEmail", () => {
     );
 
     expect(text).toContain(
-      "The telecom market that is repairing rather than roaring sets the tone for this week.",
+      "The telecom market is repairing rather than roaring this week.",
     );
-    expect(text).not.toMatch(/Industry Pulse\s*\/\s*Repairing/i);
-    expect(text).not.toContain("Competitive Landscape / Battle lines redrawn");
     expect(text).not.toMatch(/Quote of the Week/i);
     expect(text).not.toMatch(/Read, Watch, Listen/i);
     expect(text).toContain(
       "You are receiving this because you subscribed to TLKM updates.",
     );
+  });
+
+  it("renders every summary point of an article as its own list item", async () => {
+    // Setup
+    const industryBody = buildDocumentBody([
+      {
+        key: "quick-hits",
+        articles: [
+          {
+            title: "Hit one",
+            url: "https://example.com/hit-one",
+            points: ["First point.", "Second point.", "Third point."],
+          },
+        ],
+      },
+    ]);
+
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "Industry Briefing",
+      bodyText: industryBody,
+    });
+
+    // Assert
+    const stripped = html.replace(/<!-- -->/g, "");
+    const listItems = stripped.match(/<li[^>]*>/g) ?? [];
+
+    expect(listItems).toHaveLength(3);
+    expect(stripped).toContain("First point.");
+    expect(stripped).toContain("Second point.");
+    expect(stripped).toContain("Third point.");
+  });
+
+  it("renders a byline from the article author and source", async () => {
+    // Setup
+    const industryBody = buildDocumentBody([
+      {
+        key: "industry-pulse",
+        articles: [
+          {
+            title: "With a full byline",
+            author: "Jane Doe",
+            source: "Market Wire",
+            url: "https://example.com/byline",
+            points: ["Point one."],
+          },
+          {
+            title: "With a source only",
+            source: "Telecom Daily",
+            url: "https://example.com/source-only",
+            points: ["Point two."],
+          },
+          {
+            title: "With no byline at all",
+            url: "https://example.com/no-byline",
+            points: ["Point three."],
+          },
+        ],
+      },
+    ]);
+
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "Industry Briefing",
+      bodyText: industryBody,
+    });
+
+    // Assert
+    const stripped = html.replace(/<!-- -->/g, "");
+
+    expect(stripped).toContain("By Jane Doe · Market Wire");
+    expect(stripped).toContain("Telecom Daily");
+    expect(stripped).toContain("With no byline at all");
+  });
+
+  it("limits the section glossary to sections present in the issue", async () => {
+    // Setup
+    const partialBody = buildDocumentBody([
+      {
+        key: "industry-pulse",
+        articles: [
+          {
+            title: "Repairing rather than roaring",
+            url: "https://example.com/pulse",
+            points: ["The telecom market is repairing rather than roaring."],
+          },
+        ],
+      },
+      {
+        key: "deals-and-movements",
+        articles: [
+          {
+            title: "Deals",
+            url: "https://example.com/deals",
+            points: ["A regional acquisition closed."],
+          },
+        ],
+      },
+    ]);
+
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "TLKM industry briefing",
+      bodyText: partialBody,
+      tickerSymbol: "TLKM",
+    });
+
+    // Assert
+    const stripped = html.replace(/<!-- -->/g, "");
+
+    expect(stripped).toContain("What do these sections mean?");
+    expect(stripped).toContain(
+      "The biggest stories affecting the whole industry, and why they matter right now.",
+    );
+    expect(stripped).toContain(
+      "Companies buying, merging, raising money, teaming up, or changing their leaders.",
+    );
+    expect(stripped).not.toContain("Competitive Landscape");
+    expect(stripped).not.toContain(
+      "What competing companies are doing, and where they are gaining or losing ground.",
+    );
+    expect(stripped).not.toContain("Quick Hits");
+  });
+
+  it.each(["en", "id"] as const)(
+    "keeps every %s section description within a narrow length band",
+    (language) => {
+      const lengths = Object.values(SECTION_COPY[language]).map(
+        (copy) => copy.description.length,
+      );
+      const shortest = Math.min(...lengths);
+      const longest = Math.max(...lengths);
+
+      expect(lengths).toHaveLength(6);
+      expect(longest - shortest).toBeLessThanOrEqual(4);
+    },
+  );
+
+  it("keeps every preview summary point within the 100-character cap", () => {
+    // Setup
+    const document = readNewsletterDocument(NEWSLETTER_PREVIEW_PROPS.bodyText);
+    const points =
+      document?.sections.flatMap((section) =>
+        section.articles.flatMap((article) => article.points),
+      ) ?? [];
+    const overLimit = points.filter((point) => point.length > MAX_POINT_LENGTH);
+
+    // Assert
+    expect(document).toBeDefined();
+    expect(points.length).toBeGreaterThan(0);
+    expect(overLimit).toEqual([]);
+  });
+
+  it("caps each preview article at three summary points", () => {
+    // Setup
+    const document = readNewsletterDocument(NEWSLETTER_PREVIEW_PROPS.bodyText);
+    const counts =
+      document?.sections.flatMap((section) =>
+        section.articles.map((article) => article.points.length),
+      ) ?? [];
+
+    // Assert
+    expect(counts.length).toBeGreaterThan(0);
+    expect(Math.max(...counts)).toBeLessThanOrEqual(MAX_POINTS_PER_ARTICLE);
+  });
+
+  it("falls back to plain text and omits the glossary when the document is invalid", async () => {
+    // Setup: four points per article exceeds the schema cap, so the body is not a document.
+    const invalidBody = JSON.stringify({
+      version: 1,
+      sections: [
+        {
+          key: "competitive-landscape",
+          articles: [
+            {
+              title: "Nothing this week",
+              url: "https://example.com/nothing",
+              points: ["One.", "Two.", "Three.", "Four."],
+            },
+          ],
+        },
+      ],
+    });
+
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "TLKM industry briefing",
+      bodyText: invalidBody,
+      tickerSymbol: "TLKM",
+    });
+
+    // Assert
+    expect(html).not.toContain("What do these sections mean?");
+    expect(html).toMatch(/<h1[^>]*>[^<]*TLKM industry briefing/i);
+  });
+
+  it("uses the Indonesian read-more label for industry documents when language is id", async () => {
+    // Setup
+    const industryBody = buildDocumentBody([
+      {
+        key: "industry-pulse",
+        articles: [
+          {
+            title: "Sorotan pekan ini",
+            url: "https://example.com/sorotan",
+            points: ["Pasar bergerak mendatar pekan ini."],
+          },
+        ],
+      },
+    ]);
+
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "Buletin TLKM",
+      bodyText: industryBody,
+      tickerSymbol: "TLKM",
+      language: "id",
+    });
+
+    // Assert
+    const stripped = html.replace(/<!-- -->/g, "");
+
+    expect(stripped).toContain("Baca selengkapnya");
+    expect(stripped).toContain(SECTION_COPY.id["industry-pulse"].label);
+    expect(stripped).toContain("Apa arti bagian-bagian ini?");
+    expect(stripped).not.toContain("Read more");
   });
 
   it("renders the footer chrome in Indonesian when language is id", async () => {

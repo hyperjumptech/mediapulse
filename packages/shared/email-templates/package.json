@@ -16,9 +16,9 @@
       "types": "./src/newsletter/parse-newsletter-citations.ts",
       "default": "./src/newsletter/parse-newsletter-citations.ts"
     },
-    "./parse-industry-newsletter-wire": {
-      "types": "./src/newsletter/parse-industry-newsletter-wire.ts",
-      "default": "./src/newsletter/parse-industry-newsletter-wire.ts"
+    "./newsletter-document": {
+      "types": "./src/newsletter/newsletter-document.ts",
+      "default": "./src/newsletter/newsletter-document.ts"
     },
     "./newsletter-email-subject": {
       "types": "./src/newsletter/newsletter-email-subject.ts",
@@ -36,7 +36,8 @@
     "@react-email/components": "^0.5.7",
     "@react-email/render": "^1.4.0",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@react-email/ui": "^6.6.5",

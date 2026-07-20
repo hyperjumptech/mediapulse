@@ -4,6 +4,16 @@ import {
   parseNewsletterCitations,
   unwrapInlineFormatting,
 } from "./parse-newsletter-citations.js";
+import type { NewsletterDocument } from "./newsletter-document.js";
+
+/**
+ * Serializes a type-checked newsletter document into a stored body string.
+ *
+ * @param sections - Sections of a valid document.
+ * @returns The body string as it would be stored in `Newsletter.content`.
+ */
+const buildDocumentBody = (sections: NewsletterDocument["sections"]): string =>
+  JSON.stringify({ version: 1, sections } satisfies NewsletterDocument);
 
 describe("unwrapInlineFormatting", () => {
   it("strips surrounding **bold**", () => {
@@ -32,22 +42,15 @@ describe("parseNewsletterCitations", () => {
 
   it("returns [] for input with no links", () => {
     expect(
-      parseNewsletterCitations("EXECUTIVE SUMMARY\n\nNo links today."),
+      parseNewsletterCitations("Morning briefing.\n\nNo links today."),
     ).toStrictEqual([]);
   });
 
   it("extracts markdown links and unwraps formatting in titles", () => {
     const body = [
-      "EXECUTIVE SUMMARY",
+      "Morning briefing.",
       "",
       "Markets rallied — see [**Apple Q2 earnings**](https://example.com/aapl-q2).",
-      "",
-      "---",
-      "",
-      "TOP 3 NEWS",
-      "",
-      "1. Apple",
-      "Summary.",
     ].join("\n");
 
     const citations = parseNewsletterCitations(body);
@@ -56,41 +59,6 @@ describe("parseNewsletterCitations", () => {
       {
         title: "Apple Q2 earnings",
         url: "https://example.com/aapl-q2",
-        domain: "example.com",
-      },
-    ]);
-  });
-
-  it("pairs Read-the-full-article URLs with top-news item titles", () => {
-    const body = [
-      "EXECUTIVE SUMMARY",
-      "",
-      "Markets rallied.",
-      "",
-      "---",
-      "",
-      "TOP 2 NEWS",
-      "",
-      "1. Apple Q2 earnings",
-      "Apple posted Q2 numbers.",
-      "Read the full article: https://example.com/aapl-q2",
-      "",
-      "2. Tesla deliveries",
-      "Tesla deliveries beat estimates.",
-      "Read the full article: https://example.com/tsla-q2",
-    ].join("\n");
-
-    const citations = parseNewsletterCitations(body);
-
-    expect(citations).toStrictEqual([
-      {
-        title: "Apple Q2 earnings",
-        url: "https://example.com/aapl-q2",
-        domain: "example.com",
-      },
-      {
-        title: "Tesla deliveries",
-        url: "https://example.com/tsla-q2",
         domain: "example.com",
       },
     ]);
@@ -137,11 +105,6 @@ describe("parseNewsletterCitations", () => {
     const body = [
       "Markets rallied — see [Apple](https://example.com/aapl).",
       "",
-      "---",
-      "",
-      "TOP 1 NEWS",
-      "",
-      "1. Tesla deliveries",
       "Tesla deliveries beat estimates.",
       "Read the full article: https://example.com/tsla",
     ].join("\n");
@@ -154,80 +117,87 @@ describe("parseNewsletterCitations", () => {
     ]);
   });
 
-  it("pairs read-the-full-article URLs in wire bodies with quick-hit text titles", () => {
-    const body = [
-      "MP_NEWSLETTER",
-      "",
-      "BEGIN industry-pulse",
-      "DISPLAY_HEADING",
-      "Lead",
-      "PROSE",
-      "Intro.",
-      "END",
-      "",
-      "BEGIN competitive-landscape",
-      "DISPLAY_HEADING",
-      "C",
-      "BULLET",
-      "b1",
-      "BULLET",
-      "b2",
-      "END",
-      "",
-      "BEGIN deals-and-movements",
-      "DISPLAY_HEADING",
-      "D",
-      "BULLET",
-      "d1",
-      "END",
-      "",
-      "BEGIN regulatory-policy-watch",
-      "DISPLAY_HEADING",
-      "R",
-      "BULLET",
-      "r1",
-      "END",
-      "",
-      "BEGIN disruptors-or-tech",
-      "DISPLAY_HEADING",
-      "X",
-      "FORMAT",
-      "prose",
-      "PROSE",
-      "p",
-      "END",
-      "",
-      "BEGIN quick-hits",
-      "DISPLAY_HEADING",
-      "Q",
-      "ITEM",
-      "Apple beat",
-      "Read the full article: https://example.com/aapl-q2",
-      "ITEM",
-      "Tesla beat",
-      "Read the full article: https://example.com/tsla-q2",
-      "ITEM",
-      "h3",
-      "Read the full article: https://example.com/a",
-      "ITEM",
-      "h4",
-      "Read the full article: https://example.com/b",
-      "ITEM",
-      "h5",
-      "Read the full article: https://example.com/c",
-      "END",
-    ].join("\n");
+  it("pairs read-the-full-article URLs in document bodies with quick-hit article titles", () => {
+    // Setup: the URL is followed by more prose so the trailing JSON quote stays out of the match.
+    const body = buildDocumentBody([
+      {
+        key: "quick-hits",
+        articles: [
+          {
+            title: "Apple beat",
+            url: "https://example.com/aapl-q2",
+            points: [
+              "Read the full article: https://example.com/aapl-q2 for detail.",
+            ],
+          },
+          {
+            title: "Tesla beat",
+            url: "https://example.com/tsla-q2",
+            points: [
+              "Read the full article: https://example.com/tsla-q2 for detail.",
+            ],
+          },
+        ],
+      },
+    ]);
 
     const citations = parseNewsletterCitations(body);
 
-    expect(citations.map((c) => c.url)).toStrictEqual([
+    expect(citations.map((citation) => citation.url)).toStrictEqual([
       "https://example.com/aapl-q2",
       "https://example.com/tsla-q2",
-      "https://example.com/a",
-      "https://example.com/b",
-      "https://example.com/c",
     ]);
     expect(citations[0]?.title).toBe("Apple beat");
     expect(citations[1]?.title).toBe("Tesla beat");
+  });
+
+  it("cites the article title, not a markdown link inside a point", () => {
+    const body = buildDocumentBody([
+      {
+        key: "industry-pulse",
+        articles: [
+          {
+            title: "Apple posts a record quarter",
+            source: "Market Wire",
+            url: "https://example.com/aapl-q2",
+            points: [
+              "See [**Apple Q2 earnings**](https://example.com/aapl-q2)",
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const citations = parseNewsletterCitations(body);
+
+    expect(citations).toHaveLength(1);
+    expect(citations[0]?.url).toBe("https://example.com/aapl-q2");
+    expect(citations[0]?.domain).toBe("example.com");
+    expect(citations[0]?.title).toBe("Apple posts a record quarter");
+  });
+
+  it("cites every article in a document even when no point carries a link", () => {
+    const body = buildDocumentBody([
+      {
+        key: "industry-pulse",
+        articles: [
+          {
+            title: "Sector holds steady",
+            url: "https://example.com/pulse",
+            points: ["Volumes were flat week over week."],
+          },
+        ],
+      },
+    ]);
+
+    const citations = parseNewsletterCitations(body);
+
+    expect(citations).toStrictEqual([
+      {
+        title: "Sector holds steady",
+        url: "https://example.com/pulse",
+        domain: "example.com",
+      },
+    ]);
   });
 });

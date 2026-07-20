@@ -2,7 +2,7 @@ import { parseNewsletterBody } from "./parse-newsletter-body.js";
 
 /** A single citation extracted from a newsletter body. */
 export interface NewsletterCitation {
-  /** Display title (link text or top-news item title). */
+  /** Display title (article title, or link text for a non-document body). */
   title: string;
   /** Absolute URL of the cited article. */
   url: string;
@@ -69,12 +69,9 @@ const citationTitleFromPlainText = (text: string): string => {
 /**
  * Extracts a deduplicated list of citations from a newsletter body.
  *
- * Sources, in document order:
- *
- * 1. Inline `[title](url)` markdown links (with bold/italic unwrapped).
- * 2. `Read the full article: <url>` lines, paired with structured titles from
- *    {@link parseNewsletterBody} when available (legacy top news, industry v2
- *    bullets and quick hits, optional extras), or the URL itself otherwise.
+ * A valid newsletter document cites structurally, one citation per article in document
+ * order. Any other body is scanned for inline `[title](url)` markdown links and
+ * `Read the full article: <url>` lines.
  *
  * The result deduplicates by URL, preserving the first occurrence. The function
  * never throws — malformed markdown yields fewer citations rather than an error.
@@ -87,30 +84,29 @@ export const parseNewsletterCitations = (
 ): NewsletterCitation[] => {
   if (typeof body !== "string" || body.length === 0) return [];
 
-  const parsed = parseNewsletterBody(body);
-  const titleByUrl = new Map<string, string>();
-  if (parsed?.format === "legacy") {
-    for (const item of parsed.topNewsItems) {
-      if (item.url && !titleByUrl.has(item.url)) {
-        titleByUrl.set(item.url, item.title);
+  const document = parseNewsletterBody(body);
+
+  // A document carries its citations structurally, so they are read straight off the
+  // articles. Scanning the serialized body for links would find none, and would mistake
+  // JSON punctuation for markdown.
+  if (document !== undefined) {
+    const seenUrls = new Set<string>();
+    const documentCitations: NewsletterCitation[] = [];
+    for (const section of document.sections) {
+      for (const article of section.articles) {
+        if (seenUrls.has(article.url)) {
+          continue;
+        }
+        seenUrls.add(article.url);
+        documentCitations.push({
+          title: citationTitleFromPlainText(article.title),
+          url: article.url,
+          domain: extractDomain(article.url),
+        });
       }
     }
-  } else if (parsed?.format === "industry") {
-    for (const section of parsed.sections) {
-      if (section.machineKey === "quick-hits") {
-        for (const hit of section.items) {
-          if (hit.url && !titleByUrl.has(hit.url)) {
-            titleByUrl.set(hit.url, citationTitleFromPlainText(hit.text));
-          }
-        }
-      } else if ("bullets" in section) {
-        for (const bullet of section.bullets) {
-          if (bullet.url && !titleByUrl.has(bullet.url)) {
-            titleByUrl.set(bullet.url, citationTitleFromPlainText(bullet.text));
-          }
-        }
-      }
-    }
+
+    return documentCitations;
   }
 
   const seen = new Set<string>();
@@ -130,7 +126,7 @@ export const parseNewsletterCitations = (
   for (const match of articleLinkMatches) {
     const url = match[1] ?? "";
     if (url.length === 0 || seen.has(url)) continue;
-    const title = titleByUrl.get(url) ?? url;
+    const title = url;
     seen.add(url);
     citations.push({ title, url, domain: extractDomain(url) });
   }
