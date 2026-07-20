@@ -1,123 +1,107 @@
 import { describe, expect, it } from "vitest";
 
-import type { NewsletterDocument } from "@workspace/email-templates/newsletter-document";
-
+import type { SourceForGeneration } from "../types.js";
 import {
-  dedupeAgainstRecentBullets,
+  dedupeSourcesAgainstRecentBullets,
   type RecentBullet,
 } from "./cross-run-dedup.js";
-
-const URL_A = "https://source.example/a";
-const URL_B = "https://source.example/b";
 
 const REPEATED_TEXT =
   "Rival launches new premium coffee subscription service nationwide next quarter";
 const NOVEL_TEXT =
   "Regulator approves updated banking capital adequacy framework guidance today";
 
-const article = (title: string, text: string, url: string) => ({
+const source = (
+  title: string,
+  content: string,
+  section: string,
+): SourceForGeneration => ({
+  dataSourceId: `ds-${title}`,
+  url: `https://source.example/${encodeURIComponent(title)}`,
   title,
-  url,
-  points: [text],
+  content,
+  section,
 });
 
-const sectionOf = (document: NewsletterDocument, key: string) =>
-  document.sections.find((section) => section.key === key);
-
-describe("dedupeAgainstRecentBullets", () => {
+describe("dedupeSourcesAgainstRecentBullets", () => {
   it("is a no-op when the recent corpus is empty", () => {
-    const document: NewsletterDocument = {
-      version: 1,
-      sections: [
-        {
-          key: "competitive-landscape",
-          articles: [article("Rival", REPEATED_TEXT, URL_A)],
-        },
-      ],
-    };
+    const sources = [source("Rival", REPEATED_TEXT, "competitiveLandscape")];
 
-    const result = dedupeAgainstRecentBullets(document, []);
+    const result = dedupeSourcesAgainstRecentBullets(sources, []);
 
     expect(result.removedCount).toBe(0);
-    expect(result.document).toBe(document);
+    expect(result.sources).toEqual(sources);
   });
 
-  it("drops an article that repeats a recent bullet and keeps a novel one", () => {
-    const document: NewsletterDocument = {
-      version: 1,
-      sections: [
-        {
-          key: "competitive-landscape",
-          articles: [
-            article("Rival", REPEATED_TEXT, URL_A),
-            article("Regulator", NOVEL_TEXT, URL_B),
-          ],
-        },
-      ],
-    };
+  it("drops a source that repeats a recent bullet and keeps a novel one", () => {
+    const sources = [
+      source("Rival", REPEATED_TEXT, "competitiveLandscape"),
+      source("Regulator", NOVEL_TEXT, "competitiveLandscape"),
+    ];
     const recent: RecentBullet[] = [
       { sectionKey: "competitiveLandscape", bulletText: REPEATED_TEXT },
     ];
 
-    const result = dedupeAgainstRecentBullets(document, recent);
-    const section = sectionOf(result.document, "competitive-landscape");
+    const result = dedupeSourcesAgainstRecentBullets(sources, recent);
 
-    expect(section?.articles).toHaveLength(1);
-    expect(section?.articles[0]?.points[0]).toBe(NOVEL_TEXT);
+    expect(result.sources).toHaveLength(1);
+    expect(result.sources[0]?.title).toBe("Regulator");
     expect(result.removedCount).toBe(1);
-    expect(result.bySection["competitive-landscape"]).toBe(1);
+    expect(result.bySection["competitiveLandscape"]).toBe(1);
   });
 
-  it("never empties a section: rescues the most novel item when every item repeats", () => {
-    const document: NewsletterDocument = {
-      version: 1,
-      sections: [
-        {
-          key: "deals-and-movements",
-          articles: [
-            article("Rival", REPEATED_TEXT, URL_A),
-            article("Regulator", NOVEL_TEXT, URL_B),
-          ],
-        },
-      ],
-    };
-    // Both generated articles match a recent bullet, so both would drop without the floor.
+  it("never empties a section: rescues the most novel source when every source repeats", () => {
+    const sources = [
+      source("Rival", REPEATED_TEXT, "dealsAndMovements"),
+      source("Regulator", NOVEL_TEXT, "dealsAndMovements"),
+    ];
     const recent: RecentBullet[] = [
       { sectionKey: "dealsAndMovements", bulletText: REPEATED_TEXT },
       { sectionKey: "dealsAndMovements", bulletText: NOVEL_TEXT },
     ];
 
-    const result = dedupeAgainstRecentBullets(document, recent);
-    const section = sectionOf(result.document, "deals-and-movements");
+    const result = dedupeSourcesAgainstRecentBullets(sources, recent);
 
-    expect(section).toBeDefined();
-    expect(section?.articles).toHaveLength(1);
+    expect(result.sources).toHaveLength(1);
     expect(result.removedCount).toBe(1);
-    expect(result.bySection["deals-and-movements"]).toBe(1);
+    expect(result.bySection["dealsAndMovements"]).toBe(1);
   });
 
-  it("applies to quick-hits articles", () => {
-    const document: NewsletterDocument = {
-      version: 1,
-      sections: [
-        {
-          key: "quick-hits",
-          articles: [
-            article("Rival", REPEATED_TEXT, URL_A),
-            article("Regulator", NOVEL_TEXT, URL_B),
-          ],
-        },
-      ],
+  it("applies the floor per section rather than across the whole run", () => {
+    const sources = [
+      source("Rival", REPEATED_TEXT, "competitiveLandscape"),
+      source("Regulator", NOVEL_TEXT, "regulatoryPolicyWatch"),
+    ];
+    const recent: RecentBullet[] = [
+      { sectionKey: "competitiveLandscape", bulletText: REPEATED_TEXT },
+      { sectionKey: "regulatoryPolicyWatch", bulletText: NOVEL_TEXT },
+    ];
+
+    const result = dedupeSourcesAgainstRecentBullets(sources, recent);
+
+    expect(result.sources).toHaveLength(2);
+    expect(result.removedCount).toBe(0);
+  });
+
+  it("groups unassigned sources under a single bucket", () => {
+    const unassigned: SourceForGeneration = {
+      url: "https://source.example/unassigned",
+      title: "Loose story",
+      content: REPEATED_TEXT,
     };
+    const sources = [
+      source("Rival", REPEATED_TEXT, "quickHits"),
+      unassigned,
+      { ...unassigned, url: "https://source.example/unassigned-2" },
+    ];
     const recent: RecentBullet[] = [
       { sectionKey: "quickHits", bulletText: REPEATED_TEXT },
     ];
 
-    const result = dedupeAgainstRecentBullets(document, recent);
-    const section = sectionOf(result.document, "quick-hits");
+    const result = dedupeSourcesAgainstRecentBullets(sources, recent);
 
-    expect(section?.articles).toHaveLength(1);
-    expect(section?.articles[0]?.points[0]).toBe(NOVEL_TEXT);
-    expect(result.bySection["quick-hits"]).toBe(1);
+    expect(result.removedCount).toBe(1);
+    expect(result.bySection["unassigned"]).toBe(1);
+    expect(result.bySection["quickHits"]).toBeUndefined();
   });
 });

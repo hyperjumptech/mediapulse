@@ -127,7 +127,6 @@ describe("resolveContentGenerationConfig", () => {
 
 describe("CONTENT_GENERATION_CONSTANTS", () => {
   it("exposes the demoted hardcoded values", () => {
-    expect(CONTENT_GENERATION_CONSTANTS.topNewsCount).toBe(30);
     expect(CONTENT_GENERATION_CONSTANTS.requestTimeoutMs).toBe(120_000);
     expect(CONTENT_GENERATION_CONSTANTS.truncation.maxCharsPerSource).toBe(
       8000,
@@ -139,17 +138,10 @@ describe("CONTENT_GENERATION_CONSTANTS", () => {
     expect(CONTENT_GENERATION_CONSTANTS.retry.baseDelayMs).toBe(500);
     expect(CONTENT_GENERATION_CONSTANTS.retry.maxDelayMs).toBe(8000);
     expect(CONTENT_GENERATION_CONSTANTS.retry.jitter).toBe(true);
-    expect(CONTENT_GENERATION_CONSTANTS.citationGrounding.policy).toBe(
-      "unlink",
+    expect(CONTENT_GENERATION_CONSTANTS.coverageSeedSections).toContain(
+      "industryPulse",
     );
-    expect(CONTENT_GENERATION_CONSTANTS.citationGrounding.minOverlapScore).toBe(
-      0.18,
-    );
-    expect(CONTENT_GENERATION_CONSTANTS.citationGrounding.numericBonus).toBe(
-      0.2,
-    );
-    expect(CONTENT_GENERATION_CONSTANTS.requireCitation.dedupeScope).toBe(
-      "newsletter",
-    );
+    expect(CONTENT_GENERATION_CONSTANTS.eventDedup.minSharedAnchors).toBe(4);
+    expect(CONTENT_GENERATION_CONSTANTS.crossRunDedup.similarity).toBe(0.55);
   });
 });
