@@ -414,10 +414,10 @@ export async function run({
   };
 
   // Guarantee the top candidate of every publishable section gets a body, so a section is never
-  // dropped at grounding merely because the on-demand triage skipped its highest-scored article.
+  // dropped merely because the on-demand triage skipped its highest-scored article.
   for (const seed of selectSectionCoverageSeeds(
     sources,
-    CONTENT_GENERATION_CONSTANTS.requireCitation.sections,
+    CONTENT_GENERATION_CONSTANTS.coverageSeedSections,
   )) {
     pushFetchSource(seed.dataSourceId, seed.reason);
   }
@@ -824,17 +824,6 @@ export async function run({
     }),
     "completed",
   );
-  const groundingReportRows = (generated.citationGroundingReports ?? []).map(
-    (report) => ({
-      sectionKey: report.sectionKey,
-      articleIndex: report.articleIndex,
-      overlapScore: Math.round(report.overlapScore * 1000) / 1000,
-      decision: report.decision.kind,
-      ...(report.decision.kind !== "pass"
-        ? { reason: report.decision.reason }
-        : {}),
-    }),
-  );
   const successDetails: Record<string, unknown> = {
     fetch: fetchResult.counters,
     ...(generated.sectionFillSnapshot !== undefined
@@ -848,15 +837,11 @@ export async function run({
           },
         }
       : {}),
-    grounding: {
-      summary: generated.citationGroundingSummary,
-      reports: groundingReportRows,
-      ...(generated.requireCitationSummary !== undefined
-        ? { requireCitation: generated.requireCitationSummary }
-        : {}),
-    },
-    ...(generated.quickHitsDemotionRemoved !== undefined
-      ? { quickHitsDemotionRemoved: generated.quickHitsDemotionRemoved }
+    ...(generated.articlesSkippedSummaryFailed !== undefined
+      ? { articlesSkippedSummaryFailed: generated.articlesSkippedSummaryFailed }
+      : {}),
+    ...(generated.crossRunDedupSummary !== undefined
+      ? { crossRunDedup: generated.crossRunDedupSummary }
       : {}),
     ...(generated.crossSectionEventDedupSummary !== undefined
       ? { crossSectionEventDedup: generated.crossSectionEventDedupSummary }
@@ -880,26 +865,10 @@ export async function run({
       ...(generated.structuredReasoningTokens !== undefined
         ? { reasoningTokens: generated.structuredReasoningTokens }
         : {}),
-      ...(generated.citationGroundingSummary !== undefined
+      ...(generated.articlesSkippedSummaryFailed !== undefined
         ? {
-            grounding: {
-              unlinked: generated.citationGroundingSummary.unlinked,
-              dropped: generated.citationGroundingSummary.dropped,
-              floorPreserved: generated.citationGroundingSummary.floorPreserved,
-              p50Overlap: generated.citationGroundingSummary.p50Overlap,
-            },
-          }
-        : {}),
-      ...(generated.requireCitationSummary !== undefined
-        ? {
-            requireCitation: {
-              sectionsRemoved: generated.requireCitationSummary.sectionsRemoved,
-              bulletsRemovedUncited:
-                generated.requireCitationSummary.bulletsRemovedUncited,
-              bulletsRemovedDuplicate:
-                generated.requireCitationSummary.bulletsRemovedDuplicate,
-              sectionsKept: generated.requireCitationSummary.sectionsKept,
-            },
+            articlesSkippedSummaryFailed:
+              generated.articlesSkippedSummaryFailed,
           }
         : {}),
       ...(generated.sectionFillSnapshot !== undefined

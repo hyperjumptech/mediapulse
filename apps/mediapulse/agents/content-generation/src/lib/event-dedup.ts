@@ -1,16 +1,14 @@
-import type {
-  NewsletterArticle,
-  NewsletterDocument,
-  NewsletterSection,
-} from "@workspace/email-templates/newsletter-document";
+import { NEWSLETTER_SECTION_IDS } from "@workspace/agent-data-api-contract";
 
+import type { SourceForGeneration } from "../types.js";
+import { tokenize } from "./phrase-link-injector.js";
 import {
+  buildSourceComparisonText,
   distinctiveAnchorTokens,
   shingleIntersectionCount,
-} from "./citation-grounding.js";
-import { tokenize } from "./phrase-link-injector.js";
+} from "./text-similarity.js";
 
-/** One dropped article, recorded so a reviewer can see which event it collapsed into. */
+/** One dropped source, recorded so a reviewer can see which event it collapsed into. */
 export type EventDedupDrop = {
   sectionKey: string;
   matchedSectionKey: string;
@@ -21,15 +19,15 @@ export type EventDedupDrop = {
 
 /** Outcome of the cross-section same-event dedup pass. */
 export type EventDedupResult = {
-  document: NewsletterDocument;
+  sources: SourceForGeneration[];
   removedCount: number;
   drops: EventDedupDrop[];
 };
 
 /**
- * Minimum shared distinctive anchors (named entities and multi-digit figures) before two articles
- * are treated as the same event. Higher than the grounding anchor guard because a false merge here
- * drops real content, so precision matters more than recall.
+ * Minimum shared distinctive anchors (named entities and multi-digit figures) before two sources
+ * are treated as the same event. A false merge here drops real content, so precision matters more
+ * than recall.
  */
 export const EVENT_DEDUP_MIN_SHARED_ANCHORS = 4;
 
@@ -40,22 +38,28 @@ export const EVENT_DEDUP_MIN_SHARED_ANCHORS = 4;
  */
 export const EVENT_DEDUP_MIN_CONTAINMENT = 0.4;
 
-/** An event already shipped in a higher-priority section, keyed by its distinctive anchors. */
+/** An event already kept in a higher-priority section, keyed by its distinctive anchors. */
 type EventEntry = { sectionKey: string; anchors: Set<string> };
 
 type EventMatch = { entry: EventEntry; shared: number; containment: number };
 
-const anchorsFor = (article: NewsletterArticle): Set<string> =>
-  distinctiveAnchorTokens(
-    tokenize(`${article.title} ${article.points.join(" ")}`),
-  );
+const SECTION_KEY_UNASSIGNED = "unassigned";
+
+const sectionKeyOf = (source: SourceForGeneration): string =>
+  source.section ?? SECTION_KEY_UNASSIGNED;
+
+const scoreOf = (source: SourceForGeneration): number =>
+  source.sectionScore ?? 0;
+
+const anchorsFor = (source: SourceForGeneration): Set<string> =>
+  distinctiveAnchorTokens(tokenize(buildSourceComparisonText(source)));
 
 const roundTwo = (value: number): number => Math.round(value * 100) / 100;
 
 /**
- * Finds the strongest already-shipped event an article's anchors match, or `undefined` when none
- * clears both the shared-count and containment guards. Ties on shared count keep the first
- * (higher-priority) entry, since the corpus is filled in section-priority order.
+ * Finds the strongest already-kept event a source's anchors match, or `undefined` when none clears
+ * both the shared-count and containment guards. Ties on shared count keep the first entry, since
+ * the corpus is filled in section-priority order.
  */
 const findEventMatch = (
   anchors: Set<string>,
@@ -89,81 +93,79 @@ const findEventMatch = (
 };
 
 /**
- * Filters one section against the growing corpus of higher-priority events, dropping articles whose
- * anchors match an already-shipped event and adding survivors to the corpus. Unlike the cross-day
- * pass this has no per-section floor: a section whose only articles duplicate higher-priority events
- * is correctly emptied (the best-placed copy already ships), and the caller omits an empty section.
+ * Orders candidates so the copy most likely to ship is seen first: canonical section priority, then
+ * `sectionScore` descending, then the caller's ordering.
  */
-const applySection = (
-  sectionKey: string,
-  articles: ReadonlyArray<NewsletterArticle>,
-  corpus: EventEntry[],
-  drops: EventDedupDrop[],
-  minShared: number,
-  minContainment: number,
-): NewsletterArticle[] => {
-  const kept: NewsletterArticle[] = [];
-  for (const article of articles) {
-    const anchors = anchorsFor(article);
-    const match = findEventMatch(anchors, corpus, minShared, minContainment);
+const orderByPlacementPriority = (
+  sources: readonly SourceForGeneration[],
+): Array<{ source: SourceForGeneration; order: number }> => {
+  const sectionRank = new Map<string, number>(
+    NEWSLETTER_SECTION_IDS.map((id, index) => [id, index]),
+  );
+  const rankOf = (source: SourceForGeneration): number =>
+    sectionRank.get(sectionKeyOf(source)) ?? NEWSLETTER_SECTION_IDS.length;
+
+  return sources
+    .map((source, order) => ({ source, order }))
+    .sort((left, right) => {
+      const rankDiff = rankOf(left.source) - rankOf(right.source);
+      if (rankDiff !== 0) {
+        return rankDiff;
+      }
+      const scoreDiff = scoreOf(right.source) - scoreOf(left.source);
+
+      return scoreDiff !== 0 ? scoreDiff : left.order - right.order;
+    });
+};
+
+/**
+ * Removes candidate sources that repeat an event another candidate already covers from a
+ * higher-priority placement, worded differently enough that lexical title dedup misses it.
+ *
+ * Events are keyed by distinctive, translation-stable anchors (named entities and multi-digit
+ * figures) drawn from each source's title and lead body text. Candidates are visited in placement
+ * priority order, so the best-placed copy of an event wins and later duplicates drop. Runs before
+ * any LLM call, so a duplicate never costs a summarization request.
+ *
+ * @param sources - Candidate sources for this run.
+ * @param minSharedAnchors - Minimum shared anchors before two sources are the same event.
+ * @param minContainment - Minimum anchor containment alongside the shared-count guard.
+ */
+export const dedupeCrossSectionSourceEvents = (
+  sources: readonly SourceForGeneration[],
+  minSharedAnchors: number = EVENT_DEDUP_MIN_SHARED_ANCHORS,
+  minContainment: number = EVENT_DEDUP_MIN_CONTAINMENT,
+): EventDedupResult => {
+  const corpus: EventEntry[] = [];
+  const drops: EventDedupDrop[] = [];
+  const keptOrders = new Set<number>();
+
+  for (const entry of orderByPlacementPriority(sources)) {
+    const sectionKey = sectionKeyOf(entry.source);
+    const anchors = anchorsFor(entry.source);
+    const match = findEventMatch(
+      anchors,
+      corpus,
+      minSharedAnchors,
+      minContainment,
+    );
     if (match !== undefined) {
       drops.push({
         sectionKey,
         matchedSectionKey: match.entry.sectionKey,
         sharedAnchors: match.shared,
         containment: roundTwo(match.containment),
-        title: article.title,
+        title: entry.source.title,
       });
       continue;
     }
-    kept.push(article);
+    keptOrders.add(entry.order);
     if (anchors.size > 0) {
       corpus.push({ sectionKey, anchors });
     }
   }
 
-  return kept;
-};
+  const kept = sources.filter((_source, order) => keptOrders.has(order));
 
-/**
- * Removes articles that repeat, in a lower-priority section, an event already shipped in a
- * higher-priority section but worded differently enough that lexical title/text dedup misses it.
- *
- * Events are keyed by distinctive, translation-stable anchors (named entities and multi-digit
- * figures). Sections are processed in the document's canonical order, so the highest-priority
- * placement of an event wins and later duplicates drop. A section whose articles all duplicate
- * higher-priority events is omitted from the result.
- *
- * @param document - Document after citation pruning and within-run dedup.
- * @param minSharedAnchors - Minimum shared anchors before two articles are the same event.
- * @param minContainment - Minimum anchor containment alongside the shared-count guard.
- */
-export const dedupeCrossSectionEvents = (
-  document: NewsletterDocument,
-  minSharedAnchors: number = EVENT_DEDUP_MIN_SHARED_ANCHORS,
-  minContainment: number = EVENT_DEDUP_MIN_CONTAINMENT,
-): EventDedupResult => {
-  const corpus: EventEntry[] = [];
-  const drops: EventDedupDrop[] = [];
-  const sections: NewsletterSection[] = [];
-
-  for (const section of document.sections) {
-    const kept = applySection(
-      section.key,
-      section.articles,
-      corpus,
-      drops,
-      minSharedAnchors,
-      minContainment,
-    );
-    if (kept.length > 0) {
-      sections.push({ key: section.key, articles: kept });
-    }
-  }
-
-  return {
-    document: { version: 1, sections },
-    removedCount: drops.length,
-    drops,
-  };
+  return { sources: kept, removedCount: drops.length, drops };
 };

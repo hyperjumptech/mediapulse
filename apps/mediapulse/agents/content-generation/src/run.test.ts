@@ -161,21 +161,7 @@ const generatedNewsletter: LlmGenerate.GeneratedContentWithProvenance = {
   systemPrompt: "You are an industry intelligence editor.",
   resolvedUserPrompt:
     "Create a newsletter from these data sources.\n\nArticle 1: Story A\nContent for story A.",
-  citationGroundingSummary: {
-    totalCitations: 1,
-    unlinked: 0,
-    dropped: 0,
-    floorPreserved: 0,
-    p50Overlap: 0.5,
-    p10Overlap: 0.2,
-  },
-  requireCitationSummary: {
-    sectionsRemoved: 0,
-    bulletsRemovedUncited: 0,
-    bulletsRemovedDuplicate: 0,
-    bulletsRemovedDuplicateTitle: 0,
-    sectionsKept: 6,
-  },
+  articlesSkippedSummaryFailed: 0,
   sectionFillSnapshot: {
     bySection: {
       industryPulse: { citedBullets: 1 },

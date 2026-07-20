@@ -1,4 +1,4 @@
-import { APICallError, NoObjectGeneratedError, TypeValidationError } from "ai";
+import { APICallError, TypeValidationError } from "ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { NewsletterDocument } from "@workspace/email-templates/newsletter-document";
@@ -9,16 +9,20 @@ import {
   resolveContentGenerationConfig,
 } from "./config-schema.js";
 import {
-  buildAvoidRecentBulletsBlock,
-  buildCompetitorPromptBlock,
   collectNewsletterCitations,
   collectNewsletterSections,
   generateNewsletterWithLlm,
   groupSourcesBySection,
-  SYSTEM_PROMPT,
+  SUMMARIZER_CONCURRENCY,
+  type GenerateNewsletterObjectArgs,
   type GenerateNewsletterObjectFn,
+  type GenerateNewsletterObjectResult,
 } from "./llm-generate-newsletter.js";
-import type { NewsletterDraft } from "./newsletter-draft-schema.js";
+import { SUMMARIZE_ARTICLE_SYSTEM_PROMPT } from "./summarize-article.js";
+import {
+  MAX_SUBJECT_LENGTH,
+  newsletterSubjectSchema,
+} from "./write-subject.js";
 import type { SourceForGeneration } from "./types.js";
 
 afterEach(() => {
@@ -36,64 +40,84 @@ const baseConfig = resolveContentGenerationConfig({
 
 const noopSleepFn = vi.fn().mockResolvedValue(undefined);
 
-const CL_TEXT =
-  "Rival A expanded its branches across eastern Indonesia this quarter.";
-const DEALS_TEXT =
-  "A merger between two regional lenders closed on Friday morning.";
-const QUICK_TEXT =
-  "Nickel ore shipments rose across Sulawesi smelters last quarter.";
+const GENERATED_SUBJECT = "Regional lenders close a merger";
 
-/** Minimal valid draft returned by the mocked LLM, grounded against `testSources`. */
-const minimalDraft = (): NewsletterDraft => ({
-  subject: "Market Rally Continues",
-  sections: [
-    {
-      key: "competitive-landscape",
-      articles: [
-        { title: "Rival A expands", points: [CL_TEXT], articleIndex: 1 },
-      ],
-    },
-    {
-      key: "deals-and-movements",
-      articles: [
-        { title: "Merger closes", points: [DEALS_TEXT], articleIndex: 2 },
-      ],
-    },
-    {
-      key: "quick-hits",
-      articles: [{ title: "Nickel up", points: [QUICK_TEXT], articleIndex: 3 }],
-    },
-  ],
-});
+const isSubjectCall = (args: GenerateNewsletterObjectArgs): boolean =>
+  args.schema === newsletterSubjectSchema;
 
-function makeSuccessfulGenerateFn(
-  patch: Partial<NewsletterDraft> = {},
-): GenerateNewsletterObjectFn {
-  return vi.fn().mockResolvedValue({
-    object: { ...minimalDraft(), ...patch },
+/** Reads back the article title the summarizer prompt was built from. */
+const promptTitle = (prompt: string): string =>
+  (prompt.split("\n")[0] ?? "").replace("Title: ", "");
+
+type FakeUsage = {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  reasoningTokens?: number;
+};
+
+/**
+ * Builds a `generateObject` double that answers summarizer calls with one point naming the
+ * article it was given, and the subject call with a fixed subject.
+ */
+const makeGenerateFn = (
+  options: {
+    usage?: FakeUsage;
+    onSummarize?: (
+      args: GenerateNewsletterObjectArgs,
+    ) => Promise<GenerateNewsletterObjectResult>;
+    onSubject?: (
+      args: GenerateNewsletterObjectArgs,
+    ) => Promise<GenerateNewsletterObjectResult>;
+  } = {},
+): GenerateNewsletterObjectFn =>
+  vi.fn(async (args: GenerateNewsletterObjectArgs) => {
+    if (isSubjectCall(args)) {
+      if (options.onSubject !== undefined) {
+        return options.onSubject(args);
+      }
+
+      return {
+        object: { subject: GENERATED_SUBJECT },
+        ...(options.usage !== undefined ? { usage: options.usage } : {}),
+      };
+    }
+    if (options.onSummarize !== undefined) {
+      return options.onSummarize(args);
+    }
+
+    return {
+      object: { points: [`Key fact from ${promptTitle(args.prompt)}`] },
+      ...(options.usage !== undefined ? { usage: options.usage } : {}),
+    };
   });
-}
 
-// Sources are grouped by their upstream section before prompting, so prompt order is
-// competitiveLandscape, dealsAndMovements, quickHits — which is what `articleIndex` refers to.
 const testSources: SourceForGeneration[] = [
   {
+    dataSourceId: "ds-a",
     url: "https://example.com/a",
-    title: "Story A",
-    content: `Content A. ${QUICK_TEXT}`,
+    title: "Nickel shipments rise",
+    content: "Nickel ore shipments rose across Sulawesi smelters last quarter.",
     section: "quickHits",
+    sectionScore: 0.9,
   },
   {
+    dataSourceId: "ds-b",
     url: "https://example.com/b",
-    title: "Story B",
-    content: `Content B. ${CL_TEXT}`,
+    title: "Rival A expands",
+    content: "Rival A expanded its branches across eastern Indonesia.",
+    author: "Jane Reporter",
+    source: "Example Wire",
     section: "competitiveLandscape",
+    sectionScore: 0.8,
   },
   {
+    dataSourceId: "ds-c",
     url: "https://example.com/c",
-    title: "Story C",
-    content: `Content C. ${DEALS_TEXT}`,
+    title: "Merger closes",
+    content: "A merger between two regional lenders closed on Friday morning.",
     section: "dealsAndMovements",
+    sectionScore: 0.7,
   },
 ];
 
@@ -105,7 +129,7 @@ const testContext = {
 };
 
 // ---------------------------------------------------------------------------
-// groupSourcesBySection
+// collectNewsletterCitations
 // ---------------------------------------------------------------------------
 
 describe("collectNewsletterCitations", () => {
@@ -180,6 +204,10 @@ describe("collectNewsletterCitations", () => {
     ]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// collectNewsletterSections
+// ---------------------------------------------------------------------------
 
 describe("collectNewsletterSections", () => {
   const sectionSources: SourceForGeneration[] = [
@@ -273,6 +301,10 @@ describe("collectNewsletterSections", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// groupSourcesBySection
+// ---------------------------------------------------------------------------
+
 describe("groupSourcesBySection", () => {
   it("orders sources by their upstream section, stably within a section", () => {
     const sources: SourceForGeneration[] = [
@@ -284,7 +316,7 @@ describe("groupSourcesBySection", () => {
 
     const grouped = groupSourcesBySection(sources);
 
-    expect(grouped.map((s) => s.title)).toEqual([
+    expect(grouped.map((entry) => entry.title)).toEqual([
       "pulse",
       "deal",
       "deal2",
@@ -300,7 +332,7 @@ describe("groupSourcesBySection", () => {
 
     const grouped = groupSourcesBySection(sources);
 
-    expect(grouped.map((s) => s.title)).toEqual(["pulse", "none"]);
+    expect(grouped.map((entry) => entry.title)).toEqual(["pulse", "none"]);
   });
 });
 
@@ -309,170 +341,237 @@ describe("groupSourcesBySection", () => {
 // ---------------------------------------------------------------------------
 
 describe("generateNewsletterWithLlm — happy path", () => {
-  it("returns subject and a JSON document body on success", async () => {
-    const generateObjectFn = makeSuccessfulGenerateFn();
+  it("returns a subject and a valid JSON document in canonical section order", async () => {
+    const generateObjectFn = makeGenerateFn();
 
     const result = await generateNewsletterWithLlm(
       testSources,
       baseConfig,
-      { ...testContext },
+      testContext,
       { generateObjectFn },
     );
+    const parsed = readNewsletterDocument(result.content);
 
-    expect(result.subject).toContain("Market Rally Continues");
-    expect(result.content.length).toBeGreaterThan(0);
-    expect(readNewsletterDocument(result.content)?.sections).toHaveLength(3);
+    expect(parsed).toBeDefined();
+    expect(parsed?.sections.map((section) => section.key)).toEqual([
+      "competitive-landscape",
+      "deals-and-movements",
+      "quick-hits",
+    ]);
+    expect(result.subject).toContain(GENERATED_SUBJECT);
   });
 
   it("prepends the ticker symbol prefix to the subject", async () => {
-    const generateObjectFn = makeSuccessfulGenerateFn();
+    const generateObjectFn = makeGenerateFn();
 
     const result = await generateNewsletterWithLlm(
       testSources,
       baseConfig,
-      { ...testContext },
+      testContext,
       { generateObjectFn },
     );
 
-    expect(result.subject).toContain("BBCA");
+    expect(result.subject.startsWith("BBCA")).toBe(true);
   });
 
-  it("slices sources to the hardcoded topNewsCount when building the prompt", async () => {
-    const manySources: SourceForGeneration[] = Array.from(
-      { length: CONTENT_GENERATION_CONSTANTS.topNewsCount + 5 },
-      (_, index) => ({
-        url: `https://example.com/${String(index)}`,
-        title: `Story ${String(index)}`,
-        content: `Content ${String(index)}.`,
-        section: "quickHits",
-      }),
-    );
-    const generateObjectFn = makeSuccessfulGenerateFn();
+  it("takes title, url, author, and source from the source row and points from the model", async () => {
+    const generateObjectFn = makeGenerateFn();
 
     const result = await generateNewsletterWithLlm(
-      manySources,
+      testSources,
       baseConfig,
-      { ...testContext },
+      testContext,
       { generateObjectFn },
     );
-
-    // topNewsCount articles max appear in the resolved prompt.
-    const articleMatches = result.resolvedUserPrompt.match(/Article \d+:/g);
-    expect(articleMatches?.length).toBe(
-      CONTENT_GENERATION_CONSTANTS.topNewsCount,
+    const parsed = readNewsletterDocument(result.content);
+    const competitive = parsed?.sections.find(
+      (section) => section.key === "competitive-landscape",
     );
+
+    expect(competitive?.articles[0]).toEqual({
+      title: "Rival A expands",
+      url: "https://example.com/b",
+      author: "Jane Reporter",
+      source: "Example Wire",
+      points: ["Key fact from Rival A expands"],
+    });
   });
 
-  it("passes the hardcoded request timeout and maxRetries 0 to generateObjectFn", async () => {
-    const generateObjectFn = vi.fn().mockResolvedValue({
-      object: minimalDraft(),
-    });
+  it("issues one summarizer call per selected article plus one subject call", async () => {
+    const generateObjectFn = makeGenerateFn();
 
     await generateNewsletterWithLlm(testSources, baseConfig, testContext, {
       generateObjectFn,
     });
+    const calls = vi.mocked(generateObjectFn).mock.calls;
+    const summarizerCalls = calls.filter(([args]) => !isSubjectCall(args));
+    const subjectCalls = calls.filter(([args]) => isSubjectCall(args));
 
-    const args = generateObjectFn.mock.calls[0]![0];
-    expect(args.maxRetries).toBe(0);
-    expect(args.timeout).toBe(CONTENT_GENERATION_CONSTANTS.requestTimeoutMs);
+    expect(summarizerCalls).toHaveLength(testSources.length);
+    expect(subjectCalls).toHaveLength(1);
   });
-});
 
-// ---------------------------------------------------------------------------
-// Non-retryable errors
-// ---------------------------------------------------------------------------
+  it("sends the summarizer system prompt, maxRetries 0, and the request timeout", async () => {
+    const generateObjectFn = makeGenerateFn();
 
-describe("generateNewsletterWithLlm — non-retryable errors", () => {
-  it("throws TypeValidationError immediately without retrying", async () => {
-    const error = new TypeValidationError({
-      value: {},
-      cause: new Error("bad"),
+    await generateNewsletterWithLlm(testSources, baseConfig, testContext, {
+      generateObjectFn,
     });
-    const generateObjectFn = vi.fn().mockRejectedValue(error);
+    const [summarizerArgs] = vi
+      .mocked(generateObjectFn)
+      .mock.calls.map(([args]) => args)
+      .filter((args) => !isSubjectCall(args));
 
-    await expect(
-      generateNewsletterWithLlm(testSources, baseConfig, testContext, {
-        generateObjectFn,
-        sleepFn: noopSleepFn,
-      }),
-    ).rejects.toBeInstanceOf(TypeValidationError);
-    expect(generateObjectFn).toHaveBeenCalledTimes(1);
-  });
-
-  it("throws APICallError (401) immediately without retrying", async () => {
-    const error = new APICallError({
-      message: "Unauthorized",
-      url: "https://api.openai.com",
-      requestBodyValues: {},
-      statusCode: 401,
-      isRetryable: false,
-    });
-    const generateObjectFn = vi.fn().mockRejectedValue(error);
-
-    await expect(
-      generateNewsletterWithLlm(testSources, baseConfig, testContext, {
-        generateObjectFn,
-        sleepFn: noopSleepFn,
-      }),
-    ).rejects.toBeInstanceOf(APICallError);
-    expect(generateObjectFn).toHaveBeenCalledTimes(1);
-  });
-
-  it("throws NoObjectGeneratedError immediately without retrying", async () => {
-    const error = Object.assign(
-      Object.create(NoObjectGeneratedError.prototype) as NoObjectGeneratedError,
-      { message: "No object generated", name: "AI_NoObjectGeneratedError" },
+    expect(summarizerArgs?.system).toBe(SUMMARIZE_ARTICLE_SYSTEM_PROMPT);
+    expect(summarizerArgs?.maxRetries).toBe(0);
+    expect(summarizerArgs?.timeout).toBe(
+      CONTENT_GENERATION_CONSTANTS.requestTimeoutMs,
     );
-    const generateObjectFn = vi.fn().mockRejectedValue(error);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Concurrency
+// ---------------------------------------------------------------------------
+
+describe("generateNewsletterWithLlm — summarizer concurrency", () => {
+  it("never runs more than SUMMARIZER_CONCURRENCY summarizer calls at once", async () => {
+    const manySources: SourceForGeneration[] = Array.from(
+      { length: 12 },
+      (_unused, index) => ({
+        dataSourceId: `ds-${String(index)}`,
+        url: `https://example.com/${String(index)}`,
+        title: `Story ${String(index)}`,
+        content: `Body for story ${String(index)}.`,
+        section:
+          index % 4 === 0
+            ? "industryPulse"
+            : index % 4 === 1
+              ? "competitiveLandscape"
+              : index % 4 === 2
+                ? "dealsAndMovements"
+                : "quickHits",
+        sectionScore: 1 - index / 100,
+      }),
+    );
+
+    let inFlight = 0;
+    let peakInFlight = 0;
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => {
+        inFlight += 1;
+        peakInFlight = Math.max(peakInFlight, inFlight);
+        await Promise.resolve();
+        inFlight -= 1;
+
+        return {
+          object: { points: [`Key fact from ${promptTitle(args.prompt)}`] },
+        };
+      },
+    });
+
+    await generateNewsletterWithLlm(manySources, baseConfig, testContext, {
+      generateObjectFn,
+    });
+
+    expect(peakInFlight).toBeGreaterThan(0);
+    expect(peakInFlight).toBeLessThanOrEqual(SUMMARIZER_CONCURRENCY);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Per-article failure isolation
+// ---------------------------------------------------------------------------
+
+describe("generateNewsletterWithLlm — summarizer failures", () => {
+  const nonRetryableError = new TypeValidationError({
+    value: {},
+    cause: new Error("bad"),
+  });
+
+  it("skips and counts an article whose summarizer call fails, without failing the run", async () => {
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => {
+        if (promptTitle(args.prompt) === "Merger closes") {
+          throw nonRetryableError;
+        }
+
+        return {
+          object: { points: [`Key fact from ${promptTitle(args.prompt)}`] },
+        };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+    const parsed = readNewsletterDocument(result.content);
+
+    expect(result.articlesSkippedSummaryFailed).toBe(1);
+    expect(parsed?.sections.map((section) => section.key)).toEqual([
+      "competitive-landscape",
+      "quick-hits",
+    ]);
+    expect(result.sectionFillSnapshot?.sectionsRemoved).toEqual([
+      "dealsAndMovements",
+    ]);
+  });
+
+  it("throws when every article fails to summarize", async () => {
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: () => Promise.reject(nonRetryableError),
+    });
 
     await expect(
       generateNewsletterWithLlm(testSources, baseConfig, testContext, {
         generateObjectFn,
         sleepFn: noopSleepFn,
       }),
-    ).rejects.toBeInstanceOf(NoObjectGeneratedError);
-    expect(generateObjectFn).toHaveBeenCalledTimes(1);
+    ).rejects.toThrow(/failed to summarize/i);
   });
-});
 
-// ---------------------------------------------------------------------------
-// Retryable errors
-// ---------------------------------------------------------------------------
+  it("throws when selection produces no articles", async () => {
+    const unassigned: SourceForGeneration[] = [
+      {
+        url: "https://example.com/x",
+        title: "Unassigned",
+        content: "Body.",
+      },
+    ];
+    const generateObjectFn = makeGenerateFn();
 
-describe("generateNewsletterWithLlm — retryable errors", () => {
-  it("retries up to maxAttempts on a 429 rate-limit error", async () => {
-    const error = new APICallError({
+    await expect(
+      generateNewsletterWithLlm(unassigned, baseConfig, testContext, {
+        generateObjectFn,
+      }),
+    ).rejects.toThrow(/no articles/i);
+    expect(generateObjectFn).not.toHaveBeenCalled();
+  });
+
+  it("retries a retryable summarizer failure up to maxAttempts before skipping", async () => {
+    const retryableError = new APICallError({
       message: "Too Many Requests",
       url: "https://api.openai.com",
       requestBodyValues: {},
       statusCode: 429,
       isRetryable: true,
     });
-    const generateObjectFn = vi.fn().mockRejectedValue(error);
+    let attempts = 0;
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => {
+        if (promptTitle(args.prompt) === "Merger closes") {
+          attempts += 1;
+          throw retryableError;
+        }
 
-    await expect(
-      generateNewsletterWithLlm(testSources, baseConfig, testContext, {
-        generateObjectFn,
-        sleepFn: noopSleepFn,
-      }),
-    ).rejects.toBeInstanceOf(APICallError);
-    expect(generateObjectFn).toHaveBeenCalledTimes(
-      CONTENT_GENERATION_CONSTANTS.retry.maxAttempts,
-    );
-  });
-
-  it("succeeds after a transient 500 failure", async () => {
-    const error = new APICallError({
-      message: "Server Error",
-      url: "https://api.openai.com",
-      requestBodyValues: {},
-      statusCode: 500,
-      isRetryable: true,
+        return {
+          object: { points: [`Key fact from ${promptTitle(args.prompt)}`] },
+        };
+      },
     });
-    const generateObjectFn = vi
-      .fn()
-      .mockRejectedValueOnce(error)
-      .mockResolvedValueOnce({ object: minimalDraft() });
 
     const result = await generateNewsletterWithLlm(
       testSources,
@@ -481,8 +580,77 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
       { generateObjectFn, sleepFn: noopSleepFn },
     );
 
+    expect(attempts).toBe(CONTENT_GENERATION_CONSTANTS.retry.maxAttempts);
+    expect(result.articlesSkippedSummaryFailed).toBe(1);
+  });
+
+  it("recovers when a transient summarizer failure succeeds on retry", async () => {
+    const retryableError = new APICallError({
+      message: "Server Error",
+      url: "https://api.openai.com",
+      requestBodyValues: {},
+      statusCode: 500,
+      isRetryable: true,
+    });
+    let failedOnce = false;
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => {
+        if (!failedOnce) {
+          failedOnce = true;
+          throw retryableError;
+        }
+
+        return {
+          object: { points: [`Key fact from ${promptTitle(args.prompt)}`] },
+        };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(result.articlesSkippedSummaryFailed).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Subject fallback
+// ---------------------------------------------------------------------------
+
+describe("generateNewsletterWithLlm — subject fallback", () => {
+  it("falls back to the lead article title, truncated, when the subject call fails", async () => {
+    const longTitle = "R".repeat(MAX_SUBJECT_LENGTH + 10);
+    const sources: SourceForGeneration[] = [
+      {
+        dataSourceId: "ds-lead",
+        url: "https://example.com/lead",
+        title: longTitle,
+        content: "Body for the lead story.",
+        section: "industryPulse",
+        sectionScore: 0.9,
+      },
+    ];
+    const generateObjectFn = makeGenerateFn({
+      onSubject: () =>
+        Promise.reject(
+          new TypeValidationError({ value: {}, cause: new Error("bad") }),
+        ),
+    });
+
+    const result = await generateNewsletterWithLlm(
+      sources,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(result.subject).toContain("R".repeat(MAX_SUBJECT_LENGTH));
+    expect(result.subject).not.toContain("R".repeat(MAX_SUBJECT_LENGTH + 1));
     expect(result.content.length).toBeGreaterThan(0);
-    expect(generateObjectFn).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -491,10 +659,14 @@ describe("generateNewsletterWithLlm — retryable errors", () => {
 // ---------------------------------------------------------------------------
 
 describe("generateNewsletterWithLlm — token usage and provenance", () => {
-  it("returns token counts when usage is present", async () => {
-    const generateObjectFn = vi.fn().mockResolvedValue({
-      object: minimalDraft(),
-      usage: { promptTokens: 100, completionTokens: 40, totalTokens: 140 },
+  it("sums token usage across every summarizer call and the subject call", async () => {
+    const generateObjectFn = makeGenerateFn({
+      usage: {
+        promptTokens: 10,
+        completionTokens: 4,
+        totalTokens: 14,
+        reasoningTokens: 2,
+      },
     });
 
     const result = await generateNewsletterWithLlm(
@@ -503,16 +675,16 @@ describe("generateNewsletterWithLlm — token usage and provenance", () => {
       testContext,
       { generateObjectFn },
     );
+    const callCount = testSources.length + 1;
 
-    expect(result.promptTokens).toBe(100);
-    expect(result.completionTokens).toBe(40);
-    expect(result.totalTokens).toBe(140);
+    expect(result.promptTokens).toBe(10 * callCount);
+    expect(result.completionTokens).toBe(4 * callCount);
+    expect(result.totalTokens).toBe(14 * callCount);
+    expect(result.structuredReasoningTokens).toBe(2 * callCount);
   });
 
-  it("returns null for token fields when usage is absent", async () => {
-    const generateObjectFn = vi.fn().mockResolvedValue({
-      object: minimalDraft(),
-    });
+  it("returns null token fields when no response carried usage", async () => {
+    const generateObjectFn = makeGenerateFn();
 
     const result = await generateNewsletterWithLlm(
       testSources,
@@ -524,10 +696,11 @@ describe("generateNewsletterWithLlm — token usage and provenance", () => {
     expect(result.promptTokens).toBeNull();
     expect(result.completionTokens).toBeNull();
     expect(result.totalTokens).toBeNull();
+    expect(result.structuredReasoningTokens).toBeUndefined();
   });
 
-  it("returns a non-empty systemPrompt and a resolvedUserPrompt containing source content", async () => {
-    const generateObjectFn = makeSuccessfulGenerateFn();
+  it("reports the summarizer system prompt and an article manifest as the prompts", async () => {
+    const generateObjectFn = makeGenerateFn();
 
     const result = await generateNewsletterWithLlm(
       testSources,
@@ -536,37 +709,53 @@ describe("generateNewsletterWithLlm — token usage and provenance", () => {
       { generateObjectFn },
     );
 
-    expect(result.systemPrompt.length).toBeGreaterThan(0);
-    expect(result.resolvedUserPrompt).toContain("Content A.");
+    expect(result.systemPrompt).toBe(SUMMARIZE_ARTICLE_SYSTEM_PROMPT);
+    expect(result.resolvedUserPrompt).toBe(
+      [
+        "competitive-landscape | Rival A expands",
+        "deals-and-movements | Merger closes",
+        "quick-hits | Nickel shipments rise",
+      ].join("\n"),
+    );
   });
 
-  it("returns different resolvedUserPrompt for different sources", async () => {
-    const generateObjectFn = makeSuccessfulGenerateFn();
+  it("does not carry article bodies into the resolved user prompt", async () => {
+    const generateObjectFn = makeGenerateFn();
 
-    const resultA = await generateNewsletterWithLlm(
-      [{ url: "https://x/a", title: "A", content: "Alpha." }],
-      baseConfig,
-      testContext,
-      { generateObjectFn },
-    );
-    const resultB = await generateNewsletterWithLlm(
-      [{ url: "https://x/b", title: "B", content: "Beta." }],
+    const result = await generateNewsletterWithLlm(
+      testSources,
       baseConfig,
       testContext,
       { generateObjectFn },
     );
 
-    expect(resultA.resolvedUserPrompt).not.toBe(resultB.resolvedUserPrompt);
+    expect(result.resolvedUserPrompt).not.toContain(
+      "Nickel ore shipments rose across Sulawesi smelters",
+    );
+  });
+
+  it("appends the contract brief to the summarizer system prompt", async () => {
+    const generateObjectFn = makeGenerateFn();
+
+    const withBrief = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      { ...testContext, brief: "Focus on Indonesian banking sector dynamics." },
+      { generateObjectFn },
+    );
+
+    expect(withBrief.systemPrompt).not.toBe(SUMMARIZE_ARTICLE_SYSTEM_PROMPT);
+    expect(withBrief.systemPrompt).toContain(SUMMARIZE_ARTICLE_SYSTEM_PROMPT);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Prompt wiring and substitution
+// sectionFillSnapshot and provenance links
 // ---------------------------------------------------------------------------
 
-describe("generateNewsletterWithLlm — prompt wiring", () => {
-  it("substitutes {{date}} and presents sources as numbered articles", async () => {
-    const generateObjectFn = makeSuccessfulGenerateFn();
+describe("generateNewsletterWithLlm — provenance links", () => {
+  it("has a sectionFill entry for every canonical section", async () => {
+    const generateObjectFn = makeGenerateFn();
 
     const result = await generateNewsletterWithLlm(
       testSources,
@@ -575,100 +764,7 @@ describe("generateNewsletterWithLlm — prompt wiring", () => {
       { generateObjectFn },
     );
 
-    expect(result.resolvedUserPrompt).toContain("2026-04-21");
-    expect(result.resolvedUserPrompt).toContain("Article 1:");
-  });
-
-  it("includes the authoritative assigned-section line for each article", async () => {
-    const generateObjectFn = makeSuccessfulGenerateFn();
-
-    const result = await generateNewsletterWithLlm(
-      testSources,
-      baseConfig,
-      testContext,
-      { generateObjectFn },
-    );
-
-    expect(result.resolvedUserPrompt).toContain("Assigned section:");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Citation grounding (always on)
-// ---------------------------------------------------------------------------
-
-describe("generateNewsletterWithLlm — citation grounding", () => {
-  it("returns a citation grounding summary", async () => {
-    const generateObjectFn = makeSuccessfulGenerateFn();
-
-    const result = await generateNewsletterWithLlm(
-      testSources,
-      baseConfig,
-      testContext,
-      { generateObjectFn },
-    );
-
-    expect(result.citationGroundingSummary).toBeDefined();
-    expect(result.citationGroundingReports).toBeDefined();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Require-citation pruning (always on)
-// ---------------------------------------------------------------------------
-
-describe("generateNewsletterWithLlm — require-citation pruning", () => {
-  it("returns a require-citation summary", async () => {
-    const generateObjectFn = makeSuccessfulGenerateFn();
-
-    const result = await generateNewsletterWithLlm(
-      testSources,
-      baseConfig,
-      testContext,
-      { generateObjectFn },
-    );
-
-    expect(result.requireCitationSummary).toBeDefined();
-  });
-
-  it("keeps cited rows in the stored document", async () => {
-    const generateObjectFn = makeSuccessfulGenerateFn();
-
-    const result = await generateNewsletterWithLlm(
-      testSources,
-      baseConfig,
-      testContext,
-      { generateObjectFn },
-    );
-
-    const parsed = readNewsletterDocument(result.content);
-
-    expect(parsed).toBeDefined();
-    expect(parsed?.sections.map((section) => section.key)).toEqual([
-      "competitive-landscape",
-      "deals-and-movements",
-      "quick-hits",
-    ]);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// sectionFillSnapshot
-// ---------------------------------------------------------------------------
-
-describe("generateNewsletterWithLlm — sectionFillSnapshot", () => {
-  it("has an entry for every section", async () => {
-    const generateObjectFn = makeSuccessfulGenerateFn();
-
-    const result = await generateNewsletterWithLlm(
-      testSources,
-      baseConfig,
-      testContext,
-      { generateObjectFn },
-    );
-
-    const sections = Object.keys(result.sectionFillSnapshot?.bySection ?? {});
-    expect(sections).toEqual(
+    expect(Object.keys(result.sectionFillSnapshot?.bySection ?? {})).toEqual(
       expect.arrayContaining([
         "industryPulse",
         "competitiveLandscape",
@@ -679,137 +775,28 @@ describe("generateNewsletterWithLlm — sectionFillSnapshot", () => {
       ]),
     );
   });
-});
 
-// ---------------------------------------------------------------------------
-// buildCompetitorPromptBlock + competitor injection
-// ---------------------------------------------------------------------------
-
-describe("buildCompetitorPromptBlock", () => {
-  it("returns empty string when competitors list is empty", () => {
-    expect(buildCompetitorPromptBlock([], "Acme")).toBe("");
-  });
-
-  it("names competitors and issuer in the directive text", () => {
-    const block = buildCompetitorPromptBlock(
-      [
-        { name: "Rival One", relation: "competitor" },
-        { name: "Rival Two", relation: "competitor" },
-      ],
-      "Acme",
-    );
-
-    expect(block).toContain("Rival One");
-    expect(block).toContain("Rival Two");
-    expect(block).toContain("Acme");
-  });
-});
-
-describe("generateNewsletterWithLlm — competitor prompt injection", () => {
-  it("injects competitor directive into the resolved user prompt when competitors are provided", async () => {
-    const generateObjectFn = makeSuccessfulGenerateFn();
+  it("links every shipped article back to its data source", async () => {
+    const generateObjectFn = makeGenerateFn();
 
     const result = await generateNewsletterWithLlm(
       testSources,
       baseConfig,
-      {
-        ...testContext,
-        competitors: [{ name: "Rival One", relation: "competitor" }],
-      },
+      testContext,
       { generateObjectFn },
     );
 
-    expect(result.resolvedUserPrompt).toContain("Rival One");
-  });
-
-  it("does not inject any directive when no competitors are provided", async () => {
-    const generateObjectFn = makeSuccessfulGenerateFn();
-
-    const result = await generateNewsletterWithLlm(
-      testSources,
-      baseConfig,
-      { ...testContext },
-      { generateObjectFn },
-    );
-
-    expect(result.resolvedUserPrompt).not.toContain(
-      "Competitive Landscape must focus",
-    );
+    expect(result.newsletterCitations).toEqual([
+      { dataSourceId: "ds-b", sectionKey: "competitiveLandscape" },
+      { dataSourceId: "ds-c", sectionKey: "dealsAndMovements" },
+      { dataSourceId: "ds-a", sectionKey: "quickHits" },
+    ]);
+    expect(result.newsletterSections).toHaveLength(3);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Contract brief
-// ---------------------------------------------------------------------------
-
-describe("generateNewsletterWithLlm — contract brief", () => {
-  it("system prompt does not contain product_contract block when brief is absent", async () => {
-    const generateObjectFn = makeSuccessfulGenerateFn();
-
-    const result = await generateNewsletterWithLlm(
-      testSources,
-      baseConfig,
-      { ...testContext },
-      { generateObjectFn },
-    );
-
-    expect(result.systemPrompt).not.toContain("product_contract");
-  });
-
-  it("system prompt differs when a brief is present", async () => {
-    const generateObjectFn = makeSuccessfulGenerateFn();
-
-    const withoutBrief = await generateNewsletterWithLlm(
-      testSources,
-      baseConfig,
-      { ...testContext },
-      { generateObjectFn },
-    );
-    const withBrief = await generateNewsletterWithLlm(
-      testSources,
-      baseConfig,
-      {
-        ...testContext,
-        brief: "Focus on Indonesian banking sector dynamics.",
-      },
-      { generateObjectFn },
-    );
-
-    expect(withBrief.systemPrompt).not.toBe(withoutBrief.systemPrompt);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// buildAvoidRecentBulletsBlock
-// ---------------------------------------------------------------------------
-
-describe("buildAvoidRecentBulletsBlock", () => {
-  it("returns an empty string with no recent bullets or a non-positive limit", () => {
-    expect(buildAvoidRecentBulletsBlock([], 20)).toBe("");
-    expect(buildAvoidRecentBulletsBlock([{ bulletText: "Something" }], 0)).toBe(
-      "",
-    );
-  });
-
-  it("lists the recent bullets under an avoidance directive, capped at the limit", () => {
-    const block = buildAvoidRecentBulletsBlock(
-      [
-        { bulletText: "First recent point" },
-        { bulletText: "Second recent point" },
-        { bulletText: "Third recent point" },
-      ],
-      2,
-    );
-
-    expect(block).toContain("AVOID REPEATING");
-    expect(block).toContain("First recent point");
-    expect(block).toContain("Second recent point");
-    expect(block).not.toContain("Third recent point");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Cross-day dedup integration
+// Cross-day dedup, ahead of the LLM calls
 // ---------------------------------------------------------------------------
 
 const DUP_TEXT =
@@ -819,34 +806,27 @@ const NOVEL_TEXT =
 
 const crossRunSources: SourceForGeneration[] = [
   {
+    dataSourceId: "ds-dup",
     url: "https://example.com/dup",
-    title: "Dup",
+    title: "Acme acquires fintech",
     content: DUP_TEXT,
     section: "competitiveLandscape",
+    sectionScore: 0.9,
   },
   {
+    dataSourceId: "ds-novel",
     url: "https://example.com/novel",
-    title: "Novel",
+    title: "Regulator publishes guidance",
     content: NOVEL_TEXT,
     section: "competitiveLandscape",
+    sectionScore: 0.8,
   },
 ];
 
-const crossRunGenerateFn = (): GenerateNewsletterObjectFn =>
-  makeSuccessfulGenerateFn({
-    sections: [
-      {
-        key: "competitive-landscape",
-        articles: [
-          { title: "Dup", points: [DUP_TEXT], articleIndex: 1 },
-          { title: "Novel", points: [NOVEL_TEXT], articleIndex: 2 },
-        ],
-      },
-    ],
-  });
-
 describe("generateNewsletterWithLlm — cross-day dedup", () => {
-  it("injects the avoidance block and drops a bullet repeating a recent one", async () => {
+  it("drops a repeated source before it is ever summarized", async () => {
+    const generateObjectFn = makeGenerateFn();
+
     const result = await generateNewsletterWithLlm(
       crossRunSources,
       baseConfig,
@@ -856,48 +836,32 @@ describe("generateNewsletterWithLlm — cross-day dedup", () => {
           { sectionKey: "competitiveLandscape", bulletText: DUP_TEXT },
         ],
       },
-      { generateObjectFn: crossRunGenerateFn() },
+      { generateObjectFn },
     );
+    const summarizedTitles = vi
+      .mocked(generateObjectFn)
+      .mock.calls.map(([args]) => args)
+      .filter((args) => !isSubjectCall(args))
+      .map((args) => promptTitle(args.prompt));
 
-    // Prompt-level avoidance directive is present.
-    expect(result.resolvedUserPrompt).toContain("AVOID REPEATING");
-    expect(result.resolvedUserPrompt).toContain(DUP_TEXT);
-
-    // Post-generation drop removed the repeated bullet, kept the novel one.
     expect(result.crossRunDedupSummary?.removedCount).toBe(1);
-    expect(
-      result.crossRunDedupSummary?.bySection["competitive-landscape"],
-    ).toBe(1);
-    expect(result.content).toContain(NOVEL_TEXT);
-    expect(result.content).not.toContain(DUP_TEXT);
+    expect(result.crossRunDedupSummary?.bySection["competitiveLandscape"]).toBe(
+      1,
+    );
+    expect(summarizedTitles).toEqual(["Regulator publishes guidance"]);
   });
 
-  it("does not inject the block or run the drop when no recent bullets are provided", async () => {
+  it("runs no dedup pass when no recent bullets are provided", async () => {
+    const generateObjectFn = makeGenerateFn();
+
     const result = await generateNewsletterWithLlm(
       crossRunSources,
       baseConfig,
       { ...testContext },
-      { generateObjectFn: crossRunGenerateFn() },
+      { generateObjectFn },
     );
 
-    expect(result.resolvedUserPrompt).not.toContain("AVOID REPEATING");
     expect(result.crossRunDedupSummary).toBeUndefined();
-    expect(result.content).toContain(DUP_TEXT);
-  });
-});
-
-describe("SYSTEM_PROMPT — attribution fidelity", () => {
-  it("binds every article to exactly one cited source article", () => {
-    expect(SYSTEM_PROMPT).toContain(
-      "Every article must summarize exactly one source article",
-    );
-  });
-
-  it("forbids attributing a cause or driver the cited article does not state", () => {
-    expect(SYSTEM_PROMPT).toContain("do not attribute a cause or driver");
-  });
-
-  it("requires the subject to preserve forecast vs realized modality", () => {
-    expect(SYSTEM_PROMPT).toContain("do not phrase it as an accomplished fact");
+    expect(result.content).toContain("Acme acquires fintech");
   });
 });

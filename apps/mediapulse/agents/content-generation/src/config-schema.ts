@@ -251,10 +251,6 @@ export type ContentGenerationConfig = z.output<
  * single, predictable pipeline.
  */
 export const CONTENT_GENERATION_CONSTANTS = {
-  /** Maximum number of articles fed into the prompt, across all sections. */
-  topNewsCount: 30,
-  /** Maximum articles taken from any one section, so a dense section cannot crowd out the rest. */
-  topNewsPerSection: 8,
   /** Per-request timeout in milliseconds for LLM calls. */
   requestTimeoutMs: 120_000,
   /** Source truncation budgets for the LLM context window. */
@@ -269,41 +265,27 @@ export const CONTENT_GENERATION_CONSTANTS = {
     maxDelayMs: 8000,
     jitter: true,
   },
-  /** Always-on citation grounding safety thresholds. */
-  citationGrounding: {
-    policy: "unlink",
-    minOverlapScore: 0.18,
-    numericBonus: 0.2,
-  },
-  /** Always-on require-citation pruning defaults (match prior behavior). */
-  requireCitation: {
-    sections: [
-      "industryPulse",
-      "competitiveLandscape",
-      "dealsAndMovements",
-      "regulatoryPolicyWatch",
-      "disruptorsOrTech",
-      "quickHits",
-    ] as NewsletterSectionId[],
-    dedupeArticlesWithinSection: true,
-    dedupeScope: "newsletter",
-    withinRunDedupSimilarity: 0.55,
-    withinRunTitleDedupSimilarity: 0.5,
-  },
   /**
-   * Minimum section-fit score for an article assigned to a structured section to survive being
-   * placed in Quick Hits. Keeps weakly-relevant items from being demoted into Quick Hits as filler.
+   * Sections guaranteed a fetched body for their top candidate, so a section is never dropped
+   * merely because on-demand triage skipped its highest-scored article.
    */
-  quickHitsDemotionMinScore: 0.7,
+  coverageSeedSections: [
+    "industryPulse",
+    "competitiveLandscape",
+    "dealsAndMovements",
+    "regulatoryPolicyWatch",
+    "disruptorsOrTech",
+    "quickHits",
+  ] as NewsletterSectionId[],
   /**
-   * Cross-section same-event dedup: drop a bullet whose distinctive entity/number anchors overlap an
-   * event already shipped in a higher-priority section, catching the same story worded differently
-   * that lexical title/text dedup misses. Runs after within-run dedup on the resolved newsletter.
+   * Cross-section same-event dedup: drop a candidate whose distinctive entity/number anchors
+   * overlap an event another candidate already covers from a higher-priority placement. Runs on
+   * candidate sources before any LLM call.
    */
   eventDedup: {
     /** Kill switch: when false, no cross-section event dedup runs. */
     enabled: true,
-    /** Minimum shared anchors before two bullets are treated as the same event. */
+    /** Minimum shared anchors before two candidates are treated as the same event. */
     minSharedAnchors: 4,
     /** Minimum anchor containment (`shared / smaller set`) alongside the shared-count guard. */
     minContainment: 0.4,
@@ -317,10 +299,8 @@ export const CONTENT_GENERATION_CONSTANTS = {
     enabled: true,
     /** Lookback in calendar days for the recent-bullet corpus. */
     windowDays: 14,
-    /** Jaccard threshold for the post-generation drop; matches within-run dedup. */
+    /** Score above which a candidate source is treated as a story a recent bullet already told. */
     similarity: 0.55,
-    /** Max recent bullets injected into the "avoid repeating" prompt block. */
-    promptBulletLimit: 20,
   },
 } as const;
 
