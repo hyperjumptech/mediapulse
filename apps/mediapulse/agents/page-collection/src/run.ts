@@ -16,16 +16,17 @@ import {
 import type { BodySchemaType } from "./utilities/body-schema";
 import type { ConfigSchemaType } from "./utilities/config-schema";
 import { expandSourceUrl } from "./utilities/expand-source-urls";
+import { withApiStep } from "./utilities/with-api-step";
 import {
   buildRelevanceMatchText,
   createTickerRelevanceMatcher,
   type TickerRelevanceMatcher,
-} from "./utilities/match-ticker-relevance";
-import { withApiStep } from "./utilities/with-api-step";
-import {
-  HostErrorTracker,
-  hostFromUrl,
+  isJunkTitle,
+  hasSufficientDescription,
+  createTitleDeduper,
+  MIN_DESCRIPTION_CHARS,
   deriveRunStatus,
+  type RunPolicy,
   makeDroppedOutcome,
   makeCollectedOutcome,
   postOutcomesInChunks,
@@ -47,6 +48,25 @@ import {
 /** Freshness window in days. Pages older than this are dropped; undated pages are kept. */
 const FRESHNESS_MAX_AGE_DAYS = 7;
 
+/** Run success criteria, formerly the configurable runPolicy section. */
+const RUN_POLICY: RunPolicy = {
+  minSuccessfulSources: 1,
+  failOnZeroSuccess: false,
+};
+
+/** Dead-URL negative-cache lookup batch size. */
+const DEAD_URL_LOOKUP_BATCH_SIZE = 50;
+
+/** Per-strategy HTTP timeout. A hung request is aborted and falls through the strategy chain. */
+const DISCOVERY_TIMEOUT_MS = 30_000;
+
+/**
+ * Hard wall-clock budget for a single page-collection run. Once exceeded, the run
+ * stops persisting new candidates and finalizes with partial_success, so one slow or
+ * hostile listing host cannot wedge the run (and the pipeline behind it) for hours.
+ */
+const RUN_WALL_CLOCK_BUDGET_MS = 5 * 60 * 1000;
+
 /**
  * Executes the page-collection pipeline: expand curated source URLs and persist
  * ticker-agnostic articles from the discovered feed/meta description, with no paid
@@ -54,7 +74,7 @@ const FRESHNESS_MAX_AGE_DAYS = 7;
  * tracked ticker, are dropped.
  *
  * @param context - Validated input (`listingUrl`) and config, plus bearer token.
- * @returns Success with summary counts, or semantic failure when run policy is not met.
+ * @returns Success with summary counts.
  */
 export async function runPageCollection(
   context: AgentRunContext<BodySchemaType, ConfigSchemaType>,
@@ -197,10 +217,7 @@ async function executePageCollectionRun(
   const outcomes: CollectionUrlOutcomeInput[] = [];
 
   const listingUrl = input.listingUrl;
-  const runPolicy = config.runPolicy;
-  const deadUrlCacheConfig = config.resilience.deadUrlCache;
-  const hostErrorBreakerConfig = config.resilience.hostErrorBreaker;
-  const hostErrorTracker = new HostErrorTracker(hostErrorBreakerConfig);
+  const runPolicy = RUN_POLICY;
 
   report("Resolving curated source", listingUrl);
 
@@ -218,9 +235,7 @@ async function executePageCollectionRun(
     gotClient: got,
     rateLimiter: new RateLimiter(2, 1),
     logger: log,
-    hostErrorTracker,
-    timeoutMs: config.discovery.timeoutMs,
-    concurrency: config.discovery.concurrency,
+    timeoutMs: DISCOVERY_TIMEOUT_MS,
   };
 
   report("Expanding source URL", listingUrl);
@@ -258,8 +273,7 @@ async function executePageCollectionRun(
   }
 
   const collectionConfig = config.collection;
-  const runConfig = config.run;
-  const deadline = startedAt.getTime() + runConfig.maxDurationMs;
+  const deadline = startedAt.getTime() + RUN_WALL_CLOCK_BUDGET_MS;
   let deadlineHit = false;
 
   const maxDiscoveredItems = collectionConfig.maxDiscoveredItemsPerRun;
@@ -279,8 +293,10 @@ async function executePageCollectionRun(
   let droppedByDuplicateCanonicalUrl = 0;
   let droppedByExistingCanonicalUrl = 0;
   let droppedByMissingDescription = 0;
+  let droppedByShortDescription = 0;
+  let droppedByJunkTitle = 0;
+  let droppedByDuplicateTitle = 0;
   let droppedByDeadUrlCache = 0;
-  let droppedByHostErrorRate = 0;
   let droppedByFreshness = 0;
   let droppedByRelevance = 0;
   let relevanceMatchedCount = 0;
@@ -354,39 +370,28 @@ async function executePageCollectionRun(
     candidateUrls.length - candidatesAfterExisting.length;
 
   let candidatesAfterDeadUrl = candidatesAfterExisting;
-  if (deadUrlCacheConfig.enabled) {
-    const deadUrlSet = await resolveDeadUrlsGlobal(
-      candidatesAfterExisting,
-      (body) =>
-        withApiStep("lookup dead URLs", () =>
-          dataApiClient.dataCollectionDeadUrlsLookup.create(body),
-        ),
-      deadUrlCacheConfig.skipLookupBatchSize,
+  const deadUrlSet = await resolveDeadUrlsGlobal(
+    candidatesAfterExisting,
+    (body) =>
+      withApiStep("lookup dead URLs", () =>
+        dataApiClient.dataCollectionDeadUrlsLookup.create(body),
+      ),
+    DEAD_URL_LOOKUP_BATCH_SIZE,
+  );
+  if (deadUrlSet.size > 0) {
+    candidatesAfterDeadUrl = candidatesAfterDeadUrl.filter(
+      (url) => !deadUrlSet.has(url),
     );
-    if (deadUrlSet.size > 0) {
-      candidatesAfterDeadUrl = candidatesAfterDeadUrl.filter(
-        (url) => !deadUrlSet.has(url),
-      );
-      droppedByDeadUrlCache =
-        candidatesAfterExisting.length - candidatesAfterDeadUrl.length;
-    }
+    droppedByDeadUrlCache =
+      candidatesAfterExisting.length - candidatesAfterDeadUrl.length;
   }
-
-  const candidatesAfterHostBreaker = candidatesAfterDeadUrl.filter((url) => {
-    const host = hostFromUrl(url);
-    if (hostErrorTracker.isSkipped(host)) {
-      droppedByHostErrorRate += 1;
-      return false;
-    }
-    return true;
-  });
 
   const perRunCandidateBudget = collectionConfig.perRunCandidateBudget;
   const droppedByCandidateBudget = Math.max(
     0,
-    candidatesAfterHostBreaker.length - perRunCandidateBudget,
+    candidatesAfterDeadUrl.length - perRunCandidateBudget,
   );
-  const candidatesAfterBudget = candidatesAfterHostBreaker.slice(
+  const candidatesAfterBudget = candidatesAfterDeadUrl.slice(
     0,
     perRunCandidateBudget,
   );
@@ -402,6 +407,7 @@ async function executePageCollectionRun(
 
   const candidatesToPersist = deadlineHit ? [] : candidatesAfterBudget;
   const sourcesToPersist: PostPageCollectionBody = [];
+  const titleDeduper = createTitleDeduper();
 
   for (const url of candidatesToPersist) {
     const item = canonicalItemMap.get(url);
@@ -420,11 +426,40 @@ async function executePageCollectionRun(
       createdAt: new Date().toISOString(),
     };
 
+    const title = item.title ?? "";
+    if (isJunkTitle(title)) {
+      droppedByJunkTitle += 1;
+      outcomes.push(
+        makeDroppedOutcome(outcomeBase, { reason: "junk_title", title }),
+      );
+      continue;
+    }
+
+    if (titleDeduper.isDuplicate(title)) {
+      droppedByDuplicateTitle += 1;
+      outcomes.push(
+        makeDroppedOutcome(outcomeBase, { reason: "duplicate_title", title }),
+      );
+      continue;
+    }
+
     const description = item.description?.trim();
     if (!description) {
       droppedByMissingDescription += 1;
       outcomes.push(
         makeDroppedOutcome(outcomeBase, { reason: "empty_description" }),
+      );
+      continue;
+    }
+
+    if (!hasSufficientDescription(description)) {
+      droppedByShortDescription += 1;
+      outcomes.push(
+        makeDroppedOutcome(outcomeBase, {
+          reason: "description_too_short",
+          charCount: description.length,
+          minChars: MIN_DESCRIPTION_CHARS,
+        }),
       );
       continue;
     }
@@ -456,26 +491,24 @@ async function executePageCollectionRun(
       continue;
     }
 
-    if (relevanceMatcher) {
-      const relevanceText = buildRelevanceMatchText(item.title, description);
-      const relevanceMatch = relevanceMatcher.match(relevanceText);
-      if (!relevanceMatch) {
-        droppedByRelevance += 1;
-        outcomes.push(
-          makeDroppedOutcome(outcomeBase, {
-            reason: "relevance_no_match",
-            headChars: relevanceText.length,
-          }),
-        );
-        continue;
-      }
-      relevanceMatchedCount += 1;
+    const relevanceText = buildRelevanceMatchText(title, description);
+    const relevanceMatch = relevanceMatcher.match(relevanceText);
+    if (!relevanceMatch) {
+      droppedByRelevance += 1;
+      outcomes.push(
+        makeDroppedOutcome(outcomeBase, {
+          reason: "relevance_no_match",
+          matchTextChars: relevanceText.length,
+        }),
+      );
+      continue;
     }
+    relevanceMatchedCount += 1;
 
     const resolvedSource = derivePublisherFromUrl(url);
     sourcesToPersist.push({
       url,
-      title: item.title ?? "",
+      title,
       description,
       ...(resolvedSource ? { source: resolvedSource } : {}),
       curatedSourceListingUrl: item.sourceListingUrl,
@@ -483,29 +516,32 @@ async function executePageCollectionRun(
       collectionGateStatus: "passed",
       ...(publishedAt ? { publishedAt: publishedAt.toISOString() } : {}),
     });
-    outcomes.push(makeCollectedOutcome(outcomeBase));
+    outcomes.push(
+      makeCollectedOutcome({
+        ...outcomeBase,
+        tickerId: relevanceMatch.tickerId,
+      }),
+    );
   }
 
-  if (relevanceMatcher) {
-    const relevanceEvaluatedCount = relevanceMatchedCount + droppedByRelevance;
-    log.info(
-      {
-        relevanceEvaluatedCount,
+  const relevanceEvaluatedCount = relevanceMatchedCount + droppedByRelevance;
+  log.info(
+    {
+      relevanceEvaluatedCount,
+      relevanceMatchedCount,
+      relevanceUnmatchedCount: droppedByRelevance,
+    },
+    "page collection ticker relevance filtering summary",
+  );
+  if (droppedByRelevance > 0) {
+    runLogBuffer.append({
+      level: "info",
+      message: `Dropped ${droppedByRelevance} of ${relevanceEvaluatedCount} candidates with no tracked-ticker mention`,
+      context: {
         relevanceMatchedCount,
         relevanceUnmatchedCount: droppedByRelevance,
       },
-      "page collection ticker relevance filtering summary",
-    );
-    if (droppedByRelevance > 0) {
-      runLogBuffer.append({
-        level: "info",
-        message: `Dropped ${droppedByRelevance} of ${relevanceEvaluatedCount} candidates with no tracked-ticker mention`,
-        context: {
-          relevanceMatchedCount,
-          relevanceUnmatchedCount: droppedByRelevance,
-        },
-      });
-    }
+    });
   }
 
   if (sourcesToPersist.length > 0) {
@@ -531,10 +567,12 @@ async function executePageCollectionRun(
     duplicate: droppedByDuplicateCanonicalUrl,
     urlNoise: Object.values(droppedByUrlReason).reduce((sum, n) => sum + n, 0),
     missingDescription: droppedByMissingDescription,
+    shortDescription: droppedByShortDescription,
+    junkTitle: droppedByJunkTitle,
+    duplicateTitle: droppedByDuplicateTitle,
     freshness: droppedByFreshness,
     relevance: droppedByRelevance,
     deadUrl: droppedByDeadUrlCache,
-    hostErrorRate: droppedByHostErrorRate,
     candidateBudget: droppedByCandidateBudget,
     runItemCap: droppedByRunItemCap,
   };
@@ -598,10 +636,12 @@ async function executePageCollectionRun(
     discoveredCount: allCandidates.length,
     persisted: persistedCount,
     droppedByMissingDescription,
+    droppedByShortDescription,
+    droppedByJunkTitle,
+    droppedByDuplicateTitle,
     droppedByFreshness,
     droppedByRelevance,
     relevanceMatchedCount,
-    relevanceFilteringApplied: relevanceMatcher !== null,
     droppedByDeadUrlCache,
     droppedByCandidateBudget,
     droppedByExistingCanonicalUrl,
@@ -610,50 +650,11 @@ async function executePageCollectionRun(
       (sum, n) => sum + n,
       0,
     ),
-    droppedByHostErrorRate,
     droppedByRunItemCap,
     deadlineHit,
   };
 
   const durationMs = Date.now() - startedAt.getTime();
-
-  if (status === "failed") {
-    const minRequired = runPolicy.minSuccessfulSources;
-    const message =
-      totalSources === 0
-        ? `Page collection run failed: no sources were successfully collected, but the run policy requires at least ${minRequired} successful source${minRequired === 1 ? "" : "s"}.`
-        : `Page collection run failed: only ${totalSources} successful source${totalSources === 1 ? "" : "s"} collected, but the run policy requires at least ${minRequired}.`;
-
-    log.warn(
-      {
-        status,
-        durationMs,
-        totalSources,
-        minRequired,
-      },
-      "page collection run completed with policy failure",
-    );
-
-    report(
-      "Page collection complete",
-      `${totalSources} persisted, policy failure`,
-      "completed",
-    );
-
-    return {
-      success: false,
-      message,
-      details: {
-        summary,
-        failureReason: "insufficient_successful_sources" as const,
-        requiredSuccessfulSources: minRequired,
-        collectedSuccessfulSources: totalSources,
-      },
-      ...(runLogBuffer.toArray().length > 0
-        ? { logs: runLogBuffer.toArray() }
-        : {}),
-    };
-  }
 
   const completionMessage =
     status === "partial_success"
@@ -690,50 +691,42 @@ async function executePageCollectionRun(
 /**
  * Loads the ticker relevance matcher for this run.
  *
+ * - Important: the gate fails closed. When terms cannot be loaded there is
+ *   nothing to match against, so the run stops rather than collecting
+ *   unfiltered candidates or blaming them for an infrastructure failure.
+ *
  * @param dataApiClient - Agent Data API client.
  * @param log - Run logger.
  * @param runLogBuffer - Buffer surfaced on the agent response.
- * @returns A matcher, or `null` when filtering must be skipped for this run.
+ * @returns A matcher with at least one compiled term.
+ * @throws When the terms cannot be loaded or contain no usable term.
  */
 async function loadTickerRelevanceMatcher(
   dataApiClient: ReturnType<typeof createAgentDataApiClient>,
   log: PageCollectionLogger,
   runLogBuffer: ReturnType<typeof createRunLogBuffer>,
-): Promise<TickerRelevanceMatcher | null> {
-  try {
-    const { tickers } = await withApiStep("load ticker relevance terms", () =>
-      dataApiClient.tickerRelevanceTerms.get({}),
-    );
-    const matcher = createTickerRelevanceMatcher(tickers);
-    if (matcher.isEmpty) {
-      log.warn(
-        { tickerCount: tickers.length },
-        "ticker relevance terms are empty; skipping relevance filtering",
-      );
-      runLogBuffer.append({
-        level: "warn",
-        message:
-          "Ticker relevance terms are empty; relevance filtering skipped",
-        context: { tickerCount: tickers.length },
-      });
-
-      return null;
-    }
-
-    return matcher;
-  } catch (error) {
+): Promise<TickerRelevanceMatcher> {
+  const { tickers } = await withApiStep("load ticker relevance terms", () =>
+    dataApiClient.tickerRelevanceTerms.get({}),
+  );
+  const matcher = createTickerRelevanceMatcher(tickers);
+  if (matcher.isEmpty) {
     log.warn(
-      { err: error },
-      "failed to load ticker relevance terms; skipping relevance filtering",
+      { tickerCount: tickers.length },
+      "ticker relevance terms are empty; aborting run",
     );
     runLogBuffer.append({
       level: "warn",
-      message:
-        "Failed to load ticker relevance terms; relevance filtering skipped",
+      message: "Ticker relevance terms are empty; run aborted",
+      context: { tickerCount: tickers.length },
     });
 
-    return null;
+    throw new Error(
+      "Ticker relevance terms are empty; refusing to collect unfiltered candidates.",
+    );
   }
+
+  return matcher;
 }
 
 /**

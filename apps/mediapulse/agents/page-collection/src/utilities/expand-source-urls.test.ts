@@ -28,7 +28,6 @@ const discoveryDeps = {
   rateLimiter: { acquire: async () => {} } as never,
   logger: { info: () => {}, warn: () => {}, error: () => {} } as never,
   timeoutMs: 5000,
-  concurrency: 1,
 };
 
 describe("looksLikeSitemapUrl", () => {

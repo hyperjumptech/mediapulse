@@ -75,6 +75,17 @@ vi.mock("@workspace/agent-data-api-client", () => {
       analysis: {
         get: analysisGetMock,
       },
+      tickerRelevanceTerms: {
+        get: vi.fn(async () => ({
+          tickers: [
+            {
+              id: "11111111-1111-4111-a111-111111111111",
+              symbol: "BBCA",
+              terms: ["BBCA", "Bank Central Asia"],
+            },
+          ],
+        })),
+      },
       ticker: {
         get: tickerGetMock,
       },

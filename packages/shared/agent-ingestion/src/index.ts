@@ -57,13 +57,21 @@ export {
 } from "./content-quality-gate";
 
 export {
-  buildTickerAliases,
-  buildIndustryAliases,
-  isRelevant,
-  type RelevanceDecision,
-  type RelevanceGateInput,
-  type RelevanceGateOptions,
+  createTickerRelevanceMatcher,
+  buildRelevanceMatchText,
+  type TickerRelevanceMatch,
+  type TickerRelevanceMatcher,
 } from "./ticker-relevance-gate";
+
+export {
+  isJunkTitle,
+  hasSufficientDescription,
+  normalizeTitleKey,
+  createTitleDeduper,
+  MIN_DESCRIPTION_CHARS,
+  type CollectionGateDropReason,
+  type TitleDeduper,
+} from "./collection-gates";
 
 export {
   isFresh,

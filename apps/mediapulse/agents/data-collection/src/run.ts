@@ -22,14 +22,18 @@ import {
   extractDateFromUrl,
   resolveExistingDataSourceUrls,
   resolveDeadUrls,
-  HostErrorTracker,
-  hostFromUrl,
   deriveRunStatus,
   type RunPolicy,
   makeDroppedOutcome,
   makeCollectedOutcome,
   postOutcomesInChunks,
   type CollectionUrlOutcomeInput,
+  createTickerRelevanceMatcher,
+  buildRelevanceMatchText,
+  isJunkTitle,
+  hasSufficientDescription,
+  createTitleDeduper,
+  MIN_DESCRIPTION_CHARS,
 } from "@workspace/agent-ingestion";
 import {
   performWebSearch,
@@ -38,7 +42,6 @@ import {
   type WebSearchResult,
 } from "./utilities/web-search";
 import { RoundRobinCursor } from "@workspace/agent-search";
-import { FRESHNESS_MAX_AGE_DAYS } from "./utilities/filter";
 import {
   classifyNoisyUrl,
   derivePublisherFromUrl,
@@ -46,6 +49,9 @@ import {
   type UrlNoiseReason,
 } from "@workspace/utils";
 import { computeStartupJitterMs } from "./utilities/startup-jitter";
+
+/** Freshness window in days. Sources older than this are dropped. */
+const FRESHNESS_MAX_AGE_DAYS = 7;
 
 /** Run success criteria, formerly the configurable runPolicy section. */
 const RUN_POLICY: RunPolicy = {
@@ -69,9 +75,7 @@ const RUN_WALL_CLOCK_BUDGET_MS = 15 * 60 * 1000;
  * failures, and record run metadata.
  *
  * @param context - Validated `input` and `config`, plus the bearer `token` for the Agent Data API.
- * @returns Success with summary counts, or semantic failure (`success: false`) when the run status is `failed`
- *   (run policy required more successful sources than were collected; Hermes maps this to HTTP 200 + envelope
- *   so pipeline execution shows the message; do not throw for this case).
+ * @returns Success with summary counts.
  */
 export async function runDataCollection(
   context: AgentRunContext<BodySchemaType, ConfigSchemaType>,
@@ -155,11 +159,20 @@ export async function runDataCollection(
 
   report(...narrativeRunStart(subject));
 
-  const hostErrorTracker = new HostErrorTracker({
-    enabled: true,
-    minAttempts: 5,
-    errorRateThreshold: 0.5,
-  });
+  // Deterministic relevance gate, scoped to this run's ticker. Fails closed: with
+  // no terms there is nothing to match against, so the run stops rather than
+  // persisting unfiltered hits or blaming them for an infrastructure failure.
+  const { tickers: relevanceTickers } =
+    await dataApiClient.tickerRelevanceTerms.get({});
+  const relevanceMatcher = createTickerRelevanceMatcher(
+    relevanceTickers.filter((ticker) => ticker.id === input.tickerId),
+  );
+  if (relevanceMatcher.isEmpty) {
+    throw new Error(
+      `No relevance terms for ticker ${tickerRecord.symbol}; refusing to collect unfiltered hits.`,
+    );
+  }
+  const titleDeduper = createTitleDeduper();
 
   const { data: queries = [] } = await dataApiClient.dataCollection.get({
     tickerId: input.tickerId,
@@ -202,7 +215,6 @@ export async function runDataCollection(
   const runDeadlineEpochMs = startedAt.getTime() + RUN_WALL_CLOCK_BUDGET_MS;
   let persistedThisRunCount = 0;
   let searchSuccessCount = 0;
-  let searchFailedCount = 0;
   let searchEmptyCount = 0;
   const searchFailures: WebSearchFailure[] = [];
   const droppedByUrlReason: Record<UrlNoiseReason, number> = {
@@ -215,8 +227,11 @@ export async function runDataCollection(
   let droppedByDuplicateCanonicalUrl = 0;
   let droppedByExistingCanonicalUrl = 0;
   let droppedByEmptyDescription = 0;
+  let droppedByShortDescription = 0;
+  let droppedByJunkTitle = 0;
+  let droppedByDuplicateTitle = 0;
+  let droppedByRelevance = 0;
   let droppedByDeadUrlCache = 0;
-  let droppedByHostErrorRate = 0;
   const droppedByFreshnessReason: Record<string, number> = {
     too_old: 0,
     future_dated: 0,
@@ -259,7 +274,6 @@ export async function runDataCollection(
       );
       searchSuccessCount += roundSearchSuccesses.length;
       searchEmptyCount += roundSearchEmpties.length;
-      searchFailedCount += roundSearchFailures.length;
       searchFailures.push(...roundSearchFailures);
 
       log.info(
@@ -328,7 +342,7 @@ export async function runDataCollection(
 
       const filteredSearchSuccesses = [...canonicalUniqueHits.values()];
       const candidateUrls = filteredSearchSuccesses.map((hit) => hit.url);
-      const { existingUrls: existingUrlSet, hostCounts } =
+      const { existingUrls: existingUrlSet } =
         await resolveExistingDataSourceUrls(
           input.tickerId,
           candidateUrls,
@@ -418,46 +432,6 @@ export async function runDataCollection(
         }
       }
 
-      const searchSuccessesAfterHostBreaker =
-        searchSuccessesAfterDeadUrl.filter((hit) => {
-          const host = hostFromUrl(hit.url);
-          if (hostErrorTracker.isSkipped(host)) {
-            droppedByHostErrorRate += 1;
-            outcomes.push(
-              makeDroppedOutcome(
-                {
-                  id: crypto.randomUUID(),
-                  scheduleExecutionId,
-                  runId,
-                  tickerId: input.tickerId,
-                  agent: "data-collection",
-                  url: hit.url,
-                  source: hit.searchQueryText,
-                  searchQueryId: hit.searchQueryId,
-                  createdAt: new Date().toISOString(),
-                },
-                { reason: "host_error_rate", host },
-              ),
-            );
-            return false;
-          }
-          return true;
-        });
-      if (
-        searchSuccessesAfterHostBreaker.length <
-        searchSuccessesAfterDeadUrl.length
-      ) {
-        log.info(
-          {
-            round,
-            skippedHostErrorRateCount:
-              searchSuccessesAfterDeadUrl.length -
-              searchSuccessesAfterHostBreaker.length,
-          },
-          "skipped web fetch for hosts over error-rate threshold",
-        );
-      }
-
       if (round === 1) {
         report(...narrativeFetching(subject));
       }
@@ -484,11 +458,58 @@ export async function runDataCollection(
           createdAt: new Date().toISOString(),
         };
 
+        if (isJunkTitle(hit.title)) {
+          droppedByJunkTitle += 1;
+          outcomes.push(
+            makeDroppedOutcome(outcomeBase, {
+              reason: "junk_title",
+              title: hit.title,
+            }),
+          );
+          return;
+        }
+
+        if (titleDeduper.isDuplicate(hit.title)) {
+          droppedByDuplicateTitle += 1;
+          outcomes.push(
+            makeDroppedOutcome(outcomeBase, {
+              reason: "duplicate_title",
+              title: hit.title,
+            }),
+          );
+          return;
+        }
+
         const description = hit.content.trim();
         if (description === "") {
           droppedByEmptyDescription += 1;
           outcomes.push(
             makeDroppedOutcome(outcomeBase, { reason: "empty_description" }),
+          );
+          return;
+        }
+
+        if (!hasSufficientDescription(description)) {
+          droppedByShortDescription += 1;
+          outcomes.push(
+            makeDroppedOutcome(outcomeBase, {
+              reason: "description_too_short",
+              charCount: description.length,
+              minChars: MIN_DESCRIPTION_CHARS,
+            }),
+          );
+          return;
+        }
+
+        const relevanceText = buildRelevanceMatchText(hit.title, description);
+        if (!relevanceMatcher.match(relevanceText)) {
+          droppedByRelevance += 1;
+          outcomes.push(
+            makeDroppedOutcome(outcomeBase, {
+              reason: "relevance_no_match",
+              tickerSymbol: tickerRecord.symbol,
+              matchTextChars: relevanceText.length,
+            }),
           );
           return;
         }
@@ -552,7 +573,7 @@ export async function runDataCollection(
         persistedThisRoundCount += 1;
       };
 
-      for (const hit of searchSuccessesAfterHostBreaker) {
+      for (const hit of searchSuccessesAfterDeadUrl) {
         await persistHit(hit);
 
         if (
@@ -571,8 +592,11 @@ export async function runDataCollection(
           droppedByDuplicateCanonicalUrl,
           droppedByExistingCanonicalUrl,
           droppedByEmptyDescription,
+          droppedByShortDescription,
+          droppedByJunkTitle,
+          droppedByDuplicateTitle,
+          droppedByRelevance,
           droppedByDeadUrlCache,
-          droppedByHostErrorRate,
           droppedByFreshnessReason,
         },
         "search-hit persist stage finished",
@@ -634,8 +658,11 @@ export async function runDataCollection(
     duplicate: droppedByDuplicateCanonicalUrl,
     urlNoise: droppedByUrlNoiseTotal,
     emptyDescription: droppedByEmptyDescription,
+    shortDescription: droppedByShortDescription,
+    junkTitle: droppedByJunkTitle,
+    duplicateTitle: droppedByDuplicateTitle,
+    relevance: droppedByRelevance,
     deadUrl: droppedByDeadUrlCache,
-    hostErrorRate: droppedByHostErrorRate,
   };
 
   const snapshot = {
@@ -705,7 +732,6 @@ export async function runDataCollection(
     persisted: persistedThisRunCount,
     droppedByEmptyDescription,
     droppedByDeadUrlCache,
-    droppedByHostErrorRate,
     droppedByFreshness: droppedByFreshnessTotalCount,
     droppedByFreshnessReason: { ...droppedByFreshnessReason },
     refill: {
@@ -719,50 +745,6 @@ export async function runDataCollection(
   };
 
   const durationMs = Date.now() - startedAt.getTime();
-
-  if (status === "failed") {
-    const minRequired = runPolicy.minSuccessfulSources;
-    const message =
-      totalSources === 0
-        ? `Data collection run failed: no sources were successfully collected, but the run policy requires at least ${minRequired} successful source${minRequired === 1 ? "" : "s"}.`
-        : `Data collection run failed: only ${totalSources} successful source${totalSources === 1 ? "" : "s"} collected, but the run policy requires at least ${minRequired}.`;
-
-    log.warn(
-      {
-        status,
-        durationMs,
-        totalSources,
-        minRequired,
-        failureCount: failuresPayload.length,
-      },
-      "data collection run completed with policy failure (semantic failure response)",
-    );
-
-    report(
-      ...narrativeRunComplete(subject, {
-        status,
-        persisted: totalSources,
-        droppedByFreshness: droppedByFreshnessTotalCount,
-        contentQualityDropped: 0,
-        failureCount: failuresPayload.length,
-        stopReason: refillStopReason,
-        roundsExecuted,
-        targetSavedSources,
-      }),
-      "completed",
-    );
-
-    return {
-      success: false,
-      message,
-      details: {
-        summary,
-        failureReason: "insufficient_successful_sources" as const,
-        requiredSuccessfulSources: minRequired,
-        collectedSuccessfulSources: totalSources,
-      },
-    };
-  }
 
   const completionMessage =
     status === "partial_success"

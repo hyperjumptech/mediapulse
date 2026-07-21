@@ -4,17 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentRunContext } from "@workspace/agent-runtime";
 
 import type { BodySchemaType } from "./utilities/body-schema";
-import {
-  dataCollectionAgentConfigSchema,
-  type ConfigSchemaType,
-} from "./utilities/config-schema";
+import { ConfigSchema, type ConfigSchemaType } from "./utilities/config-schema";
 import type { WebSearchResult } from "./utilities/web-search";
 
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 
 const validTitle = "Bank Central Asia expands regional operations";
 
-const baseConfig = dataCollectionAgentConfigSchema.parse({
+const baseConfig = ConfigSchema.parse({
   web_search: [{ provider: "serper", apiKey: "serper-key" }],
   web_search_locales: [{ gl: "id", hl: "id" }],
   collection: {
@@ -34,7 +31,7 @@ const withTestConfig = (
     collection?: Partial<ConfigSchemaType["collection"]>;
   } = {},
 ): ConfigSchemaType =>
-  dataCollectionAgentConfigSchema.parse({
+  ConfigSchema.parse({
     web_search: baseConfig.web_search,
     web_search_locales: baseConfig.web_search_locales,
     collection: { ...baseConfig.collection, ...overrides.collection },
@@ -43,7 +40,8 @@ const withTestConfig = (
 const searchHit: WebSearchResult = {
   url: "http://example.com",
   title: validTitle,
-  content: "Snippet",
+  content:
+    "Bank Central Asia membukukan laba bersih yang naik pada kuartal ini",
   tickerId: TICKER_ID,
   searchQueryId: "sq-1",
   searchQueryText: "test query",
@@ -81,6 +79,7 @@ const failureCreateMock = vi.fn();
 const outcomeCreateMock = vi.fn();
 const analysisGetMock = vi.fn();
 const tickerGetMock = vi.fn();
+const tickerRelevanceTermsGetMock = vi.fn();
 
 vi.mock("@workspace/agent-data-api-client", () => ({
   createAgentDataApiClient: vi.fn(() => ({
@@ -109,6 +108,9 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     ticker: {
       get: tickerGetMock,
     },
+    tickerRelevanceTerms: {
+      get: tickerRelevanceTermsGetMock,
+    },
   })),
 }));
 
@@ -116,7 +118,6 @@ vi.mock("./utilities/web-search", () => ({
   performWebSearch: vi.fn(),
 }));
 
-import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
 import { performWebSearch } from "./utilities/web-search";
 import { runDataCollection } from "./run";
 
@@ -164,6 +165,15 @@ describe("runDataCollection", () => {
       },
       lastRelevanceScoredAtIso: null,
     });
+    tickerRelevanceTermsGetMock.mockResolvedValue({
+      tickers: [
+        {
+          id: TICKER_ID,
+          symbol: "BBCA",
+          terms: ["BBCA", "Bank Central Asia"],
+        },
+      ],
+    });
     tickerGetMock.mockResolvedValue({
       id: TICKER_ID,
       symbol: "BBCA",
@@ -209,7 +219,8 @@ describe("runDataCollection", () => {
       {
         url: "http://example.com",
         title: validTitle,
-        description: "Snippet",
+        description:
+          "Bank Central Asia membukukan laba bersih yang naik pada kuartal ini",
         tickerId: TICKER_ID,
         searchQueryId: "sq-1",
         dataCollectionRunId: expect.any(String),
@@ -245,7 +256,11 @@ describe("runDataCollection", () => {
 
   it("skips hits returned by the dead-url lookup", async () => {
     const searchHits = Array.from({ length: 10 }, (_, index) =>
-      success({ ...searchHit, url: `http://example.com/page-${index}` }),
+      success({
+        ...searchHit,
+        url: `http://example.com/page-${index}`,
+        title: `${validTitle} ${index}`,
+      }),
     );
     vi.mocked(performWebSearch).mockResolvedValueOnce(searchHits);
     deadUrlsLookupMock.mockResolvedValueOnce({
@@ -311,17 +326,24 @@ describe("runDataCollection", () => {
         success({
           ...searchHit,
           url: "http://example.com/fresh",
+          title: `${validTitle} fresh`,
           publishedAt: isoDaysAgo(2),
         }),
         success({
           ...searchHit,
           url: "http://example.com/stale",
+          title: `${validTitle} stale`,
           publishedAt: isoDaysAgo(30),
         }),
-        success({ ...searchHit, url: "http://example.com/unknown" }),
+        success({
+          ...searchHit,
+          url: "http://example.com/unknown",
+          title: `${validTitle} unknown`,
+        }),
         success({
           ...searchHit,
           url: "http://example.com/future",
+          title: `${validTitle} future`,
           publishedAt: isoDaysAhead(5),
         }),
       ]);
@@ -343,6 +365,7 @@ describe("runDataCollection", () => {
       expect(createMock).toHaveBeenCalledWith([
         expect.objectContaining({
           url: "http://example.com/fresh",
+          title: `${validTitle} fresh`,
           publishedAt: isoDaysAgo(2),
         }),
       ]);
@@ -416,10 +439,18 @@ describe("runDataCollection", () => {
   it("runs refill rounds until target is met", async () => {
     vi.mocked(performWebSearch)
       .mockResolvedValueOnce([
-        success({ ...searchHit, url: "http://example.com/a" }),
+        success({
+          ...searchHit,
+          url: "http://example.com/a",
+          title: `${validTitle} a`,
+        }),
       ])
       .mockResolvedValueOnce([
-        success({ ...searchHit, url: "http://example.com/b" }),
+        success({
+          ...searchHit,
+          url: "http://example.com/b",
+          title: `${validTitle} b`,
+        }),
       ]);
 
     const result = await runDataCollection(
@@ -441,11 +472,31 @@ describe("runDataCollection", () => {
 
   it("caps persistence at the target within a single round", async () => {
     vi.mocked(performWebSearch).mockResolvedValue([
-      success({ ...searchHit, url: "http://example.com/a" }),
-      success({ ...searchHit, url: "http://example.com/b" }),
-      success({ ...searchHit, url: "http://example.com/c" }),
-      success({ ...searchHit, url: "http://example.com/d" }),
-      success({ ...searchHit, url: "http://example.com/e" }),
+      success({
+        ...searchHit,
+        url: "http://example.com/a",
+        title: `${validTitle} a`,
+      }),
+      success({
+        ...searchHit,
+        url: "http://example.com/b",
+        title: `${validTitle} b`,
+      }),
+      success({
+        ...searchHit,
+        url: "http://example.com/c",
+        title: `${validTitle} c`,
+      }),
+      success({
+        ...searchHit,
+        url: "http://example.com/d",
+        title: `${validTitle} d`,
+      }),
+      success({
+        ...searchHit,
+        url: "http://example.com/e",
+        title: `${validTitle} e`,
+      }),
     ]);
 
     const result = await runDataCollection(
@@ -483,9 +534,20 @@ describe("runDataCollection", () => {
   });
 
   it("stops refill after max rounds when target remains unmet", async () => {
-    vi.mocked(performWebSearch).mockResolvedValue([
-      success({ ...searchHit, url: "http://example.com/loop" }),
-    ]);
+    // Each round must yield a distinct article; repeating one story is collapsed
+    // by the per-run title deduper and would stop the loop as no_progress.
+    let roundIndex = 0;
+    vi.mocked(performWebSearch).mockImplementation(async () => {
+      roundIndex += 1;
+
+      return [
+        success({
+          ...searchHit,
+          url: `http://example.com/loop-${roundIndex}`,
+          title: `${validTitle} loop ${roundIndex}`,
+        }),
+      ];
+    });
 
     const result = await runDataCollection(
       createContext({

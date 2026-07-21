@@ -8,12 +8,7 @@ import { ConfigSchema, type ConfigSchemaType } from "./utilities/config-schema";
 
 const SOURCE_URL = "https://example.com/article-one";
 
-const baseConfig = ConfigSchema.parse({
-  runPolicy: {
-    minSuccessfulSources: 1,
-    failOnZeroSuccess: true,
-  },
-});
+const baseConfig = ConfigSchema.parse({});
 
 vi.mock("@mediapulse/env/agents-page-collection", () => ({
   env: {
@@ -53,10 +48,12 @@ vi.mock("@workspace/agent-data-api-client", () => ({
 
 vi.mock("./utilities/expand-source-urls", () => ({
   expandSourceUrl: vi.fn(async (url: string) => [
-    { url, title: "BBCA article title", summary: "BBCA feed description" },
+    {
+      url,
+      title: "BBCA article title",
+      summary: "BBCA membukukan laba bersih kuartal III yang naik 12 persen",
+    },
   ]),
-  looksLikeSitemapUrl: vi.fn(() => false),
-  looksLikeFeedUrl: vi.fn(() => false),
 }));
 
 import { expandSourceUrl } from "./utilities/expand-source-urls";
@@ -82,7 +79,7 @@ describe("runPageCollection", () => {
       {
         url: SOURCE_URL,
         title: "BBCA article title",
-        summary: "BBCA feed description",
+        summary: "BBCA membukukan laba bersih kuartal III yang naik 12 persen",
       },
     ]);
 
@@ -133,7 +130,9 @@ describe("runPageCollection", () => {
     expect(persistedSource.collectionGateStatus).toBe("passed");
     expect(persistedSource.url).toBe(SOURCE_URL);
     expect(persistedSource.title).toBe("BBCA article title");
-    expect(persistedSource.description).toBe("BBCA feed description");
+    expect(persistedSource.description).toBe(
+      "BBCA membukukan laba bersih kuartal III yang naik 12 persen",
+    );
     expect(persistedSource).not.toHaveProperty("content");
   });
 
@@ -142,12 +141,7 @@ describe("runPageCollection", () => {
 
     const result = await runPageCollection(createContext());
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.message).toContain(
-        "no sources were successfully collected",
-      );
-    }
+    expect(result.success).toBe(true);
     expect(pageCollectionCreateMock).not.toHaveBeenCalled();
     expect(result.details?.summary).toEqual(
       expect.objectContaining({ droppedByMissingDescription: 1 }),
@@ -187,9 +181,18 @@ describe("runPageCollection", () => {
     const newUrl = "https://example.com/new-article";
 
     vi.mocked(expandSourceUrl).mockResolvedValue([
-      { url: existingUrl, summary: "BBCA existing summary" },
-      { url: newUrl, summary: "BBCA new summary" },
-      { url: newUrl, summary: "BBCA new summary" },
+      {
+        url: existingUrl,
+        summary: "BBCA existing article summary with enough descriptive text",
+      },
+      {
+        url: newUrl,
+        summary: "BBCA new article summary with enough descriptive text here",
+      },
+      {
+        url: newUrl,
+        summary: "BBCA new article summary with enough descriptive text here",
+      },
     ]);
 
     existingUrlsCreateMock.mockResolvedValue({ existingUrls: [existingUrl] });
@@ -203,7 +206,6 @@ describe("runPageCollection", () => {
         droppedByExistingCanonicalUrl: 1,
         droppedByDuplicateCanonicalUrl: 1,
         droppedByUrlNoise: 0,
-        droppedByHostErrorRate: 0,
         droppedByRunItemCap: 0,
         droppedByMissingDescription: 0,
         totalSources: 1,
@@ -216,19 +218,19 @@ describe("runPageCollection", () => {
       {
         url: SOURCE_URL,
         title: "Unrelated headline",
-        summary: "Nothing about any tracked company here",
+        summary:
+          "Nothing about any tracked company here, just unrelated filler text",
       },
     ]);
 
     const result = await runPageCollection(createContext());
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
     expect(pageCollectionCreateMock).not.toHaveBeenCalled();
     expect(result.details?.summary).toEqual(
       expect.objectContaining({
         droppedByRelevance: 1,
         relevanceMatchedCount: 0,
-        relevanceFilteringApplied: true,
       }),
     );
     expect(outcomeCreateMock).toHaveBeenCalledWith(
@@ -249,49 +251,76 @@ describe("runPageCollection", () => {
       expect.objectContaining({
         droppedByRelevance: 0,
         relevanceMatchedCount: 1,
-        relevanceFilteringApplied: true,
       }),
     );
   });
 
-  it("skips relevance filtering when the terms lookup fails", async () => {
+  it("fails the run and collects nothing when the terms lookup fails", async () => {
     tickerRelevanceTermsGetMock.mockRejectedValue(new Error("API unavailable"));
+
+    const result = await runPageCollection(createContext());
+
+    expect(result.success).toBe(false);
+    expect(pageCollectionCreateMock).not.toHaveBeenCalled();
+    expect(runCreateMock.mock.calls[0]![0].status).toBe("failed");
+  });
+
+  it("fails the run and collects nothing when no active ticker has terms", async () => {
+    tickerRelevanceTermsGetMock.mockResolvedValue({ tickers: [] });
+
+    const result = await runPageCollection(createContext());
+
+    expect(result.success).toBe(false);
+    expect(pageCollectionCreateMock).not.toHaveBeenCalled();
+    expect(runCreateMock.mock.calls[0]![0].status).toBe("failed");
+  });
+
+  it("drops bot interstitial titles before relevance", async () => {
     vi.mocked(expandSourceUrl).mockResolvedValue([
       {
         url: SOURCE_URL,
-        title: "Unrelated headline",
-        summary: "Nothing about any tracked company here",
+        title: "Just a moment...",
+        summary: "BBCA membukukan laba bersih kuartal III yang naik 12 persen",
       },
     ]);
 
     const result = await runPageCollection(createContext());
 
     expect(result.success).toBe(true);
-    expect(pageCollectionCreateMock).toHaveBeenCalledOnce();
+    expect(pageCollectionCreateMock).not.toHaveBeenCalled();
     expect(result.details?.summary).toEqual(
-      expect.objectContaining({
-        droppedByRelevance: 0,
-        relevanceFilteringApplied: false,
-      }),
+      expect.objectContaining({ droppedByJunkTitle: 1 }),
     );
   });
 
-  it("skips relevance filtering when no active ticker has terms", async () => {
-    tickerRelevanceTermsGetMock.mockResolvedValue({ tickers: [] });
+  it("drops descriptions below the minimum length", async () => {
     vi.mocked(expandSourceUrl).mockResolvedValue([
       {
         url: SOURCE_URL,
-        title: "Unrelated headline",
-        summary: "Nothing about any tracked company here",
+        title: "BBCA article title",
+        summary: "Read more",
       },
     ]);
 
     const result = await runPageCollection(createContext());
 
     expect(result.success).toBe(true);
-    expect(pageCollectionCreateMock).toHaveBeenCalledOnce();
+    expect(pageCollectionCreateMock).not.toHaveBeenCalled();
     expect(result.details?.summary).toEqual(
-      expect.objectContaining({ relevanceFilteringApplied: false }),
+      expect.objectContaining({ droppedByShortDescription: 1 }),
+    );
+  });
+
+  it("records the matched ticker on the collected outcome", async () => {
+    await runPageCollection(createContext());
+
+    expect(outcomeCreateMock).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "collected",
+          tickerId: "44444444-4444-4444-a444-444444444444",
+        }),
+      ]),
     );
   });
 });
