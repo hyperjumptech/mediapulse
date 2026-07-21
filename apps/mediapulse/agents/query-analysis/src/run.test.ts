@@ -36,6 +36,9 @@ const baseTicker = {
 const config = queryAnalysisConfigSchema.parse({
   web_search: [{ provider: "serper", apiKey: "sk-serper" }],
   language_model: { apiKey: "sk-ai", model: "test-model", baseUrl: "" },
+  // One per intent keeps the fixture small; the quota logic itself is covered in
+  // generate-and-probe.test.ts.
+  generation: { queriesPerIntent: 1 },
 });
 
 const discoveredCompetitors = [
@@ -55,6 +58,7 @@ const generatedCandidates = [
   { intent: "competitiveLandscape", language: "id", text: "Bank Mandiri" },
   { intent: "regulatoryPolicyWatch", language: "id", text: "OJK" },
   { intent: "industryPulse", language: "id", text: "industri Bank Indonesia" },
+  { intent: "disruptorsOrTech", language: "id", text: "fintech Indonesia" },
 ];
 
 /** Builds a fresh mock agent-data-api client. */
@@ -126,9 +130,12 @@ const makeCountHits = (hitsByText: Record<string, number> = {}) =>
     return { hits, credits: 1, provider: "serper" };
   });
 
-const makeContext = () => ({
+const makeContext = (queriesPerIntent?: number) => ({
   input: { tickerId: TICKER_ID },
-  config,
+  config:
+    queriesPerIntent === undefined
+      ? config
+      : { ...config, generation: { queriesPerIntent } },
   token: "Bearer token",
   contract: { brief: "Track BBRI and Indonesian banking.", version: "1.0" },
 });
@@ -433,7 +440,7 @@ describe("runQueryAnalysis — yield probe", () => {
     };
 
     // Act
-    await runQueryAnalysis(makeContext() as never, deps);
+    await runQueryAnalysis(makeContext(2) as never, deps);
 
     // Assert
     const body = create.mock.calls[0]?.[0];

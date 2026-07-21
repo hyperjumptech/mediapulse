@@ -30,18 +30,33 @@ const languageModelSchema = z
     "LLM used to discover related entities and generate the search-query candidates.",
   );
 
+const generationSchema = z
+  .object({
+    queriesPerIntent: z
+      .number()
+      .int()
+      .positive()
+      .max(20)
+      .default(5)
+      .describe(
+        "Queries persisted per intent. Every intent is filled to this number, so the active query set holds this many times the intent count.",
+      ),
+  })
+  .default({})
+  .describe("Per-intent query budget.");
+
 /**
  * Runtime configuration from Hermes invoke `config` (variable substitution).
  *
- * The self-driving pipeline exposes only two operator groups (`web_search` and
- * `language_model`). Every other knob (languages, probe locales, query count,
- * discovery caps, probe budget, cache TTL, market anchors) is an internal
- * constant in `./constants`, not operator-tunable config.
+ * Operator groups are `web_search`, `language_model`, and `generation`. The
+ * remaining knobs (languages, probe locales, discovery caps, probe budget,
+ * cache TTL, market anchors) are internal constants in `./constants`.
  */
 export const queryAnalysisConfigSchema = z
   .object({
     language_model: languageModelSchema,
     web_search: webSearchSchema,
+    generation: generationSchema,
   })
   .strict();
 
@@ -53,3 +68,6 @@ export type QueryAnalysisAiConfig = QueryAnalysisConfig["language_model"];
 
 /** Web-search provider pool used by the yield probe. */
 export type QueryAnalysisWebSearchConfig = QueryAnalysisConfig["web_search"];
+
+/** Per-intent query budget group. */
+export type QueryAnalysisGenerationConfig = QueryAnalysisConfig["generation"];

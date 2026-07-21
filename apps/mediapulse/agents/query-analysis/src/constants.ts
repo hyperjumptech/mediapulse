@@ -14,14 +14,11 @@ export const PROBE_LOCALES: SearchLocale[] = [
   { gl: "us", hl: "en" },
 ];
 
-/** Query rows persisted per intent — a fixed budget, so every newsletter section is fed equally. */
-export const QUERIES_PER_INTENT = 5;
-
-/** Total query rows persisted in the active query set, derived so it can never drift from the budget. */
-export const QUERY_COUNT = QUERY_ANALYSIS_INTENTS.length * QUERIES_PER_INTENT;
-
-/** Surviving-query count that ends the generation retry loop early (decoupled from the persisted cap). */
-export const GENERATION_MIN_SURVIVORS = 20;
+/**
+ * Fallback per-intent query budget, used when config omits `generation.queriesPerIntent`.
+ * Every intent is filled to this number so each newsletter section is fed equally.
+ */
+export const DEFAULT_QUERIES_PER_INTENT = 5;
 
 /** Maximum competitors kept from an LLM discovery result. */
 export const DISCOVERY_MAX_COMPETITORS = 6;

@@ -4,10 +4,15 @@ import { describe, expect, it } from "vitest";
 import { queryAnalysisConfigSchema } from "./config-schema";
 
 describe("queryAnalysisConfigSchema flat layout", () => {
-  it("parses an empty object into the two operator groups with defaults", () => {
+  it("parses an empty object into the operator groups with defaults", () => {
     const parsed = queryAnalysisConfigSchema.parse({});
 
-    expect(Object.keys(parsed)).toEqual(["language_model", "web_search"]);
+    expect(Object.keys(parsed)).toEqual([
+      "language_model",
+      "web_search",
+      "generation",
+    ]);
+    expect(parsed.generation.queriesPerIntent).toBe(5);
     expect(parsed.web_search).toEqual([
       { provider: "serper", apiKey: "{{SERPER_API_KEY}}" },
       { provider: "tavily", apiKey: "{{TAVILY_API_KEY}}" },
@@ -92,5 +97,24 @@ describe("queryAnalysisConfigSchema strict mode", () => {
         ),
       ).toBe(true);
     }
+  });
+});
+
+describe("generation group", () => {
+  it("accepts a custom per-intent budget", () => {
+    const parsed = queryAnalysisConfigSchema.parse({
+      generation: { queriesPerIntent: 8 },
+    });
+
+    expect(parsed.generation.queriesPerIntent).toBe(8);
+  });
+
+  it("rejects a non-positive or oversized budget", () => {
+    expect(() =>
+      queryAnalysisConfigSchema.parse({ generation: { queriesPerIntent: 0 } }),
+    ).toThrow();
+    expect(() =>
+      queryAnalysisConfigSchema.parse({ generation: { queriesPerIntent: 50 } }),
+    ).toThrow();
   });
 });

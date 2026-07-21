@@ -30,6 +30,8 @@ export interface GenerateQueryCandidatesInput {
   currentDate: string;
   ai: QueryAnalysisAiConfig;
   excludeQueries?: string[];
+  /** Intents still short of their quota, with how many more each needs. */
+  shortIntents?: { intent: string; need: number }[];
   reconSignals?: string[];
   generate?: typeof generateObject;
   onUsage?: OnLlmUsage;
@@ -174,6 +176,16 @@ const buildPrompt = (input: GenerateQueryCandidatesInput): string => {
           "These queries already returned zero results — do not repeat them; try",
           "different phrasing or angles for the same intents:",
           ...input.excludeQueries.map((query) => `- ${query}`),
+        ]
+      : []),
+    ...(input.shortIntents && input.shortIntents.length > 0
+      ? [
+          "",
+          "The previous attempt under-filled these intents. Concentrate on them and",
+          "write at least the stated number of NEW, distinctly phrased queries for each:",
+          ...input.shortIntents.map(
+            (entry) => `- ${entry.intent}: ${String(entry.need)} more needed`,
+          ),
         ]
       : []),
   ]

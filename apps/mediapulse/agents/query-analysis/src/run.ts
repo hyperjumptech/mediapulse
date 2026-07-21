@@ -1,6 +1,10 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
-import type { QueryDecision } from "@workspace/agent-data-api-contract";
 import {
+  QUERY_ANALYSIS_INTENTS,
+  type QueryDecision,
+} from "@workspace/agent-data-api-contract";
+import {
+  createActivityReporter,
   createTokenUsageAccumulator,
   type AgentRunContext,
   type AgentRunResult,
@@ -20,7 +24,6 @@ import {
   DISCOVERY_MAX_COMPETITORS,
   DISCOVERY_MAX_KEYWORDS_PER_ENTITY,
   DISCOVERY_MAX_REGULATORS,
-  GENERATION_MIN_SURVIVORS,
   LANGUAGES,
   PROBE_BUDGET,
   PROBE_CONCURRENCY,
@@ -29,7 +32,7 @@ import {
   PROBE_TIMEOUT_MS,
   QUERY_ANALYSIS_AGENT_ID,
   QUERY_ANALYSIS_AGENT_VERSION,
-  QUERIES_PER_INTENT,
+  DEFAULT_QUERIES_PER_INTENT,
   RECON_CONCURRENCY,
   RECON_MAX_COMPETITORS,
   RECON_MAX_QUERIES,
@@ -44,6 +47,13 @@ import type { DiscoveredEntity } from "./discovery/schema";
 import { deriveClassification, deriveMarketContext } from "./pipeline/context";
 import { generateAndProbeCandidates } from "./generation/generate-and-probe";
 import { finalizeQueries } from "./select/finalize";
+import {
+  narrativeRunStart,
+  narrativeDiscovery,
+  narrativeGenerating,
+  narrativeProbing,
+  narrativeRunComplete,
+} from "./utilities/build-activity-narrative";
 
 type QueryAnalysisInput = { tickerId: string };
 
@@ -88,6 +98,11 @@ export const runQueryAnalysis = async (
   const contractVersion = contract?.version ?? null;
 
   const tokenUsage = createTokenUsageAccumulator();
+  const report = createActivityReporter({
+    registryUrl: env.AGENT_REGISTRY_URL,
+    jobId: hermesCorrelation?.jobId,
+    token,
+  });
   const createClient = deps.createClient ?? createAgentDataApiClient;
   const client = createClient({
     baseUrl: env.AGENT_DATA_API_URL,
@@ -132,6 +147,12 @@ export const runQueryAnalysis = async (
     "query analysis started",
   );
 
+  const subject = { symbol: ticker.symbol, name: ticker.name };
+  report(...narrativeRunStart(subject));
+
+  const queriesPerIntent =
+    config.generation?.queriesPerIntent ?? DEFAULT_QUERIES_PER_INTENT;
+
   // Discovery: reuse the cache, LLM-discover on miss (or on a contract change), and write back.
   const discoveryStartMs = now();
   const lookup = await client.tickerDiscoveryLookup.create({
@@ -144,6 +165,8 @@ export const runQueryAnalysis = async (
   const cacheHit =
     lookup.entry !== null && lookup.entry.contractVersion === contractVersion;
   let discoveryModel: string | null = lookup.entry?.model ?? null;
+
+  report(...narrativeDiscovery(subject, cacheHit));
 
   if (!cacheHit) {
     const discovered = await discoverEntities({
@@ -232,6 +255,14 @@ export const runQueryAnalysis = async (
     "query analysis recon complete",
   );
 
+  report(
+    ...narrativeGenerating(
+      subject,
+      queriesPerIntent,
+      QUERY_ANALYSIS_INTENTS.length,
+    ),
+  );
+
   // Generate query candidates via LLM (one intent per newsletter section), probe each
   // for yield, and retry with feedback on zero-hit candidates.
   const generationStartMs = now();
@@ -257,7 +288,7 @@ export const runQueryAnalysis = async (
       probeConcurrency: PROBE_CONCURRENCY,
       probeMinResults: PROBE_MIN_RESULTS,
       probeTimeoutMs: PROBE_TIMEOUT_MS,
-      minSurvivors: GENERATION_MIN_SURVIVORS,
+      queriesPerIntent,
       ...(deps.generateQueries ? { generate: deps.generateQueries } : {}),
     },
     {
@@ -268,6 +299,8 @@ export const runQueryAnalysis = async (
     },
   );
   const generationMs = now() - generationStartMs;
+
+  report(...narrativeProbing(generation.telemetry.deduped));
 
   logger.info(
     {
@@ -289,7 +322,7 @@ export const runQueryAnalysis = async (
   const finalized = finalizeQueries({
     survivors: generation.survivors,
     dropped: generation.dropped,
-    queriesPerIntent: QUERIES_PER_INTENT,
+    queriesPerIntent,
   });
   const finalizeMs = now() - finalizeStartMs;
 
@@ -305,6 +338,17 @@ export const runQueryAnalysis = async (
       finalizeMs,
     },
     "query analysis finalize complete",
+  );
+
+  report(
+    ...narrativeRunComplete(subject, {
+      queryCount: finalized.queries.length,
+      queriesPerIntent,
+      perIntent: finalized.perIntent,
+      attempts: generation.attempts,
+      zeroYieldCount: generation.telemetry.dropped.length,
+    }),
+    "completed",
   );
 
   const queryDecisions = buildQueryDecisions({
