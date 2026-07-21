@@ -1,3 +1,4 @@
+import { QUERY_ANALYSIS_INTENTS } from "@workspace/agent-data-api-contract";
 import type { ProviderEntry, SearchLocale } from "@workspace/agent-search";
 import type { SearchProviderLogger } from "@workspace/agent-search";
 
@@ -26,8 +27,43 @@ export type GenerateAndProbeInput = Omit<
   probeConcurrency: number;
   probeMinResults: number;
   probeTimeoutMs: number;
-  minSurvivors: number;
+  /** Per-intent target. Retries continue while any intent is short and attempts remain. */
+  queriesPerIntent: number;
   logger?: SearchProviderLogger;
+};
+
+/** An intent that has fewer pooled candidates than the per-intent target. */
+export type ShortIntent = { intent: string; need: number };
+
+/**
+ * Returns every intent still below the per-intent target, with the shortfall.
+ *
+ * Intents absent from the pool entirely are reported as needing the full target,
+ * so an intent the model skipped is retried rather than silently accepted.
+ *
+ * @param pooled - Candidates eligible for selection (survivors plus dropped).
+ * @param queriesPerIntent - Target candidate count for each intent.
+ */
+export const findShortIntents = (
+  pooled: readonly { intent: string }[],
+  queriesPerIntent: number,
+): ShortIntent[] => {
+  const counts = new Map<string, number>();
+  for (const intent of QUERY_ANALYSIS_INTENTS) {
+    counts.set(intent, 0);
+  }
+  for (const candidate of pooled) {
+    counts.set(candidate.intent, (counts.get(candidate.intent) ?? 0) + 1);
+  }
+
+  const short: ShortIntent[] = [];
+  for (const [intent, count] of counts) {
+    if (count < queriesPerIntent) {
+      short.push({ intent, need: queriesPerIntent - count });
+    }
+  }
+
+  return short;
 };
 
 /** Injectable collaborators for {@link generateAndProbeCandidates} (tests only). */
@@ -83,6 +119,7 @@ export const generateAndProbeCandidates = async (
   let dedupedTotal = 0;
   let searchCreditsTotal = 0;
   let excludeQueries: string[] = [];
+  let shortIntentFeedback: ShortIntent[] = [];
   let attempts = 0;
 
   for (attempts = 1; attempts <= GENERATION_MAX_ATTEMPTS; attempts++) {
@@ -100,6 +137,9 @@ export const generateAndProbeCandidates = async (
       ...input,
       ...(input.logger ? { logger: input.logger } : {}),
       ...(excludeQueries.length > 0 ? { excludeQueries } : {}),
+      ...(shortIntentFeedback.length > 0
+        ? { shortIntents: shortIntentFeedback }
+        : {}),
     });
 
     input.logger?.info(
@@ -155,6 +195,14 @@ export const generateAndProbeCandidates = async (
       }
     }
 
+    // Coverage is measured over survivors AND dropped candidates, because
+    // finalize selects from that combined pool: a zero-hit query still fills a
+    // slot, it just ranks last.
+    const shortIntents = findShortIntents(
+      [...survivorsByKey.values(), ...droppedByKey.values()],
+      input.queriesPerIntent,
+    );
+
     input.logger?.info(
       {
         tickerSymbol: input.ticker.symbol,
@@ -163,20 +211,18 @@ export const generateAndProbeCandidates = async (
         attemptSurvivors: probe.survivors.length,
         attemptDropped: probe.dropped.length,
         cumulativeSurvivors: survivorsByKey.size,
-        minSurvivors: input.minSurvivors,
+        queriesPerIntent: input.queriesPerIntent,
+        shortIntents: shortIntents.map((entry) => entry.intent),
         searchCredits: probe.telemetry.searchCredits,
       },
       "query probe attempt complete",
     );
 
-    if (
-      zeroHitTexts.length === 0 ||
-      survivorsByKey.size >= input.minSurvivors ||
-      attempts >= GENERATION_MAX_ATTEMPTS
-    ) {
+    if (shortIntents.length === 0 || attempts >= GENERATION_MAX_ATTEMPTS) {
       break;
     }
     excludeQueries = zeroHitTexts;
+    shortIntentFeedback = shortIntents;
   }
 
   const survivors: ProbeSurvivor[] = [...survivorsByKey.values()]
