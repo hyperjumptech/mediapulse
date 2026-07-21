@@ -59,8 +59,11 @@ type DropOutcomeContext =
       reason: "relevance_no_match";
       /** Omitted by ticker-agnostic collectors, which match against every tracked ticker. */
       tickerSymbol?: string;
-      headChars: number;
+      matchTextChars: number;
     }
+  | { reason: "junk_title"; title: string }
+  | { reason: "duplicate_title"; title: string }
+  | { reason: "description_too_short"; charCount: number; minChars: number }
   | { reason: "freshness_too_old"; publishedAt: Date; maxAgeDays: number }
   | { reason: "freshness_future_dated"; publishedAt: Date }
   | { reason: "freshness_unknown_date" }
@@ -125,9 +128,27 @@ export const describeOutcomeReason = (
 
       return {
         reason: context.reason,
-        reasonDetail: `No mention of ${subject} or its industry in the first ${String(context.headChars)} chars`,
+        reasonDetail: `No mention of ${subject} or its industry in the ${String(context.matchTextChars)} chars of title and description`,
       };
     }
+
+    case "junk_title":
+      return {
+        reason: context.reason,
+        reasonDetail: `Not an article headline: "${context.title}"`,
+      };
+
+    case "duplicate_title":
+      return {
+        reason: context.reason,
+        reasonDetail: `Duplicate headline already collected this run: "${context.title}"`,
+      };
+
+    case "description_too_short":
+      return {
+        reason: context.reason,
+        reasonDetail: `Description too short: ${String(context.charCount)} chars (min ${String(context.minChars)})`,
+      };
 
     case "freshness_too_old": {
       const dateStr = context.publishedAt.toISOString().slice(0, 10);

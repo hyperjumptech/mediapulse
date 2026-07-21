@@ -2,59 +2,55 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ConfigSchema, getConfigSchema } from "./config-schema";
+import { ConfigSchema } from "./config-schema";
 
 describe("ConfigSchema", () => {
-  it("parses an empty object into the full default config", async () => {
-    const result = await ConfigSchema.parseAsync({});
-
-    expect(result.resilience.deadUrlCache.enabled).toBe(true);
-    expect(result.resilience.hostErrorBreaker.enabled).toBe(true);
-    expect(result.runPolicy.minSuccessfulSources).toBe(1);
-    expect(result.collection.perRunCandidateBudget).toBe(50);
+  it("exposes exactly one Hermes form section", () => {
+    expect(Object.keys(ConfigSchema.shape)).toEqual(["collection"]);
   });
 
-  it("accepts collection cap overrides", async () => {
-    const result = await ConfigSchema.parseAsync({
+  it("parses an empty object into the full recommended config", () => {
+    const parsed = ConfigSchema.parse({});
+
+    expect(parsed.collection).toEqual({
+      maxDiscoveredItemsPerRun: 500,
+      perRunCandidateBudget: 50,
+    });
+  });
+
+  it("keeps other defaults when only one collection field is overridden", () => {
+    const parsed = ConfigSchema.parse({
       collection: { perRunCandidateBudget: 20 },
     });
 
-    expect(result.collection.perRunCandidateBudget).toBe(20);
+    expect(parsed.collection.perRunCandidateBudget).toBe(20);
+    expect(parsed.collection.maxDiscoveredItemsPerRun).toBe(500);
   });
 
-  it("no longer exposes a fetch provider group", async () => {
-    const result = await ConfigSchema.parseAsync({});
-
-    expect(result).not.toHaveProperty("providers");
+  it("rejects invalid collection values", () => {
+    expect(() =>
+      ConfigSchema.parse({
+        collection: { perRunCandidateBudget: 0 },
+      }),
+    ).toThrow();
+    expect(() =>
+      ConfigSchema.parse({
+        collection: { maxDiscoveredItemsPerRun: 0 },
+      }),
+    ).toThrow();
   });
 
-  it("strips stored fetch provider keys instead of rejecting them", async () => {
-    const result = await ConfigSchema.parseAsync({
-      providers: {
-        fetch: {
-          providers: [
-            {
-              type: "firecrawl_selfhosted",
-              baseUrl: "https://firecrawl.internal",
-              authentication: { type: "none" },
-              rateLimit: { requests: 1, perSeconds: 1 },
-            },
-          ],
-        },
-      },
+  it("strips stored keys for sections that are no longer configurable", () => {
+    const parsed = ConfigSchema.parse({
+      providers: { fetch: { providers: [] } },
+      resilience: { deadUrlCache: { enabled: false } },
+      discovery: { timeoutMs: 1000 },
+      run: { maxDurationMs: 1000 },
       runPolicy: { minSuccessfulSources: 2 },
+      collection: { perRunCandidateBudget: 20 },
     });
 
-    expect(result).not.toHaveProperty("providers");
-    expect(result.runPolicy.minSuccessfulSources).toBe(2);
-  });
-});
-
-describe("getConfigSchema", () => {
-  it("returns wrapped JSON Schema with agentId page-collection", () => {
-    const result = getConfigSchema();
-
-    expect(result.agentId).toBe("page-collection");
-    expect(result.schema).toHaveProperty("type", "object");
+    expect(Object.keys(parsed)).toEqual(["collection"]);
+    expect(parsed.collection.perRunCandidateBudget).toBe(20);
   });
 });

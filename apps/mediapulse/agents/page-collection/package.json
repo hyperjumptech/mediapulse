@@ -16,15 +16,13 @@
     "@workspace/agent-ingestion": "workspace:*",
     "@workspace/agent-data-api-contract": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
-    "@workspace/agent-types": "workspace:*",
     "@mediapulse/env": "workspace:*",
     "@workspace/logger": "workspace:*",
     "@workspace/utils": "workspace:*",
     "got": "catalog:",
     "hono": "catalog:",
     "hono-pino": "catalog:",
-    "zod": "catalog:",
-    "zod-to-json-schema": "^3.25.1"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "latest",

@@ -3,184 +3,129 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  aliasMatchesHaystack,
-  buildIndustryAliases,
-  buildTickerAliases,
-  isRelevant,
+  buildRelevanceMatchText,
+  createTickerRelevanceMatcher,
 } from "./ticker-relevance-gate";
 
-/** Builds article-like body text with at least 80 unique words. */
-const longBody = (middle: string): string =>
-  [
-    middle,
-    ...Array.from(
-      { length: 90 },
-      (_, index) =>
-        `Analyst note ${index} discusses lending trends and deposit growth in Indonesia.`,
-    ),
-  ].join(" ");
+const bankCentralAsia = {
+  id: "11111111-1111-4111-a111-111111111111",
+  symbol: "BBCA",
+  terms: ["BBCA", "Bank Central Asia", "Financials"],
+};
 
-describe("buildIndustryAliases", () => {
-  it("deduplicates sector and industry labels", () => {
-    const aliases = buildIndustryAliases("Telekomunikasi", "Telekomunikasi");
+describe("createTickerRelevanceMatcher", () => {
+  it("matches a symbol as a whole word regardless of case", () => {
+    const matcher = createTickerRelevanceMatcher([bankCentralAsia]);
+    const result = matcher.match("Laba bbca naik pada kuartal ini");
 
-    expect(aliases).toEqual(["telekomunikasi"]);
+    expect(result).toEqual({
+      tickerId: bankCentralAsia.id,
+      tickerSymbol: "BBCA",
+      term: "BBCA",
+    });
   });
-});
 
-describe("buildTickerAliases", () => {
-  it("deduplicates symbol, name, and known aliases", () => {
-    // Act
-    const aliases = buildTickerAliases("BBCA", "Bank Central Asia", [
-      "BBCA",
-      "BCA",
+  it("does not match a symbol embedded inside a longer word", () => {
+    const matcher = createTickerRelevanceMatcher([bankCentralAsia]);
+
+    expect(matcher.match("The BBCAX fund posted gains")).toBeNull();
+    expect(matcher.match("Report from XBBCA analysts")).toBeNull();
+    expect(matcher.match("BBCA2 is a different instrument")).toBeNull();
+  });
+
+  it("matches a symbol adjacent to punctuation and line breaks", () => {
+    const matcher = createTickerRelevanceMatcher([bankCentralAsia]);
+
+    expect(matcher.match("Shares of (BBCA) rose.")).not.toBeNull();
+    expect(matcher.match("Coverage:\nBBCA, BMRI")).not.toBeNull();
+  });
+
+  it("matches a multi-word term only as a full phrase", () => {
+    const matcher = createTickerRelevanceMatcher([bankCentralAsia]);
+
+    expect(matcher.match("PT Bank Central Asia Tbk reported")).not.toBeNull();
+    expect(matcher.match("Bank Negara and Central Java news")).toBeNull();
+  });
+
+  it("tolerates collapsed whitespace inside a multi-word term", () => {
+    const matcher = createTickerRelevanceMatcher([bankCentralAsia]);
+    const result = matcher.match("Bank  Central\nAsia announced a dividend");
+
+    expect(result?.term).toBe("Bank Central Asia");
+  });
+
+  it("escapes regular expression metacharacters in terms", () => {
+    const matcher = createTickerRelevanceMatcher([
+      {
+        id: "22222222-2222-4222-a222-222222222222",
+        symbol: "BBCA.JK",
+        terms: ["BBCA.JK"],
+      },
     ]);
 
-    // Assert
-    expect(aliases).toEqual(["bbca", "bank central asia", "bca"]);
-  });
-});
-
-describe("aliasMatchesHaystack", () => {
-  it("matches BBRI inside exchange suffix tokens", () => {
-    // Act
-    const matched = aliasMatchesHaystack(
-      "pt bbri.jk reported earnings",
-      "bbri",
-    );
-
-    // Assert
-    expect(matched).toBe(true);
+    expect(matcher.match("Quote for BBCA.JK today")).not.toBeNull();
+    expect(matcher.match("Quote for BBCAXJK today")).toBeNull();
   });
 
-  it("does not match BBRI inside unrelated words", () => {
-    // Act
-    const matched = aliasMatchesHaystack(
-      "this is an abbreviation only",
-      "bbri",
-    );
-
-    // Assert
-    expect(matched).toBe(false);
-  });
-});
-
-describe("isRelevant", () => {
-  it("matches a page whose body mentions a company alias", () => {
-    // Act
-    const decision = isRelevant({
-      title: "Market update headline here",
-      content: longBody(
-        "Apple announced new product plans for the year ahead.",
-      ),
-      aliases: ["aapl", "apple"],
-    });
-
-    // Assert
-    expect(decision).toEqual({ relevant: true });
-  });
-
-  it("rejects a page that only mentions an unrelated company", () => {
-    // Act
-    const decision = isRelevant({
-      title: "Market update headline here",
-      content: longBody("Microsoft Q2 earnings beat analyst expectations."),
-      aliases: ["aapl", "apple"],
-    });
-
-    // Assert
-    expect(decision).toEqual({
-      relevant: false,
-      reason: "no_alias_match",
-    });
-  });
-
-  it("honors headChars when scanning for aliases", () => {
-    // Setup
-    const padding = "x".repeat(2000);
-    const content = `${padding} Apple announced new product plans. ${longBody("")}`;
-
-    // Act
-    const decision = isRelevant(
+  it("reports the ticker that owns the matched term", () => {
+    const matcher = createTickerRelevanceMatcher([
+      bankCentralAsia,
       {
-        title: "Market update headline here",
-        content,
-        aliases: ["aapl", "apple"],
+        id: "33333333-3333-4333-a333-333333333333",
+        symbol: "TLKM",
+        terms: ["TLKM", "Telkom Indonesia"],
       },
-      { headChars: 1500 },
+    ]);
+    const result = matcher.match("Telkom Indonesia expands its data centres");
+
+    expect(result).toEqual({
+      tickerId: "33333333-3333-4333-a333-333333333333",
+      tickerSymbol: "TLKM",
+      term: "Telkom Indonesia",
+    });
+  });
+
+  it("skips blank terms and reports an empty matcher when nothing compiles", () => {
+    const matcher = createTickerRelevanceMatcher([
+      {
+        id: "44444444-4444-4444-a444-444444444444",
+        symbol: "EMPTY",
+        terms: ["", "   "],
+      },
+    ]);
+
+    expect(matcher.isEmpty).toBe(true);
+    expect(matcher.match("Any text at all")).toBeNull();
+  });
+
+  it("reports an empty matcher when no tickers are returned", () => {
+    const matcher = createTickerRelevanceMatcher([]);
+
+    expect(matcher.isEmpty).toBe(true);
+    expect(matcher.match("Any text at all")).toBeNull();
+  });
+
+  it("returns null for blank candidate text", () => {
+    const matcher = createTickerRelevanceMatcher([bankCentralAsia]);
+
+    expect(matcher.match("   ")).toBeNull();
+  });
+});
+
+describe("buildRelevanceMatchText", () => {
+  it("joins title and description", () => {
+    const text = buildRelevanceMatchText("Article title", "Feed description");
+
+    expect(text).toBe("Article title Feed description");
+  });
+
+  it("tolerates a missing title or description", () => {
+    expect(buildRelevanceMatchText(undefined, "Feed description")).toBe(
+      "Feed description",
     );
-
-    // Assert
-    expect(decision).toEqual({
-      relevant: false,
-      reason: "no_alias_match",
-    });
-  });
-
-  it("does not treat AAPL as matching snapple", () => {
-    // Act
-    const decision = isRelevant({
-      title: "Beverage industry headline",
-      content: longBody("Snapple released a new flavor for summer."),
-      aliases: ["aapl"],
-    });
-
-    // Assert
-    expect(decision).toEqual({
-      relevant: false,
-      reason: "no_alias_match",
-    });
-  });
-
-  it("matches BBRI in PT BBRI and BBRI.JK but not abbreviation", () => {
-    // Act
-    const ptDecision = isRelevant({
-      title: "Regional banks headline",
-      content: longBody("PT BBRI reported stronger loan growth this quarter."),
-      aliases: ["bbri"],
-    });
-    const suffixDecision = isRelevant({
-      title: "IDX market headline",
-      content: longBody("Shares of BBRI.JK rose after the earnings release."),
-      aliases: ["bbri"],
-    });
-    const unrelatedDecision = isRelevant({
-      title: "Language headline",
-      content: longBody("This paragraph only uses the word abbreviation."),
-      aliases: ["bbri"],
-    });
-
-    // Assert
-    expect(ptDecision).toEqual({ relevant: true });
-    expect(suffixDecision).toEqual({ relevant: true });
-    expect(unrelatedDecision).toEqual({
-      relevant: false,
-      reason: "no_alias_match",
-    });
-  });
-
-  it("matches a page via industry aliases when company aliases are absent", () => {
-    const decision = isRelevant({
-      title: "Telecom sector update headline",
-      content: longBody(
-        "Indonesia Telekomunikasi sector sees new licensing rules this quarter.",
-      ),
-      aliases: ["aapl", "apple"],
-      industryAliases: ["telekomunikasi"],
-    });
-
-    expect(decision).toEqual({ relevant: true });
-  });
-
-  it("is a no-op when both alias lists are empty", () => {
-    // Act
-    const decision = isRelevant({
-      title: "Any headline",
-      content: "Any content without ticker mentions.",
-      aliases: [],
-    });
-
-    // Assert
-    expect(decision).toEqual({ relevant: true });
+    expect(buildRelevanceMatchText("Article title", undefined)).toBe(
+      "Article title",
+    );
+    expect(buildRelevanceMatchText(undefined, undefined)).toBe("");
   });
 });

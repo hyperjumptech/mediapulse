@@ -7,7 +7,6 @@ import {
   type SearchLocale,
 } from "@workspace/agent-search";
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 
 // Search provider identity, entry, and locale schemas are owned by
 // @workspace/agent-search (shared with the query-analysis yield probe) and
@@ -73,40 +72,6 @@ export const ConfigSchema = z.object({
   collection: collectionSchema,
 });
 
-export const dataCollectionAgentConfigSchema = ConfigSchema;
-
 export type ConfigSchemaType = z.infer<typeof ConfigSchema>;
 
 export type WebSearchConfig = ConfigSchemaType["web_search"];
-export type CollectionConfig = ConfigSchemaType["collection"];
-
-/**
- * Minimal JSON Schema type used for the /config response.
- * This is intentionally loose to avoid over-constraining the runtime representation.
- */
-export type JsonSchema = {
-  [key: string]: unknown;
-};
-
-/**
- * Returns whether a config value is an unresolved Hermes variable placeholder.
- *
- * @param value - Config string that may still contain `{{NAME}}` syntax.
- */
-export const isUnresolvedVariablePlaceholder = (value: string): boolean =>
-  /^\{\{[A-Z0-9_]+\}\}$/.test(value);
-
-/**
- * Returns the JSON Schema representation of the config schema wrapped with the agent ID.
- */
-export function getConfigSchema(): {
-  agentId: "data-collection";
-  schema: JsonSchema;
-} {
-  const schema = zodToJsonSchema(ConfigSchema) as JsonSchema;
-
-  return {
-    agentId: "data-collection",
-    schema,
-  };
-}

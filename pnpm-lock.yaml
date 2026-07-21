@@ -636,9 +636,6 @@ importers:
 
   apps/mediapulse/agents/data-collection:
     dependencies:
-      '@ai-sdk/openai':
-        specifier: ^3.0.49
-        version: 3.0.49(zod@3.25.76)
       '@mediapulse/env':
         specifier: workspace:*
         version: link:../../../../packages/mediapulse/env
@@ -669,9 +666,6 @@ importers:
       '@workspace/utils':
         specifier: workspace:*
         version: link:../../../../packages/shared/utils
-      ai:
-        specifier: ^6.0.142
-        version: 6.0.142(zod@3.25.76)
       got:
         specifier: 'catalog:'
         version: 14.6.6
@@ -684,9 +678,6 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 3.25.76
-      zod-to-json-schema:
-        specifier: ^3.25.1
-        version: 3.25.1(zod@3.25.76)
     devDependencies:
       '@types/bun':
         specifier: latest
@@ -843,9 +834,6 @@ importers:
       '@workspace/agent-runtime':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-runtime
-      '@workspace/agent-types':
-        specifier: workspace:*
-        version: link:../../../../packages/shared/agent-types
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../../packages/shared/logger
@@ -864,9 +852,6 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 3.25.76
-      zod-to-json-schema:
-        specifier: ^3.25.1
-        version: 3.25.1(zod@3.25.76)
     devDependencies:
       '@types/bun':
         specifier: latest
