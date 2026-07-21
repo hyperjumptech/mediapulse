@@ -559,3 +559,75 @@ describe("classifyNoisyUrl: school domains", () => {
     ).toBe(false);
   });
 });
+
+describe("classifyNoisyUrl: vendor and directory pages", () => {
+  it.each([
+    {
+      name: "Vendor technology page",
+      url: "https://www.redhat.com/en/technologies/cloud-computing/connectivity-link",
+    },
+    {
+      name: "Vendor solutions page",
+      url: "https://example.com/solutions/networking",
+    },
+    {
+      name: "Vendor platform page",
+      url: "https://example.com/platform/overview",
+    },
+    {
+      name: "Company directory entry",
+      url: "https://www.indonesia-investments.com/business/indonesian-companies/telekomunikasi-indonesia/item201",
+    },
+    {
+      name: "Exchange listed-companies directory",
+      url: "https://example.com/en/listed-companies/TLKM",
+    },
+  ])("non-article page: $name", ({ url }) => {
+    const decision = classifyNoisyUrl(url);
+
+    expect(decision.blocked).toBe(true);
+    if (decision.blocked) {
+      expect(decision.reason).toBe("non_article_page");
+    }
+  });
+
+  it.each([
+    {
+      name: "Press release listing with a pagination query",
+      url: "https://asean.newsroom.ibm.com/press-releases?l=50",
+    },
+    { name: "Newsroom index", url: "https://example.com/newsroom" },
+    {
+      name: "Indonesian press release index",
+      url: "https://example.com/siaran-pers",
+    },
+  ])("site homepage: $name", ({ url }) => {
+    const decision = classifyNoisyUrl(url);
+
+    expect(decision.blocked).toBe(true);
+    if (decision.blocked) {
+      expect(decision.reason).toBe("site_homepage");
+    }
+  });
+
+  it.each([
+    {
+      name: "Story under a companies section",
+      url: "https://example.com/business/companies/telkom-lands-subsea-cable",
+    },
+    {
+      name: "Headline containing the word companies",
+      url: "https://example.com/news/top-companies-to-watch-2026",
+    },
+    {
+      name: "Story under a newsroom section",
+      url: "https://example.com/newsroom/telkom-perkuat-konektivitas-digital",
+    },
+    {
+      name: "Story under a press-releases section",
+      url: "https://example.com/press-releases/nacsa-mcmc-ibm-partnership",
+    },
+  ])("keeps a real article: $name", ({ url }) => {
+    expect(classifyNoisyUrl(url).blocked).toBe(false);
+  });
+});

@@ -172,6 +172,10 @@ const HOMEPAGE_PATH_SEGMENTS = new Set([
   "media",
   "insights",
   "updates",
+  "press-releases",
+  "pressreleases",
+  "newsroom",
+  "siaran-pers",
 ]);
 
 const LOCALE_ONLY_SEGMENT = /^[a-z]{2}(?:[-_][a-z]{2})?$/i;
@@ -194,6 +198,8 @@ const NON_ARTICLE_PAGE_PATTERNS = [
   /\/(key-ratios|balance-sheet|cash-flow|income-statement)(\/|$)/i,
   /\/products?(\/|$)/i,
   /\/page\/[a-z0-9-]*\d+$/i,
+  /\/(technologies|technology|solutions|platforms?)(\/|$)/i,
+  /\/[a-z]+-companies(\/|$)/i,
 ] as const;
 
 export type UrlNoiseReason =
