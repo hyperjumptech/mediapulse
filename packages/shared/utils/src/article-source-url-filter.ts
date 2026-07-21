@@ -14,6 +14,7 @@ const BLOCKED_HOST_PATTERNS = [
   /(^|\.)reddit\.com$/i,
   /(^|\.)matrixbcg\.com$/i,
   /(^|\.)portersfiveforce\.com$/i,
+  /(^|\.)sch\.id$/i,
 ] as const;
 
 /**
@@ -44,6 +45,10 @@ const LOW_VALUE_SOURCE_HOST_PATTERNS = [
   /(^|\.)wikiwand\.com$/i,
   /(^|\.)fandom\.com$/i,
   /(^|\.)britannica\.com$/i,
+  /(^|\.)tradingview\.com$/i,
+  /(^|\.)zoominfo\.com$/i,
+  /(^|\.)tracxn\.com$/i,
+  /(^|\.)dealroom\.co$/i,
 ] as const;
 
 /**
@@ -61,8 +66,7 @@ const NON_ARTICLE_HUB_HOST_PATH_PATTERNS = [
     path: /^\/data\/equities\/tearsheet\//i,
   },
   { host: /(^|\.)marketwatch\.com$/i, path: /^\/investing\/stock\//i },
-  { host: /(^|\.)simplywall\.st$/i, path: /^\/stocks\//i },
-  { host: /(^|\.)tradingview\.com$/i, path: /^\/symbols\//i },
+  { host: /(^|\.)simplywall\.st$/i, path: /^\/stocks?\//i },
   {
     host: /(^|\.)reuters\.com$/i,
     path: /^\/(markets\/companies|company)\//i,
@@ -83,6 +87,7 @@ const NON_ARTICLE_HUB_HOST_PATH_PATTERNS = [
   },
   { host: /(^|\.)fintel\.io$/i, path: /^\/s\//i },
   { host: /(^|\.)sectors\.app$/i, path: /^\/idx\//i },
+  { host: /(^|\.)ajaib\.co\.id$/i, path: /^\/saham\/aset\//i },
   { host: /(^|\.)pluang\.com$/i, path: /^\/en\/asset\//i },
   { host: /(^|\.)perplexity\.ai$/i, path: /^\/finance\//i },
   { host: /(^|\.)quartr\.com$/i, path: /^\/companies\//i },
@@ -96,7 +101,7 @@ const NON_ARTICLE_HUB_HOST_PATH_PATTERNS = [
   },
   {
     host: /(^|\.)researchgate\.net$/i,
-    path: /^\/publication\//i,
+    path: /^\/(publication|figure)\//i,
   },
   {
     host: /(^|\.)idnfinancials\.com$/i,
@@ -125,6 +130,7 @@ const BLOCKED_EXTENSION_PATTERNS = [/\.(pdf|xml)(\/|$)/i] as const;
 
 const BLOCKED_PATH_PATTERNS = [
   /\/category\//i,
+  /\/rubrik\//i,
   /\/tag\//i,
   /\/topic\//i,
   /\/topics\//i,
@@ -159,7 +165,26 @@ const HOMEPAGE_PATH_SEGMENTS = new Set([
   "beranda",
   "main",
   "landing",
+  "news",
+  "berita",
+  "artikel",
+  "articles",
+  "blog",
+  "press",
+  "media",
+  "insights",
+  "updates",
+  "press-releases",
+  "pressreleases",
+  "newsroom",
+  "siaran-pers",
+  "feature",
+  "features",
+  "rubrik",
+  "kanal",
 ]);
+
+const LOCALE_ONLY_SEGMENT = /^[a-z]{2}(?:[-_][a-z]{2})?$/i;
 
 /**
  * Generated tool and reference pages. These match ticker terms perfectly (they are
@@ -177,6 +202,11 @@ const NON_ARTICLE_PAGE_PATTERNS = [
   /\/research-ratings(\/|$)/i,
   /\/(financials|earnings|estimates|valuation)(\/|$)/i,
   /\/(key-ratios|balance-sheet|cash-flow|income-statement)(\/|$)/i,
+  /\/products?(\/|$)/i,
+  /\/page\/[a-z0-9-]*\d+$/i,
+  /\/(technologies|technology|solutions|platforms?)(\/|$)/i,
+  /\/[a-z]+-companies(\/|$)/i,
+  /\/[a-z0-9-]{16,}\/\d{1,3}$/i,
 ] as const;
 
 export type UrlNoiseReason =
@@ -247,6 +277,10 @@ const pathnameMatchesArticleOverride = (pathname: string): boolean =>
 const pathnameIsHomepage = (pathname: string): boolean => {
   const segments = pathname.split("/").filter(Boolean);
   if (segments.length === 0) {
+    return true;
+  }
+
+  if (segments.every((segment) => LOCALE_ONLY_SEGMENT.test(segment))) {
     return true;
   }
 

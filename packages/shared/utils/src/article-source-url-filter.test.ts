@@ -85,7 +85,7 @@ describe("classifyNoisyUrl", () => {
     {
       name: "TradingView symbols hub",
       url: "https://www.tradingview.com/symbols/IDX-BBCA/news/",
-      reason: "blocked_host_path" as const,
+      reason: "low_value_source" as const,
     },
     {
       name: "Morningstar stock quote",
@@ -440,5 +440,246 @@ describe("classifyNoisyUrl: reference and market-data pages", () => {
     );
 
     expect(decision.blocked).toBe(false);
+  });
+});
+
+describe("classifyNoisyUrl: second-wave non-article sources", () => {
+  it.each([
+    {
+      name: "TradingView, syndicated news included",
+      url: "https://www.tradingview.com/news/kontan:3dd467df887ea:0",
+    },
+    {
+      name: "ZoomInfo company record",
+      url: "https://www.zoominfo.com/c/pt-telkom-indonesia-persero-tbk/345500426",
+    },
+    {
+      name: "Tracxn company database",
+      url: "https://tracxn.com/d/geographies/indonesia/__Gabk9o4",
+    },
+    {
+      name: "Dealroom note",
+      url: "https://app.dealroom.co/news/note/fore-coffee-taps-idr-337b-ipo",
+    },
+  ])("data platform blocked host-wide: $name", ({ url }) => {
+    const decision = classifyNoisyUrl(url);
+
+    expect(decision.blocked).toBe(true);
+    if (decision.blocked) {
+      expect(decision.reason).toBe("low_value_source");
+    }
+  });
+
+  it("blocks the singular simplywall.st /stock/ path as well as /stocks/", () => {
+    expect(
+      classifyNoisyUrl("https://simplywall.st/stock/idx/tlkm").blocked,
+    ).toBe(true);
+    expect(
+      classifyNoisyUrl("https://simplywall.st/stocks/idx/tlkm").blocked,
+    ).toBe(true);
+  });
+
+  it("blocks a ResearchGate figure as well as a publication", () => {
+    expect(
+      classifyNoisyUrl(
+        "https://www.researchgate.net/figure/5G-Coverage_fig4_370787573",
+      ).blocked,
+    ).toBe(true);
+  });
+
+  it.each([
+    { name: "Section index", url: "https://www.worldcoffeeportal.com/news" },
+    { name: "Indonesian section index", url: "https://example.com/berita" },
+    { name: "Locale-only path", url: "https://www.kuehne-nagel.com/id" },
+    { name: "Locale with region", url: "https://example.com/en-us" },
+  ])("site homepage: $name", ({ url }) => {
+    const decision = classifyNoisyUrl(url);
+
+    expect(decision.blocked).toBe(true);
+    if (decision.blocked) {
+      expect(decision.reason).toBe("site_homepage");
+    }
+  });
+
+  it.each([
+    {
+      name: "Paginated listing",
+      url: "https://www.telkom.co.id/sites/berita/id_ID/page/news-about-telkom-122",
+    },
+    {
+      name: "Marketing product page",
+      url: "https://businessmodelcanvastemplate.com/products/fore-coffee-swot-analysis",
+    },
+  ])("non-article page: $name", ({ url }) => {
+    expect(classifyNoisyUrl(url).blocked).toBe(true);
+  });
+
+  it.each([
+    {
+      name: "Story under a news section",
+      url: "https://emitennews.com/news/ternyata-ini-alasan-fore-belum-bagi-dividen-5172",
+    },
+    {
+      name: "Story under an Indonesian berita section",
+      url: "https://www.antaranews.com/berita/5657688/konektivitas-berbasis-ai",
+    },
+    {
+      name: "Hyphenated section that is not an index",
+      url: "https://www.idxchannel.com/market-news/ekspansif-fore-buka-40-gerai",
+    },
+    {
+      name: "Story under a locale prefix",
+      url: "https://www.brights.id/en/research-and-news/research-report/telkom-indonesia",
+    },
+  ])("keeps a real article: $name", ({ url }) => {
+    expect(classifyNoisyUrl(url).blocked).toBe(false);
+  });
+});
+
+describe("classifyNoisyUrl: school domains", () => {
+  it.each([
+    {
+      name: "School article path",
+      url: "https://smkn2klaten.sch.id/berita/artikel/41/student-english-forum",
+    },
+    { name: "School root", url: "https://sman1jakarta.sch.id" },
+  ])("blocks $name", ({ url }) => {
+    const decision = classifyNoisyUrl(url);
+
+    expect(decision.blocked).toBe(true);
+    if (decision.blocked) {
+      expect(decision.reason).toBe("blocked_host");
+    }
+  });
+
+  it("does not block a publisher whose name merely contains sch", () => {
+    expect(
+      classifyNoisyUrl("https://www.schroders.com/en/insights/market-update")
+        .blocked,
+    ).toBe(false);
+  });
+});
+
+describe("classifyNoisyUrl: vendor and directory pages", () => {
+  it.each([
+    {
+      name: "Vendor technology page",
+      url: "https://www.redhat.com/en/technologies/cloud-computing/connectivity-link",
+    },
+    {
+      name: "Vendor solutions page",
+      url: "https://example.com/solutions/networking",
+    },
+    {
+      name: "Vendor platform page",
+      url: "https://example.com/platform/overview",
+    },
+    {
+      name: "Company directory entry",
+      url: "https://www.indonesia-investments.com/business/indonesian-companies/telekomunikasi-indonesia/item201",
+    },
+    {
+      name: "Exchange listed-companies directory",
+      url: "https://example.com/en/listed-companies/TLKM",
+    },
+  ])("non-article page: $name", ({ url }) => {
+    const decision = classifyNoisyUrl(url);
+
+    expect(decision.blocked).toBe(true);
+    if (decision.blocked) {
+      expect(decision.reason).toBe("non_article_page");
+    }
+  });
+
+  it.each([
+    {
+      name: "Press release listing with a pagination query",
+      url: "https://asean.newsroom.ibm.com/press-releases?l=50",
+    },
+    { name: "Newsroom index", url: "https://example.com/newsroom" },
+    {
+      name: "Indonesian press release index",
+      url: "https://example.com/siaran-pers",
+    },
+  ])("site homepage: $name", ({ url }) => {
+    const decision = classifyNoisyUrl(url);
+
+    expect(decision.blocked).toBe(true);
+    if (decision.blocked) {
+      expect(decision.reason).toBe("site_homepage");
+    }
+  });
+
+  it.each([
+    {
+      name: "Story under a companies section",
+      url: "https://example.com/business/companies/telkom-lands-subsea-cable",
+    },
+    {
+      name: "Headline containing the word companies",
+      url: "https://example.com/news/top-companies-to-watch-2026",
+    },
+    {
+      name: "Story under a newsroom section",
+      url: "https://example.com/newsroom/telkom-perkuat-konektivitas-digital",
+    },
+    {
+      name: "Story under a press-releases section",
+      url: "https://example.com/press-releases/nacsa-mcmc-ibm-partnership",
+    },
+  ])("keeps a real article: $name", ({ url }) => {
+    expect(classifyNoisyUrl(url).blocked).toBe(false);
+  });
+});
+
+describe("classifyNoisyUrl: Indonesian section pages and pagination", () => {
+  it("blocks a rubrik section listing", () => {
+    expect(classifyNoisyUrl("https://selular.id/rubrik/telkom").blocked).toBe(
+      true,
+    );
+  });
+
+  it("blocks a rubrik sub-section even though the path contains /news/", () => {
+    const decision = classifyNoisyUrl("https://selular.id/rubrik/news/feature");
+
+    expect(decision.blocked).toBe(true);
+    if (decision.blocked) {
+      expect(decision.reason).toBe("site_homepage");
+    }
+  });
+
+  it("blocks a broker stock-price page", () => {
+    expect(
+      classifyNoisyUrl("https://ajaib.co.id/saham/aset/TLKM").blocked,
+    ).toBe(true);
+  });
+
+  it("blocks a paginated continuation of an article", () => {
+    expect(
+      classifyNoisyUrl(
+        "https://www.bloombergtechnoz.com/detail-news/115056/tlkm-diborong-asing-di-tengah-transformasi-bisnis/2",
+      ).blocked,
+    ).toBe(true);
+  });
+
+  it.each([
+    {
+      name: "First page of the same article",
+      url: "https://www.bloombergtechnoz.com/detail-news/115056/tlkm-diborong-asing-di-tengah-transformasi-bisnis",
+    },
+    {
+      name: "Article whose path ends in a long numeric id",
+      url: "https://investor.id/business/447241/pendaratan-kabel-nongsachangi-dorong-kemitraan",
+    },
+    {
+      name: "Article under a saham section",
+      url: "https://www.liputan6.com/saham/read/8250770/fore-bukukan-laba-bersih-semester-i-2026",
+    },
+    {
+      name: "Selular article at its dated permalink",
+      url: "https://selular.id/2026/07/telkomgroup-perkuat-gerbang-digital-lewat-kabel-laut-ncc",
+    },
+  ])("keeps a real article: $name", ({ url }) => {
+    expect(classifyNoisyUrl(url).blocked).toBe(false);
   });
 });
