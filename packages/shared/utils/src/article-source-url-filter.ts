@@ -87,6 +87,7 @@ const NON_ARTICLE_HUB_HOST_PATH_PATTERNS = [
   },
   { host: /(^|\.)fintel\.io$/i, path: /^\/s\//i },
   { host: /(^|\.)sectors\.app$/i, path: /^\/idx\//i },
+  { host: /(^|\.)ajaib\.co\.id$/i, path: /^\/saham\/aset\//i },
   { host: /(^|\.)pluang\.com$/i, path: /^\/en\/asset\//i },
   { host: /(^|\.)perplexity\.ai$/i, path: /^\/finance\//i },
   { host: /(^|\.)quartr\.com$/i, path: /^\/companies\//i },
@@ -129,6 +130,7 @@ const BLOCKED_EXTENSION_PATTERNS = [/\.(pdf|xml)(\/|$)/i] as const;
 
 const BLOCKED_PATH_PATTERNS = [
   /\/category\//i,
+  /\/rubrik\//i,
   /\/tag\//i,
   /\/topic\//i,
   /\/topics\//i,
@@ -176,6 +178,10 @@ const HOMEPAGE_PATH_SEGMENTS = new Set([
   "pressreleases",
   "newsroom",
   "siaran-pers",
+  "feature",
+  "features",
+  "rubrik",
+  "kanal",
 ]);
 
 const LOCALE_ONLY_SEGMENT = /^[a-z]{2}(?:[-_][a-z]{2})?$/i;
@@ -200,6 +206,7 @@ const NON_ARTICLE_PAGE_PATTERNS = [
   /\/page\/[a-z0-9-]*\d+$/i,
   /\/(technologies|technology|solutions|platforms?)(\/|$)/i,
   /\/[a-z]+-companies(\/|$)/i,
+  /\/[a-z0-9-]{16,}\/\d{1,3}$/i,
 ] as const;
 
 export type UrlNoiseReason =

@@ -631,3 +631,55 @@ describe("classifyNoisyUrl: vendor and directory pages", () => {
     expect(classifyNoisyUrl(url).blocked).toBe(false);
   });
 });
+
+describe("classifyNoisyUrl: Indonesian section pages and pagination", () => {
+  it("blocks a rubrik section listing", () => {
+    expect(classifyNoisyUrl("https://selular.id/rubrik/telkom").blocked).toBe(
+      true,
+    );
+  });
+
+  it("blocks a rubrik sub-section even though the path contains /news/", () => {
+    const decision = classifyNoisyUrl("https://selular.id/rubrik/news/feature");
+
+    expect(decision.blocked).toBe(true);
+    if (decision.blocked) {
+      expect(decision.reason).toBe("site_homepage");
+    }
+  });
+
+  it("blocks a broker stock-price page", () => {
+    expect(
+      classifyNoisyUrl("https://ajaib.co.id/saham/aset/TLKM").blocked,
+    ).toBe(true);
+  });
+
+  it("blocks a paginated continuation of an article", () => {
+    expect(
+      classifyNoisyUrl(
+        "https://www.bloombergtechnoz.com/detail-news/115056/tlkm-diborong-asing-di-tengah-transformasi-bisnis/2",
+      ).blocked,
+    ).toBe(true);
+  });
+
+  it.each([
+    {
+      name: "First page of the same article",
+      url: "https://www.bloombergtechnoz.com/detail-news/115056/tlkm-diborong-asing-di-tengah-transformasi-bisnis",
+    },
+    {
+      name: "Article whose path ends in a long numeric id",
+      url: "https://investor.id/business/447241/pendaratan-kabel-nongsachangi-dorong-kemitraan",
+    },
+    {
+      name: "Article under a saham section",
+      url: "https://www.liputan6.com/saham/read/8250770/fore-bukukan-laba-bersih-semester-i-2026",
+    },
+    {
+      name: "Selular article at its dated permalink",
+      url: "https://selular.id/2026/07/telkomgroup-perkuat-gerbang-digital-lewat-kabel-laut-ncc",
+    },
+  ])("keeps a real article: $name", ({ url }) => {
+    expect(classifyNoisyUrl(url).blocked).toBe(false);
+  });
+});
