@@ -298,3 +298,147 @@ describe("classifyNoisyUrl", () => {
     expect(decision.blocked).toBe(false);
   });
 });
+
+describe("classifyNoisyUrl: non-article pages seen in collected data", () => {
+  it.each([
+    { name: "Bare domain", url: "https://cloudin.asia" },
+    { name: "Bare domain with www", url: "https://www.indotelko.com" },
+    { name: "Bare domain, country TLD", url: "https://dnb.co.id" },
+    {
+      name: "Bare domain with trailing slash",
+      url: "https://www.siberindo.io/",
+    },
+    { name: "Homepage under a locale path", url: "https://ioh.co.id/EN/home" },
+    { name: "Section index segment", url: "https://example.com/berita/index" },
+  ])("site homepage: $name", ({ url }) => {
+    const decision = classifyNoisyUrl(url);
+
+    expect(decision.blocked).toBe(true);
+    if (decision.blocked) {
+      expect(decision.reason).toBe("site_homepage");
+    }
+  });
+
+  it.each([
+    {
+      name: "Generated ticker comparison page",
+      url: "https://pluang.com/en/compare/fore-idss-vs-pskt-idss",
+    },
+    {
+      name: "Generated ticker comparison page, other pair",
+      url: "https://pluang.com/en/compare/masb-idss-vs-tlkm-idss",
+    },
+    {
+      name: "Academic author profile",
+      url: "https://www.researchgate.net/profile/Fitri-Kartiasih",
+    },
+    {
+      name: "Dividend data page",
+      url: "https://stockinvest.us/dividends/TLK",
+    },
+  ])("non-article page: $name", ({ url }) => {
+    const decision = classifyNoisyUrl(url);
+
+    expect(decision.blocked).toBe(true);
+    if (decision.blocked) {
+      expect(decision.reason).toBe("non_article_page");
+    }
+  });
+
+  it("blocks the plural company-profiles path exchanges use", () => {
+    const decision = classifyNoisyUrl(
+      "https://www.idx.id/en/listed-companies/company-profiles/TLKM",
+    );
+
+    expect(decision.blocked).toBe(true);
+  });
+
+  it.each([
+    {
+      name: "Substack post",
+      url: "https://neverlater.substack.com/p/teazzi-has-built-a-strong-presence",
+    },
+    {
+      name: "News slug with id",
+      url: "https://emitennews.com/news/ternyata-ini-alasan-fore-belum-bagi-dividen-meski-omset-naik-5172",
+    },
+    {
+      name: "Indonesian news portal",
+      url: "https://www.antaranews.com/berita/5657688/konektivitas-berbasis-ai-asia-pasifik",
+    },
+    {
+      name: "Analysis slug",
+      url: "https://katadata.co.id/analisisdata/6a58a56fde9d7/transformasi-tlkm-30",
+    },
+    {
+      name: "Read path with numeric ids",
+      url: "https://teknologi.bisnis.com/read/20260716/101/1988449/strategi-perampingan-telkom-tlkm",
+    },
+    {
+      name: "Research report slug",
+      url: "https://www.brights.id/en/research-and-news/research-report/telkom-indonesia-tlkmij-rp-2520-buy",
+    },
+    {
+      name: "Market trend slug",
+      url: "https://www.trenasia.id/tren-pasar/saham-tlkm-masih-murah-asing-borong-saat-pasar-berdarah",
+    },
+  ])("keeps a real article: $name", ({ url }) => {
+    const decision = classifyNoisyUrl(url);
+
+    expect(decision.blocked).toBe(false);
+  });
+});
+
+describe("classifyNoisyUrl: reference and market-data pages", () => {
+  it.each([
+    {
+      name: "Wikipedia article in any language",
+      url: "https://ms.wikipedia.org/wiki/Antigua_dan_Barbuda",
+    },
+    {
+      name: "English Wikipedia",
+      url: "https://en.wikipedia.org/wiki/Telkom_Indonesia",
+    },
+    {
+      name: "Britannica entry",
+      url: "https://www.britannica.com/money/telecommunications",
+    },
+  ])("encyclopedia source: $name", ({ url }) => {
+    const decision = classifyNoisyUrl(url);
+
+    expect(decision.blocked).toBe(true);
+    if (decision.blocked) {
+      expect(decision.reason).toBe("low_value_source");
+    }
+  });
+
+  it.each([
+    {
+      name: "Broker research ratings page",
+      url: "https://www.barrons.com/market-data/stocks/tlkm/research-ratings?countrycode=id",
+    },
+    {
+      name: "Financials tab",
+      url: "https://example.com/stocks/tlkm/financials",
+    },
+    {
+      name: "Balance sheet tab",
+      url: "https://example.com/stocks/tlkm/balance-sheet",
+    },
+  ])("market-data page: $name", ({ url }) => {
+    const decision = classifyNoisyUrl(url);
+
+    expect(decision.blocked).toBe(true);
+    if (decision.blocked) {
+      expect(decision.reason).toBe("non_article_page");
+    }
+  });
+
+  it("keeps a news story about company earnings", () => {
+    const decision = classifyNoisyUrl(
+      "https://www.trenasia.id/tren-pasar/saham-tlkm-masih-murah-asing-borong-saat-pasar-berdarah",
+    );
+
+    expect(decision.blocked).toBe(false);
+  });
+});

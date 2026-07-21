@@ -38,7 +38,7 @@ const withTestConfig = (
   });
 
 const searchHit: WebSearchResult = {
-  url: "http://example.com",
+  url: "http://example.com/news/bbca-laba-kuartal-iii",
   title: validTitle,
   content:
     "Bank Central Asia membukukan laba bersih yang naik pada kuartal ini",
@@ -217,7 +217,7 @@ describe("runDataCollection", () => {
     });
     expect(createMock).toHaveBeenCalledWith([
       {
-        url: "http://example.com",
+        url: "http://example.com/news/bbca-laba-kuartal-iii",
         title: validTitle,
         description:
           "Bank Central Asia membukukan laba bersih yang naik pada kuartal ini",
@@ -242,7 +242,7 @@ describe("runDataCollection", () => {
 
   it("skips hits whose canonical URL already exists", async () => {
     existingUrlsCreateMock.mockResolvedValueOnce({
-      existingUrls: ["http://example.com"],
+      existingUrls: ["http://example.com/news/bbca-laba-kuartal-iii"],
       hostCounts: {},
     });
 

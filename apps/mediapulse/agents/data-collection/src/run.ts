@@ -223,6 +223,8 @@ export async function runDataCollection(
     blocked_host_path: 0,
     blocked_path: 0,
     blocked_extension: 0,
+    site_homepage: 0,
+    non_article_page: 0,
   };
   let droppedByDuplicateCanonicalUrl = 0;
   let droppedByExistingCanonicalUrl = 0;
@@ -766,7 +768,13 @@ export async function runDataCollection(
       status,
       persisted: totalSources,
       droppedByFreshness: droppedByFreshnessTotalCount,
-      contentQualityDropped: 0,
+      droppedByRelevance,
+      droppedByNonArticleUrl:
+        droppedByUrlReason.site_homepage + droppedByUrlReason.non_article_page,
+      droppedByThinDescription:
+        droppedByEmptyDescription + droppedByShortDescription,
+      droppedByDuplicate:
+        droppedByDuplicateCanonicalUrl + droppedByDuplicateTitle,
       failureCount: failuresPayload.length,
       stopReason: refillStopReason,
       roundsExecuted,

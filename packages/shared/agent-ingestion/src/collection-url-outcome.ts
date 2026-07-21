@@ -30,6 +30,9 @@ export const REASON_LABELS: Record<string, string> = {
   url_noise_blocked_host_path: "Blocked host path",
   url_noise_blocked_path: "Blocked path",
   url_noise_blocked_extension: "Blocked file extension",
+  url_noise_site_homepage: "Site or section homepage, not an article",
+  url_noise_non_article_page:
+    "Generated tool or reference page, not an article",
   content_no_title: "Missing or blocked title",
   content_soft_404: "Page not found",
   content_access_gated: "Access gated (paywall or login required)",
@@ -92,7 +95,9 @@ export const describeOutcomeReason = (
     case "url_noise_low_value_source":
     case "url_noise_blocked_host_path":
     case "url_noise_blocked_path":
-    case "url_noise_blocked_extension": {
+    case "url_noise_blocked_extension":
+    case "url_noise_site_homepage":
+    case "url_noise_non_article_page": {
       const label = REASON_LABELS[context.reason] ?? context.reason;
       return {
         reason: context.reason,

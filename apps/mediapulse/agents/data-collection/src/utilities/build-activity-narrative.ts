@@ -4,6 +4,15 @@ function n(count: number, singular: string, pluralForm?: string): string {
   return `${count} ${count === 1 ? singular : (pluralForm ?? `${singular}s`)}`;
 }
 
+/** Joins clauses as `a`, `a and b`, or `a, b and c`. */
+function joinClauses(parts: string[]): string {
+  if (parts.length <= 1) {
+    return parts.join("");
+  }
+
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
 export function narrativeRunStart(subject: TickerSubject): [string, string] {
   return [
     `Collecting news for ${subject.symbol}`,
@@ -23,8 +32,8 @@ export function narrativeSearching(
 
 export function narrativeFetching(subject: TickerSubject): [string, string] {
   return [
-    "Fetching & filtering articles",
-    `Downloading candidate articles for ${subject.symbol} and applying freshness and quality checks.`,
+    "Screening results",
+    `Checking search results for ${subject.symbol} against the freshness, relevance, and article-shape gates.`,
   ];
 }
 
@@ -34,7 +43,10 @@ export function narrativeRunComplete(
     status: "success" | "partial_success" | "failed";
     persisted: number;
     droppedByFreshness: number;
-    contentQualityDropped: number;
+    droppedByRelevance: number;
+    droppedByNonArticleUrl: number;
+    droppedByThinDescription: number;
+    droppedByDuplicate: number;
     failureCount: number;
     stopReason: string | null;
     roundsExecuted: number;
@@ -50,15 +62,24 @@ export function narrativeRunComplete(
       : `No new sources were saved for ${subject.symbol}`;
 
   const dropParts: string[] = [];
+  if (opts.droppedByRelevance > 0) {
+    dropParts.push(`${opts.droppedByRelevance} never mentioned the ticker`);
+  }
+  if (opts.droppedByNonArticleUrl > 0) {
+    dropParts.push(`${opts.droppedByNonArticleUrl} were not articles`);
+  }
   if (opts.droppedByFreshness > 0) {
     dropParts.push(`${opts.droppedByFreshness} were stale`);
   }
-  if (opts.contentQualityDropped > 0) {
-    dropParts.push(`${opts.contentQualityDropped} failed quality checks`);
+  if (opts.droppedByThinDescription > 0) {
+    dropParts.push(`${opts.droppedByThinDescription} had too little text`);
+  }
+  if (opts.droppedByDuplicate > 0) {
+    dropParts.push(`${opts.droppedByDuplicate} were duplicates`);
   }
 
   const dropClause =
-    dropParts.length > 0 ? `; ${dropParts.join(", ")} and were dropped` : "";
+    dropParts.length > 0 ? `; dropped ${joinClauses(dropParts)}` : "";
 
   let stopClause = "";
   if (
