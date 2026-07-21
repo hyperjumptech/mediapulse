@@ -54,10 +54,11 @@ describe("narrativeSearching", () => {
 });
 
 describe("narrativeFetching", () => {
-  it("titles the combined fetch and filter phase", () => {
+  it("titles the screening phase without implying a fetch", () => {
     const [title, description] = narrativeFetching(subject);
-    expect(title).toBe("Fetching & filtering articles");
+    expect(title).toBe("Screening results");
     expect(description).toContain("BUVA");
+    expect(description.toLowerCase()).not.toContain("download");
   });
 
   it("does not contain a UUID pattern", () => {
@@ -73,7 +74,10 @@ describe("narrativeRunComplete", () => {
       status: "success",
       persisted: 5,
       droppedByFreshness: 3,
-      contentQualityDropped: 0,
+      droppedByRelevance: 0,
+      droppedByNonArticleUrl: 0,
+      droppedByThinDescription: 0,
+      droppedByDuplicate: 0,
       failureCount: 0,
       stopReason: null,
       roundsExecuted: 1,
@@ -89,7 +93,10 @@ describe("narrativeRunComplete", () => {
       status: "partial_success",
       persisted: 0,
       droppedByFreshness: 0,
-      contentQualityDropped: 0,
+      droppedByRelevance: 0,
+      droppedByNonArticleUrl: 0,
+      droppedByThinDescription: 0,
+      droppedByDuplicate: 0,
       failureCount: 0,
       stopReason: null,
       roundsExecuted: 1,
@@ -103,7 +110,10 @@ describe("narrativeRunComplete", () => {
       status: "success",
       persisted: 5,
       droppedByFreshness: 0,
-      contentQualityDropped: 0,
+      droppedByRelevance: 0,
+      droppedByNonArticleUrl: 0,
+      droppedByThinDescription: 0,
+      droppedByDuplicate: 0,
       failureCount: 0,
       stopReason: "daily_target_met",
       roundsExecuted: 1,
@@ -117,7 +127,10 @@ describe("narrativeRunComplete", () => {
       status: "partial_success",
       persisted: 3,
       droppedByFreshness: 0,
-      contentQualityDropped: 0,
+      droppedByRelevance: 0,
+      droppedByNonArticleUrl: 0,
+      droppedByThinDescription: 0,
+      droppedByDuplicate: 0,
       failureCount: 0,
       stopReason: "wall_clock_exceeded",
       roundsExecuted: 1,
@@ -131,7 +144,10 @@ describe("narrativeRunComplete", () => {
       status: "success",
       persisted: 0,
       droppedByFreshness: 0,
-      contentQualityDropped: 0,
+      droppedByRelevance: 0,
+      droppedByNonArticleUrl: 0,
+      droppedByThinDescription: 0,
+      droppedByDuplicate: 0,
       failureCount: 0,
       stopReason: "no_queries",
       roundsExecuted: 0,
@@ -145,7 +161,10 @@ describe("narrativeRunComplete", () => {
       status: "success",
       persisted: 0,
       droppedByFreshness: 0,
-      contentQualityDropped: 0,
+      droppedByRelevance: 0,
+      droppedByNonArticleUrl: 0,
+      droppedByThinDescription: 0,
+      droppedByDuplicate: 0,
       failureCount: 0,
       stopReason: "daily_target_met_before_start",
       roundsExecuted: 0,
@@ -159,7 +178,10 @@ describe("narrativeRunComplete", () => {
       status: "failed",
       persisted: 0,
       droppedByFreshness: 0,
-      contentQualityDropped: 0,
+      droppedByRelevance: 0,
+      droppedByNonArticleUrl: 0,
+      droppedByThinDescription: 0,
+      droppedByDuplicate: 0,
       failureCount: 2,
       stopReason: null,
       roundsExecuted: 1,
@@ -173,7 +195,10 @@ describe("narrativeRunComplete", () => {
       status: "success",
       persisted: 3,
       droppedByFreshness: 1,
-      contentQualityDropped: 1,
+      droppedByRelevance: 0,
+      droppedByNonArticleUrl: 0,
+      droppedByThinDescription: 1,
+      droppedByDuplicate: 0,
       failureCount: 0,
       stopReason: null,
       roundsExecuted: 2,

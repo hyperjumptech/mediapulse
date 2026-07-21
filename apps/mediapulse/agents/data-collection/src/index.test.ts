@@ -110,7 +110,7 @@ const defaultSearchSuccess = [
   {
     success: true,
     data: {
-      url: "http://example.com",
+      url: "http://example.com/news/bbca-laba-kuartal-iii",
       title: validArticleTitle,
       content: "Snippet",
       tickerId: TICKER_ID,
@@ -124,7 +124,7 @@ const defaultSearchSuccess = [
 const defaultFetchSuccess = [
   {
     success: {
-      url: "http://example.com",
+      url: "http://example.com/news/bbca-laba-kuartal-iii",
       title: validArticleTitle,
       content: validArticleContent,
       tickerId: TICKER_ID,

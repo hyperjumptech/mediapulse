@@ -36,6 +36,14 @@ const LOW_VALUE_SOURCE_HOST_PATTERNS = [
   /(^|\.)marketresearchfuture\.com$/i,
   /(^|\.)futuremarketinsights\.com$/i,
   /(^|\.)verifiedmarketresearch\.com$/i,
+  // Encyclopedias and wikis: reference material, never reporting. Their articles
+  // routinely mention an industry in passing, so relevance gating cannot catch them.
+  /(^|\.)wikipedia\.org$/i,
+  /(^|\.)wikimedia\.org$/i,
+  /(^|\.)wiktionary\.org$/i,
+  /(^|\.)wikiwand\.com$/i,
+  /(^|\.)fandom\.com$/i,
+  /(^|\.)britannica\.com$/i,
 ] as const;
 
 /**
@@ -141,6 +149,34 @@ const BLOCKED_PATH_PATTERNS = [
   /\/press-release\/?$/i,
   /\/investor\/?$/i,
   /\/company(\/|$)/i,
+  /\/company-profiles(\/|$)/i,
+] as const;
+
+/** Terminal path segments that mark a section index rather than an article. */
+const HOMEPAGE_PATH_SEGMENTS = new Set([
+  "home",
+  "index",
+  "beranda",
+  "main",
+  "landing",
+]);
+
+/**
+ * Generated tool and reference pages. These match ticker terms perfectly (they are
+ * built from ticker symbols) yet contain no reporting, so relevance gating cannot
+ * catch them.
+ */
+const NON_ARTICLE_PAGE_PATTERNS = [
+  /\/compare(\/|$)/i,
+  /\/profiles?(\/|$)/i,
+  /\/(dividends|dividend)(\/|$)/i,
+  /\/(quote|quotes)(\/|$)/i,
+  /\/(chart|charts)(\/|$)/i,
+  /\/(screener|watchlist)(\/|$)/i,
+  /\/market-data(\/|$)/i,
+  /\/research-ratings(\/|$)/i,
+  /\/(financials|earnings|estimates|valuation)(\/|$)/i,
+  /\/(key-ratios|balance-sheet|cash-flow|income-statement)(\/|$)/i,
 ] as const;
 
 export type UrlNoiseReason =
@@ -148,7 +184,9 @@ export type UrlNoiseReason =
   | "low_value_source"
   | "blocked_host_path"
   | "blocked_path"
-  | "blocked_extension";
+  | "blocked_extension"
+  | "site_homepage"
+  | "non_article_page";
 
 export type UrlNoiseDecision =
   | { blocked: true; reason: UrlNoiseReason; canonicalUrl: string }
@@ -201,6 +239,26 @@ const pathnameMatchesArticleOverride = (pathname: string): boolean =>
   LIKELY_ARTICLE_PATH_PATTERNS.some((pattern) => pattern.test(pathname));
 
 /**
+ * Returns true when the pathname addresses a site or section homepage rather than
+ * a single story: a bare domain, or a path whose last segment is an index name.
+ *
+ * @param pathname - URL pathname (no query or hash).
+ */
+const pathnameIsHomepage = (pathname: string): boolean => {
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length === 0) {
+    return true;
+  }
+
+  const lastSegment = segments[segments.length - 1];
+  if (lastSegment === undefined) {
+    return true;
+  }
+
+  return HOMEPAGE_PATH_SEGMENTS.has(lastSegment.toLowerCase());
+};
+
+/**
  * Evaluates whether a URL should be blocked as a known non-article source for
  * data-collection and article-analysis prefilters.
  *
@@ -237,8 +295,18 @@ export const classifyNoisyUrl = (rawUrl: string): UrlNoiseDecision => {
     return { blocked: true, reason: "blocked_host_path", canonicalUrl };
   }
 
+  // Checked before the article-shaped override: a homepage is never a story, no
+  // matter which section name appears earlier in the path.
+  if (pathnameIsHomepage(pathname)) {
+    return { blocked: true, reason: "site_homepage", canonicalUrl };
+  }
+
   if (pathnameMatchesArticleOverride(pathname)) {
     return { blocked: false, canonicalUrl };
+  }
+
+  if (NON_ARTICLE_PAGE_PATTERNS.some((pattern) => pattern.test(pathname))) {
+    return { blocked: true, reason: "non_article_page", canonicalUrl };
   }
 
   if (BLOCKED_EXTENSION_PATTERNS.some((pattern) => pattern.test(pathname))) {

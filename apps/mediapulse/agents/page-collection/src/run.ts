@@ -289,6 +289,8 @@ async function executePageCollectionRun(
     blocked_host_path: 0,
     blocked_path: 0,
     blocked_extension: 0,
+    site_homepage: 0,
+    non_article_page: 0,
   };
   let droppedByDuplicateCanonicalUrl = 0;
   let droppedByExistingCanonicalUrl = 0;
@@ -397,8 +399,10 @@ async function executePageCollectionRun(
   );
 
   report(
-    "Collecting articles",
-    `${candidatesAfterBudget.length} candidate URLs`,
+    "Screening candidates",
+    `Checking ${candidatesAfterBudget.length} candidate URL${
+      candidatesAfterBudget.length === 1 ? "" : "s"
+    } against the freshness, relevance, and article-shape gates.`,
   );
 
   if (Date.now() > deadline) {
@@ -678,7 +682,47 @@ async function executePageCollectionRun(
     });
   }
 
-  report("Page collection complete", `${totalSources} persisted`, "completed");
+  const dropParts: string[] = [];
+  if (droppedByRelevance > 0) {
+    dropParts.push(`${droppedByRelevance} never mentioned a tracked ticker`);
+  }
+  const droppedByNonArticleUrl =
+    droppedByUrlReason.site_homepage + droppedByUrlReason.non_article_page;
+  if (droppedByNonArticleUrl > 0) {
+    dropParts.push(`${droppedByNonArticleUrl} were not articles`);
+  }
+  if (droppedByFreshness > 0) {
+    dropParts.push(`${droppedByFreshness} were stale`);
+  }
+  const droppedByThinDescription =
+    droppedByMissingDescription + droppedByShortDescription;
+  if (droppedByThinDescription > 0) {
+    dropParts.push(`${droppedByThinDescription} had too little text`);
+  }
+  const droppedByDuplicate =
+    droppedByDuplicateCanonicalUrl + droppedByDuplicateTitle;
+  if (droppedByDuplicate > 0) {
+    dropParts.push(`${droppedByDuplicate} were duplicates`);
+  }
+
+  const savedClause =
+    totalSources > 0
+      ? `Saved ${totalSources} new source${totalSources === 1 ? "" : "s"}`
+      : "No new sources were saved";
+  const dropClause =
+    dropParts.length > 0
+      ? `; dropped ${
+          dropParts.length === 1
+            ? dropParts[0]
+            : `${dropParts.slice(0, -1).join(", ")} and ${dropParts[dropParts.length - 1]}`
+        }`
+      : "";
+
+  report(
+    "Page collection complete",
+    `${savedClause}${dropClause}.`,
+    "completed",
+  );
 
   const completionLogs = runLogBuffer.toArray();
   return {
