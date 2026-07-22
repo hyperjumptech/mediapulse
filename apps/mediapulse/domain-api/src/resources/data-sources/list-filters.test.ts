@@ -59,11 +59,11 @@ describe("buildDataSourceListWhere", () => {
     });
   });
 
-  it("filters global articles by collection gate status", () => {
+  it("filters page-collection articles by collection gate status", () => {
     expect(
       buildDataSourceListWhere({ collectionGateStatus: "passed" }),
     ).toEqual({
-      tickerId: null,
+      searchQueryId: null,
       collectionGateStatus: "passed",
     });
   });

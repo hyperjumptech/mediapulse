@@ -20,7 +20,7 @@ export type DataSourceListFilters = {
   from?: Date;
   /** Upper bound on `createdAt` (inclusive). */
   to?: Date;
-  /** Gate status for global page-collection articles (`tickerId` null). */
+  /** Gate status for global page-collection articles (`searchQueryId` null). */
   collectionGateStatus?: CollectionGateStatusFilter;
 };
 
@@ -69,7 +69,7 @@ export const buildDataSourceListWhere = (
 
   if (filters.collectionGateStatus) {
     parts.push({
-      tickerId: null,
+      searchQueryId: null,
       collectionGateStatus: filters.collectionGateStatus,
     });
   }

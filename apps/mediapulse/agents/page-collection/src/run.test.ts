@@ -128,6 +128,9 @@ describe("runPageCollection", () => {
 
     expect(persistedSource.curatedSourceListingUrl).toBe(SOURCE_URL);
     expect(persistedSource.collectionGateStatus).toBe("passed");
+    expect(persistedSource.tickerId).toBe(
+      "44444444-4444-4444-a444-444444444444",
+    );
     expect(persistedSource.url).toBe(SOURCE_URL);
     expect(persistedSource.title).toBe("BBCA article title");
     expect(persistedSource.description).toBe(
