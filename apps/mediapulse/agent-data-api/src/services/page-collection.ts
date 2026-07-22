@@ -61,7 +61,7 @@ export const persistPageCollectionArticles = async (
       content: row.content ?? null,
       ...(row.author ? { author: row.author } : {}),
       ...(row.source ? { source: row.source } : {}),
-      tickerId: null,
+      tickerId: row.tickerId ?? null,
       searchQueryId: null,
       curatedSourceId,
       dataCollectionRunId: row.dataCollectionRunId ?? null,
@@ -80,7 +80,7 @@ export const persistPageCollectionArticles = async (
 };
 
 /**
- * Returns global article URLs that already exist (ticker_id IS NULL).
+ * Returns page-collection article URLs that already exist (search_query_id IS NULL).
  *
  * @param body - Candidate URLs to check.
  * @param deps - Injectable database delegates.
@@ -98,7 +98,7 @@ export const lookupGlobalExistingUrls = async (
 
   const findArgs = {
     where: {
-      tickerId: null,
+      searchQueryId: null,
       canonicalUrl: {
         in: uniqueRequested.map((url) => {
           try {
@@ -164,7 +164,7 @@ export const listPageCollectionArticles = async (
   const skip = (page - 1) * pageSize;
 
   const where = {
-    tickerId: null,
+    searchQueryId: null,
     ...(query.gateStatus ? { collectionGateStatus: query.gateStatus } : {}),
     ...(query.curatedSourceId
       ? { curatedSourceId: query.curatedSourceId }

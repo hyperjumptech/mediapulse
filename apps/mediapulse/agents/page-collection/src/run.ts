@@ -516,6 +516,7 @@ async function executePageCollectionRun(
       description,
       ...(resolvedSource ? { source: resolvedSource } : {}),
       curatedSourceListingUrl: item.sourceListingUrl,
+      tickerId: relevanceMatch.tickerId,
       dataCollectionRunId: runId,
       collectionGateStatus: "passed",
       ...(publishedAt ? { publishedAt: publishedAt.toISOString() } : {}),

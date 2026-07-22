@@ -90,6 +90,7 @@ describe("persistPageCollectionArticles", () => {
           title: "One",
           description: "Feed description one",
           curatedSourceListingUrl: "https://example.com/news",
+          tickerId: "33333333-3333-4333-a333-333333333333",
           collectionGateStatus: "passed",
         },
         {
@@ -108,11 +109,16 @@ describe("persistPageCollectionArticles", () => {
     expect(create.mock.calls[0]?.[0]?.data).toMatchObject({
       canonicalUrl: "https://example.com/article/1",
       curatedSourceId: "curated-1",
-      tickerId: null,
+      tickerId: "33333333-3333-4333-a333-333333333333",
       searchQueryId: null,
       description: "Feed description one",
       content: null,
       collectionGateStatus: "passed",
+    });
+    expect(create.mock.calls[1]?.[0]?.data).toMatchObject({
+      canonicalUrl: "https://example.com/article/2",
+      tickerId: null,
+      searchQueryId: null,
     });
   });
 

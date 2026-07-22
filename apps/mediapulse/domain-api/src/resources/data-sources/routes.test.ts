@@ -89,7 +89,7 @@ describe("dataSourcesRoutes", () => {
     expect(prisma.dataSource.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          tickerId: null,
+          searchQueryId: null,
           collectionGateStatus: "failed",
         },
       }),

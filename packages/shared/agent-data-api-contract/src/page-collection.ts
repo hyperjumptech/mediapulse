@@ -10,6 +10,7 @@ const pageCollectionArticleInputSchema = z.object({
   author: z.string().optional(),
   source: z.string().optional(),
   curatedSourceListingUrl: z.string().url(),
+  tickerId: z.string().uuid().optional(),
   dataCollectionRunId: z.string().uuid().optional(),
   publishedAt: z.string().datetime().optional(),
   metadata: z.object({ provider: z.string().optional() }).optional(),
