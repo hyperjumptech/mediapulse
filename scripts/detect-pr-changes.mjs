@@ -65,13 +65,20 @@ const writeGithubOutput = (outputs) => {
   }
 };
 
+const EMPTY_TREE_SHA = "0000000000000000000000000000000000000000";
+
 const format = getArgValue("format", "gha");
-const eventName = getArgValue("event", process.env.EVENT_NAME ?? "pull_request");
-const baseSha = getArgValue("base", process.env.PR_BASE_SHA ?? "");
+const eventName = getArgValue(
+  "event",
+  process.env.EVENT_NAME ?? "pull_request",
+);
+const rawBaseSha = getArgValue("base", process.env.PR_BASE_SHA ?? "");
+const baseSha = rawBaseSha === EMPTY_TREE_SHA ? "" : rawBaseSha;
 const headSha = getArgValue("head", process.env.PR_HEAD_SHA ?? "HEAD");
 const workflow = getArgValue("workflow", "all");
 
-const changedFiles = listChangedFiles(baseSha, headSha);
+const changedFiles =
+  baseSha && headSha ? listChangedFiles(baseSha, headSha) : [];
 const result = detectPrChanges({ changedFiles, eventName, baseSha, headSha });
 
 if (format === "json") {
