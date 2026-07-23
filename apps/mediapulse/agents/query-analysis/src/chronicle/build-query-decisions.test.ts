@@ -2,33 +2,26 @@ import { describe, expect, it } from "vitest";
 
 import { buildQueryDecisions } from "./build-query-decisions";
 import type { FinalizedQuery } from "../select/finalize";
-import type { ProbedCandidate, ProbeSurvivor } from "../probe/yield-probe";
+import type { Candidate } from "../pipeline/types";
 
 describe("buildQueryDecisions", () => {
-  it("marks finalized survivors included and other survivors/dropped rejected with reasons", () => {
+  it("marks finalized candidates included and the rest rejected over quota", () => {
     // Setup
-    const survivors: ProbeSurvivor[] = [
+    const candidates: Candidate[] = [
       {
         text: "Fore Coffee ekspansi gerai",
         intent: "dealsAndMovements",
         language: "id",
-        hits: 42,
-        rank: 1,
       },
       {
         text: "Fore Coffee kinerja kuartal",
         intent: "dealsAndMovements",
         language: "id",
-        hits: 10,
-        rank: 2,
       },
-    ];
-    const dropped: ProbedCandidate[] = [
       {
         text: "Fore Coffee obscure query",
         intent: "industryPulse",
         language: "id",
-        hits: 0,
       },
     ];
     const finalized: FinalizedQuery[] = [
@@ -40,14 +33,14 @@ describe("buildQueryDecisions", () => {
     ];
 
     // Act
-    const decisions = buildQueryDecisions({ survivors, dropped, finalized });
+    const decisions = buildQueryDecisions({ candidates, finalized });
 
     // Assert
     expect(decisions).toEqual([
       {
         text: "Fore Coffee ekspansi gerai",
         included: true,
-        reason: "included — 42 search hits",
+        reason: "included — selected for its section",
       },
       {
         text: "Fore Coffee kinerja kuartal",
@@ -57,39 +50,32 @@ describe("buildQueryDecisions", () => {
       {
         text: "Fore Coffee obscure query",
         included: false,
-        reason: "rejected — 0 search hits (below minimum)",
+        reason: "rejected — not selected (over quota)",
       },
     ]);
   });
 
-  it("marks a dropped candidate reinstated into the finalized set as included", () => {
+  it("matches finalized text regardless of whitespace and case", () => {
     // Setup
-    const dropped: ProbedCandidate[] = [
+    const candidates: Candidate[] = [
       {
-        text: "Reinstated query",
-        intent: "dealsAndMovements",
-        language: "en",
-        hits: 1,
+        text: "Bank Mandiri kredit korporasi",
+        intent: "competitiveLandscape",
+        language: "id",
       },
     ];
     const finalized: FinalizedQuery[] = [
-      { text: "Reinstated query", intent: "dealsAndMovements", rank: 1 },
+      {
+        text: "  bank   mandiri   kredit korporasi ",
+        intent: "competitiveLandscape",
+        rank: 1,
+      },
     ];
 
     // Act
-    const decisions = buildQueryDecisions({
-      survivors: [],
-      dropped,
-      finalized,
-    });
+    const decisions = buildQueryDecisions({ candidates, finalized });
 
     // Assert
-    expect(decisions).toEqual([
-      {
-        text: "Reinstated query",
-        included: true,
-        reason: "included — reinstated for a starved section",
-      },
-    ]);
+    expect(decisions[0]?.included).toBe(true);
   });
 });

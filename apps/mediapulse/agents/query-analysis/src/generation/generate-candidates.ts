@@ -3,10 +3,7 @@ import { generateObject } from "ai";
 import { extractLlmUsage, type OnLlmUsage } from "@workspace/agent-runtime";
 
 import type { QueryAnalysisAiConfig } from "../config-schema";
-import {
-  GENERATION_CANDIDATE_TARGET,
-  GENERATION_LLM_MAX_RETRIES,
-} from "../constants";
+import { GENERATION_LLM_MAX_RETRIES } from "../constants";
 import type { Classification, MarketContext } from "../pipeline/context";
 import type { Candidate, Language } from "../pipeline/types";
 import type { DiscoveredEntity } from "../discovery/schema";
@@ -28,6 +25,8 @@ export interface GenerateQueryCandidatesInput {
   customerSegments?: string[];
   languages: readonly Language[];
   currentDate: string;
+  /** Number of queries the model is asked to write for each intent. */
+  queriesPerIntent: number;
   ai: QueryAnalysisAiConfig;
   excludeQueries?: string[];
   /** Intents still short of their quota, with how many more each needs. */
@@ -109,12 +108,13 @@ const buildSystemPrompt = (
   contractBrief: string,
   currentDate: string,
   homeMarket: string,
+  queriesPerIntent: number,
 ): string => {
   const replacements: Record<string, string> = {
     CONTRACT_BRIEF: contractBrief.trim(),
     HOME_MARKET: homeMarket,
     CURRENT_DATE: currentDate,
-    CANDIDATE_TARGET: String(GENERATION_CANDIDATE_TARGET),
+    QUERIES_PER_INTENT: String(queriesPerIntent),
   };
 
   return GENERATION_SYSTEM_PROMPT_TEMPLATE.replace(
@@ -212,6 +212,7 @@ export const generateQueryCandidates = async (
         input.contractBrief,
         input.currentDate,
         input.market.homeMarket,
+        input.queriesPerIntent,
       ),
       prompt: buildPrompt(input),
       maxRetries: GENERATION_LLM_MAX_RETRIES,

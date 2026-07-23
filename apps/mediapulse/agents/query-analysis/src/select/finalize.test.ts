@@ -1,39 +1,27 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 
-import type { ProbedCandidate, ProbeSurvivor } from "../probe/yield-probe";
+import type { Candidate } from "../pipeline/types";
 import { finalizeQueries } from "./finalize";
 
-const survivor = (
+const candidate = (
   text: string,
-  intent: ProbeSurvivor["intent"],
-  hits: number,
-  language: ProbeSurvivor["language"] = "id",
-  rank = 1,
-): ProbeSurvivor => ({ text, intent, language, hits, rank });
-
-const dropped = (
-  text: string,
-  intent: ProbedCandidate["intent"],
-  language: ProbedCandidate["language"] = "id",
-): ProbedCandidate => ({ text, intent, language, hits: 0 });
+  intent: Candidate["intent"],
+  language: Candidate["language"] = "id",
+): Candidate => ({ text, intent, language });
 
 describe("finalizeQueries", () => {
-  it("takes the top queriesPerIntent by hits for each intent", () => {
-    const survivors = [
+  it("takes the first queriesPerIntent candidates for each intent in order", () => {
+    const candidates = [
       ...Array.from({ length: 9 }, (_unused, index) =>
-        survivor(`pulse ${index}`, "industryPulse", 100 - index),
+        candidate(`pulse ${index}`, "industryPulse"),
       ),
       ...Array.from({ length: 7 }, (_unused, index) =>
-        survivor(`comp ${index}`, "competitiveLandscape", 50 - index),
+        candidate(`comp ${index}`, "competitiveLandscape"),
       ),
     ];
 
-    const result = finalizeQueries({
-      survivors,
-      dropped: [],
-      queriesPerIntent: 5,
-    });
+    const result = finalizeQueries({ candidates, queriesPerIntent: 5 });
 
     const pulseQueries = result.queries.filter(
       (query) => query.intent === "industryPulse",
@@ -54,80 +42,26 @@ describe("finalizeQueries", () => {
   });
 
   it("caps the total at queriesPerIntent times the number of intents present", () => {
-    const survivors = [
+    const candidates = [
       ...Array.from({ length: 12 }, (_unused, index) =>
-        survivor(`pulse ${index}`, "industryPulse", 100 - index),
+        candidate(`pulse ${index}`, "industryPulse"),
       ),
       ...Array.from({ length: 12 }, (_unused, index) =>
-        survivor(`deal ${index}`, "dealsAndMovements", 50 - index),
+        candidate(`deal ${index}`, "dealsAndMovements"),
       ),
     ];
 
-    const result = finalizeQueries({
-      survivors,
-      dropped: [],
-      queriesPerIntent: 5,
-    });
+    const result = finalizeQueries({ candidates, queriesPerIntent: 5 });
 
     expect(result.queries).toHaveLength(10);
   });
 
-  it("fills an intent from probe-dropped candidates when nothing it generated yielded", () => {
-    const survivors = Array.from({ length: 8 }, (_unused, index) =>
-      survivor(`pulse ${index}`, "industryPulse", 100 - index),
-    );
-    const droppedCompetitors = Array.from({ length: 5 }, (_unused, index) =>
-      dropped(`competitor ${index}`, "competitiveLandscape"),
-    );
-
-    const result = finalizeQueries({
-      survivors,
-      dropped: droppedCompetitors,
-      queriesPerIntent: 5,
-    });
-
-    const competitiveCount = result.queries.filter(
-      (query) => query.intent === "competitiveLandscape",
-    ).length;
-
-    expect(competitiveCount).toBe(5);
-    expect(result.reinstated).toEqual(
-      expect.arrayContaining([
-        "competitor 0",
-        "competitor 1",
-        "competitor 2",
-        "competitor 3",
-        "competitor 4",
-      ]),
-    );
-  });
-
-  it("reinstates dropped candidates for otherwise starved sections", () => {
-    const result = finalizeQueries({
-      survivors: [survivor("industry theme", "industryPulse", 4)],
-      dropped: [
-        dropped("Bank Mandiri", "competitiveLandscape"),
-        dropped("OJK", "regulatoryPolicyWatch"),
-      ],
-      queriesPerIntent: 5,
-    });
-
-    const texts = result.queries.map((query) => query.text);
-
-    expect(texts).toContain("Bank Mandiri");
-    expect(texts).toContain("OJK");
-    expect(result.reinstated).toEqual(
-      expect.arrayContaining(["Bank Mandiri", "OJK"]),
-    );
-  });
-
   it("dedupes candidates by normalized text across intents", () => {
     const result = finalizeQueries({
-      survivors: [
-        survivor("Bank Mandiri", "competitiveLandscape", 9),
-        survivor("  bank   mandiri  ", "industryPulse", 3),
+      candidates: [
+        candidate("Bank Mandiri", "competitiveLandscape"),
+        candidate("  bank   mandiri  ", "industryPulse"),
       ],
-      dropped: [],
       queriesPerIntent: 5,
     });
 
@@ -136,57 +70,35 @@ describe("finalizeQueries", () => {
   });
 
   it("returns an empty set when there is nothing to finalize", () => {
-    const result = finalizeQueries({
-      survivors: [],
-      dropped: [],
-      queriesPerIntent: 5,
-    });
+    const result = finalizeQueries({ candidates: [], queriesPerIntent: 5 });
 
     expect(result.queries).toEqual([]);
   });
 
-  it("ranks the persisted queries by hits", () => {
+  it("ranks the persisted queries in generation order", () => {
     const result = finalizeQueries({
-      survivors: [
-        survivor("a", "competitiveLandscape", 2),
-        survivor("b", "competitiveLandscape", 9),
-        survivor("c", "competitiveLandscape", 5),
+      candidates: [
+        candidate("a", "competitiveLandscape"),
+        candidate("b", "competitiveLandscape"),
+        candidate("c", "competitiveLandscape"),
       ],
-      dropped: [],
       queriesPerIntent: 5,
     });
 
-    expect(result.queries.map((query) => query.text)).toEqual(["b", "c", "a"]);
+    expect(result.queries.map((query) => query.text)).toEqual(["a", "b", "c"]);
     expect(result.queries.map((query) => query.rank)).toEqual([1, 2, 3]);
-  });
-
-  it("falls back to dropped candidates when nothing yielded", () => {
-    const result = finalizeQueries({
-      survivors: [],
-      dropped: [
-        dropped("harga biji kopi", "industryPulse"),
-        dropped("inflasi Indonesia", "industryPulse", "en"),
-      ],
-      queriesPerIntent: 5,
-    });
-
-    expect(result.queries.map((query) => query.text).sort()).toEqual([
-      "harga biji kopi",
-      "inflasi Indonesia",
-    ]);
   });
 
   it("keeps an id/en mix when both languages are available", () => {
     const result = finalizeQueries({
-      survivors: [
-        survivor("id one", "competitiveLandscape", 9, "id"),
-        survivor("id two", "competitiveLandscape", 8, "id"),
-        survivor("id three", "competitiveLandscape", 7, "id"),
-        survivor("id four", "competitiveLandscape", 6, "id"),
-        survivor("id five", "competitiveLandscape", 5, "id"),
-        survivor("en one", "competitiveLandscape", 1, "en"),
+      candidates: [
+        candidate("id one", "competitiveLandscape", "id"),
+        candidate("id two", "competitiveLandscape", "id"),
+        candidate("id three", "competitiveLandscape", "id"),
+        candidate("id four", "competitiveLandscape", "id"),
+        candidate("id five", "competitiveLandscape", "id"),
+        candidate("en one", "competitiveLandscape", "en"),
       ],
-      dropped: [],
       queriesPerIntent: 5,
     });
 
@@ -203,11 +115,10 @@ describe("finalizeQueries", () => {
 
   it("reports per-intent and per-section counts", () => {
     const result = finalizeQueries({
-      survivors: [
-        survivor("comp", "competitiveLandscape", 5),
-        survivor("reg", "regulatoryPolicyWatch", 4),
+      candidates: [
+        candidate("comp", "competitiveLandscape"),
+        candidate("reg", "regulatoryPolicyWatch"),
       ],
-      dropped: [],
       queriesPerIntent: 5,
     });
 
@@ -218,8 +129,7 @@ describe("finalizeQueries", () => {
 
   it("always reports zero coverage for quickHits", () => {
     const result = finalizeQueries({
-      survivors: [survivor("comp", "competitiveLandscape", 5)],
-      dropped: [],
+      candidates: [candidate("comp", "competitiveLandscape")],
       queriesPerIntent: 5,
     });
 

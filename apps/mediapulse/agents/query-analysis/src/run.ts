@@ -10,7 +10,6 @@ import {
   type AgentRunResult,
 } from "@workspace/agent-runtime";
 import {
-  countQueryHits,
   createSearchProvider,
   searchTopResults,
 } from "@workspace/agent-search";
@@ -25,15 +24,11 @@ import {
   DISCOVERY_MAX_KEYWORDS_PER_ENTITY,
   DISCOVERY_MAX_REGULATORS,
   LANGUAGES,
-  PROBE_BUDGET,
-  PROBE_CONCURRENCY,
-  PROBE_LOCALES,
-  PROBE_MIN_RESULTS,
-  PROBE_TIMEOUT_MS,
   QUERY_ANALYSIS_AGENT_ID,
   QUERY_ANALYSIS_AGENT_VERSION,
   DEFAULT_QUERIES_PER_INTENT,
   RECON_CONCURRENCY,
+  RECON_LOCALE,
   RECON_MAX_COMPETITORS,
   RECON_MAX_QUERIES,
   RECON_MAX_SIGNALS,
@@ -45,13 +40,12 @@ import { gatherReconSignals } from "./recon/gather-signals";
 import { discoverEntities } from "./discovery/discover-entities";
 import type { DiscoveredEntity } from "./discovery/schema";
 import { deriveClassification, deriveMarketContext } from "./pipeline/context";
-import { generateAndProbeCandidates } from "./generation/generate-and-probe";
+import { generateCandidatesWithCoverage } from "./generation/generate-with-coverage";
 import { finalizeQueries } from "./select/finalize";
 import {
   narrativeRunStart,
   narrativeDiscovery,
   narrativeGenerating,
-  narrativeProbing,
   narrativeRunComplete,
 } from "./utilities/build-activity-narrative";
 
@@ -64,7 +58,6 @@ export type RunQueryAnalysisDeps = {
   generate?: typeof generateObject;
   /** Injected `generateObject` for the query-candidate-generation LLM call (separate from `generate`). */
   generateQueries?: typeof generateObject;
-  countHits?: typeof countQueryHits;
   createProvider?: typeof createSearchProvider;
   /** Injected `searchTopResults` for the recon step. */
   reconSearch?: typeof searchTopResults;
@@ -79,13 +72,12 @@ export type RunQueryAnalysisDeps = {
  * cache (invalidated on TTL expiry or a contract-version change), discover
  * competitors/regulators on miss (steered by the contract brief) and write the
  * cache, generate query candidates via LLM (one intent per newsletter section,
- * steered by the contract brief), probe each for yield, retry with targeted
- * feedback on zero-hit candidates, and persist a fixed budget of queries per
- * section.
+ * steered by the contract brief), retry generation when an intent comes back
+ * short of its target, and persist a fixed budget of queries per section.
  *
  * @param context - Agent run context with validated input/config, token, and contract.
  * @param deps - Injectable collaborators for tests.
- * @returns Success response with created query count, or failure when no query survives.
+ * @returns Success response with created query count, or failure when no query is generated.
  */
 export const runQueryAnalysis = async (
   context: AgentRunContext<QueryAnalysisInput, QueryAnalysisConfig>,
@@ -232,7 +224,7 @@ export const runQueryAnalysis = async (
     homeMarket: market.homeMarket,
     competitors,
     providers: config.web_search,
-    locale: PROBE_LOCALES[0] ?? { gl: "id", hl: "id" },
+    locale: RECON_LOCALE,
     maxQueries: RECON_MAX_QUERIES,
     maxCompetitors: RECON_MAX_COMPETITORS,
     maxSignals: RECON_MAX_SIGNALS,
@@ -263,44 +255,28 @@ export const runQueryAnalysis = async (
     ),
   );
 
-  // Generate query candidates via LLM (one intent per newsletter section), probe each
-  // for yield, and retry with feedback on zero-hit candidates.
+  // Generate query candidates via LLM (one intent per newsletter section) and retry
+  // generation when an intent comes back short of its per-intent target.
   const generationStartMs = now();
-  const generation = await generateAndProbeCandidates(
-    {
-      ticker,
-      classification,
-      market,
-      contractBrief,
-      competitors,
-      regulators,
-      mainInputs,
-      customerSegments,
-      reconSignals,
-      languages: LANGUAGES,
-      currentDate: new Date(now()).toISOString().slice(0, 10),
-      ai: config.language_model,
-      onUsage: tokenUsage.onUsage,
-      logger,
-      providers: config.web_search,
-      locales: PROBE_LOCALES,
-      probeBudget: PROBE_BUDGET,
-      probeConcurrency: PROBE_CONCURRENCY,
-      probeMinResults: PROBE_MIN_RESULTS,
-      probeTimeoutMs: PROBE_TIMEOUT_MS,
-      queriesPerIntent,
-      ...(deps.generateQueries ? { generate: deps.generateQueries } : {}),
-    },
-    {
-      probeDeps: {
-        ...(deps.countHits ? { countHits: deps.countHits } : {}),
-        ...(deps.createProvider ? { createProvider: deps.createProvider } : {}),
-      },
-    },
-  );
+  const generation = await generateCandidatesWithCoverage({
+    ticker,
+    classification,
+    market,
+    contractBrief,
+    competitors,
+    regulators,
+    mainInputs,
+    customerSegments,
+    reconSignals,
+    languages: LANGUAGES,
+    currentDate: new Date(now()).toISOString().slice(0, 10),
+    queriesPerIntent,
+    ai: config.language_model,
+    onUsage: tokenUsage.onUsage,
+    logger,
+    ...(deps.generateQueries ? { generate: deps.generateQueries } : {}),
+  });
   const generationMs = now() - generationStartMs;
-
-  report(...narrativeProbing(generation.telemetry.deduped));
 
   logger.info(
     {
@@ -309,19 +285,14 @@ export const runQueryAnalysis = async (
       attempts: generation.attempts,
       candidates: generation.telemetry.candidates,
       deduped: generation.telemetry.deduped,
-      survivors: generation.telemetry.survivors,
-      dropped: generation.telemetry.dropped.length,
-      searchCredits: generation.telemetry.searchCredits,
-      providerUsage: generation.telemetry.providerUsage,
       generationMs,
     },
-    "query analysis generation and probe complete",
+    "query analysis generation complete",
   );
 
   const finalizeStartMs = now();
   const finalized = finalizeQueries({
-    survivors: generation.survivors,
-    dropped: generation.dropped,
+    candidates: generation.candidates,
     queriesPerIntent,
   });
   const finalizeMs = now() - finalizeStartMs;
@@ -346,14 +317,12 @@ export const runQueryAnalysis = async (
       queriesPerIntent,
       perIntent: finalized.perIntent,
       attempts: generation.attempts,
-      zeroYieldCount: generation.telemetry.dropped.length,
     }),
     "completed",
   );
 
   const queryDecisions = buildQueryDecisions({
-    survivors: generation.survivors,
-    dropped: generation.dropped,
+    candidates: generation.candidates,
     finalized: finalized.queries,
   });
 
@@ -365,25 +334,19 @@ export const runQueryAnalysis = async (
         attempts: generation.attempts,
         candidates: generation.telemetry.candidates,
         deduped: generation.telemetry.deduped,
-        dropped: generation.telemetry.dropped.length,
-        searchCredits: generation.telemetry.searchCredits,
       },
-      "query-analysis produced no surviving queries; skipping persist",
+      "query-analysis produced no queries; skipping persist",
     );
     await writeChronicle(queryDecisions);
 
     return {
       success: false,
-      message: `No query survived the yield probe (${generation.telemetry.candidates} candidates generated, ${generation.telemetry.dropped} dropped for zero search yield).`,
+      message: `No query was generated (${generation.telemetry.candidates} candidates generated across ${generation.attempts} attempts).`,
       details: { created: 0 },
     };
   }
 
   const usageTotals = tokenUsage.totals();
-  const providerUsage = generation.telemetry.providerUsage.map((entry) => ({
-    name: entry.name,
-    calls: entry.calls,
-  }));
 
   const strategySnapshot = {
     agentVersion: QUERY_ANALYSIS_AGENT_VERSION,
@@ -398,22 +361,14 @@ export const runQueryAnalysis = async (
       calls: usageTotals.calls,
       cacheHit,
     },
-    providerUsage: {
-      searchProvider: providerUsage,
-      searchCredits: generation.telemetry.searchCredits,
-    },
     discovered: {
       competitors: competitors.map((entity) => entity.name),
       regulators: regulators.map((entity) => entity.name),
     },
     generation: {
       attempts: generation.attempts,
-    },
-    probe: {
       candidates: generation.telemetry.candidates,
       deduped: generation.telemetry.deduped,
-      droppedZeroYield: generation.telemetry.dropped,
-      survivors: generation.telemetry.survivors,
     },
     output: {
       queryCount: finalized.queries.length,
