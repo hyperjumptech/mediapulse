@@ -54,7 +54,6 @@ describe("ContentGenerationConfigSchema", () => {
     expect(parsed.fetch.providers[0]).toEqual({
       provider: "tavily",
       apiKey: "sk-fetch",
-      rateLimit: { requests: 2, perSeconds: 1 },
     });
   });
 

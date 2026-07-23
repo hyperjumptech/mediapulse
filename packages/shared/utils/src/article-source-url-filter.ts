@@ -5,51 +5,71 @@ const TRACKING_QUERY_PARAM_PREFIXES = [
   "mc_",
 ] as const;
 
-const BLOCKED_HOST_PATTERNS = [
-  /(^|\.)linkedin\.com$/i,
-  /(^|\.)youtube\.com$/i,
-  /(^|\.)instagram\.com$/i,
-  /(^|\.)facebook\.com$/i,
-  /(^|\.)tiktok\.com$/i,
-  /(^|\.)reddit\.com$/i,
-  /(^|\.)matrixbcg\.com$/i,
-  /(^|\.)portersfiveforce\.com$/i,
-  /(^|\.)sch\.id$/i,
+const hostPattern = (domain: string): RegExp =>
+  new RegExp(`(^|\\.)${domain.replace(/\./g, "\\.")}$`, "i");
+
+const BLOCKED_HOST_DOMAINS = [
+  "linkedin.com",
+  "youtube.com",
+  "instagram.com",
+  "facebook.com",
+  "tiktok.com",
+  "reddit.com",
+  "matrixbcg.com",
+  "portersfiveforce.com",
+  "sch.id",
 ] as const;
+
+const BLOCKED_HOST_PATTERNS = BLOCKED_HOST_DOMAINS.map(hostPattern);
 
 /**
  * Statistics portals and market-research report mills. These publish static, often paywalled or
  * consent-walled data pages ("market size to hit USD X by 20YY", key-statistics dashboards), never
  * dated news, so they are blocked host-wide regardless of path. Kept separate from
- * {@link BLOCKED_HOST_PATTERNS} so the drop reason distinguishes low-value data pages from social
+ * {@link BLOCKED_HOST_DOMAINS} so the drop reason distinguishes low-value data pages from social
  * and scraper hosts.
  */
-const LOW_VALUE_SOURCE_HOST_PATTERNS = [
-  /(^|\.)statista\.com$/i,
-  /(^|\.)precedenceresearch\.com$/i,
-  /(^|\.)grandviewresearch\.com$/i,
-  /(^|\.)marketsandmarkets\.com$/i,
-  /(^|\.)mordorintelligence\.com$/i,
-  /(^|\.)fortunebusinessinsights\.com$/i,
-  /(^|\.)imarcgroup\.com$/i,
-  /(^|\.)alliedmarketresearch\.com$/i,
-  /(^|\.)researchandmarkets\.com$/i,
-  /(^|\.)marketresearchfuture\.com$/i,
-  /(^|\.)futuremarketinsights\.com$/i,
-  /(^|\.)verifiedmarketresearch\.com$/i,
+const LOW_VALUE_SOURCE_DOMAINS = [
+  "statista.com",
+  "precedenceresearch.com",
+  "grandviewresearch.com",
+  "marketsandmarkets.com",
+  "mordorintelligence.com",
+  "fortunebusinessinsights.com",
+  "imarcgroup.com",
+  "alliedmarketresearch.com",
+  "researchandmarkets.com",
+  "marketresearchfuture.com",
+  "futuremarketinsights.com",
+  "verifiedmarketresearch.com",
   // Encyclopedias and wikis: reference material, never reporting. Their articles
   // routinely mention an industry in passing, so relevance gating cannot catch them.
-  /(^|\.)wikipedia\.org$/i,
-  /(^|\.)wikimedia\.org$/i,
-  /(^|\.)wiktionary\.org$/i,
-  /(^|\.)wikiwand\.com$/i,
-  /(^|\.)fandom\.com$/i,
-  /(^|\.)britannica\.com$/i,
-  /(^|\.)tradingview\.com$/i,
-  /(^|\.)zoominfo\.com$/i,
-  /(^|\.)tracxn\.com$/i,
-  /(^|\.)dealroom\.co$/i,
+  "wikipedia.org",
+  "wikimedia.org",
+  "wiktionary.org",
+  "wikiwand.com",
+  "fandom.com",
+  "britannica.com",
+  "tradingview.com",
+  "zoominfo.com",
+  "tracxn.com",
+  "dealroom.co",
 ] as const;
+
+const LOW_VALUE_SOURCE_HOST_PATTERNS =
+  LOW_VALUE_SOURCE_DOMAINS.map(hostPattern);
+
+/**
+ * Bare domains blocked host-wide regardless of path: social and scraper hosts plus statistics
+ * portals, market-research mills, and encyclopedias. Feeds search-provider `excludeDomains` params
+ * so these are dropped before results come back, mirroring the post-search host checks in
+ * {@link classifyNoisyUrl}. Path-conditional hub hosts are excluded because they include legitimate
+ * news domains.
+ */
+export const HOST_WIDE_BLOCKED_DOMAINS: readonly string[] = [
+  ...BLOCKED_HOST_DOMAINS,
+  ...LOW_VALUE_SOURCE_DOMAINS,
+];
 
 /**
  * Host + path pairs for ticker hubs and scrapers where `/news/` is still a feed, not a story.

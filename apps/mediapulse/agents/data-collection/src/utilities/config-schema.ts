@@ -34,7 +34,7 @@ const webSearchLocalesSchema = z
   .min(1)
   .default([{ gl: "id", hl: "id" }])
   .describe(
-    "Search localization. Each query fans out once per locale; results merge and dedup before fetch. Only Serper honors both fields: Firecrawl geo-targets on gl and has no search-language parameter, while Exa and Tavily ignore locale entirely.",
+    "Search localization. Each query fans out once per locale; results merge and dedup before fetch. Only Serper honors both fields: Firecrawl geo-targets on gl (country) and Exa on gl (userLocation), neither taking a search-language parameter, while Tavily ignores locale (its country param applies only to general, not news, search).",
   );
 
 const collectionSchema = z

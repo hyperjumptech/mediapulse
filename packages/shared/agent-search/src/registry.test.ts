@@ -72,14 +72,14 @@ describe("createSearchProvider", () => {
     });
   });
 
-  it("parses Exa results and trims text", async () => {
+  it("parses Exa highlights into a trimmed snippet", async () => {
     const provider = createSearchProvider({ provider: "exa", apiKey: "k" });
     const ctx = makeCtx({
       results: [
         {
           title: "T",
           url: "https://e.com/c",
-          text: "  some   spaced   text  ",
+          highlights: ["  some   spaced   text  ", "and   more  "],
           publishedDate: "2026-06-18",
         },
       ],
@@ -90,7 +90,7 @@ describe("createSearchProvider", () => {
     expect(result.hits[0]).toEqual({
       url: "https://e.com/c",
       title: "T",
-      snippet: "some spaced text",
+      snippet: "some spaced text and more",
       publishedAt: "2026-06-18",
     });
   });

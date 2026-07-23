@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { HOST_WIDE_BLOCKED_DOMAINS } from "@workspace/utils";
 
 import { RECENCY_DAYS, RESULTS_PER_QUERY } from "./constants";
 
@@ -11,10 +12,22 @@ import type {
 
 const EXA_SEARCH_URL = "https://api.exa.ai/search";
 
+/** Exa highlight extraction settings sent with the search request. */
+export interface ExaHighlightsConfig {
+  maxCharacters: number;
+  query: string;
+}
+
+/** Configuration for the Exa search provider. */
+export interface ExaSearchConfig {
+  apiKey: string;
+  highlights?: ExaHighlightsConfig;
+}
+
 const exaResultSchema = z.object({
   title: z.string().optional(),
   url: z.string().optional(),
-  text: z.string().optional(),
+  highlights: z.array(z.string()).optional(),
   publishedDate: z.string().optional(),
 });
 
@@ -32,12 +45,19 @@ const parseExaResponse = (raw: unknown): SearchHit[] => {
 
   return items
     .filter((item): item is { url: string } & typeof item => Boolean(item.url))
-    .map((item) => ({
-      url: item.url,
-      title: item.title ?? "",
-      snippet: (item.text ?? "").replace(/\s+/g, " ").trim().slice(0, 300),
-      ...(item.publishedDate ? { publishedAt: item.publishedDate } : {}),
-    }));
+    .map((item) => {
+      const snippet = (item.highlights ?? [])
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      return {
+        url: item.url,
+        title: item.title ?? "",
+        snippet,
+        ...(item.publishedDate ? { publishedAt: item.publishedDate } : {}),
+      };
+    });
 };
 
 /** Returns the ISO start date for the recency window. */
@@ -45,7 +65,7 @@ const recencyStartDate = (): string =>
   new Date(Date.now() - RECENCY_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
 const searchExa = async (
-  apiKey: string,
+  config: ExaSearchConfig,
   queryText: string,
   ctx: SearchProviderContext,
 ): Promise<SearchProviderResult> => {
@@ -53,13 +73,24 @@ const searchExa = async (
     json: {
       query: queryText,
       numResults: RESULTS_PER_QUERY,
-      type: "auto",
+      type: "fast",
       category: "news",
-      contents: { text: { maxCharacters: 500 } },
+      userLocation: ctx.locale.gl.toUpperCase(),
+      excludeDomains: HOST_WIDE_BLOCKED_DOMAINS,
       startPublishedDate: recencyStartDate(),
+      ...(config.highlights
+        ? {
+            contents: {
+              highlights: {
+                query: config.highlights.query,
+                maxCharacters: config.highlights.maxCharacters,
+              },
+            },
+          }
+        : {}),
     },
     headers: {
-      "x-api-key": apiKey,
+      "x-api-key": config.apiKey,
       "Content-Type": "application/json",
     },
     timeout: { request: ctx.timeoutMs },
@@ -69,11 +100,13 @@ const searchExa = async (
 };
 
 /**
- * Creates an Exa news search provider. Locale is ignored (Exa is English-centric).
+ * Creates an Exa news search provider.
  *
- * @param apiKey - Exa API key.
+ * @param config - Exa API key and optional highlight settings.
  */
-export const createExaSearchProvider = (apiKey: string): SearchProvider => ({
+export const createExaSearchProvider = (
+  config: ExaSearchConfig,
+): SearchProvider => ({
   type: "exa",
-  search: (queryText, ctx) => searchExa(apiKey, queryText, ctx),
+  search: (queryText, ctx) => searchExa(config, queryText, ctx),
 });

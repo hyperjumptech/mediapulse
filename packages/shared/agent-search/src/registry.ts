@@ -21,7 +21,10 @@ export const createSearchProvider = (entry: ProviderEntry): SearchProvider => {
     case "tavily":
       return createTavilySearchProvider(entry.apiKey);
     case "exa":
-      return createExaSearchProvider(entry.apiKey);
+      return createExaSearchProvider({
+        apiKey: entry.apiKey,
+        ...(entry.highlights ? { highlights: entry.highlights } : {}),
+      });
     case "firecrawl":
       return createFirecrawlSearchProvider({ apiKey: entry.apiKey });
     case "firecrawl_selfhosted":
