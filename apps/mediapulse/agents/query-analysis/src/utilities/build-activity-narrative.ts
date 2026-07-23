@@ -43,13 +43,6 @@ export function narrativeGenerating(
   ];
 }
 
-export function narrativeProbing(candidateCount: number): [string, string] {
-  return [
-    "Testing which queries return results",
-    `Running ${n(candidateCount, "draft query", "draft queries")} against the search providers to see which ones actually find articles.`,
-  ];
-}
-
 export function narrativeRunComplete(
   subject: TickerSubject,
   opts: {
@@ -57,7 +50,6 @@ export function narrativeRunComplete(
     queriesPerIntent: number;
     perIntent: Record<string, number>;
     attempts: number;
-    zeroYieldCount: number;
   },
 ): [string, string] {
   const shortIntents = Object.entries(opts.perIntent)
@@ -69,9 +61,6 @@ export function narrativeRunComplete(
   const notes: string[] = [];
   if (opts.attempts > 1) {
     notes.push(`took ${n(opts.attempts, "attempt")}`);
-  }
-  if (opts.zeroYieldCount > 0) {
-    notes.push(`${opts.zeroYieldCount} returned nothing when tested`);
   }
   const noteClause = notes.length > 0 ? ` (${joinClauses(notes)})` : "";
 

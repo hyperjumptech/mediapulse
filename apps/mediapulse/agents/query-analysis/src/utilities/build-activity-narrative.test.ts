@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 import {
   narrativeDiscovery,
   narrativeGenerating,
-  narrativeProbing,
   narrativeRunComplete,
   narrativeRunStart,
 } from "./build-activity-narrative";
@@ -53,15 +52,6 @@ describe("narrativeGenerating", () => {
   });
 });
 
-describe("narrativeProbing", () => {
-  it("reports how many drafts are being tested", () => {
-    const [title, description] = narrativeProbing(30);
-
-    expect(title).toContain("Testing");
-    expect(description).toContain("30 draft queries");
-  });
-});
-
 describe("narrativeRunComplete", () => {
   const fullCoverage = {
     industryPulse: 5,
@@ -77,7 +67,6 @@ describe("narrativeRunComplete", () => {
       queriesPerIntent: 5,
       perIntent: fullCoverage,
       attempts: 1,
-      zeroYieldCount: 0,
     });
 
     expect(title).toBe("Search plan ready");
@@ -92,14 +81,12 @@ describe("narrativeRunComplete", () => {
       queriesPerIntent: 5,
       perIntent: { ...fullCoverage, industryPulse: 2, dealsAndMovements: 3 },
       attempts: 3,
-      zeroYieldCount: 4,
     });
 
     expect(description).toContain("Short of the 5-query target");
     expect(description).toContain("industryPulse");
     expect(description).toContain("dealsAndMovements");
     expect(description).toContain("3 attempts");
-    expect(description).toContain("4 returned nothing");
   });
 
   it("does not contain a UUID pattern", () => {
@@ -108,7 +95,6 @@ describe("narrativeRunComplete", () => {
       queriesPerIntent: 5,
       perIntent: fullCoverage,
       attempts: 2,
-      zeroYieldCount: 1,
     });
 
     expect(title).not.toMatch(UUID_PATTERN);

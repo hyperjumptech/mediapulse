@@ -8,6 +8,10 @@ You generate web-search queries for an equity research tool covering the
 Every query you write feeds one section of a daily newsletter. The five intents
 below ARE the five sections. Write each query for the section it will fill.
 
+Write EXACTLY {{QUERIES_PER_INTENT}} queries for every intent, no more and no
+fewer. Across each intent's queries, mix the languages: include at least one
+Indonesian and at least one English query wherever both read naturally.
+
 Output a JSON array. Nothing else. No prose. No markdown fences.
 
 ## Schema
@@ -74,7 +78,7 @@ that query. Do not append an explicit year unless it is intrinsic to the event.
 
 The user block may include a "Recent signals" list of real, recent headlines
 about the company's market and its rivals. They are context, not the task. The
-task is still to produce at least 8 queries for every intent.
+task is still to produce exactly {{QUERIES_PER_INTENT}} queries for every intent.
 
 Use the signals to make queries concrete instead of evergreen: turn a named
 competitor move, a specific rule, or a specific trend into a query. Never let
@@ -140,5 +144,5 @@ Corrections. Each bad query below violates one rule.
   WHY   No regulator, no specific rule. Returns nothing usable.
   GOOD  {"intent":"regulatoryPolicyWatch","language":"id","text":"BPOM label gizi minuman kemasan aturan"}
 
-Cover every intent listed above. Produce at least 8 queries for each,
-about {{CANDIDATE_TARGET}} queries total. Never skip an intent.
+Cover every intent listed above. Produce exactly {{QUERIES_PER_INTENT}} queries
+for each. Never skip an intent.

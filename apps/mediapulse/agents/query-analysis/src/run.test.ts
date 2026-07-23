@@ -1,8 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { CountQueryHitsContext } from "@workspace/agent-search";
-
 import { queryAnalysisConfigSchema } from "./config-schema";
 
 vi.mock("@mediapulse/env/agents-query-analysis", () => ({
@@ -37,7 +35,7 @@ const config = queryAnalysisConfigSchema.parse({
   web_search: [{ provider: "serper", apiKey: "sk-serper" }],
   language_model: { apiKey: "sk-ai", model: "test-model", baseUrl: "" },
   // One per intent keeps the fixture small; the quota logic itself is covered in
-  // generate-and-probe.test.ts.
+  // generate-with-coverage.test.ts.
   generation: { queriesPerIntent: 1 },
 });
 
@@ -119,17 +117,6 @@ const makeGenerateQueries = () =>
     usage: { inputTokens: 80, outputTokens: 30, totalTokens: 110 },
   });
 
-/** Fake `countQueryHits` that scores by an override map and accrues credits. */
-const makeCountHits = (hitsByText: Record<string, number> = {}) =>
-  vi.fn(async (text: string, context: CountQueryHitsContext) => {
-    if (context.creditsSink) {
-      context.creditsSink.credits += 1;
-    }
-    const hits = hitsByText[text] ?? 5;
-
-    return { hits, credits: 1, provider: "serper" };
-  });
-
 const makeContext = (queriesPerIntent?: number) => ({
   input: { tickerId: TICKER_ID },
   config:
@@ -142,12 +129,10 @@ const makeContext = (queriesPerIntent?: number) => ({
 
 let generate: ReturnType<typeof makeGenerate>;
 let generateQueries: ReturnType<typeof makeGenerateQueries>;
-let countHits: ReturnType<typeof makeCountHits>;
 
 beforeEach(() => {
   generate = makeGenerate();
   generateQueries = makeGenerateQueries();
-  countHits = makeCountHits();
 });
 
 afterEach(() => {
@@ -171,7 +156,6 @@ describe("runQueryAnalysis — cold run (cache miss)", () => {
       createClient: vi.fn(() => client) as never,
       generate: emptyGenerate as never,
       generateQueries: generateQueries as never,
-      countHits: countHits as never,
     };
 
     // Act
@@ -197,7 +181,6 @@ describe("runQueryAnalysis — cold run (cache miss)", () => {
       createClient: vi.fn(() => client) as never,
       generate: generate as never,
       generateQueries: generateQueries as never,
-      countHits: countHits as never,
       reconSearch: reconSearch as never,
     };
 
@@ -224,7 +207,6 @@ describe("runQueryAnalysis — cold run (cache miss)", () => {
       createClient: vi.fn(() => client) as never,
       generate: generate as never,
       generateQueries: generateQueries as never,
-      countHits: countHits as never,
     };
 
     // Act
@@ -260,12 +242,9 @@ describe("runQueryAnalysis — cold run (cache miss)", () => {
     );
     expect(body.strategySnapshot.discovered.regulators).toContain("OJK");
     expect(body.strategySnapshot.generation.attempts).toBe(1);
-    expect(body.strategySnapshot.providerUsage.searchProvider[0]?.name).toBe(
-      "serper",
-    );
-    expect(body.strategySnapshot.providerUsage.searchCredits).toBeGreaterThan(
-      0,
-    );
+    expect(body.strategySnapshot.generation.candidates).toBeGreaterThan(0);
+    expect(body.strategySnapshot.providerUsage).toBeUndefined();
+    expect(body.strategySnapshot.probe).toBeUndefined();
     expect(body.strategySnapshot.contractVersion).toBe("1.0");
 
     // Writes the per-query chronicle with at least one included decision.
@@ -280,15 +259,13 @@ describe("runQueryAnalysis — cold run (cache miss)", () => {
     ).toBe(true);
   });
 
-  it("ranks queries by probe hits (descending) and assigns contiguous ranks", async () => {
+  it("assigns contiguous ranks in generation order", async () => {
     // Setup
     const { client, create } = makeClient(null);
-    countHits = makeCountHits({ BBRI: 99, "Bank Rakyat Indonesia": 42 });
     const deps: RunQueryAnalysisDeps = {
       createClient: vi.fn(() => client) as never,
       generate: generate as never,
       generateQueries: generateQueries as never,
-      countHits: countHits as never,
     };
 
     // Act
@@ -318,7 +295,6 @@ describe("runQueryAnalysis — warm run (cache hit)", () => {
       createClient: vi.fn(() => client) as never,
       generate: generate as never,
       generateQueries: generateQueries as never,
-      countHits: countHits as never,
     };
 
     // Act
@@ -351,7 +327,6 @@ describe("runQueryAnalysis — warm run (cache hit)", () => {
       createClient: vi.fn(() => client) as never,
       generate: generate as never,
       generateQueries: generateQueries as never,
-      countHits: countHits as never,
     };
 
     // Act
@@ -381,7 +356,6 @@ describe("runQueryAnalysis — warm run (cache hit)", () => {
       createClient: vi.fn(() => client) as never,
       generate: generate as never,
       generateQueries: generateQueries as never,
-      countHits: countHits as never,
     };
 
     // Act
@@ -408,7 +382,6 @@ describe("runQueryAnalysis — generation failure", () => {
       createClient: vi.fn(() => client) as never,
       generate: generate as never,
       generateQueries: failingGenerateQueries as never,
-      countHits: countHits as never,
     };
 
     // Act
@@ -420,8 +393,8 @@ describe("runQueryAnalysis — generation failure", () => {
   });
 });
 
-describe("runQueryAnalysis — yield probe", () => {
-  it("records zero-yield candidates as dropped in the probe snapshot and reinstates them to meet the intent floor", async () => {
+describe("runQueryAnalysis — section coverage", () => {
+  it("persists a query for every generated intent", async () => {
     // Setup
     const { client, create } = makeClient({
       tickerId: TICKER_ID,
@@ -431,49 +404,10 @@ describe("runQueryAnalysis — yield probe", () => {
       contractVersion: "1.0",
       expiresAt: "2026-07-20T00:00:00.000Z",
     });
-    countHits = makeCountHits({ BBRI: 0 });
     const deps: RunQueryAnalysisDeps = {
       createClient: vi.fn(() => client) as never,
       generate: generate as never,
       generateQueries: generateQueries as never,
-      countHits: countHits as never,
-    };
-
-    // Act
-    await runQueryAnalysis(makeContext(2) as never, deps);
-
-    // Assert
-    const body = create.mock.calls[0]?.[0];
-    expect(body.strategySnapshot.probe.droppedZeroYield).toContain("BBRI");
-    expect(
-      body.queries.some((query: { text: string }) => query.text === "BBRI"),
-    ).toBe(true);
-  });
-
-  it("guarantees section coverage even when every candidate is zero-yield", async () => {
-    // Setup
-    const { client, create } = makeClient({
-      tickerId: TICKER_ID,
-      competitors: discoveredCompetitors,
-      regulators: discoveredRegulators,
-      model: "cached-model",
-      contractVersion: "1.0",
-      expiresAt: "2026-07-20T00:00:00.000Z",
-    });
-    const allZero = vi.fn(
-      async (_text: string, context: CountQueryHitsContext) => {
-        if (context.creditsSink) {
-          context.creditsSink.credits += 1;
-        }
-
-        return { hits: 0, credits: 1, provider: "serper" };
-      },
-    );
-    const deps: RunQueryAnalysisDeps = {
-      createClient: vi.fn(() => client) as never,
-      generate: generate as never,
-      generateQueries: generateQueries as never,
-      countHits: allZero as never,
     };
 
     // Act
@@ -485,7 +419,7 @@ describe("runQueryAnalysis — yield probe", () => {
     const intents = new Set(
       body.queries.map((query: { intent: string }) => query.intent),
     );
-    // Reinstated coverage spans the dedicated-intent sections.
+
     expect(intents.has("competitiveLandscape")).toBe(true);
     expect(intents.has("regulatoryPolicyWatch")).toBe(true);
     expect(intents.has("industryPulse")).toBe(true);

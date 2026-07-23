@@ -22,6 +22,7 @@ const baseInput = {
   customerSegments: ["urban middle class"],
   languages: ["id", "en"] as const,
   currentDate: "2026-07-08",
+  queriesPerIntent: 5,
   ai,
 };
 
