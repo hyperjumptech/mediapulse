@@ -34,7 +34,7 @@ describe("fetchProviderEntrySchema", () => {
     });
   });
 
-  it("accepts optional rateLimit and timeoutMs overrides", () => {
+  it("strips rateLimit and timeoutMs overrides that are no longer configurable", () => {
     const parsed = fetchProviderEntrySchema.parse({
       provider: "jina",
       apiKey: "jina-key",
@@ -45,8 +45,6 @@ describe("fetchProviderEntrySchema", () => {
     expect(parsed).toEqual({
       provider: "jina",
       apiKey: "jina-key",
-      rateLimit: { requests: 5, perSeconds: 2 },
-      timeoutMs: 15_000,
     });
   });
 
@@ -77,8 +75,6 @@ describe("fetchProviderEntrySchema", () => {
     expect(parsed).toEqual({
       provider: "serper",
       apiKey: "{{SERPER_API_KEY}}",
-      rateLimit: { requests: 1, perSeconds: 1 },
-      timeoutMs: 45_000,
     });
   });
 
@@ -95,7 +91,6 @@ describe("fetchProviderEntrySchema", () => {
       provider: "firecrawl_selfhosted",
       baseUrl: "https://firecrawl.internal",
       headers: { "X-Internal-Token": "secret" },
-      rateLimit: { requests: 2, perSeconds: 1 },
     });
   });
 
@@ -111,11 +106,7 @@ describe("fetchProviderEntrySchema", () => {
     ]);
 
     expect(parsed).toEqual([
-      {
-        provider: "diffbot",
-        apiKey: "{{DIFFBOT_API_KEY}}",
-        rateLimit: { requests: 1, perSeconds: 1 },
-      },
+      { provider: "diffbot", apiKey: "{{DIFFBOT_API_KEY}}" },
       { provider: "tavily", apiKey: "tavily-key" },
     ]);
   });
@@ -146,7 +137,7 @@ describe("expandFetchProviderEntry", () => {
         headerName: "X-API-KEY",
         apiKey: "serper-key",
       },
-      rateLimit: { requests: 1, perSeconds: 1 },
+      rateLimit: { requests: 2, perSeconds: 1 },
       concurrency: 1,
       timeoutMs: 45_000,
       retry: { maxAttempts: 1, baseDelayMs: 1000, maxDelayMs: 10_000 },
@@ -179,16 +170,15 @@ describe("expandFetchProviderEntry", () => {
     expect(expanded.authentication).toEqual({ type: "none" });
   });
 
-  it("prefers operator overrides over the internal defaults", () => {
+  it("hardcodes rate limit and timeout regardless of the entry", () => {
     const expanded = expandFetchProviderEntry({
       provider: "firecrawl",
       apiKey: "fc-key",
-      rateLimit: { requests: 10, perSeconds: 5 },
-      timeoutMs: 5000,
     });
 
-    expect(expanded.rateLimit).toEqual({ requests: 10, perSeconds: 5 });
-    expect(expanded.timeoutMs).toBe(5000);
+    expect(expanded.rateLimit).toEqual({ requests: 2, perSeconds: 1 });
+    expect(expanded.timeoutMs).toBe(45_000);
+    expect(expanded.concurrency).toBe(1);
   });
 
   it("expands an ordered chain in place", () => {

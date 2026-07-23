@@ -15,26 +15,6 @@ export const fetchProviderNameSchema = z.enum([
 
 export type FetchProviderName = z.infer<typeof fetchProviderNameSchema>;
 
-const rateLimitOverrideSchema = z
-  .object({
-    requests: z
-      .number()
-      .int()
-      .positive()
-      .describe("Maximum requests allowed within the sliding window."),
-    perSeconds: z
-      .number()
-      .positive()
-      .describe("Sliding window length in seconds for rate limiting."),
-  })
-  .describe("Optional sliding-window request budget override.");
-
-const timeoutOverrideSchema = z
-  .number()
-  .int()
-  .positive()
-  .describe("Optional per-request timeout override in milliseconds.");
-
 /** Providers with a fixed endpoint, authenticated with an API key. */
 const apiKeyFetchProviderEntrySchema = z.object({
   provider: z.enum(["serper", "jina", "firecrawl", "diffbot", "tavily", "exa"]),
@@ -43,8 +23,6 @@ const apiKeyFetchProviderEntrySchema = z.object({
     .describe(
       "Provider API key or a Hermes variable placeholder such as {{SERPER_API_KEY}}.",
     ),
-  rateLimit: rateLimitOverrideSchema.optional(),
-  timeoutMs: timeoutOverrideSchema.optional(),
 });
 
 /** Self-hosted provider: a custom base URL plus operator-supplied auth headers. */
@@ -55,8 +33,6 @@ const selfHostedFetchProviderEntrySchema = z.object({
     .record(z.string())
     .optional()
     .describe("Extra HTTP headers sent with every request."),
-  rateLimit: rateLimitOverrideSchema.optional(),
-  timeoutMs: timeoutOverrideSchema.optional(),
 });
 
 const fetchProviderEntryUnionSchema = z.discriminatedUnion("provider", [
@@ -69,8 +45,6 @@ type LegacyFetchProviderEntry = {
   baseUrl?: unknown;
   authentication?: { apiKey?: unknown } | null;
   headers?: unknown;
-  rateLimit?: unknown;
-  timeoutMs?: unknown;
 };
 
 const isLegacyFetchProviderEntry = (
@@ -93,31 +67,25 @@ const normalizeLegacyFetchProviderEntry = (value: unknown): unknown => {
   }
 
   const provider = value.type;
-  const overrides = {
-    ...(value.rateLimit ? { rateLimit: value.rateLimit } : {}),
-    ...(value.timeoutMs ? { timeoutMs: value.timeoutMs } : {}),
-  };
 
   if (provider === "firecrawl_selfhosted") {
     return {
       provider,
       baseUrl: value.baseUrl,
       ...(value.headers ? { headers: value.headers } : {}),
-      ...overrides,
     };
   }
 
   return {
     provider,
     apiKey: value.authentication?.apiKey,
-    ...overrides,
   };
 };
 
 /**
  * A single fetch provider entry. API-key providers supply `{ provider, apiKey }`;
- * the self-hosted provider supplies `{ provider, baseUrl, headers }` instead. Both
- * accept optional `rateLimit` and `timeoutMs` overrides.
+ * the self-hosted provider supplies `{ provider, baseUrl, headers }` instead. Rate
+ * limit, timeout, concurrency, and retry are hardcoded, not operator-tunable.
  *
  * Entries stored before the dropdown migration (`{ type, baseUrl, authentication }`)
  * are normalized in a preprocess step, which leaves the published JSON schema
@@ -130,17 +98,17 @@ export const fetchProviderEntrySchema = z.preprocess(
 
 export type FetchProviderEntry = z.infer<typeof fetchProviderEntrySchema>;
 
-const defaultRetry = {
+const RETRY = {
   maxAttempts: 1,
   baseDelayMs: 1000,
   maxDelayMs: 10_000,
 } as const;
 
-const defaultRateLimit = { requests: 1, perSeconds: 1 } as const;
+const RATE_LIMIT = { requests: 2, perSeconds: 1 } as const;
 
-const defaultConcurrency = 1;
+const CONCURRENCY = 1;
 
-const defaultTimeoutMs = 45_000;
+const TIMEOUT_MS = 45_000;
 
 type FetchProviderDefaults = {
   baseUrl: string;
@@ -186,20 +154,16 @@ const fetchProviderDefaults: Record<
 export const expandFetchProviderEntry = (
   entry: FetchProviderEntry,
 ): FetchProviderConfig => {
-  const shared = {
-    rateLimit: entry.rateLimit ?? defaultRateLimit,
-    concurrency: defaultConcurrency,
-    timeoutMs: entry.timeoutMs ?? defaultTimeoutMs,
-    retry: defaultRetry,
-  };
-
   if (entry.provider === "firecrawl_selfhosted") {
     return {
       type: entry.provider,
       baseUrl: entry.baseUrl,
       authentication: { type: "none" },
       ...(entry.headers ? { headers: entry.headers } : {}),
-      ...shared,
+      rateLimit: RATE_LIMIT,
+      concurrency: CONCURRENCY,
+      timeoutMs: TIMEOUT_MS,
+      retry: RETRY,
     };
   }
 
@@ -209,7 +173,10 @@ export const expandFetchProviderEntry = (
     type: entry.provider,
     baseUrl: defaults.baseUrl,
     authentication: { ...defaults.authentication, apiKey: entry.apiKey },
-    ...shared,
+    rateLimit: RATE_LIMIT,
+    concurrency: CONCURRENCY,
+    timeoutMs: TIMEOUT_MS,
+    retry: RETRY,
   };
 };
 

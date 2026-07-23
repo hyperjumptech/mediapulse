@@ -1830,6 +1830,9 @@ importers:
 
   packages/shared/agent-search:
     dependencies:
+      '@workspace/utils':
+        specifier: workspace:*
+        version: link:../utils
       got:
         specifier: 'catalog:'
         version: 14.6.6
