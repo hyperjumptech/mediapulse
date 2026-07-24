@@ -139,6 +139,23 @@ export const rebuildWithTranslatedStrings = (
   };
 };
 
+const buildEchoedIndexPrefixPattern = (index: number): RegExp =>
+  new RegExp(`^\\s*${String(index + 1)}\\s*[.)]\\s+`);
+
+export const stripEchoedIndexPrefixes = (
+  sourceStrings: readonly string[],
+  translated: readonly string[],
+): string[] =>
+  translated.map((value, index) => {
+    const pattern = buildEchoedIndexPrefixPattern(index);
+    const source = sourceStrings[index];
+    if (source !== undefined && pattern.test(source)) {
+      return value;
+    }
+
+    return value.replace(pattern, "");
+  });
+
 /**
  * Builds the system prompt that constrains the translation to a positional string array.
  *
@@ -149,6 +166,7 @@ function buildTranslationSystemPrompt(languageName: string): string {
     `You are a professional financial-newsletter translator. Translate into ${languageName}.`,
     "You receive a subject line and a numbered list of short strings from one newsletter.",
     'Return {"subject", "strings"} where "strings" has EXACTLY the same number of entries as the input, in the same order, each entry the translation of the input entry at that position.',
+    "The leading numbers exist only to mark position; they are not part of the text. Never repeat a leading number in a returned entry.",
     "Never merge, split, drop, add, or reorder entries. Translate each entry independently.",
     "Translate faithfully and naturally, in the same tone and register.",
     "Keep every number, percentage, currency figure, date, ticker symbol, and proper noun exactly as written; do not localize, convert, or round them.",
@@ -214,9 +232,13 @@ export async function translateNewsletter(
     maxRetries: 0,
   });
 
+  const cleanedStrings = stripEchoedIndexPrefixes(
+    sourceStrings,
+    result.object.strings,
+  );
   const translatedDocument = rebuildWithTranslatedStrings(
     document,
-    result.object.strings,
+    cleanedStrings,
   );
 
   const inputTokens = result.usage?.inputTokens;

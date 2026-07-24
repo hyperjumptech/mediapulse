@@ -81,6 +81,105 @@ describe("translateNewsletter", () => {
     ]);
   });
 
+  it("drops list numbers the model echoed back from the numbered prompt", async () => {
+    const numberedStrings = translatedStrings.map(
+      (value, index) => `${String(index + 1)}. ${value}`,
+    );
+    const generateObjectFn = vi.fn().mockResolvedValue({
+      object: { subject: "Subjek Indonesia", strings: numberedStrings },
+    }) satisfies TranslateNewsletterObjectFn;
+
+    const result = await translateNewsletter(
+      {
+        subject: "English Subject",
+        content: sourceContent,
+        targetLanguage: "id",
+        model: "gpt-4o-mini",
+        credentials,
+      },
+      generateObjectFn,
+    );
+    const document = readNewsletterDocument(result.content);
+
+    expect(document?.sections[0]?.articles[0]?.title).toBe("Pendapatan naik");
+    expect(document?.sections[0]?.articles[0]?.points).toEqual([
+      "Pendapatan naik 12.5% menjadi $4.2B pada Q1 2026.",
+      "Margin bertahan.",
+    ]);
+    expect(document?.sections[1]?.articles[0]?.title).toBe("Margin stabil");
+    expect(document?.sections[1]?.articles[0]?.points).toEqual([
+      "Margin bertahan di 30%.",
+    ]);
+  });
+
+  it("keeps a leading number that belongs to the copy itself", async () => {
+    const numberedSourceContent = JSON.stringify({
+      version: 1,
+      sections: [
+        {
+          key: "industry-pulse",
+          articles: [
+            {
+              title: "1. Revenue climbs",
+              url: "https://example.com/a",
+              points: ["2. Margin held."],
+            },
+          ],
+        },
+      ],
+    });
+    const generateObjectFn = vi.fn().mockResolvedValue({
+      object: {
+        subject: "Subjek",
+        strings: ["1. Pendapatan naik", "2. Margin bertahan."],
+      },
+    }) satisfies TranslateNewsletterObjectFn;
+
+    const result = await translateNewsletter(
+      {
+        subject: "English Subject",
+        content: numberedSourceContent,
+        targetLanguage: "id",
+        model: "gpt-4o-mini",
+        credentials,
+      },
+      generateObjectFn,
+    );
+    const document = readNewsletterDocument(result.content);
+
+    expect(document?.sections[0]?.articles[0]?.title).toBe(
+      "1. Pendapatan naik",
+    );
+    expect(document?.sections[0]?.articles[0]?.points).toEqual([
+      "2. Margin bertahan.",
+    ]);
+  });
+
+  it("leaves a number that does not match the entry position", async () => {
+    const generateObjectFn = vi.fn().mockResolvedValue({
+      object: {
+        subject: "Subjek",
+        strings: ["5 Alasan pendapatan naik", ...translatedStrings.slice(1, 5)],
+      },
+    }) satisfies TranslateNewsletterObjectFn;
+
+    const result = await translateNewsletter(
+      {
+        subject: "English Subject",
+        content: sourceContent,
+        targetLanguage: "id",
+        model: "gpt-4o-mini",
+        credentials,
+      },
+      generateObjectFn,
+    );
+    const document = readNewsletterDocument(result.content);
+
+    expect(document?.sections[0]?.articles[0]?.title).toBe(
+      "5 Alasan pendapatan naik",
+    );
+  });
+
   it("never translates urls, bylines, or section keys", async () => {
     const generateObjectFn = vi.fn().mockResolvedValue({
       object: { subject: "Subjek", strings: translatedStrings },
