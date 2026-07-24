@@ -412,7 +412,12 @@ const mapWithConcurrency = async <TItem, TResult>(
 };
 
 type SummaryOutcome =
-  | { status: "summarized"; entry: SelectedArticle; points: string[] }
+  | {
+      status: "summarized";
+      entry: SelectedArticle;
+      title: string;
+      points: string[];
+    }
   | { status: "failed"; entry: SelectedArticle };
 
 type TokenTotals = {
@@ -612,7 +617,12 @@ export async function generateNewsletterWithLlm(
         const summary = articleSummarySchema.parse(result.object);
         addUsage(tokenTotals, result.usage);
 
-        return { status: "summarized", entry, points: summary.points };
+        return {
+          status: "summarized",
+          entry,
+          title: summary.title,
+          points: summary.points,
+        };
       } catch (err) {
         logger.warn(
           {
@@ -665,7 +675,7 @@ export async function generateNewsletterWithLlm(
     const author = trimmedOrUndefined(source.author);
     const sourceName = trimmedOrUndefined(source.source);
     const article: NewsletterArticle = {
-      title: source.title.trim(),
+      title: outcome.title,
       url: source.url.trim(),
       points: outcome.points,
       ...(author !== undefined ? { author } : {}),

@@ -8,6 +8,7 @@ import type { SourceForGeneration } from "./types.js";
 
 /** Structured output contract for a single article summary. */
 export const articleSummarySchema = z.object({
+  title: z.string().trim().min(1),
   points: z
     .array(z.string().trim().min(1).max(MAX_POINT_LENGTH))
     .min(1)
@@ -19,12 +20,15 @@ export type ArticleSummary = z.infer<typeof articleSummarySchema>;
 /**
  * System prompt for the per-article summarizer.
  *
- * The model sees one article and nothing else. It does not choose a section, write a
- * title, or know what the rest of the newsletter contains, so none of that belongs here.
+ * The model sees one article and nothing else. It does not choose a section or know what the
+ * rest of the newsletter contains, so none of that belongs here. It does return the article's
+ * own title, translated into English, alongside the summary points.
  */
-export const SUMMARIZE_ARTICLE_SYSTEM_PROMPT = `You extract the key facts from a single news article for a business newsletter.
+export const SUMMARIZE_ARTICLE_SYSTEM_PROMPT = `You extract the key facts from a single news article for a business newsletter, and you translate its title into English.
 
-Return between 1 and ${String(MAX_POINTS_PER_ARTICLE)} points. Each point must be at most ${String(MAX_POINT_LENGTH)} characters.
+Return a title and between 1 and ${String(MAX_POINTS_PER_ARTICLE)} points. Each point must be at most ${String(MAX_POINT_LENGTH)} characters.
+
+For the title: translate the article's own title into English faithfully. Do not paraphrase, summarize, rewrite, or shorten it beyond the translation. If the title is already in English, return it unchanged. Keep every number, percentage, currency figure, date, ticker symbol, and proper noun exactly as written. Remove any trailing publisher or site name, such as a "- Publisher", "| Site", or "— Outlet" at the end; never keep the source name in the title.
 
 Write only what the article actually says. Do not add figures, companies, dates, causes, or consequences that are not stated in it. Do not infer why something happened when the article does not say. If you are unsure whether the article supports a claim, leave it out.
 

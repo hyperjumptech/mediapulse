@@ -87,7 +87,10 @@ const makeGenerateFn = (
     }
 
     return {
-      object: { points: [`Key fact from ${promptTitle(args.prompt)}`] },
+      object: {
+        title: promptTitle(args.prompt),
+        points: [`Key fact from ${promptTitle(args.prompt)}`],
+      },
       ...(options.usage !== undefined ? { usage: options.usage } : {}),
     };
   });
@@ -374,7 +377,7 @@ describe("generateNewsletterWithLlm — happy path", () => {
     expect(result.subject.startsWith("BBCA")).toBe(true);
   });
 
-  it("takes title, url, author, and source from the source row and points from the model", async () => {
+  it("takes url, author, and source from the source row and title plus points from the model", async () => {
     const generateObjectFn = makeGenerateFn();
 
     const result = await generateNewsletterWithLlm(
@@ -395,6 +398,38 @@ describe("generateNewsletterWithLlm — happy path", () => {
       source: "Example Wire",
       points: ["Key fact from Rival A expands"],
     });
+  });
+
+  it("uses the model's translated title, not the raw source title", async () => {
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: (args) => {
+        const sourceTitle = promptTitle(args.prompt);
+        const translated =
+          sourceTitle === "Merger closes"
+            ? "Regional lenders finalize merger"
+            : sourceTitle;
+
+        return Promise.resolve({
+          object: {
+            title: translated,
+            points: [`Key fact from ${sourceTitle}`],
+          },
+        });
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      { generateObjectFn },
+    );
+    const parsed = readNewsletterDocument(result.content);
+    const deals = parsed?.sections.find(
+      (section) => section.key === "deals-and-movements",
+    );
+
+    expect(deals?.articles[0]?.title).toBe("Regional lenders finalize merger");
   });
 
   it("issues one summarizer call per selected article plus one subject call", async () => {
@@ -465,7 +500,10 @@ describe("generateNewsletterWithLlm — summarizer concurrency", () => {
         inFlight -= 1;
 
         return {
-          object: { points: [`Key fact from ${promptTitle(args.prompt)}`] },
+          object: {
+            title: promptTitle(args.prompt),
+            points: [`Key fact from ${promptTitle(args.prompt)}`],
+          },
         };
       },
     });
@@ -497,7 +535,10 @@ describe("generateNewsletterWithLlm — summarizer failures", () => {
         }
 
         return {
-          object: { points: [`Key fact from ${promptTitle(args.prompt)}`] },
+          object: {
+            title: promptTitle(args.prompt),
+            points: [`Key fact from ${promptTitle(args.prompt)}`],
+          },
         };
       },
     });
@@ -568,7 +609,10 @@ describe("generateNewsletterWithLlm — summarizer failures", () => {
         }
 
         return {
-          object: { points: [`Key fact from ${promptTitle(args.prompt)}`] },
+          object: {
+            title: promptTitle(args.prompt),
+            points: [`Key fact from ${promptTitle(args.prompt)}`],
+          },
         };
       },
     });
@@ -601,7 +645,10 @@ describe("generateNewsletterWithLlm — summarizer failures", () => {
         }
 
         return {
-          object: { points: [`Key fact from ${promptTitle(args.prompt)}`] },
+          object: {
+            title: promptTitle(args.prompt),
+            points: [`Key fact from ${promptTitle(args.prompt)}`],
+          },
         };
       },
     });
