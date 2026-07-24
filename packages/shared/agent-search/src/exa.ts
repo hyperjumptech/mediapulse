@@ -73,7 +73,6 @@ const searchExa = async (
     json: {
       query: queryText,
       numResults: RESULTS_PER_QUERY,
-      type: "fast",
       category: "news",
       userLocation: ctx.locale.gl.toUpperCase(),
       excludeDomains: HOST_WIDE_BLOCKED_DOMAINS,
