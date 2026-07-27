@@ -94,6 +94,7 @@ export {
   detailBlockSectionRuleSchema,
   detailBlockSubTableColumnSchema,
   detailBlockSubTableSchema,
+  detailBlockTabBadgeSchema,
   detailBlockTabSchema,
   detailBlockTabsSchema,
   type DetailBlock,
@@ -111,6 +112,7 @@ export {
   type DetailBlockSubTable,
   type DetailBlockSubTableColumn,
   type DetailBlockTab,
+  type DetailBlockTabBadge,
   type DetailBlockTabs,
 } from "./detail-blocks";
 export {

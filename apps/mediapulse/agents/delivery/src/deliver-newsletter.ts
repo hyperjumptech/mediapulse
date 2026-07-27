@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import {
   parseNewsletterEmailSubject,
+  readNewsletterDocument,
   renderNewsletterEmail,
 } from "@workspace/email-templates";
 import type { LoggerLike } from "@workspace/agent-runtime";
@@ -210,6 +211,24 @@ export async function deliverNewsletterToSubscribers(
           attempts: 0,
           lastErrorMessage: "missing_translation",
           errorCategory: "skipped_missing_translation",
+        });
+        continue;
+      }
+      if (readNewsletterDocument(translation.content) === undefined) {
+        logger?.warn?.(
+          {
+            newsletterId: newsletter.id,
+            recipientRef: recipientLogRef(sub.userTickerId),
+            language: sub.language,
+          },
+          "delivery translation is not a valid newsletter document — skipping recipient",
+        );
+        results.push({
+          userTickerId: sub.userTickerId,
+          status: "skipped",
+          attempts: 0,
+          lastErrorMessage: "invalid_translation",
+          errorCategory: "skipped_invalid_translation",
         });
         continue;
       }

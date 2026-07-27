@@ -210,9 +210,33 @@ describe("parseNewsletterBody — industry document", () => {
 });
 
 describe("parseNewsletterBody — industry document validation", () => {
-  it("rejects a point longer than 100 characters", () => {
+  it("accepts a point longer than 100 characters so an overshoot still delivers", () => {
     // Setup
     const overLongPoint = "x".repeat(MAX_POINT_LENGTH + 1);
+    const bodyText = buildDocumentBody([
+      {
+        key: "industry-pulse",
+        articles: [
+          {
+            title: "Sector holds steady",
+            url: "https://example.com/pulse",
+            points: [overLongPoint],
+          },
+        ],
+      },
+    ]);
+
+    // Act
+    const document = expectIndustryDocument(bodyText);
+
+    // Assert
+    expect(document.sections[0]?.articles[0]?.points[0]).toHaveLength(
+      MAX_POINT_LENGTH + 1,
+    );
+  });
+
+  it("rejects an empty point", () => {
+    // Setup
     const bodyText = JSON.stringify({
       version: 1,
       sections: [
@@ -222,7 +246,7 @@ describe("parseNewsletterBody — industry document validation", () => {
             {
               title: "Sector holds steady",
               url: "https://example.com/pulse",
-              points: [overLongPoint],
+              points: [""],
             },
           ],
         },

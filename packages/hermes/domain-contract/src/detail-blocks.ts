@@ -245,6 +245,11 @@ export const detailBlockLeafSchema = z.discriminatedUnion("type", [
   detailBlockSubTableSchema,
 ]);
 
+export const detailBlockTabBadgeSchema = z.object({
+  label: z.string().min(1),
+  variant: detailBlockBadgeVariantSchema.default("outline"),
+});
+
 /** One tab inside a `tabs` block — a label plus a leaf block to render. */
 export const detailBlockTabSchema = z.object({
   label: z.string().min(1),
@@ -253,6 +258,13 @@ export const detailBlockTabSchema = z.object({
    * length; a number renders as-is. Absent or unresolved values render no count.
    */
   countField: z.string().optional(),
+  badge: detailBlockTabBadgeSchema.optional(),
+  /**
+   * Optional rule (same language as `sectionRule.when`) deciding whether this tab renders at
+   * all. Absent means always visible; a rule that fails to parse or evaluate leaves the tab
+   * visible, so a bad expression never silently hides content.
+   */
+  visibleWhen: z.string().min(1).optional(),
   block: detailBlockLeafSchema,
 });
 
@@ -321,6 +333,7 @@ export type DetailBlockSubTableColumn = z.infer<
 >;
 export type DetailBlockTabs = z.infer<typeof detailBlockTabsSchema>;
 export type DetailBlockTab = z.infer<typeof detailBlockTabSchema>;
+export type DetailBlockTabBadge = z.infer<typeof detailBlockTabBadgeSchema>;
 export type DetailBlockBadgeVariant = z.infer<
   typeof detailBlockBadgeVariantSchema
 >;

@@ -1,12 +1,16 @@
 "use client";
 
 import {
+  evaluateDetailBlockRule,
+  parseDetailBlockRule,
   resolvePath,
   type DetailBlockLeaf,
   type DetailBlockSubTable,
+  type DetailBlockTab,
   type DetailBlockTabs,
 } from "@hermes/domain-contract";
 
+import { Badge } from "@workspace/ui/components/badge";
 import {
   Select,
   SelectContent,
@@ -30,6 +34,7 @@ import {
   DetailBlockSubTableContent,
   DetailBlockSubTableView,
 } from "./detail-block-sub-table";
+import { mapBadgeVariant } from "./map-badge-variant";
 import { useDetailBlockTabs } from "./use-detail-block-tabs";
 
 const ALL_VALUE = "all";
@@ -52,6 +57,15 @@ const tabCount = (
   if (typeof value === "number" && Number.isFinite(value)) return value;
 
   return undefined;
+};
+
+const isTabVisible = (tab: DetailBlockTab, data: unknown): boolean => {
+  if (tab.visibleWhen === undefined) return true;
+  try {
+    return evaluateDetailBlockRule(parseDetailBlockRule(tab.visibleWhen), data);
+  } catch {
+    return true;
+  }
 };
 
 const rowsForField = (
@@ -139,7 +153,11 @@ export const DetailBlockTabsView = ({
       ? (limitForTab(tabIndex) ?? defaultLimitValue(tabBlock))
       : ALL_VALUE;
 
-  const activeBlock = block.tabs[activeIndex]?.block;
+  const visibleTabs = block.tabs.filter((tab) => isTabVisible(tab, data));
+  if (visibleTabs.length === 0) return null;
+
+  const safeActiveIndex = activeIndex < visibleTabs.length ? activeIndex : 0;
+  const activeBlock = visibleTabs[safeActiveIndex]?.block;
   const activeOptions =
     activeBlock?.type === "subTable" ? activeBlock.rowLimitOptions : undefined;
 
@@ -151,7 +169,7 @@ export const DetailBlockTabsView = ({
         data={data}
       />
       <Tabs
-        value={`tab-${activeIndex}`}
+        value={`tab-${safeActiveIndex}`}
         onValueChange={(value) =>
           setActiveIndex(Number(value.slice("tab-".length)))
         }
@@ -159,7 +177,7 @@ export const DetailBlockTabsView = ({
       >
         <div className="flex items-center justify-between gap-2">
           <TabsList>
-            {block.tabs.map((tab, index) => {
+            {visibleTabs.map((tab, index) => {
               const count = tabCount(data, tab.countField);
               return (
                 <TabsTrigger
@@ -172,14 +190,22 @@ export const DetailBlockTabsView = ({
                       {count}
                     </span>
                   ) : null}
+                  {tab.badge ? (
+                    <Badge
+                      variant={mapBadgeVariant(tab.badge.variant)}
+                      className="ml-1.5 px-1.5 py-0 text-[0.625rem] font-medium uppercase"
+                    >
+                      {tab.badge.label}
+                    </Badge>
+                  ) : null}
                 </TabsTrigger>
               );
             })}
           </TabsList>
           {activeOptions ? (
             <Select
-              value={limitFor(activeIndex, activeBlock as DetailBlockLeaf)}
-              onValueChange={(value) => setLimitForTab(activeIndex, value)}
+              value={limitFor(safeActiveIndex, activeBlock as DetailBlockLeaf)}
+              onValueChange={(value) => setLimitForTab(safeActiveIndex, value)}
             >
               <SelectTrigger className="h-8 w-[5.5rem] text-xs">
                 <SelectValue />
@@ -195,7 +221,7 @@ export const DetailBlockTabsView = ({
             </Select>
           ) : null}
         </div>
-        {block.tabs.map((tab, index) => {
+        {visibleTabs.map((tab, index) => {
           const tabBlock = stripLabel(tab.block);
           return (
             <TabsContent key={`tab-content-${index}`} value={`tab-${index}`}>

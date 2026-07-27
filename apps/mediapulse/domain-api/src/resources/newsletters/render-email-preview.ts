@@ -1,5 +1,6 @@
 import { parseNewsletterEmailSubject } from "@workspace/email-templates/newsletter-email-subject";
 import {
+  newsletterDocumentSchema,
   readNewsletterDocument,
   renderNewsletterEmail,
 } from "@workspace/email-templates";
@@ -17,6 +18,7 @@ export type RenderEmailPreviewInput = {
   subject: string;
   bodyText: string;
   tickerSymbol: string;
+  language?: "en" | "id";
 };
 
 /**
@@ -30,6 +32,7 @@ export type RenderEmailPreviewDeps = {
     bodyText: string;
     tickerSymbol: string;
     unsubscribeUrl: string;
+    language: "en" | "id";
   }) => Promise<{ html: string }>;
   /** Pino-compatible logger; defaults to a no-op. */
   logger?: Pick<Logger, "warn"> | { warn: (...args: unknown[]) => void };
@@ -49,6 +52,42 @@ const PREVIEW_UNSUBSCRIBE_URL = "https://example.com/preview/unsubscribe";
  */
 const LEGACY_FORMAT_NOTICE =
   "<p>This newsletter was generated before the current content format and cannot be previewed. Its delivered email is unaffected.</p>";
+
+/**
+ * Shown when the body parses as JSON but breaks the document schema. This is a real
+ * defect rather than an old format, so the notice names the failing fields: delivery
+ * skips a recipient whose body lands here.
+ */
+const buildInvalidDocumentNotice = (issues: readonly string[]): string =>
+  [
+    "<p>This body is not a valid newsletter document, so it cannot be previewed and will not be delivered.</p>",
+    "<ul>",
+    ...issues.map((issue) => `<li>${escapeHtml(issue)}</li>`),
+    "</ul>",
+  ].join("");
+
+const describeBodyFailure = (
+  bodyText: string,
+): { kind: "legacy" } | { kind: "invalid"; issues: string[] } => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(bodyText);
+  } catch {
+    return { kind: "legacy" };
+  }
+
+  const result = newsletterDocumentSchema.safeParse(parsed);
+  if (result.success) {
+    return { kind: "legacy" };
+  }
+
+  return {
+    kind: "invalid",
+    issues: result.error.issues.map(
+      (issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`,
+    ),
+  };
+};
 
 /**
  * Renders the production `default-newsletter` React Email template for the
@@ -72,19 +111,29 @@ export const renderEmailPreview = async (
 ): Promise<string> => {
   const renderHtml =
     deps.renderHtml ??
-    (async ({ title, bodyText, tickerSymbol, unsubscribeUrl }) => {
+    (async ({ title, bodyText, tickerSymbol, unsubscribeUrl, language }) => {
       const result = await renderNewsletterEmail({
         title,
         bodyText,
         tickerSymbol,
         unsubscribeUrl,
+        language,
         variant: "default",
       });
       return { html: result.html };
     });
 
   if (readNewsletterDocument(input.bodyText) === undefined) {
-    return LEGACY_FORMAT_NOTICE;
+    const failure = describeBodyFailure(input.bodyText);
+    if (failure.kind === "legacy") {
+      return LEGACY_FORMAT_NOTICE;
+    }
+    deps.logger?.warn(
+      { newsletterId: input.newsletterId, issues: failure.issues },
+      "Newsletter body failed document validation",
+    );
+
+    return buildInvalidDocumentNotice(failure.issues);
   }
 
   try {
@@ -94,6 +143,7 @@ export const renderEmailPreview = async (
       bodyText: input.bodyText,
       tickerSymbol: input.tickerSymbol,
       unsubscribeUrl: PREVIEW_UNSUBSCRIBE_URL,
+      language: input.language ?? "en",
     });
     return html;
   } catch (error) {

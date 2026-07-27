@@ -41,6 +41,7 @@ export type DetailItem = {
   totalTokens: number | null;
   content: string;
   emailPreviewHtml: string;
+  emailPreviewHtmlIndonesian: string | null;
   sourceCollection: SourceCollectionPayload;
   sourceAnalysis: SourceAnalysisPayload;
   contentGeneration: ContentGenerationPayload;
@@ -65,6 +66,7 @@ export const mapRowToDetailItem = (
   row: NewsletterDetailRow,
   parts: {
     emailPreviewHtml: string;
+    emailPreviewHtmlIndonesian: string | null;
     sourceCollection: SourceCollectionPayload;
     sourceAnalysis: SourceAnalysisPayload;
     contentGeneration: ContentGenerationPayload;
@@ -97,6 +99,7 @@ export const mapRowToDetailItem = (
   totalTokens: row.totalTokens,
   content: row.content,
   emailPreviewHtml: parts.emailPreviewHtml,
+  emailPreviewHtmlIndonesian: parts.emailPreviewHtmlIndonesian,
   sourceCollection: parts.sourceCollection,
   sourceAnalysis: parts.sourceAnalysis,
   contentGeneration: parts.contentGeneration,

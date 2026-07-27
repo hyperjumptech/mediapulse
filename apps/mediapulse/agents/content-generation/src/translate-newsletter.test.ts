@@ -1,7 +1,10 @@
 /** @vitest-environment node */
 import { describe, expect, it, vi } from "vitest";
 
-import { readNewsletterDocument } from "@workspace/email-templates/newsletter-document";
+import {
+  MAX_POINT_LENGTH,
+  readNewsletterDocument,
+} from "@workspace/email-templates/newsletter-document";
 
 import {
   TranslateNewsletterError,
@@ -260,6 +263,119 @@ describe("translateNewsletter", () => {
   it("fails loudly when the model returns the wrong number of strings", async () => {
     const generateObjectFn = vi.fn().mockResolvedValue({
       object: { subject: "s", strings: translatedStrings.slice(0, 2) },
+    }) satisfies TranslateNewsletterObjectFn;
+
+    await expect(
+      translateNewsletter(
+        {
+          subject: "S",
+          content: sourceContent,
+          targetLanguage: "id",
+          model: "gpt-4o-mini",
+          credentials,
+        },
+        generateObjectFn,
+      ),
+    ).rejects.toBeInstanceOf(TranslateNewsletterError);
+  });
+
+  it("tags each point with its character budget and leaves titles untagged", async () => {
+    const generateObjectFn = vi.fn().mockResolvedValue({
+      object: { subject: "Subjek", strings: translatedStrings },
+    }) satisfies TranslateNewsletterObjectFn;
+
+    await translateNewsletter(
+      {
+        subject: "S",
+        content: sourceContent,
+        targetLanguage: "id",
+        model: "gpt-4o-mini",
+        credentials,
+      },
+      generateObjectFn,
+    );
+
+    const call = generateObjectFn.mock.calls[0]?.[0];
+
+    expect(call.system).toContain("(max N chars)");
+    expect(call.prompt).toContain("1. Revenue climbs");
+    expect(call.prompt).toContain(
+      "2. (max 100 chars) Revenue rose 12.5% to $4.2B in Q1 2026.",
+    );
+    expect(call.prompt).toContain("3. (max 100 chars) Margin held.");
+  });
+
+  it("keeps a point that overshoots the character budget rather than failing the run", async () => {
+    const overLong = "a".repeat(MAX_POINT_LENGTH + 15);
+    const generateObjectFn = vi.fn().mockResolvedValue({
+      object: {
+        subject: "Subjek",
+        strings: [
+          translatedStrings[0],
+          overLong,
+          translatedStrings[2],
+          translatedStrings[3],
+          translatedStrings[4],
+        ],
+      },
+    }) satisfies TranslateNewsletterObjectFn;
+
+    const result = await translateNewsletter(
+      {
+        subject: "S",
+        content: sourceContent,
+        targetLanguage: "id",
+        model: "gpt-4o-mini",
+        credentials,
+      },
+      generateObjectFn,
+    );
+
+    const document = readNewsletterDocument(result.content);
+
+    expect(document?.sections[0]?.articles[0]?.points[0]).toBe(overLong);
+  });
+
+  it("rejects a translation that breaks the document format", async () => {
+    const generateObjectFn = vi.fn().mockResolvedValue({
+      object: {
+        subject: "Subjek",
+        strings: [
+          translatedStrings[0],
+          translatedStrings[1],
+          translatedStrings[2],
+          "   ",
+          translatedStrings[4],
+        ],
+      },
+    }) satisfies TranslateNewsletterObjectFn;
+
+    await expect(
+      translateNewsletter(
+        {
+          subject: "S",
+          content: sourceContent,
+          targetLanguage: "id",
+          model: "gpt-4o-mini",
+          credentials,
+        },
+        generateObjectFn,
+      ),
+    ).rejects.toThrow(/failed validation/);
+  });
+
+  it("rejects a translation that returns an empty point", async () => {
+    const generateObjectFn = vi.fn().mockResolvedValue({
+      object: {
+        subject: "Subjek",
+        strings: [
+          translatedStrings[0],
+          "",
+          translatedStrings[2],
+          translatedStrings[3],
+          translatedStrings[4],
+        ],
+      },
     }) satisfies TranslateNewsletterObjectFn;
 
     await expect(

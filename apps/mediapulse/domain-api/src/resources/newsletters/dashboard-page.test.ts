@@ -294,9 +294,10 @@ describe("newslettersDashboardPage delivery stage", () => {
     expect(tabs.tabs.map((tab) => tab.label)).toEqual([
       "Recipients",
       "Email Preview",
+      "Email Preview",
     ]);
 
-    const [recipients, preview] = tabs.tabs;
+    const [recipients, preview, indonesianPreview] = tabs.tabs;
     expect(recipients?.countField).toBe("recipients");
     expect(recipients?.block.type).toBe("subTable");
     if (recipients?.block.type !== "subTable") return;
@@ -306,8 +307,21 @@ describe("newslettersDashboardPage delivery stage", () => {
       "Status",
     ]);
 
+    expect(preview?.badge).toEqual({ label: "en", variant: "outline" });
+    expect(preview?.visibleWhen).toBeUndefined();
     expect(preview?.block.type).toBe("htmlPreview");
     if (preview?.block.type !== "htmlPreview") return;
     expect(preview.block.field).toBe("emailPreviewHtml");
+
+    expect(indonesianPreview?.badge).toEqual({
+      label: "id",
+      variant: "outline",
+    });
+    expect(indonesianPreview?.visibleWhen).toBe(
+      "present(emailPreviewHtmlIndonesian)",
+    );
+    expect(indonesianPreview?.block.type).toBe("htmlPreview");
+    if (indonesianPreview?.block.type !== "htmlPreview") return;
+    expect(indonesianPreview.block.field).toBe("emailPreviewHtmlIndonesian");
   });
 });
