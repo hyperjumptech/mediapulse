@@ -56,20 +56,75 @@ export const emailLink: CSSProperties = {
 };
 
 /**
- * Layered box-shadow that makes the card read as a small stack of paper: two
- * sheets peek out below the card (a white one, then a fainter gray one), each
- * with a soft drop shadow. Degrades to a flat card in clients that ignore
- * box-shadow (e.g. Outlook).
+ * Soft drop shadow that lifts the card off the canvas.
+ *
+ * - Important: every layer is a translucent black, never an opaque light color.
+ *   Clients that recolor the card for dark mode leave box-shadow alone, so a
+ *   light layer would survive as a bright bar under a dark card.
  */
-const cardStack: CSSProperties = {
+const cardShadow: CSSProperties = {
   boxShadow: [
-    "0 1px 3px rgba(16,24,40,0.08)",
-    "0 10px 0 -5px #ffffff",
-    "0 10px 5px -5px rgba(16,24,40,0.10)",
-    "0 20px 0 -10px #f3f4f6",
-    "0 20px 6px -10px rgba(16,24,40,0.08)",
+    "0 1px 3px rgba(16,24,40,0.10)",
+    "0 12px 28px -14px rgba(16,24,40,0.22)",
   ].join(", "),
 };
+
+/**
+ * Marker classes that survive the Tailwind transform, giving the dark-mode
+ * stylesheet something to target.
+ *
+ * - Important: React Email's Tailwind rewrites recognized utilities into inline
+ *   styles and drops them from `class`, so `text-ink` and friends cannot be
+ *   restyled by a media query. Unrecognized classes are left alone, so every
+ *   element that carries a color also carries one of these.
+ */
+export const darkModeClassName = {
+  canvas: "e-canvas",
+  card: "email-card",
+  ink: "e-ink",
+  body: "e-body",
+  muted: "e-muted",
+  faint: "e-faint",
+  link: "e-link",
+  rule: "e-rule",
+  ruleStrong: "e-rule-strong",
+  panel: "e-panel",
+  button: "e-button",
+} as const;
+
+/**
+ * Card and color-scheme rules that inline styles cannot express.
+ *
+ * The `color-scheme` declarations tell Apple Mail and Outlook that this email
+ * supplies its own dark palette, which stops them from force-inverting it. The
+ * dark block then recolors every surface, rule, and text tone so contrast holds
+ * up the same way it does in light mode. Clients that strip `<style>` (Gmail)
+ * fall back to the light palette and their own inversion, as before.
+ *
+ * - Important: the mobile rule is hand-written because React Email's Tailwind
+ *   serializes `max-sm:` variants as `@media not all and(min-width:640px)`,
+ *   which is invalid CSS and is dropped by every client.
+ * - Important: `Body` paints the canvas color twice, on `<body>` and again on an
+ *   inner full-width cell that carries no className, so the canvas rule has to
+ *   reach that cell as well or it covers the recolored body.
+ */
+const EMAIL_CARD_STYLE = [
+  ":root{color-scheme:light dark;supported-color-schemes:light dark}",
+  "@media only screen and (max-width:640px){.email-card{margin-top:0 !important}}",
+  "@media (prefers-color-scheme:dark){",
+  ".e-canvas,.e-canvas>table>tbody>tr>td{background-color:#0f1114 !important}",
+  ".email-card{background-color:#17191d !important}",
+  ".e-ink{color:#f4f5f7 !important}",
+  ".e-body{color:#d2d6dd !important}",
+  ".e-muted{color:#a3a9b4 !important}",
+  ".e-faint{color:#949aa5 !important}",
+  ".e-link{color:#7fb0ff !important}",
+  ".e-rule{border-color:#2b2f36 !important}",
+  ".e-rule-strong{border-color:#e4e6ea !important}",
+  ".e-panel{background-color:#1e2126 !important;border-color:#2b2f36 !important;border-left-color:#7fb0ff !important}",
+  ".e-button{background-color:#f4f5f7 !important;color:#17191d !important}",
+  "}",
+].join("");
 
 /** Branding line copy, split around the Mediapulse and Hyperjump links. */
 const BRANDING_COPY: Record<
@@ -82,17 +137,18 @@ const BRANDING_COPY: Record<
 
 /** Shared heading style used for the title of every email. */
 export const emailHeadingClassName =
-  "m-0 mb-2 text-2xl font-semibold leading-tight text-ink";
+  "e-ink m-0 mb-2 text-2xl font-semibold leading-tight text-ink";
 
 /** Shared paragraph style used for body copy in every email. */
 export const emailParagraphClassName =
-  "m-0 whitespace-pre-wrap text-base leading-relaxed text-body";
+  "e-body m-0 whitespace-pre-wrap text-base leading-relaxed text-body";
 
 /** Shared full-width divider style. */
-export const emailDividerClassName = "my-6 border-0 border-t border-rule";
+export const emailDividerClassName =
+  "e-rule my-6 border-0 border-t border-rule";
 
 /** Shared link style used for anchors styled with a className. Blue in both schemes. */
-export const emailLinkClassName = "text-brand underline";
+export const emailLinkClassName = "e-link text-brand underline";
 
 /** Footer copy passed by a template; rendered in the shared centered footer. */
 export interface EmailFooterContent {
@@ -140,17 +196,21 @@ export const EmailShell = ({
   return (
     <Html>
       <Tailwind config={emailTailwindConfig}>
-        <Head />
+        <Head>
+          <meta name="color-scheme" content="light dark" />
+          <meta name="supported-color-schemes" content="light dark" />
+          <style>{EMAIL_CARD_STYLE}</style>
+        </Head>
         <Preview>{preview}</Preview>
-        <Body className="m-0 bg-canvas p-0 font-sans">
+        <Body className="e-canvas m-0 bg-canvas p-0 font-sans">
           <Container
-            className="mx-auto my-8 max-w-[600px] bg-white px-6 py-8 max-sm:mt-0"
-            style={cardStack}
+            className="email-card mx-auto my-8 max-w-[600px] bg-white px-6 py-8"
+            style={cardShadow}
           >
             {children}
           </Container>
           <Container className="mx-auto max-w-[650px] px-6 pb-8 text-center">
-            <Text className="m-0 mb-2 text-center text-[13px] leading-normal text-body">
+            <Text className="e-body m-0 mb-2 text-center text-[13px] leading-normal text-body">
               {branding.prefix}
               <Link href={mediapulseSiteUrl} className={emailLinkClassName}>
                 MediaPulse
@@ -162,17 +222,17 @@ export const EmailShell = ({
               {branding.suffix}
             </Text>
             {footer?.feedback !== undefined ? (
-              <Text className="m-0 mb-2 text-center text-xs leading-normal text-muted">
+              <Text className="e-muted m-0 mb-2 text-center text-xs leading-normal text-muted">
                 {footer.feedback}
               </Text>
             ) : null}
             {footer?.note !== undefined ? (
-              <Text className="m-0 mb-2 text-center text-xs leading-normal text-muted">
+              <Text className="e-muted m-0 mb-2 text-center text-xs leading-normal text-muted">
                 {footer.note}
               </Text>
             ) : null}
             {footer?.unsubscribe !== undefined ? (
-              <Text className="m-0 text-center text-xs text-faint">
+              <Text className="e-faint m-0 text-center text-xs text-faint">
                 <Link
                   href={footer.unsubscribe.url}
                   className={emailLinkClassName}
@@ -238,11 +298,13 @@ export const EmailCallout = ({
   title?: string;
   children: ReactNode;
 }): ReactElement => (
-  <Section className="my-4 rounded-lg border border-l-4 border-rule border-l-brand bg-canvas px-4 py-3">
+  <Section className="e-panel my-4 rounded-lg border border-l-4 border-rule border-l-brand bg-canvas px-4 py-3">
     {title !== undefined ? (
-      <Text className="m-0 mb-1 text-sm font-semibold text-ink">{title}</Text>
+      <Text className="e-ink m-0 mb-1 text-sm font-semibold text-ink">
+        {title}
+      </Text>
     ) : null}
-    <Text className="m-0 whitespace-pre-wrap text-sm leading-relaxed text-body">
+    <Text className="e-body m-0 whitespace-pre-wrap text-sm leading-relaxed text-body">
       {children}
     </Text>
   </Section>

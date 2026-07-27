@@ -79,8 +79,7 @@ interface SectionCopy {
  *
  * The section names are Mediapulse vocabulary, so each one states which kinds of
  * stories it collects rather than assuming the reader already knows the term.
- * Descriptions are held to a narrow length band per language so the glossary box
- * reads as an even block.
+ * Descriptions are capped so each one fits on a single line under its heading.
  */
 export const SECTION_COPY: Record<
   FooterLanguage,
@@ -89,73 +88,59 @@ export const SECTION_COPY: Record<
   en: {
     "industry-pulse": {
       label: "Industry Pulse",
-      description:
-        "The biggest stories affecting the whole industry, and why they matter right now.",
+      description: "The stories moving the whole sector right now.",
     },
     "competitive-landscape": {
       label: "Competitive Landscape",
-      description:
-        "What competing companies are doing, and where they are gaining or losing ground.",
+      description: "The rivals gaining ground, and the ones falling behind.",
     },
     "deals-and-movements": {
       label: "Deals & Movements",
       description:
-        "Companies buying, merging, raising money, teaming up, or changing their leaders.",
+        "The deals, funding, and leadership changes reshaping companies.",
     },
     "regulatory-policy-watch": {
       label: "Regulatory & Policy Watch",
-      description:
-        "New rules and government decisions that change what companies are allowed to do.",
+      description: "The rules and decisions changing what companies can do.",
     },
     "disruptors-or-tech": {
       label: "Disruptors & Tech",
       description:
-        "New technology and new companies that could change how the whole industry works.",
+        "The technology and new entrants changing how the sector works.",
     },
     "quick-hits": {
       label: "Quick Hits",
-      description:
-        "Short news items worth knowing about, each with a link if you want to read more.",
+      description: "The smaller stories still worth knowing.",
     },
   },
   id: {
     "industry-pulse": {
       label: "Sorotan Industri",
-      description:
-        "Berita terbesar yang memengaruhi seluruh industri, dan mengapa itu penting kini.",
+      description: "Berita yang sedang menggerakkan seluruh industri.",
     },
     "competitive-landscape": {
       label: "Peta Persaingan",
-      description:
-        "Apa yang dilakukan pesaing, dan di mana mereka menguat atau justru melemah kini.",
+      description: "Pesaing yang sedang unggul, dan yang mulai tertinggal.",
     },
     "deals-and-movements": {
       label: "Aksi Korporasi",
       description:
-        "Perusahaan membeli, merger, menggalang dana, bermitra, atau berganti pemimpin.",
+        "Transaksi dan pergantian pemimpin yang menggerakkan perusahaan.",
     },
     "regulatory-policy-watch": {
       label: "Pantauan Regulasi",
-      description:
-        "Aturan baru dan keputusan pemerintah yang mengubah ruang gerak perusahaan kini.",
+      description: "Aturan dan keputusan yang mengubah ruang gerak perusahaan.",
     },
     "disruptors-or-tech": {
       label: "Disrupsi & Teknologi",
       description:
-        "Teknologi dan pemain baru yang bisa mengubah cara kerja seluruh industri ini.",
+        "Teknologi dan pemain baru yang mengubah cara kerja industri.",
     },
     "quick-hits": {
       label: "Sekilas Info",
-      description:
-        "Kabar singkat yang perlu diketahui, lengkap dengan tautan untuk baca lanjutan.",
+      description: "Berita kecil yang tetap perlu diketahui.",
     },
   },
-};
-
-/** Heading for the closing glossary box, keyed by language. */
-const GLOSSARY_TITLE: Record<FooterLanguage, string> = {
-  en: "What do these sections mean?",
-  id: "Apa arti bagian-bagian ini?",
 };
 
 /**
@@ -238,14 +223,23 @@ export const formatArticleByline = (byline: {
 export const renderSectionHeader = (
   sectionKey: NewsletterSectionKey,
   language: FooterLanguage = "en",
-): ReactElement => (
-  <Heading
-    as="h2"
-    className="m-0 mb-5 border-0 border-b-2 border-solid border-ink pb-2 text-xl font-bold leading-tight tracking-[-0.01em] text-ink"
-  >
-    {SECTION_COPY[language][sectionKey].label}
-  </Heading>
-);
+): ReactElement => {
+  const copy = SECTION_COPY[language][sectionKey];
+
+  return (
+    <>
+      <Heading
+        as="h2"
+        className="e-ink m-0 mb-1 text-xl font-bold leading-tight tracking-[-0.01em] text-ink"
+      >
+        {copy.label}
+      </Heading>
+      <Text className="e-faint e-rule-strong m-0 mb-5 border-0 border-b-2 border-solid border-ink pb-2 text-xs leading-normal text-faint">
+        {copy.description}
+      </Text>
+    </>
+  );
+};
 
 /**
  * Reports whether a parsed section has content worth rendering.
@@ -255,51 +249,6 @@ export const renderSectionHeader = (
  */
 export const hasRenderableContent = (section: NewsletterSection): boolean =>
   section.articles.some((article) => article.points.length > 0);
-
-/**
- * Renders the closing glossary box explaining the section names used above.
- *
- * Only sections actually present in this issue are listed, in the order they were
- * rendered, so the glossary never defines a section the reader did not see.
- *
- * @param sections - Sections rendered in this issue, in display order.
- * @param language - Language for the box title, labels, and descriptions.
- * @returns Glossary box, or `null` when no section is present.
- */
-export const renderSectionGlossary = (
-  sections: readonly NewsletterSection[],
-  language: FooterLanguage = "en",
-): ReactElement | null => {
-  if (sections.length === 0) {
-    return null;
-  }
-
-  const entries = sections.map((section) => ({
-    key: section.key,
-    ...SECTION_COPY[language][section.key],
-  }));
-
-  return (
-    <Section className="rounded-lg border border-solid border-rule bg-canvas p-5">
-      <Heading
-        as="h2"
-        className="m-0 mb-3 text-base font-semibold leading-tight text-ink"
-      >
-        {GLOSSARY_TITLE[language]}
-      </Heading>
-      {entries.map((entry) => (
-        <Section key={`glossary-${entry.key}`} className="mb-3">
-          <Text className="m-0 text-sm font-semibold leading-snug text-ink">
-            {entry.label}
-          </Text>
-          <Text className="m-0 text-sm leading-normal text-muted">
-            {entry.description}
-          </Text>
-        </Section>
-      ))}
-    </Section>
-  );
-};
 
 /**
  * Builds the default subscription footer when no explicit `footerNote` is passed.
@@ -362,18 +311,20 @@ export const DefaultNewsletterEmail = ({
 
     return (
       <Section key={`${sectionKey}-a-${String(articleIndex)}`}>
-        <Text className="m-0 mb-1 text-[17px] font-semibold leading-snug text-ink">
+        <Text className="e-ink m-0 mb-1 text-[17px] font-semibold leading-snug text-ink">
           {article.title}
         </Text>
         {byline !== undefined ? (
-          <Text className="m-0 mb-3 text-xs font-normal uppercase leading-normal tracking-[0.04em] text-faint">
+          <Text className="e-faint m-0 mb-3 text-xs font-normal uppercase leading-normal tracking-[0.04em] text-faint">
             {byline}
           </Text>
         ) : null}
-        <ul className="m-0 mb-0 list-disc pl-5 text-[15px] leading-[1.65] text-body">
+        <ul className="e-body m-0 mb-0 list-disc pl-5 text-[15px] leading-[1.65] text-body">
           {article.points.map((point, pointIndex) => (
             <li key={`p-${String(pointIndex)}`} className="mb-2 pl-1">
-              {renderInlineMarkdownLinks(point, link)}
+              {renderInlineMarkdownLinks(point, link, {
+                linkClassName: emailLinkClassName,
+              })}
             </li>
           ))}
         </ul>
@@ -382,7 +333,9 @@ export const DefaultNewsletterEmail = ({
             {READ_MORE_LABEL[language]}
           </Link>
         </Text>
-        {isLast ? null : <Hr className="my-6 border-0 border-t border-rule" />}
+        {isLast ? null : (
+          <Hr className="e-rule my-6 border-0 border-t border-rule" />
+        )}
       </Section>
     );
   };
@@ -407,7 +360,6 @@ export const DefaultNewsletterEmail = ({
   const isIndustryFormat = document !== undefined;
   const industryBodySections =
     document?.sections.filter(hasRenderableContent) ?? [];
-  const sectionGlossary = renderSectionGlossary(industryBodySections, language);
 
   return (
     <EmailShell
@@ -433,7 +385,7 @@ export const DefaultNewsletterEmail = ({
           <Section>
             <EmailHeading>{title}</EmailHeading>
           </Section>
-          <Hr className="my-6 border-0 border-t border-rule" />
+          <Hr className="e-rule my-6 border-0 border-t border-rule" />
         </>
       )}
       {document !== undefined ? (
@@ -441,21 +393,17 @@ export const DefaultNewsletterEmail = ({
           {industryBodySections.map((section, index) => (
             <Fragment key={`sec-${String(index)}`}>
               {index > 0 ? (
-                <Hr className="my-6 border-0 border-t border-rule" />
+                <Hr className="e-rule my-6 border-0 border-t border-rule" />
               ) : null}
               {renderIndustrySection(section, index)}
             </Fragment>
           ))}
-          {sectionGlossary !== null ? (
-            <>
-              <Hr className="my-6 border-0 border-t border-rule" />
-              {sectionGlossary}
-            </>
-          ) : null}
         </>
       ) : (
-        <Text className="m-0 whitespace-pre-wrap text-base leading-relaxed text-body">
-          {renderInlineMarkdownLinks(bodyText, link)}
+        <Text className="e-body m-0 whitespace-pre-wrap text-base leading-relaxed text-body">
+          {renderInlineMarkdownLinks(bodyText, link, {
+            linkClassName: emailLinkClassName,
+          })}
         </Text>
       )}
     </EmailShell>
