@@ -50,11 +50,11 @@ export const RegistrationPendingConfirmationEmail = ({
         If you did not request this subscription, you may disregard this email.
       </EmailParagraph>
       <Section style={buttonContainer}>
-        <Button href={confirmUrl} style={button}>
+        <Button href={confirmUrl} className="e-button" style={button}>
           Confirm subscription
         </Button>
       </Section>
-      <Text style={linkFallback}>
+      <Text className="e-muted" style={linkFallback}>
         Alternatively, copy and paste the following link into your browser:
         {"\n"}
         {confirmUrl}

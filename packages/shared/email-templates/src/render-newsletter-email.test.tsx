@@ -524,9 +524,8 @@ describe("renderNewsletterEmail", () => {
     expect(stripped).toContain(SECTION_COPY.en["industry-pulse"].label);
     expect(stripped).toContain(SECTION_COPY.en["competitive-landscape"].label);
     expect(stripped).not.toMatch(/<h1[^>]*>[^<]*TLKM industry briefing/i);
-    expect(stripped).toContain("What do these sections mean?");
     expect(stripped).toContain(
-      "Companies buying, merging, raising money, teaming up, or changing their leaders.",
+      SECTION_COPY.en["deals-and-movements"].description,
     );
     expect(stripped).toContain("A regional acquisition closed.");
     expect(html).not.toMatch(/Quote of the Week/i);
@@ -619,7 +618,7 @@ describe("renderNewsletterEmail", () => {
     expect(stripped).toContain("With no byline at all");
   });
 
-  it("limits the section glossary to sections present in the issue", async () => {
+  it("renders each section description under its heading, only for sections present in the issue", async () => {
     // Setup
     const partialBody = buildDocumentBody([
       {
@@ -653,32 +652,37 @@ describe("renderNewsletterEmail", () => {
 
     // Assert
     const stripped = html.replace(/<!-- -->/g, "");
-
-    expect(stripped).toContain("What do these sections mean?");
-    expect(stripped).toContain(
-      "The biggest stories affecting the whole industry, and why they matter right now.",
+    const pulseLabelIndex = stripped.indexOf(
+      SECTION_COPY.en["industry-pulse"].label,
     );
+    const pulseDescriptionIndex = stripped.indexOf(
+      SECTION_COPY.en["industry-pulse"].description,
+    );
+    const firstArticleIndex = stripped.indexOf("Repairing rather than roaring");
+
+    expect(pulseLabelIndex).toBeGreaterThan(-1);
+    expect(pulseDescriptionIndex).toBeGreaterThan(pulseLabelIndex);
+    expect(firstArticleIndex).toBeGreaterThan(pulseDescriptionIndex);
     expect(stripped).toContain(
-      "Companies buying, merging, raising money, teaming up, or changing their leaders.",
+      SECTION_COPY.en["deals-and-movements"].description,
     );
     expect(stripped).not.toContain("Competitive Landscape");
     expect(stripped).not.toContain(
-      "What competing companies are doing, and where they are gaining or losing ground.",
+      SECTION_COPY.en["competitive-landscape"].description,
     );
     expect(stripped).not.toContain("Quick Hits");
   });
 
   it.each(["en", "id"] as const)(
-    "keeps every %s section description within a narrow length band",
+    "keeps every %s section description short enough for one line under its heading",
     (language) => {
       const lengths = Object.values(SECTION_COPY[language]).map(
         (copy) => copy.description.length,
       );
-      const shortest = Math.min(...lengths);
-      const longest = Math.max(...lengths);
 
       expect(lengths).toHaveLength(6);
-      expect(longest - shortest).toBeLessThanOrEqual(4);
+      expect(Math.max(...lengths)).toBeLessThanOrEqual(75);
+      expect(Math.min(...lengths)).toBeGreaterThanOrEqual(30);
     },
   );
 
@@ -710,7 +714,55 @@ describe("renderNewsletterEmail", () => {
     expect(Math.max(...counts)).toBeLessThanOrEqual(MAX_POINTS_PER_ARTICLE);
   });
 
-  it("falls back to plain text and omits the glossary when the document is invalid", async () => {
+  it("keeps a dark-mode marker class on every element that carries a color", async () => {
+    // Setup
+    const industryBody = buildDocumentBody([
+      {
+        key: "industry-pulse",
+        articles: [
+          {
+            title: "Repairing rather than roaring",
+            author: "Jane Doe",
+            source: "Market Wire",
+            url: "https://example.com/pulse",
+            points: ["A point with an [inline link](https://example.com/x)."],
+          },
+          {
+            title: "A second article, so a divider renders",
+            url: "https://example.com/second",
+            points: ["Another point."],
+          },
+        ],
+      },
+    ]);
+
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "TLKM industry briefing",
+      bodyText: industryBody,
+      tickerSymbol: "TLKM",
+      unsubscribeUrl: "https://example.com/unsubscribe",
+    });
+
+    // Assert
+    const classNames = [...html.matchAll(/class="([^"]*)"/g)].flatMap((match) =>
+      (match[1] ?? "").split(" "),
+    );
+
+    expect(html).toContain("@media (prefers-color-scheme:dark)");
+    expect(html).toContain('name="color-scheme"');
+    expect(classNames).toContain("e-canvas");
+    expect(classNames).toContain("email-card");
+    expect(classNames).toContain("e-ink");
+    expect(classNames).toContain("e-body");
+    expect(classNames).toContain("e-muted");
+    expect(classNames).toContain("e-faint");
+    expect(classNames).toContain("e-link");
+    expect(classNames).toContain("e-rule");
+    expect(classNames).toContain("e-rule-strong");
+  });
+
+  it("falls back to plain text and omits section descriptions when the document is invalid", async () => {
     // Setup: four points per article exceeds the schema cap, so the body is not a document.
     const invalidBody = JSON.stringify({
       version: 1,
@@ -736,7 +788,9 @@ describe("renderNewsletterEmail", () => {
     });
 
     // Assert
-    expect(html).not.toContain("What do these sections mean?");
+    expect(html).not.toContain(
+      SECTION_COPY.en["competitive-landscape"].description,
+    );
     expect(html).toMatch(/<h1[^>]*>[^<]*TLKM industry briefing/i);
   });
 
@@ -768,7 +822,7 @@ describe("renderNewsletterEmail", () => {
 
     expect(stripped).toContain("Baca selengkapnya");
     expect(stripped).toContain(SECTION_COPY.id["industry-pulse"].label);
-    expect(stripped).toContain("Apa arti bagian-bagian ini?");
+    expect(stripped).toContain(SECTION_COPY.id["industry-pulse"].description);
     expect(stripped).not.toContain("Read more");
   });
 
