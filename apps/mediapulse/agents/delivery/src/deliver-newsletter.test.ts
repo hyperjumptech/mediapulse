@@ -80,6 +80,23 @@ const newsletter: DeliveryNewsletter = {
 
 const userTickerId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
+const indonesianBody = JSON.stringify({
+  version: 1,
+  sections: [
+    {
+      key: "industry-pulse",
+      articles: [
+        {
+          title: "Marjin bertahan",
+          source: "Market Wire",
+          url: "https://example.com/a",
+          points: ["Penambahan pelanggan menopang pertumbuhan."],
+        },
+      ],
+    },
+  ],
+});
+
 describe("deliverNewsletterToSubscribers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -165,7 +182,11 @@ describe("deliverNewsletterToSubscribers", () => {
     const translatedNewsletter: DeliveryNewsletter = {
       ...newsletter,
       translations: [
-        { language: "id", subject: "AAPL Pulse: Subjek", content: "Isi" },
+        {
+          language: "id",
+          subject: "AAPL Pulse: Subjek",
+          content: indonesianBody,
+        },
       ],
     };
 
@@ -184,13 +205,111 @@ describe("deliverNewsletterToSubscribers", () => {
     const renderCall = vi.mocked(renderNewsletterEmail).mock.calls[0]?.[0];
     expect(renderCall).toMatchObject({
       title: "Subjek",
-      bodyText: "Isi",
+      bodyText: indonesianBody,
       language: "id",
     });
 
     expect(sendWithRetry.mock.calls[0]?.[1]).toMatchObject({
       subject: "AAPL Pulse: Subjek",
     });
+  });
+
+  it("skips an id subscriber rather than mailing a malformed translation", async () => {
+    const sendWithRetry = vi.fn();
+    const acquire = vi.fn().mockResolvedValue(0);
+    const claimRecipient = vi.fn().mockResolvedValue(true);
+    const invalidTranslation: DeliveryNewsletter = {
+      ...newsletter,
+      translations: [
+        {
+          language: "id",
+          subject: "AAPL Pulse: Subjek",
+          content: JSON.stringify({
+            version: 1,
+            sections: [
+              {
+                key: "industry-pulse",
+                articles: [
+                  {
+                    title: "Marjin bertahan",
+                    url: "javascript:alert(1)",
+                    points: ["Penambahan pelanggan menopang pertumbuhan."],
+                  },
+                ],
+              },
+            ],
+          }),
+        },
+      ],
+    };
+
+    const { results, resendMessageIds } = await deliverNewsletterToSubscribers(
+      invalidTranslation,
+      [{ userTickerId, email: "u@example.com", language: "id" }],
+      [],
+      baseConfig,
+      {
+        resend: {} as Resend,
+        rateLimiter: mockRateLimiter(acquire),
+        sendWithRetry,
+        claimRecipient,
+      },
+    );
+
+    expect(sendWithRetry).not.toHaveBeenCalled();
+    expect(claimRecipient).not.toHaveBeenCalled();
+    expect(acquire).not.toHaveBeenCalled();
+    expect(results[0]).toMatchObject({
+      status: "skipped",
+      errorCategory: "skipped_invalid_translation",
+    });
+    expect(resendMessageIds).toEqual([]);
+  });
+
+  it("still mails an id subscriber when a translated point overshoots the budget", async () => {
+    const sendWithRetry = vi
+      .fn()
+      .mockResolvedValue({ id: "re_long", attempts: 1 });
+    const overLongPoint = "a".repeat(115);
+    const longTranslation: DeliveryNewsletter = {
+      ...newsletter,
+      translations: [
+        {
+          language: "id",
+          subject: "AAPL Pulse: Subjek",
+          content: JSON.stringify({
+            version: 1,
+            sections: [
+              {
+                key: "industry-pulse",
+                articles: [
+                  {
+                    title: "Marjin bertahan",
+                    url: "https://example.com/a",
+                    points: [overLongPoint],
+                  },
+                ],
+              },
+            ],
+          }),
+        },
+      ],
+    };
+
+    const { results } = await deliverNewsletterToSubscribers(
+      longTranslation,
+      [{ userTickerId, email: "u@example.com", language: "id" }],
+      [],
+      baseConfig,
+      {
+        resend: {} as Resend,
+        rateLimiter: mockRateLimiter(),
+        sendWithRetry,
+      },
+    );
+
+    expect(sendWithRetry).toHaveBeenCalledTimes(1);
+    expect(results[0]).toMatchObject({ status: "success" });
   });
 
   it("skips an id subscriber without acquire or send when no translation exists", async () => {

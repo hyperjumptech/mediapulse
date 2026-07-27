@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-/** Maximum characters in a single summary point. */
+/**
+ * Character budget for a single summary point.
+ *
+ * This is a generation-time target, not a document rule: the summarizer schema and the
+ * translation prompt hold the model to it, but a stored document that overshoots is still
+ * valid and still delivered. A slightly long point is a wording problem, not a corrupt body.
+ */
 export const MAX_POINT_LENGTH = 100;
 
 /** Maximum summary points per article. */
@@ -40,10 +46,7 @@ export const newsletterArticleSchema = z.object({
   author: z.string().trim().min(1).optional(),
   source: z.string().trim().min(1).optional(),
   url: articleUrlSchema,
-  points: z
-    .array(z.string().trim().min(1).max(MAX_POINT_LENGTH))
-    .min(1)
-    .max(MAX_POINTS_PER_ARTICLE),
+  points: z.array(z.string().trim().min(1)).min(1).max(MAX_POINTS_PER_ARTICLE),
 });
 
 export type NewsletterArticle = z.infer<typeof newsletterArticleSchema>;

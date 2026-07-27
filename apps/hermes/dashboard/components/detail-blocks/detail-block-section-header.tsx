@@ -1,30 +1,12 @@
 import {
   evaluateDetailBlockRule,
   parseDetailBlockRule,
-  type DetailBlockBadgeVariant,
   type DetailBlockSectionRule,
 } from "@hermes/domain-contract";
 
 import { Badge } from "@workspace/ui/components/badge";
 
-/**
- * Maps the contract badge variant onto a `@workspace/ui` Badge variant.
- *
- * @param variant - Contract badge variant.
- * @returns A variant accepted by the Badge primitive.
- */
-const mapVariant = (
-  variant: DetailBlockBadgeVariant,
-):
-  | "default"
-  | "secondary"
-  | "destructive"
-  | "outline"
-  | "success"
-  | "warning" => {
-  if (variant === "muted") return "secondary";
-  return variant;
-};
+import { mapBadgeVariant } from "./map-badge-variant";
 
 /**
  * Renders the heading row of a detail block: a label plus an optional
@@ -54,7 +36,7 @@ export const DetailBlockSectionHeader = ({
         <h2 className="text-base font-semibold text-foreground">{label}</h2>
       ) : null}
       {matches && sectionRule ? (
-        <Badge variant={mapVariant(sectionRule.badge)}>
+        <Badge variant={mapBadgeVariant(sectionRule.badge)}>
           {sectionRule.label}
         </Badge>
       ) : null}

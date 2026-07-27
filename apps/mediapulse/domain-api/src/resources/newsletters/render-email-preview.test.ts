@@ -42,6 +42,7 @@ describe("renderEmailPreview", () => {
       bodyText: DOCUMENT_BODY,
       tickerSymbol: "AAPL",
       unsubscribeUrl: "https://example.com/preview/unsubscribe",
+      language: "en",
     });
   });
 
@@ -65,6 +66,32 @@ describe("renderEmailPreview", () => {
       bodyText: DOCUMENT_BODY,
       tickerSymbol: "AAPL",
       unsubscribeUrl: "https://example.com/preview/unsubscribe",
+      language: "en",
+    });
+  });
+
+  it("passes the requested language through to the renderer", async () => {
+    const renderHtml = vi
+      .fn()
+      .mockResolvedValue({ html: "<html><body>Pratinjau</body></html>" });
+
+    await renderEmailPreview(
+      {
+        newsletterId: "nl-1",
+        subject: "TLKM Pulse: Ringkasan mingguan",
+        bodyText: DOCUMENT_BODY,
+        tickerSymbol: "TLKM",
+        language: "id",
+      },
+      { renderHtml },
+    );
+
+    expect(renderHtml).toHaveBeenCalledWith({
+      title: "Ringkasan mingguan",
+      bodyText: DOCUMENT_BODY,
+      tickerSymbol: "TLKM",
+      unsubscribeUrl: "https://example.com/preview/unsubscribe",
+      language: "id",
     });
   });
 
@@ -130,6 +157,77 @@ describe("renderEmailPreview", () => {
     expect(html).toContain("before the current content format");
     expect(html).not.toContain("MP_NEWSLETTER");
     expect(renderHtml).not.toHaveBeenCalled();
+  });
+
+  it("names the failing fields when the body is JSON but breaks the format", async () => {
+    const renderHtml = vi.fn();
+    const warn = vi.fn();
+
+    const html = await renderEmailPreview(
+      {
+        newsletterId: "nl-invalid",
+        subject: "TLKM Pulse: Ringkasan",
+        bodyText: JSON.stringify({
+          version: 1,
+          sections: [
+            {
+              key: "industry-pulse",
+              articles: [
+                {
+                  title: "Judul",
+                  url: "javascript:alert(1)",
+                  points: ["Ringkas."],
+                },
+              ],
+            },
+          ],
+        }),
+        tickerSymbol: "TLKM",
+        language: "id",
+      },
+      { renderHtml, logger: { warn } },
+    );
+
+    expect(html).toContain("not a valid newsletter document");
+    expect(html).not.toContain("before the current content format");
+    expect(html).toContain("sections.0.articles.0.url");
+    expect(renderHtml).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders a body whose point overshoots the length budget", async () => {
+    const renderHtml = vi
+      .fn()
+      .mockResolvedValue({ html: "<html><body>Pratinjau</body></html>" });
+    const overLongBody = JSON.stringify({
+      version: 1,
+      sections: [
+        {
+          key: "industry-pulse",
+          articles: [
+            {
+              title: "Judul",
+              url: "https://example.com/a",
+              points: ["a".repeat(115)],
+            },
+          ],
+        },
+      ],
+    });
+
+    const html = await renderEmailPreview(
+      {
+        newsletterId: "nl-long",
+        subject: "TLKM Pulse: Ringkasan",
+        bodyText: overLongBody,
+        tickerSymbol: "TLKM",
+        language: "id",
+      },
+      { renderHtml },
+    );
+
+    expect(html).toBe("<html><body>Pratinjau</body></html>");
+    expect(renderHtml).toHaveBeenCalledTimes(1);
   });
 
   it("shows the format notice rather than throwing on an empty body", async () => {

@@ -22,16 +22,7 @@ import { DetailBlockEmptyState } from "./detail-block-empty-state";
 import { DetailBlockSectionHeader } from "./detail-block-section-header";
 import { DetailBlockSubTablePaginator } from "./detail-block-sub-table-paginator";
 import { DetailBlockSubTableRowLimit } from "./detail-block-sub-table-row-limit";
-
-const mapBadgeVariant = (
-  variant: DetailBlockBadgeVariant,
-):
-  | "default"
-  | "secondary"
-  | "destructive"
-  | "outline"
-  | "success"
-  | "warning" => (variant === "muted" ? "secondary" : variant);
+import { mapBadgeVariant } from "./map-badge-variant";
 
 const truncate = (value: string, limit: number): string =>
   value.length > limit ? `${value.slice(0, limit)}…` : value;

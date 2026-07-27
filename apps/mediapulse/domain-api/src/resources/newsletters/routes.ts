@@ -15,6 +15,7 @@ import { buildDelivery } from "./build-delivery";
 import { buildSourceAnalysis } from "./build-source-analysis";
 import { buildSourceCollection } from "./build-source-collection";
 import { buildHermesLinks } from "./build-hermes-links";
+import { buildTranslationPreview } from "./build-translation-preview";
 import {
   buildRecipients,
   NEWSLETTER_DETAIL_RECIPIENTS_CAP,
@@ -155,6 +156,7 @@ newslettersRoutes.get("/:id", async (c) => {
     activeQuerySet,
     hermesLinks,
     emailPreviewHtml,
+    emailPreviewHtmlIndonesian,
   ] = await Promise.all([
     buildRecipients(row.id, row.tickerId, {
       userTicker: prisma.userTicker,
@@ -190,6 +192,10 @@ newslettersRoutes.get("/:id", async (c) => {
       },
       { logger },
     ),
+    buildTranslationPreview(row.id, row.ticker.symbol, "id", {
+      newsletterTranslation: prisma.newsletterTranslation,
+      logger,
+    }),
   ]);
 
   const delivery = await buildDelivery(
@@ -225,6 +231,7 @@ newslettersRoutes.get("/:id", async (c) => {
   return c.json(
     mapRowToDetailItem(row, {
       emailPreviewHtml,
+      emailPreviewHtmlIndonesian,
       sourceCollection,
       sourceAnalysis,
       contentGeneration,

@@ -23,9 +23,10 @@ export const NEWSLETTER_STALE_SET_HOURS = 24 as const;
 
 /**
  * `panel` grouping the delivery stage into one card: KPI cards (the delivery agent and version, when
- * it ran, its outcome, and delivered-of-total) above a Recipients/Email Preview tab pair. Recipients
- * lists each subscriber's exact per-run outcome; Email Preview renders the sent email. All figures
- * come from the exact `DeliveryRun` behind this newsletter.
+ * it ran, its outcome, and delivered-of-total) above Recipients and Email Preview tabs. Recipients
+ * lists each subscriber's exact per-run outcome; each Email Preview tab renders the sent email in
+ * one language. The `id` tab is present only when this newsletter has an Indonesian
+ * `NewsletterTranslation`. All figures come from the exact `DeliveryRun` behind this newsletter.
  */
 const newslettersDeliveryStageBlock = {
   type: "panel",
@@ -74,9 +75,19 @@ const newslettersDeliveryStageBlock = {
         },
         {
           label: "Email Preview",
+          badge: { label: "en", variant: "outline" },
           block: {
             type: "htmlPreview",
             field: "emailPreviewHtml",
+          },
+        },
+        {
+          label: "Email Preview",
+          badge: { label: "id", variant: "outline" },
+          visibleWhen: "present(emailPreviewHtmlIndonesian)",
+          block: {
+            type: "htmlPreview",
+            field: "emailPreviewHtmlIndonesian",
           },
         },
       ],

@@ -39,6 +39,103 @@ describe("DetailBlockTabsView", () => {
     expect(screen.getByText("Hello world")).toBeInTheDocument();
   });
 
+  const previewTabs = {
+    type: "tabs" as const,
+    tabs: [
+      {
+        label: "Email Preview",
+        badge: { label: "en", variant: "outline" as const },
+        block: { type: "htmlPreview" as const, field: "html" },
+      },
+      {
+        label: "Email Preview",
+        badge: { label: "id", variant: "outline" as const },
+        visibleWhen: "present(htmlIndonesian)",
+        block: { type: "htmlPreview" as const, field: "htmlIndonesian" },
+      },
+    ],
+  };
+
+  it("hides a tab whose visibleWhen rule is false", () => {
+    render(
+      <DetailBlockTabsView
+        block={previewTabs}
+        data={{ html: "<p>en</p>", htmlIndonesian: null }}
+      />,
+    );
+
+    expect(screen.getAllByRole("tab")).toHaveLength(1);
+    expect(
+      screen.getByRole("tab", { name: "Email Preview en" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("id")).toBeNull();
+  });
+
+  it("shows a tab whose visibleWhen rule is true", () => {
+    render(
+      <DetailBlockTabsView
+        block={previewTabs}
+        data={{ html: "<p>en</p>", htmlIndonesian: "<p>id</p>" }}
+      />,
+    );
+
+    expect(screen.getAllByRole("tab")).toHaveLength(2);
+    expect(
+      screen.getByRole("tab", { name: "Email Preview id" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps a tab visible when its visibleWhen rule cannot be parsed", () => {
+    render(
+      <DetailBlockTabsView
+        block={{
+          type: "tabs",
+          tabs: [
+            {
+              label: "Body",
+              block: { type: "markdown", field: "body" },
+            },
+            {
+              label: "Preview",
+              visibleWhen: "totally && invalid",
+              block: { type: "htmlPreview", field: "html" },
+            },
+          ],
+        }}
+        data={{ body: "Hello", html: "<p>preview</p>" }}
+      />,
+    );
+
+    expect(screen.getAllByRole("tab")).toHaveLength(2);
+  });
+
+  it("renders a tab badge so same-labelled tabs stay distinguishable", () => {
+    render(
+      <DetailBlockTabsView
+        block={{
+          type: "tabs",
+          tabs: [
+            {
+              label: "Email Preview",
+              block: { type: "htmlPreview", field: "html" },
+            },
+            {
+              label: "Email Preview",
+              badge: { label: "id", variant: "outline" },
+              block: { type: "htmlPreview", field: "htmlIndonesian" },
+            },
+          ],
+        }}
+        data={{ html: "<p>en</p>", htmlIndonesian: "<p>id</p>" }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("tab", { name: "Email Preview id" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("id")).toBeInTheDocument();
+  });
+
   it("strips the inner block label so the tab trigger acts as the heading", () => {
     render(
       <DetailBlockTabsView

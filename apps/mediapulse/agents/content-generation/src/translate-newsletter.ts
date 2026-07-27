@@ -1,6 +1,10 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import type { NewsletterDocument } from "@workspace/email-templates/newsletter-document";
-import { readNewsletterDocument } from "@workspace/email-templates/newsletter-document";
+import {
+  MAX_POINT_LENGTH,
+  newsletterDocumentSchema,
+  readNewsletterDocument,
+} from "@workspace/email-templates/newsletter-document";
 import { generateObject } from "ai";
 import { z } from "zod";
 
@@ -80,19 +84,30 @@ const defaultTranslateNewsletterObject: TranslateNewsletterObjectFn = async (
  * @param document - Parsed newsletter document.
  * @returns Article titles and points, in the order {@link rebuildWithTranslatedStrings} consumes them.
  */
-export const collectTranslatableStrings = (
+export type TranslatableEntry = {
+  text: string;
+  maxLength?: number;
+};
+
+export const collectTranslatableEntries = (
   document: NewsletterDocument,
-): string[] => {
-  const strings: string[] = [];
+): TranslatableEntry[] => {
+  const entries: TranslatableEntry[] = [];
   for (const section of document.sections) {
     for (const article of section.articles) {
-      strings.push(article.title);
-      strings.push(...article.points);
+      entries.push({ text: article.title });
+      for (const point of article.points) {
+        entries.push({ text: point, maxLength: MAX_POINT_LENGTH });
+      }
     }
   }
 
-  return strings;
+  return entries;
 };
+
+export const collectTranslatableStrings = (
+  document: NewsletterDocument,
+): string[] => collectTranslatableEntries(document).map((entry) => entry.text);
 
 /**
  * Rebuilds a document with translated leaf strings substituted in place.
@@ -169,6 +184,7 @@ function buildTranslationSystemPrompt(languageName: string): string {
     "The leading numbers exist only to mark position; they are not part of the text. Never repeat a leading number in a returned entry.",
     "Never merge, split, drop, add, or reorder entries. Translate each entry independently.",
     "Translate faithfully and naturally, in the same tone and register.",
+    `An entry tagged (max N chars) must translate to at most N characters, counting spaces. ${languageName} usually runs longer than English, so condense the wording — drop filler, use shorter synonyms, cut redundant qualifiers — rather than exceed the limit. Never return an empty entry.`,
     "Keep every number, percentage, currency figure, date, ticker symbol, and proper noun exactly as written; do not localize, convert, or round them.",
   ].join(" ");
 }
@@ -202,7 +218,8 @@ export async function translateNewsletter(
     );
   }
 
-  const sourceStrings = collectTranslatableStrings(document);
+  const sourceEntries = collectTranslatableEntries(document);
+  const sourceStrings = sourceEntries.map((entry) => entry.text);
 
   const openai = createOpenAI({
     apiKey: params.credentials.openaiApiKey,
@@ -213,8 +230,15 @@ export async function translateNewsletter(
   const model = openai(params.model);
   const languageName = LANGUAGE_NAMES[params.targetLanguage];
   const system = buildTranslationSystemPrompt(languageName);
-  const numberedStrings = sourceStrings
-    .map((value, index) => `${String(index + 1)}. ${value}`)
+  const numberedStrings = sourceEntries
+    .map((entry, index) => {
+      const budget =
+        entry.maxLength === undefined
+          ? ""
+          : ` (max ${String(entry.maxLength)} chars)`;
+
+      return `${String(index + 1)}.${budget} ${entry.text}`;
+    })
     .join("\n");
   const prompt = [
     `Translate the following newsletter. Return exactly ${String(sourceStrings.length)} strings.`,
@@ -240,6 +264,15 @@ export async function translateNewsletter(
     document,
     cleanedStrings,
   );
+  const validated = newsletterDocumentSchema.safeParse(translatedDocument);
+  if (!validated.success) {
+    const issues = validated.error.issues
+      .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+      .join("; ");
+    throw new TranslateNewsletterError(
+      `Translated document failed validation — ${issues}`,
+    );
+  }
 
   const inputTokens = result.usage?.inputTokens;
   const outputTokens = result.usage?.outputTokens;
@@ -250,7 +283,7 @@ export async function translateNewsletter(
 
   return {
     subject: result.object.subject,
-    content: JSON.stringify(translatedDocument),
+    content: JSON.stringify(validated.data),
     promptTokens: inputTokens ?? null,
     completionTokens: outputTokens ?? null,
     totalTokens,
