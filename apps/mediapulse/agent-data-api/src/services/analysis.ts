@@ -206,7 +206,10 @@ const buildAnalysisCandidatePairs = async (
       : ({ gte: recencyFloor } satisfies Prisma.DateTimeFilter);
 
   const activeSets = await db.searchQuerySet.findMany({
-    where: { isActive: true },
+    where: {
+      isActive: true,
+      ...(query.tickerId !== undefined ? { tickerId: query.tickerId } : {}),
+    },
     select: { tickerId: true },
   } satisfies Prisma.SearchQuerySetFindManyArgs);
   const activeTickerIds = [...new Set(activeSets.map((row) => row.tickerId))];
@@ -216,6 +219,14 @@ const buildAnalysisCandidatePairs = async (
     ACCEPTED_CAP_PER_TICKER,
     db,
   );
+
+  const eligibleTickerIds = activeTickerIds.filter(
+    (tickerId) => !cappedTickerIds.has(tickerId),
+  );
+
+  if (query.tickerId !== undefined && eligibleTickerIds.length === 0) {
+    return { dataSources: [], dataSourceTotalCount: 0 };
+  }
 
   const activeTickers = await db.ticker.findMany({
     where: { id: { in: activeTickerIds } },
@@ -234,9 +245,11 @@ const buildAnalysisCandidatePairs = async (
     where: {
       createdAt: createdAtWhere,
       tickerId:
-        cappedTickerIds.size > 0
-          ? { not: null, notIn: [...cappedTickerIds] }
-          : { not: null },
+        query.tickerId !== undefined
+          ? { in: eligibleTickerIds }
+          : cappedTickerIds.size > 0
+            ? { not: null, notIn: [...cappedTickerIds] }
+            : { not: null },
       tickerSections: { none: {} },
     },
     orderBy: { createdAt: "desc" },
@@ -331,7 +344,7 @@ export const loadAnalysisContext = async (
 ): Promise<GetAnalysisResponse> => {
   const db = deps.db ?? defaultDb;
 
-  if (query.tickerId === undefined) {
+  if (query.unanalyzed || query.tickerId === undefined) {
     return buildAnalysisCandidatePairs(query, db);
   }
 
