@@ -33,9 +33,14 @@ import { selectSectionCoverageSeeds } from "./lib/section-coverage-seeds.js";
 import { translateNewsletter } from "./translate-newsletter.js";
 import type { TranslationTargetLanguage } from "./translate-newsletter.js";
 import {
+  narrativeFetching,
   narrativeGenerating,
   narrativeRunComplete,
   narrativeRunStart,
+  narrativeSaving,
+  narrativeSourcesLoaded,
+  narrativeTranslating,
+  narrativeTriage,
   type TickerSubject,
 } from "./utilities/build-activity-narrative.js";
 import { mapOutcomeToDiagnostic } from "./outcome-to-diagnostic.js";
@@ -188,13 +193,25 @@ export async function run({
     }
   };
 
-  // Pre-fetch reports only know the ticker id; the real symbol/name arrive with
-  // the content-generation API response below.
-  const fallbackSubject: TickerSubject = {
+  // Resolved up front so every activity beat names the ticker rather than its id.
+  // Best-effort: a lookup failure must not fail the run.
+  let subject: TickerSubject = {
     symbol: input.tickerId,
     name: input.tickerId,
   };
-  report(...narrativeRunStart(fallbackSubject));
+  try {
+    const tickerRecord = await dataApiClient.ticker.get({
+      tickerId: input.tickerId,
+    });
+    subject = { symbol: tickerRecord.symbol, name: tickerRecord.name };
+  } catch (err) {
+    logger.warn(
+      { tickerId: input.tickerId, err },
+      "Failed to resolve ticker identity for activity narrative",
+    );
+  }
+
+  report(...narrativeRunStart(subject));
 
   const pipelineRunId = hermesCorrelation?.pipelineStepId ?? null;
   const executionId = hermesCorrelation?.executionId ?? null;
@@ -230,10 +247,6 @@ export async function run({
   );
 
   const precheckStart = Date.now();
-  report(
-    "Checking for an existing newsletter",
-    `newsletter window ${windowStart} to ${windowEnd}`,
-  );
   const freshnessResult =
     await dataApiClient.contentGenerationNewslettersLatest.get({
       tickerId: input.tickerId,
@@ -276,7 +289,7 @@ export async function run({
       "Skipping run: fresh newsletter already exists",
     );
     report(
-      ...narrativeRunComplete(fallbackSubject, {
+      ...narrativeRunComplete(subject, {
         status: "skipped",
         itemsWritten: 0,
         sectionsFilled: 0,
@@ -314,10 +327,8 @@ export async function run({
     tickerId: input.tickerId,
   });
 
-  const subject: TickerSubject = {
-    symbol: tickerSymbol,
-    name: tickerName,
-  };
+  subject = { symbol: tickerSymbol, name: tickerName };
+  report(...narrativeSourcesLoaded(subject, sources?.length ?? 0));
 
   const { apiKey: _apiKey, ...safeModel } = resolvedConfig.model;
   const safeConfig = { ...resolvedConfig, model: safeModel };
@@ -336,11 +347,10 @@ export async function run({
     );
     report(
       ...narrativeRunComplete(subject, {
-        status: "failed",
+        status: "no_sources",
         itemsWritten: 0,
         sectionsFilled: 0,
         translationLanguages: [],
-        reason: `${subject.symbol} has no analyzed articles to write from yet.`,
       }),
       "completed",
     );
@@ -372,10 +382,7 @@ export async function run({
 
   let fetchRequests: Awaited<ReturnType<typeof triageFetchRequests>> = [];
   if (triageCandidates.length > 0) {
-    report(
-      "Deciding which sources need a fetch",
-      `${triageCandidates.length} candidate sources`,
-    );
+    report(...narrativeTriage(subject, triageCandidates.length));
     try {
       fetchRequests = await triageFetchRequests(
         triageCandidates,
@@ -442,10 +449,7 @@ export async function run({
     fetchEvents: [],
   };
   if (requestedFetchSources.length > 0) {
-    report(
-      "Fetching full article bodies",
-      `${requestedFetchSources.length} requested`,
-    );
+    report(...narrativeFetching(subject, requestedFetchSources.length));
     try {
       fetchResult = await fetchSourceBodies(
         requestedFetchSources,
@@ -629,7 +633,7 @@ export async function run({
 
   // Persist generated newsletter via agent-data-api.
   let persistedNewsletterId: string | null = null;
-  report("Saving newsletter to database", "persisting English newsletter");
+  report(...narrativeSaving(subject));
   logger.info({ tickerId: input.tickerId }, "Persisting newsletter: start");
   try {
     const persistResult = await dataApiClient.contentGeneration.create({
@@ -749,7 +753,7 @@ export async function run({
   const translatedLanguages: string[] = [];
   if (persistedNewsletterId !== null && targetLanguages.length > 0) {
     const newsletterId = persistedNewsletterId;
-    report("Translating newsletter", targetLanguages.join(", "));
+    report(...narrativeTranslating(targetLanguages));
     for (const targetLanguage of targetLanguages) {
       try {
         const translated = await translateNewsletter({
@@ -821,6 +825,10 @@ export async function run({
       itemsWritten,
       sectionsFilled,
       translationLanguages: translatedLanguages,
+      articlesRead: fetchResult.counters.fetchSucceeded,
+      repeatsDropped: generated.crossRunDedupSummary?.removedCount ?? 0,
+      sectionsRemoved:
+        generated.sectionFillSnapshot?.sectionsRemoved.length ?? 0,
     }),
     "completed",
   );
