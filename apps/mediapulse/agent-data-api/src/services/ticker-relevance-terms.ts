@@ -34,6 +34,35 @@ const appendTerm = (
   terms.push(trimmed);
 };
 
+const TICKER_SYMBOL_PATTERN = /^[A-Z]{4}$/;
+
+type ProfileParty = { name: string; aliases: string[] };
+
+const parseProfileParties = (value: unknown): ProfileParty[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const parties: ProfileParty[] = [];
+  for (const entry of value) {
+    if (entry === null || typeof entry !== "object") {
+      continue;
+    }
+    const candidate = entry as { name?: unknown; aliases?: unknown };
+    if (typeof candidate.name !== "string" || candidate.name.trim() === "") {
+      continue;
+    }
+    const aliases = Array.isArray(candidate.aliases)
+      ? candidate.aliases.filter(
+          (alias): alias is string => typeof alias === "string",
+        )
+      : [];
+    parties.push({ name: candidate.name, aliases });
+  }
+
+  return parties;
+};
+
 const indexPeerCandidatesByLabel = (
   candidates: PeerCandidate[],
 ): {
@@ -87,6 +116,15 @@ export const getTickerRelevanceTermsForAgent =
         industry: true,
         subSector: true,
         subIndustry: true,
+        profile: {
+          select: {
+            sectorIndonesian: true,
+            subSectorIndonesian: true,
+            industryIndonesian: true,
+            aliases: true,
+            competitors: true,
+          },
+        },
       },
       orderBy: { symbol: "asc" },
     } satisfies Prisma.TickerFindManyArgs);
@@ -94,6 +132,9 @@ export const getTickerRelevanceTermsForAgent =
     const peerFilters: Prisma.TickerWhereInput[] = [];
     const seenPeerFilters = new Set<string>();
     for (const ticker of activeTickers) {
+      if (ticker.profile != null) {
+        continue;
+      }
       const { sector, industry } = extractTickerSectorIndustry(ticker);
       const filters = buildPeerColumnFilters(sector, industry) ?? [];
       for (const filter of filters) {
@@ -123,6 +164,34 @@ export const getTickerRelevanceTermsForAgent =
     const { bySector, byIndustry } = indexPeerCandidatesByLabel(peerCandidates);
 
     const tickers = activeTickers.map((ticker) => {
+      const seen = new Set<string>();
+      const terms: string[] = [];
+      appendTerm(seen, terms, ticker.symbol);
+      appendTerm(seen, terms, ticker.name);
+      for (const alias of ticker.aliases) {
+        appendTerm(seen, terms, alias);
+      }
+
+      const profile = ticker.profile ?? null;
+      if (profile !== null) {
+        for (const alias of profile.aliases) {
+          appendTerm(seen, terms, alias);
+        }
+        for (const competitor of parseProfileParties(profile.competitors)) {
+          appendTerm(seen, terms, competitor.name);
+          for (const alias of competitor.aliases) {
+            if (TICKER_SYMBOL_PATTERN.test(alias)) {
+              appendTerm(seen, terms, alias);
+            }
+          }
+        }
+        appendTerm(seen, terms, profile.sectorIndonesian);
+        appendTerm(seen, terms, profile.subSectorIndonesian);
+        appendTerm(seen, terms, profile.industryIndonesian);
+
+        return { id: ticker.id, symbol: ticker.symbol, terms };
+      }
+
       const { sector, industry } = extractTickerSectorIndustry(ticker);
       const { subSector, subIndustry } = extractTickerBusinessContext(ticker);
 
@@ -139,13 +208,6 @@ export const getTickerRelevanceTermsForAgent =
       }
       const peers = sortAndLimitPeers([...matchedPeers.values()]);
 
-      const seen = new Set<string>();
-      const terms: string[] = [];
-      appendTerm(seen, terms, ticker.symbol);
-      appendTerm(seen, terms, ticker.name);
-      for (const alias of ticker.aliases) {
-        appendTerm(seen, terms, alias);
-      }
       for (const peer of peers) {
         appendTerm(seen, terms, peer.symbol);
         appendTerm(seen, terms, peer.name);

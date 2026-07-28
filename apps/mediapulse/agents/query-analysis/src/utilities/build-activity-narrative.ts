@@ -20,15 +20,15 @@ export function narrativeRunStart(subject: TickerSubject): [string, string] {
   ];
 }
 
-export function narrativeDiscovery(
+export function narrativeProfile(
   subject: TickerSubject,
-  cacheHit: boolean,
+  hasProfile: boolean,
 ): [string, string] {
   return [
     "Mapping the competitive landscape",
-    cacheHit
-      ? `Reusing the known competitors and regulators for ${subject.symbol}.`
-      : `Identifying the competitors and regulators that shape ${subject.symbol}'s market.`,
+    hasProfile
+      ? `Reading the curated competitors and regulators for ${subject.symbol}.`
+      : `No curated profile for ${subject.symbol}; searching on the company alone.`,
   ];
 }
 

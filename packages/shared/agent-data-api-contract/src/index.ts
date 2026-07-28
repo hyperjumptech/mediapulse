@@ -134,18 +134,6 @@ export {
   type DiscoverySourceHealthEntry,
 } from "./discovery-source-health.js";
 export {
-  postTickerDiscoveryLookupBodySchema,
-  postTickerDiscoveryLookupResponseSchema,
-  postTickerDiscoveryRecordBodySchema,
-  postTickerDiscoveryRecordResponseSchema,
-  type PostTickerDiscoveryLookupBody,
-  type PostTickerDiscoveryLookupResponse,
-  type PostTickerDiscoveryRecordBody,
-  type PostTickerDiscoveryRecordResponse,
-  type TickerDiscoveryEntry,
-  type TickerDiscoveryParty,
-} from "./ticker-discovery.js";
-export {
   deliveryNewsletterSchema,
   deliveryNewsletterTranslationSchema,
   deliverySubscriberSchema,
@@ -230,12 +218,17 @@ export {
   queryAnalysisIntentSchema,
   QUERY_ANALYSIS_INTENTS,
   queryAnalysisTickerSchema,
+  queryAnalysisTickerProfileSchema,
   queryAnalysisPostQuerySchema,
+  tickerProfileLabelSchema,
+  tickerProfilePartySchema,
   type GetQueryAnalysisQuery,
   type GetQueryAnalysisResponse,
   type PostQueryAnalysisBody,
   type PostQueryAnalysisResponse,
   type QueryAnalysisIntent,
+  type QueryAnalysisTickerProfile,
+  type TickerProfileParty,
 } from "./query-analysis.js";
 export {
   dataCollectionFailureErrorCategorySchema,

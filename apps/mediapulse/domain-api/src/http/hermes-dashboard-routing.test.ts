@@ -66,6 +66,7 @@ describe("Hermes dashboard routing contract", () => {
   it("exposes stable resource keys on HermesDashboardResource", () => {
     // Assert — breaks if segments are renamed without updating mounts + manifest
     expect(HermesDashboardResource.tickers).toBe("tickers");
+    expect(HermesDashboardResource.tickerProfiles).toBe("ticker-profiles");
     expect(HermesDashboardResource.mediapulseUsers).toBe("mediapulse-users");
     expect(HermesDashboardResource.entities).toBe("entities");
     expect(HermesDashboardResource.entityRelations).toBe("entity-relations");

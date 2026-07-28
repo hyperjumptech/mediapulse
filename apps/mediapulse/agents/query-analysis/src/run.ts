@@ -19,10 +19,6 @@ import { env } from "@mediapulse/env/agents-query-analysis";
 
 import { type QueryAnalysisConfig } from "./config-schema";
 import {
-  DISCOVERY_CACHE_TTL_SECONDS,
-  DISCOVERY_MAX_COMPETITORS,
-  DISCOVERY_MAX_KEYWORDS_PER_ENTITY,
-  DISCOVERY_MAX_REGULATORS,
   LANGUAGES,
   QUERY_ANALYSIS_AGENT_ID,
   QUERY_ANALYSIS_AGENT_VERSION,
@@ -37,14 +33,16 @@ import {
 } from "./constants";
 import { buildQueryDecisions } from "./chronicle/build-query-decisions";
 import { gatherReconSignals } from "./recon/gather-signals";
-import { discoverEntities } from "./discovery/discover-entities";
-import type { DiscoveredEntity } from "./discovery/schema";
-import { deriveClassification, deriveMarketContext } from "./pipeline/context";
+import {
+  deriveClassification,
+  deriveMarketContext,
+  deriveSearchClassification,
+} from "./pipeline/context";
 import { generateCandidatesWithCoverage } from "./generation/generate-with-coverage";
 import { finalizeQueries } from "./select/finalize";
 import {
   narrativeRunStart,
-  narrativeDiscovery,
+  narrativeProfile,
   narrativeGenerating,
   narrativeRunComplete,
 } from "./utilities/build-activity-narrative";
@@ -54,9 +52,7 @@ type QueryAnalysisInput = { tickerId: string };
 /** Injectable collaborators for {@link runQueryAnalysis} (tests only). */
 export type RunQueryAnalysisDeps = {
   createClient?: typeof createAgentDataApiClient;
-  /** Injected `generateObject` for the entity-discovery LLM call. */
-  generate?: typeof generateObject;
-  /** Injected `generateObject` for the query-candidate-generation LLM call (separate from `generate`). */
+  /** Injected `generateObject` for the query-candidate-generation LLM call. */
   generateQueries?: typeof generateObject;
   createProvider?: typeof createSearchProvider;
   /** Injected `searchTopResults` for the recon step. */
@@ -68,12 +64,11 @@ export type RunQueryAnalysisDeps = {
  * Runs the self-driving query-analysis pipeline for one ticker and persists an
  * active query set.
  *
- * Flow: load GET context, derive classification, look up the `ticker_discovery`
- * cache (invalidated on TTL expiry or a contract-version change), discover
- * competitors/regulators on miss (steered by the contract brief) and write the
- * cache, generate query candidates via LLM (one intent per newsletter section,
- * steered by the contract brief), retry generation when an intent comes back
- * short of its target, and persist a fixed budget of queries per section.
+ * Flow: load GET context, read the curated ticker profile for competitors and
+ * regulators, gather recent home-market signals via search, generate query
+ * candidates via LLM (one intent per newsletter section, steered by the contract
+ * brief), retry generation when an intent comes back short of its target, and
+ * persist a fixed budget of queries per section.
  *
  * @param context - Agent run context with validated input/config, token, and contract.
  * @param deps - Injectable collaborators for tests.
@@ -123,7 +118,9 @@ export const runQueryAnalysis = async (
     tickerId: input.tickerId,
   });
   const ticker = queryContext.ticker;
-  const classification = deriveClassification(ticker);
+  const profile = queryContext.profile;
+  const classification = deriveClassification(ticker, profile);
+  const searchClassification = deriveSearchClassification(ticker, profile);
   const market = deriveMarketContext();
 
   logger.info(
@@ -145,82 +142,33 @@ export const runQueryAnalysis = async (
   const queriesPerIntent =
     config.generation?.queriesPerIntent ?? DEFAULT_QUERIES_PER_INTENT;
 
-  // Discovery: reuse the cache, LLM-discover on miss (or on a contract change), and write back.
-  const discoveryStartMs = now();
-  const lookup = await client.tickerDiscoveryLookup.create({
-    tickerId: input.tickerId,
-  });
-  let competitors: DiscoveredEntity[] = lookup.entry?.competitors ?? [];
-  let regulators: DiscoveredEntity[] = lookup.entry?.regulators ?? [];
-  let mainInputs: string[] = lookup.entry?.mainInputs ?? [];
-  let customerSegments: string[] = lookup.entry?.customerSegments ?? [];
-  const cacheHit =
-    lookup.entry !== null && lookup.entry.contractVersion === contractVersion;
-  let discoveryModel: string | null = lookup.entry?.model ?? null;
+  const hasProfile = profile !== null;
+  const competitors = profile?.competitors ?? [];
+  const regulators = profile?.regulators ?? [];
 
-  report(...narrativeDiscovery(subject, cacheHit));
+  report(...narrativeProfile(subject, hasProfile));
 
-  if (!cacheHit) {
-    const discovered = await discoverEntities({
-      tickerName: ticker.name,
-      tickerSymbol: ticker.symbol,
-      classification,
-      homeMarket: market.homeMarket,
-      contractBrief,
-      ai: config.language_model,
-      maxCompetitors: DISCOVERY_MAX_COMPETITORS,
-      maxRegulators: DISCOVERY_MAX_REGULATORS,
-      maxKeywordsPerEntity: DISCOVERY_MAX_KEYWORDS_PER_ENTITY,
-      onUsage: tokenUsage.onUsage,
-      logger,
-      ...(deps.generate ? { generate: deps.generate } : {}),
-    });
-    competitors = discovered.competitors;
-    regulators = discovered.regulators;
-    mainInputs = discovered.mainInputs;
-    customerSegments = discovered.customerSegments;
-    discoveryModel = config.language_model.model;
-
-    const discoveredHasContent =
-      discovered.competitors.length > 0 ||
-      discovered.regulators.length > 0 ||
-      discovered.mainInputs.length > 0 ||
-      discovered.customerSegments.length > 0;
-
-    if (discoveredHasContent) {
-      await client.tickerDiscoveryRecord.create({
+  if (!hasProfile) {
+    logger.warn(
+      { tickerId: input.tickerId, symbol: ticker.symbol },
+      "query-analysis has no curated ticker profile; generating own-company queries only",
+    );
+  } else {
+    logger.info(
+      {
         tickerId: input.tickerId,
-        competitors: discovered.competitors,
-        regulators: discovered.regulators,
-        mainInputs: discovered.mainInputs,
-        customerSegments: discovered.customerSegments,
-        model: config.language_model.model,
-        ...(contractVersion !== null ? { contractVersion } : {}),
-        ttlSeconds: DISCOVERY_CACHE_TTL_SECONDS,
-      });
-    }
+        symbol: ticker.symbol,
+        competitors: competitors.map((entity) => entity.name),
+        regulators: regulators.map((entity) => entity.name),
+      },
+      "query analysis profile loaded",
+    );
   }
-  const discoveryMs = now() - discoveryStartMs;
-
-  logger.info(
-    {
-      tickerId: input.tickerId,
-      symbol: ticker.symbol,
-      cacheHit,
-      discoveryModel,
-      competitors: competitors.map((entity) => entity.name),
-      regulators: regulators.map((entity) => entity.name),
-      mainInputs,
-      customerSegments,
-      discoveryMs,
-    },
-    "query analysis discovery complete",
-  );
 
   const reconStartMs = now();
   const reconSignals = await gatherReconSignals({
     ticker,
-    classification,
+    classification: searchClassification,
     homeMarket: market.homeMarket,
     competitors,
     providers: config.web_search,
@@ -265,8 +213,12 @@ export const runQueryAnalysis = async (
     contractBrief,
     competitors,
     regulators,
-    mainInputs,
-    customerSegments,
+    ...(profile !== null
+      ? {
+          companyOverview: profile.companyOverview,
+          businessOperation: profile.businessOperation,
+        }
+      : {}),
     reconSignals,
     languages: LANGUAGES,
     currentDate: new Date(now()).toISOString().slice(0, 10),
@@ -359,9 +311,9 @@ export const runQueryAnalysis = async (
       totalTokens: usageTotals.totalTokens,
       reasoningTokens: usageTotals.reasoningTokens,
       calls: usageTotals.calls,
-      cacheHit,
     },
-    discovered: {
+    profile: {
+      present: hasProfile,
       competitors: competitors.map((entity) => entity.name),
       regulators: regulators.map((entity) => entity.name),
     },
@@ -380,12 +332,10 @@ export const runQueryAnalysis = async (
     },
     timing: {
       totalMs: now() - runStartMs,
-      discoveryMs,
       reconMs,
       generationMs,
       finalizeMs,
     },
-    ...(discoveryModel !== null ? { discoveryModel } : {}),
   };
 
   await writeChronicle(queryDecisions);
@@ -407,7 +357,7 @@ export const runQueryAnalysis = async (
       tickerId: input.tickerId,
       symbol: ticker.symbol,
       created: response.created,
-      cacheHit,
+      hasProfile,
       totalMs: now() - runStartMs,
     },
     "query analysis set persisted",

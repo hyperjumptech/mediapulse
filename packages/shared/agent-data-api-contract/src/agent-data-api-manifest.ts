@@ -68,12 +68,6 @@ import {
   postDiscoverySourceHealthGetResponseSchema,
 } from "./discovery-source-health.js";
 import {
-  postTickerDiscoveryLookupBodySchema,
-  postTickerDiscoveryLookupResponseSchema,
-  postTickerDiscoveryRecordBodySchema,
-  postTickerDiscoveryRecordResponseSchema,
-} from "./ticker-discovery.js";
-import {
   getDataCollectionRecentSourceFingerprintsQuerySchema,
   getDataCollectionRecentSourceFingerprintsResponseSchema,
 } from "./data-collection.js";
@@ -934,38 +928,6 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postDiscoverySourceHealthGetBodySchema,
         response: postDiscoverySourceHealthGetResponseSchema,
-      },
-    },
-  },
-  tickerDiscoveryLookup: {
-    v1: {
-      pathSegment: "/ticker-discovery/lookup",
-      post: {
-        body: postTickerDiscoveryLookupBodySchema,
-        response: postTickerDiscoveryLookupResponseSchema,
-      },
-    },
-    v2: {
-      pathSegment: "/ticker-discovery/lookup",
-      post: {
-        body: postTickerDiscoveryLookupBodySchema,
-        response: postTickerDiscoveryLookupResponseSchema,
-      },
-    },
-  },
-  tickerDiscoveryRecord: {
-    v1: {
-      pathSegment: "/ticker-discovery/record",
-      post: {
-        body: postTickerDiscoveryRecordBodySchema,
-        response: postTickerDiscoveryRecordResponseSchema,
-      },
-    },
-    v2: {
-      pathSegment: "/ticker-discovery/record",
-      post: {
-        body: postTickerDiscoveryRecordBodySchema,
-        response: postTickerDiscoveryRecordResponseSchema,
       },
     },
   },

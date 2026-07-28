@@ -52,8 +52,31 @@ export const queryAnalysisTickerSchema = z.object({
   businessActivity: z.string().nullable().optional(),
 });
 
+export const tickerProfilePartySchema = z.object({
+  name: z.string(),
+  aliases: z.array(z.string()).default([]),
+});
+
+export const tickerProfileLabelSchema = z.object({
+  indonesian: z.string(),
+  english: z.string(),
+});
+
+export const queryAnalysisTickerProfileSchema = z.object({
+  companyOverview: z.string(),
+  businessOperation: z.string(),
+  sector: tickerProfileLabelSchema,
+  subSector: tickerProfileLabelSchema,
+  industry: tickerProfileLabelSchema,
+  subIndustry: tickerProfileLabelSchema,
+  aliases: z.array(z.string()).default([]),
+  competitors: z.array(tickerProfilePartySchema).default([]),
+  regulators: z.array(tickerProfilePartySchema).default([]),
+});
+
 export const getQueryAnalysisResponseSchema = z.object({
   ticker: queryAnalysisTickerSchema,
+  profile: queryAnalysisTickerProfileSchema.nullable().default(null),
 });
 
 export const postQueryAnalysisResponseSchema = z.object({
@@ -70,3 +93,7 @@ export type GetQueryAnalysisResponse = z.infer<
 export type PostQueryAnalysisResponse = z.infer<
   typeof postQueryAnalysisResponseSchema
 >;
+export type QueryAnalysisTickerProfile = z.infer<
+  typeof queryAnalysisTickerProfileSchema
+>;
+export type TickerProfileParty = z.infer<typeof tickerProfilePartySchema>;

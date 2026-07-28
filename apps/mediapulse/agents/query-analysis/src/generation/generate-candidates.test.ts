@@ -14,12 +14,11 @@ const baseInput = {
   classification: { sector: "Barang Konsumen Primer", industry: "Minuman" },
   market: { homeMarket: "Indonesia", anchors: ["Indonesia", "IDX"] },
   contractBrief: "Track FORE and the Indonesian beverage industry.",
-  competitors: [
-    { name: "Kopi Kenangan", aliases: [], searchKeywords: ["kopi kenangan"] },
-  ],
-  regulators: [{ name: "BPOM", aliases: [], searchKeywords: ["bpom kopi"] }],
-  mainInputs: ["arabica beans", "dairy"],
-  customerSegments: ["urban middle class"],
+  competitors: [{ name: "Kopi Kenangan", aliases: ["Kenangan"] }],
+  regulators: [{ name: "BPOM", aliases: [] }],
+  companyOverview: "Indonesian grab-and-go coffee chain listed on the IDX.",
+  businessOperation:
+    "Sells brewed coffee through outlets and delivery apps in major cities.",
   languages: ["id", "en"] as const,
   currentDate: "2026-07-08",
   queriesPerIntent: 5,
@@ -164,7 +163,7 @@ describe("generateQueryCandidates", () => {
     expect(call.system).toContain("Do not append an explicit year");
   });
 
-  it("includes the brand alias, main inputs, and customer segments in the user prompt", async () => {
+  it("includes the brand alias and the curated profile prose in the user prompt", async () => {
     // Setup
     const generate = vi
       .fn()
@@ -178,8 +177,13 @@ describe("generateQueryCandidates", () => {
     // Assert
     const prompt = generate.mock.calls[0]?.[0].prompt;
     expect(prompt).toContain("also known as Fore Coffee");
-    expect(prompt).toContain("Main inputs: arabica beans, dairy");
-    expect(prompt).toContain("Customer segments: urban middle class");
+    expect(prompt).toContain(
+      "Overview: Indonesian grab-and-go coffee chain listed on the IDX.",
+    );
+    expect(prompt).toContain(
+      "Business operation: Sells brewed coffee through outlets and delivery apps in major cities.",
+    );
+    expect(prompt).toContain("Kopi Kenangan (aka Kenangan)");
   });
 
   it("strips trailing commas, semicolons, and periods but keeps question marks", async () => {

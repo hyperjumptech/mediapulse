@@ -16,6 +16,11 @@ const monorepoRoot = path.resolve(__dirname, "../../..");
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "16mb",
+    },
+  },
   transpilePackages: [
     "@workspace/agent-auth-client",
     "@workspace/json-schema-form",

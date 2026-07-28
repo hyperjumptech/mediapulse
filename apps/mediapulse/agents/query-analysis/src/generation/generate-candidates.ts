@@ -4,9 +4,12 @@ import { extractLlmUsage, type OnLlmUsage } from "@workspace/agent-runtime";
 
 import type { QueryAnalysisAiConfig } from "../config-schema";
 import { GENERATION_LLM_MAX_RETRIES } from "../constants";
-import type { Classification, MarketContext } from "../pipeline/context";
+import type {
+  Classification,
+  MarketContext,
+  ProfileParty,
+} from "../pipeline/context";
 import type { Candidate, Language } from "../pipeline/types";
-import type { DiscoveredEntity } from "../discovery/schema";
 import { generatedCandidateSchema } from "./schema";
 import GENERATION_SYSTEM_PROMPT_TEMPLATE from "./generation-system-prompt.txt";
 
@@ -19,10 +22,10 @@ export interface GenerateQueryCandidatesInput {
   classification: Classification;
   market: MarketContext;
   contractBrief: string;
-  competitors: DiscoveredEntity[];
-  regulators: DiscoveredEntity[];
-  mainInputs?: string[];
-  customerSegments?: string[];
+  competitors: ProfileParty[];
+  regulators: ProfileParty[];
+  companyOverview?: string;
+  businessOperation?: string;
   languages: readonly Language[];
   currentDate: string;
   /** Number of queries the model is asked to write for each intent. */
@@ -40,7 +43,7 @@ export interface GenerateQueryCandidatesInput {
 const joinSlash = (...parts: Array<string | undefined | null>): string =>
   parts.filter((part): part is string => Boolean(part)).join(" / ");
 
-const renderEntities = (entities: DiscoveredEntity[]): string =>
+const renderEntities = (entities: ProfileParty[]): string =>
   entities
     .map((entity) =>
       entity.aliases.length > 0
@@ -139,27 +142,23 @@ const buildPrompt = (input: GenerateQueryCandidatesInput): string => {
     input.classification.subSector,
     input.classification.subIndustry,
   );
-  const mainInputs = input.mainInputs ?? [];
-  const customerSegments = input.customerSegments ?? [];
-
   return [
     `Company: ${input.ticker.name} (${input.ticker.symbol})${aliasClause}`,
     `Home market: ${input.market.homeMarket} — anchors: ${input.market.anchors.join(", ")}`,
     sectorLine ? `Sector: ${sectorLine}` : null,
     subSectorLine ? `Sub-sector: ${subSectorLine}` : null,
-    input.classification.businessActivity
-      ? `Main business: ${input.classification.businessActivity}`
-      : null,
-    mainInputs.length > 0 ? `Main inputs: ${mainInputs.join(", ")}` : null,
-    customerSegments.length > 0
-      ? `Customer segments: ${customerSegments.join(", ")}`
-      : null,
+    input.companyOverview ? `Overview: ${input.companyOverview}` : null,
+    input.businessOperation
+      ? `Business operation: ${input.businessOperation}`
+      : input.classification.businessActivity
+        ? `Main business: ${input.classification.businessActivity}`
+        : null,
     input.competitors.length > 0
       ? `Competitors: ${renderEntities(input.competitors)}`
-      : "Competitors: none discovered yet.",
+      : "Competitors: no curated profile for this issuer.",
     input.regulators.length > 0
       ? `Regulators: ${renderEntities(input.regulators)}`
-      : "Regulators: none discovered yet.",
+      : "Regulators: no curated profile for this issuer.",
     `Languages: ${input.languages.join(", ")}`,
     ...(input.reconSignals && input.reconSignals.length > 0
       ? [

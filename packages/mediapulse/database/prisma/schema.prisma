@@ -180,12 +180,12 @@ model DiscoverySourceHealth {
 }
 
 model Newsletter {
-  id          String   @id @default(uuid())
-  subject     String
-  content     String
-  tickerId    String   @map("ticker_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  subject   String
+  content   String
+  tickerId  String   @map("ticker_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   model            String? @map("model")
   agentVersion     String? @map("agent_version")
@@ -566,7 +566,7 @@ model Ticker {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  discovery              TickerDiscovery?
+  profile                TickerProfile?
   searchQueries          SearchQuery[]
   searchQuerySets        SearchQuerySet[]
   dataSources            DataSource[]
@@ -589,26 +589,33 @@ model Ticker {
   @@map("ticker")
 }
 
-/// Per-ticker cache of LLM-discovered competitors and regulators, refreshed by expiry.
-/// Freshness is gated by `expiresAt` AND a `contractVersion` match; renewed on every upsert.
-model TickerDiscovery {
-  id               String   @id @default(uuid())
-  tickerId         String   @unique @map("ticker_id")
-  competitors      Json
-  regulators       Json
-  mainInputs       Json     @default("[]") @map("main_inputs")
-  customerSegments Json     @default("[]") @map("customer_segments")
-  /// Discovery model id, for audit.
-  model            String?
-  /// Agent contract version active when this entry was written; a mismatch with the
-  /// current contract invalidates the cache even if expiresAt hasn't passed yet.
-  contractVersion  String?  @map("contract_version")
-  expiresAt        DateTime @map("expires_at")
+model TickerProfile {
+  id       String @id @default(uuid())
+  tickerId String @unique @map("ticker_id")
+
+  companyOverview   String @map("company_overview")
+  businessOperation String @map("business_operation")
+
+  sectorIndonesian      String @map("sector_indonesian")
+  sectorEnglish         String @map("sector_english")
+  subSectorIndonesian   String @map("sub_sector_indonesian")
+  subSectorEnglish      String @map("sub_sector_english")
+  industryIndonesian    String @map("industry_indonesian")
+  industryEnglish       String @map("industry_english")
+  subIndustryIndonesian String @map("sub_industry_indonesian")
+  subIndustryEnglish    String @map("sub_industry_english")
+
+  aliases String[] @map("aliases")
+
+  competitors Json
+  regulators  Json
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   ticker Ticker @relation(fields: [tickerId], references: [id], onDelete: Cascade)
 
-  @@index([expiresAt])
-  @@map("ticker_discovery")
+  @@map("ticker_profile")
 }
 
 /// End-user / newsletter subscriber in the Mediapulse domain (distinct from Hermes orchestration `User` admins).
