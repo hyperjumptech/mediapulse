@@ -15,15 +15,6 @@ vi.mock("@mediapulse/database", () => ({
       findFirst: vi.fn(),
       findMany: vi.fn(),
     },
-    entityType: {
-      findFirst: vi.fn(),
-    },
-    tickerEntity: {
-      findFirst: vi.fn(),
-    },
-    entityRelation: {
-      findMany: vi.fn(),
-    },
     userTicker: {
       findMany: vi.fn(),
     },
@@ -32,7 +23,6 @@ vi.mock("@mediapulse/database", () => ({
 
 import {
   createNewsletter,
-  getCompetitorsForTicker,
   getDataSourcesForTicker,
   getLatestNewsletter,
   getRecentNewsletterBullets,
@@ -52,15 +42,6 @@ type MockDb = {
     create: ReturnType<typeof vi.fn>;
     findFirst: ReturnType<typeof vi.fn>;
   };
-  entityType: {
-    findFirst: ReturnType<typeof vi.fn>;
-  };
-  tickerEntity: {
-    findFirst: ReturnType<typeof vi.fn>;
-  };
-  entityRelation: {
-    findMany: ReturnType<typeof vi.fn>;
-  };
   userTicker: {
     findMany: ReturnType<typeof vi.fn>;
   };
@@ -77,15 +58,6 @@ const createMockDb = (): MockDb => ({
   newsletter: {
     create: vi.fn(),
     findFirst: vi.fn(),
-  },
-  entityType: {
-    findFirst: vi.fn().mockResolvedValue(null),
-  },
-  tickerEntity: {
-    findFirst: vi.fn().mockResolvedValue(null),
-  },
-  entityRelation: {
-    findMany: vi.fn().mockResolvedValue([]),
   },
   userTicker: {
     findMany: vi.fn().mockResolvedValue([]),
@@ -632,325 +604,27 @@ describe("getRecentNewsletterBullets", () => {
   });
 });
 
-type MockEntityRelationDb = {
-  entityRelation: { findMany: ReturnType<typeof vi.fn> };
-};
-
-const makeCompanyEntity = (
-  id: string,
-  canonicalName: string,
-  aliases: string[] = [],
-) => ({
-  id,
-  canonicalName,
-  type: { name: "COMPANY" },
-  aliases: aliases.map((alias) => ({ alias })),
-});
-
-const makeRelation = (
-  fromEntityId: string,
-  toEntityId: string,
-  fromEntity: ReturnType<typeof makeCompanyEntity>,
-  toEntity: ReturnType<typeof makeCompanyEntity>,
-  relationTypeName: string,
-  weight: number,
-) => ({
-  fromEntityId,
-  toEntityId,
-  weight,
-  relationType: { name: relationTypeName },
-  fromEntity,
-  toEntity,
-});
-
-describe("getCompetitorsForTicker — competitor resolution", () => {
+describe("getDataSourcesForTicker — competitors and issuerAliases from the profile", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("returns COMPETITOR before SECTOR_PEER when ordered by weight desc", async () => {
-    // Setup
-    const issuerEntityId = "entity-bbca";
-    const issuerEntity = makeCompanyEntity(
-      issuerEntityId,
-      "Bank Central Asia",
-      ["BBCA"],
-    );
-    const mandiriEntity = makeCompanyEntity("entity-mandiri", "Bank Mandiri", [
-      "Mandiri",
-    ]);
-    const briEntity = makeCompanyEntity("entity-bri", "Bank BRI", ["BRI"]);
-
-    const db: MockEntityRelationDb = {
-      entityRelation: {
-        findMany: vi
-          .fn()
-          .mockResolvedValue([
-            makeRelation(
-              issuerEntityId,
-              "entity-mandiri",
-              issuerEntity,
-              mandiriEntity,
-              "COMPETITOR",
-              0.9,
-            ),
-            makeRelation(
-              issuerEntityId,
-              "entity-bri",
-              issuerEntity,
-              briEntity,
-              "SECTOR_PEER",
-              0.6,
-            ),
-          ]),
-      },
-    };
-    const issuerNormalizedAliasSet = new Set(["bank central asia", "bbca"]);
-
-    // Act
-    const result = await getCompetitorsForTicker(
-      issuerEntityId,
-      issuerNormalizedAliasSet,
-      {},
-      db as Parameters<typeof getCompetitorsForTicker>[3],
-    );
-
-    // Assert
-    expect(result).toHaveLength(2);
-    expect(result[0]?.name).toBe("Bank Mandiri");
-    expect(result[0]?.relation).toBe("COMPETITOR");
-    expect(result[0]?.weight).toBe(0.9);
-    expect(result[1]?.name).toBe("Bank BRI");
-    expect(result[1]?.relation).toBe("SECTOR_PEER");
-    expect(result[1]?.weight).toBe(0.6);
-  });
-
-  it("filters out a self-loop edge pointing back to the issuer entityId", async () => {
-    // Setup
-    const issuerEntityId = "entity-bbca";
-    const issuerEntity = makeCompanyEntity(
-      issuerEntityId,
-      "Bank Central Asia",
-      ["BBCA"],
-    );
-
-    const db: MockEntityRelationDb = {
-      entityRelation: {
-        findMany: vi
-          .fn()
-          .mockResolvedValue([
-            makeRelation(
-              issuerEntityId,
-              issuerEntityId,
-              issuerEntity,
-              issuerEntity,
-              "COMPETITOR",
-              1.0,
-            ),
-          ]),
-      },
-    };
-    const issuerNormalizedAliasSet = new Set(["bank central asia", "bbca"]);
-
-    // Act
-    const result = await getCompetitorsForTicker(
-      issuerEntityId,
-      issuerNormalizedAliasSet,
-      {},
-      db as Parameters<typeof getCompetitorsForTicker>[3],
-    );
-
-    // Assert
-    expect(result).toHaveLength(0);
-  });
-
-  it("filters out a peer whose normalized name matches an issuer alias", async () => {
-    // Setup
-    const issuerEntityId = "entity-bbca";
-    const issuerEntity = makeCompanyEntity(
-      issuerEntityId,
-      "Bank Central Asia",
-      ["BBCA"],
-    );
-    const aliasMatchEntity = makeCompanyEntity(
-      "entity-other",
-      "Bank Central Asia",
-      [],
-    );
-
-    const db: MockEntityRelationDb = {
-      entityRelation: {
-        findMany: vi
-          .fn()
-          .mockResolvedValue([
-            makeRelation(
-              issuerEntityId,
-              "entity-other",
-              issuerEntity,
-              aliasMatchEntity,
-              "COMPETITOR",
-              0.8,
-            ),
-          ]),
-      },
-    };
-    const issuerNormalizedAliasSet = new Set(["bank central asia", "bbca"]);
-
-    // Act
-    const result = await getCompetitorsForTicker(
-      issuerEntityId,
-      issuerNormalizedAliasSet,
-      {},
-      db as Parameters<typeof getCompetitorsForTicker>[3],
-    );
-
-    // Assert
-    expect(result).toHaveLength(0);
-  });
-
-  it("deduplicates by entityId, keeping first occurrence", async () => {
-    // Setup
-    const issuerEntityId = "entity-bbca";
-    const issuerEntity = makeCompanyEntity(
-      issuerEntityId,
-      "Bank Central Asia",
-      ["BBCA"],
-    );
-    const mandiriEntity = makeCompanyEntity(
-      "entity-mandiri",
-      "Bank Mandiri",
-      [],
-    );
-
-    const db: MockEntityRelationDb = {
-      entityRelation: {
-        findMany: vi
-          .fn()
-          .mockResolvedValue([
-            makeRelation(
-              issuerEntityId,
-              "entity-mandiri",
-              issuerEntity,
-              mandiriEntity,
-              "COMPETITOR",
-              0.9,
-            ),
-            makeRelation(
-              issuerEntityId,
-              "entity-mandiri",
-              issuerEntity,
-              mandiriEntity,
-              "SECTOR_PEER",
-              0.5,
-            ),
-          ]),
-      },
-    };
-    const issuerNormalizedAliasSet = new Set(["bank central asia", "bbca"]);
-
-    // Act
-    const result = await getCompetitorsForTicker(
-      issuerEntityId,
-      issuerNormalizedAliasSet,
-      {},
-      db as Parameters<typeof getCompetitorsForTicker>[3],
-    );
-
-    // Assert
-    expect(result).toHaveLength(1);
-    expect(result[0]?.relation).toBe("COMPETITOR");
-  });
-
-  it("respects maxCompetitors cap", async () => {
-    // Setup
-    const issuerEntityId = "entity-issuer";
-    const issuerEntity = makeCompanyEntity(issuerEntityId, "Issuer Corp", []);
-    const peerRelations = Array.from({ length: 10 }, (_, index) => {
-      const peerEntity = makeCompanyEntity(
-        `entity-peer-${index}`,
-        `Peer ${index}`,
-        [],
-      );
-      return makeRelation(
-        issuerEntityId,
-        `entity-peer-${index}`,
-        issuerEntity,
-        peerEntity,
-        "SECTOR_PEER",
-        0.5,
-      );
-    });
-
-    const db: MockEntityRelationDb = {
-      entityRelation: { findMany: vi.fn().mockResolvedValue(peerRelations) },
-    };
-
-    // Act
-    const result = await getCompetitorsForTicker(
-      issuerEntityId,
-      new Set(["issuer corp"]),
-      { maxCompetitors: 3 },
-      db as Parameters<typeof getCompetitorsForTicker>[3],
-    );
-
-    // Assert
-    expect(result).toHaveLength(3);
-  });
-
-  it("returns empty array when entityRelation.findMany returns no edges", async () => {
-    // Setup
-    const db: MockEntityRelationDb = {
-      entityRelation: { findMany: vi.fn().mockResolvedValue([]) },
-    };
-
-    // Act
-    const result = await getCompetitorsForTicker(
-      "entity-issuer",
-      new Set(["issuer corp"]),
-      {},
-      db as Parameters<typeof getCompetitorsForTicker>[3],
-    );
-
-    // Assert
-    expect(result).toHaveLength(0);
-  });
-});
-
-describe("getDataSourcesForTicker — competitors and issuerAliases in response", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("returns competitors and issuerAliases when anchor and edges exist", async () => {
+  it("takes competitors and aliases from the curated profile", async () => {
     // Setup
     const db = createMockDb();
     db.ticker.findUniqueOrThrow.mockResolvedValue({
       symbol: "BBCA",
       name: "Bank Central Asia",
-    });
-    db.ticker.findUnique.mockResolvedValue({
-      symbol: "BBCA",
-      name: "Bank Central Asia",
-    });
-    db.dataSourceTickerSection.findMany.mockResolvedValue([]);
-    db.entityType.findFirst.mockResolvedValue({ id: "type-company" });
-    db.tickerEntity.findFirst.mockResolvedValue({
-      entityId: "entity-bbca",
-      entity: {
-        canonicalName: "Bank Central Asia",
-        aliases: [{ alias: "BBCA" }, { alias: "PT Bank Central Asia Tbk" }],
+      aliases: ["BCA"],
+      profile: {
+        aliases: ["PT Bank Central Asia Tbk"],
+        competitors: [
+          { name: "Bank Mandiri", aliases: ["BMRI"] },
+          { name: "Bank Rakyat Indonesia", aliases: ["BBRI"] },
+        ],
       },
     });
-    db.entityRelation.findMany.mockResolvedValue([
-      makeRelation(
-        "entity-bbca",
-        "entity-mandiri",
-        makeCompanyEntity("entity-bbca", "Bank Central Asia", ["BBCA"]),
-        makeCompanyEntity("entity-mandiri", "Bank Mandiri", ["Mandiri"]),
-        "COMPETITOR",
-        0.9,
-      ),
-    ]);
+    db.dataSourceTickerSection.findMany.mockResolvedValue([]);
 
     // Act
     const result = await getDataSourcesForTicker("ticker-bbca", {
@@ -959,22 +633,27 @@ describe("getDataSourcesForTicker — competitors and issuerAliases in response"
     });
 
     // Assert
-    expect(result.competitors).toHaveLength(1);
-    expect(result.competitors[0]?.name).toBe("Bank Mandiri");
-    expect(result.competitors[0]?.relation).toBe("COMPETITOR");
-    expect(result.issuerAliases).toContain("BBCA");
-    expect(result.issuerAliases).toContain("Bank Central Asia");
-    expect(result.issuerAliases).toContain("PT Bank Central Asia Tbk");
+    expect(result.competitors).toEqual([
+      { name: "Bank Mandiri", relation: "COMPETITOR" },
+      { name: "Bank Rakyat Indonesia", relation: "COMPETITOR" },
+    ]);
+    expect(result.issuerAliases).toEqual([
+      "BBCA",
+      "Bank Central Asia",
+      "BCA",
+      "PT Bank Central Asia Tbk",
+    ]);
   });
 
-  it("returns empty competitors and fallback issuerAliases when no KG anchor exists", async () => {
+  it("returns no competitors and symbol/name aliases when the ticker has no profile", async () => {
     // Setup
     const db = createMockDb();
     db.ticker.findUniqueOrThrow.mockResolvedValue({
       symbol: "NEW",
       name: "New Company",
+      aliases: [],
+      profile: null,
     });
-    // ticker.findUnique returns null by default in createMockDb — anchor lookup short-circuits
     db.dataSourceTickerSection.findMany.mockResolvedValue([]);
 
     // Act
@@ -986,29 +665,22 @@ describe("getDataSourcesForTicker — competitors and issuerAliases in response"
     // Assert
     expect(result.competitors).toEqual([]);
     expect(result.issuerAliases).toEqual(["NEW", "New Company"]);
-    expect(result.dataSources).toEqual([]);
     expect(result.tickerSymbol).toBe("NEW");
-    expect(result.tickerName).toBe("New Company");
   });
 
-  it("returns empty competitors when anchor exists but no peer edges", async () => {
+  it("drops malformed competitor rows from the profile JSON", async () => {
     // Setup
     const db = createMockDb();
     db.ticker.findUniqueOrThrow.mockResolvedValue({
       symbol: "SOLO",
       name: "Solo Corp",
-    });
-    db.ticker.findUnique.mockResolvedValue({
-      symbol: "SOLO",
-      name: "Solo Corp",
+      aliases: [],
+      profile: {
+        aliases: [],
+        competitors: [{ name: "" }, { aliases: ["X"] }, 42, null],
+      },
     });
     db.dataSourceTickerSection.findMany.mockResolvedValue([]);
-    db.entityType.findFirst.mockResolvedValue({ id: "type-company" });
-    db.tickerEntity.findFirst.mockResolvedValue({
-      entityId: "entity-solo",
-      entity: { canonicalName: "Solo Corp", aliases: [] },
-    });
-    // entityRelation.findMany returns [] by default in createMockDb
 
     // Act
     const result = await getDataSourcesForTicker("ticker-solo", {
@@ -1018,8 +690,6 @@ describe("getDataSourcesForTicker — competitors and issuerAliases in response"
 
     // Assert
     expect(result.competitors).toEqual([]);
-    expect(result.issuerAliases).toContain("SOLO");
-    expect(result.issuerAliases).toContain("Solo Corp");
   });
 });
 

@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  narrativeDiscovery,
+  narrativeProfile,
   narrativeGenerating,
   narrativeRunComplete,
   narrativeRunStart,
@@ -22,17 +22,17 @@ describe("narrativeRunStart", () => {
   });
 });
 
-describe("narrativeDiscovery", () => {
-  it("says it is reusing known context on a cache hit", () => {
-    const [, description] = narrativeDiscovery(subject, true);
+describe("narrativeProfile", () => {
+  it("says it is reading the curated profile when one exists", () => {
+    const [, description] = narrativeProfile(subject, true);
 
-    expect(description).toContain("Reusing");
+    expect(description).toContain("curated competitors");
   });
 
-  it("says it is identifying context on a cache miss", () => {
-    const [, description] = narrativeDiscovery(subject, false);
+  it("says the issuer has no profile when none exists", () => {
+    const [, description] = narrativeProfile(subject, false);
 
-    expect(description).toContain("Identifying");
+    expect(description).toContain("No curated profile");
   });
 });
 

@@ -8,14 +8,13 @@ import {
   type SearchProviderLogger,
 } from "@workspace/agent-search";
 
-import type { Classification } from "../pipeline/context";
-import type { DiscoveredEntity } from "../discovery/schema";
+import type { Classification, ProfileParty } from "../pipeline/context";
 
 export interface GatherReconSignalsInput {
   ticker: { symbol: string; name: string; aliases?: string[] };
   classification: Classification;
   homeMarket: string;
-  competitors: DiscoveredEntity[];
+  competitors: ProfileParty[];
   providers: ProviderEntry[];
   locale: SearchLocale;
   maxQueries: number;

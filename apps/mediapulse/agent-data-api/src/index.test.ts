@@ -870,6 +870,7 @@ describe("agent-data-api", () => {
           subIndustry: null,
           businessActivity: null,
         },
+        profile: null,
       });
     });
   });

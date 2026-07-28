@@ -5,6 +5,33 @@ import type {
   PostQueryAnalysisBody,
 } from "@workspace/agent-data-api-contract";
 
+type ProfileParty = { name: string; aliases: string[] };
+
+const parseParties = (value: unknown): ProfileParty[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const parties: ProfileParty[] = [];
+  for (const entry of value) {
+    if (entry === null || typeof entry !== "object") {
+      continue;
+    }
+    const candidate = entry as { name?: unknown; aliases?: unknown };
+    if (typeof candidate.name !== "string" || candidate.name.trim() === "") {
+      continue;
+    }
+    const aliases = Array.isArray(candidate.aliases)
+      ? candidate.aliases.filter(
+          (alias): alias is string => typeof alias === "string",
+        )
+      : [];
+    parties.push({ name: candidate.name, aliases });
+  }
+
+  return parties;
+};
+
 type QueryAnalysisDb = {
   ticker: Pick<typeof prisma.ticker, "findUniqueOrThrow">;
   searchQuerySet: Pick<
@@ -43,8 +70,27 @@ export const getQueryAnalysisContext = async (
       subSector: true,
       subIndustry: true,
       businessActivity: true,
+      profile: {
+        select: {
+          companyOverview: true,
+          businessOperation: true,
+          sectorIndonesian: true,
+          sectorEnglish: true,
+          subSectorIndonesian: true,
+          subSectorEnglish: true,
+          industryIndonesian: true,
+          industryEnglish: true,
+          subIndustryIndonesian: true,
+          subIndustryEnglish: true,
+          aliases: true,
+          competitors: true,
+          regulators: true,
+        },
+      },
     },
   } satisfies Prisma.TickerFindUniqueOrThrowArgs);
+
+  const profile = ticker.profile;
 
   return {
     ticker: {
@@ -58,6 +104,32 @@ export const getQueryAnalysisContext = async (
       subIndustry: ticker.subIndustry,
       businessActivity: ticker.businessActivity,
     },
+    profile:
+      profile === null || profile === undefined
+        ? null
+        : {
+            companyOverview: profile.companyOverview,
+            businessOperation: profile.businessOperation,
+            sector: {
+              indonesian: profile.sectorIndonesian,
+              english: profile.sectorEnglish,
+            },
+            subSector: {
+              indonesian: profile.subSectorIndonesian,
+              english: profile.subSectorEnglish,
+            },
+            industry: {
+              indonesian: profile.industryIndonesian,
+              english: profile.industryEnglish,
+            },
+            subIndustry: {
+              indonesian: profile.subIndustryIndonesian,
+              english: profile.subIndustryEnglish,
+            },
+            aliases: profile.aliases,
+            competitors: parseParties(profile.competitors),
+            regulators: parseParties(profile.regulators),
+          },
   };
 };
 

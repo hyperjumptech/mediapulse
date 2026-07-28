@@ -8,17 +8,7 @@ import type {
 import type { Prisma } from "@mediapulse/database";
 
 import { flattenBulletsFromNewsletterDocument } from "../lib/flatten-newsletter-bullets.js";
-import {
-  findIssuerAnchorForTicker,
-  getCompetitorsForTicker,
-  normalizeName,
-} from "./issuer-context.js";
-
-export type { CompetitorEntry } from "./issuer-context.js";
-export {
-  findIssuerAnchorForTicker,
-  getCompetitorsForTicker,
-} from "./issuer-context.js";
+import { parseProfileParties } from "./ticker-profile-parties.js";
 
 const MAX_RECENT_BULLETS = 200;
 
@@ -46,9 +36,6 @@ type ContentGenerationDb = {
     "create" | "findFirst" | "findMany"
   >;
   searchQuerySet: Pick<typeof prisma.searchQuerySet, "findFirst">;
-  tickerEntity: Pick<typeof prisma.tickerEntity, "findFirst">;
-  entityRelation: Pick<typeof prisma.entityRelation, "findMany">;
-  entityType: Pick<typeof prisma.entityType, "findFirst">;
   userTicker: Pick<typeof prisma.userTicker, "findMany">;
 };
 
@@ -69,12 +56,7 @@ export const getDataSourcesForTicker = async (
   deps: {
     db?: Pick<
       ContentGenerationDb,
-      | "dataSourceTickerSection"
-      | "ticker"
-      | "entityType"
-      | "tickerEntity"
-      | "entityRelation"
-      | "userTicker"
+      "dataSourceTickerSection" | "ticker" | "userTicker"
     >;
     now?: () => Date;
   } = {},
@@ -85,7 +67,12 @@ export const getDataSourcesForTicker = async (
   const [ticker, sectionRows] = await Promise.all([
     db.ticker.findUniqueOrThrow({
       where: { id: tickerId },
-      select: { symbol: true, name: true },
+      select: {
+        symbol: true,
+        name: true,
+        aliases: true,
+        profile: { select: { aliases: true, competitors: true } },
+      },
     } satisfies Prisma.TickerFindUniqueOrThrowArgs),
     db.dataSourceTickerSection.findMany({
       where: {
@@ -131,22 +118,20 @@ export const getDataSourcesForTicker = async (
     sectionReason: row.sectionReason,
   }));
 
-  const anchor = await findIssuerAnchorForTicker(tickerId, db);
-  const issuerAliases: string[] =
-    anchor?.aliases ??
-    [ticker.symbol, ticker.name].filter((value) => value.length > 0);
-  const competitorEntries = anchor
-    ? await getCompetitorsForTicker(
-        anchor.entityId,
-        new Set(issuerAliases.map(normalizeName)),
-        {},
-        db,
-      )
-    : [];
-  const competitors = competitorEntries.map((entry) => ({
-    name: entry.name,
-    relation: entry.relation,
-  }));
+  const profile = ticker.profile ?? null;
+  const issuerAliases: string[] = [
+    ...new Set(
+      [
+        ticker.symbol,
+        ticker.name,
+        ...(ticker.aliases ?? []),
+        ...(profile?.aliases ?? []),
+      ].filter((value) => value.length > 0),
+    ),
+  ];
+  const competitors = (
+    profile === null ? [] : parseProfileParties(profile.competitors)
+  ).map((entry) => ({ name: entry.name, relation: "COMPETITOR" }));
 
   const subscriberLanguageRows = await db.userTicker.findMany({
     where: { tickerId, enabled: true, language: { not: "en" } },

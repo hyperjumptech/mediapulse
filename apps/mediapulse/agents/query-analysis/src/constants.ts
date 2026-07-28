@@ -17,23 +17,11 @@ export const RECON_LOCALE: SearchLocale = { gl: "id", hl: "id" };
  */
 export const DEFAULT_QUERIES_PER_INTENT = 5;
 
-/** Maximum competitors kept from an LLM discovery result. */
-export const DISCOVERY_MAX_COMPETITORS = 6;
-
-/** Maximum regulators kept from an LLM discovery result. */
-export const DISCOVERY_MAX_REGULATORS = 4;
-
-/** Maximum search keywords kept per discovered entity. */
-export const DISCOVERY_MAX_KEYWORDS_PER_ENTITY = 2;
-
 /** Maximum generation attempts (initial + retries) before accepting whatever was generated. */
 export const GENERATION_MAX_ATTEMPTS = 3;
 
 /** SDK-level retries for one generation LLM call, so a transient blip does not fail the run. */
 export const GENERATION_LLM_MAX_RETRIES = 2;
-
-/** Time-to-live for a written ticker-discovery cache entry (14 days). */
-export const DISCOVERY_CACHE_TTL_SECONDS = 14 * 24 * 60 * 60;
 
 /** Maximum broad recon searches run before generation to gather current-event signals. */
 export const RECON_MAX_QUERIES = 12;

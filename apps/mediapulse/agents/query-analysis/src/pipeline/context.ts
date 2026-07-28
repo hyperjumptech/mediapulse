@@ -1,6 +1,7 @@
+import type { QueryAnalysisTickerProfile } from "@workspace/agent-data-api-contract";
+
 import { HOME_MARKET, MARKET_ANCHORS } from "../constants";
 
-/** Ticker classification fields surfaced by GET /query-analysis. */
 export type QueryAnalysisTicker = {
   id: string;
   symbol: string;
@@ -13,7 +14,10 @@ export type QueryAnalysisTicker = {
   businessActivity?: string | null;
 };
 
-/** Normalized industry classification derived from the GET context ticker. */
+export type TickerProfile = QueryAnalysisTickerProfile | null;
+
+export type ProfileParty = { name: string; aliases: string[] };
+
 export type Classification = {
   sector?: string;
   industry?: string;
@@ -22,7 +26,6 @@ export type Classification = {
   businessActivity?: string;
 };
 
-/** Home-market anchors used to geography-anchor discovery and industry queries. */
 export type MarketContext = {
   homeMarket: string;
   anchors: string[];
@@ -37,41 +40,63 @@ const normalize = (value?: string | null): string | undefined => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
-/**
- * Derives the normalized classification from a GET context ticker.
- *
- * @param ticker - Ticker fields from GET /query-analysis.
- * @returns Classification with empty/whitespace values dropped.
- */
-export const deriveClassification = (
-  ticker: QueryAnalysisTicker,
-): Classification => {
+const assign = (
+  classification: Classification,
+  key: keyof Classification,
+  value?: string | null,
+): void => {
+  const normalized = normalize(value);
+  if (normalized !== undefined) {
+    classification[key] = normalized;
+  }
+};
+
+const fromTicker = (ticker: QueryAnalysisTicker): Classification => {
   const classification: Classification = {};
-  const sector = normalize(ticker.sector);
-  const industry = normalize(ticker.industry);
-  const subSector = normalize(ticker.subSector);
-  const subIndustry = normalize(ticker.subIndustry);
-  const businessActivity = normalize(ticker.businessActivity);
-  if (sector !== undefined) {
-    classification.sector = sector;
-  }
-  if (industry !== undefined) {
-    classification.industry = industry;
-  }
-  if (subSector !== undefined) {
-    classification.subSector = subSector;
-  }
-  if (subIndustry !== undefined) {
-    classification.subIndustry = subIndustry;
-  }
-  if (businessActivity !== undefined) {
-    classification.businessActivity = businessActivity;
-  }
+  assign(classification, "sector", ticker.sector);
+  assign(classification, "industry", ticker.industry);
+  assign(classification, "subSector", ticker.subSector);
+  assign(classification, "subIndustry", ticker.subIndustry);
+  assign(classification, "businessActivity", ticker.businessActivity);
 
   return classification;
 };
 
-/** Returns the fixed Indonesian home-market anchors. */
+export const deriveClassification = (
+  ticker: QueryAnalysisTicker,
+  profile: TickerProfile,
+): Classification => {
+  if (profile === null) {
+    return fromTicker(ticker);
+  }
+
+  const classification: Classification = {};
+  assign(classification, "sector", profile.sector.english);
+  assign(classification, "industry", profile.industry.english);
+  assign(classification, "subSector", profile.subSector.english);
+  assign(classification, "subIndustry", profile.subIndustry.english);
+  assign(classification, "businessActivity", profile.businessOperation);
+
+  return classification;
+};
+
+export const deriveSearchClassification = (
+  ticker: QueryAnalysisTicker,
+  profile: TickerProfile,
+): Classification => {
+  if (profile === null) {
+    return fromTicker(ticker);
+  }
+
+  const classification: Classification = {};
+  assign(classification, "sector", profile.sector.indonesian);
+  assign(classification, "industry", profile.industry.indonesian);
+  assign(classification, "subSector", profile.subSector.indonesian);
+  assign(classification, "subIndustry", profile.subIndustry.indonesian);
+
+  return classification;
+};
+
 export const deriveMarketContext = (): MarketContext => ({
   homeMarket: HOME_MARKET,
   anchors: [...MARKET_ANCHORS],

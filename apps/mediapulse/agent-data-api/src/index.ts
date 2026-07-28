@@ -41,10 +41,6 @@ import {
   postDiscoverySourceHealthGet,
 } from "./routes/discovery-source-health.js";
 import {
-  postTickerDiscoveryLookup,
-  postTickerDiscoveryRecord,
-} from "./routes/ticker-discovery.js";
-import {
   getDataCollection,
   postDataCollection,
 } from "./routes/data-collection.js";
@@ -274,12 +270,6 @@ const routeHandlers = {
   },
   discoverySourceHealthGet: {
     post: postDiscoverySourceHealthGet,
-  },
-  tickerDiscoveryLookup: {
-    post: postTickerDiscoveryLookup,
-  },
-  tickerDiscoveryRecord: {
-    post: postTickerDiscoveryRecord,
   },
   agentInsights: {
     get: getAgentInsights,

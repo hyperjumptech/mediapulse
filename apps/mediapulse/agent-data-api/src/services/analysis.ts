@@ -12,11 +12,7 @@ import {
   extractTickerBusinessContext,
   extractTickerSectorIndustry,
 } from "./query-analysis-context-helpers.js";
-import {
-  findIssuerAnchorForTicker,
-  getCompetitorsForTicker,
-  normalizeName,
-} from "./issuer-context.js";
+import { parseProfileParties } from "./ticker-profile-parties.js";
 
 /** Newest-first cap on eligible articles scanned per candidate-pair request. */
 const MAX_CANDIDATE_ARTICLE_SCAN = 1500;
@@ -51,9 +47,6 @@ type AnalysisDb = {
   >;
   ticker: Pick<typeof prisma.ticker, "findMany" | "findUnique" | "findFirst">;
   searchQuerySet: Pick<typeof prisma.searchQuerySet, "findMany">;
-  entityType: Pick<typeof prisma.entityType, "findFirst">;
-  tickerEntity: Pick<typeof prisma.tickerEntity, "findFirst">;
-  entityRelation: Pick<typeof prisma.entityRelation, "findMany">;
   $transaction: typeof prisma.$transaction;
 };
 
@@ -156,39 +149,29 @@ const tickerContextSelect = {
 } satisfies Prisma.TickerSelect;
 
 /** Builds issuer context + alias matcher for one active ticker. */
-const buildTickerGatingContext = async (
-  ticker: {
-    id: string;
-    symbol: string;
-    name: string;
-    sector: string | null;
-    industry: string | null;
-    subSector: string | null;
-    subIndustry: string | null;
-    businessActivity: string | null;
-  },
-  db: Pick<
-    AnalysisDb,
-    "ticker" | "entityType" | "tickerEntity" | "entityRelation"
-  >,
-): Promise<TickerGatingContext> => {
-  const anchor = await findIssuerAnchorForTicker(ticker.id, db);
-  const issuerAliases =
-    anchor?.aliases ??
-    [ticker.symbol, ticker.name].filter((value) => value.length > 0);
-  const competitors = anchor
-    ? await getCompetitorsForTicker(
-        anchor.entityId,
-        new Set(issuerAliases.map(normalizeName)),
-        {},
-        db,
-      )
-    : [];
+const buildTickerGatingContext = (ticker: {
+  id: string;
+  symbol: string;
+  name: string;
+  sector: string | null;
+  industry: string | null;
+  subSector: string | null;
+  subIndustry: string | null;
+  businessActivity: string | null;
+  aliases?: string[];
+  profile?: { aliases: string[]; competitors: Prisma.JsonValue } | null;
+}): TickerGatingContext => {
+  const profile = ticker.profile ?? null;
+  const competitors =
+    profile === null ? [] : parseProfileParties(profile.competitors);
   const aliases = [
-    ...issuerAliases,
+    ticker.symbol,
+    ticker.name,
+    ...(ticker.aliases ?? []),
+    ...(profile?.aliases ?? []),
     ...competitors.map((competitor) => competitor.name),
     ...competitors.flatMap((competitor) => competitor.aliases),
-  ];
+  ].filter((value) => value.length > 0);
 
   return {
     tickerId: ticker.id,
@@ -208,13 +191,7 @@ const buildAnalysisCandidatePairs = async (
   query: GetAnalysisQuery,
   db: Pick<
     AnalysisDb,
-    | "dataSource"
-    | "dataSourceTickerSection"
-    | "ticker"
-    | "searchQuerySet"
-    | "entityType"
-    | "tickerEntity"
-    | "entityRelation"
+    "dataSource" | "dataSourceTickerSection" | "ticker" | "searchQuerySet"
   >,
 ): Promise<GetAnalysisResponse> => {
   const recencyFloor = new Date(
@@ -242,13 +219,16 @@ const buildAnalysisCandidatePairs = async (
 
   const activeTickers = await db.ticker.findMany({
     where: { id: { in: activeTickerIds } },
-    select: { id: true, ...tickerContextSelect },
+    select: {
+      id: true,
+      aliases: true,
+      ...tickerContextSelect,
+      profile: { select: { aliases: true, competitors: true } },
+    },
   } satisfies Prisma.TickerFindManyArgs);
-  const gatingContexts = (
-    await Promise.all(
-      activeTickers.map((ticker) => buildTickerGatingContext(ticker, db)),
-    )
-  ).filter((gating) => !cappedTickerIds.has(gating.tickerId));
+  const gatingContexts = activeTickers
+    .map((ticker) => buildTickerGatingContext(ticker))
+    .filter((gating) => !cappedTickerIds.has(gating.tickerId));
 
   const ownedArticles = await db.dataSource.findMany({
     where: {

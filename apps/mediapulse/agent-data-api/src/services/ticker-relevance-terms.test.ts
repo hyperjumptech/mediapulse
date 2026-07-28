@@ -56,6 +56,7 @@ describe("getTickerRelevanceTermsForAgent", () => {
         industry: null,
         subSector: null,
         subIndustry: null,
+        profile: null,
       },
     ] as never);
 
@@ -91,6 +92,7 @@ describe("getTickerRelevanceTermsForAgent", () => {
           industry: "Bank",
           subSector: "Bank",
           subIndustry: "Keuangan",
+          profile: null,
         },
       ] as never)
       .mockResolvedValueOnce([
@@ -145,6 +147,7 @@ describe("getTickerRelevanceTermsForAgent", () => {
         industry: null,
         subSector: null,
         subIndustry: null,
+        profile: null,
       },
     ] as never);
 
@@ -154,6 +157,55 @@ describe("getTickerRelevanceTermsForAgent", () => {
     // Assert
     expect(prisma.ticker.findMany).toHaveBeenCalledTimes(1);
     expect(result.tickers[0]?.terms).toEqual(["XYZ", "Example Corp"]);
+  });
+
+  it("takes terms from the curated profile and skips the sector peer query", async () => {
+    // Setup
+    vi.mocked(prisma.searchQuerySet.findMany).mockResolvedValueOnce([
+      { tickerId: ANCHOR_TICKER_ID },
+    ] as never);
+    vi.mocked(prisma.ticker.findMany).mockResolvedValueOnce([
+      {
+        id: ANCHOR_TICKER_ID,
+        symbol: "AADI",
+        name: "PT Adaro Andalan Indonesia Tbk",
+        aliases: [],
+        sector: "Energi",
+        industry: "Batu Bara",
+        subSector: "Batu Bara",
+        subIndustry: "Pertambangan Batu Bara",
+        profile: {
+          sectorIndonesian: "Energi",
+          subSectorIndonesian: "Batu Bara",
+          industryIndonesian: "Batu Bara Termal",
+          aliases: ["Adaro Andalan", "Adaro"],
+          competitors: [
+            { name: "Indo Tambangraya Megah", aliases: ["ITMG", "ITM"] },
+            { name: "Bukit Asam", aliases: ["PTBA"] },
+          ],
+        },
+      },
+    ] as never);
+
+    // Act
+    const result = await getTickerRelevanceTermsForAgent();
+
+    // Assert
+    expect(prisma.ticker.findMany).toHaveBeenCalledTimes(1);
+    expect(result.tickers[0]?.terms).toEqual([
+      "AADI",
+      "PT Adaro Andalan Indonesia Tbk",
+      "Adaro Andalan",
+      "Adaro",
+      "Indo Tambangraya Megah",
+      "ITMG",
+      "Bukit Asam",
+      "PTBA",
+      "Energi",
+      "Batu Bara",
+      "Batu Bara Termal",
+    ]);
+    expect(result.tickers[0]?.terms).not.toContain("Pertambangan Batu Bara");
   });
 
   it("resolves peers for many active tickers with a single peer query", async () => {
@@ -173,6 +225,7 @@ describe("getTickerRelevanceTermsForAgent", () => {
           industry: "Bank",
           subSector: null,
           subIndustry: null,
+          profile: null,
         },
         {
           id: PEER_TICKER_ID,
@@ -183,6 +236,7 @@ describe("getTickerRelevanceTermsForAgent", () => {
           industry: "Bank",
           subSector: null,
           subIndustry: null,
+          profile: null,
         },
       ] as never)
       .mockResolvedValueOnce([
