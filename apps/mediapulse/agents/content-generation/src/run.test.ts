@@ -21,9 +21,13 @@ const contentGenerationCitationsCreate = vi.fn();
 const dataCollectionDeadUrlsLookupCreate = vi.fn();
 const dataCollectionDeadUrlsRecordCreate = vi.fn();
 const newsletterTranslationCreate = vi.fn();
+const tickerGet = vi.fn();
 
 vi.mock("@workspace/agent-data-api-client", () => ({
   createAgentDataApiClient: vi.fn(() => ({
+    ticker: {
+      get: tickerGet,
+    },
     contentGeneration: {
       get: contentGenerationGet,
       create: contentGenerationCreate,
@@ -181,6 +185,12 @@ const generatedNewsletter: LlmGenerate.GeneratedContentWithProvenance = {
 
 describe("run", () => {
   beforeEach(() => {
+    tickerGet.mockReset();
+    tickerGet.mockResolvedValue({
+      symbol: "BBCA",
+      name: "Bank Central Asia",
+      aliases: [],
+    });
     contentGenerationGet.mockReset();
     contentGenerationCreate.mockReset();
     contentGenerationNewslettersLatestGet.mockReset();
@@ -790,6 +800,12 @@ describe("run", () => {
 
 describe("provenance fields in contentGeneration.create", () => {
   beforeEach(() => {
+    tickerGet.mockReset();
+    tickerGet.mockResolvedValue({
+      symbol: "BBCA",
+      name: "Bank Central Asia",
+      aliases: [],
+    });
     contentGenerationGet.mockReset();
     contentGenerationCreate.mockReset();
     contentGenerationNewslettersLatestGet.mockReset();
