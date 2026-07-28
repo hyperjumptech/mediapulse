@@ -16,8 +16,6 @@
  */
 export const PRISMA_WRITE_METADATA_MODEL_NAMES = [
   "CuratedSource",
-  "EntityType",
-  "RelationType",
   "MediapulseUser",
   "Ticker",
 ] as const;

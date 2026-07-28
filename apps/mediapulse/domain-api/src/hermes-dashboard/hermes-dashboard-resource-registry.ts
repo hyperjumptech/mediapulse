@@ -5,14 +5,10 @@ import { buildMediapulseOperatorContentViews } from "./extra-manifest-views";
 import { curatedSourcesHermesDashboardResource } from "../resources/curated-sources/resource-definition";
 import { dataSourcesHermesDashboardResource } from "../resources/data-sources/resource-definition";
 import { deliveryRunsHermesDashboardResource } from "../resources/delivery-runs/resource-definition";
-import { entitiesHermesDashboardResource } from "../resources/entities/resource-definition";
-import { entityRelationsHermesDashboardResource } from "../resources/entity-relations/resource-definition";
-import { entityTypesHermesDashboardResource } from "../resources/entity-types/resource-definition";
 import { feedbackHermesDashboardResource } from "../resources/feedback/resource-definition";
 import { mediapulseUsersHermesDashboardResource } from "../resources/mediapulse-users/resource-definition";
 import { newslettersHermesDashboardResource } from "../resources/newsletters/resource-definition";
 import { queryAnalysisRunsHermesDashboardResource } from "../resources/query-analysis-runs/resource-definition";
-import { relationTypesHermesDashboardResource } from "../resources/relation-types/resource-definition";
 import { searchQueriesHermesDashboardResource } from "../resources/search-queries/resource-definition";
 import { searchQuerySetsHermesDashboardResource } from "../resources/search-query-sets/resource-definition";
 import { tickerProfilesHermesDashboardResource } from "../resources/ticker-profiles/resource-definition";
@@ -30,10 +26,6 @@ export const hermesDashboardResources = [
   tickerProfilesHermesDashboardResource,
   curatedSourcesHermesDashboardResource,
   mediapulseUsersHermesDashboardResource,
-  entityTypesHermesDashboardResource,
-  relationTypesHermesDashboardResource,
-  entitiesHermesDashboardResource,
-  entityRelationsHermesDashboardResource,
   dataSourcesHermesDashboardResource,
   searchQuerySetsHermesDashboardResource,
   searchQueriesHermesDashboardResource,

@@ -351,8 +351,6 @@ registerInsightsProvider(
 registerInsightsProvider(
   createArticleAnalysisInsightsProvider({
     articleRelevance: prisma.articleRelevance,
-    articleEntity: prisma.articleEntity,
-    entityRelationEvidence: prisma.entityRelationEvidence,
   }),
 );
 

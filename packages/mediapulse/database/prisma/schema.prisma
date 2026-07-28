@@ -7,18 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum TickerEntitySource {
-  SEED
-  EXTRACTED
-  MANUAL
-}
-
-enum Sentiment {
-  POSITIVE
-  NEGATIVE
-  NEUTRAL
-}
-
 enum SearchQueryIntent {
   industryPulse
   competitiveLandscape
@@ -88,13 +76,12 @@ model DataSource {
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
 
-  ticker                 Ticker?                   @relation(fields: [tickerId], references: [id])
-  searchQuery            SearchQuery?              @relation(fields: [searchQueryId], references: [id])
-  curatedSource          CuratedSource?            @relation(fields: [curatedSourceId], references: [id], onDelete: SetNull)
-  articleEntities        ArticleEntity[]
-  articleRelevances      ArticleRelevance[]
-  entityEvidence         EntityEvidence[]
-  entityRelationEvidence EntityRelationEvidence[]
+  ticker        Ticker?        @relation(fields: [tickerId], references: [id])
+  searchQuery   SearchQuery?   @relation(fields: [searchQueryId], references: [id])
+  curatedSource CuratedSource? @relation(fields: [curatedSourceId], references: [id], onDelete: SetNull)
+
+  articleRelevances ArticleRelevance[]
+
   tickerSections         DataSourceTickerSection[]
   fetchEvents            FetchEvent[]
   newsletterCitations    NewsletterCitation[]
@@ -305,167 +292,6 @@ model NewsletterTranslation {
   @@map("newsletter_translation")
 }
 
-/// Admin-managed vocabulary for entity classification used by extraction prompts.
-model EntityType {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  entities Entity[]
-
-  @@map("entity_type")
-}
-
-/// Admin-managed vocabulary for relationship classification used by extraction prompts.
-model RelationType {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  entityRelations EntityRelation[]
-
-  @@map("relation_type")
-}
-
-/// NOTE (article-analysis 3.0.0): no longer populated by article-analysis; revisit for removal once the insights consumers are retired.
-/// Canonical representation of a real-world entity mentioned in financial articles.
-model Entity {
-  id            String   @id @default(uuid())
-  typeId        String   @map("type_id")
-  canonicalName String   @map("canonical_name")
-  description   String?
-  metadata      Json?
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  type            EntityType       @relation(fields: [typeId], references: [id])
-  aliases         EntityAlias[]
-  tickerEntities  TickerEntity[]
-  articleEntities ArticleEntity[]
-  entityEvidence  EntityEvidence[]
-  relationsFrom   EntityRelation[] @relation("RelationFrom")
-  relationsTo     EntityRelation[] @relation("RelationTo")
-
-  @@map("entity")
-}
-
-/// Alternative names for an entity to support robust alias-based deduplication.
-model EntityAlias {
-  id              String   @id @default(uuid())
-  entityId        String   @map("entity_id")
-  alias           String
-  normalizedAlias String   @map("normalized_alias")
-  createdAt       DateTime @default(now()) @map("created_at")
-
-  entity Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
-
-  @@unique([entityId, normalizedAlias])
-  @@index([normalizedAlias])
-  @@map("entity_alias")
-}
-
-/// Per-ticker membership table representing which entities belong to a ticker graph.
-model TickerEntity {
-  id              String             @id @default(uuid())
-  tickerId        String             @map("ticker_id")
-  entityId        String             @map("entity_id")
-  relevanceWeight Float              @default(0.5) @map("relevance_weight")
-  source          TickerEntitySource @default(EXTRACTED)
-  createdAt       DateTime           @default(now()) @map("created_at")
-  updatedAt       DateTime           @updatedAt @map("updated_at")
-
-  ticker Ticker @relation(fields: [tickerId], references: [id], onDelete: Cascade)
-  entity Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
-
-  @@unique([tickerId, entityId])
-  @@map("ticker_entity")
-}
-
-/// NOTE (article-analysis 3.0.0): no longer populated by article-analysis; revisit for removal once the insights consumers are retired.
-/// Directed relationship edge between two entities with a typed semantic meaning.
-model EntityRelation {
-  id             String   @id @default(uuid())
-  fromEntityId   String   @map("from_entity_id")
-  toEntityId     String   @map("to_entity_id")
-  relationTypeId String   @map("relation_type_id")
-  weight         Float    @default(1.0)
-  lastSeenAt     DateTime @default(now()) @map("last_seen_at")
-  createdAt      DateTime @default(now()) @map("created_at")
-
-  fromEntity   Entity                   @relation("RelationFrom", fields: [fromEntityId], references: [id], onDelete: Cascade)
-  toEntity     Entity                   @relation("RelationTo", fields: [toEntityId], references: [id], onDelete: Cascade)
-  relationType RelationType             @relation(fields: [relationTypeId], references: [id])
-  evidence     EntityRelationEvidence[]
-
-  @@unique([fromEntityId, toEntityId, relationTypeId])
-  @@map("entity_relation")
-}
-
-/// NOTE (article-analysis 3.0.0): no longer populated by article-analysis; revisit for removal once the insights consumers are retired.
-/// Provenance link: a canonical entity was observed in a ticker-scoped data source.
-model EntityEvidence {
-  id           String   @id @default(uuid())
-  entityId     String   @map("entity_id")
-  dataSourceId String   @map("data_source_id")
-  tickerId     String   @map("ticker_id")
-  confidence   Float?
-  createdAt    DateTime @default(now()) @map("created_at")
-  lastSeenAt   DateTime @default(now()) @map("last_seen_at")
-
-  entity     Entity     @relation(fields: [entityId], references: [id], onDelete: Cascade)
-  dataSource DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
-  ticker     Ticker     @relation(fields: [tickerId], references: [id], onDelete: Cascade)
-
-  @@unique([entityId, dataSourceId, tickerId])
-  @@index([tickerId, dataSourceId])
-  @@index([dataSourceId])
-  @@map("entity_evidence")
-}
-
-/// NOTE (article-analysis 3.0.0): no longer populated by article-analysis; revisit for removal once the insights consumers are retired.
-/// Provenance link: a canonical entity relation was observed in a ticker-scoped data source.
-model EntityRelationEvidence {
-  id               String   @id @default(uuid())
-  entityRelationId String   @map("entity_relation_id")
-  dataSourceId     String   @map("data_source_id")
-  tickerId         String   @map("ticker_id")
-  confidence       Float?
-  evidenceSpan     String?  @map("evidence_span")
-  createdAt        DateTime @default(now()) @map("created_at")
-  lastSeenAt       DateTime @default(now()) @map("last_seen_at")
-
-  entityRelation EntityRelation @relation(fields: [entityRelationId], references: [id], onDelete: Cascade)
-  dataSource     DataSource     @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
-  ticker         Ticker         @relation(fields: [tickerId], references: [id], onDelete: Cascade)
-
-  @@unique([entityRelationId, dataSourceId, tickerId])
-  @@index([tickerId, dataSourceId])
-  @@index([dataSourceId])
-  @@map("entity_relation_evidence")
-}
-
-/// NOTE (article-analysis 3.0.0): no longer populated by article-analysis; revisit for removal once the insights consumers are retired.
-/// Join table connecting an article to entities it mentions with extraction metadata.
-model ArticleEntity {
-  id           String     @id @default(uuid())
-  dataSourceId String     @map("data_source_id")
-  entityId     String     @map("entity_id")
-  mentionCount Int        @default(1) @map("mention_count")
-  confidence   Float      @default(0.5)
-  sentiment    Sentiment?
-  createdAt    DateTime   @default(now()) @map("created_at")
-
-  dataSource DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
-  entity     Entity     @relation(fields: [entityId], references: [id], onDelete: Cascade)
-
-  @@unique([dataSourceId, entityId])
-  @@map("article_entity")
-}
-
 /// DEPRECATED (article-analysis 3.0.0): replaced by DataSource.section/sectionScore/sectionReason.
 /// No longer written or read. Remove once 3.0.0 section classification is validated in production.
 model ArticleRelevance {
@@ -566,16 +392,15 @@ model Ticker {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  profile                TickerProfile?
-  searchQueries          SearchQuery[]
-  searchQuerySets        SearchQuerySet[]
-  dataSources            DataSource[]
-  newsletters            Newsletter[]
-  userTickers            UserTicker[]
-  tickerEntities         TickerEntity[]
-  articleRelevances      ArticleRelevance[]
-  entityEvidence         EntityEvidence[]
-  entityRelationEvidence EntityRelationEvidence[]
+  profile         TickerProfile?
+  searchQueries   SearchQuery[]
+  searchQuerySets SearchQuerySet[]
+  dataSources     DataSource[]
+  newsletters     Newsletter[]
+  userTickers     UserTicker[]
+
+  articleRelevances ArticleRelevance[]
+
   dataCollectionRuns     DataCollectionRun[]
   dataCollectionFailures DataCollectionFailure[]
   collectionUrlOutcomes  CollectionUrlOutcome[]
