@@ -87,6 +87,73 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+describe("article-analysis run — input scoping", () => {
+  const drainOnce = () => {
+    analysisGet
+      .mockResolvedValueOnce({
+        dataSources: [DESCRIBED_SOURCE],
+        dataSourceTotalCount: 1,
+      })
+      .mockResolvedValueOnce({ dataSources: [], dataSourceTotalCount: 0 });
+    analysisCreate.mockResolvedValue({
+      articlesScored: 1,
+      articlesRejected: 0,
+      skippedByCap: 0,
+      cappedTickerCount: 0,
+    });
+    (classifyArticleSection as ReturnType<typeof vi.fn>).mockResolvedValue({
+      section: "industryPulse",
+      score: 0.4,
+      reason: "matched",
+      scoreBreakdown: {
+        section: "industryPulse",
+        matched: 2,
+        total: 5,
+        criteriaHash: "hash",
+        criteria: [],
+        sections: [],
+      },
+    });
+  };
+
+  it("forwards tickerId to the analysis GET when the step supplies one", async () => {
+    drainOnce();
+
+    await run({
+      input: { tickerId: "11111111-1111-4111-8111-111111111111" },
+      config,
+      token: "Bearer test",
+    });
+
+    expect(analysisGet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tickerId: "11111111-1111-4111-8111-111111111111",
+        unanalyzed: true,
+      }),
+    );
+  });
+
+  it("omits tickerId entirely when the step supplies none", async () => {
+    drainOnce();
+
+    await run({ input: {}, config, token: "Bearer test" });
+
+    expect(analysisGet).toHaveBeenCalledWith(
+      expect.not.objectContaining({ tickerId: expect.anything() }),
+    );
+  });
+
+  it("caps the requested limit at the batch size", async () => {
+    drainOnce();
+
+    await run({ input: { limit: 5 }, config, token: "Bearer test" });
+
+    expect(analysisGet).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 5 }),
+    );
+  });
+});
+
 describe("article-analysis run — empty-source skip and description classification", () => {
   it("skips the LLM for a source with no description or content and marks it rejected", async () => {
     analysisGet

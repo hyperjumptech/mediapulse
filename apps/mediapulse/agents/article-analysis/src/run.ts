@@ -89,7 +89,8 @@ async function mapWithConcurrency<TIn, TOut>(
 export async function run(
   context: AgentRunContext<ArticleAnalysisInput, ArticleAnalysisConfig>,
 ): Promise<AgentRunResult> {
-  const { config, token, hermesCorrelation, contract } = context;
+  const { input, config, token, hermesCorrelation, contract } = context;
+  const batchSize = Math.min(input.limit ?? BATCH_SIZE, BATCH_SIZE);
   const runId = crypto.randomUUID();
   const startedAt = new Date();
   // Chronicle instrumentation: accumulate classification LLM token usage across the run.
@@ -139,12 +140,16 @@ export async function run(
     const { dataSources, dataSourceTotalCount } =
       await dataApiClient.analysis.get({
         unanalyzed: true,
-        limit: BATCH_SIZE,
+        limit: batchSize,
+        ...(input.tickerId !== undefined ? { tickerId: input.tickerId } : {}),
       });
     backlog = dataSourceTotalCount;
 
     if (!startReported) {
-      log.info({ backlog }, "article-analysis run started");
+      log.info(
+        { backlog, tickerId: input.tickerId ?? null, batchSize },
+        "article-analysis run started",
+      );
       report(...narrativeRunStart(backlog));
       startReported = true;
     }

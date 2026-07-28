@@ -29,7 +29,7 @@ type CandidateArticle = {
 const filterCandidateArticles = <Article extends CandidateArticle>(
   articles: Article[],
   where: {
-    tickerId?: null | { not?: null; notIn?: string[] };
+    tickerId?: null | { not?: null; notIn?: string[]; in?: string[] };
     tickerSections?: { none: Record<string, never> };
   },
 ): Article[] =>
@@ -39,6 +39,13 @@ const filterCandidateArticles = <Article extends CandidateArticle>(
       if (article.tickerId !== null) return false;
     } else if (tickerFilter !== undefined) {
       if (tickerFilter.not === null && article.tickerId === null) return false;
+      if (
+        tickerFilter.in !== undefined &&
+        (article.tickerId === null ||
+          !tickerFilter.in.includes(article.tickerId))
+      ) {
+        return false;
+      }
       if (
         tickerFilter.notIn !== undefined &&
         article.tickerId !== null &&
@@ -57,8 +64,8 @@ const filterCandidateArticles = <Article extends CandidateArticle>(
     return true;
   });
 
-describe("loadAnalysisContext — ticker-scoped baseline", () => {
-  it("counts a ticker's unanalyzed articles and maps issuer context", async () => {
+describe("loadAnalysisContext — data-collection daily baseline", () => {
+  it("counts a ticker's articles in a window without routing through candidate pairs", async () => {
     const rows = [
       {
         id: SEARCH_ARTICLE,
@@ -83,37 +90,19 @@ describe("loadAnalysisContext — ticker-scoped baseline", () => {
     const count = vi.fn().mockResolvedValue(7);
 
     const result = await loadAnalysisContext(
-      { unanalyzed: true, limit: 5, tickerId: TICKER_ID },
+      { unanalyzed: false, limit: 5, tickerId: TICKER_ID },
       { db: { dataSource: { findMany, count } } as never },
     );
 
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { tickerId: TICKER_ID, analyzedAt: null },
+        where: { tickerId: TICKER_ID },
         orderBy: { createdAt: "asc" },
         take: 5,
       }),
     );
     expect(result.dataSourceTotalCount).toBe(7);
-    expect(result.dataSources).toEqual([
-      {
-        id: SEARCH_ARTICLE,
-        tickerId: TICKER_ID,
-        url: "https://example.com/a",
-        title: "A",
-        description: "snippet",
-        content: null,
-        createdAt: new Date("2026-01-01T00:00:00Z"),
-        ticker: {
-          symbol: "AGRO",
-          name: "PT Bank Raya Indonesia Tbk",
-          sector: "Keuangan",
-          industry: "Bank",
-          subIndustry: "Bank",
-          businessActivity: "Perbankan",
-        },
-      },
-    ]);
+    expect(result.dataSources[0]?.id).toBe(SEARCH_ARTICLE);
   });
 });
 
@@ -488,6 +477,84 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
       }),
     );
     expect(result.dataSources.map((pair) => pair.id)).toEqual([CURATED_MATCH]);
+  });
+
+  it("scopes owned articles to the requested ticker when tickerId is supplied", async () => {
+    const owned = (id: string, tickerId: string, day: string) => ({
+      id,
+      url: `https://example.com/${id}`,
+      title: "Owned news",
+      content: "anything",
+      createdAt: new Date(day),
+      tickerId,
+      ticker: {
+        symbol: "BBCA",
+        name: "Bank Central Asia",
+        sector: null,
+        industry: null,
+        subSector: null,
+        subIndustry: null,
+        businessActivity: null,
+      },
+      tickerSections: [],
+    });
+
+    const db = buildDb([
+      owned(SEARCH_ARTICLE, TICKER_ID, "2026-01-03T00:00:00Z"),
+      owned(CURATED_MATCH, SECOND_TICKER_ID, "2026-01-02T00:00:00Z"),
+    ]);
+
+    const result = await loadAnalysisContext(
+      { unanalyzed: true, limit: 10, tickerId: TICKER_ID },
+      { db: db as never },
+    );
+
+    expect(db.searchQuerySet.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { isActive: true, tickerId: TICKER_ID },
+      }),
+    );
+    expect(db.dataSource.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tickerId: { in: [TICKER_ID] } }),
+      }),
+    );
+    expect(result.dataSources.map((pair) => pair.id)).toEqual([SEARCH_ARTICLE]);
+  });
+
+  it("returns nothing when the requested ticker is already at the accepted cap", async () => {
+    const db = buildDb(
+      [
+        {
+          id: SEARCH_ARTICLE,
+          url: "https://example.com/s",
+          title: "Owned news",
+          content: "anything",
+          createdAt: new Date("2026-01-03T00:00:00Z"),
+          tickerId: TICKER_ID,
+          ticker: {
+            symbol: "BBCA",
+            name: "Bank Central Asia",
+            sector: null,
+            industry: null,
+            subSector: null,
+            subIndustry: null,
+            businessActivity: null,
+          },
+          tickerSections: [],
+        },
+      ],
+      { [TICKER_ID]: 50 },
+    );
+
+    const result = await loadAnalysisContext(
+      { unanalyzed: true, limit: 10, tickerId: TICKER_ID },
+      { db: db as never },
+    );
+
+    expect(db.dataSource.findMany).not.toHaveBeenCalled();
+    expect(result.dataSources).toEqual([]);
+    expect(result.dataSourceTotalCount).toBe(0);
   });
 });
 
