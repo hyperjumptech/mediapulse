@@ -68,8 +68,6 @@ describe("Hermes dashboard routing contract", () => {
     expect(HermesDashboardResource.tickers).toBe("tickers");
     expect(HermesDashboardResource.tickerProfiles).toBe("ticker-profiles");
     expect(HermesDashboardResource.mediapulseUsers).toBe("mediapulse-users");
-    expect(HermesDashboardResource.entities).toBe("entities");
-    expect(HermesDashboardResource.entityRelations).toBe("entity-relations");
     expect(HermesDashboardResource.dataSources).toBe("data-sources");
     expect(HermesDashboardResource.searchQuerySets).toBe("search-query-sets");
     expect(HermesDashboardResource.deliveryRuns).toBe("delivery-runs");
@@ -80,10 +78,7 @@ describe("Hermes dashboard routing contract", () => {
       hermesDashboardTableMountPath(HermesDashboardResource.dataSources),
     ).toBe("/hermes-dashboard/data-sources");
     expect(
-      hermesDashboardTableMountPath(HermesDashboardResource.entities),
-    ).toBe("/hermes-dashboard/entities");
-    expect(
-      hermesDashboardTableMountPath(HermesDashboardResource.entityRelations),
-    ).toBe("/hermes-dashboard/entity-relations");
+      hermesDashboardTableMountPath(HermesDashboardResource.tickerProfiles),
+    ).toBe("/hermes-dashboard/ticker-profiles");
   });
 });

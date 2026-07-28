@@ -6,16 +6,16 @@ import { prismaWriteFieldMetadata } from "../../generated/prisma-write-field-met
 import { buildWriteBodySchema } from "./build-write-body-schema";
 
 describe("buildWriteBodySchema", () => {
-  it("builds EntityType name and description from metadata", () => {
+  it("builds CuratedSource name fields from metadata", () => {
     // Act
     const schema = buildWriteBodySchema({
       metadata: prismaWriteFieldMetadata,
-      model: "EntityType",
-      fields: ["name", "description"],
+      model: "CuratedSource",
+      fields: ["name", "listingUrl"],
     });
 
     // Assert
-    const ok = schema.safeParse({ name: "x", description: null });
+    const ok = schema.safeParse({ name: "x", listingUrl: "https://a.test" });
     expect(ok.success).toBe(true);
   });
 
@@ -23,7 +23,7 @@ describe("buildWriteBodySchema", () => {
     // Setup
     const schema = buildWriteBodySchema({
       metadata: prismaWriteFieldMetadata,
-      model: "EntityType",
+      model: "CuratedSource",
       fields: ["name"],
     });
 

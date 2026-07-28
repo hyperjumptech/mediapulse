@@ -24,7 +24,6 @@
     "generate": "prisma generate",
     "lint": "eslint \"src/**/*.ts\" \"scripts/**/*.ts\"",
     "seed-data-collection-local": "tsx scripts/seed-data-collection-local.ts",
-    "seed-kg-vocabulary": "tsx scripts/seed-kg-vocabulary.ts",
     "studio": "prisma studio",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
