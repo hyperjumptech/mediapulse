@@ -35,21 +35,6 @@ export const listInclude = {
       listingUrl: true,
     },
   },
-  articleRelevances: {
-    orderBy: { score: "desc" as const },
-    select: {
-      id: true,
-      score: true,
-      associationReasoning: true,
-      ticker: {
-        select: {
-          id: true,
-          symbol: true,
-          name: true,
-        },
-      },
-    },
-  },
 } satisfies Prisma.DataSourceInclude;
 
 /**
@@ -58,26 +43,6 @@ export const listInclude = {
 export type ListRow = Prisma.DataSourceGetPayload<{
   include: typeof listInclude;
 }>;
-
-type ArticleRelevanceListRow = ListRow["articleRelevances"][number];
-
-/**
- * Maps one article-relevance row to a Hermes linked-ticker item.
- *
- * @param row - Relevance row with joined ticker from {@link listInclude}.
- * @returns Serializable linked-ticker row.
- */
-export const mapArticleRelevanceRow = (row: ArticleRelevanceListRow) => ({
-  id: row.id,
-  tickerId: row.ticker.id,
-  tickerSymbol: row.ticker.symbol,
-  tickerName: row.ticker.name,
-  score: row.score,
-  associationReasoning: row.associationReasoning ?? "",
-});
-
-/** JSON linked-ticker row type; derived from {@link mapArticleRelevanceRow}. */
-export type ArticleRelevanceItem = ReturnType<typeof mapArticleRelevanceRow>;
 
 /**
  * Truncates plain text for a list preview (ellipsis when longer than max).
@@ -126,7 +91,6 @@ export const mapRowToListItem = (row: ListRow) => {
           listingUrl: row.curatedSource.listingUrl,
         }
       : null,
-    articleRelevances: row.articleRelevances.map(mapArticleRelevanceRow),
     contentPreview: truncateContentPreview(
       row.content ?? row.description ?? "",
       DATA_SOURCE_CONTENT_PREVIEW_MAX,

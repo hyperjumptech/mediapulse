@@ -1,5 +1,5 @@
 /**
- * Detail payload mapper for data-source read views (page-collection gate, curated source, linked tickers).
+ * Detail payload mapper for data-source read views (page-collection gate, curated source).
  */
 
 import type { Prisma } from "@mediapulse/database";
@@ -8,32 +8,13 @@ import {
   COLLECTION_SOURCE_LABEL,
 } from "./collection-source";
 import { formatCollectionGateStatusLabel } from "./collection-gate-status";
-import {
-  listInclude,
-  mapArticleRelevanceRow,
-  type ListRow,
-} from "./list-mapper";
+import { listInclude, type ListRow } from "./list-mapper";
 
 /**
  * `include` passed to `dataSource.findUnique` for Hermes detail pages.
  */
 export const detailInclude = {
   ...listInclude,
-  articleRelevances: {
-    orderBy: { score: "desc" as const },
-    select: {
-      id: true,
-      score: true,
-      associationReasoning: true,
-      ticker: {
-        select: {
-          id: true,
-          symbol: true,
-          name: true,
-        },
-      },
-    },
-  },
 } satisfies Prisma.DataSourceInclude;
 
 /**
@@ -51,8 +32,6 @@ export type DetailRow = Prisma.DataSourceGetPayload<{
  */
 export const mapRowToDetailItem = (row: DetailRow) => {
   const collectionSource = classifyCollectionSource(row.searchQuery !== null);
-
-  const articleRelevances = row.articleRelevances.map(mapArticleRelevanceRow);
 
   return {
     id: row.id,
@@ -82,7 +61,6 @@ export const mapRowToDetailItem = (row: DetailRow) => {
     searchQueryText: row.searchQuery?.text ?? "",
     collectionSource,
     collectionSourceLabel: COLLECTION_SOURCE_LABEL[collectionSource],
-    articleRelevances,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

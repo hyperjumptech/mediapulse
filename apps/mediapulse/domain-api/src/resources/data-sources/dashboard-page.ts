@@ -57,31 +57,6 @@ const dataSourcesCuratedSourceBlock = {
   ],
 } satisfies DetailBlock;
 
-const dataSourcesLinkedTickersBlock = {
-  type: "subTable",
-  label: "Linked tickers",
-  field: "articleRelevances",
-  captionTemplate: "Linked tickers ({articleRelevances.length})",
-  emptyState:
-    "No ticker associations yet. Run article analysis to link this article to tickers.",
-  columns: [
-    {
-      field: "tickerSymbol",
-      label: "Ticker",
-      type: "text",
-      linkTemplate: "/dashboard/{integrationId}/tickers/{tickerId}",
-    },
-    { field: "tickerName", label: "Name", type: "text" },
-    { field: "score", label: "Score", type: "number" },
-    {
-      field: "associationReasoning",
-      label: "Association reasoning",
-      type: "text",
-      truncate: 120,
-    },
-  ],
-} satisfies DetailBlock;
-
 /** Hermes `table-v1` manifest for collected data sources. */
 export const dataSourcesDashboardPage = {
   id: dataSourcesHermesPathSegment,
@@ -132,9 +107,5 @@ export const dataSourcesDashboardPage = {
   ],
   actions: { create: false, update: false, delete: false, view: true },
   customActions: dataSourcesCustomActionsForManifest,
-  detailBlocks: [
-    dataSourcesGateBlock,
-    dataSourcesCuratedSourceBlock,
-    dataSourcesLinkedTickersBlock,
-  ],
+  detailBlocks: [dataSourcesGateBlock, dataSourcesCuratedSourceBlock],
 } satisfies DashboardViewInput;

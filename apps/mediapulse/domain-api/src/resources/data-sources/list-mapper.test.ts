@@ -25,7 +25,6 @@ const baseRowFields = {
   collectionGateStatus: null,
   collectionGateReason: null,
   curatedSource: null,
-  articleRelevances: [] as ListRow["articleRelevances"],
 };
 
 describe("truncateContentPreview", () => {
@@ -74,7 +73,6 @@ describe("mapRowToListItem", () => {
     expect(item.collectionSource).toBe("data-collection");
     expect(item.collectionSourceLabel).toBe("Data Collection");
     expect(item.collectionGateStatus).toBeNull();
-    expect(item.articleRelevances).toEqual([]);
   });
 
   it("emits data-collection when a search query is linked", () => {
@@ -135,14 +133,6 @@ describe("mapRowToListItem", () => {
         name: "Tech feed",
         listingUrl: "https://example.com/feed",
       },
-      articleRelevances: [
-        {
-          id: "rel-1",
-          score: 0.91,
-          associationReasoning: "Mentions AAPL earnings.",
-          ticker: { id: "t-1", symbol: "AAPL", name: "Apple Inc." },
-        },
-      ],
       canonicalUrl: "https://example.com/global",
       metadata: null,
       publishedAt: null,
@@ -153,15 +143,5 @@ describe("mapRowToListItem", () => {
     expect(item.collectionSource).toBe("page-collection");
     expect(item.collectionGateStatusLabel).toBe("Passed");
     expect(item.curatedSource?.listingUrl).toBe("https://example.com/feed");
-    expect(item.articleRelevances).toEqual([
-      {
-        id: "rel-1",
-        tickerId: "t-1",
-        tickerSymbol: "AAPL",
-        tickerName: "Apple Inc.",
-        score: 0.91,
-        associationReasoning: "Mentions AAPL earnings.",
-      },
-    ]);
   });
 });
