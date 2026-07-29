@@ -59,7 +59,10 @@ export const postAnalysisScoreBreakdownSchema = z.object({
   total: z.number().int().nonnegative(),
   /** Short hash of the acceptance-criteria set used for this classification. */
   criteriaHash: z.string(),
-  /** Per-rule breakdown for the winning section (empty when rejected). */
+  /**
+   * Per-rule breakdown across every section, so a reader can see why the winner won and why each
+   * other section lost. Empty only when there was nothing to classify.
+   */
   criteria: z.array(
     z.object({
       id: z.string(),

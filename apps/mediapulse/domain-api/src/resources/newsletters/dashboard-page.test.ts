@@ -193,27 +193,39 @@ describe("newslettersDashboardPage source-analysis stage", () => {
     if (assigned?.block.type !== "subTable") return;
     expect(assigned.block.field).toBe("sourceAnalysis.assigned");
     expect(assigned.block.rowLimitDefaultAll).toBe(true);
-    expect(assigned.block.columns.map((column) => column.label)).toEqual([
-      "Article",
-      "Score",
-    ]);
-    expect(assigned.block.columns[0]?.linkExternal).toBe(true);
-    expect(assigned.block.columns[0]?.minWidth).toBe(320);
-    const scoreColumn = assigned.block.columns.find(
-      (column) => column.label === "Score",
-    );
-    expect(scoreColumn?.type).toBe("text");
-    expect(scoreColumn?.colorField).toBe("scoreVariant");
-    expect(scoreColumn?.descriptionField).toBe("reason");
+    expect(assigned.block.hideHeader).toBe(true);
+    expect(assigned.block.columns).toHaveLength(1);
+
+    const scoreColumn = assigned.block.columns[0];
+    expect(scoreColumn?.type).toBe("list");
+    expect(scoreColumn?.field).toBe("sectionScores");
+    expect(scoreColumn?.headingField).toBe("title");
+    expect(scoreColumn?.linkTemplate).toBe("{url}");
+    expect(scoreColumn?.linkExternal).toBe(true);
+    expect(scoreColumn?.truncate).toBeUndefined();
+    expect(scoreColumn?.listItem).toEqual({
+      field: "scoreLine",
+      colorField: "scoreVariant",
+      emphasisField: "isSelected",
+      descriptionField: "reason",
+      collapsible: true,
+    });
 
     expect(rejected?.countField).toBe("sourceAnalysis.rejected");
     expect(rejected?.block.type).toBe("subTable");
     if (rejected?.block.type !== "subTable") return;
     expect(rejected.block.field).toBe("sourceAnalysis.rejected");
-    expect(rejected.block.columns.map((column) => column.label)).toEqual([
-      "Article",
-      "Reason",
-    ]);
+    expect(rejected.block.hideHeader).toBe(true);
+    expect(rejected.block.columns).toHaveLength(1);
+
+    const rejectedColumn = rejected.block.columns[0];
+    expect(rejectedColumn?.type).toBe("text");
+    expect(rejectedColumn?.field).toBe("reason");
+    expect(rejectedColumn?.headingField).toBe("title");
+    expect(rejectedColumn?.linkTemplate).toBe("{url}");
+    expect(rejectedColumn?.linkExternal).toBe(true);
+    expect(rejectedColumn?.truncate).toBeUndefined();
+    expect(rejectedColumn?.listItem).toBeUndefined();
   });
 });
 

@@ -260,7 +260,8 @@ const capReason = (reason: string): string =>
  * @param requireIssuerRelevance - When true, rejects unless the model's judgment for
  *   {@link ISSUER_RELEVANCE_CRITERION_ID} is explicitly `matched: true` — fails closed if the
  *   judgment is missing. Defaults to `false` for backward compatibility.
- * @returns The deterministic classification with a self-describing score breakdown.
+ * @returns The deterministic classification with a self-describing score breakdown carrying every
+ *   rule's judgment across all sections, not only the winning one.
  */
 export const scoreFromEvaluations = (
   evaluations: CriterionEvaluation[],
@@ -321,6 +322,13 @@ export const scoreFromEvaluations = (
     total: tally.total,
   }));
   const hash = criteriaHash(acceptanceCriteria);
+  const criteriaBreakdown = flat.map((criterion) => ({
+    id: criterion.id,
+    section: criterion.section,
+    text: criterion.text,
+    matched: isMatched(criterion.id),
+    note: noteFor(criterion.id),
+  }));
 
   // Mandatory issuer-relevance gate: fail closed if required and not explicitly matched
   // true (including when the model omits the judgment), regardless of how many generic
@@ -341,22 +349,15 @@ export const scoreFromEvaluations = (
         matched: 0,
         total: 0,
         criteriaHash: hash,
-        criteria: [],
+        criteria: criteriaBreakdown,
         sections,
       },
     };
   }
 
-  const winnerCriteria = flat.filter(
+  const winnerCriteria = criteriaBreakdown.filter(
     (criterion) => criterion.section === winner.section,
   );
-  const criteriaBreakdown = winnerCriteria.map((criterion) => ({
-    id: criterion.id,
-    section: criterion.section,
-    text: criterion.text,
-    matched: isMatched(criterion.id),
-    note: noteFor(criterion.id),
-  }));
 
   // Corroborate the global issuer gate with the winning section's own issuer-relevance rule: an
   // article that won a section on issuer-agnostic rules while this rule is unmatched is on-topic but
@@ -371,10 +372,10 @@ export const scoreFromEvaluations = (
     : winner.fraction;
 
   const label = labelById.get(winner.section) ?? winner.section;
-  const matchedIds = criteriaBreakdown
+  const matchedIds = winnerCriteria
     .filter((criterion) => criterion.matched)
     .map((criterion) => criterion.id);
-  const missed = criteriaBreakdown.filter((criterion) => !criterion.matched);
+  const missed = winnerCriteria.filter((criterion) => !criterion.matched);
   const matchedText =
     matchedIds.length > 0 ? ` (${matchedIds.join(", ")})` : "";
   const missedText =

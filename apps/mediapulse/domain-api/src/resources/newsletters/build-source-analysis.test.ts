@@ -11,6 +11,7 @@ const citationRow = (overrides: {
   sectionReason?: string | null;
   articleAnalysisRunId?: string | null;
   sectionKey?: string;
+  sectionScoreBreakdown?: unknown;
 }) => ({
   sectionKey: overrides.sectionKey ?? "industryPulse",
   dataSource: {
@@ -26,6 +27,7 @@ const citationRow = (overrides: {
               section: overrides.section ?? null,
               sectionScore: overrides.sectionScore ?? null,
               sectionReason: overrides.sectionReason ?? null,
+              sectionScoreBreakdown: overrides.sectionScoreBreakdown ?? null,
               articleAnalysisRunId: overrides.articleAnalysisRunId ?? null,
             },
           ],
@@ -177,6 +179,7 @@ describe("buildSourceAnalysis", () => {
         scoreLine: "0.6 - Industry Pulse",
         scoreVariant: "warning",
         reason: "Broad sector trend.",
+        sectionScores: [],
       },
       {
         id: "ds-a",
@@ -188,6 +191,7 @@ describe("buildSourceAnalysis", () => {
         scoreLine: "0.9 - Deals & Movements",
         scoreVariant: "success",
         reason: "Direct M&A coverage of the issuer.",
+        sectionScores: [],
       },
     ]);
     expect(result.rejected).toStrictEqual([
@@ -198,6 +202,70 @@ describe("buildSourceAnalysis", () => {
         reason: "No fit for any newsletter section.",
       },
     ]);
+  });
+
+  it("expands the stored breakdown into a per-section score list", async () => {
+    const citationFindMany = vi.fn().mockResolvedValue([
+      citationRow({
+        dataSourceId: "ds-a",
+        title: "Alpha assigned",
+        url: "https://reuters.com/a",
+        section: "competitiveLandscape",
+        sectionScore: 0.4,
+        sectionReason: "Competitive Landscape — matched 2/5.",
+        articleAnalysisRunId: "run-1",
+        sectionScoreBreakdown: {
+          section: "competitiveLandscape",
+          sections: [
+            { section: "industryPulse", matched: 2, total: 7 },
+            { section: "competitiveLandscape", matched: 2, total: 5 },
+          ],
+          criteria: [
+            {
+              id: "ip-macro-move",
+              section: "industryPulse",
+              text: "Include if macro.",
+              matched: true,
+              note: "National policy shift.",
+            },
+            {
+              id: "cl-peer-named",
+              section: "competitiveLandscape",
+              text: "Include if a peer is named.",
+              matched: false,
+              note: "No competitor named.",
+            },
+          ],
+        },
+      }),
+    ]);
+    const runFindMany = vi
+      .fn()
+      .mockResolvedValue([runRow({ id: "run-1", agentVersion: "4.0.0" })]);
+    const rejectedFindMany = vi.fn().mockResolvedValue([]);
+
+    const result = await buildSourceAnalysis("nl-1", "tk-1", {
+      newsletterCitation: { findMany: citationFindMany },
+      articleAnalysisRun: { findMany: runFindMany },
+      dataSourceTickerSection: { findMany: rejectedFindMany },
+    });
+    const scores = result.assigned[0]?.sectionScores ?? [];
+
+    expect(scores.map((entry) => entry.scoreLine)).toEqual([
+      "0.40 - Competitive Landscape",
+      "0.29 - Industry Pulse",
+    ]);
+    expect(scores[0]?.isSelected).toBe(true);
+    expect(scores[1]?.isSelected).toBe(false);
+    expect(scores[0]?.reason).toBe(
+      [
+        "Matched 2 of 5",
+        "",
+        "Missed 1",
+        "\u2022 cl-peer-named: No competitor named.",
+      ].join("\n"),
+    );
+    expect(scores[1]?.reason).toBe("Matched 2 of 7\n\u2022 ip-macro-move");
   });
 
   it("leaves agent labels unversioned when the linked run is missing", async () => {
