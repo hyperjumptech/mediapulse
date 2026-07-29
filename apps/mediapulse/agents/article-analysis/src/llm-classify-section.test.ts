@@ -289,7 +289,10 @@ describe("scoreFromEvaluations", () => {
     expect(result.section).toBeNull();
     expect(result.score).toBe(0);
     expect(result.reason).toContain("No inclusion rule matched");
-    expect(result.scoreBreakdown.criteria).toEqual([]);
+    expect(result.scoreBreakdown.criteria).toHaveLength(10);
+    expect(
+      result.scoreBreakdown.criteria.every((criterion) => !criterion.matched),
+    ).toBe(true);
     expect(result.scoreBreakdown.sections).toHaveLength(2);
   });
 
@@ -318,7 +321,6 @@ describe("scoreFromEvaluations", () => {
     expect(result.scoreBreakdown.section).toBe("industryPulse");
     expect(result.scoreBreakdown.matched).toBe(1);
     expect(result.scoreBreakdown.total).toBe(5);
-    expect(result.scoreBreakdown.criteria).toHaveLength(5);
     expect(result.scoreBreakdown.criteria[0]).toMatchObject({
       id: "ip1",
       section: "industryPulse",
@@ -326,6 +328,38 @@ describe("scoreFromEvaluations", () => {
       matched: true,
     });
     expect(result.scoreBreakdown.criteriaHash).toBe(criteriaHash(criteria));
+  });
+
+  it("keeps every section's per-rule judgments, not just the winner's", () => {
+    const result = scoreFromEvaluations(evaluate(["ip1", "cl2"]), criteria);
+    const bySection = new Map(
+      result.scoreBreakdown.criteria.map((criterion) => [
+        criterion.id,
+        criterion,
+      ]),
+    );
+
+    expect(result.section).toBe("industryPulse");
+    expect(result.scoreBreakdown.criteria).toHaveLength(10);
+    expect(bySection.get("cl2")).toMatchObject({
+      section: "competitiveLandscape",
+      text: "Include if positioning shifts.",
+      matched: true,
+      note: "evidence present",
+    });
+    expect(bySection.get("cl1")).toMatchObject({
+      section: "competitiveLandscape",
+      matched: false,
+      note: "absent",
+    });
+  });
+
+  it("scopes the composed reason to the winning section only", () => {
+    const result = scoreFromEvaluations(evaluate(["ip1", "cl2"]), criteria);
+
+    expect(result.reason).toContain("Industry Pulse — matched 1/5");
+    expect(result.reason).not.toContain("cl1");
+    expect(result.reason).not.toContain("cl2");
   });
 });
 

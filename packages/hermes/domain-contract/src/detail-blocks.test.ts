@@ -86,6 +86,40 @@ describe("detailBlockSchema", () => {
     expect(parsed.pageSize).toBe(10);
   });
 
+  it("parses a subTable list column with its item shape", () => {
+    const parsed = detailBlockSchema.parse({
+      type: "subTable",
+      field: "sources",
+      columns: [
+        {
+          field: "sectionScores",
+          label: "Score",
+          type: "list",
+          listItem: {
+            field: "scoreLine",
+            colorField: "scoreVariant",
+            descriptionField: "reason",
+          },
+        },
+      ],
+    });
+
+    expect(parsed.type).toBe("subTable");
+    if (parsed.type !== "subTable") return;
+    expect(parsed.columns[0]?.type).toBe("list");
+    expect(parsed.columns[0]?.listItem?.field).toBe("scoreLine");
+  });
+
+  it("rejects a list column that omits listItem", () => {
+    expect(() =>
+      detailBlockSchema.parse({
+        type: "subTable",
+        field: "sources",
+        columns: [{ field: "sectionScores", label: "Score", type: "list" }],
+      }),
+    ).toThrow();
+  });
+
   it("rejects a non-positive pageSize on a subTable block", () => {
     expect(() =>
       detailBlockSchema.parse({

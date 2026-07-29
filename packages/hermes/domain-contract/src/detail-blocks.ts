@@ -101,70 +101,128 @@ export const detailBlockHtmlPreviewSchema = z.object({
   field: z.string().min(1),
 });
 
-/** Column for a `subTable` block. */
-export const detailBlockSubTableColumnSchema = z.object({
-  /** Dotted field path on each row of the bound array. */
+/**
+ * Item shape for a `type: "list"` column. Each entry of the bound array renders as its own stacked
+ * value, using the same overline / value / description layout a single cell already supports.
+ */
+export const detailBlockSubTableListItemSchema = z.object({
+  /** Dotted field path on each array entry, holding the entry's primary value. */
   field: z.string().min(1),
-  label: z.string().min(1),
-  type: z.enum(["text", "date-time", "number", "badge"]).default("text"),
   /**
-   * Optional URL template. When set, the column renders as a link.
-   * Variables come from the row (and from a `row` namespace), e.g.
-   * `/dashboard/{integrationId}/data-sources/{id}` or
-   * `/dashboard/{integrationId}/search-queries?tickerId={tickerId}`.
+   * Path to a boolean on the entry. When truthy, the entry's primary value renders in bold so the
+   * standout entry is findable without reading the list.
    */
-  linkTemplate: z.string().min(1).optional(),
-  /** Open external links in a new tab with `rel="noopener noreferrer"`. */
-  linkExternal: z.boolean().optional(),
-  /** Truncate text to N characters; full value shown on hover/focus. */
-  truncate: z.number().int().positive().optional(),
-  /** Keep the cell value on a single line (no wrapping); the table scrolls horizontally instead. */
-  noWrap: z.boolean().optional(),
-  /** Minimum column width in pixels, so a short column keeps some breathing room in a wide table. */
-  minWidth: z.number().int().positive().optional(),
-  /** When true, render the (non-link) cell value in muted foreground, for supporting/secondary text. */
-  muted: z.boolean().optional(),
+  emphasisField: z.string().min(1).optional(),
   /**
-   * Path to a field whose value is a badge variant name (`success` / `warning` / `destructive` /
-   * `muted`), used to color the (non-link) cell text — e.g. a banded score shown as colored text
-   * rather than a badge.
+   * When true, each entry's `descriptionField` is hidden behind a native disclosure toggle whose
+   * summary is the primary value, so a long list stays scannable until a reader opens one entry.
+   * Ignored when there is no `descriptionField`.
    */
+  collapsible: z.boolean().optional(),
+  /** Path to a badge variant name on the entry, used to color its primary value. */
   colorField: z.string().min(1).optional(),
-  /**
-   * Optional secondary field path rendered as a muted line beneath the cell value, so one column can
-   * carry a primary value with a subtitle (e.g. a query with its intent below). Non-badge columns only.
-   */
+  /** Path to a muted line rendered beneath the entry's primary value. */
   descriptionField: z.string().min(1).optional(),
-  /**
-   * When set with `descriptionField`, renders the description as a link built from this URL template
-   * (resolved against the row), so the subtitle can be a clickable title. Uses `linkExternal`.
-   */
-  descriptionLinkTemplate: z.string().min(1).optional(),
-  /** When true, render a copy-to-clipboard button for the cell value. */
-  copyAction: z.boolean().optional(),
-  /**
-   * For `type: "badge"` only — maps the cell value to a badge variant
-   * (`success` / `warning` / `destructive` / `muted` / `outline`).
-   */
-  badgeVariants: z.record(detailBlockBadgeVariantSchema).optional(),
-  /**
-   * For `type: "badge"` only — path to a field whose value is the badge variant name directly. Use
-   * when the variant is computed server-side (e.g. a score band) rather than mapped from the cell
-   * value. Takes precedence over `badgeVariants`.
-   */
-  badgeVariantField: z.string().min(1).optional(),
-  /**
-   * Optional `inconsistent` marker field. When the row's value at that path is
-   * truthy, the badge cell shows a `!` adornment with a tooltip.
-   */
-  inconsistentField: z.string().min(1).optional(),
-  /**
-   * Optional secondary field path rendered as a muted line above the cell value, so one column can
-   * carry a small overline/eyebrow atop a prominent value (e.g. a section label above the title).
-   * Non-badge columns only.
-   */
+  /** Path to a muted eyebrow rendered above the entry's primary value. */
   overlineField: z.string().min(1).optional(),
+  /** Truncate the entry's primary value to N characters. */
+  truncate: z.number().int().positive().optional(),
+  /** Render the entry's primary value in muted foreground. */
+  muted: z.boolean().optional(),
 });
+
+/** Column for a `subTable` block. */
+export const detailBlockSubTableColumnSchema = z
+  .object({
+    /** Dotted field path on each row of the bound array. */
+    field: z.string().min(1),
+    label: z.string().min(1),
+    type: z
+      .enum(["text", "date-time", "number", "badge", "list"])
+      .default("text"),
+    /**
+     * Optional URL template. When set, the column renders as a link.
+     * Variables come from the row (and from a `row` namespace), e.g.
+     * `/dashboard/{integrationId}/data-sources/{id}` or
+     * `/dashboard/{integrationId}/search-queries?tickerId={tickerId}`.
+     */
+    linkTemplate: z.string().min(1).optional(),
+    /** Open external links in a new tab with `rel="noopener noreferrer"`. */
+    linkExternal: z.boolean().optional(),
+    /** Truncate text to N characters; full value shown on hover/focus. */
+    truncate: z.number().int().positive().optional(),
+    /** Keep the cell value on a single line (no wrapping); the table scrolls horizontally instead. */
+    noWrap: z.boolean().optional(),
+    /** Minimum column width in pixels, so a short column keeps some breathing room in a wide table. */
+    minWidth: z.number().int().positive().optional(),
+    /** When true, render the (non-link) cell value in muted foreground, for supporting/secondary text. */
+    muted: z.boolean().optional(),
+    /**
+     * Path to a field whose value is a badge variant name (`success` / `warning` / `destructive` /
+     * `muted`), used to color the (non-link) cell text — e.g. a banded score shown as colored text
+     * rather than a badge.
+     */
+    colorField: z.string().min(1).optional(),
+    /**
+     * Optional secondary field path rendered as a muted line beneath the cell value, so one column can
+     * carry a primary value with a subtitle (e.g. a query with its intent below). Non-badge columns only.
+     */
+    descriptionField: z.string().min(1).optional(),
+    /**
+     * When set with `descriptionField`, renders the description as a link built from this URL template
+     * (resolved against the row), so the subtitle can be a clickable title. Uses `linkExternal`.
+     */
+    descriptionLinkTemplate: z.string().min(1).optional(),
+    /** When true, render a copy-to-clipboard button for the cell value. */
+    copyAction: z.boolean().optional(),
+    /**
+     * For `type: "badge"` only — maps the cell value to a badge variant
+     * (`success` / `warning` / `destructive` / `muted` / `outline`).
+     */
+    badgeVariants: z.record(detailBlockBadgeVariantSchema).optional(),
+    /**
+     * For `type: "badge"` only — path to a field whose value is the badge variant name directly. Use
+     * when the variant is computed server-side (e.g. a score band) rather than mapped from the cell
+     * value. Takes precedence over `badgeVariants`.
+     */
+    badgeVariantField: z.string().min(1).optional(),
+    /**
+     * Optional `inconsistent` marker field. When the row's value at that path is
+     * truthy, the badge cell shows a `!` adornment with a tooltip.
+     */
+    inconsistentField: z.string().min(1).optional(),
+    /**
+     * Optional secondary field path rendered as a muted line above the cell value, so one column can
+     * carry a small overline/eyebrow atop a prominent value (e.g. a section label above the title).
+     * Non-badge columns only.
+     */
+    overlineField: z.string().min(1).optional(),
+    /**
+     * For `type: "list"` only — how to render each entry of the array at `field`. Use when one cell
+     * carries several stacked values rather than a single one (e.g. a per-section score list).
+     */
+    listItem: detailBlockSubTableListItemSchema.optional(),
+    /**
+     * Path to a row-level value rendered as a heading band above the cell's own value, so a
+     * single-column table reads as a titled block rather than a grid of cells. When set, the
+     * column's `linkTemplate` and `linkExternal` link the heading rather than the value.
+     */
+    headingField: z.string().min(1).optional(),
+    /**
+     * For `type: "list"` only — how many columns the entries flow across on wider viewports.
+     * Defaults to a single stacked column.
+     */
+    listColumns: z.number().int().min(1).max(4).optional(),
+  })
+  .superRefine((column, ctx) => {
+    if (column.type === "list" && column.listItem === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["listItem"],
+        message: 'listItem is required when type is "list"',
+      });
+    }
+  });
 
 export const detailBlockSubTableSchema = z.object({
   type: z.literal("subTable"),
@@ -330,6 +388,9 @@ export type DetailBlockPanel = z.infer<typeof detailBlockPanelSchema>;
 export type DetailBlockPanelChild = z.infer<typeof detailBlockPanelChildSchema>;
 export type DetailBlockSubTableColumn = z.infer<
   typeof detailBlockSubTableColumnSchema
+>;
+export type DetailBlockSubTableListItem = z.infer<
+  typeof detailBlockSubTableListItemSchema
 >;
 export type DetailBlockTabs = z.infer<typeof detailBlockTabsSchema>;
 export type DetailBlockTab = z.infer<typeof detailBlockTabSchema>;

@@ -311,6 +311,200 @@ describe("DetailBlockSubTableView", () => {
     );
   });
 
+  it("renders a titled list with a leading value per entry", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          label: "Results",
+          hideHeader: true,
+          columns: [
+            {
+              field: "sectionScores",
+              label: "Article",
+              type: "list",
+              headingField: "title",
+              linkTemplate: "{url}",
+              linkExternal: true,
+              listItem: {
+                field: "scoreLine",
+                colorField: "scoreVariant",
+                emphasisField: "isSelected",
+                descriptionField: "reason",
+                collapsible: true,
+              },
+            },
+          ],
+        }}
+        data={{
+          rows: [
+            {
+              title: "Alpha",
+              url: "https://example.com/a",
+              sectionScores: [
+                {
+                  scoreLine: "0.40 - Competitive Landscape",
+                  scoreVariant: "warning",
+                  isSelected: true,
+                  reason: "2 of 5 rules matched.",
+                },
+                {
+                  scoreLine: "0.29 - Industry Pulse",
+                  scoreVariant: "destructive",
+                  isSelected: false,
+                  reason: "2 of 7 rules matched: ip-macro-move.",
+                },
+              ],
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Alpha" })).toHaveAttribute(
+      "href",
+      "https://example.com/a",
+    );
+    expect(
+      screen.getByText("0.40 - Competitive Landscape"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("0.29 - Industry Pulse")).toBeInTheDocument();
+    expect(screen.getByText("2 of 5 rules matched.")).toBeInTheDocument();
+    expect(
+      screen.getByText("2 of 7 rules matched: ip-macro-move."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("0.29 - Industry Pulse")).toHaveClass(
+      "text-red-600",
+      { exact: false },
+    );
+    expect(screen.getByText("0.40 - Competitive Landscape")).toHaveClass(
+      "text-amber-600",
+      { exact: false },
+    );
+  });
+
+  it("hides each collapsible entry's description behind a disclosure toggle", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          label: "Results",
+          hideHeader: true,
+          columns: [
+            {
+              field: "sectionScores",
+              label: "Score",
+              type: "list",
+              listItem: {
+                field: "scoreLine",
+                descriptionField: "reason",
+                collapsible: true,
+              },
+            },
+          ],
+        }}
+        data={{
+          rows: [
+            {
+              sectionScores: [
+                {
+                  scoreLine: "0.80 - Disruptors / Tech",
+                  reason: "4 of 5 rules matched: dt-new-tech.",
+                },
+              ],
+            },
+          ],
+        }}
+      />,
+    );
+
+    const summary = screen
+      .getByText("0.80 - Disruptors / Tech")
+      .closest("summary");
+    expect(summary).not.toBeNull();
+    const disclosure = summary?.closest("details");
+    expect(disclosure).not.toBeNull();
+    expect(disclosure).not.toHaveAttribute("open");
+    expect(
+      screen.getByText("4 of 5 rules matched: dt-new-tech."),
+    ).toBeInTheDocument();
+  });
+
+  it("bolds only the emphasised entry of a list column", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          label: "Results",
+          hideHeader: true,
+          columns: [
+            {
+              field: "sectionScores",
+              label: "Score",
+              type: "list",
+              listItem: {
+                field: "scoreLine",
+                emphasisField: "isSelected",
+              },
+            },
+          ],
+        }}
+        data={{
+          rows: [
+            {
+              sectionScores: [
+                {
+                  scoreLine: "0.40 - Competitive Landscape",
+                  isSelected: true,
+                },
+                {
+                  scoreLine: "0.29 - Industry Pulse",
+                  isSelected: false,
+                },
+              ],
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText("0.40 - Competitive Landscape").closest("div"),
+    ).toHaveClass("font-bold", { exact: false });
+    expect(
+      screen.getByText("0.29 - Industry Pulse").closest("div"),
+    ).not.toHaveClass("font-bold", { exact: false });
+  });
+
+  it("renders an em dash for a list column with no entries", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          label: "Results",
+          hideHeader: true,
+          columns: [
+            {
+              field: "sectionScores",
+              label: "Score",
+              type: "list",
+              headingField: "title",
+              listItem: { field: "scoreLine" },
+            },
+          ],
+        }}
+        data={{ rows: [{ title: "Alpha", sectionScores: [] }] }}
+      />,
+    );
+
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
+  });
+
   it("renders descriptionField as a link when descriptionLinkTemplate is set", () => {
     render(
       <DetailBlockSubTableView

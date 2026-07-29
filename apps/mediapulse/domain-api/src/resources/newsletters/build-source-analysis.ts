@@ -1,6 +1,11 @@
 import { MEDIAPULSE_NEWSLETTER_SECTIONS } from "@workspace/agent-data-api-contract";
 import type { Prisma, prisma } from "@mediapulse/database";
 
+import {
+  buildSectionScores,
+  type SectionScorePayload,
+} from "./build-section-scores";
+
 const STAGE_TIMEZONE = "Asia/Jakarta";
 
 /** Agent id shown in the stage's Agent KPI card (a single agent produces this stage). */
@@ -34,6 +39,7 @@ export type SourceAnalysisEntryPayload = {
   scoreLine: string;
   scoreVariant: SourceAnalysisScoreVariant | null;
   reason: string;
+  sectionScores: SectionScorePayload[];
 };
 
 /** Shape of one rejected article row in the Rejected results tab. */
@@ -134,6 +140,7 @@ export const buildSourceAnalysis = async (
               section: true,
               sectionScore: true,
               sectionReason: true,
+              sectionScoreBreakdown: true,
               articleAnalysisRunId: true,
             },
           },
@@ -237,6 +244,11 @@ export const buildSourceAnalysis = async (
           scoreLine: `${scoreLabel} - ${label}`,
           scoreVariant: scoreVariantFor(score),
           reason: tickerSection?.sectionReason ?? "",
+          sectionScores: buildSectionScores(
+            tickerSection?.sectionScoreBreakdown,
+            section,
+            score,
+          ),
         } satisfies SourceAnalysisEntryPayload,
       };
     })

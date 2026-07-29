@@ -5,7 +5,10 @@ import {
   type DetailBlockBadgeVariant,
   type DetailBlockSubTable,
   type DetailBlockSubTableColumn,
+  type DetailBlockSubTableListItem,
 } from "@hermes/domain-contract";
+
+import { ChevronDown } from "lucide-react";
 
 import { Badge } from "@workspace/ui/components/badge";
 import {
@@ -56,12 +59,112 @@ const formatCellValue = (
   return JSON.stringify(value);
 };
 
+const listItemColumn = (
+  column: DetailBlockSubTableColumn,
+  item: DetailBlockSubTableListItem,
+  withDescription: boolean,
+): DetailBlockSubTableColumn => ({
+  field: item.field,
+  label: column.label,
+  type: "text",
+  ...(item.colorField !== undefined ? { colorField: item.colorField } : {}),
+  ...(withDescription && item.descriptionField !== undefined
+    ? { descriptionField: item.descriptionField }
+    : {}),
+  ...(item.overlineField !== undefined
+    ? { overlineField: item.overlineField }
+    : {}),
+  ...(item.truncate !== undefined ? { truncate: item.truncate } : {}),
+  ...(item.muted !== undefined ? { muted: item.muted } : {}),
+});
+
+const asRow = (entry: unknown): Record<string, unknown> =>
+  typeof entry === "object" && entry !== null
+    ? (entry as Record<string, unknown>)
+    : {};
+
+const LIST_GRID_CLASS: Record<number, string> = {
+  1: "grid-cols-1",
+  2: "sm:grid-cols-2",
+  3: "sm:grid-cols-3",
+  4: "sm:grid-cols-4",
+};
+
+const withoutLink = (
+  column: DetailBlockSubTableColumn,
+): DetailBlockSubTableColumn => {
+  const next = { ...column };
+  delete next.linkTemplate;
+  delete next.linkExternal;
+
+  return next;
+};
+
+const renderCellHeading = (
+  column: DetailBlockSubTableColumn,
+  row: Record<string, unknown>,
+  rowContext: unknown,
+) => {
+  if (column.headingField === undefined) return null;
+  const headingValue = resolvePath(row, column.headingField);
+  const headingText = formatCellValue(column, headingValue);
+  const url = column.linkTemplate
+    ? renderUrlTemplate(column.linkTemplate, {
+        ...(typeof rowContext === "object" && rowContext !== null
+          ? (rowContext as Record<string, unknown>)
+          : {}),
+        ...row,
+        row: rowContext,
+      })
+    : undefined;
+
+  return (
+    <div className="bg-muted/50 text-foreground -mx-2 -mt-2 border-b px-2 py-2 font-semibold">
+      {url && headingText !== "—" ? (
+        <a
+          href={url}
+          target={column.linkExternal === true ? "_blank" : undefined}
+          rel={column.linkExternal === true ? "noopener noreferrer" : undefined}
+          className="underline-offset-4 hover:underline"
+        >
+          {headingText}
+        </a>
+      ) : (
+        headingText
+      )}
+    </div>
+  );
+};
+
 /**
- * Renders one row cell of a sub-table column. Handles `linkTemplate`,
- * `truncate`, `type: "badge"` (with optional `inconsistentField` marker),
- * and `copyAction`.
+ * Renders one row cell of a sub-table column, wrapping the value in a heading band when the column
+ * declares a `headingField`.
  */
-export const DetailBlockSubTableCell = ({
+export const DetailBlockSubTableCell = (props: {
+  column: DetailBlockSubTableColumn;
+  row: Record<string, unknown>;
+  rowContext: unknown;
+}) => {
+  const heading = renderCellHeading(props.column, props.row, props.rowContext);
+  if (heading === null) return <DetailBlockSubTableCellBody {...props} />;
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {heading}
+      <DetailBlockSubTableCellBody
+        {...props}
+        column={withoutLink(props.column)}
+      />
+    </div>
+  );
+};
+
+/**
+ * Renders the value of one sub-table cell. Handles `linkTemplate`, `truncate`, `type: "badge"`
+ * (with optional `inconsistentField` marker), `type: "list"` (stacked entries from an array
+ * field), and `copyAction`.
+ */
+const DetailBlockSubTableCellBody = ({
   column,
   row,
   rowContext,
@@ -71,6 +174,74 @@ export const DetailBlockSubTableCell = ({
   rowContext: unknown;
 }) => {
   const value = resolvePath(row, column.field);
+
+  if (column.type === "list") {
+    const entries = Array.isArray(value) ? value : [];
+    const item = column.listItem;
+    if (item === undefined || entries.length === 0) {
+      return <span className="text-muted-foreground">—</span>;
+    }
+    const collapsible =
+      item.collapsible === true && item.descriptionField !== undefined;
+    const entryColumn = listItemColumn(column, item, !collapsible);
+    const perRow = column.listColumns ?? 1;
+
+    const renderedEntries = entries.map((entry, index) => {
+      const entryRow = asRow(entry);
+      const emphasised =
+        item.emphasisField !== undefined &&
+        Boolean(resolvePath(entryRow, item.emphasisField));
+      const summary = (
+        <DetailBlockSubTableCell
+          column={entryColumn}
+          row={entryRow}
+          rowContext={rowContext}
+        />
+      );
+      const descriptionText =
+        collapsible && item.descriptionField !== undefined
+          ? resolvePath(entryRow, item.descriptionField)
+          : undefined;
+
+      return (
+        <div
+          key={index}
+          className={[
+            index >= perRow ? "border-border/60 border-t pt-2.5" : undefined,
+            emphasised ? "font-bold" : undefined,
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          {typeof descriptionText === "string" && descriptionText.length > 0 ? (
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+                {summary}
+                <ChevronDown
+                  aria-hidden="true"
+                  className="text-muted-foreground size-4 shrink-0 transition-transform group-open:rotate-180"
+                />
+              </summary>
+              <div className="text-muted-foreground mt-1 text-sm font-normal whitespace-pre-line">
+                {descriptionText}
+              </div>
+            </details>
+          ) : (
+            summary
+          )}
+        </div>
+      );
+    });
+
+    return (
+      <div
+        className={`grid gap-x-8 gap-y-2.5 ${LIST_GRID_CLASS[perRow] ?? ""}`}
+      >
+        {renderedEntries}
+      </div>
+    );
+  }
+
   const text = formatCellValue(column, value);
   const truncated =
     column.truncate && text !== "—" ? truncate(text, column.truncate) : text;
@@ -183,7 +354,9 @@ export const DetailBlockSubTableCell = ({
   return (
     <span className="flex flex-col gap-0.5">
       {overlineText ? (
-        <span className="text-xs text-muted-foreground">{overlineText}</span>
+        <span className="text-muted-foreground text-xs font-normal">
+          {overlineText}
+        </span>
       ) : null}
       {primary}
       {descriptionText ? (
@@ -194,12 +367,12 @@ export const DetailBlockSubTableCell = ({
             rel={
               column.linkExternal === true ? "noopener noreferrer" : undefined
             }
-            className="text-primary text-sm underline underline-offset-4"
+            className="text-primary text-sm font-normal underline underline-offset-4"
           >
             {descriptionText}
           </a>
         ) : (
-          <span className="text-muted-foreground text-sm">
+          <span className="text-muted-foreground text-sm font-normal">
             {descriptionText}
           </span>
         )
