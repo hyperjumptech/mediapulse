@@ -138,7 +138,7 @@ const renderCellHeading = (
 
 /**
  * Renders one row cell of a sub-table column, wrapping the value in a heading band when the column
- * declares a `headingField`.
+ * declares a `headingField` and in a bullet marker when it declares a `bulletField`.
  */
 export const DetailBlockSubTableCell = (props: {
   column: DetailBlockSubTableColumn;
@@ -146,7 +146,22 @@ export const DetailBlockSubTableCell = (props: {
   rowContext: unknown;
 }) => {
   const heading = renderCellHeading(props.column, props.row, props.rowContext);
-  if (heading === null) return <DetailBlockSubTableCellBody {...props} />;
+  const isBullet =
+    props.column.bulletField !== undefined &&
+    Boolean(resolvePath(props.row, props.column.bulletField));
+
+  if (heading === null) {
+    if (!isBullet) return <DetailBlockSubTableCellBody {...props} />;
+
+    return (
+      <span className="flex gap-2 pl-4">
+        <span aria-hidden="true" className="text-muted-foreground select-none">
+          •
+        </span>
+        <DetailBlockSubTableCellBody {...props} />
+      </span>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2.5">

@@ -209,6 +209,11 @@ export const detailBlockSubTableColumnSchema = z
      */
     headingField: z.string().min(1).optional(),
     /**
+     * Path to a boolean on the row. When truthy, the cell renders as a list item, indented under a
+     * bullet marker. Use for a flat row list where some rows are points beneath the row above them.
+     */
+    bulletField: z.string().min(1).optional(),
+    /**
      * For `type: "list"` only — how many columns the entries flow across on wider viewports.
      * Defaults to a single stacked column.
      */

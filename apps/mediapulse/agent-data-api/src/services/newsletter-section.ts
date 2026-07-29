@@ -40,7 +40,7 @@ export const createNewsletterSections = async (
           items: {
             create: section.items.map((item) => ({
               title: item.title,
-              summary: item.summary,
+              points: item.points,
               url: item.url,
               dataSourceId: item.dataSourceId,
               position: item.position,

@@ -271,7 +271,7 @@ describe("collectNewsletterSections", () => {
         items: [
           {
             title: "The lead story",
-            summary: "The lead prose.",
+            points: ["The lead prose."],
             url: "https://example.com/a",
             dataSourceId: "ds-a",
             position: 0,
@@ -286,14 +286,14 @@ describe("collectNewsletterSections", () => {
         items: [
           {
             title: "Deal one",
-            summary: "Body one. Body two.",
+            points: ["Body one.", "Body two."],
             url: "https://example.com/b",
             dataSourceId: "ds-b",
             position: 0,
           },
           {
             title: "Deal two",
-            summary: "Body three.",
+            points: ["Body three."],
             url: "https://example.com/unknown",
             dataSourceId: null,
             position: 1,

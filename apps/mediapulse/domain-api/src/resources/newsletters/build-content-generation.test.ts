@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { buildContentGeneration } from "./build-content-generation";
+import {
+  buildContentGeneration,
+  composeSectionHeaderLabel,
+  entryPoints,
+} from "./build-content-generation";
 
 const newsletter = (
   overrides: Partial<Parameters<typeof buildContentGeneration>[0]> = {},
@@ -31,7 +35,10 @@ describe("buildContentGeneration", () => {
         items: [
           {
             title: "Telkom declares Rp22T dividend",
-            summary: "The board approved a record payout.",
+            points: [
+              "The board approved a record payout.",
+              "Yield nears 5.8 percent.",
+            ],
             url: "https://reuters.com/d",
           },
         ],
@@ -54,27 +61,39 @@ describe("buildContentGeneration", () => {
     expect(result.rows).toStrictEqual([
       {
         label: "Industry Pulse - Telkom Leads Digital Growth",
-        title: "",
         url: null,
         isSection: true,
+        isPoint: false,
       },
       {
         label: "Sector momentum recap.",
-        title: "",
         url: null,
         isSection: false,
+        isPoint: false,
       },
       {
         label: "Deals & Movements - Rp22T Dividend",
-        title: "",
         url: null,
         isSection: true,
+        isPoint: false,
+      },
+      {
+        label: "Telkom declares Rp22T dividend",
+        url: "https://reuters.com/d",
+        isSection: false,
+        isPoint: false,
       },
       {
         label: "The board approved a record payout.",
-        title: "Telkom declares Rp22T dividend",
-        url: "https://reuters.com/d",
+        url: null,
         isSection: false,
+        isPoint: true,
+      },
+      {
+        label: "Yield nears 5.8 percent.",
+        url: null,
+        isSection: false,
+        isPoint: true,
       },
     ]);
   });
@@ -87,5 +106,72 @@ describe("buildContentGeneration", () => {
 
     expect(result.tokensTotalLabel).toBe("5.5K");
     expect(result.rows).toStrictEqual([]);
+  });
+
+  it("does not repeat the section name when the agent reused it as the heading", async () => {
+    const sectionFindMany = vi.fn().mockResolvedValue([
+      {
+        sectionKey: "dealsAndMovements",
+        heading: "Deals & Movements",
+        summary: null,
+        items: [],
+      },
+      {
+        sectionKey: "quickHits",
+        heading: "  quick   hits  ",
+        summary: null,
+        items: [],
+      },
+    ]);
+
+    const result = await buildContentGeneration(newsletter(), {
+      newsletterSection: { findMany: sectionFindMany },
+    });
+
+    expect(result.rows.map((row) => row.label)).toEqual([
+      "Deals & Movements",
+      "Quick Hits",
+    ]);
+  });
+});
+
+describe("entryPoints", () => {
+  it("lists each stored point in order", () => {
+    expect(entryPoints(["One.", "Two."])).toEqual(["One.", "Two."]);
+  });
+
+  it("trims surrounding whitespace and drops blank points", () => {
+    expect(entryPoints(["  One.  ", "   ", "Two."])).toEqual(["One.", "Two."]);
+  });
+
+  it("yields nothing for an entry with no points", () => {
+    expect(entryPoints([])).toEqual([]);
+  });
+});
+
+describe("composeSectionHeaderLabel", () => {
+  it("appends a heading that adds information", () => {
+    expect(
+      composeSectionHeaderLabel(
+        "Industry Pulse",
+        "Telkom Leads Digital Growth",
+      ),
+    ).toBe("Industry Pulse - Telkom Leads Digital Growth");
+  });
+
+  it("drops a heading that only restates the section name", () => {
+    expect(
+      composeSectionHeaderLabel("Deals & Movements", "Deals & Movements"),
+    ).toBe("Deals & Movements");
+  });
+
+  it("ignores case and surrounding or repeated whitespace when comparing", () => {
+    expect(composeSectionHeaderLabel("Quick Hits", "  quick   HITS  ")).toBe(
+      "Quick Hits",
+    );
+  });
+
+  it("falls back to the section name for an empty heading", () => {
+    expect(composeSectionHeaderLabel("Quick Hits", "   ")).toBe("Quick Hits");
   });
 });

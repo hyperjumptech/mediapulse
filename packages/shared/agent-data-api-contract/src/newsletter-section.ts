@@ -3,9 +3,15 @@ import { z } from "zod";
 export const NEWSLETTER_SECTIONS_MAX = 20;
 export const NEWSLETTER_SECTION_ITEMS_MAX = 50;
 
+export const NEWSLETTER_SECTION_ITEM_POINTS_MAX = 12;
+
 export const newsletterSectionItemSchema = z.object({
   title: z.string().trim().min(1),
-  summary: z.string().trim().min(1),
+  /** The entry's written points, in order. One row per point, as the email renders them. */
+  points: z
+    .array(z.string().trim().min(1))
+    .min(1)
+    .max(NEWSLETTER_SECTION_ITEM_POINTS_MAX),
   url: z.string().trim().min(1).nullable(),
   dataSourceId: z.string().uuid().nullable(),
   position: z.number().int().nonnegative(),

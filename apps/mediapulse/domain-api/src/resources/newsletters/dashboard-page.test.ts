@@ -262,9 +262,8 @@ describe("newslettersDashboardPage content-generation stage", () => {
     expect(results.sectionHeaderField).toBe("isSection");
     expect(results.columns).toHaveLength(1);
     expect(results.columns[0]?.field).toBe("label");
-    expect(results.columns[0]?.muted).toBe(true);
-    expect(results.columns[0]?.descriptionField).toBe("title");
-    expect(results.columns[0]?.descriptionLinkTemplate).toBe("{url}");
+    expect(results.columns[0]?.bulletField).toBe("isPoint");
+    expect(results.columns[0]?.linkTemplate).toBe("{url}");
     expect(results.columns[0]?.linkExternal).toBe(true);
   });
 });
