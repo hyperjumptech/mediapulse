@@ -38,7 +38,7 @@ export const ISSUER_RELEVANCE_CRITERION_ID = "gate-issuer-relevance";
 
 /** Fixed instruction text for the issuer-relevance gate (not persisted, not editable). */
 const ISSUER_RELEVANCE_CRITERION_TEXT =
-  "Include if the article is genuinely about, or materially concerns, the named issuer or its stated sector/industry — not merely a coincidental match on the ticker symbol, company name, or a similarly-spelled/branded but unrelated entity, place, or topic.";
+  "Include if the article concerns the named issuer, a company competing in the issuer's industry, or the conditions under which companies in that industry operate. An article about a competitor or another operator in the issuer's market qualifies even when the issuer itself is never mentioned. Exclude only when the match is coincidental: a different entity, place, or topic that happens to share the ticker symbol, the company name, or a similar brand.";
 
 /**
  * The issuer-relevance rule id in each section of `DEFAULT_ACCEPTANCE_CRITERIA`. Code-owned like the
@@ -107,9 +107,9 @@ const SYSTEM_PROMPT = [
   "what is missing (for a miss) — do not restate the rule.",
   "Do NOT choose a section or a score; those are computed from your judgments.",
   "Judge every rule independently and return exactly one judgment per rule.",
-  "When a mandatory issuer-relevance gate rule is present, judge it exactly like any other",
-  "rule — true only if the article genuinely concerns the named issuer or its sector, not a",
-  "coincidental keyword or name match.",
+  "When a mandatory issuer-relevance gate rule is present, judge it exactly like any other rule:",
+  "true when the article concerns the issuer, one of its competitors, or the conditions of the",
+  "market they share, and false only on a coincidental keyword or name match.",
 ].join(" ");
 
 /**
