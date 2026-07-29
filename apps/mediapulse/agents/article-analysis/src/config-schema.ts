@@ -98,9 +98,9 @@ const acceptanceCriteriaRuleSchema = z.object({
 });
 
 /**
- * Default inclusion rules, at least five per newsletter section. Operators may edit each rule's
- * text or add and remove rules per section through the agent-config editor; the ids stay stable so
- * persisted score breakdowns keep referencing the same rule.
+ * Default inclusion rules, five per newsletter section. Operators may edit each rule's text or add
+ * and remove rules per section through the agent-config editor; the ids stay stable so persisted
+ * score breakdowns keep referencing the same rule.
  */
 const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
   section: (typeof NEWSLETTER_SECTION_IDS)[number];
@@ -111,31 +111,23 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
     criteria: [
       {
         id: "ip-macro-move",
-        text: "Include if the article reports a macro or industry-wide development (regulation, demand, pricing, input cost, or supply shift) in {{INDUSTRY}} or a narrower market {{TICKER}} competes in, rather than a single company's own news.",
+        text: "Include if the article's main subject is a development affecting {{INDUSTRY}} as a whole, rather than one company's own news.",
       },
       {
-        id: "ip-industry-specific",
-        text: "Include if the development is specific to {{TICKER}}'s own industry or product market ({{INDUSTRY}}, {{SUB_INDUSTRY}}), not merely the broad {{SECTOR}} sector or an adjacent category {{TICKER}} does not operate in.",
+        id: "ip-market-named",
+        text: "Include if it identifies the affected market by name or unmistakable description ({{INDUSTRY}} or {{SUB_INDUSTRY}}), rather than referring only to the {{SECTOR}} sector or to the economy at large.",
       },
       {
         id: "ip-multi-issuer",
-        text: "Include if the development affects multiple direct competitors or {{INDUSTRY}} as a whole, not just one company and not the whole economy.",
+        text: "Include if the effects it describes reach several companies competing in {{INDUSTRY}}, rather than one firm alone.",
+      },
+      {
+        id: "ip-driver-named",
+        text: "Include if it names what is driving the development: demand, pricing, input cost, capacity, supply, or policy.",
       },
       {
         id: "ip-forward-impact",
-        text: "Include if it carries a clear forward-looking impact on {{INDUSTRY}}'s outlook or on {{TICKER}}'s demand, costs, or competitive conditions.",
-      },
-      {
-        id: "ip-material-to-issuer",
-        text: "Include if a reader holding {{TICKER}} would plausibly reassess the issuer because of it.",
-      },
-      {
-        id: "ip-day-significance",
-        text: "Include if it is among the most significant developments for {{INDUSTRY}} in the current window.",
-      },
-      {
-        id: "ip-cited-source",
-        text: "Include if the claim is grounded in a named, credible source (report, official statement, or reputable outlet).",
+        text: "Include if it states a forward-looking consequence for {{INDUSTRY}}'s demand, costs, or capacity, rather than only what has already happened.",
       },
     ],
   },
@@ -144,23 +136,23 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
     criteria: [
       {
         id: "cl-peer-named",
-        text: "Include if the article names at least one direct peer or competitor of {{TICKER}} in {{INDUSTRY}} ({{SUB_INDUSTRY}}).",
+        text: "Include if the article names at least one company other than {{TICKER}} that operates in {{INDUSTRY}} ({{SUB_INDUSTRY}}).",
       },
       {
-        id: "cl-positioning",
-        text: "Include if it describes peer positioning, a market-share shift, a win or loss, or a competitive threat in {{TICKER}}'s market.",
+        id: "cl-peer-action",
+        text: "Include if it reports a specific action by that company: a launch, price move, expansion, closure, partnership, contract, capacity change, or campaign.",
       },
       {
-        id: "cl-issuer-relevant",
-        text: "Include if the competitive move is materially relevant to {{TICKER}}'s own market ({{INDUSTRY}}, {{SUB_INDUSTRY}}), not just the broad {{SECTOR}} sector.",
+        id: "cl-market-overlap",
+        text: "Include if the action takes place in a market {{TICKER}} serves: the same product category, the same customer segment, or the same geography.",
       },
       {
-        id: "cl-comparison",
-        text: "Include if it provides a relative dynamic (who gains or loses), not just a standalone company update.",
+        id: "cl-relative-dynamic",
+        text: "Include if it states or clearly implies a shift in standing between operators in that market: share, customers, pricing power, or footprint.",
       },
       {
-        id: "cl-recent",
-        text: "Include if the competitive development is current, not historical background.",
+        id: "cl-issuer-side",
+        text: "Include if it places {{TICKER}} on one side of that shift, as gaining, losing, or directly pressured.",
       },
     ],
   },
@@ -169,23 +161,23 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
     criteria: [
       {
         id: "dm-corporate-action",
-        text: "Include if the article describes an M&A deal, funding round, IPO, or divestiture.",
-      },
-      {
-        id: "dm-leadership",
-        text: "Include if it reports a leadership, executive, or board change.",
+        text: "Include if the article reports a specific corporate action: an acquisition, merger, divestiture, funding round, IPO, share issuance, buyback, joint venture, or an appointment to a board or executive role.",
       },
       {
         id: "dm-parties-named",
-        text: "Include if the parties involved (acquirer, target, investor, or appointee) are named.",
+        text: "Include if it names the parties to that action: acquirer and target, investor and recipient, or the appointee and the role they take.",
       },
       {
-        id: "dm-material",
-        text: "Include if the deal or movement is material to {{TICKER}} or its industry ({{INDUSTRY}}, {{SUB_INDUSTRY}}), not the broad {{SECTOR}} sector alone.",
+        id: "dm-terms-stated",
+        text: "Include if it states at least one concrete term of the action: value, stake, price, share count, effective date, or the scope of the role.",
       },
       {
         id: "dm-confirmed",
-        text: "Include if the event is officially announced or confirmed, not rumor or speculation.",
+        text: "Include if a party to the action presents it as announced, agreed, or completed, rather than as rumour, speculation, or an analyst's expectation.",
+      },
+      {
+        id: "dm-market-link",
+        text: "Include if the acting party operates in {{INDUSTRY}} ({{SUB_INDUSTRY}}), or the action changes who owns or runs capacity in that market.",
       },
     ],
   },
@@ -194,23 +186,23 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
     criteria: [
       {
         id: "rp-regulatory-topic",
-        text: "Include if the article concerns licensing, compliance, enforcement, policy, or rulemaking.",
+        text: "Include if the article's main subject is a rule, licence, permit, tariff, quota, subsidy, enforcement action, court ruling, or policy governing how companies may operate.",
       },
       {
         id: "rp-authority-named",
-        text: "Include if a regulator, agency, court, or lawmaker is named as the actor.",
-      },
-      {
-        id: "rp-sector-impact",
-        text: "Include if the rule or action affects {{TICKER}}'s industry or product market ({{INDUSTRY}}, {{SUB_INDUSTRY}}), not just the broad {{SECTOR}} sector or an unrelated category.",
+        text: "Include if it names the government body, regulator, court, or lawmaker taking or proposing that action.",
       },
       {
         id: "rp-actionable-change",
-        text: "Include if it represents a change or pending change (new rule, ruling, penalty, or consultation), not general commentary.",
+        text: "Include if it reports a change or proposed change carrying a stated status: issued, revised, enforced, penalised, under consultation, or pending. Commentary on rules already in force does not qualify.",
       },
       {
-        id: "rp-cited-source",
-        text: "Include if it is grounded in an official filing, statement, or credible report.",
+        id: "rp-instrument-named",
+        text: "Include if it identifies the instrument itself by name, number, or programme, rather than referring only to new rules in the abstract.",
+      },
+      {
+        id: "rp-obligation-stated",
+        text: "Include if it states what affected companies must now do or stop doing, or what the change will cost them.",
       },
     ],
   },
@@ -218,24 +210,24 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
     section: "disruptorsOrTech",
     criteria: [
       {
-        id: "dt-tech-shift",
-        text: "Include if the article describes digital disruption, AI adoption, automation, or a technology shift.",
+        id: "dt-tech-subject",
+        text: "Include if the article's main subject is a specific technology, digital platform, automation system, or AI capability.",
       },
       {
-        id: "dt-sector-reshape",
-        text: "Include if the technology reshapes how {{INDUSTRY}} operates or competes.",
+        id: "dt-adopter-named",
+        text: "Include if it names the organisation building, deploying, supplying, or funding that technology.",
       },
       {
         id: "dt-concrete",
-        text: "Include if it refers to a concrete product, capability, deployment, or adoption event, not vague hype.",
+        text: "Include if it identifies what the technology does: the process it replaces, the task it automates, or the capability it adds.",
       },
       {
-        id: "dt-issuer-sector-relevant",
-        text: "Include if it is relevant to {{TICKER}}'s industry or business model ({{INDUSTRY}}, {{BUSINESS_ACTIVITY}}), not the broad {{SECTOR}} sector alone.",
+        id: "dt-deployment-stage",
+        text: "Include if it reports a reached stage: live, piloted, contracted, funded, or launched. A stated intention, forecast, or general trend does not qualify.",
       },
       {
-        id: "dt-recent",
-        text: "Include if the development is current.",
+        id: "dt-operating-change",
+        text: "Include if it states how the technology changes cost, speed, capacity, or how customers are served in {{INDUSTRY}}.",
       },
     ],
   },
@@ -243,24 +235,24 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
     section: "quickHits",
     criteria: [
       {
-        id: "qh-cited",
-        text: "Include if the article has a citable, credible source.",
-      },
-      {
-        id: "qh-noteworthy",
-        text: "Include if it is genuinely noteworthy to a reader of {{INDUSTRY}} or {{TICKER}}'s market.",
-      },
-      {
-        id: "qh-sector-related",
-        text: "Include if it relates to {{TICKER}}'s industry or product market ({{INDUSTRY}}, {{SUB_INDUSTRY}}), or a directly adjacent space, not the broad {{SECTOR}} sector alone.",
-      },
-      {
-        id: "qh-concise",
-        text: "Include if it can be summarised as a short standalone item.",
-      },
-      {
         id: "qh-not-elsewhere",
-        text: "Include if it does not clearly satisfy the defining criteria of any main section.",
+        text: "Include if the article's main subject is none of the following: a corporate action, a regulatory action, a competitor's move, a technology deployment, or a development affecting {{INDUSTRY}} as a whole.",
+      },
+      {
+        id: "qh-market-actor",
+        text: "Include if it names {{TICKER}}, {{TICKER_NAME}}, or another company operating in {{INDUSTRY}} ({{SUB_INDUSTRY}}).",
+      },
+      {
+        id: "qh-single-fact",
+        text: "Include if it reports one specific, self-contained fact: a figure, a date, an award, a ranking, an outlet opening, a sponsorship, or a published result.",
+      },
+      {
+        id: "qh-attributed",
+        text: "Include if it attributes that fact to a named company statement, official body, filing, or publication.",
+      },
+      {
+        id: "qh-standalone",
+        text: "Include if the fact is intelligible on its own, without prior coverage to make sense of it.",
       },
     ],
   },

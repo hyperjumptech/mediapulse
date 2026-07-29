@@ -89,6 +89,13 @@ const computeCappedTickerIds = async (
   );
 };
 
+type TickerProfileContextRow = {
+  sectorEnglish?: string | null;
+  industryEnglish?: string | null;
+  subIndustryEnglish?: string | null;
+  businessOperation?: string | null;
+} | null;
+
 type TickerRow = {
   symbol: string;
   name: string;
@@ -97,6 +104,7 @@ type TickerRow = {
   subSector: string | null;
   subIndustry: string | null;
   businessActivity: string | null;
+  profile?: TickerProfileContextRow;
 } | null;
 
 const mapTickerContext = (ticker: TickerRow): AnalysisTickerContext => {
@@ -106,14 +114,15 @@ const mapTickerContext = (ticker: TickerRow): AnalysisTickerContext => {
   const { sector, industry } = extractTickerSectorIndustry(ticker);
   const { subIndustry, businessActivity } =
     extractTickerBusinessContext(ticker);
+  const profile = ticker.profile ?? null;
 
   return {
     symbol: ticker.symbol,
     name: ticker.name,
-    sector: sector ?? null,
-    industry: industry ?? null,
-    subIndustry: subIndustry ?? null,
-    businessActivity: businessActivity ?? null,
+    sector: profile?.sectorEnglish ?? sector ?? null,
+    industry: profile?.industryEnglish ?? industry ?? null,
+    subIndustry: profile?.subIndustryEnglish ?? subIndustry ?? null,
+    businessActivity: profile?.businessOperation ?? businessActivity ?? null,
   };
 };
 
@@ -137,6 +146,13 @@ type TickerGatingContext = {
   matcher: RegExp | null;
 };
 
+const tickerProfileContextSelect = {
+  sectorEnglish: true,
+  industryEnglish: true,
+  subIndustryEnglish: true,
+  businessOperation: true,
+} satisfies Prisma.TickerProfileSelect;
+
 /** Ticker columns selected to build {@link AnalysisTickerContext}. */
 const tickerContextSelect = {
   symbol: true,
@@ -146,6 +162,7 @@ const tickerContextSelect = {
   subSector: true,
   subIndustry: true,
   businessActivity: true,
+  profile: { select: tickerProfileContextSelect },
 } satisfies Prisma.TickerSelect;
 
 /** Builds issuer context + alias matcher for one active ticker. */
@@ -159,7 +176,12 @@ const buildTickerGatingContext = (ticker: {
   subIndustry: string | null;
   businessActivity: string | null;
   aliases?: string[];
-  profile?: { aliases: string[]; competitors: Prisma.JsonValue } | null;
+  profile?:
+    | ({
+        aliases: string[];
+        competitors: Prisma.JsonValue;
+      } & NonNullable<TickerProfileContextRow>)
+    | null;
 }): TickerGatingContext => {
   const profile = ticker.profile ?? null;
   const competitors =
@@ -234,7 +256,13 @@ const buildAnalysisCandidatePairs = async (
       id: true,
       aliases: true,
       ...tickerContextSelect,
-      profile: { select: { aliases: true, competitors: true } },
+      profile: {
+        select: {
+          ...tickerProfileContextSelect,
+          aliases: true,
+          competitors: true,
+        },
+      },
     },
   } satisfies Prisma.TickerFindManyArgs);
   const gatingContexts = activeTickers
