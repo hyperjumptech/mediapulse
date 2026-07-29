@@ -38,14 +38,6 @@ describe("mapRowToDetailItem", () => {
         name: "News feed",
         listingUrl: "https://example.com/feed",
       },
-      articleRelevances: [
-        {
-          id: "rel-1",
-          score: 0.5,
-          associationReasoning: "Weak match",
-          ticker: { id: "t-1", symbol: "MSFT", name: "Microsoft" },
-        },
-      ],
     } satisfies DetailRow;
 
     const detail = mapRowToDetailItem(row);
@@ -56,9 +48,6 @@ describe("mapRowToDetailItem", () => {
     expect(detail.collectionGateStatusLabel).toBe("Failed");
     expect(detail.collectionGateReason).toBe("Too short");
     expect(detail.curatedSourceListingUrl).toBe("https://example.com/feed");
-    expect(detail.articleRelevances[0]?.associationReasoning).toBe(
-      "Weak match",
-    );
   });
 
   it("emits data-collection for llm source", () => {
@@ -92,7 +81,6 @@ describe("mapRowToDetailItem", () => {
       ticker: { symbol: "ACME", name: "Acme Inc" },
       searchQuery: { id: "sq-3", text: "q" },
       curatedSource: null,
-      articleRelevances: [],
     } satisfies DetailRow;
 
     const detail = mapRowToDetailItem(row);

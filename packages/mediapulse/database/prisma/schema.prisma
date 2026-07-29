@@ -20,11 +20,6 @@ enum CollectionGateStatus {
   failed
 }
 
-enum ArticleAssociationSource {
-  inferred
-  manual
-}
-
 enum CuratedSourceLinkType {
   page
   listing
@@ -79,8 +74,6 @@ model DataSource {
   ticker        Ticker?        @relation(fields: [tickerId], references: [id])
   searchQuery   SearchQuery?   @relation(fields: [searchQueryId], references: [id])
   curatedSource CuratedSource? @relation(fields: [curatedSourceId], references: [id], onDelete: SetNull)
-
-  articleRelevances ArticleRelevance[]
 
   tickerSections         DataSourceTickerSection[]
   fetchEvents            FetchEvent[]
@@ -292,26 +285,6 @@ model NewsletterTranslation {
   @@map("newsletter_translation")
 }
 
-/// DEPRECATED (article-analysis 3.0.0): replaced by DataSource.section/sectionScore/sectionReason.
-/// No longer written or read. Remove once 3.0.0 section classification is validated in production.
-model ArticleRelevance {
-  id                   String                   @id @default(uuid())
-  dataSourceId         String                   @map("data_source_id")
-  tickerId             String                   @map("ticker_id")
-  score                Float
-  scoreBreakdown       Json                     @map("score_breakdown")
-  selected             Boolean                  @default(false)
-  scoredAt             DateTime                 @default(now()) @map("scored_at")
-  associationReasoning String?                  @map("association_reasoning") @db.Text
-  associationSource    ArticleAssociationSource @default(inferred) @map("association_source")
-
-  dataSource DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
-  ticker     Ticker     @relation(fields: [tickerId], references: [id], onDelete: Cascade)
-
-  @@unique([dataSourceId, tickerId])
-  @@map("article_relevance")
-}
-
 // NOTE (query-analysis 3.0.0): query provenance removed — carried by intent.
 model SearchQuery {
   id        String            @id @default(uuid())
@@ -398,8 +371,6 @@ model Ticker {
   dataSources     DataSource[]
   newsletters     Newsletter[]
   userTickers     UserTicker[]
-
-  articleRelevances ArticleRelevance[]
 
   dataCollectionRuns     DataCollectionRun[]
   dataCollectionFailures DataCollectionFailure[]
