@@ -214,7 +214,8 @@ model NewsletterSectionItem {
   id           String   @id @default(uuid())
   sectionId    String   @map("section_id")
   title        String   @db.Text
-  summary      String   @db.Text
+  /// The entry's written points, in order. Rows written before points existed carry one entry.
+  points       String[]
   url          String?
   dataSourceId String?  @map("data_source_id")
   position     Int

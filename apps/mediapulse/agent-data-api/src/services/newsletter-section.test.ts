@@ -69,7 +69,7 @@ describe("createNewsletterSections", () => {
             items: [
               {
                 title: "Rp22T Dividend",
-                summary: "Record payout.",
+                points: ["Record payout."],
                 url: "https://reuters.com/d",
                 dataSourceId: DS_ONE,
                 position: 0,
@@ -93,7 +93,7 @@ describe("createNewsletterSections", () => {
           create: [
             {
               title: "Rp22T Dividend",
-              summary: "Record payout.",
+              points: ["Record payout."],
               url: "https://reuters.com/d",
               dataSourceId: DS_ONE,
               position: 0,

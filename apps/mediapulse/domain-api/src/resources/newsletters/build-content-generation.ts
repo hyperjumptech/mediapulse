@@ -11,15 +11,15 @@ const SECTION_LABEL_BY_ID = new Map<string, string>(
 );
 
 /**
- * One row of the Results list. A section-header row (`isSection: true`) carries the section heading in
- * `label`. A content row carries the written summary in `label` and, for an article entry, its
- * headline in `title` linked to `url`.
+ * One row of the Results list. A section-header row (`isSection`) carries the section heading, an
+ * entry row carries an article headline linked to `url`, and a point row (`isPoint`) carries one of
+ * the written points beneath it.
  */
 export type ContentGenerationRowPayload = {
   label: string;
-  title: string;
   url: string | null;
   isSection: boolean;
+  isPoint: boolean;
 };
 
 /** Shape of the content-generation stage payload exposed by the detail handler. */
@@ -50,6 +50,37 @@ export type BuildContentGenerationDeps = {
 
 const toFiniteNumber = (value: unknown): number =>
   typeof value === "number" && Number.isFinite(value) ? value : 0;
+
+const normalizeHeading = (value: string): string =>
+  value.trim().replace(/\s+/g, " ").toLowerCase();
+
+/**
+ * Composes a section-header label from the canonical section name and the heading the agent wrote.
+ *
+ * @param label - Canonical newsletter section label.
+ * @param heading - Heading persisted by content generation.
+ * @returns `label - heading`, or `label` alone when the agent reused the section name.
+ */
+export const composeSectionHeaderLabel = (
+  label: string,
+  heading: string,
+): string => {
+  const trimmed = heading.trim();
+  if (trimmed === "" || normalizeHeading(trimmed) === normalizeHeading(label)) {
+    return label;
+  }
+
+  return `${label} - ${trimmed}`;
+};
+
+/**
+ * The points to list under one written entry.
+ *
+ * @param points - Points persisted for the entry.
+ * @returns Each point with surrounding whitespace removed, blanks dropped.
+ */
+export const entryPoints = (points: string[]): string[] =>
+  points.map((point) => point.trim()).filter((point) => point !== "");
 
 const compactNumber = (value: number): string =>
   new Intl.NumberFormat("en-US", {
@@ -97,7 +128,7 @@ export const buildContentGeneration = async (
       summary: true,
       items: {
         orderBy: { position: "asc" },
-        select: { title: true, summary: true, url: true },
+        select: { title: true, points: true, url: true },
       },
     },
   } satisfies Prisma.NewsletterSectionFindManyArgs);
@@ -106,28 +137,35 @@ export const buildContentGeneration = async (
   for (const section of sections) {
     const label =
       SECTION_LABEL_BY_ID.get(section.sectionKey) ?? section.sectionKey;
-    const heading = section.heading.trim();
     rows.push({
-      label: heading ? `${label} - ${heading}` : label,
-      title: "",
+      label: composeSectionHeaderLabel(label, section.heading),
       url: null,
       isSection: true,
+      isPoint: false,
     });
     if (section.summary) {
       rows.push({
         label: section.summary,
-        title: "",
         url: null,
         isSection: false,
+        isPoint: false,
       });
     }
     for (const item of section.items) {
       rows.push({
-        label: item.summary,
-        title: item.title,
+        label: item.title,
         url: item.url,
         isSection: false,
+        isPoint: false,
       });
+      for (const point of entryPoints(item.points)) {
+        rows.push({
+          label: point,
+          url: null,
+          isSection: false,
+          isPoint: true,
+        });
+      }
     }
   }
 

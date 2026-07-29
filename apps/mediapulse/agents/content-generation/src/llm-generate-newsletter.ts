@@ -151,7 +151,7 @@ export const collectNewsletterCitations = (
 /** One written entry within a section, linked to its source article. */
 export type NewsletterSectionItemLink = {
   title: string;
-  summary: string;
+  points: string[];
   url: string | null;
   dataSourceId: string | null;
   position: number;
@@ -197,7 +197,7 @@ export const collectNewsletterSections = (
       position,
       items: section.articles.map((article, itemPosition) => ({
         title: article.title,
-        summary: article.points.join(" "),
+        points: article.points,
         url: article.url,
         dataSourceId: dataSourceIdByUrl.get(article.url) ?? null,
         position: itemPosition,
