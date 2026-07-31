@@ -34,7 +34,12 @@ const appendTerm = (
   terms.push(trimmed);
 };
 
-const TICKER_SYMBOL_PATTERN = /^[A-Z]{4}$/;
+/**
+ * Shortest curated peer alias worth matching on. Aliases are hand-maintained per competitor, so
+ * precision is a curation concern rather than a code one; this only keeps two-character fragments
+ * such as "PT" or "AI" from matching half the corpus.
+ */
+const MIN_PEER_ALIAS_CHARS = 3;
 
 type ProfileParty = { name: string; aliases: string[] };
 
@@ -121,6 +126,7 @@ export const getTickerRelevanceTermsForAgent =
             sectorIndonesian: true,
             subSectorIndonesian: true,
             industryIndonesian: true,
+            subIndustryIndonesian: true,
             aliases: true,
             competitors: true,
           },
@@ -180,7 +186,7 @@ export const getTickerRelevanceTermsForAgent =
         for (const competitor of parseProfileParties(profile.competitors)) {
           appendTerm(seen, terms, competitor.name);
           for (const alias of competitor.aliases) {
-            if (TICKER_SYMBOL_PATTERN.test(alias)) {
+            if (alias.trim().length >= MIN_PEER_ALIAS_CHARS) {
               appendTerm(seen, terms, alias);
             }
           }
@@ -188,6 +194,16 @@ export const getTickerRelevanceTermsForAgent =
         appendTerm(seen, terms, profile.sectorIndonesian);
         appendTerm(seen, terms, profile.subSectorIndonesian);
         appendTerm(seen, terms, profile.industryIndonesian);
+        appendTerm(seen, terms, profile.subIndustryIndonesian);
+
+        // A profile describes the issuer in its own words ("Jaringan Kedai Kopi"), which reads well
+        // to an analyst but rarely appears verbatim in news copy. The exchange taxonomy on the
+        // ticker row uses the plain words reporters actually write ("Minuman"), so keep both:
+        // curating a profile must only ever widen a ticker's reach, never narrow it.
+        appendTerm(seen, terms, ticker.sector);
+        appendTerm(seen, terms, ticker.subSector);
+        appendTerm(seen, terms, ticker.industry);
+        appendTerm(seen, terms, ticker.subIndustry);
 
         return { id: ticker.id, symbol: ticker.symbol, terms };
       }

@@ -178,6 +178,7 @@ describe("getTickerRelevanceTermsForAgent", () => {
           sectorIndonesian: "Energi",
           subSectorIndonesian: "Batu Bara",
           industryIndonesian: "Batu Bara Termal",
+          subIndustryIndonesian: "Batu Bara Kalori Menengah",
           aliases: ["Adaro Andalan", "Adaro"],
           competitors: [
             { name: "Indo Tambangraya Megah", aliases: ["ITMG", "ITM"] },
@@ -199,13 +200,90 @@ describe("getTickerRelevanceTermsForAgent", () => {
       "Adaro",
       "Indo Tambangraya Megah",
       "ITMG",
+      "ITM",
       "Bukit Asam",
       "PTBA",
       "Energi",
       "Batu Bara",
       "Batu Bara Termal",
+      "Batu Bara Kalori Menengah",
+      "Pertambangan Batu Bara",
     ]);
-    expect(result.tickers[0]?.terms).not.toContain("Pertambangan Batu Bara");
+  });
+
+  it("keeps a curated peer alias that is not an exchange ticker symbol", async () => {
+    // Setup
+    vi.mocked(prisma.searchQuerySet.findMany).mockResolvedValueOnce([
+      { tickerId: ANCHOR_TICKER_ID },
+    ] as never);
+    vi.mocked(prisma.ticker.findMany).mockResolvedValueOnce([
+      {
+        id: ANCHOR_TICKER_ID,
+        symbol: "FORE",
+        name: "PT Fore Kopi Indonesia Tbk",
+        aliases: [],
+        sector: "Barang Konsumen Primer",
+        industry: "Minuman",
+        subSector: "Makanan & Minuman",
+        subIndustry: "Minuman Ringan",
+        profile: {
+          sectorIndonesian: "Barang Konsumen Primer",
+          subSectorIndonesian: "Makanan & Minuman",
+          industryIndonesian: "Jaringan Kedai Kopi",
+          subIndustryIndonesian: "Kedai Kopi Berbasis Aplikasi",
+          aliases: ["Fore Coffee"],
+          competitors: [
+            { name: "Mitra Adiperkasa", aliases: ["MAPI", "Starbucks"] },
+            { name: "Kopi Tuku", aliases: ["Tuku", "PT"] },
+          ],
+        },
+      },
+    ] as never);
+
+    // Act
+    const result = await getTickerRelevanceTermsForAgent();
+    const terms = result.tickers[0]?.terms ?? [];
+
+    // Assert
+    expect(terms).toContain("Starbucks");
+    expect(terms).toContain("Tuku");
+    expect(terms).not.toContain("PT");
+  });
+
+  it("keeps the exchange taxonomy so a curated profile only widens the term set", async () => {
+    // Setup
+    vi.mocked(prisma.searchQuerySet.findMany).mockResolvedValueOnce([
+      { tickerId: ANCHOR_TICKER_ID },
+    ] as never);
+    vi.mocked(prisma.ticker.findMany).mockResolvedValueOnce([
+      {
+        id: ANCHOR_TICKER_ID,
+        symbol: "FORE",
+        name: "PT Fore Kopi Indonesia Tbk",
+        aliases: [],
+        sector: "Barang Konsumen Primer",
+        industry: "Minuman",
+        subSector: "Makanan & Minuman",
+        subIndustry: "Minuman Ringan",
+        profile: {
+          sectorIndonesian: "Barang Konsumen Primer",
+          subSectorIndonesian: "Makanan & Minuman",
+          industryIndonesian: "Jaringan Kedai Kopi",
+          subIndustryIndonesian: "Kedai Kopi Berbasis Aplikasi",
+          aliases: [],
+          competitors: [],
+        },
+      },
+    ] as never);
+
+    // Act
+    const result = await getTickerRelevanceTermsForAgent();
+    const terms = result.tickers[0]?.terms ?? [];
+
+    // Assert
+    expect(terms).toContain("Jaringan Kedai Kopi");
+    expect(terms).toContain("Minuman");
+    expect(terms).toContain("Minuman Ringan");
   });
 
   it("resolves peers for many active tickers with a single peer query", async () => {
