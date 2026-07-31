@@ -39,7 +39,7 @@ export const ISSUER_RELEVANCE_CRITERION_ID = "gate-issuer-relevance";
 
 /** Fixed instruction text for the issuer-relevance gate (not persisted, not editable). */
 const ISSUER_RELEVANCE_CRITERION_TEXT =
-  "Include if the article concerns the named issuer, a company competing in the issuer's industry, or the conditions under which companies in that industry operate. An article about a competitor or another operator in the issuer's market qualifies even when the issuer itself is never mentioned. Exclude only when the match is coincidental: a different entity, place, or topic that happens to share the ticker symbol, the company name, or a similar brand.";
+  "Include if the article concerns the named issuer, a subsidiary or parent in the issuer's corporate group, a company competing in the issuer's industry, or the conditions under which companies in that industry operate. An article about a competitor or another operator in the issuer's market qualifies even when the issuer itself is never mentioned, and so does one about a group company trading under its own name and exchange symbol. The lists of brands and competitors given above are not exhaustive, so do not reject an article merely because the company it names is absent from them. Exclude only when the match is coincidental: a different entity, place, or topic that happens to share the ticker symbol, the company name, or a similar brand.";
 
 /**
  * The issuer-relevance rule id in each section of `DEFAULT_ACCEPTANCE_CRITERIA`. Code-owned like the
@@ -189,7 +189,7 @@ export const renderArticleTickerContext = (
 
   if (ticker.aliases.length > 0) {
     lines.push(
-      `The issuer also trades under these names, brands, and subsidiaries: ${ticker.aliases.join(", ")}. News about any of them is news about ${ticker.symbol} itself, not about a competitor.`,
+      `The issuer also trades under these names, brands, and subsidiaries: ${ticker.aliases.join(", ")}. News about any of them is news about ${ticker.symbol} itself, not about a competitor. This list names only the best-known ones: a subsidiary, parent, or other company in the same corporate group counts as the issuer even when it is absent here and is listed separately on the exchange under its own symbol.`,
     );
   }
 

@@ -266,6 +266,26 @@ describe("renderArticleTickerContext", () => {
     expect(line).toContain("not about a competitor");
   });
 
+  it("says the brand list is not exhaustive so a group company is still the issuer", () => {
+    const line = renderArticleTickerContext({
+      symbol: "TLKM",
+      name: "PT Telkom Indonesia (Persero) Tbk",
+      sector: "Infrastruktur",
+      industry: "Jasa Telekomunikasi",
+      subIndustry: "Jasa Telekomunikasi Terintegrasi",
+      businessActivity: "Penyelenggara Jaringan dan Jasa Telekom",
+      aliases: ["Telkomsel"],
+      competitors: [],
+    });
+
+    expect(line).toContain(
+      "subsidiary, parent, or other company in the same corporate group",
+    );
+    expect(line).toContain(
+      "listed separately on the exchange under its own symbol",
+    );
+  });
+
   it("renders known competitors with the spellings they appear under", () => {
     const line = renderArticleTickerContext({
       symbol: "TLKM",
