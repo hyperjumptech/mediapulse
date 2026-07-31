@@ -104,6 +104,89 @@ describe("loadAnalysisContext — data-collection daily baseline", () => {
     expect(result.dataSourceTotalCount).toBe(7);
     expect(result.dataSources[0]?.id).toBe(SEARCH_ARTICLE);
   });
+
+  it("carries the issuer's brands and peers into the classification context", async () => {
+    const rows = [
+      {
+        id: SEARCH_ARTICLE,
+        url: "https://example.com/a",
+        title: "A",
+        description: "snippet",
+        content: null,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        tickerId: TICKER_ID,
+        ticker: {
+          symbol: "TLKM",
+          name: "PT Telkom Indonesia (Persero) Tbk",
+          sector: "Infrastruktur",
+          industry: "Jasa Telekomunikasi",
+          subSector: null,
+          subIndustry: "Jasa Telekomunikasi Terintegrasi",
+          businessActivity: "Penyelenggara Jaringan dan Jasa Telekom",
+          aliases: ["TLKM", "Telkomsel"],
+          profile: {
+            sectorEnglish: null,
+            industryEnglish: null,
+            subIndustryEnglish: null,
+            businessOperation: null,
+            aliases: ["IndiHome", "Telkomsel"],
+            competitors: [
+              { name: "Indosat", aliases: ["ISAT"] },
+              { name: "XLSMART Telecom Sejahtera", aliases: ["XLSmart"] },
+            ],
+          },
+        },
+      },
+    ];
+    const findMany = vi.fn().mockResolvedValue(rows);
+    const count = vi.fn().mockResolvedValue(1);
+
+    const result = await loadAnalysisContext(
+      { unanalyzed: false, limit: 5, tickerId: TICKER_ID },
+      { db: { dataSource: { findMany, count } } as never },
+    );
+    const ticker = result.dataSources[0]?.ticker;
+
+    expect(ticker?.aliases).toEqual(["Telkomsel", "IndiHome"]);
+    expect(ticker?.competitors).toEqual([
+      { name: "Indosat", aliases: ["ISAT"] },
+      { name: "XLSMART Telecom Sejahtera", aliases: ["XLSmart"] },
+    ]);
+  });
+
+  it("defaults brands and peers to empty when the ticker has no profile", async () => {
+    const rows = [
+      {
+        id: SEARCH_ARTICLE,
+        url: "https://example.com/a",
+        title: "A",
+        description: "snippet",
+        content: null,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        tickerId: TICKER_ID,
+        ticker: {
+          symbol: "AGRO",
+          name: "PT Bank Raya Indonesia Tbk",
+          sector: "Keuangan",
+          industry: "Bank",
+          subSector: null,
+          subIndustry: "Bank",
+          businessActivity: "Perbankan",
+        },
+      },
+    ];
+    const findMany = vi.fn().mockResolvedValue(rows);
+    const count = vi.fn().mockResolvedValue(1);
+
+    const result = await loadAnalysisContext(
+      { unanalyzed: false, limit: 5, tickerId: TICKER_ID },
+      { db: { dataSource: { findMany, count } } as never },
+    );
+    const ticker = result.dataSources[0]?.ticker;
+
+    expect(ticker?.aliases).toEqual([]);
+    expect(ticker?.competitors).toEqual([]);
+  });
 });
 
 describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
@@ -682,12 +765,18 @@ describe("applyAnalysisPost", () => {
           id: "dm-corporate-action",
           section: "dealsAndMovements" as const,
           text: "Include if M&A.",
+          qualifying: true,
           matched: true,
           note: "acquisition announced",
         },
       ],
       sections: [
-        { section: "dealsAndMovements" as const, matched: 3, total: 5 },
+        {
+          section: "dealsAndMovements" as const,
+          matched: 3,
+          total: 5,
+          qualified: true,
+        },
       ],
     };
 

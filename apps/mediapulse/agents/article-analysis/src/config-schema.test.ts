@@ -18,6 +18,11 @@ const foreTicker: AnalysisTickerContext = {
   industry: "Minuman",
   subIndustry: "Minuman Ringan",
   businessActivity: "Bisnis Kedai Kopi",
+  aliases: ["Fore Coffee"],
+  competitors: [
+    { name: "Kopi Kenangan", aliases: ["Kenangan Brands"] },
+    { name: "Tomoro Coffee", aliases: [] },
+  ],
 };
 
 describe("articleAnalysisConfigSchema", () => {
@@ -64,7 +69,11 @@ describe("articleAnalysisConfigSchema", () => {
         {
           section: "competitiveLandscape",
           criteria: [
-            { id: "cl-custom", text: "Include if a rival launches a product." },
+            {
+              id: "cl-custom",
+              text: "Include if a rival launches a product.",
+              qualifying: false,
+            },
           ],
         },
       ],
@@ -74,10 +83,25 @@ describe("articleAnalysisConfigSchema", () => {
       {
         section: "competitiveLandscape",
         criteria: [
-          { id: "cl-custom", text: "Include if a rival launches a product." },
+          {
+            id: "cl-custom",
+            text: "Include if a rival launches a product.",
+            qualifying: false,
+          },
         ],
       },
     ]);
+  });
+
+  it("marks a gate of at least two qualifying rules in every seeded section", () => {
+    const config = articleAnalysisConfigSchema.parse({});
+
+    for (const rule of config.acceptanceCriteria) {
+      const gate = rule.criteria.filter((criterion) => criterion.qualifying);
+
+      expect(gate.length).toBeGreaterThanOrEqual(2);
+      expect(gate.length).toBeLessThan(rule.criteria.length);
+    }
   });
 
   it("rejects a section rule with no criteria", () => {
@@ -98,7 +122,10 @@ describe("articleAnalysisConfigSchema", () => {
     expect(() =>
       articleAnalysisConfigSchema.parse({
         acceptanceCriteria: [
-          { section: "notASection", criteria: [{ id: "x", text: "y" }] },
+          {
+            section: "notASection",
+            criteria: [{ id: "x", text: "y", qualifying: false }],
+          },
         ],
       }),
     ).toThrow();
@@ -155,6 +182,48 @@ describe("substituteTickerPlaceholders", () => {
       expect(tickerKeys.has(placeholder.field)).toBe(true);
     }
   });
+
+  it("renders aliases as a plain list", () => {
+    const resolved = substituteTickerPlaceholders(
+      "brands: {{ALIASES}}",
+      foreTicker,
+    );
+
+    expect(resolved).toBe("brands: Fore Coffee");
+  });
+
+  it("renders competitors with the spellings they appear under", () => {
+    const resolved = substituteTickerPlaceholders(
+      "peers: {{COMPETITORS}}",
+      foreTicker,
+    );
+
+    expect(resolved).toBe(
+      "peers: Kopi Kenangan (Kenangan Brands), Tomoro Coffee",
+    );
+  });
+
+  it("falls back when the profile carries no aliases or competitors", () => {
+    const resolved = substituteTickerPlaceholders(
+      "brands: {{ALIASES}}; peers: {{COMPETITORS}}",
+      { ...foreTicker, aliases: [], competitors: [] },
+    );
+
+    expect(resolved).toBe(
+      "brands: no other known trading names; peers: no named peers on file",
+    );
+  });
+
+  it("falls back for the list placeholders when the ticker context is null", () => {
+    const resolved = substituteTickerPlaceholders(
+      "brands: {{ALIASES}}; peers: {{COMPETITORS}}",
+      null,
+    );
+
+    expect(resolved).toBe(
+      "brands: no other known trading names; peers: no named peers on file",
+    );
+  });
 });
 
 describe("acceptanceCriteria default placeholders", () => {
@@ -179,20 +248,20 @@ describe("flattenAcceptanceCriteria", () => {
       {
         section: "industryPulse",
         criteria: [
-          { id: "ip1", text: "a" },
-          { id: "ip2", text: "b" },
+          { id: "ip1", text: "a", qualifying: false },
+          { id: "ip2", text: "b", qualifying: false },
         ],
       },
       {
         section: "quickHits",
-        criteria: [{ id: "qh1", text: "c" }],
+        criteria: [{ id: "qh1", text: "c", qualifying: false }],
       },
     ]);
 
     expect(flat).toEqual([
-      { id: "ip1", section: "industryPulse", text: "a" },
-      { id: "ip2", section: "industryPulse", text: "b" },
-      { id: "qh1", section: "quickHits", text: "c" },
+      { id: "ip1", section: "industryPulse", text: "a", qualifying: false },
+      { id: "ip2", section: "industryPulse", text: "b", qualifying: false },
+      { id: "qh1", section: "quickHits", text: "c", qualifying: false },
     ]);
   });
 });

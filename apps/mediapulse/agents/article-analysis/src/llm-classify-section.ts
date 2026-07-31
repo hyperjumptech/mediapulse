@@ -9,6 +9,7 @@ import {
 } from "@workspace/agent-runtime";
 import {
   MEDIAPULSE_NEWSLETTER_SECTIONS,
+  NEWSLETTER_SECTION_PRECEDENCE,
   type AnalysisTickerContext,
   type PostAnalysisScoreBreakdown,
 } from "@workspace/agent-data-api-contract";
@@ -43,23 +44,30 @@ const ISSUER_RELEVANCE_CRITERION_TEXT =
 /**
  * The issuer-relevance rule id in each section of `DEFAULT_ACCEPTANCE_CRITERIA`. Code-owned like the
  * global gate so it needs no agent-config migration: when the winning section earns its score on
- * issuer-agnostic rules while its issuer-relevance rule is unmatched, the fit score is capped below
- * the ship line. This corroborates the single global gate boolean (which the model can false-positive
- * on a coincidental venue or keyword match) with a second judgment the model already makes.
- * `industryPulse` is macro/sector-wide by design and has no issuer-specific rule. A custom config that
- * renames these ids simply skips the cap.
+ * issuer-agnostic rules while its issuer-relevance rule is unmatched, the fit score is capped. This
+ * corroborates the single global gate boolean (which the model can false-positive on a coincidental
+ * venue or keyword match) with a second judgment the model already makes. `industryPulse` is
+ * macro/sector-wide by design and has no issuer-specific rule, and after the criteria rework
+ * `regulatoryPolicyWatch` has none either. A custom config that renames these ids skips the cap.
+ *
+ * - Important: these ids must track `DEFAULT_ACCEPTANCE_CRITERIA`. They silently went stale once
+ *   already, which disabled the cap entirely; `llm-classify-section.test.ts` now pins them.
  */
 export const ISSUER_RELEVANCE_RULE_IDS: ReadonlySet<string> = new Set([
-  "cl-issuer-relevant",
-  "dm-material",
-  "rp-sector-impact",
-  "dt-issuer-sector-relevant",
-  "qh-sector-related",
+  "cl-issuer-side",
+  "dm-market-link",
+  "dt-operating-change",
+  "qh-market-actor",
 ]);
 
 /**
  * Fit-score ceiling for a section won on issuer-agnostic rules while its issuer-relevance rule is
- * unmatched. Below the content-generation Quick Hits demotion floor (0.7) so the item does not ship.
+ * unmatched.
+ *
+ * - Important: content-generation applies no minimum score, so this only de-ranks the item within
+ *   its section (`select-articles.ts` sorts by score and keeps the top N). It does not stop the item
+ *   shipping. An earlier comment here claimed a 0.7 ship line in content-generation; no such
+ *   threshold exists.
  */
 export const ISSUER_UNMATCHED_SCORE_CAP = 0.4;
 
@@ -175,7 +183,28 @@ export const renderArticleTickerContext = (
   const descriptorText =
     descriptors.length > 0 ? ` — ${descriptors.join(", ")}` : "";
 
-  return `Issuer context: this article was collected for ${ticker.symbol} (${ticker.name})${descriptorText}. Newsletter sections are defined relative to this issuer and its industry.`;
+  const lines = [
+    `Issuer context: this article was collected for ${ticker.symbol} (${ticker.name})${descriptorText}. Newsletter sections are defined relative to this issuer and its industry.`,
+  ];
+
+  if (ticker.aliases.length > 0) {
+    lines.push(
+      `The issuer also trades under these names, brands, and subsidiaries: ${ticker.aliases.join(", ")}. News about any of them is news about ${ticker.symbol} itself, not about a competitor.`,
+    );
+  }
+
+  if (ticker.competitors.length > 0) {
+    const peers = ticker.competitors.map((competitor) =>
+      competitor.aliases.length > 0
+        ? `${competitor.name} (${competitor.aliases.join(", ")})`
+        : competitor.name,
+    );
+    lines.push(
+      `Known competitors of the issuer: ${peers.join("; ")}. Other operators in the same market count as competitors too, even when absent from this list.`,
+    );
+  }
+
+  return lines.join("\n");
 };
 
 /**
@@ -224,13 +253,18 @@ export const buildSectionClassificationMessages = (params: {
  * Hashes the inclusion-rule set so persisted breakdowns record which criteria version scored them.
  *
  * @param acceptanceCriteria - Per-section rules from agent config.
- * @returns A short hex digest over the section/id/text of every rule, in config order.
+ * @returns A short hex digest over the section/id/text/qualifying of every rule, in config order.
  */
 export const criteriaHash = (
   acceptanceCriteria: AcceptanceCriteriaRule[],
 ): string => {
   const canonical = flattenAcceptanceCriteria(acceptanceCriteria).map(
-    (criterion) => [criterion.section, criterion.id, criterion.text],
+    (criterion) => [
+      criterion.section,
+      criterion.id,
+      criterion.text,
+      criterion.qualifying,
+    ],
   );
 
   return createHash("sha256")
@@ -284,10 +318,9 @@ export const scoreFromEvaluations = (
   const noteFor = (id: string): string =>
     evaluationById.get(id)?.note ?? MISSING_EVALUATION_NOTE;
 
-  // Per-section tallies in canonical display order, so the argmax tie-break is deterministic.
-  const presentSections = MEDIAPULSE_NEWSLETTER_SECTIONS.map(
-    (section) => section.id,
-  ).filter((sectionId) =>
+  // Per-section tallies in specificity order, so every tie-break prefers the narrower section over
+  // a catch-all. Sections absent from the config are skipped.
+  const presentSections = NEWSLETTER_SECTION_PRECEDENCE.filter((sectionId) =>
     flat.some((criterion) => criterion.section === sectionId),
   );
 
@@ -295,6 +328,7 @@ export const scoreFromEvaluations = (
     const sectionCriteria = flat.filter(
       (criterion) => criterion.section === sectionId,
     );
+    const gate = sectionCriteria.filter((criterion) => criterion.qualifying);
     const total = sectionCriteria.length;
     const matched = sectionCriteria.filter((criterion) =>
       isMatched(criterion.id),
@@ -305,14 +339,26 @@ export const scoreFromEvaluations = (
       matched,
       total,
       fraction: total > 0 ? matched / total : 0,
+      // A section with no gate can never qualify; the fallback below covers configs that define none.
+      qualified:
+        gate.length > 0 && gate.every((criterion) => isMatched(criterion.id)),
     };
   });
 
-  // First section with the maximum fraction wins (canonical order => earliest section on a tie).
-  let winner = tallies[0];
-  for (const tally of tallies) {
-    if (winner === undefined || tally.fraction > winner.fraction) {
-      winner = tally;
+  // A section's gate says whether the article is that kind of story at all, so the narrowest
+  // qualifying section wins outright. Matched fraction never decides the section: sections differ in
+  // how demanding their rules are, so comparing fractions across them systematically favours
+  // whichever section is easiest to satisfy rather than whichever fits.
+  const qualified = tallies.filter((tally) => tally.qualified);
+
+  // Configs that mark no qualifying rules (an operator override predating gates) keep the original
+  // behaviour: highest matched fraction wins, now tie-broken by specificity rather than display order.
+  let winner = qualified[0];
+  if (winner === undefined) {
+    for (const tally of tallies) {
+      if (winner === undefined || tally.fraction > winner.fraction) {
+        winner = tally;
+      }
     }
   }
 
@@ -320,12 +366,14 @@ export const scoreFromEvaluations = (
     section: tally.section,
     matched: tally.matched,
     total: tally.total,
+    qualified: tally.qualified,
   }));
   const hash = criteriaHash(acceptanceCriteria);
   const criteriaBreakdown = flat.map((criterion) => ({
     id: criterion.id,
     section: criterion.section,
     text: criterion.text,
+    qualifying: criterion.qualifying,
     matched: isMatched(criterion.id),
     note: noteFor(criterion.id),
   }));
@@ -388,8 +436,14 @@ export const scoreFromEvaluations = (
     issuerRelevanceUnmatched && winnerIssuerRule !== undefined
       ? ` Issuer-relevance rule ${winnerIssuerRule.id} unmatched; fit score capped at ${ISSUER_UNMATCHED_SCORE_CAP.toFixed(2)}.`
       : "";
+  const runnersUp = qualified
+    .filter((tally) => tally.section !== winner.section)
+    .map((tally) => tally.section);
+  const selectionText = winner.qualified
+    ? ` Chosen as the most specific qualifying section${runnersUp.length > 0 ? ` over ${runnersUp.join(", ")}` : ""}.`
+    : " No section met its qualifying rules; chosen on matched fraction.";
   const reason = capReason(
-    `${label} — matched ${winner.matched}/${winner.total}${matchedText}.${missedText}${issuerCapText}`,
+    `${label} — matched ${winner.matched}/${winner.total}${matchedText}.${selectionText}${missedText}${issuerCapText}`,
   );
 
   return {

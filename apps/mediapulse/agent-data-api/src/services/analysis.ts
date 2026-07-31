@@ -94,6 +94,8 @@ type TickerProfileContextRow = {
   industryEnglish?: string | null;
   subIndustryEnglish?: string | null;
   businessOperation?: string | null;
+  aliases?: string[];
+  competitors?: Prisma.JsonValue;
 } | null;
 
 type TickerRow = {
@@ -104,8 +106,28 @@ type TickerRow = {
   subSector: string | null;
   subIndustry: string | null;
   businessActivity: string | null;
+  aliases?: string[];
   profile?: TickerProfileContextRow;
 } | null;
+
+/**
+ * Collects the issuer's own trading names, brands, and subsidiaries, excluding the symbol and legal
+ * name the context already carries separately.
+ *
+ * @param ticker - The selected ticker row.
+ * @returns Deduplicated alias strings, in ticker-then-profile order.
+ */
+const collectIssuerAliases = (ticker: NonNullable<TickerRow>): string[] => {
+  const known = new Set([ticker.symbol, ticker.name]);
+
+  return [
+    ...new Set(
+      [...(ticker.aliases ?? []), ...(ticker.profile?.aliases ?? [])]
+        .map((alias) => alias.trim())
+        .filter((alias) => alias.length > 0 && !known.has(alias)),
+    ),
+  ];
+};
 
 const mapTickerContext = (ticker: TickerRow): AnalysisTickerContext => {
   if (ticker === null) {
@@ -123,6 +145,9 @@ const mapTickerContext = (ticker: TickerRow): AnalysisTickerContext => {
     industry: profile?.industryEnglish ?? industry ?? null,
     subIndustry: profile?.subIndustryEnglish ?? subIndustry ?? null,
     businessActivity: profile?.businessOperation ?? businessActivity ?? null,
+    aliases: collectIssuerAliases(ticker),
+    competitors:
+      profile === null ? [] : parseProfileParties(profile.competitors),
   };
 };
 
@@ -151,6 +176,8 @@ const tickerProfileContextSelect = {
   industryEnglish: true,
   subIndustryEnglish: true,
   businessOperation: true,
+  aliases: true,
+  competitors: true,
 } satisfies Prisma.TickerProfileSelect;
 
 /** Ticker columns selected to build {@link AnalysisTickerContext}. */
@@ -162,42 +189,26 @@ const tickerContextSelect = {
   subSector: true,
   subIndustry: true,
   businessActivity: true,
+  aliases: true,
   profile: { select: tickerProfileContextSelect },
 } satisfies Prisma.TickerSelect;
 
 /** Builds issuer context + alias matcher for one active ticker. */
-const buildTickerGatingContext = (ticker: {
-  id: string;
-  symbol: string;
-  name: string;
-  sector: string | null;
-  industry: string | null;
-  subSector: string | null;
-  subIndustry: string | null;
-  businessActivity: string | null;
-  aliases?: string[];
-  profile?:
-    | ({
-        aliases: string[];
-        competitors: Prisma.JsonValue;
-      } & NonNullable<TickerProfileContextRow>)
-    | null;
-}): TickerGatingContext => {
-  const profile = ticker.profile ?? null;
-  const competitors =
-    profile === null ? [] : parseProfileParties(profile.competitors);
+const buildTickerGatingContext = (
+  ticker: NonNullable<TickerRow> & { id: string },
+): TickerGatingContext => {
+  const context = mapTickerContext(ticker);
   const aliases = [
-    ticker.symbol,
-    ticker.name,
-    ...(ticker.aliases ?? []),
-    ...(profile?.aliases ?? []),
-    ...competitors.map((competitor) => competitor.name),
-    ...competitors.flatMap((competitor) => competitor.aliases),
+    context.symbol,
+    context.name,
+    ...context.aliases,
+    ...context.competitors.map((competitor) => competitor.name),
+    ...context.competitors.flatMap((competitor) => competitor.aliases),
   ].filter((value) => value.length > 0);
 
   return {
     tickerId: ticker.id,
-    context: mapTickerContext(ticker),
+    context,
     matcher: compileAliasMatcher(aliases),
   };
 };
@@ -254,15 +265,7 @@ const buildAnalysisCandidatePairs = async (
     where: { id: { in: activeTickerIds } },
     select: {
       id: true,
-      aliases: true,
       ...tickerContextSelect,
-      profile: {
-        select: {
-          ...tickerProfileContextSelect,
-          aliases: true,
-          competitors: true,
-        },
-      },
     },
   } satisfies Prisma.TickerFindManyArgs);
   const gatingContexts = activeTickers

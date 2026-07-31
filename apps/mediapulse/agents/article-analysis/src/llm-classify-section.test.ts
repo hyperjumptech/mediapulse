@@ -2,10 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import type { AcceptanceCriteriaRule } from "./config-schema.js";
 import {
+  articleAnalysisConfigSchema,
+  flattenAcceptanceCriteria,
+} from "./config-schema.js";
+import {
   buildEvaluationSchema,
   buildSectionClassificationMessages,
   criteriaHash,
   ISSUER_RELEVANCE_CRITERION_ID,
+  ISSUER_RELEVANCE_RULE_IDS,
   MAX_CONTENT_CHARS,
   rejectEmptySource,
   renderArticleTickerContext,
@@ -18,21 +23,21 @@ const criteria: AcceptanceCriteriaRule[] = [
   {
     section: "industryPulse",
     criteria: [
-      { id: "ip1", text: "Include if macro." },
-      { id: "ip2", text: "Include if multi-issuer." },
-      { id: "ip3", text: "Include if significant." },
-      { id: "ip4", text: "Include if forward-looking." },
-      { id: "ip5", text: "Include if cited." },
+      { id: "ip1", text: "Include if macro.", qualifying: false },
+      { id: "ip2", text: "Include if multi-issuer.", qualifying: false },
+      { id: "ip3", text: "Include if significant.", qualifying: false },
+      { id: "ip4", text: "Include if forward-looking.", qualifying: false },
+      { id: "ip5", text: "Include if cited.", qualifying: false },
     ],
   },
   {
     section: "competitiveLandscape",
     criteria: [
-      { id: "cl1", text: "Include if a peer is named." },
-      { id: "cl2", text: "Include if positioning shifts." },
-      { id: "cl3", text: "Include if issuer-relevant." },
-      { id: "cl4", text: "Include if it compares rivals." },
-      { id: "cl5", text: "Include if recent." },
+      { id: "cl1", text: "Include if a peer is named.", qualifying: false },
+      { id: "cl2", text: "Include if positioning shifts.", qualifying: false },
+      { id: "cl3", text: "Include if issuer-relevant.", qualifying: false },
+      { id: "cl4", text: "Include if it compares rivals.", qualifying: false },
+      { id: "cl5", text: "Include if recent.", qualifying: false },
     ],
   },
 ];
@@ -81,6 +86,7 @@ describe("buildSectionClassificationMessages", () => {
             {
               id: "ip-x",
               text: "Include if it moves {{INDUSTRY}} for {{TICKER}}.",
+              qualifying: false,
             },
           ],
         },
@@ -92,6 +98,8 @@ describe("buildSectionClassificationMessages", () => {
         industry: "Minuman",
         subIndustry: "Minuman Ringan",
         businessActivity: "Bisnis Kedai Kopi",
+        aliases: [],
+        competitors: [],
       },
     });
     const user = messages[1]!;
@@ -113,6 +121,7 @@ describe("buildSectionClassificationMessages", () => {
             {
               id: "ip-x",
               text: "Include if it moves {{INDUSTRY}} for {{TICKER}}.",
+              qualifying: false,
             },
           ],
         },
@@ -195,6 +204,35 @@ describe("buildSectionClassificationMessages", () => {
   });
 });
 
+describe("ISSUER_RELEVANCE_RULE_IDS", () => {
+  it("references only ids that exist in the seeded criteria", () => {
+    const config = articleAnalysisConfigSchema.parse({});
+    const seededIds = new Set(
+      flattenAcceptanceCriteria(config.acceptanceCriteria).map(
+        (criterion) => criterion.id,
+      ),
+    );
+
+    for (const ruleId of ISSUER_RELEVANCE_RULE_IDS) {
+      expect(seededIds.has(ruleId)).toBe(true);
+    }
+  });
+
+  it("covers every issuer-specific section exactly once", () => {
+    const config = articleAnalysisConfigSchema.parse({});
+    const coveredSections = flattenAcceptanceCriteria(config.acceptanceCriteria)
+      .filter((criterion) => ISSUER_RELEVANCE_RULE_IDS.has(criterion.id))
+      .map((criterion) => criterion.section);
+
+    expect(coveredSections).toEqual([
+      "competitiveLandscape",
+      "dealsAndMovements",
+      "disruptorsOrTech",
+      "quickHits",
+    ]);
+  });
+});
+
 describe("renderArticleTickerContext", () => {
   it("renders the issuer and its business descriptors", () => {
     const line = renderArticleTickerContext({
@@ -204,10 +242,65 @@ describe("renderArticleTickerContext", () => {
       industry: "Bank",
       subIndustry: "Bank",
       businessActivity: "Perbankan",
+      aliases: [],
+      competitors: [],
     });
 
     expect(line).toContain("AGRO (PT Bank Raya Indonesia Tbk)");
     expect(line).toContain("main business Perbankan");
+  });
+
+  it("names the issuer's own brands so they are not read as competitors", () => {
+    const line = renderArticleTickerContext({
+      symbol: "TLKM",
+      name: "PT Telkom Indonesia (Persero) Tbk",
+      sector: "Infrastruktur",
+      industry: "Jasa Telekomunikasi",
+      subIndustry: "Jasa Telekomunikasi Terintegrasi",
+      businessActivity: "Penyelenggara Jaringan dan Jasa Telekom",
+      aliases: ["Telkomsel", "IndiHome"],
+      competitors: [],
+    });
+
+    expect(line).toContain("Telkomsel, IndiHome");
+    expect(line).toContain("not about a competitor");
+  });
+
+  it("renders known competitors with the spellings they appear under", () => {
+    const line = renderArticleTickerContext({
+      symbol: "TLKM",
+      name: "PT Telkom Indonesia (Persero) Tbk",
+      sector: "Infrastruktur",
+      industry: "Jasa Telekomunikasi",
+      subIndustry: "Jasa Telekomunikasi Terintegrasi",
+      businessActivity: "Penyelenggara Jaringan dan Jasa Telekom",
+      aliases: [],
+      competitors: [
+        { name: "Indosat", aliases: ["ISAT"] },
+        { name: "XLSMART Telecom Sejahtera", aliases: ["EXCL", "XLSmart"] },
+        { name: "Starlink", aliases: [] },
+      ],
+    });
+
+    expect(line).toContain("Indosat (ISAT)");
+    expect(line).toContain("XLSMART Telecom Sejahtera (EXCL, XLSmart)");
+    expect(line).toContain("Starlink");
+  });
+
+  it("omits the brand and peer lines when the profile carries neither", () => {
+    const line = renderArticleTickerContext({
+      symbol: "AGRO",
+      name: "PT Bank Raya Indonesia Tbk",
+      sector: null,
+      industry: null,
+      subIndustry: null,
+      businessActivity: null,
+      aliases: [],
+      competitors: [],
+    });
+
+    expect(line).not.toContain("also trades under");
+    expect(line).not.toContain("Known competitors");
   });
 
   it("returns null for ticker-agnostic rows", () => {
@@ -273,13 +366,13 @@ describe("scoreFromEvaluations", () => {
     expect(result.score).toBeCloseTo(0.6);
   });
 
-  it("breaks ties by canonical display order", () => {
+  it("breaks ties toward the more specific section, not display order", () => {
     const result = scoreFromEvaluations(
       evaluate(["ip1", "ip2", "cl1", "cl2"]),
       criteria,
     );
 
-    expect(result.section).toBe("industryPulse");
+    expect(result.section).toBe("competitiveLandscape");
     expect(result.score).toBeCloseTo(0.4);
   });
 
@@ -339,7 +432,7 @@ describe("scoreFromEvaluations", () => {
       ]),
     );
 
-    expect(result.section).toBe("industryPulse");
+    expect(result.section).toBe("competitiveLandscape");
     expect(result.scoreBreakdown.criteria).toHaveLength(10);
     expect(bySection.get("cl2")).toMatchObject({
       section: "competitiveLandscape",
@@ -357,9 +450,98 @@ describe("scoreFromEvaluations", () => {
   it("scopes the composed reason to the winning section only", () => {
     const result = scoreFromEvaluations(evaluate(["ip1", "cl2"]), criteria);
 
-    expect(result.reason).toContain("Industry Pulse — matched 1/5");
-    expect(result.reason).not.toContain("cl1");
-    expect(result.reason).not.toContain("cl2");
+    expect(result.reason).toContain("Competitive Landscape — matched 1/5");
+    expect(result.reason).not.toContain("ip1");
+    expect(result.reason).not.toContain("ip2");
+  });
+});
+
+describe("scoreFromEvaluations — qualifying gates and precedence", () => {
+  /** industryPulse is gated on ip1+ip2; competitiveLandscape on cl1+cl2. */
+  const gated: AcceptanceCriteriaRule[] = [
+    {
+      section: "industryPulse",
+      criteria: [
+        { id: "ip1", text: "Include if macro.", qualifying: true },
+        { id: "ip2", text: "Include if market named.", qualifying: true },
+        { id: "ip3", text: "Include if driver named.", qualifying: false },
+        { id: "ip4", text: "Include if forward-looking.", qualifying: false },
+        { id: "ip5", text: "Include if multi-issuer.", qualifying: false },
+      ],
+    },
+    {
+      section: "competitiveLandscape",
+      criteria: [
+        { id: "cl1", text: "Include if a peer is named.", qualifying: true },
+        { id: "cl2", text: "Include if the peer acted.", qualifying: true },
+        { id: "cl3", text: "Include if markets overlap.", qualifying: false },
+      ],
+    },
+  ];
+
+  const evaluateGated = (matchedIds: string[]): CriterionEvaluation[] =>
+    gated
+      .flatMap((rule) => rule.criteria.map((criterion) => criterion.id))
+      .map((id) => ({
+        id,
+        matched: matchedIds.includes(id),
+        note: matchedIds.includes(id) ? "evidence present" : "absent",
+      }));
+
+  it("prefers the qualifying section over a higher-scoring unqualified one", () => {
+    const result = scoreFromEvaluations(
+      evaluateGated(["ip1", "ip3", "ip4", "ip5", "cl1", "cl2"]),
+      gated,
+    );
+
+    expect(result.section).toBe("competitiveLandscape");
+    expect(result.scoreBreakdown.matched).toBe(2);
+  });
+
+  it("prefers the more specific section when both qualify", () => {
+    const result = scoreFromEvaluations(
+      evaluateGated(["ip1", "ip2", "cl1", "cl2"]),
+      gated,
+    );
+
+    expect(result.section).toBe("competitiveLandscape");
+    expect(result.reason).toContain("most specific qualifying section");
+    expect(result.reason).toContain("industryPulse");
+  });
+
+  it("falls back to the catch-all when the specific gate fails", () => {
+    const result = scoreFromEvaluations(
+      evaluateGated(["ip1", "ip2", "cl1", "cl3"]),
+      gated,
+    );
+
+    expect(result.section).toBe("industryPulse");
+  });
+
+  it("records each section's gate outcome in the breakdown", () => {
+    const result = scoreFromEvaluations(
+      evaluateGated(["ip1", "ip2", "cl1"]),
+      gated,
+    );
+    const byId = new Map(
+      result.scoreBreakdown.sections.map((section) => [
+        section.section,
+        section,
+      ]),
+    );
+
+    expect(byId.get("industryPulse")?.qualified).toBe(true);
+    expect(byId.get("competitiveLandscape")?.qualified).toBe(false);
+  });
+
+  it("falls back to matched fraction when no section defines a gate", () => {
+    const result = scoreFromEvaluations(
+      evaluate(["ip1", "cl1", "cl2", "cl3"]),
+      criteria,
+    );
+
+    expect(result.section).toBe("competitiveLandscape");
+    expect(result.reason).toContain("chosen on matched fraction");
   });
 });
 
@@ -439,16 +621,36 @@ describe("rejectEmptySource", () => {
   });
 });
 
-/** A single section carrying its real issuer-relevance rule id (`rp-sector-impact`). */
+/** A single section carrying its real issuer-relevance rule id (`cl-issuer-side`). */
 const issuerCapCriteria: AcceptanceCriteriaRule[] = [
   {
-    section: "regulatoryPolicyWatch",
+    section: "competitiveLandscape",
     criteria: [
-      { id: "rp-regulatory-topic", text: "Include if regulatory." },
-      { id: "rp-authority-named", text: "Include if an authority is named." },
-      { id: "rp-sector-impact", text: "Include if it affects the issuer." },
-      { id: "rp-actionable-change", text: "Include if it is a change." },
-      { id: "rp-cited-source", text: "Include if cited." },
+      {
+        id: "cl-peer-named",
+        text: "Include if a peer is named.",
+        qualifying: false,
+      },
+      {
+        id: "cl-peer-action",
+        text: "Include if the peer acted.",
+        qualifying: false,
+      },
+      {
+        id: "cl-issuer-side",
+        text: "Include if it affects the issuer.",
+        qualifying: false,
+      },
+      {
+        id: "cl-market-overlap",
+        text: "Include if the markets overlap.",
+        qualifying: false,
+      },
+      {
+        id: "cl-relative-dynamic",
+        text: "Include if standing shifted.",
+        qualifying: false,
+      },
     ],
   },
 ];
@@ -468,38 +670,38 @@ describe("scoreFromEvaluations issuer-relevance cap", () => {
   it("caps the fit score when the winning section's issuer-relevance rule is unmatched", () => {
     const result = scoreFromEvaluations(
       evaluateIssuerCap([
-        "rp-regulatory-topic",
-        "rp-authority-named",
-        "rp-actionable-change",
+        "cl-peer-named",
+        "cl-peer-action",
+        "cl-market-overlap",
       ]),
       issuerCapCriteria,
     );
 
-    expect(result.section).toBe("regulatoryPolicyWatch");
+    expect(result.section).toBe("competitiveLandscape");
     expect(result.score).toBe(0.4);
     expect(result.scoreBreakdown.matched).toBe(3);
-    expect(result.reason).toContain("rp-sector-impact unmatched");
+    expect(result.reason).toContain("cl-issuer-side unmatched");
   });
 
   it("keeps the full score when the issuer-relevance rule is matched", () => {
     const result = scoreFromEvaluations(
       evaluateIssuerCap([
-        "rp-regulatory-topic",
-        "rp-authority-named",
-        "rp-sector-impact",
-        "rp-actionable-change",
+        "cl-peer-named",
+        "cl-peer-action",
+        "cl-issuer-side",
+        "cl-market-overlap",
       ]),
       issuerCapCriteria,
     );
 
-    expect(result.section).toBe("regulatoryPolicyWatch");
+    expect(result.section).toBe("competitiveLandscape");
     expect(result.score).toBe(0.8);
     expect(result.reason).not.toContain("capped");
   });
 
   it("does not raise a score already below the cap", () => {
     const result = scoreFromEvaluations(
-      evaluateIssuerCap(["rp-regulatory-topic"]),
+      evaluateIssuerCap(["cl-peer-named"]),
       issuerCapCriteria,
     );
 
@@ -523,7 +725,9 @@ describe("criteriaHash", () => {
     const edited: AcceptanceCriteriaRule[] = [
       {
         section: "industryPulse",
-        criteria: [{ id: "ip1", text: "Include if macro (edited)." }],
+        criteria: [
+          { id: "ip1", text: "Include if macro (edited).", qualifying: false },
+        ],
       },
     ];
 

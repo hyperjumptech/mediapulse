@@ -48,6 +48,24 @@ export const NEWSLETTER_SECTION_IDS: readonly NewsletterSectionId[] =
   MEDIAPULSE_NEWSLETTER_SECTIONS.map((section) => section.id);
 
 /**
+ * Sections ordered most specific first, used to choose between sections an article qualifies for.
+ *
+ * This is deliberately not display order. `industryPulse` and `quickHits` are catch-alls: an article
+ * that also qualifies as a peer move, a corporate action, a regulatory action, or a technology
+ * deployment belongs in that narrower section, and should only fall through to a catch-all when
+ * nothing narrower fits. Display order stays {@link MEDIAPULSE_NEWSLETTER_SECTIONS}, which drives
+ * the newsletter's layout and must not change when routing changes.
+ */
+export const NEWSLETTER_SECTION_PRECEDENCE: readonly NewsletterSectionId[] = [
+  "dealsAndMovements",
+  "competitiveLandscape",
+  "regulatoryPolicyWatch",
+  "disruptorsOrTech",
+  "industryPulse",
+  "quickHits",
+];
+
+/**
  * Summarises how many of the given intents map to each newsletter section.
  *
  * Every `QueryAnalysisIntent` is named for the section it feeds, so an intent is used directly

@@ -686,6 +686,8 @@ describe("agent-data-api", () => {
               industry: null,
               subIndustry: null,
               businessActivity: null,
+              aliases: [],
+              competitors: [],
             },
           },
         ],

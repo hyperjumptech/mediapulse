@@ -1,4 +1,5 @@
 /** @vitest-environment node */
+import type { AnalysisTickerContext } from "@workspace/agent-data-api-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { articleAnalysisConfigSchema } from "./config-schema.js";
@@ -52,13 +53,15 @@ import { classifyArticleSection } from "./llm-classify-section.js";
 
 const config = articleAnalysisConfigSchema.parse({});
 
-const TICKER = {
+const TICKER: AnalysisTickerContext = {
   symbol: "BBCA",
   name: "Bank Central Asia",
   sector: null,
   industry: null,
   subIndustry: null,
   businessActivity: null,
+  aliases: [],
+  competitors: [],
 };
 
 const EMPTY_SOURCE = {

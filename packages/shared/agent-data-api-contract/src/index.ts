@@ -15,12 +15,14 @@ export {
   ANALYSIS_GET_DATA_SOURCE_LIMIT_MAX,
   analysisDataSourceSchema,
   analysisTickerContextSchema,
+  analysisTickerPartySchema,
   getAnalysisQuerySchema,
   getAnalysisResponseSchema,
   postAnalysisBodySchema,
   postAnalysisResponseSchema,
   postAnalysisScoreBreakdownSchema,
   type AnalysisTickerContext,
+  type AnalysisTickerParty,
   type GetAnalysisQuery,
   type GetAnalysisResponse,
   type PostAnalysisBody,
@@ -386,6 +388,7 @@ export {
 export {
   MEDIAPULSE_NEWSLETTER_SECTIONS,
   NEWSLETTER_SECTION_IDS,
+  NEWSLETTER_SECTION_PRECEDENCE,
   summarizeSectionCoverage,
   type NewsletterSectionId,
 } from "./newsletter-sections.js";
