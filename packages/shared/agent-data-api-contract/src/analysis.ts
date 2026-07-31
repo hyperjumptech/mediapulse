@@ -68,16 +68,20 @@ export const postAnalysisScoreBreakdownSchema = z.object({
       id: z.string(),
       section: sectionEnum,
       text: z.string(),
+      /** Whether this rule is part of its section's gate rather than a strength signal. */
+      qualifying: z.boolean().default(false),
       matched: z.boolean(),
       note: z.string(),
     }),
   ),
-  /** Matched/total tally for every scored section, for debugging the argmax. */
+  /** Per-section tally and gate outcome, so a reader can see why the winning section won. */
   sections: z.array(
     z.object({
       section: sectionEnum,
       matched: z.number().int().nonnegative(),
       total: z.number().int().nonnegative(),
+      /** Whether every one of the section's qualifying rules matched. */
+      qualified: z.boolean().default(false),
     }),
   ),
 });
@@ -106,6 +110,12 @@ export const postAnalysisBodySchema = z.object({
   articleAnalysisRunId: z.string().uuid().optional(),
 });
 
+/** A company named in the issuer's profile, with the spellings it appears under in the press. */
+export const analysisTickerPartySchema = z.object({
+  name: z.string(),
+  aliases: z.array(z.string()).default([]),
+});
+
 /** Per-article issuer context for section classification (null for ticker-agnostic rows). */
 export const analysisTickerContextSchema = z.object({
   symbol: z.string(),
@@ -114,6 +124,13 @@ export const analysisTickerContextSchema = z.object({
   industry: z.string().nullable(),
   subIndustry: z.string().nullable(),
   businessActivity: z.string().nullable(),
+  /**
+   * The issuer's own trading names, brands, and subsidiaries. Without these a classifier reads a
+   * subsidiary's name (Telkomsel for TLKM) as a third party and mistakes the issuer for its own peer.
+   */
+  aliases: z.array(z.string()).default([]),
+  /** Known peers from the issuer's profile, so peer rules match a list instead of a guess. */
+  competitors: z.array(analysisTickerPartySchema).default([]),
 });
 
 export const analysisDataSourceSchema = z.object({
@@ -145,6 +162,7 @@ export const postAnalysisResponseSchema = z.object({
 });
 
 export type AnalysisTickerContext = z.infer<typeof analysisTickerContextSchema>;
+export type AnalysisTickerParty = z.infer<typeof analysisTickerPartySchema>;
 export type GetAnalysisQuery = z.infer<typeof getAnalysisQuerySchema>;
 export type PostAnalysisScoreBreakdown = z.infer<
   typeof postAnalysisScoreBreakdownSchema

@@ -28,6 +28,16 @@ export const ACCEPTANCE_CRITERIA_PLACEHOLDERS = [
     field: "businessActivity",
     fallback: "the issuer's business",
   },
+  {
+    token: "{{ALIASES}}",
+    field: "aliases",
+    fallback: "no other known trading names",
+  },
+  {
+    token: "{{COMPETITORS}}",
+    field: "competitors",
+    fallback: "no named peers on file",
+  },
 ] as const satisfies readonly {
   token: string;
   field: keyof AnalysisTickerContext;
@@ -35,8 +45,43 @@ export const ACCEPTANCE_CRITERIA_PLACEHOLDERS = [
 }[];
 
 /**
+ * Renders one ticker-context field as the plain text a rule should read.
+ *
+ * List fields render as a comma-separated enumeration, with each peer followed by the spellings it
+ * appears under in the press, so a rule can match a name the article actually uses.
+ *
+ * @param value - The raw field value from the ticker context.
+ * @returns The rendered text, or `null` when the field carries nothing usable.
+ */
+const renderPlaceholderValue = (
+  value: AnalysisTickerContext[keyof AnalysisTickerContext],
+): string | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === "string") {
+    return value.length > 0 ? value : null;
+  }
+  if (value.length === 0) {
+    return null;
+  }
+
+  const rendered = value.map((entry) => {
+    if (typeof entry === "string") {
+      return entry;
+    }
+
+    return entry.aliases.length > 0
+      ? `${entry.name} (${entry.aliases.join(", ")})`
+      : entry.name;
+  });
+
+  return rendered.join(", ");
+};
+
+/**
  * Substitutes every {@link ACCEPTANCE_CRITERIA_PLACEHOLDERS} token in `text` with the matching field
- * from `ticker`, using the placeholder's fallback when the ticker context or the field value is null.
+ * from `ticker`, using the placeholder's fallback when the ticker context or the field value is empty.
  *
  * @param text - Inclusion-rule text that may contain placeholders.
  * @param ticker - Per-article ticker context, or `null` for ticker-agnostic articles.
@@ -46,14 +91,17 @@ export const substituteTickerPlaceholders = (
   text: string,
   ticker: AnalysisTickerContext | null,
 ): string =>
-  ACCEPTANCE_CRITERIA_PLACEHOLDERS.reduce(
-    (resolved, placeholder) =>
-      resolved.replaceAll(
-        placeholder.token,
-        ticker?.[placeholder.field] ?? placeholder.fallback,
-      ),
-    text,
-  );
+  ACCEPTANCE_CRITERIA_PLACEHOLDERS.reduce((resolved, placeholder) => {
+    const rendered =
+      ticker === null
+        ? null
+        : renderPlaceholderValue(ticker[placeholder.field]);
+
+    return resolved.replaceAll(
+      placeholder.token,
+      rendered ?? placeholder.fallback,
+    );
+  }, text);
 
 const PLACEHOLDER_TOKENS = ACCEPTANCE_CRITERIA_PLACEHOLDERS.map(
   (placeholder) => placeholder.token,
@@ -87,6 +135,12 @@ const acceptanceCriterionSchema = z.object({
     .trim()
     .min(1)
     .describe('Inclusion instruction: "Include if the article ...".'),
+  qualifying: z
+    .boolean()
+    .default(false)
+    .describe(
+      "When true, this rule defines what kind of story the section is for: the section only competes for an article when every one of its qualifying rules matched. Non-qualifying rules only add strength, which ranks articles inside the section.",
+    ),
 });
 
 const acceptanceCriteriaRuleSchema = z.object({
@@ -101,10 +155,16 @@ const acceptanceCriteriaRuleSchema = z.object({
  * Default inclusion rules, five per newsletter section. Operators may edit each rule's text or add
  * and remove rules per section through the agent-config editor; the ids stay stable so persisted
  * score breakdowns keep referencing the same rule.
+ *
+ * Each section marks the two or three rules that define what kind of story it is for as
+ * `qualifying`. Those form the section's gate: the section competes for an article only when all of
+ * them match. The remaining rules add strength, which ranks articles within the section but never
+ * decides which section wins. Gate rules are chosen to be ones that reliably fire on a genuine story
+ * of that kind, so a section is never blocked by a rule its own source material rarely satisfies.
  */
 const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
   section: (typeof NEWSLETTER_SECTION_IDS)[number];
-  criteria: readonly { id: string; text: string }[];
+  criteria: readonly { id: string; text: string; qualifying?: boolean }[];
 }[] = [
   {
     section: "industryPulse",
@@ -112,10 +172,12 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
       {
         id: "ip-macro-move",
         text: "Include if the article's main subject is a development affecting {{INDUSTRY}} as a whole, rather than one company's own news.",
+        qualifying: true,
       },
       {
         id: "ip-market-named",
         text: "Include if it identifies the affected market by name or unmistakable description ({{INDUSTRY}} or {{SUB_INDUSTRY}}), rather than referring only to the {{SECTOR}} sector or to the economy at large.",
+        qualifying: true,
       },
       {
         id: "ip-multi-issuer",
@@ -136,23 +198,26 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
     criteria: [
       {
         id: "cl-peer-named",
-        text: "Include if the article names at least one company other than {{TICKER}} that operates in {{INDUSTRY}} ({{SUB_INDUSTRY}}).",
+        text: "Include if the article names a company that competes with {{TICKER}} in {{INDUSTRY}} ({{SUB_INDUSTRY}}). Known peers: {{COMPETITORS}}. Any other operator in that market also counts. {{TICKER_NAME}}'s own trading names, brands, and subsidiaries ({{ALIASES}}) are the issuer itself, never a peer.",
+        qualifying: true,
       },
       {
         id: "cl-peer-action",
-        text: "Include if it reports a specific action by that company: a launch, price move, expansion, closure, partnership, contract, capacity change, or campaign.",
+        text: "Include if it reports a specific action by that peer: a launch, price move, expansion, closure, partnership, contract, capacity change, campaign, earnings result, or a licence, spectrum, or tender it won.",
+        qualifying: true,
       },
       {
         id: "cl-market-overlap",
         text: "Include if the action takes place in a market {{TICKER}} serves: the same product category, the same customer segment, or the same geography.",
+        qualifying: true,
       },
       {
         id: "cl-relative-dynamic",
-        text: "Include if it states or clearly implies a shift in standing between operators in that market: share, customers, pricing power, or footprint.",
+        text: "Include if the facts reported amount to a shift in standing between operators in that market: share, customers, pricing power, capacity, spectrum, or footprint. Judge this from what the article reports, not from whether it spells the shift out. A peer gaining or losing any of these relative to the others qualifies.",
       },
       {
         id: "cl-issuer-side",
-        text: "Include if it places {{TICKER}} on one side of that shift, as gaining, losing, or directly pressured.",
+        text: "Include if {{TICKER}} is on one side of that shift, as gaining, losing, or under added pressure. This follows whenever the peer's move lands in a market {{TICKER}} serves, whether or not the article names {{TICKER}} or draws the comparison itself.",
       },
     ],
   },
@@ -161,15 +226,17 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
     criteria: [
       {
         id: "dm-corporate-action",
-        text: "Include if the article reports a specific corporate action: an acquisition, merger, divestiture, funding round, IPO, share issuance, buyback, joint venture, or an appointment to a board or executive role.",
+        text: "Include if the article reports a specific corporate action: an acquisition, merger, divestiture, funding round, IPO, share issuance, buyback, joint venture, or an appointment to a board or executive role. A company winning a licence, spectrum block, tender, permit, or government contract is not a corporate action, nor is an ordinary commercial launch, expansion, or earnings result.",
+        qualifying: true,
       },
       {
         id: "dm-parties-named",
-        text: "Include if it names the parties to that action: acquirer and target, investor and recipient, or the appointee and the role they take.",
+        text: "Include if it names the companies on each side of that action: acquirer and target, investor and recipient, the partners to the venture, or the appointee and the role they take. A regulator, ministry, or court running a process is not a party to a corporate action.",
+        qualifying: true,
       },
       {
         id: "dm-terms-stated",
-        text: "Include if it states at least one concrete term of the action: value, stake, price, share count, effective date, or the scope of the role.",
+        text: "Include if it gives at least one detail of the action beyond the fact that it happened: a value, stake, price, share count, timing, or the scope of the role. An approximate or partial figure counts, and so does a stated timeframe such as this quarter or next year.",
       },
       {
         id: "dm-confirmed",
@@ -187,22 +254,24 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
       {
         id: "rp-regulatory-topic",
         text: "Include if the article's main subject is a rule, licence, permit, tariff, quota, subsidy, enforcement action, court ruling, or policy governing how companies may operate.",
+        qualifying: true,
       },
       {
         id: "rp-authority-named",
         text: "Include if it names the government body, regulator, court, or lawmaker taking or proposing that action.",
+        qualifying: true,
       },
       {
         id: "rp-actionable-change",
-        text: "Include if it reports a change or proposed change carrying a stated status: issued, revised, enforced, penalised, under consultation, or pending. Commentary on rules already in force does not qualify.",
+        text: "Include if it reports a change or proposed change carrying a stated status: issued, revised, enforced, penalised, under consultation, drafted, or pending. Commentary on rules already in force does not qualify.",
       },
       {
         id: "rp-instrument-named",
-        text: "Include if it identifies the instrument itself by name, number, or programme, rather than referring only to new rules in the abstract.",
+        text: "Include if the rule, bill, programme, or decision can be identified from the article, whether by formal number, by its common name, or by the authority and subject together. It need not carry an official citation.",
       },
       {
         id: "rp-obligation-stated",
-        text: "Include if it states what affected companies must now do or stop doing, or what the change will cost them.",
+        text: "Include if the article conveys what the change means for affected companies: what they must do or stop doing, what it will cost them, or which of their activities it governs. An obligation clear from what is reported counts even when no duty is spelled out.",
       },
     ],
   },
@@ -212,10 +281,12 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
       {
         id: "dt-tech-subject",
         text: "Include if the article's main subject is a specific technology, digital platform, automation system, or AI capability.",
+        qualifying: true,
       },
       {
         id: "dt-adopter-named",
         text: "Include if it names the organisation building, deploying, supplying, or funding that technology.",
+        qualifying: true,
       },
       {
         id: "dt-concrete",
@@ -223,11 +294,11 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
       },
       {
         id: "dt-deployment-stage",
-        text: "Include if it reports a reached stage: live, piloted, contracted, funded, or launched. A stated intention, forecast, or general trend does not qualify.",
+        text: "Include if the technology has moved beyond an idea: it is live, piloted, contracted, funded, launched, announced for rollout, or being built under a named partnership. A forecast or a general trend with no organisation behind it does not qualify.",
       },
       {
         id: "dt-operating-change",
-        text: "Include if it states how the technology changes cost, speed, capacity, or how customers are served in {{INDUSTRY}}.",
+        text: "Include if the article conveys how the technology changes cost, speed, capacity, reach, or how customers are served in {{INDUSTRY}}. A change evident from what is reported counts even when no figure is given.",
       },
     ],
   },
@@ -241,14 +312,16 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
       {
         id: "qh-market-actor",
         text: "Include if it names {{TICKER}}, {{TICKER_NAME}}, or another company operating in {{INDUSTRY}} ({{SUB_INDUSTRY}}).",
+        qualifying: true,
       },
       {
         id: "qh-single-fact",
         text: "Include if it reports one specific, self-contained fact: a figure, a date, an award, a ranking, an outlet opening, a sponsorship, or a published result.",
+        qualifying: true,
       },
       {
         id: "qh-attributed",
-        text: "Include if it attributes that fact to a named company statement, official body, filing, or publication.",
+        text: "Include if the fact can be traced to its source from the article: a named company statement, an official body, a filing, a publication, or the reporting outlet itself.",
       },
       {
         id: "qh-standalone",
@@ -294,13 +367,14 @@ export type FlatCriterion = {
   id: string;
   section: string;
   text: string;
+  qualifying: boolean;
 };
 
 /**
  * Flattens per-section rules into a single list tagged with each rule's section.
  *
  * @param acceptanceCriteria - Per-section rules from agent config.
- * @returns Every criterion as `{ id, section, text }`, in config order.
+ * @returns Every criterion as `{ id, section, text, qualifying }`, in config order.
  */
 export const flattenAcceptanceCriteria = (
   acceptanceCriteria: AcceptanceCriteriaRule[],
@@ -310,5 +384,6 @@ export const flattenAcceptanceCriteria = (
       id: criterion.id,
       section: rule.section,
       text: criterion.text,
+      qualifying: criterion.qualifying,
     })),
   );
