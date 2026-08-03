@@ -229,6 +229,23 @@ const NON_ARTICLE_PAGE_PATTERNS = [
   /\/[a-z0-9-]{16,}\/\d{1,3}$/i,
 ] as const;
 
+/**
+ * Interstitials that stand in front of a publisher's article. When the target URL is carried in a
+ * query parameter it is unwrapped and the wrapper disappears; when the parameter holds an opaque
+ * token (Google's `goto?url=CAES...` protobuf blob) nothing is recoverable, so the candidate is
+ * dropped. Keeping one would ship a tracking blob as the reader's link and the wrapper's host as
+ * the publisher byline.
+ */
+const REDIRECT_WRAPPER_RULES = [
+  { host: /^(?:[a-z0-9-]+\.)*google\.[a-z.]+$/i, path: /^\/(url|goto)$/i },
+  { host: /^(?:[a-z0-9-]+\.)*facebook\.com$/i, path: /^\/l\.php$/i },
+  { host: /^(?:[a-z0-9-]+\.)*t\.umblr\.com$/i, path: /^\/redirect$/i },
+  { host: /^out\.reddit\.com$/i, path: /^\/$/i },
+] as const;
+
+/** Query parameters a wrapper uses to carry the destination URL. */
+const REDIRECT_TARGET_PARAMS = ["url", "u", "q", "target", "to"] as const;
+
 export type UrlNoiseReason =
   | "blocked_host"
   | "low_value_source"
@@ -236,7 +253,8 @@ export type UrlNoiseReason =
   | "blocked_path"
   | "blocked_extension"
   | "site_homepage"
-  | "non_article_page";
+  | "non_article_page"
+  | "opaque_redirect";
 
 export type UrlNoiseDecision =
   | { blocked: true; reason: UrlNoiseReason; canonicalUrl: string }
@@ -280,6 +298,49 @@ export const canonicalizeUrl = (rawUrl: string): string => {
 };
 
 /**
+ * Unwraps a redirect interstitial to the publisher URL it points at.
+ *
+ * @param rawUrl - Candidate URL, canonical or not.
+ * @returns The destination URL when the wrapper carries a recoverable one, `"opaque"` when it is a
+ *   wrapper whose target cannot be recovered, or `undefined` when the URL is not a wrapper.
+ */
+export const unwrapRedirectUrl = (
+  rawUrl: string,
+): string | "opaque" | undefined => {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return undefined;
+  }
+
+  const isWrapper = REDIRECT_WRAPPER_RULES.some(
+    (rule) =>
+      rule.host.test(parsed.hostname) && rule.path.test(parsed.pathname),
+  );
+  if (!isWrapper) {
+    return undefined;
+  }
+
+  for (const param of REDIRECT_TARGET_PARAMS) {
+    const value = parsed.searchParams.get(param);
+    if (value === null || value.trim().length === 0) {
+      continue;
+    }
+    try {
+      const target = new URL(value);
+      if (target.protocol === "http:" || target.protocol === "https:") {
+        return target.toString();
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return "opaque";
+};
+
+/**
  * Returns true when the pathname matches a high-precision article-shaped path.
  *
  * @param pathname - URL pathname (no query or hash).
@@ -320,11 +381,31 @@ const pathnameIsHomepage = (pathname: string): boolean => {
  * @returns Decision containing canonical URL and optional block reason.
  */
 export const classifyNoisyUrl = (rawUrl: string): UrlNoiseDecision => {
+  // Resolved before anything else so the publisher's own host, not the interstitial's, is what
+  // every host and path rule below judges.
+  const unwrapped = unwrapRedirectUrl(rawUrl);
+  if (unwrapped === "opaque") {
+    let canonicalWrapper: string;
+    try {
+      canonicalWrapper = canonicalizeUrl(rawUrl);
+    } catch {
+      canonicalWrapper = rawUrl;
+    }
+
+    return {
+      blocked: true,
+      reason: "opaque_redirect",
+      canonicalUrl: canonicalWrapper,
+    };
+  }
+
+  const targetUrl = unwrapped ?? rawUrl;
+
   let canonicalUrl: string;
   try {
-    canonicalUrl = canonicalizeUrl(rawUrl);
+    canonicalUrl = canonicalizeUrl(targetUrl);
   } catch {
-    return { blocked: true, reason: "blocked_path", canonicalUrl: rawUrl };
+    return { blocked: true, reason: "blocked_path", canonicalUrl: targetUrl };
   }
 
   const parsed = new URL(canonicalUrl);

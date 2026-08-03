@@ -38,8 +38,24 @@ export const EVENT_DEDUP_MIN_SHARED_ANCHORS = 4;
  */
 export const EVENT_DEDUP_MIN_CONTAINMENT = 0.4;
 
+/**
+ * Same-day headline path. Two same-day articles whose headlines share this many distinctive anchors
+ * are two outlets telling one story, even when their lead paragraphs diverge enough to miss the
+ * body-anchor guard above. Restricted to same-day pairs so a recurring headline shape ("coal price
+ * falls") cannot collapse a week of separate moves into one.
+ */
+export const EVENT_DEDUP_TITLE_MIN_SHARED_ANCHORS = 3;
+
+/** Minimum headline-anchor containment alongside {@link EVENT_DEDUP_TITLE_MIN_SHARED_ANCHORS}. */
+export const EVENT_DEDUP_TITLE_MIN_CONTAINMENT = 0.4;
+
 /** An event already kept in a higher-priority section, keyed by its distinctive anchors. */
-type EventEntry = { sectionKey: string; anchors: Set<string> };
+type EventEntry = {
+  sectionKey: string;
+  anchors: Set<string>;
+  titleAnchors: Set<string>;
+  publishedDay?: string;
+};
 
 type EventMatch = { entry: EventEntry; shared: number; containment: number };
 
@@ -53,6 +69,23 @@ const scoreOf = (source: SourceForGeneration): number =>
 
 const anchorsFor = (source: SourceForGeneration): Set<string> =>
   distinctiveAnchorTokens(tokenize(buildSourceComparisonText(source)));
+
+const titleAnchorsFor = (source: SourceForGeneration): Set<string> =>
+  distinctiveAnchorTokens(tokenize(source.title));
+
+/**
+ * Calendar day of a source's publish timestamp, or `undefined` when it carries none. Compared as a
+ * string so two sources only pair on an exact same-day match.
+ */
+const publishedDayOf = (source: SourceForGeneration): string | undefined => {
+  const publishedAt = source.publishedAt;
+  if (publishedAt === undefined || publishedAt === null) {
+    return undefined;
+  }
+  const day = publishedAt.slice(0, 10);
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : undefined;
+};
 
 const roundTwo = (value: number): number => Math.round(value * 100) / 100;
 
@@ -82,6 +115,42 @@ const findEventMatch = (
     }
     const containment = shared / Math.min(anchors.size, entry.anchors.size);
     if (containment < minContainment) {
+      continue;
+    }
+    if (best === undefined || shared > best.shared) {
+      best = { entry, shared, containment };
+    }
+  }
+
+  return best;
+};
+
+/**
+ * Finds a kept event whose headline matches this one on the same day. Runs only after the body
+ * path misses, and only for candidates that carry a publish day, so an undated source can never
+ * pair on headline alone.
+ */
+const findSameDayTitleMatch = (
+  titleAnchors: Set<string>,
+  publishedDay: string | undefined,
+  corpus: readonly EventEntry[],
+): EventMatch | undefined => {
+  if (publishedDay === undefined || titleAnchors.size === 0) {
+    return undefined;
+  }
+
+  let best: EventMatch | undefined;
+  for (const entry of corpus) {
+    if (entry.publishedDay !== publishedDay || entry.titleAnchors.size === 0) {
+      continue;
+    }
+    const shared = shingleIntersectionCount(titleAnchors, entry.titleAnchors);
+    if (shared < EVENT_DEDUP_TITLE_MIN_SHARED_ANCHORS) {
+      continue;
+    }
+    const containment =
+      shared / Math.min(titleAnchors.size, entry.titleAnchors.size);
+    if (containment < EVENT_DEDUP_TITLE_MIN_CONTAINMENT) {
       continue;
     }
     if (best === undefined || shared > best.shared) {
@@ -127,6 +196,11 @@ const orderByPlacementPriority = (
  * priority order, so the best-placed copy of an event wins and later duplicates drop. Runs before
  * any LLM call, so a duplicate never costs a summarization request.
  *
+ * A second, narrower path catches two outlets covering one story on the same day with lead
+ * paragraphs too different for the body guard: same publish day plus
+ * {@link EVENT_DEDUP_TITLE_MIN_SHARED_ANCHORS} shared headline anchors at
+ * {@link EVENT_DEDUP_TITLE_MIN_CONTAINMENT} containment.
+ *
  * @param sources - Candidate sources for this run.
  * @param minSharedAnchors - Minimum shared anchors before two sources are the same event.
  * @param minContainment - Minimum anchor containment alongside the shared-count guard.
@@ -143,12 +217,11 @@ export const dedupeCrossSectionSourceEvents = (
   for (const entry of orderByPlacementPriority(sources)) {
     const sectionKey = sectionKeyOf(entry.source);
     const anchors = anchorsFor(entry.source);
-    const match = findEventMatch(
-      anchors,
-      corpus,
-      minSharedAnchors,
-      minContainment,
-    );
+    const titleAnchors = titleAnchorsFor(entry.source);
+    const publishedDay = publishedDayOf(entry.source);
+    const match =
+      findEventMatch(anchors, corpus, minSharedAnchors, minContainment) ??
+      findSameDayTitleMatch(titleAnchors, publishedDay, corpus);
     if (match !== undefined) {
       drops.push({
         sectionKey,
@@ -161,7 +234,12 @@ export const dedupeCrossSectionSourceEvents = (
     }
     keptOrders.add(entry.order);
     if (anchors.size > 0) {
-      corpus.push({ sectionKey, anchors });
+      corpus.push({
+        sectionKey,
+        anchors,
+        titleAnchors,
+        ...(publishedDay !== undefined ? { publishedDay } : {}),
+      });
     }
   }
 

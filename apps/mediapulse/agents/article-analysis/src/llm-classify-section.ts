@@ -39,7 +39,7 @@ export const ISSUER_RELEVANCE_CRITERION_ID = "gate-issuer-relevance";
 
 /** Fixed instruction text for the issuer-relevance gate (not persisted, not editable). */
 const ISSUER_RELEVANCE_CRITERION_TEXT =
-  "Include if the article concerns the named issuer, a subsidiary or parent in the issuer's corporate group, a company competing in the issuer's industry, or the conditions under which companies in that industry operate. An article about a competitor or another operator in the issuer's market qualifies even when the issuer itself is never mentioned, and so does one about a group company trading under its own name and exchange symbol. The lists of brands and competitors given above are not exhaustive, so do not reject an article merely because the company it names is absent from them. Exclude only when the match is coincidental: a different entity, place, or topic that happens to share the ticker symbol, the company name, or a similar brand.";
+  "Include if the article concerns the named issuer, a subsidiary or parent in the issuer's corporate group, a company competing in the issuer's industry, or the conditions under which companies in that industry operate. An article about a competitor or another operator in the issuer's market qualifies even when the issuer itself is never mentioned, and so does one about a group company trading under its own name and exchange symbol. The lists of brands and competitors given above are not exhaustive, so do not reject an article merely because the company it names is absent from them. Exclude when the match is coincidental: a different entity, place, or topic that happens to share the ticker symbol, the company name, or a similar brand. Exclude too when the article is about another country's market: a foreign regulator's rule, a foreign company's results, or demand and pricing in a market the issuer does not serve. A same-industry company abroad is a coincidental match, not a competitor, unless the article ties it to the issuer's own market through trade, supply, ownership, or a stated effect there. World prices for a commodity the issuer produces or buys are the issuer's market and are not foreign.";
 
 /**
  * The issuer-relevance rule id in each section of `DEFAULT_ACCEPTANCE_CRITERIA`. Code-owned like the
@@ -117,7 +117,8 @@ const SYSTEM_PROMPT = [
   "Judge every rule independently and return exactly one judgment per rule.",
   "When a mandatory issuer-relevance gate rule is present, judge it exactly like any other rule:",
   "true when the article concerns the issuer, one of its competitors, or the conditions of the",
-  "market they share, and false only on a coincidental keyword or name match.",
+  "market they share, and false on a coincidental keyword or name match, or when the article's",
+  "subject is another country's market with no stated tie to the issuer's own.",
 ].join(" ");
 
 /**
@@ -185,6 +186,7 @@ export const renderArticleTickerContext = (
 
   const lines = [
     `Issuer context: this article was collected for ${ticker.symbol} (${ticker.name})${descriptorText}. Newsletter sections are defined relative to this issuer and its industry.`,
+    `${ticker.symbol} is listed on the Indonesia Stock Exchange and its home market is Indonesia. Judge every rule about a market, a regulator, or a competitor against that market unless the article ties another country to it.`,
   ];
 
   if (ticker.aliases.length > 0) {
@@ -339,6 +341,7 @@ export const scoreFromEvaluations = (
       matched,
       total,
       fraction: total > 0 ? matched / total : 0,
+      hasGate: gate.length > 0,
       // A section with no gate can never qualify; the fallback below covers configs that define none.
       qualified:
         gate.length > 0 && gate.every((criterion) => isMatched(criterion.id)),
@@ -350,11 +353,16 @@ export const scoreFromEvaluations = (
   // how demanding their rules are, so comparing fractions across them systematically favours
   // whichever section is easiest to satisfy rather than whichever fits.
   const qualified = tallies.filter((tally) => tally.qualified);
+  const anyGateDefined = tallies.some((tally) => tally.hasGate);
 
   // Configs that mark no qualifying rules (an operator override predating gates) keep the original
   // behaviour: highest matched fraction wins, now tie-broken by specificity rather than display order.
+  //
+  // Where gates do exist, an article that clears none of them is not the kind of story any section
+  // is for. Ranking it on matched fraction used to admit it anyway, which is how single-rule items
+  // ("authority named", nothing else) reached newsletters carrying no fact at all.
   let winner = qualified[0];
-  if (winner === undefined) {
+  if (winner === undefined && !anyGateDefined) {
     for (const tally of tallies) {
       if (winner === undefined || tally.fraction > winner.fraction) {
         winner = tally;
@@ -384,14 +392,17 @@ export const scoreFromEvaluations = (
   const issuerRelevanceRejected =
     requireIssuerRelevance && !isMatched(ISSUER_RELEVANCE_CRITERION_ID);
 
-  // No rule matched in any section, or the issuer-relevance gate failed: reject.
+  // No section qualified, no rule matched anywhere, or the issuer-relevance gate failed: reject.
+  const noSectionQualified = winner === undefined && anyGateDefined;
   if (issuerRelevanceRejected || winner === undefined || winner.matched === 0) {
     return {
       section: null,
       score: 0,
       reason: issuerRelevanceRejected
         ? `Rejected — not relevant to issuer context: ${noteFor(ISSUER_RELEVANCE_CRITERION_ID)}.`
-        : "No inclusion rule matched in any section; rejected.",
+        : noSectionQualified
+          ? "No section met its qualifying rules; rejected."
+          : "No inclusion rule matched in any section; rejected.",
       scoreBreakdown: {
         section: null,
         matched: 0,

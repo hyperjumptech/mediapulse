@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   canonicalizeUrl,
   classifyNoisyUrl,
+  unwrapRedirectUrl,
 } from "./article-source-url-filter.js";
 
 describe("canonicalizeUrl", () => {
@@ -22,6 +23,77 @@ describe("canonicalizeUrl", () => {
 
   it("returns origin only when path is root and there is no query string", () => {
     expect(canonicalizeUrl("https://Example.COM/")).toBe("https://example.com");
+  });
+});
+
+describe("unwrapRedirectUrl", () => {
+  it("returns the destination carried in a wrapper's query parameter", () => {
+    expect(
+      unwrapRedirectUrl(
+        "https://www.google.com/url?url=https%3A%2F%2Finvestasi.kontan.co.id%2Fnews%2Fantm-tumbuh&sa=U",
+      ),
+    ).toBe("https://investasi.kontan.co.id/news/antm-tumbuh");
+    expect(
+      unwrapRedirectUrl(
+        "https://l.facebook.com/l.php?u=https%3A%2F%2Fmarket.bisnis.com%2Fread%2F123",
+      ),
+    ).toBe("https://market.bisnis.com/read/123");
+  });
+
+  it("reports a wrapper whose target is an opaque token", () => {
+    expect(
+      unwrapRedirectUrl(
+        "https://www.google.com/goto?url=CAESowEB7keqTSju73L9dBqD1fIziKyLcRRpR23ut3rq",
+      ),
+    ).toBe("opaque");
+  });
+
+  it("returns undefined for an ordinary article URL", () => {
+    expect(
+      unwrapRedirectUrl("https://investasi.kontan.co.id/news/antm-tumbuh"),
+    ).toBeUndefined();
+    expect(unwrapRedirectUrl("not-a-url")).toBeUndefined();
+  });
+
+  it("ignores a non-http destination", () => {
+    expect(
+      unwrapRedirectUrl("https://www.google.com/url?url=javascript%3Aalert(1)"),
+    ).toBe("opaque");
+  });
+});
+
+describe("classifyNoisyUrl: redirect wrappers", () => {
+  it("classifies the publisher URL a wrapper points at, not the wrapper", () => {
+    const decision = classifyNoisyUrl(
+      "https://www.google.com/url?url=https%3A%2F%2Finvestasi.kontan.co.id%2Fnews%2Fantm-tumbuh",
+    );
+
+    expect(decision).toEqual({
+      blocked: false,
+      canonicalUrl: "https://investasi.kontan.co.id/news/antm-tumbuh",
+    });
+  });
+
+  it("applies host rules to the unwrapped destination", () => {
+    const decision = classifyNoisyUrl(
+      "https://www.google.com/url?url=https%3A%2F%2Fwww.statista.com%2Fstatistics%2F123%2Fcoal",
+    );
+
+    expect(decision).toMatchObject({
+      blocked: true,
+      reason: "low_value_source",
+    });
+  });
+
+  it("drops a wrapper whose destination cannot be recovered", () => {
+    const decision = classifyNoisyUrl(
+      "https://www.google.com/goto?url=CAESowEB7keqTSju73L9dBqD1fIziKyLcRRpR23ut3rq",
+    );
+
+    expect(decision).toMatchObject({
+      blocked: true,
+      reason: "opaque_redirect",
+    });
   });
 });
 
