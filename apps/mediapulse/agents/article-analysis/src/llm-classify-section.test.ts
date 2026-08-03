@@ -169,6 +169,24 @@ describe("buildSectionClassificationMessages", () => {
     );
   });
 
+  it("tells the gate to exclude another country's market", () => {
+    const messages = buildSectionClassificationMessages({
+      title: "Vietnam raises treasury deposit allowance",
+      content: "Commercial banks may count half of State Treasury deposits.",
+      acceptanceCriteria: criteria,
+      tickerContext: "Issuer context: collected for BMRI.",
+    });
+    const user = String(messages[1]!.content);
+    const system = String(messages[0]!.content);
+
+    expect(user).toContain("Exclude too when the article is about another");
+    expect(user).toContain(
+      "A same-industry company abroad is a coincidental match",
+    );
+    expect(user).toContain("World prices for a commodity the issuer produces");
+    expect(system).toContain("another country's market with no stated tie");
+  });
+
   it("appends the product_contract block to the system prompt when a brief is present", () => {
     const withBrief = buildSectionClassificationMessages({
       title: "Acme buys Globex",
@@ -248,6 +266,22 @@ describe("renderArticleTickerContext", () => {
 
     expect(line).toContain("AGRO (PT Bank Raya Indonesia Tbk)");
     expect(line).toContain("main business Perbankan");
+  });
+
+  it("states the issuer's home market so foreign coverage is judged against it", () => {
+    const line = renderArticleTickerContext({
+      symbol: "BMRI",
+      name: "PT Bank Mandiri (Persero) Tbk",
+      sector: "Keuangan",
+      industry: "Bank",
+      subIndustry: "Bank",
+      businessActivity: "Perbankan",
+      aliases: [],
+      competitors: [],
+    });
+
+    expect(line).toContain("home market is Indonesia");
+    expect(line).toContain("Indonesia Stock Exchange");
   });
 
   it("names the issuer's own brands so they are not read as competitors", () => {
@@ -562,6 +596,40 @@ describe("scoreFromEvaluations — qualifying gates and precedence", () => {
 
     expect(result.section).toBe("competitiveLandscape");
     expect(result.reason).toContain("chosen on matched fraction");
+  });
+
+  it("rejects an article that clears no gate even when single rules matched", () => {
+    const result = scoreFromEvaluations(evaluateGated(["ip3", "cl3"]), gated);
+
+    expect(result.section).toBeNull();
+    expect(result.score).toBe(0);
+    expect(result.reason).toBe(
+      "No section met its qualifying rules; rejected.",
+    );
+  });
+
+  it("rejects when only one of a section's two gate rules matched", () => {
+    const result = scoreFromEvaluations(
+      evaluateGated(["ip1", "ip3", "ip4", "ip5"]),
+      gated,
+    );
+
+    expect(result.section).toBeNull();
+    expect(result.reason).toContain("No section met its qualifying rules");
+  });
+
+  it("still records every section's tally when the article is rejected", () => {
+    const result = scoreFromEvaluations(evaluateGated(["ip3"]), gated);
+    const byId = new Map(
+      result.scoreBreakdown.sections.map((section) => [
+        section.section,
+        section,
+      ]),
+    );
+
+    expect(byId.get("industryPulse")?.matched).toBe(1);
+    expect(byId.get("industryPulse")?.qualified).toBe(false);
+    expect(byId.get("competitiveLandscape")?.qualified).toBe(false);
   });
 });
 

@@ -118,6 +118,106 @@ describe("dedupeCrossSectionSourceEvents", () => {
     expect(titleOf(result.sources)).toEqual(["Auction result"]);
   });
 
+  it("drops a same-day second telling whose headline repeats the kept one", () => {
+    const sources = [
+      {
+        ...source(
+          "Konser 35 Tahun Twilite Orchestra Ludes, BRI Buka Akses Eksklusif",
+          "Kolaborasi perbankan mendukung ekonomi kreatif nasional lewat program apresiasi pelanggan.",
+          "competitiveLandscape",
+        ),
+        publishedAt: "2026-07-31T09:00:00.000Z",
+      },
+      {
+        ...source(
+          "BRI Dukung Ekonomi Kreatif Lewat Konser Twilite Orchestra 35 Tahun",
+          "Tiket umum habis dalam satu jam, manajemen menyebut animo penonton sangat tinggi.",
+          "quickHits",
+        ),
+        publishedAt: "2026-07-31T14:20:00.000Z",
+      },
+    ];
+
+    const result = dedupeCrossSectionSourceEvents(sources);
+
+    expect(result.removedCount).toBe(1);
+    expect(titleOf(result.sources)).toEqual([
+      "Konser 35 Tahun Twilite Orchestra Ludes, BRI Buka Akses Eksklusif",
+    ]);
+    expect(result.drops[0]).toMatchObject({ sectionKey: "quickHits" });
+  });
+
+  it("keeps a repeated headline shape published on a different day", () => {
+    const sources = [
+      {
+        ...source(
+          "Konser 35 Tahun Twilite Orchestra Ludes, BRI Buka Akses Eksklusif",
+          "Kolaborasi perbankan mendukung ekonomi kreatif nasional lewat program apresiasi pelanggan.",
+          "competitiveLandscape",
+        ),
+        publishedAt: "2026-07-31T09:00:00.000Z",
+      },
+      {
+        ...source(
+          "BRI Dukung Ekonomi Kreatif Lewat Konser Twilite Orchestra 35 Tahun",
+          "Tiket umum habis dalam satu jam, manajemen menyebut animo penonton sangat tinggi.",
+          "quickHits",
+        ),
+        publishedAt: "2026-08-02T14:20:00.000Z",
+      },
+    ];
+
+    const result = dedupeCrossSectionSourceEvents(sources);
+
+    expect(result.removedCount).toBe(0);
+    expect(result.sources).toHaveLength(2);
+  });
+
+  it("never pairs on headline alone when a source carries no publish date", () => {
+    const sources = [
+      source(
+        "Konser 35 Tahun Twilite Orchestra Ludes, BRI Buka Akses Eksklusif",
+        "Kolaborasi perbankan mendukung ekonomi kreatif nasional lewat program apresiasi pelanggan.",
+        "competitiveLandscape",
+      ),
+      source(
+        "BRI Dukung Ekonomi Kreatif Lewat Konser Twilite Orchestra 35 Tahun",
+        "Tiket umum habis dalam satu jam, manajemen menyebut animo penonton sangat tinggi.",
+        "quickHits",
+      ),
+    ];
+
+    const result = dedupeCrossSectionSourceEvents(sources);
+
+    expect(result.removedCount).toBe(0);
+  });
+
+  it("keeps same-day articles whose headlines share too little", () => {
+    const sources = [
+      {
+        ...source(
+          "BBCA Cetak Laba Rp29,5 Triliun di Semester I 2026",
+          "Bank melaporkan pertumbuhan kredit korporasi sebagai pendorong utama.",
+          "quickHits",
+        ),
+        publishedAt: "2026-07-29T02:00:00.000Z",
+      },
+      {
+        ...source(
+          "BCA Ungkap Penyebab NIM Turun 50 Bps pada Semester I 2026",
+          "Manajemen menjelaskan penyesuaian suku bunga kredit sejak tahun lalu.",
+          "quickHits",
+        ),
+        publishedAt: "2026-07-29T08:30:00.000Z",
+      },
+    ];
+
+    const result = dedupeCrossSectionSourceEvents(sources);
+
+    expect(result.removedCount).toBe(0);
+    expect(result.sources).toHaveLength(2);
+  });
+
   it("preserves the caller's ordering among kept sources", () => {
     const sources = [
       source(

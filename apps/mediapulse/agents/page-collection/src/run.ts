@@ -291,6 +291,7 @@ async function executePageCollectionRun(
     blocked_extension: 0,
     site_homepage: 0,
     non_article_page: 0,
+    opaque_redirect: 0,
   };
   let droppedByDuplicateCanonicalUrl = 0;
   let droppedByExistingCanonicalUrl = 0;
@@ -688,7 +689,9 @@ async function executePageCollectionRun(
     dropParts.push(`${droppedByRelevance} never mentioned a tracked ticker`);
   }
   const droppedByNonArticleUrl =
-    droppedByUrlReason.site_homepage + droppedByUrlReason.non_article_page;
+    droppedByUrlReason.site_homepage +
+    droppedByUrlReason.non_article_page +
+    droppedByUrlReason.opaque_redirect;
   if (droppedByNonArticleUrl > 0) {
     dropParts.push(`${droppedByNonArticleUrl} were not articles`);
   }

@@ -33,6 +33,8 @@ export const REASON_LABELS: Record<string, string> = {
   url_noise_site_homepage: "Site or section homepage, not an article",
   url_noise_non_article_page:
     "Generated tool or reference page, not an article",
+  url_noise_opaque_redirect:
+    "Redirect interstitial with no recoverable publisher URL",
   content_no_title: "Missing or blocked title",
   content_soft_404: "Page not found",
   content_access_gated: "Access gated (paywall or login required)",
@@ -97,7 +99,8 @@ export const describeOutcomeReason = (
     case "url_noise_blocked_path":
     case "url_noise_blocked_extension":
     case "url_noise_site_homepage":
-    case "url_noise_non_article_page": {
+    case "url_noise_non_article_page":
+    case "url_noise_opaque_redirect": {
       const label = REASON_LABELS[context.reason] ?? context.reason;
       return {
         reason: context.reason,

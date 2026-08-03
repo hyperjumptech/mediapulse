@@ -30,6 +30,7 @@ import {
   type EventDedupDrop,
 } from "./lib/event-dedup.js";
 import { retryWithBackoff } from "./lib/retry.js";
+import { sanitizeSummaryPoints } from "./lib/sanitize-summary-points.js";
 import { truncateSources } from "./lib/truncate-sources.js";
 import { isRetryableLlmError } from "./llm-classify-error.js";
 import { selectArticles, type SelectedArticle } from "./select-articles.js";
@@ -617,11 +618,32 @@ export async function generateNewsletterWithLlm(
         const summary = articleSummarySchema.parse(result.object);
         addUsage(tokenTotals, result.usage);
 
+        // A stray non-Latin glyph or a point cut off against the length budget ships as visibly
+        // broken prose, so the point is withheld rather than rendered. An article left with no
+        // usable point counts as a summarization failure and drops out with the rest.
+        const sanitized = sanitizeSummaryPoints(summary.points);
+        if (sanitized.dropped.length > 0) {
+          logger.warn(
+            {
+              tickerId: context.tickerId,
+              sectionKey: entry.sectionKey,
+              url: entry.source.url,
+              dropped: sanitized.dropped,
+              keptCount: sanitized.points.length,
+              event: "summary_point_rejected",
+            },
+            `Dropped ${String(sanitized.dropped.length)} unusable summary point(s)`,
+          );
+        }
+        if (sanitized.points.length === 0) {
+          return { status: "failed", entry };
+        }
+
         return {
           status: "summarized",
           entry,
           title: summary.title,
-          points: summary.points,
+          points: sanitized.points,
         };
       } catch (err) {
         logger.warn(

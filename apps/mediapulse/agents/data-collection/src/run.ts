@@ -225,6 +225,7 @@ export async function runDataCollection(
     blocked_extension: 0,
     site_homepage: 0,
     non_article_page: 0,
+    opaque_redirect: 0,
   };
   let droppedByDuplicateCanonicalUrl = 0;
   let droppedByExistingCanonicalUrl = 0;
@@ -770,7 +771,9 @@ export async function runDataCollection(
       droppedByFreshness: droppedByFreshnessTotalCount,
       droppedByRelevance,
       droppedByNonArticleUrl:
-        droppedByUrlReason.site_homepage + droppedByUrlReason.non_article_page,
+        droppedByUrlReason.site_homepage +
+        droppedByUrlReason.non_article_page +
+        droppedByUrlReason.opaque_redirect,
       droppedByThinDescription:
         droppedByEmptyDescription + droppedByShortDescription,
       droppedByDuplicate:

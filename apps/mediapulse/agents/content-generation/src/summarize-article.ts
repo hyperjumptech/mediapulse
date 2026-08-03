@@ -36,6 +36,10 @@ Lead with the concrete thing: the number, the name, the decision, the change. Cu
 
 One fact per point. No bullet characters, no leading dashes, no trailing citations.
 
+Write in English using the Latin alphabet only. Never leave a word from the source language in another script, and never mix Chinese, Japanese, Korean, Arabic, or Cyrillic characters into a point: translate the term or drop it.
+
+Never cut a point short to fit the character limit. If a fact does not fit, write a shorter complete sentence instead. A point that stops mid-word, mid-number, or on a word like "and", "with", "by", or "the" is unusable.
+
 Write as many points as the article earns and no more. Most articles carry one or two things worth knowing. Never pad to reach ${String(MAX_POINTS_PER_ARTICLE)}.`;
 
 /**
