@@ -1,6 +1,7 @@
 {
   "extends": "@workspace/typescript-config/node16.json",
   "compilerOptions": {
+    "lib": ["ES2021", "ES2022.Intl"],
     "module": "ES2022"
   },
   "include": ["src", "vitest.config.ts"],

@@ -17,6 +17,18 @@ describe("derivePublisherFromUrl", () => {
     ).toBe("Katadata");
   });
 
+  it("handles non-commercial Indonesian suffixes", () => {
+    expect(
+      derivePublisherFromUrl("https://www.bappenas.go.id/id/berita/abc"),
+    ).toBe("Bappenas");
+    expect(derivePublisherFromUrl("https://stiestekom.ac.id/berita/abc")).toBe(
+      "Stiestekom",
+    );
+    expect(derivePublisherFromUrl("https://www.kemenperin.or.id/artikel")).toBe(
+      "Kemenperin",
+    );
+  });
+
   it("picks the brand from a deeper subdomain on a country suffix", () => {
     expect(
       derivePublisherFromUrl("https://momsmoney.kontan.co.id/news/abc"),

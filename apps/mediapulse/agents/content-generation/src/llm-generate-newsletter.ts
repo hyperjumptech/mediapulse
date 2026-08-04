@@ -40,8 +40,8 @@ import {
   SUMMARIZE_ARTICLE_SYSTEM_PROMPT,
 } from "./summarize-article.js";
 import {
+  buildSubjectFallback,
   buildSubjectPrompt,
-  MAX_SUBJECT_LENGTH,
   newsletterSubjectSchema,
   WRITE_SUBJECT_SYSTEM_PROMPT,
 } from "./write-subject.js";
@@ -738,9 +738,7 @@ export async function generateNewsletterWithLlm(
   const shippedTitles = document.sections.flatMap((section) =>
     section.articles.map((article) => article.title),
   );
-  const leadTitle = shippedTitles[0] ?? "Your daily briefing";
-
-  let subjectTitle = leadTitle.slice(0, MAX_SUBJECT_LENGTH).trim();
+  let subjectTitle = buildSubjectFallback(shippedTitles);
   try {
     const subjectResult = await retryWithBackoff(
       async () =>

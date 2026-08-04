@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   containsNonLatinScript,
+  describesFetchFailure,
   looksTruncated,
   sanitizeSummaryPoints,
 } from "./sanitize-summary-points.js";
@@ -74,6 +75,72 @@ describe("looksTruncated", () => {
   });
 });
 
+describe("describesFetchFailure", () => {
+  it("flags points shipped in the 2026-08-04 batch", () => {
+    expect(
+      describesFetchFailure(
+        "Article content not found; no key facts available.",
+      ),
+    ).toBe(true);
+    expect(
+      describesFetchFailure(
+        "Website sekbernews.id shows error code 520 and cannot display page content",
+      ),
+    ).toBe(true);
+    expect(
+      describesFetchFailure(
+        "Unknown connection issue between Cloudflare and origin web server occurred",
+      ),
+    ).toBe(true);
+    expect(
+      describesFetchFailure(
+        "No detailed information on Telkom Indonesia's data center expansion available",
+      ),
+    ).toBe(true);
+    expect(
+      describesFetchFailure(
+        "No additional operational or market details available due to website error",
+      ),
+    ).toBe(true);
+  });
+
+  it("flags block and paywall pages", () => {
+    expect(describesFetchFailure("Access denied for this request")).toBe(true);
+    expect(
+      describesFetchFailure("The page returned a 403 Forbidden response"),
+    ).toBe(true);
+    expect(
+      describesFetchFailure("Subscription required to read the full report"),
+    ).toBe(true);
+  });
+
+  it("accepts ordinary business prose that mentions absence or failure", () => {
+    expect(
+      describesFetchFailure(
+        "No financial details were disclosed for the acquisition.",
+      ),
+    ).toBe(false);
+    expect(
+      describesFetchFailure(
+        "The company said its Cikarang site is unavailable for new tenants",
+      ),
+    ).toBe(false);
+    expect(
+      describesFetchFailure("Net profit fell 2.8% to Rp1.91 trillion."),
+    ).toBe(false);
+    expect(
+      describesFetchFailure(
+        "Management could not be reached for comment on the tender offer",
+      ),
+    ).toBe(false);
+    expect(
+      describesFetchFailure(
+        "The article 404 platform launched across 12 provinces",
+      ),
+    ).toBe(false);
+  });
+});
+
 describe("sanitizeSummaryPoints", () => {
   it("keeps clean points untouched", () => {
     const points = [
@@ -126,5 +193,20 @@ describe("sanitizeSummaryPoints", () => {
 
     expect(result.points).toEqual([]);
     expect(result.dropped).toHaveLength(2);
+  });
+
+  it("empties an article built entirely from an error page", () => {
+    const result = sanitizeSummaryPoints([
+      "Website sekbernews.id shows error code 520 and cannot display page content",
+      "Unknown connection issue between Cloudflare and origin web server occurred",
+      "No detailed information on Telkom Indonesia's data center expansion available",
+    ]);
+
+    expect(result.points).toEqual([]);
+    expect(result.dropped.map((entry) => entry.reason)).toEqual([
+      "fetch_failure",
+      "fetch_failure",
+      "fetch_failure",
+    ]);
   });
 });
