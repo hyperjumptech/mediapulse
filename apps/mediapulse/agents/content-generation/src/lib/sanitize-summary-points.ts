@@ -1,7 +1,10 @@
 import { MAX_POINT_LENGTH } from "@workspace/email-templates/newsletter-document";
 
 /** Why a generated point was withheld from the newsletter. */
-export type DroppedPointReason = "non_latin_script" | "truncated";
+export type DroppedPointReason =
+  | "non_latin_script"
+  | "truncated"
+  | "fetch_failure";
 
 /** One point removed by {@link sanitizeSummaryPoints}, kept for logging. */
 export type DroppedPoint = {
@@ -24,6 +27,30 @@ const NON_LATIN_SCRIPT_PATTERN =
 
 /** Characters that can legitimately end a complete point. */
 const COMPLETE_ENDING_PATTERN = /[.!?%)\]"'’”]$/u;
+
+/**
+ * Machinery of a failed fetch rather than news: CDN names, HTTP status text, and block pages. The
+ * summarizer sometimes describes the error page it was handed instead of refusing the article,
+ * which ships as "Website x shows error code 520 and cannot display page content".
+ */
+const PAGE_ARTIFACT_PATTERN =
+  /\b(?:cloudflare|origin web server|error code\s*\d{3}|http\s*\d{3}|status code\s*\d{3}|\d{3}\s*(?:error|forbidden|not found)|page (?:not found|cannot be displayed|could not be loaded)|cannot display (?:the )?page|website error|connection (?:issue|error|refused|timed out)|access denied|subscription required|paywall|captcha|enable javascript|javascript is required)\b/iu;
+
+/**
+ * An article, page, or source described as missing. Anchored on the page noun so a company
+ * genuinely reported as unavailable is not caught. "Site" is deliberately absent from the noun
+ * list, since an industrial or plant site is unavailable for ordinary business reasons.
+ */
+const MISSING_CONTENT_PATTERN =
+  /\b(?:article|page|website|webpage|source|content|url|link)\b[^.]{0,60}?\b(?:not found|unavailable|not available|could not be (?:retrieved|loaded|accessed)|failed to load|inaccessible)\b/iu;
+
+/**
+ * Summarizer meta-language conceding it found nothing, as in "No detailed information on the
+ * expansion available". "Disclosed" is deliberately excluded so the ordinary deal-reporting line
+ * "no financial details were disclosed" still ships.
+ */
+const NO_INFORMATION_PATTERN =
+  /^\s*no\s+(?:\w+\s+){0,3}?(?:information|details|data|facts)\b[^.]*\b(?:available|found|provided|retrieved)\b/iu;
 
 /**
  * Words a complete point never ends on. A point stopping here was cut mid-clause even when it
@@ -94,12 +121,24 @@ export const containsNonLatinScript = (point: string): boolean =>
   NON_LATIN_SCRIPT_PATTERN.test(point);
 
 /**
- * Removes points that would ship as visibly broken text: a stray non-Latin glyph, or a sentence
- * cut off mid-word against the length budget.
+ * Reports whether a point describes a failed fetch instead of the article's subject.
+ *
+ * @param point - One generated summary point.
+ */
+export const describesFetchFailure = (point: string): boolean =>
+  PAGE_ARTIFACT_PATTERN.test(point) ||
+  MISSING_CONTENT_PATTERN.test(point) ||
+  NO_INFORMATION_PATTERN.test(point);
+
+/**
+ * Removes points that would ship as visibly broken text: a stray non-Latin glyph, a sentence cut
+ * off mid-word against the length budget, or a description of a failed fetch rather than of the
+ * article.
  *
  * Dropping the point rather than the article keeps the rest of a good summary. A caller that
  * receives an empty result should treat the article as failed, since a rendered article with no
- * points is worse than one absent article.
+ * points is worse than one absent article. An article built entirely from an error page loses
+ * every point here and so drops out.
  *
  * @param points - Points returned by the summarizer.
  * @returns The points safe to render, plus what was dropped and why.
@@ -117,6 +156,10 @@ export const sanitizeSummaryPoints = (
     }
     if (looksTruncated(point)) {
       dropped.push({ point, reason: "truncated" });
+      continue;
+    }
+    if (describesFetchFailure(point)) {
+      dropped.push({ point, reason: "fetch_failure" });
       continue;
     }
     kept.push(point);
