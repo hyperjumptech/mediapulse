@@ -50,15 +50,53 @@ const ISSUER_RELEVANCE_CRITERION_TEXT =
  * macro/sector-wide by design and has no issuer-specific rule, and after the criteria rework
  * `regulatoryPolicyWatch` has none either. A custom config that renames these ids skips the cap.
  *
+ * `competitiveLandscape` is absent by design. Its `cl-issuer-side` rule asks whether the issuer is
+ * on one side of a peer's move, which a competitor-only article never satisfies, so capping on it
+ * pinned every competitor story to {@link ISSUER_UNMATCHED_SCORE_CAP} whatever its quality: 49 of
+ * the 56 accepted in the 2026-08-04 batch scored exactly 0.40, leaving nothing to rank them by. The
+ * section needs no cap because it corroborates itself. Winning it already requires `cl-peer-named`,
+ * `cl-peer-action`, and `cl-market-overlap` to all match, since all three are qualifying rules.
+ *
  * - Important: these ids must track `DEFAULT_ACCEPTANCE_CRITERIA`. They silently went stale once
  *   already, which disabled the cap entirely; `llm-classify-section.test.ts` now pins them.
  */
 export const ISSUER_RELEVANCE_RULE_IDS: ReadonlySet<string> = new Set([
-  "cl-issuer-side",
   "dm-market-link",
   "dt-operating-change",
   "qh-market-actor",
 ]);
+
+/**
+ * Per-section rules whose match independently places the article in the issuer's market. Each one
+ * asks the model a narrow, concrete question ("does this name a competitor", "is this the market
+ * the issuer serves") rather than the global gate's long disjunction, and the model answers them far
+ * more reliably: in the 2026-08-04 batch it set `cl-peer-named` true on 23 articles it then rejected
+ * through the gate.
+ *
+ * - Important: `cl-issuer-side` is deliberately absent. It asks whether the issuer itself is on one
+ *   side of a peer's move, which measures how close the story runs to the issuer, not whether the
+ *   story is in its market at all.
+ */
+export const MARKET_ANCHOR_RULE_IDS: ReadonlySet<string> = new Set([
+  "ip-market-named",
+  "cl-peer-named",
+  "cl-market-overlap",
+  "dm-market-link",
+  "dt-operating-change",
+  "qh-market-actor",
+]);
+
+/**
+ * Matched {@link MARKET_ANCHOR_RULE_IDS} needed to overturn a gate judgment of `false`.
+ *
+ * Two, not one. A single anchor fires on a coincidental overlap: in the 2026-08-04 batch the
+ * one-anchor band held "Top Aces Number of Employees 2026" scored against ACES and a BCA directors'
+ * ketoprak performance scored against BMRI, both exactly the keyword collisions the gate exists to
+ * catch. At two the same batch recovers 27 articles, among them BCA's change of controlling
+ * shareholder, Blibli's revenue growth against ERAA, and Kalbe's H1 profit against SOHO, with no
+ * foreign-market item among them.
+ */
+export const MARKET_ANCHOR_OVERRIDE_MIN = 2;
 
 /**
  * Fit-score ceiling for a section won on issuer-agnostic rules while its issuer-relevance rule is
@@ -294,8 +332,10 @@ const capReason = (reason: string): string =>
  * @param evaluations - Per-rule judgments from the model (missing rules count as not matched).
  * @param acceptanceCriteria - The per-section rules the judgments were made against.
  * @param requireIssuerRelevance - When true, rejects unless the model's judgment for
- *   {@link ISSUER_RELEVANCE_CRITERION_ID} is explicitly `matched: true` — fails closed if the
- *   judgment is missing. Defaults to `false` for backward compatibility.
+ *   {@link ISSUER_RELEVANCE_CRITERION_ID} is `matched: true`, or at least
+ *   {@link MARKET_ANCHOR_OVERRIDE_MIN} of {@link MARKET_ANCHOR_RULE_IDS} matched and stand in for
+ *   it. Fails closed when the judgment is missing and the anchors do not clear that bar. Defaults
+ *   to `false` for backward compatibility.
  * @returns The deterministic classification with a self-describing score breakdown carrying every
  *   rule's judgment across all sections, not only the winning one.
  */
@@ -386,11 +426,33 @@ export const scoreFromEvaluations = (
     note: noteFor(criterion.id),
   }));
 
-  // Mandatory issuer-relevance gate: fail closed if required and not explicitly matched
-  // true (including when the model omits the judgment), regardless of how many generic
-  // per-section criteria the article superficially satisfies elsewhere.
+  // Mandatory issuer-relevance gate: fail closed if required and not explicitly matched true,
+  // including when the model omits the judgment.
+  //
+  // The gate asks one boolean over a long disjunction, and a small classifier answers it as though
+  // it read "does this concern the issuer directly", contradicting the narrow per-section rules it
+  // answers correctly in the same response. So the model's own market anchors can overturn a `false`
+  // gate: when at least MARKET_ANCHOR_OVERRIDE_MIN of them matched, the article is in the issuer's
+  // market on the model's own evidence and the gate is treated as satisfied. A missing gate judgment
+  // still fails closed unless the anchors clear the same bar.
+  const gateMatched = isMatched(ISSUER_RELEVANCE_CRITERION_ID);
+  const marketAnchors = flat.filter(
+    (criterion) =>
+      MARKET_ANCHOR_RULE_IDS.has(criterion.id) && isMatched(criterion.id),
+  ).length;
+  const anchorsOverrideGate =
+    !gateMatched && marketAnchors >= MARKET_ANCHOR_OVERRIDE_MIN;
   const issuerRelevanceRejected =
-    requireIssuerRelevance && !isMatched(ISSUER_RELEVANCE_CRITERION_ID);
+    requireIssuerRelevance && !gateMatched && !anchorsOverrideGate;
+
+  const issuerRelevance = requireIssuerRelevance
+    ? {
+        matched: gateMatched,
+        note: noteFor(ISSUER_RELEVANCE_CRITERION_ID),
+        marketAnchors,
+        overridden: anchorsOverrideGate,
+      }
+    : undefined;
 
   // No section qualified, no rule matched anywhere, or the issuer-relevance gate failed: reject.
   const noSectionQualified = winner === undefined && anyGateDefined;
@@ -410,6 +472,7 @@ export const scoreFromEvaluations = (
         criteriaHash: hash,
         criteria: criteriaBreakdown,
         sections,
+        ...(issuerRelevance !== undefined ? { issuerRelevance } : {}),
       },
     };
   }
@@ -447,6 +510,9 @@ export const scoreFromEvaluations = (
     issuerRelevanceUnmatched && winnerIssuerRule !== undefined
       ? ` Issuer-relevance rule ${winnerIssuerRule.id} unmatched; fit score capped at ${ISSUER_UNMATCHED_SCORE_CAP.toFixed(2)}.`
       : "";
+  const gateOverrideText = anchorsOverrideGate
+    ? ` Issuer gate returned false but ${String(marketAnchors)} market-anchor rules matched; treated as issuer-relevant.`
+    : "";
   const runnersUp = qualified
     .filter((tally) => tally.section !== winner.section)
     .map((tally) => tally.section);
@@ -454,7 +520,7 @@ export const scoreFromEvaluations = (
     ? ` Chosen as the most specific qualifying section${runnersUp.length > 0 ? ` over ${runnersUp.join(", ")}` : ""}.`
     : " No section met its qualifying rules; chosen on matched fraction.";
   const reason = capReason(
-    `${label} — matched ${winner.matched}/${winner.total}${matchedText}.${selectionText}${missedText}${issuerCapText}`,
+    `${label} — matched ${winner.matched}/${winner.total}${matchedText}.${selectionText}${missedText}${issuerCapText}${gateOverrideText}`,
   );
 
   return {
@@ -468,6 +534,7 @@ export const scoreFromEvaluations = (
       criteriaHash: hash,
       criteria: criteriaBreakdown,
       sections,
+      ...(issuerRelevance !== undefined ? { issuerRelevance } : {}),
     },
   };
 };

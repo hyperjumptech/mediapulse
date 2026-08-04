@@ -11,6 +11,7 @@ import {
   criteriaHash,
   ISSUER_RELEVANCE_CRITERION_ID,
   ISSUER_RELEVANCE_RULE_IDS,
+  MARKET_ANCHOR_RULE_IDS,
   MAX_CONTENT_CHARS,
   rejectEmptySource,
   renderArticleTickerContext,
@@ -236,18 +237,53 @@ describe("ISSUER_RELEVANCE_RULE_IDS", () => {
     }
   });
 
-  it("covers every issuer-specific section exactly once", () => {
+  it("covers every capped section exactly once, and never competitiveLandscape", () => {
     const config = articleAnalysisConfigSchema.parse({});
     const coveredSections = flattenAcceptanceCriteria(config.acceptanceCriteria)
       .filter((criterion) => ISSUER_RELEVANCE_RULE_IDS.has(criterion.id))
       .map((criterion) => criterion.section);
 
     expect(coveredSections).toEqual([
-      "competitiveLandscape",
       "dealsAndMovements",
       "disruptorsOrTech",
       "quickHits",
     ]);
+  });
+
+  it("leaves competitiveLandscape uncapped because its own gate corroborates it", () => {
+    const config = articleAnalysisConfigSchema.parse({});
+    const qualifyingIds = flattenAcceptanceCriteria(config.acceptanceCriteria)
+      .filter(
+        (criterion) =>
+          criterion.section === "competitiveLandscape" && criterion.qualifying,
+      )
+      .map((criterion) => criterion.id);
+
+    expect(ISSUER_RELEVANCE_RULE_IDS.has("cl-issuer-side")).toBe(false);
+    expect(qualifyingIds).toEqual([
+      "cl-peer-named",
+      "cl-peer-action",
+      "cl-market-overlap",
+    ]);
+  });
+});
+
+describe("MARKET_ANCHOR_RULE_IDS", () => {
+  it("references only ids that exist in the seeded criteria", () => {
+    const config = articleAnalysisConfigSchema.parse({});
+    const seededIds = new Set(
+      flattenAcceptanceCriteria(config.acceptanceCriteria).map(
+        (criterion) => criterion.id,
+      ),
+    );
+
+    for (const ruleId of MARKET_ANCHOR_RULE_IDS) {
+      expect(seededIds.has(ruleId)).toBe(true);
+    }
+  });
+
+  it("excludes cl-issuer-side, which measures closeness rather than market membership", () => {
+    expect(MARKET_ANCHOR_RULE_IDS.has("cl-issuer-side")).toBe(false);
   });
 });
 
@@ -696,6 +732,150 @@ describe("scoreFromEvaluations — issuer-relevance gate", () => {
   });
 });
 
+/**
+ * competitiveLandscape carrying its real rule ids, three of which are market anchors. Mirrors the
+ * shape the classifier returned for peer-only articles in the 2026-08-04 batch.
+ */
+const anchorCriteria: AcceptanceCriteriaRule[] = [
+  {
+    section: "competitiveLandscape",
+    criteria: [
+      {
+        id: "cl-peer-named",
+        text: "Include if a peer is named.",
+        qualifying: true,
+      },
+      {
+        id: "cl-peer-action",
+        text: "Include if the peer acted.",
+        qualifying: true,
+      },
+      {
+        id: "cl-market-overlap",
+        text: "Include if the markets overlap.",
+        qualifying: true,
+      },
+      {
+        id: "cl-relative-dynamic",
+        text: "Include if standing shifted.",
+        qualifying: false,
+      },
+      {
+        id: "cl-issuer-side",
+        text: "Include if the issuer is on one side.",
+        qualifying: false,
+      },
+    ],
+  },
+];
+
+const anchorEvaluations = (
+  matchedIds: string[],
+  gate: boolean | undefined,
+): CriterionEvaluation[] => {
+  const rows: CriterionEvaluation[] = anchorCriteria.flatMap((rule) =>
+    rule.criteria.map((criterion) => ({
+      id: criterion.id,
+      matched: matchedIds.includes(criterion.id),
+      note: matchedIds.includes(criterion.id) ? "evidence present" : "absent",
+    })),
+  );
+
+  if (gate !== undefined) {
+    rows.push({
+      id: ISSUER_RELEVANCE_CRITERION_ID,
+      matched: gate,
+      note: gate ? "concerns the issuer" : "the article is about a competitor",
+    });
+  }
+
+  return rows;
+};
+
+describe("scoreFromEvaluations — market-anchor override of the issuer gate", () => {
+  it("admits a peer-only article the gate rejected once two anchors matched", () => {
+    const result = scoreFromEvaluations(
+      anchorEvaluations(
+        ["cl-peer-named", "cl-peer-action", "cl-market-overlap"],
+        false,
+      ),
+      anchorCriteria,
+      true,
+    );
+
+    expect(result.section).toBe("competitiveLandscape");
+    expect(result.score).toBeCloseTo(0.6);
+    expect(result.reason).toContain("Issuer gate returned false");
+    // cl-peer-action is not an anchor: it reports what the peer did, not where it operates.
+    expect(result.scoreBreakdown.issuerRelevance).toEqual({
+      matched: false,
+      note: "the article is about a competitor",
+      marketAnchors: 2,
+      overridden: true,
+    });
+  });
+
+  it("still rejects when only one anchor matched, so a coincidental name match cannot pass", () => {
+    const result = scoreFromEvaluations(
+      anchorEvaluations(["cl-peer-named"], false),
+      anchorCriteria,
+      true,
+    );
+
+    expect(result.section).toBeNull();
+    expect(result.reason).toContain("not relevant to issuer context");
+    expect(result.scoreBreakdown.issuerRelevance).toEqual({
+      matched: false,
+      note: "the article is about a competitor",
+      marketAnchors: 1,
+      overridden: false,
+    });
+  });
+
+  it("overrides an omitted gate judgment on the same evidence bar", () => {
+    const result = scoreFromEvaluations(
+      anchorEvaluations(
+        ["cl-peer-named", "cl-peer-action", "cl-market-overlap"],
+        undefined,
+      ),
+      anchorCriteria,
+      true,
+    );
+
+    expect(result.section).toBe("competitiveLandscape");
+    expect(result.scoreBreakdown.issuerRelevance?.overridden).toBe(true);
+  });
+
+  it("records the gate without claiming an override when the gate matched", () => {
+    const result = scoreFromEvaluations(
+      anchorEvaluations(
+        ["cl-peer-named", "cl-peer-action", "cl-market-overlap"],
+        true,
+      ),
+      anchorCriteria,
+      true,
+    );
+
+    expect(result.section).toBe("competitiveLandscape");
+    expect(result.reason).not.toContain("Issuer gate returned false");
+    expect(result.scoreBreakdown.issuerRelevance).toEqual({
+      matched: true,
+      note: "concerns the issuer",
+      marketAnchors: 2,
+      overridden: false,
+    });
+  });
+
+  it("omits the issuer-relevance record when the gate was not required", () => {
+    const result = scoreFromEvaluations(
+      anchorEvaluations(["cl-peer-named", "cl-peer-action"], false),
+      anchorCriteria,
+    );
+
+    expect(result.scoreBreakdown.issuerRelevance).toBeUndefined();
+  });
+});
+
 describe("rejectEmptySource", () => {
   it("rejects with an empty breakdown and the current criteria hash", () => {
     const result = rejectEmptySource(criteria);
@@ -709,34 +889,34 @@ describe("rejectEmptySource", () => {
   });
 });
 
-/** A single section carrying its real issuer-relevance rule id (`cl-issuer-side`). */
+/** A single section carrying its real issuer-relevance rule id (`dm-market-link`). */
 const issuerCapCriteria: AcceptanceCriteriaRule[] = [
   {
-    section: "competitiveLandscape",
+    section: "dealsAndMovements",
     criteria: [
       {
-        id: "cl-peer-named",
-        text: "Include if a peer is named.",
+        id: "dm-corporate-action",
+        text: "Include if a corporate action is reported.",
         qualifying: false,
       },
       {
-        id: "cl-peer-action",
-        text: "Include if the peer acted.",
+        id: "dm-parties-named",
+        text: "Include if the parties are named.",
         qualifying: false,
       },
       {
-        id: "cl-issuer-side",
-        text: "Include if it affects the issuer.",
+        id: "dm-market-link",
+        text: "Include if the acting party operates in the issuer's market.",
         qualifying: false,
       },
       {
-        id: "cl-market-overlap",
-        text: "Include if the markets overlap.",
+        id: "dm-terms-stated",
+        text: "Include if terms are stated.",
         qualifying: false,
       },
       {
-        id: "cl-relative-dynamic",
-        text: "Include if standing shifted.",
+        id: "dm-confirmed",
+        text: "Include if the action is confirmed.",
         qualifying: false,
       },
     ],
@@ -758,42 +938,92 @@ describe("scoreFromEvaluations issuer-relevance cap", () => {
   it("caps the fit score when the winning section's issuer-relevance rule is unmatched", () => {
     const result = scoreFromEvaluations(
       evaluateIssuerCap([
-        "cl-peer-named",
-        "cl-peer-action",
-        "cl-market-overlap",
+        "dm-corporate-action",
+        "dm-parties-named",
+        "dm-terms-stated",
       ]),
       issuerCapCriteria,
     );
 
-    expect(result.section).toBe("competitiveLandscape");
+    expect(result.section).toBe("dealsAndMovements");
     expect(result.score).toBe(0.4);
     expect(result.scoreBreakdown.matched).toBe(3);
-    expect(result.reason).toContain("cl-issuer-side unmatched");
+    expect(result.reason).toContain("dm-market-link unmatched");
   });
 
   it("keeps the full score when the issuer-relevance rule is matched", () => {
     const result = scoreFromEvaluations(
       evaluateIssuerCap([
-        "cl-peer-named",
-        "cl-peer-action",
-        "cl-issuer-side",
-        "cl-market-overlap",
+        "dm-corporate-action",
+        "dm-parties-named",
+        "dm-market-link",
+        "dm-terms-stated",
       ]),
       issuerCapCriteria,
     );
 
-    expect(result.section).toBe("competitiveLandscape");
+    expect(result.section).toBe("dealsAndMovements");
     expect(result.score).toBe(0.8);
     expect(result.reason).not.toContain("capped");
   });
 
   it("does not raise a score already below the cap", () => {
     const result = scoreFromEvaluations(
-      evaluateIssuerCap(["cl-peer-named"]),
+      evaluateIssuerCap(["dm-corporate-action"]),
       issuerCapCriteria,
     );
 
     expect(result.score).toBe(0.2);
+  });
+
+  it("no longer caps competitiveLandscape when the issuer is absent from a peer story", () => {
+    const competitiveLandscapeCriteria: AcceptanceCriteriaRule[] = [
+      {
+        section: "competitiveLandscape",
+        criteria: [
+          {
+            id: "cl-peer-named",
+            text: "Include if a peer is named.",
+            qualifying: true,
+          },
+          {
+            id: "cl-peer-action",
+            text: "Include if the peer acted.",
+            qualifying: true,
+          },
+          {
+            id: "cl-market-overlap",
+            text: "Include if the markets overlap.",
+            qualifying: true,
+          },
+          {
+            id: "cl-relative-dynamic",
+            text: "Include if standing shifted.",
+            qualifying: false,
+          },
+          {
+            id: "cl-issuer-side",
+            text: "Include if the issuer is on one side.",
+            qualifying: false,
+          },
+        ],
+      },
+    ];
+    const evaluations: CriterionEvaluation[] = [
+      { id: "cl-peer-named", matched: true, note: "names the peer" },
+      { id: "cl-peer-action", matched: true, note: "reports earnings" },
+      { id: "cl-market-overlap", matched: true, note: "same nickel market" },
+      { id: "cl-relative-dynamic", matched: true, note: "share shifted" },
+      { id: "cl-issuer-side", matched: false, note: "issuer not named" },
+    ];
+    const result = scoreFromEvaluations(
+      evaluations,
+      competitiveLandscapeCriteria,
+    );
+
+    expect(result.section).toBe("competitiveLandscape");
+    expect(result.score).toBe(0.8);
+    expect(result.reason).not.toContain("capped");
   });
 
   it("does not cap a section whose rules carry no issuer-relevance id", () => {

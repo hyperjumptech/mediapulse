@@ -84,6 +84,23 @@ export const postAnalysisScoreBreakdownSchema = z.object({
       qualified: z.boolean().default(false),
     }),
   ),
+  /**
+   * The global issuer-relevance gate judgment, which belongs to no section and so cannot live in
+   * `criteria`. Absent when the caller ran without issuer context.
+   *
+   * `marketAnchors` counts the per-section rules that independently place the article in the
+   * issuer's market. Two or more of them override a `matched: false` gate, so recording both the
+   * raw judgment and the count is what makes an override auditable after the fact.
+   */
+  issuerRelevance: z
+    .object({
+      matched: z.boolean(),
+      note: z.string(),
+      marketAnchors: z.number().int().nonnegative(),
+      /** Whether market anchors overrode a gate judgment of `false`. */
+      overridden: z.boolean().default(false),
+    })
+    .optional(),
 });
 
 export const postAnalysisBodySchema = z.object({
