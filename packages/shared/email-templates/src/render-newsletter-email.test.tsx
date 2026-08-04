@@ -288,7 +288,7 @@ describe("renderNewsletterEmail", () => {
     expect(text).toMatch(/reply to this email/i);
   });
 
-  it("renders a Read more link for each industry article", async () => {
+  it("renders an article link for each industry article", async () => {
     // Setup
     const industryBody = buildDocumentBody([
       {
@@ -323,7 +323,7 @@ describe("renderNewsletterEmail", () => {
     expect(html).toContain("The sector is shifting rapidly.");
     expect(html).toContain('href="https://lead.example/article"');
     expect(html).toContain('href="https://example.com/hit-one"');
-    expect(html).toContain("Read more");
+    expect(html).toContain("Read the full article");
     expect(text).toContain("https://lead.example/article");
   });
 
@@ -354,9 +354,9 @@ describe("renderNewsletterEmail", () => {
     expect(stripped).toContain(
       "Indonesia&#x27;s Digital Banking Evolution and Trends",
     );
-    expect(stripped).toContain("Read more");
+    expect(stripped).toContain("Read the full article");
     expect(stripped).not.toMatch(
-      /Read more[^<]*Indonesia&#x27;s Digital Banking/,
+      /Read the full article[^<]*Indonesia&#x27;s Digital Banking/,
     );
     expect(html).toContain('href="https://lead.example/digital-banking"');
   });
@@ -383,8 +383,11 @@ describe("renderNewsletterEmail", () => {
     });
 
     // Assert
+    // The wire-format marker is "Read the full article: <url>". Match on that `: <url>` tail rather
+    // than the phrase alone, which the rendered link label shares by design.
     expect(html).toContain("The sector is quiet this week.");
-    expect(html).not.toContain("Read the full article");
+    expect(html).not.toMatch(/Read the full article:\s*https?:/i);
+    expect(html).toContain("Read the full article…");
   });
 
   it("renders a body starting at the first section present when industry-pulse is absent", async () => {
@@ -820,10 +823,10 @@ describe("renderNewsletterEmail", () => {
     // Assert
     const stripped = html.replace(/<!-- -->/g, "");
 
-    expect(stripped).toContain("Baca selengkapnya");
+    expect(stripped).toContain("Baca artikel selengkapnya");
     expect(stripped).toContain(SECTION_COPY.id["industry-pulse"].label);
     expect(stripped).toContain(SECTION_COPY.id["industry-pulse"].description);
-    expect(stripped).not.toContain("Read more");
+    expect(stripped).not.toContain("Read the full article");
   });
 
   it("renders the footer chrome in Indonesian when language is id", async () => {

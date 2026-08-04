@@ -148,10 +148,14 @@ export const SECTION_COPY: Record<
  *
  * Deliberately generic: the article title is rendered directly above the link, so
  * repeating it in the link text would print the same words twice.
+ *
+ * - Important: reads the same as content-generation's `READ_FULL_ARTICLE_LABEL`, the wire-format
+ *   marker the parser strips before rendering. A leaked marker is still detectable because it
+ *   always carries its `: <url>` tail, which this label never does.
  */
-const READ_MORE_LABEL: Record<FooterLanguage, string> = {
-  en: "Read more…",
-  id: "Baca selengkapnya…",
+const ARTICLE_LINK_LABEL: Record<FooterLanguage, string> = {
+  en: "Read the full article…",
+  id: "Baca artikel selengkapnya…",
 };
 
 /** Newsletter footer language. Alias of the shared {@link EmailLanguage}. */
@@ -330,7 +334,7 @@ export const DefaultNewsletterEmail = ({
         </ul>
         <Text className="m-0 mt-3 text-sm font-medium leading-normal">
           <Link href={article.url} className={emailLinkClassName}>
-            {READ_MORE_LABEL[language]}
+            {ARTICLE_LINK_LABEL[language]}
           </Link>
         </Text>
         {isLast ? null : (
