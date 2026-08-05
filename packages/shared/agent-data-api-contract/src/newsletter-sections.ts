@@ -9,6 +9,12 @@ export const MEDIAPULSE_NEWSLETTER_SECTIONS = [
       "Lead prose section summarising the most significant macro or sector-wide development of the day.",
   },
   {
+    id: "issuerPerformance",
+    label: "Issuer Performance",
+    description:
+      "Bullets covering the issuer's own reported results: revenue, profit, margin, volume, guidance, and payout decisions.",
+  },
+  {
     id: "competitiveLandscape",
     label: "Competitive Landscape",
     description:
@@ -55,8 +61,16 @@ export const NEWSLETTER_SECTION_IDS: readonly NewsletterSectionId[] =
  * deployment belongs in that narrower section, and should only fall through to a catch-all when
  * nothing narrower fits. Display order stays {@link MEDIAPULSE_NEWSLETTER_SECTIONS}, which drives
  * the newsletter's layout and must not change when routing changes.
+ *
+ * `issuerPerformance` leads because it is the narrowest section of all: it asks whether the article
+ * is the issuer reporting its own results, which no other section is about. Before it existed, an
+ * issuer's own earnings release qualified for nothing (`ip-macro-move` excludes single-company news,
+ * `cl-peer-named` excludes the issuer by name, `dm-corporate-action` excludes earnings results), so
+ * such articles were rejected with "No section met its qualifying rules" unless the model
+ * false-matched one of those gates.
  */
 export const NEWSLETTER_SECTION_PRECEDENCE: readonly NewsletterSectionId[] = [
+  "issuerPerformance",
   "dealsAndMovements",
   "competitiveLandscape",
   "regulatoryPolicyWatch",

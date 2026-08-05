@@ -18,6 +18,7 @@ export const MAX_ARTICLES_PER_SECTION = 3;
 /** Canonical section keys, in the order they are rendered. */
 export const NEWSLETTER_SECTION_KEYS = [
   "industry-pulse",
+  "issuer-performance",
   "competitive-landscape",
   "deals-and-movements",
   "regulatory-policy-watch",

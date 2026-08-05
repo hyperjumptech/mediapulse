@@ -194,6 +194,33 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
     ],
   },
   {
+    section: "issuerPerformance",
+    criteria: [
+      {
+        id: "pf-issuer-subject",
+        text: "Include if the article's main subject is {{TICKER}}, {{TICKER_NAME}}, or one of its own trading names, brands, or subsidiaries ({{ALIASES}}), rather than a peer or the market at large. A company in {{TICKER_NAME}}'s corporate group counts as the issuer even when it is listed separately under its own symbol.",
+        qualifying: true,
+      },
+      {
+        id: "pf-reported-result",
+        text: "Include if it reports a published operating or financial result for that issuer: revenue, profit, margin, production or sales volume, subscriber or outlet count, loan or deposit balance, guidance, or a dividend or payout decision. An analyst's target price, a share-price move, or a stock recommendation is not a reported result.",
+        qualifying: true,
+      },
+      {
+        id: "pf-period-stated",
+        text: "Include if it names the period the figures cover: a quarter, a half year, a full year, or a stated month.",
+      },
+      {
+        id: "pf-direction-given",
+        text: "Include if it states how a figure moved against a prior period: a percentage change, a prior-period comparison, or an explicit rise, fall, or flat reading.",
+      },
+      {
+        id: "pf-segment-detail",
+        text: "Include if it breaks the result down below the headline figure: by segment, product, commodity, channel, or geography.",
+      },
+    ],
+  },
+  {
     section: "competitiveLandscape",
     criteria: [
       {
@@ -226,7 +253,7 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
     criteria: [
       {
         id: "dm-corporate-action",
-        text: "Include if the article reports a specific corporate action: an acquisition, merger, divestiture, funding round, IPO, share issuance, buyback, joint venture, or an appointment to a board or executive role. A company winning a licence, spectrum block, tender, permit, or government contract is not a corporate action, nor is an ordinary commercial launch, expansion, or earnings result.",
+        text: "Include if the article reports a specific corporate action: an acquisition, merger, divestiture, funding round, IPO, share issuance, buyback, joint venture, or an appointment to a board or executive role. A company winning a licence, spectrum block, tender, permit, or government contract is not a corporate action, nor is an ordinary commercial launch, expansion, or earnings result. An article whose subject is a company's own reported figures belongs to issuerPerformance or competitiveLandscape, so answer false here even when those figures are described as a milestone, a record, or a transformation.",
         qualifying: true,
       },
       {

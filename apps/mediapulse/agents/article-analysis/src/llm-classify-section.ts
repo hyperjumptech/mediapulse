@@ -57,6 +57,10 @@ const ISSUER_RELEVANCE_CRITERION_TEXT =
  * section needs no cap because it corroborates itself. Winning it already requires `cl-peer-named`,
  * `cl-peer-action`, and `cl-market-overlap` to all match, since all three are qualifying rules.
  *
+ * `issuerPerformance` is absent for the same reason and more strongly: its gate rule
+ * `pf-issuer-subject` asks whether the article's subject is the issuer itself, so a section win is
+ * already a statement of issuer relevance and there is nothing left for a cap to corroborate.
+ *
  * - Important: these ids must track `DEFAULT_ACCEPTANCE_CRITERIA`. They silently went stale once
  *   already, which disabled the cap entirely; `llm-classify-section.test.ts` now pins them.
  */
@@ -79,6 +83,7 @@ export const ISSUER_RELEVANCE_RULE_IDS: ReadonlySet<string> = new Set([
  */
 export const MARKET_ANCHOR_RULE_IDS: ReadonlySet<string> = new Set([
   "ip-market-named",
+  "pf-issuer-subject",
   "cl-peer-named",
   "cl-market-overlap",
   "dm-market-link",
