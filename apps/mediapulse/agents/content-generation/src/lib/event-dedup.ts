@@ -74,8 +74,7 @@ const titleAnchorsFor = (source: SourceForGeneration): Set<string> =>
   distinctiveAnchorTokens(tokenize(source.title));
 
 /**
- * Calendar day of a source's publish timestamp, or `undefined` when it carries none. Compared as a
- * string so two sources only pair on an exact same-day match.
+ * Calendar day of a source's publish timestamp, or `undefined` when it carries none.
  */
 const publishedDayOf = (source: SourceForGeneration): string | undefined => {
   const publishedAt = source.publishedAt;
@@ -85,6 +84,26 @@ const publishedDayOf = (source: SourceForGeneration): string | undefined => {
   const day = publishedAt.slice(0, 10);
 
   return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : undefined;
+};
+
+/**
+ * Whether two publish days are close enough to be one story.
+ *
+ * Widened from an exact match because outlets stamp a wire story with their own publication date:
+ * three reports of one earnings call routinely carry two or three different days, which skipped this
+ * path entirely and let the same event ship twice.
+ */
+const withinAdjacentDay = (left: string, right: string): boolean => {
+  if (left === right) {
+    return true;
+  }
+  const leftTime = Date.parse(`${left}T00:00:00Z`);
+  const rightTime = Date.parse(`${right}T00:00:00Z`);
+  if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) {
+    return false;
+  }
+
+  return Math.abs(leftTime - rightTime) <= 86_400_000;
 };
 
 const roundTwo = (value: number): number => Math.round(value * 100) / 100;
@@ -126,9 +145,9 @@ const findEventMatch = (
 };
 
 /**
- * Finds a kept event whose headline matches this one on the same day. Runs only after the body
- * path misses, and only for candidates that carry a publish day, so an undated source can never
- * pair on headline alone.
+ * Finds a kept event whose headline matches this one on the same or an adjacent day. Runs only
+ * after the body path misses, and only for candidates that carry a publish day, so an undated
+ * source can never pair on headline alone.
  */
 const findSameDayTitleMatch = (
   titleAnchors: Set<string>,
@@ -141,7 +160,11 @@ const findSameDayTitleMatch = (
 
   let best: EventMatch | undefined;
   for (const entry of corpus) {
-    if (entry.publishedDay !== publishedDay || entry.titleAnchors.size === 0) {
+    if (
+      entry.publishedDay === undefined ||
+      !withinAdjacentDay(entry.publishedDay, publishedDay) ||
+      entry.titleAnchors.size === 0
+    ) {
       continue;
     }
     const shared = shingleIntersectionCount(titleAnchors, entry.titleAnchors);

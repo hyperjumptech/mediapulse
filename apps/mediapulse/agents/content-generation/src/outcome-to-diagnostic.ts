@@ -56,6 +56,14 @@ export function mapOutcomeToDiagnostic(
         errorCategory: null,
       };
 
+    case "skipped_insufficient_sources":
+      return {
+        outcome: "skipped",
+        stage: "precheck",
+        errorCode: "skipped_insufficient_sources",
+        errorCategory: null,
+      };
+
     case "skipped_fresh_newsletter_exists":
       return {
         outcome: "skipped",

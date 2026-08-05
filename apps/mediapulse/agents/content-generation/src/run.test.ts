@@ -119,6 +119,16 @@ const testSources = [
     section: "quickHits",
     sectionScore: 0.9,
   },
+  {
+    dataSourceId: "10000000-0000-4000-8000-000000000002",
+    url: "https://example.com/b",
+    title: "Story B",
+    description: "Story B snippet.",
+    content: "Content for story B.",
+    tickerId: TEST_TICKER_ID,
+    section: "industryPulse",
+    sectionScore: 0.8,
+  },
 ];
 
 function makeGetResponse(
@@ -721,6 +731,24 @@ describe("run", () => {
       expect(callArg.agentId).toBe("content-generation");
       expect(callArg.tickerId).toBe(TEST_TICKER_ID);
       expect(callArg.durationMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it("calls contentGenerationRuns.create with errorCode=skipped_insufficient_sources for a one-item issue", async () => {
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue(
+        makeGetResponse({ dataSources: [testSources[0]] }),
+      );
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-thin" });
+
+      const result = await run(makeContext());
+
+      expect(result.success).toBe(true);
+      expect(contentGenerationCreate).not.toHaveBeenCalled();
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.errorCode).toBe("skipped_insufficient_sources");
     });
 
     it("calls contentGenerationRuns.create with errorCode=no_sources on the no-sources path", async () => {

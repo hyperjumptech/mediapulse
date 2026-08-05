@@ -16,6 +16,10 @@ import { computeConfigVersion } from "./compute-config-version.js";
 import { computePromptHash } from "./compute-prompt-hash.js";
 import { computeFreshnessWindow } from "./freshness-window.js";
 import {
+  computeShippableShape,
+  isBelowShippableFloor,
+} from "./shippable-shape.js";
+import {
   generateNewsletterWithLlm,
   groupSourcesBySection,
   type SourceForGeneration,
@@ -387,6 +391,52 @@ export async function run({
     return {
       success: true,
       message: outcome.message ?? "No data sources found for this ticker",
+    };
+  }
+
+  const shippableShape = computeShippableShape(sources);
+  if (
+    isBelowShippableFloor(shippableShape, {
+      minShippableArticles: CONTENT_GENERATION_CONSTANTS.minShippableArticles,
+      minShippableSections: CONTENT_GENERATION_CONSTANTS.minShippableSections,
+    })
+  ) {
+    const outcome: AgentOutcome = {
+      outcome: "skipped_insufficient_sources",
+      skipped: true,
+      message: `Only ${String(shippableShape.articleCount)} article(s) across ${String(shippableShape.sectionCount)} section(s) would ship; skipped`,
+    };
+    logger.info(
+      {
+        tickerId: input.tickerId,
+        ...shippableShape,
+        sourceCount: sources.length,
+        outcome,
+        event: "insufficient_sources",
+      },
+      "Skipping run: too little would ship to make an issue",
+    );
+    report(
+      ...narrativeRunComplete(subject, {
+        status: "no_sources",
+        itemsWritten: 0,
+        sectionsFilled: 0,
+        translationLanguages: [],
+      }),
+      "completed",
+    );
+    await writeDiagnostic({
+      dataApiClient,
+      tickerId: input.tickerId,
+      agentOutcome: outcome,
+      durationMs: Date.now() - runStart,
+      pipelineRunId,
+      executionId,
+    });
+
+    return {
+      success: true,
+      message: outcome.message ?? "Too little would ship; skipped",
     };
   }
 

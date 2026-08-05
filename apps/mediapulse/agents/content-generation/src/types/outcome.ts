@@ -9,6 +9,12 @@
 export type OutcomeCode =
   /** No data sources found for the ticker; run is skipped without calling OpenAI. */
   | "no_sources"
+  /**
+   * Sources exist but too few would ship to make an issue: fewer than
+   * `minShippableArticles` classified articles, or fewer than `minShippableSections`
+   * sections holding one. Run is skipped without calling OpenAI.
+   */
+  | "skipped_insufficient_sources"
   /** A fresh newsletter was generated recently; run is skipped (MP-CGA-006). */
   | "skipped_fresh_newsletter_exists"
   /**
