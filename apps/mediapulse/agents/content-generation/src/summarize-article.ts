@@ -11,7 +11,6 @@ export const articleSummarySchema = z.object({
   title: z.string().trim().min(1),
   points: z
     .array(z.string().trim().min(1).max(MAX_POINT_LENGTH))
-    .min(1)
     .max(MAX_POINTS_PER_ARTICLE),
 });
 
@@ -26,11 +25,19 @@ export type ArticleSummary = z.infer<typeof articleSummarySchema>;
  */
 export const SUMMARIZE_ARTICLE_SYSTEM_PROMPT = `You extract the key facts from a single news article for a business newsletter, and you translate its title into English.
 
-Return a title and between 1 and ${String(MAX_POINTS_PER_ARTICLE)} points. Each point must be at most ${String(MAX_POINT_LENGTH)} characters.
+Return a title and up to ${String(MAX_POINTS_PER_ARTICLE)} points. Each point must be at most ${String(MAX_POINT_LENGTH)} characters. Return no points at all when the article carries none worth reporting.
 
 For the title: translate the article's own title into English faithfully. Do not paraphrase, summarize, rewrite, or shorten it beyond the translation. If the title is already in English, return it unchanged. Keep every number, percentage, currency figure, date, ticker symbol, and proper noun exactly as written. Remove any trailing publisher or site name, such as a "- Publisher", "| Site", or "— Outlet" at the end; never keep the source name in the title.
 
 Write only what the article actually says. Do not add figures, companies, dates, causes, or consequences that are not stated in it. Do not infer why something happened when the article does not say. If you are unsure whether the article supports a claim, leave it out.
+
+Do not repeat a sweep from the headline. When the headline generalises across several items ("all segments grew", "sales rose across the board", "uniform growth"), ignore that framing and report the per-item figures the body gives. If any item moves against the headline's direction, say so in the same point. A headline that claims growth everywhere while the body shows one line falling is a headline you must contradict.
+
+A rate of change belongs to the one figure and period the article attaches it to. Never move a rate onto a different figure, and never pair a quarterly rate with a half-year or full-year total. If the article gives a quarterly figure its own growth rate and a cumulative figure without one, report them as two separate facts rather than merging them.
+
+Take the reporting period from the row, column, or sentence the figure sits in, never from the document title. A page titled "2Q", "Q2", or "Second Quarter" routinely carries year-to-date figures alongside quarterly ones. When both appear, name which one each point uses.
+
+Never write a point about what the article does not say, does not detail, leaves unexplained, or reports as unclear. An absence of information is not a fact. Never write a point whose only content is potential, ambition, or the need for a strategy: every point must carry a number, a name, a date, or a decision.
 
 Lead with the concrete thing: the number, the name, the decision, the change. Cut throat-clearing ("The article reports that", "It is worth noting"), scene-setting, and hedging. Use plain language a busy reader understands at a glance, and expand jargon the first time it appears.
 
@@ -40,7 +47,7 @@ Write in English using the Latin alphabet only. Never leave a word from the sour
 
 Never cut a point short to fit the character limit. If a fact does not fit, write a shorter complete sentence instead. A point that stops mid-word, mid-number, or on a word like "and", "with", "by", or "the" is unusable.
 
-Write as many points as the article earns and no more. Most articles carry one or two things worth knowing. Never pad to reach ${String(MAX_POINTS_PER_ARTICLE)}.`;
+Write as many points as the article earns and no more. Most articles carry one or two things worth knowing. Never pad to reach ${String(MAX_POINTS_PER_ARTICLE)}, and return an empty list rather than inventing one.`;
 
 /**
  * Builds the user prompt for one article.
