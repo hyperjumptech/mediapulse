@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildSubjectFallback,
+  buildSubjectPrompt,
   MAX_SUBJECT_LENGTH,
   SUBJECT_FALLBACK_TEXT,
   truncateOnWordBoundary,
+  WRITE_SUBJECT_SYSTEM_PROMPT,
 } from "./write-subject.js";
 
 describe("truncateOnWordBoundary", () => {
@@ -86,5 +88,67 @@ describe("buildSubjectFallback", () => {
 
     expect(result.length).toBeLessThanOrEqual(MAX_SUBJECT_LENGTH);
     expect(result).toBe("Ministry of Energy and Mineral Resources");
+  });
+});
+
+describe("buildSubjectPrompt — issuer context and sections", () => {
+  it("names the issuer so the writer can tell its news from a competitor's", () => {
+    const prompt = buildSubjectPrompt(
+      [
+        {
+          title: "MAPI opens Ace Hardware store",
+          section: "dealsAndMovements",
+        },
+      ],
+      { symbol: "BABY", name: "PT Multitrend Indo Tbk." },
+    );
+
+    expect(prompt).toContain(
+      "This issue is for BABY (PT Multitrend Indo Tbk.)",
+    );
+  });
+
+  it("labels each headline with the section it landed in", () => {
+    const prompt = buildSubjectPrompt(
+      [
+        { title: "ANTM H1 production rises", section: "issuerPerformance" },
+        { title: "Vale Q2 profit up 39%", section: "competitiveLandscape" },
+      ],
+      { symbol: "ANTM" },
+    );
+
+    expect(prompt).toContain("- [issuerPerformance] ANTM H1 production rises");
+    expect(prompt).toContain("- [competitiveLandscape] Vale Q2 profit up 39%");
+  });
+
+  it("omits the issuer line when no issuer identity is known", () => {
+    const prompt = buildSubjectPrompt([{ title: "Coal price falls 1.25%" }]);
+
+    expect(prompt).not.toContain("This issue is for");
+    expect(prompt).toContain("- Coal price falls 1.25%");
+  });
+
+  it("still accepts bare title strings", () => {
+    const prompt = buildSubjectPrompt(["Coal price falls 1.25%"], {
+      symbol: "AADI",
+    });
+
+    expect(prompt).toContain("This issue is for AADI.");
+    expect(prompt).toContain("- Coal price falls 1.25%");
+  });
+});
+
+describe("WRITE_SUBJECT_SYSTEM_PROMPT", () => {
+  it("ranks the issuer's own news above a competitor's", () => {
+    expect(WRITE_SUBJECT_SYSTEM_PROMPT).toContain(
+      "the issuer's own results or actions",
+    );
+    expect(WRITE_SUBJECT_SYSTEM_PROMPT).toContain(
+      "a company in a different line of business from the issuer must never lead",
+    );
+  });
+
+  it("requires naming a tension rather than hedging to a neutral verb", () => {
+    expect(WRITE_SUBJECT_SYSTEM_PROMPT).toContain("name the specific tension");
   });
 });

@@ -30,22 +30,75 @@ Return one subject of at most ${String(MAX_SUBJECT_LENGTH)} characters.
 
 Name the most significant story in the list. Do not summarize the whole issue, and do not write a label like "Weekly roundup" or "Industry update".
 
+Significance is judged from the reader's seat. The reader runs the issuer named in the context line, so prefer, in this order: the issuer's own results or actions; a rule or ruling that binds the issuer; a direct competitor's move in a market the issuer serves; a development across the issuer's industry. A story about a company in a different line of business from the issuer must never lead, however dramatic it is.
+
 Do not add a ticker prefix; the system adds one.
 
 Stay faithful to what the headlines claim. When a headline describes a forecast, a risk, or a possibility, keep it conditional: write "could surge" or "may rise", never "surges".
 
+When the headlines point in opposite directions, name the specific tension rather than retreating to a neutral verb. "Spot price falls as reference price rises" beats "Prices change".
+
 Write plainly. No colons splicing two ideas together, no clickbait, no questions.`;
 
+/** Who the issue is for, so the writer can tell the issuer's news from a competitor's. */
+export type SubjectIssuerContext = {
+  symbol?: string | undefined;
+  name?: string | undefined;
+  industry?: string | undefined;
+};
+
+/** One shipped headline and the section it landed in. */
+export type SubjectHeadline = {
+  title: string;
+  section?: string | undefined;
+};
+
+const renderIssuerLine = (issuer: SubjectIssuerContext): string | null => {
+  const symbol = issuer.symbol?.trim();
+  const name = issuer.name?.trim();
+  if (!symbol && !name) {
+    return null;
+  }
+  const who = symbol && name ? `${symbol} (${name})` : (symbol ?? name);
+  const industry = issuer.industry?.trim();
+
+  return industry
+    ? `This issue is for ${String(who)}, which operates in ${industry}.`
+    : `This issue is for ${String(who)}.`;
+};
+
 /**
- * Builds the user prompt from the selected article titles.
+ * Builds the user prompt from the shipped headlines.
  *
- * @param titles - Titles of the articles in the issue, in render order.
- * @returns Prompt text listing the headlines.
+ * Each headline carries the section it landed in, so the writer can apply the ranking in the
+ * system prompt instead of guessing which story concerns the issuer.
+ *
+ * @param headlines - Shipped headlines in render order, with their sections.
+ * @param issuer - The issuer the newsletter is written for.
+ * @returns Prompt text naming the issuer and listing the headlines.
  */
-export const buildSubjectPrompt = (titles: readonly string[]): string =>
-  ["Headlines in this issue:", "", ...titles.map((title) => `- ${title}`)].join(
-    "\n",
-  );
+export const buildSubjectPrompt = (
+  headlines: readonly (SubjectHeadline | string)[],
+  issuer: SubjectIssuerContext = {},
+): string => {
+  const issuerLine = renderIssuerLine(issuer);
+  const lines = headlines.map((headline) => {
+    if (typeof headline === "string") {
+      return `- ${headline}`;
+    }
+
+    return headline.section
+      ? `- [${headline.section}] ${headline.title}`
+      : `- ${headline.title}`;
+  });
+
+  return [
+    ...(issuerLine ? [issuerLine, ""] : []),
+    "Headlines in this issue:",
+    "",
+    ...lines,
+  ].join("\n");
+};
 
 /**
  * Trims text to `limit` without splitting a word or a multi-byte character.
