@@ -29,6 +29,7 @@ import {
   dedupeCrossSectionSourceEvents,
   type EventDedupDrop,
 } from "./lib/event-dedup.js";
+import { pointsSupportTitle } from "./lib/points-support-title.js";
 import { retryWithBackoff } from "./lib/retry.js";
 import { sanitizeSummaryPoints } from "./lib/sanitize-summary-points.js";
 import { truncateSources } from "./lib/truncate-sources.js";
@@ -637,6 +638,22 @@ export async function generateNewsletterWithLlm(
           );
         }
         if (sanitized.points.length === 0) {
+          return { status: "failed", entry };
+        }
+
+        if (!pointsSupportTitle(summary.title, sanitized.points)) {
+          logger.warn(
+            {
+              tickerId: context.tickerId,
+              sectionKey: entry.sectionKey,
+              url: entry.source.url,
+              title: summary.title,
+              points: sanitized.points,
+              event: "summary_points_off_heading",
+            },
+            "Dropped article: no summary point relates to its own heading",
+          );
+
           return { status: "failed", entry };
         }
 

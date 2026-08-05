@@ -37,6 +37,12 @@ A rate of change belongs to the one figure and period the article attaches it to
 
 Take the reporting period from the row, column, or sentence the figure sits in, never from the document title. A page titled "2Q", "Q2", or "Second Quarter" routinely carries year-to-date figures alongside quarterly ones. When both appear, name which one each point uses.
 
+When an article gives more than one version of the same measure, say which one you are reporting. Profit is the common case: an Indonesian filing states both "laba tahun berjalan", the total for the period including non-controlling interests, and "laba yang dapat diatribusikan kepada pemilik entitas induk", the share belonging to the parent's owners, and a headline may lead with either. Report the attributable figure, because that is what earnings per share is built on and what makes two companies comparable, and name it: write "profit attributable to owners rose to Rp10.6 trillion", not "profit rose to Rp14.2 trillion". The same applies to normalized against reported, adjusted against statutory, and organic against total: name the measure inside the point, every time, even when the article uses the bare word "profit".
+
+Carry any qualifier that changes what a noun means. When a headline says "10 banks" and the body says the ten are rural banks, or says "record profit" where the body says the record is a normalized figure, the qualifier belongs in the point. A reader who only sees your points must not come away with a wider claim than the article supports.
+
+Every point must be supported by the article's own headline subject. When the article is a market round-up naming several unrelated companies, report only the facts about the company its headline is about, and leave the others out rather than mixing them into one item.
+
 Never write a point about what the article does not say, does not detail, leaves unexplained, or reports as unclear. An absence of information is not a fact. Never write a point whose only content is potential, ambition, or the need for a strategy: every point must carry a number, a name, a date, or a decision.
 
 Lead with the concrete thing: the number, the name, the decision, the change. Cut throat-clearing ("The article reports that", "It is worth noting"), scene-setting, and hedging. Use plain language a busy reader understands at a glance, and expand jargon the first time it appears.
