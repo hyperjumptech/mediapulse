@@ -1053,3 +1053,110 @@ describe("criteriaHash", () => {
     expect(criteriaHash(criteria)).not.toBe(criteriaHash(edited));
   });
 });
+
+describe("issuerPerformance section", () => {
+  const seeded = () => articleAnalysisConfigSchema.parse({}).acceptanceCriteria;
+
+  it("gates on the issuer being the subject and on a reported result", () => {
+    const qualifyingIds = flattenAcceptanceCriteria(seeded())
+      .filter(
+        (criterion) =>
+          criterion.section === "issuerPerformance" && criterion.qualifying,
+      )
+      .map((criterion) => criterion.id);
+
+    expect(qualifyingIds).toEqual(["pf-issuer-subject", "pf-reported-result"]);
+  });
+
+  it("stays uncapped, since winning it already asserts issuer relevance", () => {
+    const issuerPerformanceIds = flattenAcceptanceCriteria(seeded())
+      .filter((criterion) => criterion.section === "issuerPerformance")
+      .map((criterion) => criterion.id);
+
+    for (const ruleId of issuerPerformanceIds) {
+      expect(ISSUER_RELEVANCE_RULE_IDS.has(ruleId)).toBe(false);
+    }
+  });
+
+  it("treats the issuer being the article's subject as a market anchor", () => {
+    expect(MARKET_ANCHOR_RULE_IDS.has("pf-issuer-subject")).toBe(true);
+  });
+
+  it("outranks every other section when an issuer earnings article qualifies for both", () => {
+    const config = articleAnalysisConfigSchema.parse({});
+    const evaluations: CriterionEvaluation[] = flattenAcceptanceCriteria(
+      config.acceptanceCriteria,
+    ).map((criterion) => ({
+      id: criterion.id,
+      matched:
+        criterion.section === "issuerPerformance" ||
+        criterion.section === "dealsAndMovements",
+      note: "n",
+    }));
+    evaluations.push({
+      id: ISSUER_RELEVANCE_CRITERION_ID,
+      matched: true,
+      note: "issuer",
+    });
+
+    const result = scoreFromEvaluations(
+      evaluations,
+      config.acceptanceCriteria,
+      true,
+    );
+
+    expect(result.section).toBe("issuerPerformance");
+  });
+
+  it("accepts an issuer earnings article that qualifies for no other section", () => {
+    const config = articleAnalysisConfigSchema.parse({});
+    const evaluations: CriterionEvaluation[] = flattenAcceptanceCriteria(
+      config.acceptanceCriteria,
+    ).map((criterion) => ({
+      id: criterion.id,
+      matched: criterion.section === "issuerPerformance",
+      note: "n",
+    }));
+    evaluations.push({
+      id: ISSUER_RELEVANCE_CRITERION_ID,
+      matched: true,
+      note: "issuer",
+    });
+
+    const result = scoreFromEvaluations(
+      evaluations,
+      config.acceptanceCriteria,
+      true,
+    );
+
+    expect(result.section).toBe("issuerPerformance");
+    expect(result.reason).not.toContain("No section met its qualifying rules");
+  });
+
+  it("recovers an issuer article the gate wrongly rejected, via the market anchors", () => {
+    const config = articleAnalysisConfigSchema.parse({});
+    const evaluations: CriterionEvaluation[] = flattenAcceptanceCriteria(
+      config.acceptanceCriteria,
+    ).map((criterion) => ({
+      id: criterion.id,
+      matched:
+        criterion.section === "issuerPerformance" ||
+        criterion.id === "qh-market-actor",
+      note: "n",
+    }));
+    evaluations.push({
+      id: ISSUER_RELEVANCE_CRITERION_ID,
+      matched: false,
+      note: "does not mention the issuer",
+    });
+
+    const result = scoreFromEvaluations(
+      evaluations,
+      config.acceptanceCriteria,
+      true,
+    );
+
+    expect(result.section).toBe("issuerPerformance");
+    expect(result.scoreBreakdown.issuerRelevance?.overridden).toBe(true);
+  });
+});

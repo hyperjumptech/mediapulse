@@ -17,6 +17,7 @@ import {
 
 const SECTION_LABELS: Record<string, string> = {
   industryPulse: "Industry Pulse",
+  issuerPerformance: "Issuer Performance",
   competitiveLandscape: "Competitive Landscape",
   dealsAndMovements: "Deals & Movements",
   regulatoryPolicyWatch: "Regulatory & Policy Watch",
@@ -26,6 +27,7 @@ const SECTION_LABELS: Record<string, string> = {
 
 const SECTION_ORDER = [
   "industryPulse",
+  "issuerPerformance",
   "competitiveLandscape",
   "dealsAndMovements",
   "regulatoryPolicyWatch",

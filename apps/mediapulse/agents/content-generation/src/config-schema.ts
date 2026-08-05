@@ -182,6 +182,7 @@ export const CONTENT_GENERATION_CONSTANTS = {
    */
   coverageSeedSections: [
     "industryPulse",
+    "issuerPerformance",
     "competitiveLandscape",
     "dealsAndMovements",
     "regulatoryPolicyWatch",

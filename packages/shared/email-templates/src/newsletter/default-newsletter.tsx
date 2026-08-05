@@ -90,6 +90,10 @@ export const SECTION_COPY: Record<
       label: "Industry Pulse",
       description: "The stories moving the whole sector right now.",
     },
+    "issuer-performance": {
+      label: "Issuer Performance",
+      description: "The numbers the company itself just reported.",
+    },
     "competitive-landscape": {
       label: "Competitive Landscape",
       description: "The rivals gaining ground, and the ones falling behind.",
@@ -117,6 +121,10 @@ export const SECTION_COPY: Record<
     "industry-pulse": {
       label: "Sorotan Industri",
       description: "Berita yang sedang menggerakkan seluruh industri.",
+    },
+    "issuer-performance": {
+      label: "Kinerja Emiten",
+      description: "Angka yang baru saja dilaporkan perusahaan itu sendiri.",
     },
     "competitive-landscape": {
       label: "Peta Persaingan",

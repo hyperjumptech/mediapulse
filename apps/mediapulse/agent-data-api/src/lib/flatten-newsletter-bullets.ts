@@ -4,6 +4,7 @@ import { readNewsletterDocument } from "@workspace/email-templates/newsletter-do
 /** Maps document section keys to the camelCase `sectionKey` names the API surfaces. */
 const DOCUMENT_KEY_TO_SECTION_KEY: Record<NewsletterSectionKey, string> = {
   "industry-pulse": "industryPulse",
+  "issuer-performance": "issuerPerformance",
   "competitive-landscape": "competitiveLandscape",
   "deals-and-movements": "dealsAndMovements",
   "regulatory-policy-watch": "regulatoryPolicyWatch",

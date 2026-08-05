@@ -9,6 +9,7 @@ import type { SourceForGeneration } from "./types.js";
 /** Maps the camelCase section ids used upstream to the document's kebab-case keys. */
 const SECTION_KEY_BY_ID: Record<string, NewsletterSectionKey> = {
   industryPulse: "industry-pulse",
+  issuerPerformance: "issuer-performance",
   competitiveLandscape: "competitive-landscape",
   dealsAndMovements: "deals-and-movements",
   regulatoryPolicyWatch: "regulatory-policy-watch",

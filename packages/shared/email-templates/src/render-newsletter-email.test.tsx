@@ -12,6 +12,7 @@ import {
 import {
   MAX_POINTS_PER_ARTICLE,
   MAX_POINT_LENGTH,
+  NEWSLETTER_SECTION_KEYS,
   readNewsletterDocument,
   type NewsletterDocument,
 } from "./newsletter/newsletter-document.js";
@@ -683,7 +684,7 @@ describe("renderNewsletterEmail", () => {
         (copy) => copy.description.length,
       );
 
-      expect(lengths).toHaveLength(6);
+      expect(lengths).toHaveLength(NEWSLETTER_SECTION_KEYS.length);
       expect(Math.max(...lengths)).toBeLessThanOrEqual(75);
       expect(Math.min(...lengths)).toBeGreaterThanOrEqual(30);
     },
