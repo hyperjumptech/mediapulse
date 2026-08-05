@@ -3,11 +3,12 @@ import { describe, expect, it } from "vitest";
 import type { AgentOutcome, OutcomeCode } from "./outcome.js";
 
 describe("OutcomeCode", () => {
-  it("includes all 8 required outcome codes", () => {
+  it("includes all 9 required outcome codes", () => {
     // Setup
     const codes: OutcomeCode[] = [
       "no_sources",
       "skipped_fresh_newsletter_exists",
+      "skipped_fresh_newsletter_stale_analysis",
       "openai_retry_exhausted",
       "openai_non_retryable",
       "openai_invalid_response",
@@ -17,7 +18,7 @@ describe("OutcomeCode", () => {
     ];
 
     // Assert
-    expect(codes).toHaveLength(8);
+    expect(codes).toHaveLength(9);
   });
 });
 

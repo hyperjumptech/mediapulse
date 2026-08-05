@@ -276,6 +276,8 @@ describe("agent-data-api", () => {
       vi.mocked(mod.getLatestNewsletter).mockResolvedValue({
         hasNewsletter: true,
         newsletterId: "nl-123",
+        newsletterCreatedAt: "2026-04-20T00:00:00.000Z",
+        analyzedSinceCount: 4,
       });
 
       const { app } = await import("./index.js");
@@ -288,6 +290,7 @@ describe("agent-data-api", () => {
       expect(res.status).toBe(200);
       expect(body.hasNewsletter).toBe(true);
       expect(body.newsletterId).toBe("nl-123");
+      expect(body.analyzedSinceCount).toBe(4);
       expect(mod.getLatestNewsletter).toHaveBeenCalledWith(
         TICKER_ID,
         "2026-04-20T00:00:00.000Z",
@@ -300,6 +303,8 @@ describe("agent-data-api", () => {
       vi.mocked(mod.getLatestNewsletter).mockResolvedValue({
         hasNewsletter: false,
         newsletterId: null,
+        newsletterCreatedAt: null,
+        analyzedSinceCount: 0,
       });
 
       const { app } = await import("./index.js");

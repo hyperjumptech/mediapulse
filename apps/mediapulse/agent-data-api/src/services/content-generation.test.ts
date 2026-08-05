@@ -33,6 +33,7 @@ import {
 type MockDb = {
   dataSourceTickerSection: {
     findMany: ReturnType<typeof vi.fn>;
+    count: ReturnType<typeof vi.fn>;
   };
   ticker: {
     findUniqueOrThrow: ReturnType<typeof vi.fn>;
@@ -50,6 +51,7 @@ type MockDb = {
 const createMockDb = (): MockDb => ({
   dataSourceTickerSection: {
     findMany: vi.fn(),
+    count: vi.fn().mockResolvedValue(0),
   },
   ticker: {
     findUniqueOrThrow: vi.fn(),
@@ -421,6 +423,7 @@ describe("getLatestNewsletter", () => {
     const db = createMockDb();
     db.newsletter.findFirst.mockResolvedValue({
       id: "nl-123",
+      createdAt: new Date("2026-04-20T02:00:00.000Z"),
     });
 
     // Act
@@ -435,6 +438,8 @@ describe("getLatestNewsletter", () => {
     expect(result).toEqual({
       hasNewsletter: true,
       newsletterId: "nl-123",
+      newsletterCreatedAt: "2026-04-20T02:00:00.000Z",
+      analyzedSinceCount: 0,
     });
     expect(db.newsletter.findFirst).toHaveBeenCalledWith({
       where: {
@@ -444,7 +449,7 @@ describe("getLatestNewsletter", () => {
           lt: new Date("2026-04-21T00:00:00.000Z"),
         },
       },
-      select: { id: true },
+      select: { id: true, createdAt: true },
       orderBy: { createdAt: "desc" },
     });
   });
@@ -466,7 +471,56 @@ describe("getLatestNewsletter", () => {
     expect(result).toEqual({
       hasNewsletter: false,
       newsletterId: null,
+      newsletterCreatedAt: null,
+      analyzedSinceCount: 0,
     });
+  });
+
+  it("counts sections analyzed after the existing newsletter was written", async () => {
+    // Setup
+    const db = createMockDb();
+    db.newsletter.findFirst.mockResolvedValue({
+      id: "nl-123",
+      createdAt: new Date("2026-08-05T00:00:00.000Z"),
+    });
+    db.dataSourceTickerSection.count.mockResolvedValue(7);
+
+    // Act
+    const result = await getLatestNewsletter(
+      "ticker-1",
+      "2026-08-04T17:00:00.000Z",
+      "2026-08-05T17:00:00.000Z",
+      db as unknown as Parameters<typeof getLatestNewsletter>[3],
+    );
+
+    // Assert
+    expect(result.analyzedSinceCount).toBe(7);
+    expect(result.newsletterCreatedAt).toBe("2026-08-05T00:00:00.000Z");
+    expect(db.dataSourceTickerSection.count).toHaveBeenCalledWith({
+      where: {
+        tickerId: "ticker-1",
+        section: { not: null },
+        analyzedAt: { gt: new Date("2026-08-05T00:00:00.000Z") },
+      },
+    });
+  });
+
+  it("does not count sections when no newsletter exists in the window", async () => {
+    // Setup
+    const db = createMockDb();
+    db.newsletter.findFirst.mockResolvedValue(null);
+
+    // Act
+    const result = await getLatestNewsletter(
+      "ticker-1",
+      "2026-08-04T17:00:00.000Z",
+      "2026-08-05T17:00:00.000Z",
+      db as unknown as Parameters<typeof getLatestNewsletter>[3],
+    );
+
+    // Assert
+    expect(result.analyzedSinceCount).toBe(0);
+    expect(db.dataSourceTickerSection.count).not.toHaveBeenCalled();
   });
 
   it("returns hasNewsletter:false when newsletter exists but outside the window", async () => {
@@ -486,6 +540,8 @@ describe("getLatestNewsletter", () => {
     expect(result).toEqual({
       hasNewsletter: false,
       newsletterId: null,
+      newsletterCreatedAt: null,
+      analyzedSinceCount: 0,
     });
     expect(db.newsletter.findFirst).toHaveBeenCalledWith({
       where: {
@@ -495,7 +551,7 @@ describe("getLatestNewsletter", () => {
           lt: new Date("2026-04-21T17:00:00.000Z"),
         },
       },
-      select: { id: true },
+      select: { id: true, createdAt: true },
       orderBy: { createdAt: "desc" },
     });
   });

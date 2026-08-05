@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const articleAnalysisRunStatusSchema = z.enum([
+  "running",
   "success",
   "partial_success",
   "failed",
@@ -11,7 +12,8 @@ export const articleAnalysisRunInputSchema = z.object({
   tickerId: z.string().trim().min(1).optional(),
   scheduleExecutionId: z.string().uuid().optional(),
   startedAt: z.string().datetime(),
-  completedAt: z.string().datetime(),
+  /** Absent while the run is still in flight; set when it reaches a terminal status. */
+  completedAt: z.string().datetime().optional(),
   status: articleAnalysisRunStatusSchema,
   /** Classification LLM model id. */
   model: z.string().optional(),

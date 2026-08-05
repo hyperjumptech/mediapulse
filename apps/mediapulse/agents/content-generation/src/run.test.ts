@@ -754,6 +754,38 @@ describe("run", () => {
       expect(callArg.errorCode).toBe("skipped_fresh_newsletter_exists");
     });
 
+    it("calls contentGenerationRuns.create with errorCode=skipped_fresh_newsletter_stale_analysis when newer sections exist", async () => {
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: true,
+        newsletterId: "nl-existing",
+        newsletterCreatedAt: "2026-08-05T00:00:00.000Z",
+        analyzedSinceCount: 7,
+      });
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-stale" });
+
+      const result = await run(makeContext());
+
+      expect(result.success).toBe(true);
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.errorCode).toBe("skipped_fresh_newsletter_stale_analysis");
+    });
+
+    it("keeps errorCode=skipped_fresh_newsletter_exists when no newer sections exist", async () => {
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: true,
+        newsletterId: "nl-existing",
+        newsletterCreatedAt: "2026-08-05T00:00:00.000Z",
+        analyzedSinceCount: 0,
+      });
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-fresh" });
+
+      const result = await run(makeContext());
+
+      expect(result.success).toBe(true);
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.errorCode).toBe("skipped_fresh_newsletter_exists");
+    });
+
     it("swallows diagnostic write failure and does not change the primary AgentRunResult", async () => {
       contentGenerationNewslettersLatestGet.mockResolvedValue({
         hasNewsletter: false,
