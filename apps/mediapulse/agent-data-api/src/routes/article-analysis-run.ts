@@ -5,7 +5,7 @@ import {
   postArticleAnalysisRunBodySchema,
 } from "@workspace/agent-data-api-contract";
 import { internalError } from "@workspace/api-utils";
-import { prisma } from "@mediapulse/database";
+import { prisma, type Prisma } from "@mediapulse/database";
 
 export async function getArticleAnalysisRun(
   context: Context,
@@ -38,26 +38,30 @@ export async function postArticleAnalysisRun(
     const body = await context.req.json();
     const data = await postArticleAnalysisRunBodySchema.parseAsync(body);
 
-    await prisma.articleAnalysisRun.create({
-      data: {
-        id: data.id,
-        tickerId: data.tickerId ?? null,
-        scheduleExecutionId: data.scheduleExecutionId ?? null,
-        startedAt: new Date(data.startedAt),
-        completedAt: new Date(data.completedAt),
-        status: data.status,
-        model: data.model ?? null,
-        agentVersion: data.agentVersion ?? null,
-        promptTokens: data.promptTokens,
-        completionTokens: data.completionTokens,
-        reasoningTokens: data.reasoningTokens,
-        totalTokens: data.totalTokens,
-        scored: data.scored,
-        rejected: data.rejected,
-        backlog: data.backlog,
-        stopReason: data.stopReason ?? null,
-        durationMs: data.durationMs ?? null,
-      },
+    const record = {
+      tickerId: data.tickerId ?? null,
+      scheduleExecutionId: data.scheduleExecutionId ?? null,
+      startedAt: new Date(data.startedAt),
+      completedAt:
+        data.completedAt !== undefined ? new Date(data.completedAt) : null,
+      status: data.status,
+      model: data.model ?? null,
+      agentVersion: data.agentVersion ?? null,
+      promptTokens: data.promptTokens,
+      completionTokens: data.completionTokens,
+      reasoningTokens: data.reasoningTokens,
+      totalTokens: data.totalTokens,
+      scored: data.scored,
+      rejected: data.rejected,
+      backlog: data.backlog,
+      stopReason: data.stopReason ?? null,
+      durationMs: data.durationMs ?? null,
+    } satisfies Omit<Prisma.ArticleAnalysisRunUncheckedCreateInput, "id">;
+
+    await prisma.articleAnalysisRun.upsert({
+      where: { id: data.id },
+      create: { id: data.id, ...record },
+      update: record,
     });
 
     return context.json({ message: "Success" }, 200);

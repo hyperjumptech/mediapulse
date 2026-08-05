@@ -598,6 +598,7 @@ model DeliveryRecipientOutcome {
 }
 
 enum DataCollectionRunStatus {
+  running
   success
   partial_success
   failed

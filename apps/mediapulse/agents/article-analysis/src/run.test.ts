@@ -155,6 +155,52 @@ describe("article-analysis run — input scoping", () => {
       expect.objectContaining({ limit: 5 }),
     );
   });
+
+  it("claims the run row as running before classifying, then completes the same row", async () => {
+    drainOnce();
+
+    await run({ input: {}, config, token: "Bearer test" });
+
+    expect(articleAnalysisRunCreate).toHaveBeenCalledTimes(2);
+
+    const claim = articleAnalysisRunCreate.mock.calls[0]![0];
+    const completion = articleAnalysisRunCreate.mock.calls[1]![0];
+
+    expect(claim.status).toBe("running");
+    expect(claim.completedAt).toBeUndefined();
+    expect(completion.status).toBe("success");
+    expect(completion.completedAt).toEqual(expect.any(String));
+    expect(completion.id).toBe(claim.id);
+  });
+
+  it("claims the run row before the first analysis fetch", async () => {
+    drainOnce();
+    const callOrder: string[] = [];
+    articleAnalysisRunCreate.mockImplementation(() => {
+      callOrder.push("run-record");
+
+      return Promise.resolve({ message: "Success" });
+    });
+    analysisGet.mockImplementation(() => {
+      callOrder.push("analysis-get");
+
+      return Promise.resolve({ dataSources: [], dataSourceTotalCount: 0 });
+    });
+
+    await run({ input: {}, config, token: "Bearer test" });
+
+    expect(callOrder[0]).toBe("run-record");
+  });
+
+  it("continues the run when claiming the run row fails", async () => {
+    drainOnce();
+    articleAnalysisRunCreate.mockRejectedValueOnce(new Error("claim boom"));
+
+    const result = await run({ input: {}, config, token: "Bearer test" });
+
+    expect(result.success).toBe(true);
+    expect(analysisCreate).toHaveBeenCalledOnce();
+  });
 });
 
 describe("article-analysis run — empty-source skip and description classification", () => {

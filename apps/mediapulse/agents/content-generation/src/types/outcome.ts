@@ -11,6 +11,11 @@ export type OutcomeCode =
   | "no_sources"
   /** A fresh newsletter was generated recently; run is skipped (MP-CGA-006). */
   | "skipped_fresh_newsletter_exists"
+  /**
+   * Same skip as above, but articles were classified for this ticker after that newsletter was
+   * written, so the skip discards analysis the newsletter never saw.
+   */
+  | "skipped_fresh_newsletter_stale_analysis"
   /** LLM returned a retryable error and all retry attempts were exhausted. */
   | "openai_retry_exhausted"
   /** LLM returned a non-retryable error (e.g. auth failure, bad request). */
@@ -36,7 +41,8 @@ export type AgentOutcome = {
   outcome: OutcomeCode;
   /**
    * True when the run was intentionally skipped (no failure, no generation needed).
-   * Currently used for `no_sources` and `skipped_fresh_newsletter_exists`.
+   * Currently used for `no_sources`, `skipped_fresh_newsletter_exists`, and
+   * `skipped_fresh_newsletter_stale_analysis`.
    */
   skipped: boolean;
   /** Optional human-readable context for logging. */

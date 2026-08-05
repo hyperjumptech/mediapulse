@@ -64,6 +64,14 @@ export function mapOutcomeToDiagnostic(
         errorCategory: null,
       };
 
+    case "skipped_fresh_newsletter_stale_analysis":
+      return {
+        outcome: "skipped",
+        stage: "precheck",
+        errorCode: "skipped_fresh_newsletter_stale_analysis",
+        errorCategory: null,
+      };
+
     case "openai_retry_exhausted":
       return {
         outcome: "failed",

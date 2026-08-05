@@ -193,6 +193,8 @@ Used by the content-generation agent for the **skip-if-fresh** precheck (MP-CGA-
 - **GET response** — `getContentGenerationNewslettersLatestResponseSchema`:
   - `hasNewsletter` (boolean) — true if at least one newsletter matching the ticker exists within `[windowStart, windowEnd)`.
   - `newsletterId` (string | null) — ID of the most recent qualifying newsletter, or `null`.
+  - `newsletterCreatedAt` (ISO 8601 datetime | null) — when that newsletter was written, or `null`.
+  - `analyzedSinceCount` (integer) — sections classified for the ticker after `newsletterCreatedAt`. Non-zero means skipping the run would discard analysis the existing newsletter never saw, which the agent records as `skipped_fresh_newsletter_stale_analysis` rather than `skipped_fresh_newsletter_exists`. Always `0` when no newsletter exists in the window.
 
 From agents, use the SDK namespace **`contentGenerationNewslettersLatest`**: `get` for the query object.
 

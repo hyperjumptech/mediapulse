@@ -28,7 +28,7 @@ type ContentGenerationDb = {
   dataSource: Pick<typeof prisma.dataSource, "update">;
   dataSourceTickerSection: Pick<
     typeof prisma.dataSourceTickerSection,
-    "findMany"
+    "findMany" | "count"
   >;
   ticker: Pick<typeof prisma.ticker, "findUniqueOrThrow" | "findUnique">;
   newsletter: Pick<
@@ -229,18 +229,30 @@ export const updateFetchedContent = async (
  *
  * Used by the content-generation agent skip-if-fresh precheck (MP-CGA-006).
  *
+ * Also reports how many sections were classified for the ticker after that newsletter was written.
+ * A skip with a non-zero count discards analysis the newsletter never saw, which the agent records
+ * under a distinct outcome so the loss is visible rather than silent.
+ *
  * @param tickerId - Ticker id to match.
  * @param windowStart - Start of the time window (inclusive, ISO datetime string).
  * @param windowEnd - End of the time window (exclusive, ISO datetime string).
  * @param db - Database dependency, injectable for tests.
- * @returns Object with `hasNewsletter` flag and optional `newsletterId`.
+ * @returns Whether a newsletter exists, its id and creation time, and the count of later sections.
  */
 export const getLatestNewsletter = async (
   tickerId: string,
   windowStart: string,
   windowEnd: string,
-  db: Pick<ContentGenerationDb, "newsletter"> = prisma,
-): Promise<{ hasNewsletter: boolean; newsletterId: string | null }> => {
+  db: Pick<
+    ContentGenerationDb,
+    "newsletter" | "dataSourceTickerSection"
+  > = prisma,
+): Promise<{
+  hasNewsletter: boolean;
+  newsletterId: string | null;
+  newsletterCreatedAt: string | null;
+  analyzedSinceCount: number;
+}> => {
   const newsletter = await db.newsletter.findFirst({
     where: {
       tickerId,
@@ -249,13 +261,32 @@ export const getLatestNewsletter = async (
         lt: new Date(windowEnd),
       },
     },
-    select: { id: true },
+    select: { id: true, createdAt: true },
     orderBy: { createdAt: "desc" },
   });
 
+  if (newsletter === null) {
+    return {
+      hasNewsletter: false,
+      newsletterId: null,
+      newsletterCreatedAt: null,
+      analyzedSinceCount: 0,
+    };
+  }
+
+  const analyzedSinceCount = await db.dataSourceTickerSection.count({
+    where: {
+      tickerId,
+      section: { not: null },
+      analyzedAt: { gt: newsletter.createdAt },
+    },
+  } satisfies Prisma.DataSourceTickerSectionCountArgs);
+
   return {
-    hasNewsletter: newsletter !== null,
-    newsletterId: newsletter?.id ?? null,
+    hasNewsletter: true,
+    newsletterId: newsletter.id,
+    newsletterCreatedAt: newsletter.createdAt.toISOString(),
+    analyzedSinceCount,
   };
 };
 

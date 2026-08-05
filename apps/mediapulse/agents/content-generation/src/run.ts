@@ -266,6 +266,9 @@ export async function run({
   }
 
   const existingNewsletterFound = freshnessResult.hasNewsletter;
+  const analyzedSinceCount = freshnessResult.analyzedSinceCount;
+  const staleAnalysisDiscarded =
+    existingNewsletterFound && analyzedSinceCount > 0;
 
   logger.info(
     {
@@ -274,15 +277,34 @@ export async function run({
       windowStart,
       windowEnd,
       existingNewsletterFound,
+      newsletterCreatedAt: freshnessResult.newsletterCreatedAt,
+      analyzedSinceCount,
     },
     "Freshness precheck: result",
   );
 
+  if (staleAnalysisDiscarded) {
+    logger.warn(
+      {
+        tickerId: input.tickerId,
+        newsletterId: freshnessResult.newsletterId,
+        newsletterCreatedAt: freshnessResult.newsletterCreatedAt,
+        analyzedSinceCount,
+        event: "fresh_newsletter_skip_discards_analysis",
+      },
+      `Skipping run: ${String(analyzedSinceCount)} section(s) classified after today's newsletter will not reach subscribers`,
+    );
+  }
+
   if (existingNewsletterFound) {
     const outcome: AgentOutcome = {
-      outcome: "skipped_fresh_newsletter_exists",
+      outcome: staleAnalysisDiscarded
+        ? "skipped_fresh_newsletter_stale_analysis"
+        : "skipped_fresh_newsletter_exists",
       skipped: true,
-      message: `Newsletter already generated for ${input.tickerId} today (skipped)`,
+      message: staleAnalysisDiscarded
+        ? `Newsletter already generated for ${input.tickerId} today (skipped); ${String(analyzedSinceCount)} newer section(s) discarded`
+        : `Newsletter already generated for ${input.tickerId} today (skipped)`,
     };
     logger.info(
       { tickerId: input.tickerId, outcome },

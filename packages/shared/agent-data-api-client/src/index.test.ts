@@ -551,6 +551,8 @@ describe("createAgentDataApiClient", () => {
       body: JSON.stringify({
         hasNewsletter: true,
         newsletterId: "nl-456",
+        newsletterCreatedAt: "2026-04-20T02:00:00.000Z",
+        analyzedSinceCount: 3,
       }),
       statusCode: 200,
     });
@@ -576,6 +578,8 @@ describe("createAgentDataApiClient", () => {
     );
     expect(result.hasNewsletter).toBe(true);
     expect(result.newsletterId).toBe("nl-456");
+    expect(result.newsletterCreatedAt).toBe("2026-04-20T02:00:00.000Z");
+    expect(result.analyzedSinceCount).toBe(3);
   });
 
   it("supports content-generation-newsletters-recent GET", async () => {

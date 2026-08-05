@@ -87,6 +87,13 @@ export const getContentGenerationNewslettersLatestQuerySchema = z.object({
 export const getContentGenerationNewslettersLatestResponseSchema = z.object({
   hasNewsletter: z.boolean(),
   newsletterId: z.string().nullable(),
+  /** When the existing newsletter was written, so callers can compare it against later analysis. */
+  newsletterCreatedAt: z.string().datetime().nullable(),
+  /**
+   * Sections classified for this ticker after the existing newsletter was written. Non-zero means a
+   * skip would discard analysis the newsletter never saw.
+   */
+  analyzedSinceCount: z.number().int().nonnegative(),
 });
 
 export const getContentGenerationNewslettersRecentQuerySchema = z.object({

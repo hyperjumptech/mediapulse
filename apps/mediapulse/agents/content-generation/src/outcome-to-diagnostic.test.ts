@@ -45,6 +45,25 @@ describe("mapOutcomeToDiagnostic", () => {
     });
   });
 
+  it("maps skipped_fresh_newsletter_stale_analysis to skipped / precheck", () => {
+    // Setup
+    const agentOutcome: AgentOutcome = {
+      outcome: "skipped_fresh_newsletter_stale_analysis",
+      skipped: true,
+    };
+
+    // Act
+    const result = mapOutcomeToDiagnostic(agentOutcome);
+
+    // Assert
+    expect(result).toEqual({
+      outcome: "skipped",
+      stage: "precheck",
+      errorCode: "skipped_fresh_newsletter_stale_analysis",
+      errorCategory: null,
+    });
+  });
+
   it("maps skipped_fresh_newsletter_exists to skipped / precheck", () => {
     // Setup
     const agentOutcome: AgentOutcome = {

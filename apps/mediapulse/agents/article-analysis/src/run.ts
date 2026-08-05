@@ -128,6 +128,31 @@ export async function run(
   let startReported = false;
   let stopReason: AnalysisStopReason = null;
 
+  try {
+    await dataApiClient.articleAnalysisRun.create({
+      id: runId,
+      ...(hermesCorrelation?.scheduleExecutionId
+        ? { scheduleExecutionId: hermesCorrelation.scheduleExecutionId }
+        : {}),
+      startedAt: startedAt.toISOString(),
+      status: "running",
+      model: config.acceptance.model,
+      agentVersion: ARTICLE_ANALYSIS_AGENT_VERSION,
+      promptTokens: 0,
+      completionTokens: 0,
+      reasoningTokens: 0,
+      totalTokens: 0,
+      scored: 0,
+      rejected: 0,
+      backlog: 0,
+    });
+  } catch (error) {
+    log.warn(
+      { err: error },
+      "failed to claim article-analysis run record; continuing",
+    );
+  }
+
   // Drain the recent unclassified backlog in batches until empty (or the per-run safety cap is hit).
   // Each posted batch upserts section rows, so the next fetch excludes those pairs and the loop
   // makes forward progress; a batch that classifies nothing means no progress is possible, so stop.
