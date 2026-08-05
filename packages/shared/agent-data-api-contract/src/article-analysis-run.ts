@@ -31,12 +31,20 @@ export const articleAnalysisRunInputSchema = z.object({
   backlog: z.number().int().nonnegative().default(0),
   stopReason: z.string().optional(),
   durationMs: z.number().int().nonnegative().optional(),
+  /**
+   * Marks any run still `running` that started before this instant as `failed` with a `stalled`
+   * stop reason, before this run's own row is written. A `running` row older than the agent's
+   * timeout is a crashed run, which the schema cannot otherwise tell apart from a live one.
+   */
+  stalledBefore: z.string().datetime().optional(),
 });
 
 export const postArticleAnalysisRunBodySchema = articleAnalysisRunInputSchema;
 
 export const postArticleAnalysisRunResponseSchema = z.object({
   message: z.string(),
+  /** Runs marked failed as stalled by this request, when `stalledBefore` was supplied. */
+  stalledCount: z.number().int().nonnegative().optional(),
 });
 
 export const getArticleAnalysisRunResponseSchema = z.object({

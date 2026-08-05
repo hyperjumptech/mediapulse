@@ -28,6 +28,12 @@ import {
 const BATCH_SIZE = 100;
 /** Safety bound on total pairs classified in a single run. */
 const MAX_PAIRS_PER_RUN = 1000;
+
+/**
+ * A run still marked `running` after this long has crashed rather than stalled mid-batch. The
+ * longest observed run drains its backlog in under a minute, so an hour is far outside normal.
+ */
+const STALLED_RUN_AFTER_MS = 60 * 60 * 1000;
 /** Max concurrent classification calls. */
 const CLASSIFY_CONCURRENCY = 8;
 
@@ -136,6 +142,9 @@ export async function run(
         : {}),
       startedAt: startedAt.toISOString(),
       status: "running",
+      stalledBefore: new Date(
+        startedAt.getTime() - STALLED_RUN_AFTER_MS,
+      ).toISOString(),
       model: config.acceptance.model,
       agentVersion: ARTICLE_ANALYSIS_AGENT_VERSION,
       promptTokens: 0,

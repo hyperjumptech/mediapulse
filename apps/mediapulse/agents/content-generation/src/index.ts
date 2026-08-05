@@ -12,6 +12,11 @@ import { run } from "./run.js";
 
 const BodySchema = z.object({
   tickerId: hermesTickerIdSchema,
+  /**
+   * Regenerates today's newsletter instead of skipping on the duplicate guard. For verifying a
+   * pipeline change end to end on a ticker that already has an issue for the day.
+   */
+  force: z.boolean().optional(),
 });
 
 type Input = z.infer<typeof BodySchema>;

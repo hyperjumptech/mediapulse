@@ -58,13 +58,36 @@ export async function postArticleAnalysisRun(
       durationMs: data.durationMs ?? null,
     } satisfies Omit<Prisma.ArticleAnalysisRunUncheckedCreateInput, "id">;
 
+    let stalledCount = 0;
+    if (data.stalledBefore !== undefined) {
+      const stalled = await prisma.articleAnalysisRun.updateMany({
+        where: {
+          status: "running",
+          completedAt: null,
+          startedAt: { lt: new Date(data.stalledBefore) },
+          id: { not: data.id },
+        },
+        data: {
+          status: "failed",
+          completedAt: new Date(),
+          stopReason: "stalled",
+        },
+      });
+      stalledCount = stalled.count;
+    }
+
     await prisma.articleAnalysisRun.upsert({
       where: { id: data.id },
       create: { id: data.id, ...record },
       update: record,
     });
 
-    return context.json({ message: "Success" }, 200);
+    return context.json(
+      stalledCount > 0
+        ? { message: "Success", stalledCount }
+        : { message: "Success" },
+      200,
+    );
   } catch (error) {
     return internalError(context, error);
   }
