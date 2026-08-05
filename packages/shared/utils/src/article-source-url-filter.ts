@@ -227,6 +227,9 @@ const NON_ARTICLE_PAGE_PATTERNS = [
   /\/(technologies|technology|solutions|platforms?)(\/|$)/i,
   /\/[a-z]+-companies(\/|$)/i,
   /\/[a-z0-9-]{16,}\/\d{1,3}$/i,
+  /\/(?:berita-)?foto(?:-berita)?(\/|$)/i,
+  /\/galer(?:i|y|ies)(\/|$)/i,
+  /\/(?:photo|photos|photo-news|gallery|galleries)(\/|$)/i,
 ] as const;
 
 /**

@@ -506,6 +506,36 @@ describe("classifyNoisyUrl: reference and market-data pages", () => {
     }
   });
 
+  it.each([
+    "https://rri.co.id/kupang/berita-foto/55673/bri-berkolaborasi-buka-ruang-pertumbuhan",
+    "https://www.example.co.id/foto/2026/08/05/rapat-umum-pemegang-saham",
+    "https://news.example.com/galeri/peresmian-pabrik-baru",
+    "https://www.example.com/photo-news/annual-meeting-2026",
+    "https://www.example.com/gallery/factory-opening",
+  ])(
+    "blocks a photo gallery, which carries a caption rather than an article: %s",
+    (url) => {
+      const decision = classifyNoisyUrl(url);
+
+      expect(decision.blocked).toBe(true);
+      if (decision.blocked) {
+        expect(decision.reason).toBe("non_article_page");
+      }
+    },
+  );
+
+  it.each([
+    "https://www.example.co.id/berita/fotografi-industri-kreatif-tumbuh-12-persen",
+    "https://www.example.com/news/photography-market-grows",
+  ])(
+    "keeps an article whose slug merely starts with the same letters: %s",
+    (url) => {
+      const decision = classifyNoisyUrl(url);
+
+      expect(decision.blocked).toBe(false);
+    },
+  );
+
   it("keeps a news story about company earnings", () => {
     const decision = classifyNoisyUrl(
       "https://www.trenasia.id/tren-pasar/saham-tlkm-masih-murah-asing-borong-saat-pasar-berdarah",

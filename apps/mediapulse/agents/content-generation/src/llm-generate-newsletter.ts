@@ -736,9 +736,13 @@ export async function generateNewsletterWithLlm(
 
   const document: NewsletterDocument = { version: 1, sections };
 
-  const shippedTitles = document.sections.flatMap((section) =>
-    section.articles.map((article) => article.title),
+  const shippedHeadlines = document.sections.flatMap((section) =>
+    section.articles.map((article) => ({
+      title: article.title,
+      section: SECTION_ID_BY_DOCUMENT_KEY[section.key] ?? section.key,
+    })),
   );
+  const shippedTitles = shippedHeadlines.map((headline) => headline.title);
   let subjectTitle = buildSubjectFallback(shippedTitles);
   try {
     const subjectResult = await retryWithBackoff(
@@ -747,7 +751,10 @@ export async function generateNewsletterWithLlm(
           model,
           schema: newsletterSubjectSchema,
           system: WRITE_SUBJECT_SYSTEM_PROMPT,
-          prompt: buildSubjectPrompt(shippedTitles),
+          prompt: buildSubjectPrompt(shippedHeadlines, {
+            symbol: context.tickerSymbol,
+            name: context.tickerName,
+          }),
           maxRetries: 0,
           timeout: requestTimeoutMs,
         }),
