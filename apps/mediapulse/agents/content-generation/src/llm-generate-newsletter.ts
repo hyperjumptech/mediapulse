@@ -30,6 +30,7 @@ import {
   type EventDedupDrop,
 } from "./lib/event-dedup.js";
 import { pointsSupportTitle } from "./lib/points-support-title.js";
+import { dropStaleForSection } from "./lib/section-freshness.js";
 import { retryWithBackoff } from "./lib/retry.js";
 import { sanitizeSummaryPoints } from "./lib/sanitize-summary-points.js";
 import { truncateSources } from "./lib/truncate-sources.js";
@@ -566,6 +567,20 @@ export async function generateNewsletterWithLlm(
         `Cross-section event dedup: removed ${String(eventDeduped.removedCount)} same-event source(s)`,
       );
     }
+  }
+
+  const sectionFreshness = dropStaleForSection(candidateSources);
+  if (sectionFreshness.droppedCount > 0) {
+    candidateSources = sectionFreshness.sources;
+    logger.info(
+      {
+        tickerId: context.tickerId,
+        droppedCount: sectionFreshness.droppedCount,
+        drops: sectionFreshness.drops,
+        event: "section_freshness_dropped",
+      },
+      `Section freshness: dropped ${String(sectionFreshness.droppedCount)} source(s) older than their section tolerates`,
+    );
   }
 
   const selection = selectArticles(candidateSources);
