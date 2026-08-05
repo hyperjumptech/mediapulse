@@ -368,6 +368,18 @@ Implemented in `apps/mediapulse/agent-data-api/src/routes/page-collection-run.ts
 
 - **GET / POST `/api/v1/page-collection-run`** — One run record per page-collection run, carrying the grouped `snapshot` (`cost` / `result` / `timing`).
 
+### Article analysis run record (`/api/v1/article-analysis-run`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/article-analysis-run.ts`. Schemas live in `@workspace/agent-data-api-contract` (`article-analysis-run.ts`).
+
+Article-analysis writes this row twice per run: once to claim it before the first classification, and once on completion. The POST is an upsert on `id`, so both writes address the same row.
+
+- **POST body** — `postArticleAnalysisRunBodySchema`:
+  - `status` — `running` while in flight, then `success`, `partial_success`, or `failed`.
+  - `completedAt` — omitted on the claim write, set on the completion write. `SELECT ... WHERE completed_at IS NULL` is therefore the liveness query.
+  - `stalledBefore` (optional ISO 8601 datetime) — marks every other run still `running` that started before this instant as `failed` with stop reason `stalled`, before this run's row is written. A `running` row older than the agent's timeout is a crashed run, which the schema cannot otherwise distinguish from a live one. Article-analysis sends it only on the claim write, using a one-hour threshold.
+- **POST response** — `postArticleAnalysisRunResponseSchema`: `message`, plus `stalledCount` when `stalledBefore` swept any rows.
+
 ### Newsletter feedback (`POST /api/v1/newsletter-feedback-record`)
 
 Implemented in `apps/mediapulse/agent-data-api/src/routes/newsletter-feedback.ts` and `services/newsletter-feedback.ts`. Schemas live in `@workspace/agent-data-api-contract` (`newsletter-feedback.ts`). Consumed by the [newsletter-feedback agent](/mediapulse/apps/agents/newsletter-feedback).

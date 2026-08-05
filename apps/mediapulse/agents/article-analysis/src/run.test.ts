@@ -192,6 +192,29 @@ describe("article-analysis run — input scoping", () => {
     expect(callOrder[0]).toBe("run-record");
   });
 
+  it("asks the data API to fail runs left running past the stall threshold", async () => {
+    drainOnce();
+
+    await run({ input: {}, config, token: "Bearer test" });
+
+    const claim = articleAnalysisRunCreate.mock.calls[0]![0];
+
+    expect(claim.stalledBefore).toEqual(expect.any(String));
+    expect(Date.parse(claim.startedAt) - Date.parse(claim.stalledBefore)).toBe(
+      60 * 60 * 1000,
+    );
+  });
+
+  it("does not repeat the stall sweep on the completion write", async () => {
+    drainOnce();
+
+    await run({ input: {}, config, token: "Bearer test" });
+
+    const completion = articleAnalysisRunCreate.mock.calls[1]![0];
+
+    expect(completion.stalledBefore).toBeUndefined();
+  });
+
   it("continues the run when claiming the run row fails", async () => {
     drainOnce();
     articleAnalysisRunCreate.mockRejectedValueOnce(new Error("claim boom"));

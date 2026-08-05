@@ -51,7 +51,7 @@ import { mapOutcomeToDiagnostic } from "./outcome-to-diagnostic.js";
 import { sanitizeDiagnosticMessage } from "./sanitize-diagnostic-message.js";
 import type { AgentOutcome } from "./types/outcome.js";
 
-type Input = { tickerId: string };
+type Input = { tickerId: string; force?: boolean | undefined };
 
 /**
  * Parameters for the internal `writeDiagnostic` helper.
@@ -269,7 +269,7 @@ export async function run({
     );
   }
 
-  const existingNewsletterFound = freshnessResult.hasNewsletter;
+  const existingNewsletterFound = freshnessResult.hasNewsletter && !input.force;
   const analyzedSinceCount = freshnessResult.analyzedSinceCount;
   const staleAnalysisDiscarded =
     existingNewsletterFound && analyzedSinceCount > 0;
@@ -283,9 +283,22 @@ export async function run({
       existingNewsletterFound,
       newsletterCreatedAt: freshnessResult.newsletterCreatedAt,
       analyzedSinceCount,
+      forced: input.force === true,
     },
     "Freshness precheck: result",
   );
+
+  if (input.force === true && freshnessResult.hasNewsletter) {
+    logger.warn(
+      {
+        tickerId: input.tickerId,
+        newsletterId: freshnessResult.newsletterId,
+        newsletterCreatedAt: freshnessResult.newsletterCreatedAt,
+        event: "duplicate_guard_forced",
+      },
+      "Duplicate guard overridden by force: generating a second newsletter for today",
+    );
+  }
 
   if (staleAnalysisDiscarded) {
     logger.warn(

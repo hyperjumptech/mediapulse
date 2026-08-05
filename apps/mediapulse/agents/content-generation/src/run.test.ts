@@ -97,7 +97,7 @@ const baseConfig: ContentGenerationConfig = ContentGenerationConfigSchema.parse(
 );
 
 function makeContext(overrides?: {
-  input?: { tickerId: string };
+  input?: { tickerId: string; force?: boolean };
   config?: Partial<ContentGenerationConfig>;
   token?: string;
 }) {
@@ -781,6 +781,43 @@ describe("run", () => {
       expect(result.success).toBe(true);
       const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
       expect(callArg.errorCode).toBe("skipped_fresh_newsletter_exists");
+    });
+
+    it("regenerates today's newsletter when force is set", async () => {
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: true,
+        newsletterId: "nl-existing",
+        newsletterCreatedAt: "2026-08-05T00:00:00.000Z",
+        analyzedSinceCount: 4,
+      });
+      contentGenerationGet.mockResolvedValue(makeGetResponse());
+      contentGenerationCreate.mockResolvedValue({ message: "ok", id: "nl-2" });
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-forced" });
+      vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue(
+        generatedNewsletter,
+      );
+
+      const result = await run(
+        makeContext({ input: { tickerId: TEST_TICKER_ID, force: true } }),
+      );
+
+      expect(result.success).toBe(true);
+      expect(contentGenerationCreate).toHaveBeenCalledTimes(1);
+    });
+
+    it("still skips today's newsletter when force is absent", async () => {
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: true,
+        newsletterId: "nl-existing",
+        newsletterCreatedAt: "2026-08-05T00:00:00.000Z",
+        analyzedSinceCount: 4,
+      });
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-skip" });
+
+      const result = await run(makeContext());
+
+      expect(result.success).toBe(true);
+      expect(contentGenerationCreate).not.toHaveBeenCalled();
     });
 
     it("calls contentGenerationRuns.create with errorCode=skipped_fresh_newsletter_stale_analysis when newer sections exist", async () => {
