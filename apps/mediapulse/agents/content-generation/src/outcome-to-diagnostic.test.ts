@@ -45,6 +45,25 @@ describe("mapOutcomeToDiagnostic", () => {
     });
   });
 
+  it("maps skipped_insufficient_sources to skipped / precheck", () => {
+    // Setup
+    const agentOutcome: AgentOutcome = {
+      outcome: "skipped_insufficient_sources",
+      skipped: true,
+    };
+
+    // Act
+    const result = mapOutcomeToDiagnostic(agentOutcome);
+
+    // Assert
+    expect(result).toEqual({
+      outcome: "skipped",
+      stage: "precheck",
+      errorCode: "skipped_insufficient_sources",
+      errorCategory: null,
+    });
+  });
+
   it("maps skipped_fresh_newsletter_stale_analysis to skipped / precheck", () => {
     // Setup
     const agentOutcome: AgentOutcome = {

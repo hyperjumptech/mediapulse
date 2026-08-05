@@ -147,7 +147,35 @@ describe("dedupeCrossSectionSourceEvents", () => {
     expect(result.drops[0]).toMatchObject({ sectionKey: "quickHits" });
   });
 
-  it("keeps a repeated headline shape published on a different day", () => {
+  it("drops a second telling stamped one day later by another outlet", () => {
+    const sources = [
+      {
+        ...source(
+          "Indosat 5G Expands Network to Support Gaming and Digital School in Balikpapan",
+          "Indosat Ooredoo Hutchison memperkuat jaringan 5G di sejumlah titik aktivitas warga Balikpapan.",
+          "competitiveLandscape",
+        ),
+        publishedAt: "2026-08-02T09:00:00.000Z",
+      },
+      {
+        ...source(
+          "Indosat Strengthens 5G Network in Balikpapan, Boosts Gaming and Digital Education",
+          "Perluasan layanan 5G Indosat di kota Balikpapan menyasar pelaku UMKM dan sektor pendidikan.",
+          "competitiveLandscape",
+        ),
+        publishedAt: "2026-08-03T14:20:00.000Z",
+      },
+    ];
+
+    const result = dedupeCrossSectionSourceEvents(sources);
+
+    expect(result.removedCount).toBe(1);
+    expect(titleOf(result.sources)).toEqual([
+      "Indosat 5G Expands Network to Support Gaming and Digital School in Balikpapan",
+    ]);
+  });
+
+  it("keeps a repeated headline shape published more than a day apart", () => {
     const sources = [
       {
         ...source(

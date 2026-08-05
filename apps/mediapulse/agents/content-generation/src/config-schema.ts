@@ -177,6 +177,13 @@ export const CONTENT_GENERATION_CONSTANTS = {
     jitter: true,
   },
   /**
+   * Floor below which an issue is skipped rather than generated. A subscriber receiving nothing is
+   * a smaller failure than one receiving a single competitor's earnings table under a masthead
+   * promising an industry pulse.
+   */
+  minShippableArticles: 2,
+  minShippableSections: 2,
+  /**
    * Sections guaranteed a fetched body for their top candidate, so a section is never dropped
    * merely because on-demand triage skipped its highest-scored article.
    */
