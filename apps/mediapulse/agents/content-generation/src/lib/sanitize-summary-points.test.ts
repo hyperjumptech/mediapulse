@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   containsNonLatinScript,
   describesFetchFailure,
+  lacksSubstance,
   looksTruncated,
   sanitizeSummaryPoints,
 } from "./sanitize-summary-points.js";
@@ -207,6 +208,98 @@ describe("sanitizeSummaryPoints", () => {
       "fetch_failure",
       "fetch_failure",
       "fetch_failure",
+    ]);
+  });
+});
+
+describe("lacksSubstance", () => {
+  it("flags a point reporting what the article did not detail", () => {
+    expect(
+      lacksSubstance(
+        "Purpose of new credit and relation to BSI repayment not detailed.",
+      ),
+    ).toBe(true);
+    expect(lacksSubstance("Terms of the agreement were not specified.")).toBe(
+      true,
+    );
+    expect(
+      lacksSubstance("The filing does not say when trading resumes."),
+    ).toBe(true);
+    expect(lacksSubstance("Reason for the delay remains unclear.")).toBe(true);
+  });
+
+  it("flags an assertion of potential or the bare need for a strategy", () => {
+    expect(
+      lacksSubstance(
+        "Industrial area development in Indonesia still has significant growth potential",
+      ),
+    ).toBe(true);
+    expect(
+      lacksSubstance(
+        "Expansion of industrial areas requires strategic approaches",
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps a company declining to disclose a figure, which is ordinary deal reporting", () => {
+    expect(
+      lacksSubstance(
+        "Mitra Adiperkasa did not disclose the transaction value.",
+      ),
+    ).toBe(false);
+    expect(lacksSubstance("No financial details were disclosed.")).toBe(false);
+  });
+
+  it("keeps qualitative points that name something concrete", () => {
+    expect(
+      lacksSubstance(
+        "Focus remains on product quality, fast service, and cleanliness as key competitive factors.",
+      ),
+    ).toBe(false);
+    expect(
+      lacksSubstance(
+        "Initiative aims to digitalize MSMEs and enhance local education sector.",
+      ),
+    ).toBe(false);
+    expect(
+      lacksSubstance(
+        "Gold sales fell 38.2% to 18,080 kg while ferronickel sales rose 32%.",
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("sanitizeSummaryPoints — no-substance points", () => {
+  it("drops the absent-information point and keeps the facts beside it", () => {
+    const result = sanitizeSummaryPoints([
+      "DKHH secures Rp74 billion investment credit facility from Bank Mandiri.",
+      "DKHH repays Rp40.22 billion financing early at PT Bank Syariah Indonesia.",
+      "Purpose of new credit and relation to BSI repayment not detailed.",
+    ]);
+
+    expect(result.points).toEqual([
+      "DKHH secures Rp74 billion investment credit facility from Bank Mandiri.",
+      "DKHH repays Rp40.22 billion financing early at PT Bank Syariah Indonesia.",
+    ]);
+    expect(result.dropped).toEqual([
+      {
+        point:
+          "Purpose of new credit and relation to BSI repayment not detailed.",
+        reason: "no_substance",
+      },
+    ]);
+  });
+
+  it("empties an article whose every point asserts only potential", () => {
+    const result = sanitizeSummaryPoints([
+      "Industrial area development in Indonesia still has significant growth potential",
+      "Expansion of industrial areas requires strategic approaches",
+    ]);
+
+    expect(result.points).toEqual([]);
+    expect(result.dropped.map((entry) => entry.reason)).toEqual([
+      "no_substance",
+      "no_substance",
     ]);
   });
 });

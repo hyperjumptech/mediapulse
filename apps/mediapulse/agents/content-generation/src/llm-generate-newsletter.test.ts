@@ -628,6 +628,33 @@ describe("generateNewsletterWithLlm — summarizer failures", () => {
     expect(result.articlesSkippedSummaryFailed).toBe(1);
   });
 
+  it("drops an article when the summarizer returns no points", async () => {
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => {
+        if (promptTitle(args.prompt) === "Merger closes") {
+          return { object: { title: promptTitle(args.prompt), points: [] } };
+        }
+
+        return {
+          object: {
+            title: promptTitle(args.prompt),
+            points: [`Key fact from ${promptTitle(args.prompt)}`],
+          },
+        };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      testSources,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(result.articlesSkippedSummaryFailed).toBe(1);
+    expect(result.content).not.toContain("Merger closes");
+  });
+
   it("recovers when a transient summarizer failure succeeds on retry", async () => {
     const retryableError = new APICallError({
       message: "Server Error",

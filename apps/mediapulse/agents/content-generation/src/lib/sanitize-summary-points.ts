@@ -4,7 +4,8 @@ import { MAX_POINT_LENGTH } from "@workspace/email-templates/newsletter-document
 export type DroppedPointReason =
   | "non_latin_script"
   | "truncated"
-  | "fetch_failure";
+  | "fetch_failure"
+  | "no_substance";
 
 /** One point removed by {@link sanitizeSummaryPoints}, kept for logging. */
 export type DroppedPoint = {
@@ -51,6 +52,12 @@ const MISSING_CONTENT_PATTERN =
  */
 const NO_INFORMATION_PATTERN =
   /^\s*no\s+(?:\w+\s+){0,3}?(?:information|details|data|facts)\b[^.]*\b(?:available|found|provided|retrieved)\b/iu;
+
+const ABSENT_INFORMATION_PATTERN =
+  /\b(?:not\s+(?:detailed|specified|elaborated|stated|explained|mentioned|quantified)|no\s+further\s+(?:details?|information|explanation)|(?:remains?|is|are|was|were)\s+unclear|(?:does|do|did)\s+not\s+(?:say|specify|state|detail|explain|elaborate|mention))\b/iu;
+
+const VACUOUS_ASSERTION_PATTERN =
+  /\b(?:(?:significant|considerable|substantial|strong|great|huge)\s+(?:growth\s+)?potential|requires?\s+(?:a\s+|an\s+)?strategic\s+(?:approach(?:es)?|step(?:s)?)|still\s+has\s+(?:significant|considerable|substantial|room))\b/iu;
 
 /**
  * Words a complete point never ends on. A point stopping here was cut mid-clause even when it
@@ -131,9 +138,18 @@ export const describesFetchFailure = (point: string): boolean =>
   NO_INFORMATION_PATTERN.test(point);
 
 /**
- * Removes points that would ship as visibly broken text: a stray non-Latin glyph, a sentence cut
- * off mid-word against the length budget, or a description of a failed fetch rather than of the
- * article.
+ * Reports whether a point states an absence of information or asserts nothing checkable.
+ *
+ * @param point - One generated summary point.
+ */
+export const lacksSubstance = (point: string): boolean =>
+  ABSENT_INFORMATION_PATTERN.test(point) ||
+  VACUOUS_ASSERTION_PATTERN.test(point);
+
+/**
+ * Removes points that would ship as visibly broken text or as no news at all: a stray non-Latin
+ * glyph, a sentence cut off mid-word against the length budget, a description of a failed fetch
+ * rather than of the article, or an assertion carrying nothing the reader can act on.
  *
  * Dropping the point rather than the article keeps the rest of a good summary. A caller that
  * receives an empty result should treat the article as failed, since a rendered article with no
@@ -160,6 +176,10 @@ export const sanitizeSummaryPoints = (
     }
     if (describesFetchFailure(point)) {
       dropped.push({ point, reason: "fetch_failure" });
+      continue;
+    }
+    if (lacksSubstance(point)) {
+      dropped.push({ point, reason: "no_substance" });
       continue;
     }
     kept.push(point);
