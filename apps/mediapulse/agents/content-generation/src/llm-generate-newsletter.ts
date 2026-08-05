@@ -30,6 +30,7 @@ import {
   type EventDedupDrop,
 } from "./lib/event-dedup.js";
 import { pointsSupportTitle } from "./lib/points-support-title.js";
+import { dropRepeatedClaims } from "./lib/repeated-claim-dedup.js";
 import { dropStaleForSection } from "./lib/section-freshness.js";
 import { retryWithBackoff } from "./lib/retry.js";
 import { sanitizeSummaryPoints } from "./lib/sanitize-summary-points.js";
@@ -722,17 +723,31 @@ export async function generateNewsletterWithLlm(
     NewsletterArticle[]
   >();
   const selectedSources: SourceForGeneration[] = [];
+  const claimsSeen: string[] = [];
+  let repeatedClaimsDropped = 0;
   for (const outcome of summaryOutcomes) {
     if (outcome.status !== "summarized") {
       continue;
     }
     const { source } = outcome.entry;
+
+    // Two different articles can carry one figure, which source-level dedup has nothing to match
+    // on. Points are visited in reading order so the first telling survives.
+    const deduped = dropRepeatedClaims([...claimsSeen, ...outcome.points]);
+    const points = deduped.points.slice(claimsSeen.length);
+    if (points.length === 0) {
+      repeatedClaimsDropped += outcome.points.length;
+      continue;
+    }
+    repeatedClaimsDropped += outcome.points.length - points.length;
+    claimsSeen.push(...points);
+
     const author = trimmedOrUndefined(source.author);
     const sourceName = trimmedOrUndefined(source.source);
     const article: NewsletterArticle = {
       title: outcome.title,
       url: source.url.trim(),
-      points: outcome.points,
+      points,
       ...(author !== undefined ? { author } : {}),
       ...(sourceName !== undefined ? { source: sourceName } : {}),
     };
@@ -740,6 +755,17 @@ export async function generateNewsletterWithLlm(
     bucket.push(article);
     articlesBySection.set(outcome.entry.sectionKey, bucket);
     selectedSources.push(source);
+  }
+
+  if (repeatedClaimsDropped > 0) {
+    logger.info(
+      {
+        tickerId: context.tickerId,
+        repeatedClaimsDropped,
+        event: "repeated_claims_dropped",
+      },
+      `Dropped ${String(repeatedClaimsDropped)} point(s) restating a figure already shipped in this issue`,
+    );
   }
 
   const sections: NewsletterSection[] = NEWSLETTER_SECTION_KEYS.flatMap(
