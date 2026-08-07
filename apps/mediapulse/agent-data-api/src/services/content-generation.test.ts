@@ -783,6 +783,36 @@ describe("updateFetchedContent", () => {
     });
   });
 
+  it("backfills publishedAt only on rows that still have none", async () => {
+    const update = vi.fn().mockResolvedValue({ id: "ds-1" });
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const db = { dataSource: { update, updateMany } };
+
+    const result = await updateFetchedContent(
+      [
+        {
+          dataSourceId: "ds-1",
+          content: "Body 1",
+          fetchProvider: "serper",
+          publishedAt: "2026-08-05T02:00:00.000Z",
+        },
+        { dataSourceId: "ds-2", content: "Body 2", fetchProvider: "tavily" },
+      ],
+      {
+        db: db as unknown as NonNullable<
+          Parameters<typeof updateFetchedContent>[1]
+        >["db"],
+      },
+    );
+
+    expect(result.updatedCount).toBe(2);
+    expect(updateMany).toHaveBeenCalledTimes(1);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: "ds-1", publishedAt: null },
+      data: { publishedAt: new Date("2026-08-05T02:00:00.000Z") },
+    });
+  });
+
   it("skips a row that fails to update without failing the batch", async () => {
     const update = vi
       .fn()

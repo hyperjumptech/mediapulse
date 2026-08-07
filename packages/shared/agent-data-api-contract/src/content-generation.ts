@@ -67,6 +67,7 @@ export const contentGenerationFetchedContentItemSchema = z.object({
   dataSourceId: z.string().uuid(),
   content: z.string().min(1),
   fetchProvider: z.string().min(1),
+  publishedAt: z.string().datetime().optional(),
 });
 
 export const postContentGenerationFetchedContentBodySchema = z

@@ -1,6 +1,7 @@
 import {
   buildDeadUrlRecords,
   expandFetchProviderEntries,
+  extractPublishedDate,
   HostErrorTracker,
   hostFromUrl,
   performWebFetch,
@@ -38,6 +39,7 @@ export type FetchEventDraft = {
 export type FetchedBody = {
   content: string;
   fetchProvider: string;
+  publishedAt?: string;
 };
 
 export type FetchSourceBodiesCounters = {
@@ -217,14 +219,22 @@ export async function fetchSourceBodies(
       return;
     }
 
+    const publishedAt = extractPublishedDate({
+      ...(page.fetchMetadata ? { fetchMetadata: page.fetchMetadata } : {}),
+      content: page.content,
+      url: source.url,
+    })?.toISOString();
+
     fetchedContentById.set(source.dataSourceId, {
       content: page.content,
       fetchProvider: page.provider,
+      ...(publishedAt ? { publishedAt } : {}),
     });
     persistBody.push({
       dataSourceId: source.dataSourceId,
       content: page.content,
       fetchProvider: page.provider,
+      ...(publishedAt ? { publishedAt } : {}),
     });
     fetchEvents.push({
       dataSourceId: source.dataSourceId,

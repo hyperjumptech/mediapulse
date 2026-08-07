@@ -164,6 +164,90 @@ describe("fetchSourceBodies", () => {
     expect(result.counters.persisted).toBe(1);
   });
 
+  it("derives publishedAt from the fetched body when the row carries none", async () => {
+    const requested: RequestedFetchSource[] = [
+      {
+        dataSourceId: "ds-1",
+        url: "https://kontan.co.id/undated",
+        title: "One",
+      },
+    ];
+    const body =
+      '<meta property="article:published_time" content="2026-08-05T02:00:00Z" /> Alfamart siap gelontorkan';
+    const performWebFetchFn = vi
+      .fn()
+      .mockResolvedValue([
+        successOutcome("https://kontan.co.id/undated", body, "tavily"),
+      ]);
+    const persistFetchedContent = vi
+      .fn()
+      .mockResolvedValue({ updatedCount: 1 });
+
+    const result = await fetchSourceBodies(
+      requested,
+      makeConfig(),
+      { tickerId: "ticker-1" },
+      {
+        persistFetchedContent,
+        performWebFetchFn: performWebFetchFn as never,
+        runQualityGateFn: () => ({ blocked: false }),
+      },
+    );
+
+    expect(persistFetchedContent).toHaveBeenCalledWith([
+      {
+        dataSourceId: "ds-1",
+        content: body,
+        fetchProvider: "tavily",
+        publishedAt: "2026-08-05T02:00:00.000Z",
+      },
+    ]);
+    expect(result.fetchedContentById.get("ds-1")?.publishedAt).toBe(
+      "2026-08-05T02:00:00.000Z",
+    );
+  });
+
+  it("omits publishedAt when the body carries no date signal", async () => {
+    const requested: RequestedFetchSource[] = [
+      {
+        dataSourceId: "ds-1",
+        url: "https://kontan.co.id/undated",
+        title: "One",
+      },
+    ];
+    const performWebFetchFn = vi
+      .fn()
+      .mockResolvedValue([
+        successOutcome(
+          "https://kontan.co.id/undated",
+          "No date anywhere",
+          "tavily",
+        ),
+      ]);
+    const persistFetchedContent = vi
+      .fn()
+      .mockResolvedValue({ updatedCount: 1 });
+
+    await fetchSourceBodies(
+      requested,
+      makeConfig(),
+      { tickerId: "ticker-1" },
+      {
+        persistFetchedContent,
+        performWebFetchFn: performWebFetchFn as never,
+        runQualityGateFn: () => ({ blocked: false }),
+      },
+    );
+
+    expect(persistFetchedContent).toHaveBeenCalledWith([
+      {
+        dataSourceId: "ds-1",
+        content: "No date anywhere",
+        fetchProvider: "tavily",
+      },
+    ]);
+  });
+
   it("drops a gate-failed body without persisting or citing it", async () => {
     const requested: RequestedFetchSource[] = [
       {
