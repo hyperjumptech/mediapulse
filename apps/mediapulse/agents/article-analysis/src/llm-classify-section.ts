@@ -461,15 +461,20 @@ export const scoreFromEvaluations = (
 
   // No section qualified, no rule matched anywhere, or the issuer-relevance gate failed: reject.
   const noSectionQualified = winner === undefined && anyGateDefined;
+  const noRuleJudged =
+    flat.length > 0 &&
+    flat.every((criterion) => !evaluationById.has(criterion.id));
   if (issuerRelevanceRejected || winner === undefined || winner.matched === 0) {
     return {
       section: null,
       score: 0,
-      reason: issuerRelevanceRejected
-        ? `Rejected — not relevant to issuer context: ${noteFor(ISSUER_RELEVANCE_CRITERION_ID)}.`
-        : noSectionQualified
-          ? "No section met its qualifying rules; rejected."
-          : "No inclusion rule matched in any section; rejected.",
+      reason: noRuleJudged
+        ? "Model returned no rule judgments; rejected without a verdict."
+        : issuerRelevanceRejected
+          ? `Rejected — not relevant to issuer context: ${noteFor(ISSUER_RELEVANCE_CRITERION_ID)}.`
+          : noSectionQualified
+            ? "No section met its qualifying rules; rejected."
+            : "No inclusion rule matched in any section; rejected.",
       scoreBreakdown: {
         section: null,
         matched: 0,
@@ -597,25 +602,47 @@ export const classifyArticleSection = async (params: {
     ...(requireIssuerRelevance ? [ISSUER_RELEVANCE_CRITERION_ID] : []),
   ];
 
-  const result = await generateObject({
-    model: openai(params.model),
-    schema: buildEvaluationSchema(criterionIds),
-    messages: buildSectionClassificationMessages({
-      title: params.title,
-      content: params.content,
-      acceptanceCriteria: params.acceptanceCriteria,
-      ticker: params.ticker ?? null,
-      ...(params.tickerContext ? { tickerContext: params.tickerContext } : {}),
-      ...(params.brief !== undefined ? { brief: params.brief } : {}),
-    }),
+  const messages = buildSectionClassificationMessages({
+    title: params.title,
+    content: params.content,
+    acceptanceCriteria: params.acceptanceCriteria,
+    ticker: params.ticker ?? null,
+    ...(params.tickerContext ? { tickerContext: params.tickerContext } : {}),
+    ...(params.brief !== undefined ? { brief: params.brief } : {}),
   });
-  const usage = extractLlmUsage(result.usage);
-  if (usage !== undefined) {
-    params.onUsage?.(usage);
+  const schema = buildEvaluationSchema(criterionIds);
+  const ruleIds = new Set(
+    criterionIds.filter((id) => id !== ISSUER_RELEVANCE_CRITERION_ID),
+  );
+
+  const askOnce = async (): Promise<CriterionEvaluation[]> => {
+    const result = await generateObject({
+      model: openai(params.model),
+      schema,
+      messages,
+    });
+    const usage = extractLlmUsage(result.usage);
+    if (usage !== undefined) {
+      params.onUsage?.(usage);
+    }
+
+    return result.object.evaluations;
+  };
+
+  const judgedRuleCount = (evaluations: CriterionEvaluation[]): number =>
+    evaluations.filter((evaluation) => ruleIds.has(evaluation.id)).length;
+
+  // A response carrying no judgment for any configured rule is a failed call, not a verdict: every
+  // rule then reads as unmatched and the article is rejected with a reason that looks like the model
+  // decided something. On 2026-08-07 that silently dropped August's coal benchmark price from DSSA,
+  // whose gate note discussed the article while all 30 rules read "No judgment returned".
+  let evaluations = await askOnce();
+  if (ruleIds.size > 0 && judgedRuleCount(evaluations) === 0) {
+    evaluations = await askOnce();
   }
 
   return scoreFromEvaluations(
-    result.object.evaluations,
+    evaluations,
     params.acceptanceCriteria,
     requireIssuerRelevance,
   );
