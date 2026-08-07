@@ -30,6 +30,10 @@ import {
   type EventDedupDrop,
 } from "./lib/event-dedup.js";
 import { pointsSupportTitle } from "./lib/points-support-title.js";
+import {
+  ungroundedFigures,
+  type UngroundedFigure,
+} from "./lib/figures-grounded.js";
 import { dropRepeatedClaims } from "./lib/repeated-claim-dedup.js";
 import { dropStaleForSection } from "./lib/section-freshness.js";
 import { retryWithBackoff } from "./lib/retry.js";
@@ -657,14 +661,44 @@ export async function generateNewsletterWithLlm(
           return { status: "failed", entry };
         }
 
-        if (!pointsSupportTitle(summary.title, sanitized.points)) {
+        const sourceText = `${entry.source.title}\n${entry.source.content}`;
+        const groundedPoints: string[] = [];
+        const ungrounded: { point: string; figures: UngroundedFigure[] }[] = [];
+        for (const point of sanitized.points) {
+          const figures = ungroundedFigures(point, sourceText);
+          if (figures.length === 0) {
+            groundedPoints.push(point);
+            continue;
+          }
+          ungrounded.push({ point, figures });
+        }
+
+        if (ungrounded.length > 0) {
+          logger.warn(
+            {
+              tickerId: context.tickerId,
+              sectionKey: entry.sectionKey,
+              url: entry.source.url,
+              ungrounded,
+              keptCount: groundedPoints.length,
+              event: "summary_point_figure_ungrounded",
+            },
+            `Dropped ${String(ungrounded.length)} point(s) citing a figure absent from the article`,
+          );
+        }
+
+        if (groundedPoints.length === 0) {
+          return { status: "failed", entry };
+        }
+
+        if (!pointsSupportTitle(summary.title, groundedPoints)) {
           logger.warn(
             {
               tickerId: context.tickerId,
               sectionKey: entry.sectionKey,
               url: entry.source.url,
               title: summary.title,
-              points: sanitized.points,
+              points: groundedPoints,
               event: "summary_points_off_heading",
             },
             "Dropped article: no summary point relates to its own heading",
@@ -677,7 +711,7 @@ export async function generateNewsletterWithLlm(
           status: "summarized",
           entry,
           title: summary.title,
-          points: sanitized.points,
+          points: groundedPoints,
         };
       } catch (err) {
         logger.warn(
