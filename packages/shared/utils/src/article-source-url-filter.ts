@@ -176,6 +176,11 @@ const BLOCKED_PATH_PATTERNS = [
   /\/investor\/?$/i,
   /\/company(\/|$)/i,
   /\/company-profiles(\/|$)/i,
+  /\/price-prediction(\/|$)/i,
+  /\/stock-prediction(\/|$)/i,
+  /\/price-forecast(\/|$)/i,
+  /\/stock-forecast(\/|$)/i,
+  /\/price-target(\/|$)/i,
 ] as const;
 
 /** Terminal path segments that mark a section index rather than an article. */

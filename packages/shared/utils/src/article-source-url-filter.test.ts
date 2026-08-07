@@ -269,6 +269,21 @@ describe("classifyNoisyUrl", () => {
       url: "https://www.pge.pertamina.com/en/press-release",
       reason: "blocked_path" as const,
     },
+    {
+      name: "Algorithmic price-prediction page",
+      url: "https://247wallst.com/companies/GRAB/price-prediction",
+      reason: "blocked_path" as const,
+    },
+    {
+      name: "Stock-forecast page",
+      url: "https://example.com/companies/GRAB/stock-forecast",
+      reason: "blocked_path" as const,
+    },
+    {
+      name: "Price-target page",
+      url: "https://example.com/stocks/BBCA/price-target",
+      reason: "blocked_path" as const,
+    },
   ])("CSV-derived block: $name", ({ url, reason }) => {
     const decision = classifyNoisyUrl(url);
 
