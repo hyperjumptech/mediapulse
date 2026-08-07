@@ -586,6 +586,10 @@ export async function run({
     .map((s) => {
       const fetched = fetchResult.fetchedContentById.get(s.dataSourceId);
       const text = fetched?.content ?? s.content ?? s.description ?? "";
+      const publishedAt =
+        typeof s.publishedAt === "string"
+          ? s.publishedAt
+          : fetched?.publishedAt;
       return {
         dataSourceId: s.dataSourceId,
         url: s.url,
@@ -593,9 +597,7 @@ export async function run({
         content: text,
         ...(typeof s.author === "string" ? { author: s.author } : {}),
         ...(typeof s.source === "string" ? { source: s.source } : {}),
-        ...(typeof s.publishedAt === "string"
-          ? { publishedAt: s.publishedAt }
-          : {}),
+        ...(typeof publishedAt === "string" ? { publishedAt } : {}),
         ...(typeof s.section === "string" ? { section: s.section } : {}),
         ...(typeof s.sectionScore === "number"
           ? { sectionScore: s.sectionScore }

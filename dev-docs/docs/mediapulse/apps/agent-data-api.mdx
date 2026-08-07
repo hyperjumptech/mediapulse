@@ -89,7 +89,9 @@ Implemented in `apps/mediapulse/agent-data-api/src/routes/content-generation.ts`
 
 Used by the content-generation on-demand fetch (ADR-0003) to persist a fetched body back onto its data-source row so a re-run or another ticker sharing the URL reuses it without re-paying.
 
-- **POST** — Body (`postContentGenerationFetchedContentBodySchema`): a non-empty array (at most **`CONTENT_GENERATION_FETCHED_CONTENT_MAX`**, 50) of **`{ dataSourceId (uuid), content (non-empty), fetchProvider (non-empty) }`**. Each item updates the matching `data_source` row's **`content`**, **`fetchedAt`** (now), and **`fetchProvider`**. Rows are updated independently; a missing row is skipped without failing the batch. Response: **`{ updatedCount }`**.
+- **POST** — Body (`postContentGenerationFetchedContentBodySchema`): a non-empty array (at most **`CONTENT_GENERATION_FETCHED_CONTENT_MAX`**, 50) of **`{ dataSourceId (uuid), content (non-empty), fetchProvider (non-empty), publishedAt? (ISO datetime) }`**. Each item updates the matching `data_source` row's **`content`**, **`fetchedAt`** (now), and **`fetchProvider`**. When **`publishedAt`** is supplied it is written only to rows whose `published_at` is still `NULL`, so a date already resolved at collection is never overwritten. Rows are updated independently; a missing row is skipped without failing the batch. Response: **`{ updatedCount }`**.
+
+Most Indonesian publishers put no date in the URL path, so collection resolves `published_at` for only a minority of rows. The fetched body carries the date in `article:published_time` or JSON-LD `datePublished`, and the agent extracts it there via `extractPublishedDate`. Without this backfill the per-section freshness ceilings and the same-day event-dedup path both no-op on a null date.
 
 From agents, use SDK namespace **`contentGenerationFetchedContent`**: **`create`** for POST.
 

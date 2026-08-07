@@ -25,7 +25,7 @@ const MAX_RECENT_BULLETS = 200;
 const SOURCE_LOOKBACK_HOURS = 24;
 
 type ContentGenerationDb = {
-  dataSource: Pick<typeof prisma.dataSource, "update">;
+  dataSource: Pick<typeof prisma.dataSource, "update" | "updateMany">;
   dataSourceTickerSection: Pick<
     typeof prisma.dataSourceTickerSection,
     "findMany" | "count"
@@ -211,6 +211,12 @@ export const updateFetchedContent = async (
           fetchProvider: item.fetchProvider,
         },
       } satisfies Prisma.DataSourceUpdateArgs);
+      if (item.publishedAt !== undefined) {
+        await db.dataSource.updateMany({
+          where: { id: item.dataSourceId, publishedAt: null },
+          data: { publishedAt: new Date(item.publishedAt) },
+        } satisfies Prisma.DataSourceUpdateManyArgs);
+      }
       updatedCount += 1;
     } catch (error) {
       logger.warn(
