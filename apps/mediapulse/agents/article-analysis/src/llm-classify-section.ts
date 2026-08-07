@@ -20,6 +20,7 @@ import {
   substituteTickerPlaceholders,
   type AcceptanceCriteriaRule,
 } from "./config-schema.js";
+import { titleNamesIssuer } from "./utilities/title-names-issuer.js";
 
 /** Article content past this many characters is truncated before classification. */
 export const MAX_CONTENT_CHARS = 12000;
@@ -348,6 +349,7 @@ export const scoreFromEvaluations = (
   evaluations: CriterionEvaluation[],
   acceptanceCriteria: AcceptanceCriteriaRule[],
   requireIssuerRelevance = false,
+  issuerNamedInTitle = false,
 ): ArticleSectionClassification => {
   const flat = flattenAcceptanceCriteria(acceptanceCriteria);
   const evaluationById = new Map<string, CriterionEvaluation>(
@@ -406,8 +408,12 @@ export const scoreFromEvaluations = (
   // Where gates do exist, an article that clears none of them is not the kind of story any section
   // is for. Ranking it on matched fraction used to admit it anyway, which is how single-rule items
   // ("authority named", nothing else) reached newsletters carrying no fact at all.
+  // An article whose own headline names the issuer is issuer coverage whatever the gates say, so it
+  // falls back to the best-matching section rather than dropping. Without this the strict path above
+  // discarded Bank Raya's Q2 results from AGRO, Antam's H1 results from ANTM, and three FORE
+  // articles from FORE, leaving each newsletter with no news about its own issuer.
   let winner = qualified[0];
-  if (winner === undefined && !anyGateDefined) {
+  if (winner === undefined && (!anyGateDefined || issuerNamedInTitle)) {
     for (const tally of tallies) {
       if (winner === undefined || tally.fraction > winner.fraction) {
         winner = tally;
@@ -448,14 +454,17 @@ export const scoreFromEvaluations = (
   const anchorsOverrideGate =
     !gateMatched && marketAnchors >= MARKET_ANCHOR_OVERRIDE_MIN;
   const issuerRelevanceRejected =
-    requireIssuerRelevance && !gateMatched && !anchorsOverrideGate;
+    requireIssuerRelevance &&
+    !gateMatched &&
+    !anchorsOverrideGate &&
+    !issuerNamedInTitle;
 
   const issuerRelevance = requireIssuerRelevance
     ? {
         matched: gateMatched,
         note: noteFor(ISSUER_RELEVANCE_CRITERION_ID),
         marketAnchors,
-        overridden: anchorsOverrideGate,
+        overridden: anchorsOverrideGate || (!gateMatched && issuerNamedInTitle),
       }
     : undefined;
 
@@ -618,5 +627,6 @@ export const classifyArticleSection = async (params: {
     result.object.evaluations,
     params.acceptanceCriteria,
     requireIssuerRelevance,
+    titleNamesIssuer(params.title, params.ticker ?? null),
   );
 };

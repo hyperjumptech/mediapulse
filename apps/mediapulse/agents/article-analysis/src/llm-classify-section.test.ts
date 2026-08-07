@@ -644,6 +644,31 @@ describe("scoreFromEvaluations — qualifying gates and precedence", () => {
     );
   });
 
+  it("keeps an article that clears no gate when its headline names the issuer", () => {
+    const rejected = scoreFromEvaluations(
+      evaluateGated(["ip3", "cl3"]),
+      gated,
+      false,
+      false,
+    );
+    const kept = scoreFromEvaluations(
+      evaluateGated(["ip3", "cl3"]),
+      gated,
+      false,
+      true,
+    );
+
+    expect(rejected.section).toBeNull();
+    expect(kept.section).not.toBeNull();
+  });
+
+  it("still rejects an issuer-named article when no rule matched anywhere", () => {
+    const result = scoreFromEvaluations(evaluateGated([]), gated, false, true);
+
+    expect(result.section).toBeNull();
+    expect(result.score).toBe(0);
+  });
+
   it("rejects when only one of a section's two gate rules matched", () => {
     const result = scoreFromEvaluations(
       evaluateGated(["ip1", "ip3", "ip4", "ip5"]),
@@ -670,6 +695,22 @@ describe("scoreFromEvaluations — qualifying gates and precedence", () => {
 });
 
 describe("scoreFromEvaluations — issuer-relevance gate", () => {
+  it("does not reject on a failed gate when the headline names the issuer", () => {
+    const evaluations: CriterionEvaluation[] = [
+      ...evaluate(["ip1", "ip3"]),
+      {
+        id: ISSUER_RELEVANCE_CRITERION_ID,
+        matched: false,
+        note: "does not mention the issuer",
+      },
+    ];
+
+    const result = scoreFromEvaluations(evaluations, criteria, true, true);
+
+    expect(result.section).not.toBeNull();
+    expect(result.scoreBreakdown.issuerRelevance?.overridden).toBe(true);
+  });
+
   it("rejects when the gate is not matched, even though other criteria matched (quickHits-style false win)", () => {
     const evaluations: CriterionEvaluation[] = [
       ...evaluate(["ip1", "ip3"]),
