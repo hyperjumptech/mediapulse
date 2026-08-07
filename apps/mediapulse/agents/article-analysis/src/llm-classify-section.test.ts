@@ -634,6 +634,22 @@ describe("scoreFromEvaluations — qualifying gates and precedence", () => {
     expect(result.reason).toContain("chosen on matched fraction");
   });
 
+  it("names a response carrying no rule judgments as such, not as a verdict", () => {
+    const result = scoreFromEvaluations([], criteria);
+
+    expect(result.section).toBeNull();
+    expect(result.reason).toBe(
+      "Model returned no rule judgments; rejected without a verdict.",
+    );
+  });
+
+  it("still reports a real verdict when the model judged the rules and none matched", () => {
+    const result = scoreFromEvaluations(evaluate([]), criteria);
+
+    expect(result.section).toBeNull();
+    expect(result.reason).not.toContain("no rule judgments");
+  });
+
   it("rejects an article that clears no gate even when single rules matched", () => {
     const result = scoreFromEvaluations(evaluateGated(["ip3", "cl3"]), gated);
 
