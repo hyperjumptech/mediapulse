@@ -17,6 +17,45 @@ const HEAD_SCAN_CHARS = 4_000;
 
 const URL_DATE_YMD = /\/(\d{4})\/(\d{2})\/(\d{2})(?=\/|$|[?#-])/;
 const URL_DATE_YM = /\/(\d{4})\/(\d{2})(?=\/|$|[?#])/;
+const URL_DATE_COMPACT = /\/(20\d{2})([01]\d)([0-3]\d)/;
+
+const MONTHS_BY_NAME = new Map<string, number>([
+  ["januari", 1],
+  ["january", 1],
+  ["februari", 2],
+  ["february", 2],
+  ["maret", 3],
+  ["march", 3],
+  ["april", 4],
+  ["mei", 5],
+  ["may", 5],
+  ["juni", 6],
+  ["june", 6],
+  ["juli", 7],
+  ["july", 7],
+  ["agustus", 8],
+  ["august", 8],
+  ["september", 9],
+  ["oktober", 10],
+  ["october", 10],
+  ["november", 11],
+  ["desember", 12],
+  ["december", 12],
+]);
+
+const MONTH_NAMES = [...MONTHS_BY_NAME.keys()].join("|");
+
+const DAY_MONTH_YEAR = new RegExp(
+  `\\b(\\d{1,2})\\s+(${MONTH_NAMES})\\.?\\s+(\\d{4})\\b`,
+  "i",
+);
+
+const MONTH_DAY_YEAR = new RegExp(
+  `\\b(${MONTH_NAMES})\\.?\\s+(\\d{1,2}),\\s*(\\d{4})\\b`,
+  "i",
+);
+
+const pad = (value: number): string => String(value).padStart(2, "0");
 
 const JSON_LD_DATE_PUBLISHED = /"datePublished"\s*:\s*"([^"]+)"/i;
 const META_ARTICLE_PUBLISHED_TIME =
@@ -110,7 +149,35 @@ const extractFromContent = (content: string, now: Date): Date | null => {
 
   const isoMatch = head.match(ISO_DATE_IN_TEXT);
   if (isoMatch?.[1]) {
-    return parseInSanityRange(isoMatch[1], now);
+    const parsed = parseInSanityRange(isoMatch[1], now);
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  const dayFirst = head.match(DAY_MONTH_YEAR);
+  if (dayFirst) {
+    const month = MONTHS_BY_NAME.get(dayFirst[2]!.toLowerCase());
+    if (month !== undefined) {
+      const parsed = parseInSanityRange(
+        `${dayFirst[3]!}-${pad(month)}-${pad(Number(dayFirst[1]))}`,
+        now,
+      );
+      if (parsed) {
+        return parsed;
+      }
+    }
+  }
+
+  const monthFirst = head.match(MONTH_DAY_YEAR);
+  if (monthFirst) {
+    const month = MONTHS_BY_NAME.get(monthFirst[1]!.toLowerCase());
+    if (month !== undefined) {
+      return parseInSanityRange(
+        `${monthFirst[3]!}-${pad(month)}-${pad(Number(monthFirst[2]))}`,
+        now,
+      );
+    }
   }
 
   return null;
@@ -137,7 +204,15 @@ export const extractDateFromUrl = (
 
   const ym = url.match(URL_DATE_YM);
   if (ym) {
-    return parseInSanityRange(`${ym[1]}-${ym[2]}-01`, now);
+    const parsed = parseInSanityRange(`${ym[1]}-${ym[2]}-01`, now);
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  const compact = url.match(URL_DATE_COMPACT);
+  if (compact) {
+    return parseInSanityRange(`${compact[1]}-${compact[2]}-${compact[3]}`, now);
   }
 
   return null;
