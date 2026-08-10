@@ -105,3 +105,94 @@ describe("dedupeSourcesAgainstRecentBullets", () => {
     expect(result.bySection["quickHits"]).toBeUndefined();
   });
 });
+
+describe("dedupeSourcesAgainstRecentBullets: figure overlap", () => {
+  const makeSource = (
+    dataSourceId: string,
+    title: string,
+    content: string,
+    section: string,
+  ): SourceForGeneration => ({
+    dataSourceId,
+    url: `https://example.com/${dataSourceId}`,
+    title,
+    content,
+    section,
+  });
+
+  it("drops the same story rewritten by a second outlet", () => {
+    const recentBullets = [
+      {
+        sectionKey: "competitiveLandscape",
+        bulletText:
+          "Telkom Akses added 366,000 new ports and deployed 20,223 km of fiber optic in 1H 2026",
+      },
+    ];
+    const sources = [
+      makeSource(
+        "ds-a",
+        "Consistent Transformation, Telkom Akses Records Positive Operational Performance",
+        "Sepanjang semester I 2026 perseroan membangun 366.000 port baru serta menggelar 20.223 km kabel serat optik.",
+        "competitiveLandscape",
+      ),
+      makeSource(
+        "ds-b",
+        "XLSmart wins four Ookla awards",
+        "XL Ultra 5G recorded a download speed of 135,4 Mbps across 50 cities.",
+        "competitiveLandscape",
+      ),
+    ];
+
+    const result = dedupeSourcesAgainstRecentBullets(sources, recentBullets);
+
+    expect(result.removedCount).toBe(1);
+    expect(result.sources.map((source) => source.dataSourceId)).toEqual([
+      "ds-b",
+    ]);
+  });
+
+  it("does not rescue a section whose only candidate repeats the same figures", () => {
+    const recentBullets = [
+      {
+        sectionKey: "dealsAndMovements",
+        bulletText:
+          "Bank Raya digital savings grew 66,4% yoy to Rp 2,47 triliun at the Raya Preloved Bazaar",
+      },
+    ];
+    const sources = [
+      makeSource(
+        "ds-bazaar",
+        "Bank Raya Holds This Event to Support Creating a Circular Economy",
+        "Tabungan digital Bank Raya tumbuh 66,4% yoy menjadi Rp 2,47 triliun lewat Raya Preloved Bazaar Vol. 2.",
+        "dealsAndMovements",
+      ),
+    ];
+
+    const result = dedupeSourcesAgainstRecentBullets(sources, recentBullets);
+
+    expect(result.sources).toHaveLength(0);
+    expect(result.removedCount).toBe(1);
+    expect(result.bySection.dealsAndMovements).toBe(1);
+  });
+
+  it("keeps an unrelated story that happens to share a single figure", () => {
+    const recentBullets = [
+      {
+        sectionKey: "quickHits",
+        bulletText: "Coal prices fell 3,21% last week",
+      },
+    ];
+    const sources = [
+      makeSource(
+        "ds-c",
+        "Antam gold sales reach 18 tons",
+        "Penjualan emas naik 3,21% sepanjang semester I 2026 menjadi 18.080 kilogram.",
+        "quickHits",
+      ),
+    ];
+
+    const result = dedupeSourcesAgainstRecentBullets(sources, recentBullets);
+
+    expect(result.removedCount).toBe(0);
+  });
+});

@@ -1,4 +1,5 @@
 import type { SourceForGeneration } from "../types.js";
+import { sharedFigureCount } from "./figures-grounded.js";
 import {
   buildSourceComparisonText,
   scoreTextAgainstText,
@@ -30,6 +31,16 @@ export const CROSS_RUN_DEDUP_SIMILARITY = 0.55;
  */
 const MIN_KEPT_PER_SECTION = 1;
 
+/**
+ * Unit-bearing figures a candidate must share with a recent bullet to count as the same story.
+ *
+ * Lexical similarity misses a story rewritten by a second outlet: the same Telkom Akses port and
+ * fibre counts shipped twice in three days from two publishers and scored under the threshold.
+ * Two matching figures is not a paraphrase, and only percent, currency and scaled figures are
+ * collected, so a shared year or article id cannot trip it.
+ */
+export const MIN_SHARED_FIGURES = 2;
+
 const SECTION_KEY_UNASSIGNED = "unassigned";
 
 const sectionKeyOf = (source: SourceForGeneration): string =>
@@ -39,6 +50,7 @@ type Decision = {
   source: SourceForGeneration;
   order: number;
   similarity: number;
+  figureMatch: boolean;
   drop: boolean;
 };
 
@@ -48,17 +60,23 @@ type Decision = {
 const scoreAgainstRecentBullets = (
   source: SourceForGeneration,
   recentBullets: ReadonlyArray<RecentBullet>,
-): number => {
+): { similarity: number; figureMatch: boolean } => {
   const referenceText = buildSourceComparisonText(source);
   let maxSimilarity = 0;
+  let figureMatch = false;
   for (const bullet of recentBullets) {
     const similarity = scoreTextAgainstText(bullet.bulletText, referenceText);
     if (similarity > maxSimilarity) {
       maxSimilarity = similarity;
     }
+    if (
+      sharedFigureCount(bullet.bulletText, referenceText) >= MIN_SHARED_FIGURES
+    ) {
+      figureMatch = true;
+    }
   }
 
-  return maxSimilarity;
+  return { similarity: maxSimilarity, figureMatch };
 };
 
 /**
@@ -83,9 +101,18 @@ export const dedupeSourcesAgainstRecentBullets = (
   }
 
   const decisions: Decision[] = sources.map((source, order) => {
-    const similarity = scoreAgainstRecentBullets(source, recentBullets);
+    const { similarity, figureMatch } = scoreAgainstRecentBullets(
+      source,
+      recentBullets,
+    );
 
-    return { source, order, similarity, drop: similarity >= minSimilarity };
+    return {
+      source,
+      order,
+      similarity,
+      figureMatch,
+      drop: figureMatch || similarity >= minSimilarity,
+    };
   });
 
   const decisionsBySection = new Map<string, Decision[]>();
@@ -101,8 +128,11 @@ export const dedupeSourcesAgainstRecentBullets = (
     if (keptCount >= MIN_KEPT_PER_SECTION) {
       continue;
     }
+    // A figure match is not a fuzzy judgment, so it is never rescued. The rescue exists because
+    // lexical similarity can be wrong about a section's only candidate; repeating the same
+    // numbers a third morning is worse than shipping the section short.
     const rescueCandidates = bucket
-      .filter((decision) => decision.drop)
+      .filter((decision) => decision.drop && !decision.figureMatch)
       .sort((left, right) => left.similarity - right.similarity);
     const rescueNeeded = MIN_KEPT_PER_SECTION - keptCount;
     for (const decision of rescueCandidates.slice(0, rescueNeeded)) {
