@@ -967,6 +967,7 @@ describe("agent-data-api", () => {
           content: null,
           tickerId: TICKER_ID,
           searchQueryId: SEARCH_QUERY_ID,
+          registrableDomain: "example.com",
         },
       });
     });

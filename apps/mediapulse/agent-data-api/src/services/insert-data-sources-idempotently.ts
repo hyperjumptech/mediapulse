@@ -1,5 +1,6 @@
 import type { Prisma } from "@mediapulse/database";
 import type { prisma } from "@mediapulse/database";
+import { deriveRegistrableDomain } from "@workspace/utils";
 
 import { isPrismaUniqueViolation } from "./is-prisma-unique-violation.js";
 
@@ -23,8 +24,17 @@ export const insertDataSourcesIdempotently = async (
   let inserted = 0;
 
   for (const row of rows) {
+    const registrableDomain = deriveRegistrableDomain(
+      row.canonicalUrl || row.url,
+    );
+
     try {
-      await dataSource.create({ data: row });
+      await dataSource.create({
+        data: {
+          ...row,
+          ...(registrableDomain ? { registrableDomain } : {}),
+        },
+      });
       inserted += 1;
     } catch (error) {
       if (isPrismaUniqueViolation(error)) {

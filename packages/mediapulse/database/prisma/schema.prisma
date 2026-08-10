@@ -53,6 +53,7 @@ model DataSource {
   fetchProvider        String?               @map("fetch_provider")
   author               String?
   source               String?
+  registrableDomain    String?               @map("registrable_domain")
   metadata             Json?
   publishedAt          DateTime?             @map("published_at")
   tickerId             String?               @map("ticker_id")
@@ -84,7 +85,23 @@ model DataSource {
   @@index([collectionGateStatus, analyzedAt])
   @@index([tickerId, section])
   @@index([dataCollectionRunId])
+  @@index([registrableDomain])
   @@map("data_source")
+}
+
+model DomainAuthority {
+  id               String    @id @default(uuid())
+  domain           String    @unique
+  openPageRank     Float?    @map("open_page_rank")
+  globalRank       Int?      @map("global_rank")
+  referringDomains Int?      @map("referring_domains")
+  asOf             DateTime? @map("as_of") @db.Date
+  refreshedAt      DateTime  @map("refreshed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@index([refreshedAt])
+  @@map("domain_authority")
 }
 
 /// Per-(article, ticker) newsletter-section classification produced by article-analysis.
