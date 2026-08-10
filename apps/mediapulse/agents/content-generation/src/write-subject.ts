@@ -11,9 +11,15 @@ export const SUBJECT_FALLBACK_TEXT = "Your daily briefing";
 /** Trailing punctuation left dangling once a title is cut at a word boundary. */
 const DANGLING_TRAILING_PUNCTUATION = /[\s,;:.–—-]+$/u;
 
-/** Structured output contract for the subject line. */
+/**
+ * Structured output contract for the subject line.
+ *
+ * - Important: no `.max()`. A max on this field reaches the provider as a JSON Schema `maxLength`,
+ *   which stops constrained decoding mid-word instead of failing validation, so the budget is
+ *   enforced by {@link resolveSubject} after the call rather than during it.
+ */
 export const newsletterSubjectSchema = z.object({
-  subject: z.string().trim().min(1).max(MAX_SUBJECT_LENGTH),
+  subject: z.string().trim().min(1),
 });
 
 export type NewsletterSubject = z.infer<typeof newsletterSubjectSchema>;
@@ -146,11 +152,129 @@ export const buildSubjectFallback = (titles: readonly string[]): string => {
       continue;
     }
 
-    const candidate = truncateOnWordBoundary(title, MAX_SUBJECT_LENGTH);
+    const candidate = trimSubjectToBudget(title);
     if (candidate.length > 0) {
       return candidate;
     }
   }
 
   return SUBJECT_FALLBACK_TEXT;
+};
+
+/** Function words a subject must not end on once it has been cut to the budget. */
+const DANGLING_TRAILING_WORDS: ReadonlySet<string> = new Set([
+  "a",
+  "an",
+  "and",
+  "as",
+  "at",
+  "but",
+  "by",
+  "for",
+  "from",
+  "in",
+  "of",
+  "on",
+  "or",
+  "the",
+  "to",
+  "with",
+]);
+
+const stripDanglingWord = (text: string): string => {
+  const words = text.split(" ");
+  const last = words[words.length - 1]?.toLowerCase() ?? "";
+  if (words.length > 1 && DANGLING_TRAILING_WORDS.has(last)) {
+    return words
+      .slice(0, -1)
+      .join(" ")
+      .replace(DANGLING_TRAILING_PUNCTUATION, "");
+  }
+
+  return text;
+};
+
+/**
+ * Cuts a subject to the budget on a word boundary and drops a trailing function word.
+ *
+ * @param text - Candidate subject.
+ * @returns The subject trimmed to {@link MAX_SUBJECT_LENGTH}.
+ */
+export const trimSubjectToBudget = (text: string): string =>
+  stripDanglingWord(truncateOnWordBoundary(text, MAX_SUBJECT_LENGTH));
+
+/** Why a model-written subject cannot be sent as-is. */
+export type SubjectRejection =
+  | "non-latin-script"
+  | "empty"
+  | "issuer-not-in-issue";
+
+const namesSymbol = (text: string, symbol: string): boolean => {
+  const trimmed = symbol.trim();
+  if (trimmed.length === 0) {
+    return false;
+  }
+  const pattern = new RegExp(
+    `\\b${trimmed.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}\\b`,
+    "iu",
+  );
+
+  return pattern.test(text);
+};
+
+/**
+ * Reports why a model-written subject is unusable, or null when it is fine.
+ *
+ * The issuer check is the one that matters most: when a subject names the issuer and no headline
+ * in the issue does, the writer has moved a competitor's result onto the reader's own company.
+ *
+ * @param candidate - Subject as the model wrote it.
+ * @param titles - Titles of the articles the issue actually ships.
+ * @param issuer - The issuer the newsletter is written for.
+ * @returns The rejection reason, or null when the subject is usable.
+ */
+export const subjectRejection = (
+  candidate: string,
+  titles: readonly string[],
+  issuer: SubjectIssuerContext = {},
+): SubjectRejection | null => {
+  if (containsNonLatinScript(candidate)) {
+    return "non-latin-script";
+  }
+
+  if (trimSubjectToBudget(candidate).length === 0) {
+    return "empty";
+  }
+
+  const symbol = issuer.symbol?.trim();
+  if (symbol !== undefined && symbol.length > 0) {
+    const subjectNamesIssuer = namesSymbol(candidate, symbol);
+    const issueNamesIssuer = titles.some((title) => namesSymbol(title, symbol));
+    if (subjectNamesIssuer && !issueNamesIssuer) {
+      return "issuer-not-in-issue";
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Turns the model's subject into one fit to send, falling back when it cannot be repaired.
+ *
+ * @param candidate - Subject as the model wrote it.
+ * @param titles - Titles of the articles the issue ships, in render order.
+ * @param issuer - The issuer the newsletter is written for.
+ * @returns The subject to send and the rejection that forced a fallback, if any.
+ */
+export const resolveSubject = (
+  candidate: string,
+  titles: readonly string[],
+  issuer: SubjectIssuerContext = {},
+): { subject: string; rejection: SubjectRejection | null } => {
+  const rejection = subjectRejection(candidate, titles, issuer);
+  if (rejection !== null) {
+    return { subject: buildSubjectFallback(titles), rejection };
+  }
+
+  return { subject: trimSubjectToBudget(candidate), rejection: null };
 };
