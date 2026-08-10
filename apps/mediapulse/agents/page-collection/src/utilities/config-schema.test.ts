@@ -5,8 +5,20 @@ import { describe, expect, it } from "vitest";
 import { ConfigSchema } from "./config-schema";
 
 describe("ConfigSchema", () => {
-  it("exposes exactly one Hermes form section", () => {
-    expect(Object.keys(ConfigSchema.shape)).toEqual(["collection"]);
+  it("exposes exactly the configurable Hermes form sections", () => {
+    expect(Object.keys(ConfigSchema.shape)).toEqual([
+      "collection",
+      "publisher_authority",
+    ]);
+  });
+
+  it("defaults publisher authority to the expanded key and the provider's monthly cadence", () => {
+    const parsed = ConfigSchema.parse({});
+
+    expect(parsed.publisher_authority).toEqual({
+      apiKey: "{{OPEN_PAGE_RANK_API_KEY}}",
+      ttlDays: 30,
+    });
   });
 
   it("parses an empty object into the full recommended config", () => {
@@ -50,7 +62,7 @@ describe("ConfigSchema", () => {
       collection: { perRunCandidateBudget: 20 },
     });
 
-    expect(Object.keys(parsed)).toEqual(["collection"]);
+    expect(Object.keys(parsed)).toEqual(["collection", "publisher_authority"]);
     expect(parsed.collection.perRunCandidateBudget).toBe(20);
   });
 });

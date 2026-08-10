@@ -56,6 +56,12 @@ import {
   postDataCollectionDeadUrlsRecordResponseSchema,
 } from "./data-collection-dead-url.js";
 import {
+  postPublisherAuthorityBodySchema,
+  postPublisherAuthorityResponseSchema,
+  postPublisherAuthorityStaleBodySchema,
+  postPublisherAuthorityStaleResponseSchema,
+} from "./publisher-authority.js";
+import {
   postListingDiscoveryCacheLookupBodySchema,
   postListingDiscoveryCacheLookupResponseSchema,
   postListingDiscoveryCacheRecordBodySchema,
@@ -463,6 +469,38 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postDataCollectionDeadUrlsRecordBodySchema,
         response: postDataCollectionDeadUrlsRecordResponseSchema,
+      },
+    },
+  },
+  publisherAuthorityStale: {
+    v1: {
+      pathSegment: "/publisher-authority/stale",
+      post: {
+        body: postPublisherAuthorityStaleBodySchema,
+        response: postPublisherAuthorityStaleResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/publisher-authority/stale",
+      post: {
+        body: postPublisherAuthorityStaleBodySchema,
+        response: postPublisherAuthorityStaleResponseSchema,
+      },
+    },
+  },
+  publisherAuthority: {
+    v1: {
+      pathSegment: "/publisher-authority",
+      post: {
+        body: postPublisherAuthorityBodySchema,
+        response: postPublisherAuthorityResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/publisher-authority",
+      post: {
+        body: postPublisherAuthorityBodySchema,
+        response: postPublisherAuthorityResponseSchema,
       },
     },
   },

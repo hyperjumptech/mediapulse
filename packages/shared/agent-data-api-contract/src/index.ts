@@ -112,6 +112,19 @@ export {
   type PostDataCollectionDeadUrlsRecordResponse,
 } from "./data-collection-dead-url.js";
 export {
+  PUBLISHER_AUTHORITY_DEFAULT_TTL_DAYS,
+  PUBLISHER_AUTHORITY_LOOKUP_MAX,
+  postPublisherAuthorityBodySchema,
+  postPublisherAuthorityResponseSchema,
+  postPublisherAuthorityStaleBodySchema,
+  postPublisherAuthorityStaleResponseSchema,
+  type PostPublisherAuthorityBody,
+  type PostPublisherAuthorityResponse,
+  type PostPublisherAuthorityStaleBody,
+  type PostPublisherAuthorityStaleResponse,
+  type PublisherAuthorityRecordInput,
+} from "./publisher-authority.js";
+export {
   postListingDiscoveryCacheLookupBodySchema,
   postListingDiscoveryCacheLookupResponseSchema,
   postListingDiscoveryCacheRecordBodySchema,

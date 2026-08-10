@@ -167,6 +167,34 @@ await dataApiClient.dataCollectionDeadUrlsRecord.create([
 ]);
 ```
 
+### Publisher authority (`POST /api/v1/publisher-authority/stale`, `POST /api/v1/publisher-authority`)
+
+Implemented in `apps/mediapulse/agent-data-api/src/routes/publisher-authority.ts`. Schemas live in `@workspace/agent-data-api-contract` (`publisher-authority.ts`). Manifest keys are **`publisherAuthorityStale`** and **`publisherAuthority`**.
+
+Publisher authority is a cached OpenPageRank score per registrable domain, used only to break ties between articles of equal section fit. It never decides whether an article is included.
+
+- **POST stale** — Body: **`domains`** (at most **`PUBLISHER_AUTHORITY_LOOKUP_MAX`**, 500) and **`ttlDays`** (default **`PUBLISHER_AUTHORITY_DEFAULT_TTL_DAYS`**, 30). Response: **`domains`** — the subset with no `domain_authority` row, or whose **`refreshedAt`** is older than the TTL. A domain the provider could not score still has a row, so it is not re-submitted every run.
+- **POST record** — Body: array of **`{ domain, openPageRank, globalRank, referringDomains, asOf }`**, all nullable except **`domain`**. Upserts by domain and stamps **`refreshedAt`**. Response: **`{ message, recordedCount }`**.
+
+Both collection agents call these at the end of a run, for the domains of articles they actually persisted. The refresh helper lives in `@workspace/agent-ingestion` (`refreshPublisherAuthority`), and a blank **`publisher_authority.apiKey`** in the Hermes agent config disables enrichment without affecting the run.
+
+```ts
+const { domains } = await dataApiClient.publisherAuthorityStale.create({
+  domains: persistedDomains,
+  ttlDays: 30,
+});
+
+await dataApiClient.publisherAuthority.create([
+  {
+    domain: "detik.com",
+    openPageRank: 8.03,
+    globalRank: 10915,
+    referringDomains: 3738,
+    asOf: "2026-07-01",
+  },
+]);
+```
+
 ### Data collection recent source fingerprints (`GET /api/v1/data-collection/recent-source-fingerprints`)
 
 Implemented in `apps/mediapulse/agent-data-api/src/routes/data-collection-recent-source-fingerprints.ts`. Schemas live in `@workspace/agent-data-api-contract` (`data-collection.ts`). Manifest key is **`dataCollectionRecentSourceFingerprints`**.
