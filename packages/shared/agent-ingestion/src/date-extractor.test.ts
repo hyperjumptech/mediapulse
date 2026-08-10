@@ -2,7 +2,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { extractDateFromUrl, extractPublishedDate } from "./date-extractor";
+import {
+  extractDateFromUrl,
+  extractFromRelativeAge,
+  extractPublishedDate,
+} from "./date-extractor";
 
 describe("extractPublishedDate", () => {
   const now = new Date("2026-05-21T12:00:00.000Z");
@@ -217,5 +221,73 @@ describe("extractDateFromUrl: compact path dates", () => {
     );
 
     expect(result).toBeNull();
+  });
+});
+
+describe("extractFromRelativeAge", () => {
+  const now = new Date("2026-08-10T00:00:00.000Z");
+
+  it("reads an Indonesian byline written as an age", () => {
+    const result = extractFromRelativeAge("Redaksi · 3 tahun yang lalu", now);
+
+    expect(result?.getUTCFullYear()).toBe(2023);
+  });
+
+  it("reads months and days", () => {
+    expect(
+      extractFromRelativeAge("2 bulan yang lalu", now)
+        ?.toISOString()
+        .slice(0, 7),
+    ).toBe("2026-06");
+    expect(
+      extractFromRelativeAge("5 hari yang lalu", now)
+        ?.toISOString()
+        .slice(0, 10),
+    ).toBe("2026-08-05");
+  });
+
+  it("reads the English form", () => {
+    const result = extractFromRelativeAge("Published 3 years ago", now);
+
+    expect(result?.getUTCFullYear()).toBe(2023);
+  });
+
+  it("ignores an interval mentioned deep in the body", () => {
+    const body = `${"x".repeat(2000)} 5 tahun yang lalu perusahaan ini berdiri.`;
+
+    expect(extractFromRelativeAge(body, now)).toBeNull();
+  });
+
+  it("ignores an age beyond the sanity window", () => {
+    expect(extractFromRelativeAge("40 tahun yang lalu", now)).toBeNull();
+  });
+});
+
+describe("extractPublishedDate: relative byline fallback", () => {
+  const now = new Date("2026-08-10T00:00:00.000Z");
+
+  it("dates a stockwatch-style page that carries no absolute date", () => {
+    const result = extractPublishedDate(
+      {
+        content:
+          "Sebar Rp19 per Saham, Cek Disini Jadwal Lengkap Dividen 2022 Erajaya Swasembada\nRedaksi · 3 tahun yang lalu",
+        url: "https://stockwatch.id/sebar-rp19-per-saham-cek-disini-jadwal-lengkap-dividen-2022-erajaya-swasembada",
+      },
+      now,
+    );
+
+    expect(result?.getUTCFullYear()).toBe(2023);
+  });
+
+  it("prefers an absolute date over a relative one", () => {
+    const result = extractPublishedDate(
+      {
+        content:
+          '{"datePublished":"2026-08-09T04:00:00Z"} diperbarui 3 tahun yang lalu',
+      },
+      now,
+    );
+
+    expect(result?.toISOString().slice(0, 10)).toBe("2026-08-09");
   });
 });

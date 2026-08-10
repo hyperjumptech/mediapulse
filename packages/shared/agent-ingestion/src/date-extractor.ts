@@ -57,6 +57,49 @@ const MONTH_DAY_YEAR = new RegExp(
 
 const pad = (value: number): string => String(value).padStart(2, "0");
 
+/**
+ * Approximate day count per relative-age unit, Indonesian and English.
+ *
+ * Outlets that render a byline as "3 tahun yang lalu" publish no absolute date anywhere on the
+ * page, so this is the only signal available. Months and years are approximations, which is
+ * enough: the consumer only asks whether an article is older than a few days.
+ */
+const RELATIVE_AGE_UNIT_DAYS = new Map<string, number>([
+  ["menit", 1 / 1440],
+  ["minute", 1 / 1440],
+  ["minutes", 1 / 1440],
+  ["jam", 1 / 24],
+  ["hour", 1 / 24],
+  ["hours", 1 / 24],
+  ["hari", 1],
+  ["day", 1],
+  ["days", 1],
+  ["minggu", 7],
+  ["week", 7],
+  ["weeks", 7],
+  ["bulan", 30.44],
+  ["month", 30.44],
+  ["months", 30.44],
+  ["tahun", 365.25],
+  ["year", 365.25],
+  ["years", 365.25],
+]);
+
+const RELATIVE_AGE_UNITS = [...RELATIVE_AGE_UNIT_DAYS.keys()].join("|");
+
+const RELATIVE_AGE = new RegExp(
+  `\\b(\\d{1,3})\\s+(${RELATIVE_AGE_UNITS})\\s+(?:yang\\s+)?(?:lalu|ago)\\b`,
+  "i",
+);
+
+/**
+ * Characters of the page head scanned for a relative byline.
+ *
+ * Tighter than {@link HEAD_SCAN_CHARS} because a byline sits at the very top, while lede prose
+ * further down may legitimately say "5 tahun yang lalu" about something other than publication.
+ */
+const RELATIVE_AGE_SCAN_CHARS = 1_500;
+
 const JSON_LD_DATE_PUBLISHED = /"datePublished"\s*:\s*"([^"]+)"/i;
 const META_ARTICLE_PUBLISHED_TIME =
   /<meta\s+[^>]*property=["']article:published_time["'][^>]*content=["']([^"']+)["']/i;
@@ -173,14 +216,47 @@ const extractFromContent = (content: string, now: Date): Date | null => {
   if (monthFirst) {
     const month = MONTHS_BY_NAME.get(monthFirst[1]!.toLowerCase());
     if (month !== undefined) {
-      return parseInSanityRange(
+      const parsed = parseInSanityRange(
         `${monthFirst[3]!}-${pad(month)}-${pad(Number(monthFirst[2]))}`,
         now,
       );
+      if (parsed) {
+        return parsed;
+      }
     }
   }
 
-  return null;
+  return extractFromRelativeAge(content, now);
+};
+
+/**
+ * Reads a byline written as an age rather than a date, such as "3 tahun yang lalu".
+ *
+ * - Important: only the very top of the page is scanned, so prose deeper in the article that
+ *   happens to mention an interval is not mistaken for a publication byline.
+ *
+ * @param content - Full page body from the fetch provider.
+ * @param now - Reference time the age is measured back from.
+ * @returns The implied publication date, or null when no relative byline is present.
+ */
+export const extractFromRelativeAge = (
+  content: string,
+  now: Date = new Date(),
+): Date | null => {
+  const match = content.slice(0, RELATIVE_AGE_SCAN_CHARS).match(RELATIVE_AGE);
+  if (!match) {
+    return null;
+  }
+
+  const amount = Number(match[1]);
+  const days = RELATIVE_AGE_UNIT_DAYS.get(match[2]!.toLowerCase());
+  if (!Number.isFinite(amount) || amount <= 0 || days === undefined) {
+    return null;
+  }
+
+  const published = new Date(now.getTime() - amount * days * MS_PER_DAY);
+
+  return parseInSanityRange(published.toISOString(), now);
 };
 
 /**
