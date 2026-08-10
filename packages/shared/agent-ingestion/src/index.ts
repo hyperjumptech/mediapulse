@@ -82,6 +82,7 @@ export {
 export {
   extractPublishedDate,
   extractDateFromUrl,
+  extractFromRelativeAge,
   type FetchMetadata,
   type ExtractPublishedDateInput,
 } from "./date-extractor";
