@@ -23,6 +23,7 @@
     "format": "prisma format",
     "generate": "prisma generate",
     "lint": "eslint \"src/**/*.ts\" \"scripts/**/*.ts\"",
+    "backfill-registrable-domain": "tsx scripts/backfill-data-source-registrable-domain.ts",
     "seed-data-collection-local": "tsx scripts/seed-data-collection-local.ts",
     "studio": "prisma studio",
     "test": "vitest run",
@@ -33,6 +34,7 @@
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "@mediapulse/env": "workspace:*",
+    "@workspace/utils": "workspace:*",
     "dotenv": "catalog:",
     "pg": "catalog:"
   },

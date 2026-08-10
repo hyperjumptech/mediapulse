@@ -46,6 +46,59 @@ describe("insertDataSourcesIdempotently", () => {
     expect(create).toHaveBeenCalledTimes(3);
   });
 
+  it("stamps the registrable domain from the canonical url", async () => {
+    // Setup
+    const create = vi.fn().mockResolvedValue({ id: "1" });
+
+    // Act
+    await insertDataSourcesIdempotently(
+      [
+        {
+          url: "https://finance.detik.com/berita/a?utm_source=x",
+          canonicalUrl: "https://finance.detik.com/berita/a",
+          title: "A",
+          content: "A",
+        },
+        {
+          url: "https://momsmoney.kontan.co.id/news/b",
+          canonicalUrl: "https://momsmoney.kontan.co.id/news/b",
+          title: "B",
+          content: "B",
+        },
+      ],
+      { dataSource: { create } },
+    );
+
+    // Assert
+    expect(create.mock.calls[0]?.[0].data.registrableDomain).toBe("detik.com");
+    expect(create.mock.calls[1]?.[0].data.registrableDomain).toBe(
+      "kontan.co.id",
+    );
+  });
+
+  it("omits the registrable domain when the url is unparsable", async () => {
+    // Setup
+    const create = vi.fn().mockResolvedValue({ id: "1" });
+
+    // Act
+    await insertDataSourcesIdempotently(
+      [
+        {
+          url: "not a url",
+          canonicalUrl: "not a url",
+          title: "A",
+          content: "A",
+        },
+      ],
+      { dataSource: { create } },
+    );
+
+    // Assert
+    expect(create.mock.calls[0]?.[0].data).not.toHaveProperty(
+      "registrableDomain",
+    );
+  });
+
   it("rethrows non-unique Prisma errors", async () => {
     // Setup
     const create = vi.fn().mockRejectedValue({ code: "P2003" });

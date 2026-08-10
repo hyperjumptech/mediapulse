@@ -41,6 +41,12 @@ describe("derivePublisherFromUrl", () => {
     );
   });
 
+  it("resolves suffixes absent from the retired hand-rolled list", () => {
+    expect(derivePublisherFromUrl("https://news.example.co.za/story")).toBe(
+      "Example",
+    );
+  });
+
   it("returns an empty string for an unparsable URL", () => {
     expect(derivePublisherFromUrl("not a url")).toBe("");
   });
