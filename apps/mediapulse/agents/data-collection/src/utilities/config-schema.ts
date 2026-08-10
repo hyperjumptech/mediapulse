@@ -6,6 +6,7 @@ import {
   type ProviderName,
   type SearchLocale,
 } from "@workspace/agent-search";
+import { publisherAuthoritySchema } from "@workspace/agent-ingestion";
 import { z } from "zod";
 
 // Search provider identity, entry, and locale schemas are owned by
@@ -70,6 +71,7 @@ export const ConfigSchema = z.object({
   web_search: webSearchSchema,
   web_search_locales: webSearchLocalesSchema,
   collection: collectionSchema,
+  publisher_authority: publisherAuthoritySchema,
 });
 
 export type ConfigSchemaType = z.infer<typeof ConfigSchema>;

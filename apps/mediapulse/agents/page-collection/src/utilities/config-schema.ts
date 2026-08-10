@@ -1,3 +1,4 @@
+import { publisherAuthoritySchema } from "@workspace/agent-ingestion";
 import { z } from "zod";
 
 const collectionSchema = z
@@ -25,6 +26,7 @@ const collectionSchema = z
 /** Zod schema for agent config grouped for Hermes form sections. */
 export const ConfigSchema = z.object({
   collection: collectionSchema,
+  publisher_authority: publisherAuthoritySchema,
 });
 
 export type ConfigSchemaType = z.infer<typeof ConfigSchema>;

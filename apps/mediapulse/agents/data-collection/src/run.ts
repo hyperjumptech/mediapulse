@@ -34,6 +34,7 @@ import {
   hasSufficientDescription,
   createTitleDeduper,
   MIN_DESCRIPTION_CHARS,
+  refreshPublisherAuthority,
 } from "@workspace/agent-ingestion";
 import {
   performWebSearch,
@@ -45,6 +46,7 @@ import { RoundRobinCursor } from "@workspace/agent-search";
 import {
   classifyNoisyUrl,
   derivePublisherFromUrl,
+  deriveRegistrableDomain,
   sleep,
   type UrlNoiseReason,
 } from "@workspace/utils";
@@ -214,6 +216,7 @@ export async function runDataCollection(
     | null = null;
   const runDeadlineEpochMs = startedAt.getTime() + RUN_WALL_CLOCK_BUDGET_MS;
   let persistedThisRunCount = 0;
+  const persistedDomains = new Set<string>();
   let searchSuccessCount = 0;
   let searchEmptyCount = 0;
   const searchFailures: WebSearchFailure[] = [];
@@ -573,6 +576,10 @@ export async function runDataCollection(
         );
         await dataApiClient.dataCollection.create([collectedSource]);
         outcomes.push(makeCollectedOutcome(outcomeBase));
+        const registrableDomain = deriveRegistrableDomain(canonicalUrl);
+        if (registrableDomain !== "") {
+          persistedDomains.add(registrableDomain);
+        }
         persistedThisRunCount += 1;
         persistedThisRoundCount += 1;
       };
@@ -621,6 +628,15 @@ export async function runDataCollection(
       }
     }
   }
+
+  const publisherAuthority = await refreshPublisherAuthority({
+    domains: [...persistedDomains],
+    apiKey: config.publisher_authority.apiKey,
+    ttlDays: config.publisher_authority.ttlDays,
+    lookupStale: (body) => dataApiClient.publisherAuthorityStale.create(body),
+    recordAuthority: (body) => dataApiClient.publisherAuthority.create(body),
+    logger: log,
+  });
 
   const failuresPayload = [
     ...searchFailures.map((f) => ({
@@ -686,6 +702,7 @@ export async function runDataCollection(
       roundsExecuted,
       ...(refillStopReason ? { stopReason: refillStopReason } : {}),
     },
+    publisherAuthority,
   };
 
   const runPayload = {

@@ -14,7 +14,17 @@ describe("ConfigSchema", () => {
       "web_search",
       "web_search_locales",
       "collection",
+      "publisher_authority",
     ]);
+  });
+
+  it("defaults publisher authority to the expanded key and the provider's monthly cadence", () => {
+    const parsed = ConfigSchema.parse({});
+
+    expect(parsed.publisher_authority).toEqual({
+      apiKey: "{{OPEN_PAGE_RANK_API_KEY}}",
+      ttlDays: 30,
+    });
   });
 
   it("parses an empty object into the full recommended config", () => {

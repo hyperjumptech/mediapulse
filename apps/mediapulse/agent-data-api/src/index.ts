@@ -30,6 +30,10 @@ import {
   postDataCollectionDeadUrlsLookup,
   postDataCollectionDeadUrlsRecord,
 } from "./routes/data-collection-dead-url.js";
+import {
+  postPublisherAuthority,
+  postPublisherAuthorityStale,
+} from "./routes/publisher-authority.js";
 import { getDataCollectionRecentSourceFingerprints } from "./routes/data-collection-recent-source-fingerprints.js";
 import { postDataCollectionCuratedListingQuery } from "./routes/data-collection-curated-listing-query.js";
 import {
@@ -179,6 +183,12 @@ const routeHandlers = {
   },
   dataCollectionDeadUrlsRecord: {
     post: postDataCollectionDeadUrlsRecord,
+  },
+  publisherAuthorityStale: {
+    post: postPublisherAuthorityStale,
+  },
+  publisherAuthority: {
+    post: postPublisherAuthority,
   },
   dataCollectionRecentSourceFingerprints: {
     get: getDataCollectionRecentSourceFingerprints,

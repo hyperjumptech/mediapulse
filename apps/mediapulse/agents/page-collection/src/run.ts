@@ -34,10 +34,12 @@ import {
   RateLimiter,
   isFresh,
   extractDateFromUrl,
+  refreshPublisherAuthority,
 } from "@workspace/agent-ingestion";
 import {
   classifyNoisyUrl,
   derivePublisherFromUrl,
+  deriveRegistrableDomain,
   type UrlNoiseReason,
 } from "@workspace/utils";
 import {
@@ -558,6 +560,17 @@ async function executePageCollectionRun(
     persistedCount += result.persistedCount;
   }
 
+  const publisherAuthority = await refreshPublisherAuthority({
+    domains: sourcesToPersist.map((source) =>
+      deriveRegistrableDomain(source.url),
+    ),
+    apiKey: config.publisher_authority.apiKey,
+    ttlDays: config.publisher_authority.ttlDays,
+    lookupStale: (body) => dataApiClient.publisherAuthorityStale.create(body),
+    recordAuthority: (body) => dataApiClient.publisherAuthority.create(body),
+    logger: log,
+  });
+
   const totalSources = persistedCount;
   const derivedStatus = deriveRunStatus({
     totalSources,
@@ -601,6 +614,7 @@ async function executePageCollectionRun(
       roundsExecuted: 1,
       ...(deadlineHit ? { stopReason: "deadline_hit" } : {}),
     },
+    publisherAuthority,
   };
 
   await withApiStep("persist run record", () =>

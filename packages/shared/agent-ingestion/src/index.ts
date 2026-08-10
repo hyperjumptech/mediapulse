@@ -95,6 +95,24 @@ export {
 } from "./host-error-tracker";
 
 export { resolveDeadUrls, type LookupDeadUrls } from "./resolve-dead-urls";
+export {
+  publisherAuthoritySchema,
+  type PublisherAuthorityConfig,
+} from "./publisher-authority/config-schema";
+export {
+  fetchOpenPageRank,
+  OPEN_PAGE_RANK_BASE_URL,
+  OPEN_PAGE_RANK_MAX_DOMAINS_PER_REQUEST,
+  type OpenPageRankBatch,
+  type OpenPageRankScore,
+} from "./publisher-authority/open-page-rank";
+export {
+  refreshPublisherAuthority,
+  type LookupStalePublisherAuthority,
+  type RecordPublisherAuthority,
+  type RefreshPublisherAuthorityOptions,
+  type RefreshPublisherAuthorityResult,
+} from "./publisher-authority/refresh-publisher-authority";
 
 export {
   resolveExistingDataSourceUrls,
