@@ -692,6 +692,29 @@ export async function generateNewsletterWithLlm(
           return { status: "failed", entry };
         }
 
+        // Checked against the body alone, never `sourceText`: when a publisher's own headline
+        // carries a figure its body contradicts, including the title in the corpus would let the
+        // bad figure vouch for itself and ship as the item's most prominent claim.
+        const titleFigures = ungroundedFigures(
+          summary.title,
+          entry.source.content,
+        );
+        if (titleFigures.length > 0) {
+          logger.warn(
+            {
+              tickerId: context.tickerId,
+              sectionKey: entry.sectionKey,
+              url: entry.source.url,
+              title: summary.title,
+              ungrounded: titleFigures,
+              event: "article_title_figure_ungrounded",
+            },
+            "Dropped article: its heading cites a figure absent from the article body",
+          );
+
+          return { status: "failed", entry };
+        }
+
         if (!pointsSupportTitle(summary.title, groundedPoints)) {
           logger.warn(
             {
