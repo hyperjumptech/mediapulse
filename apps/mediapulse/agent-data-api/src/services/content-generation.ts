@@ -37,6 +37,7 @@ type ContentGenerationDb = {
   >;
   searchQuerySet: Pick<typeof prisma.searchQuerySet, "findFirst">;
   userTicker: Pick<typeof prisma.userTicker, "findMany">;
+  domainAuthority: Pick<typeof prisma.domainAuthority, "findMany">;
 };
 
 /**
@@ -56,7 +57,7 @@ export const getDataSourcesForTicker = async (
   deps: {
     db?: Pick<
       ContentGenerationDb,
-      "dataSourceTickerSection" | "ticker" | "userTicker"
+      "dataSourceTickerSection" | "ticker" | "userTicker" | "domainAuthority"
     >;
     now?: () => Date;
   } = {},
@@ -93,6 +94,7 @@ export const getDataSourcesForTicker = async (
             content: true,
             author: true,
             source: true,
+            registrableDomain: true,
             searchQueryId: true,
             metadata: true,
             publishedAt: true,
@@ -103,6 +105,24 @@ export const getDataSourcesForTicker = async (
     } satisfies Prisma.DataSourceTickerSectionFindManyArgs),
   ]);
 
+  const registrableDomains = [
+    ...new Set(
+      sectionRows
+        .map((row) => row.dataSource.registrableDomain)
+        .filter((domain): domain is string => domain !== null),
+    ),
+  ];
+  const authorityRows =
+    registrableDomains.length === 0
+      ? []
+      : await db.domainAuthority.findMany({
+          where: { domain: { in: registrableDomains } },
+          select: { domain: true, openPageRank: true },
+        } satisfies Prisma.DomainAuthorityFindManyArgs);
+  const authorityByDomain = new Map(
+    authorityRows.map((row) => [row.domain, row.openPageRank]),
+  );
+
   const dataSources = sectionRows.map((row) => ({
     dataSourceId: row.dataSource.id,
     url: row.dataSource.url,
@@ -111,6 +131,11 @@ export const getDataSourcesForTicker = async (
     content: row.dataSource.content,
     author: row.dataSource.author,
     source: row.dataSource.source,
+    registrableDomain: row.dataSource.registrableDomain,
+    publisherAuthority:
+      row.dataSource.registrableDomain === null
+        ? null
+        : (authorityByDomain.get(row.dataSource.registrableDomain) ?? null),
     tickerId,
     searchQueryId: row.dataSource.searchQueryId,
     section: row.section,

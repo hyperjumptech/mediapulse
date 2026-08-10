@@ -297,6 +297,18 @@ const newslettersSourceAnalysisStageBlock = {
                   collapsible: true,
                 },
               },
+              {
+                field: "publisher",
+                label: "Publisher",
+                type: "text",
+                muted: true,
+              },
+              {
+                field: "publisherAuthorityLabel",
+                label: "Authority",
+                type: "text",
+                muted: true,
+              },
             ],
           },
         },

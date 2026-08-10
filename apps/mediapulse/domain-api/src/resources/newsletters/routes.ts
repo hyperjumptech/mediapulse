@@ -172,6 +172,7 @@ newslettersRoutes.get("/:id", async (c) => {
       newsletterCitation: prisma.newsletterCitation,
       articleAnalysisRun: prisma.articleAnalysisRun,
       dataSourceTickerSection: prisma.dataSourceTickerSection,
+      domainAuthority: prisma.domainAuthority,
     }),
     buildContentGeneration(row, {
       newsletterSection: prisma.newsletterSection,

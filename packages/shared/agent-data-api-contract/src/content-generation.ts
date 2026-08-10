@@ -38,6 +38,10 @@ export const contentGenerationDataSourceSchema = z
     sectionScore: z.number().min(0).max(1).nullable().optional(),
     /** AI reason for the section assignment. */
     sectionReason: z.string().nullable().optional(),
+    /** Registrable domain the article was published on. */
+    registrableDomain: z.string().nullable().optional(),
+    /** Cached publisher authority 0–10; only ever breaks ties between equal section fit. */
+    publisherAuthority: z.number().min(0).max(10).nullable().optional(),
   })
   .passthrough();
 

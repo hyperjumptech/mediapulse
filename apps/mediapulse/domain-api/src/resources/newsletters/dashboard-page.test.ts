@@ -194,7 +194,9 @@ describe("newslettersDashboardPage source-analysis stage", () => {
     expect(assigned.block.field).toBe("sourceAnalysis.assigned");
     expect(assigned.block.rowLimitDefaultAll).toBe(true);
     expect(assigned.block.hideHeader).toBe(true);
-    expect(assigned.block.columns).toHaveLength(1);
+    expect(assigned.block.columns).toHaveLength(3);
+    expect(assigned.block.columns[1]?.field).toBe("publisher");
+    expect(assigned.block.columns[2]?.field).toBe("publisherAuthorityLabel");
 
     const scoreColumn = assigned.block.columns[0];
     expect(scoreColumn?.type).toBe("list");

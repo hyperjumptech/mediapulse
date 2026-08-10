@@ -12,12 +12,14 @@ const citationRow = (overrides: {
   articleAnalysisRunId?: string | null;
   sectionKey?: string;
   sectionScoreBreakdown?: unknown;
+  registrableDomain?: string | null;
 }) => ({
   sectionKey: overrides.sectionKey ?? "industryPulse",
   dataSource: {
     id: overrides.dataSourceId,
     url: overrides.url,
     title: overrides.title,
+    registrableDomain: overrides.registrableDomain ?? null,
     tickerSections:
       overrides.section === undefined &&
       overrides.articleAnalysisRunId === undefined
@@ -85,6 +87,7 @@ describe("buildSourceAnalysis", () => {
       newsletterCitation: { findMany: citationFindMany },
       articleAnalysisRun: { findMany: runFindMany },
       dataSourceTickerSection: { findMany: rejectedFindMany },
+      domainAuthority: { findMany: vi.fn().mockResolvedValue([]) },
     });
 
     expect(citationFindMany.mock.calls[0]?.[0]?.where).toEqual({
@@ -150,6 +153,7 @@ describe("buildSourceAnalysis", () => {
       newsletterCitation: { findMany: citationFindMany },
       articleAnalysisRun: { findMany: runFindMany },
       dataSourceTickerSection: { findMany: rejectedFindMany },
+      domainAuthority: { findMany: vi.fn().mockResolvedValue([]) },
     });
 
     expect(runFindMany.mock.calls[0]?.[0]?.where).toEqual({
@@ -180,6 +184,8 @@ describe("buildSourceAnalysis", () => {
         scoreVariant: "warning",
         reason: "Broad sector trend.",
         sectionScores: [],
+        publisher: "—",
+        publisherAuthorityLabel: "—",
       },
       {
         id: "ds-a",
@@ -192,6 +198,8 @@ describe("buildSourceAnalysis", () => {
         scoreVariant: "success",
         reason: "Direct M&A coverage of the issuer.",
         sectionScores: [],
+        publisher: "—",
+        publisherAuthorityLabel: "—",
       },
     ]);
     expect(result.rejected).toStrictEqual([
@@ -248,6 +256,7 @@ describe("buildSourceAnalysis", () => {
       newsletterCitation: { findMany: citationFindMany },
       articleAnalysisRun: { findMany: runFindMany },
       dataSourceTickerSection: { findMany: rejectedFindMany },
+      domainAuthority: { findMany: vi.fn().mockResolvedValue([]) },
     });
     const scores = result.assigned[0]?.sectionScores ?? [];
 
@@ -266,6 +275,62 @@ describe("buildSourceAnalysis", () => {
       ].join("\n"),
     );
     expect(scores[1]?.reason).toBe("Matched 2 of 7\n\u2022 ip-macro-move");
+  });
+
+  it("shows the publisher and its cached authority", async () => {
+    const citationFindMany = vi.fn().mockResolvedValue([
+      citationRow({
+        dataSourceId: "ds-1",
+        title: "Assigned",
+        url: "https://finance.detik.com/a",
+        registrableDomain: "detik.com",
+        section: "industryPulse",
+        sectionScore: 0.5,
+        sectionReason: "Sector news.",
+        articleAnalysisRunId: "run-1",
+      }),
+    ]);
+    const domainAuthorityFindMany = vi
+      .fn()
+      .mockResolvedValue([{ domain: "detik.com", openPageRank: 8.03 }]);
+
+    const result = await buildSourceAnalysis("nl-1", "tk-1", {
+      newsletterCitation: { findMany: citationFindMany },
+      articleAnalysisRun: { findMany: vi.fn().mockResolvedValue([]) },
+      dataSourceTickerSection: { findMany: vi.fn().mockResolvedValue([]) },
+      domainAuthority: { findMany: domainAuthorityFindMany },
+    });
+
+    expect(domainAuthorityFindMany.mock.calls[0]?.[0].where.domain.in).toEqual([
+      "detik.com",
+    ]);
+    expect(result.assigned[0]?.publisher).toBe("detik.com");
+    expect(result.assigned[0]?.publisherAuthorityLabel).toBe("8.03");
+  });
+
+  it("falls back to a dash when the publisher has no cached authority", async () => {
+    const citationFindMany = vi.fn().mockResolvedValue([
+      citationRow({
+        dataSourceId: "ds-1",
+        title: "Assigned",
+        url: "https://unknown.test/a",
+        registrableDomain: "unknown.test",
+        section: "industryPulse",
+        sectionScore: 0.5,
+        sectionReason: "Sector news.",
+        articleAnalysisRunId: "run-1",
+      }),
+    ]);
+
+    const result = await buildSourceAnalysis("nl-1", "tk-1", {
+      newsletterCitation: { findMany: citationFindMany },
+      articleAnalysisRun: { findMany: vi.fn().mockResolvedValue([]) },
+      dataSourceTickerSection: { findMany: vi.fn().mockResolvedValue([]) },
+      domainAuthority: { findMany: vi.fn().mockResolvedValue([]) },
+    });
+
+    expect(result.assigned[0]?.publisher).toBe("unknown.test");
+    expect(result.assigned[0]?.publisherAuthorityLabel).toBe("—");
   });
 
   it("leaves agent labels unversioned when the linked run is missing", async () => {
@@ -287,6 +352,7 @@ describe("buildSourceAnalysis", () => {
       newsletterCitation: { findMany: citationFindMany },
       articleAnalysisRun: { findMany: runFindMany },
       dataSourceTickerSection: { findMany: rejectedFindMany },
+      domainAuthority: { findMany: vi.fn().mockResolvedValue([]) },
     });
 
     expect(result.assigned).toHaveLength(1);

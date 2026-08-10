@@ -1,6 +1,7 @@
 import { NEWSLETTER_SECTION_IDS } from "@workspace/agent-data-api-contract";
 
 import type { SourceForGeneration } from "../types.js";
+import { compareSourcesForRanking } from "./rank-sources.js";
 import { tokenize } from "./phrase-link-injector.js";
 import {
   buildSourceComparisonText,
@@ -63,9 +64,6 @@ const SECTION_KEY_UNASSIGNED = "unassigned";
 
 const sectionKeyOf = (source: SourceForGeneration): string =>
   source.section ?? SECTION_KEY_UNASSIGNED;
-
-const scoreOf = (source: SourceForGeneration): number =>
-  source.sectionScore ?? 0;
 
 const anchorsFor = (source: SourceForGeneration): Set<string> =>
   distinctiveAnchorTokens(tokenize(buildSourceComparisonText(source)));
@@ -204,7 +202,7 @@ const orderByPlacementPriority = (
       if (rankDiff !== 0) {
         return rankDiff;
       }
-      const scoreDiff = scoreOf(right.source) - scoreOf(left.source);
+      const scoreDiff = compareSourcesForRanking(left.source, right.source);
 
       return scoreDiff !== 0 ? scoreDiff : left.order - right.order;
     });
