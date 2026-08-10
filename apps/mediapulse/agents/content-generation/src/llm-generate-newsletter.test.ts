@@ -628,6 +628,74 @@ describe("generateNewsletterWithLlm — summarizer failures", () => {
     expect(result.articlesSkippedSummaryFailed).toBe(1);
   });
 
+  it("drops an article whose heading cites a figure the body never states", async () => {
+    const sources: SourceForGeneration[] = [
+      {
+        dataSourceId: "ds-m0",
+        url: "https://example.com/m0",
+        title:
+          "BI Records Primary Money Growth of 17.1% to Rp 1,154.5 Trillion in July 2026",
+        content:
+          "Bank Indonesia melaporkan uang primer (M0) Adjusted pada Juli 2026 tumbuh 17,1% secara tahunan menjadi Rp 2.254,5 triliun.",
+        section: "industryPulse",
+        sectionScore: 0.9,
+      },
+      ...testSources,
+    ];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => ({
+        object: {
+          title: promptTitle(args.prompt),
+          points: [`Key fact from ${promptTitle(args.prompt)}`],
+        },
+      }),
+    });
+
+    const result = await generateNewsletterWithLlm(
+      sources,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(result.content).not.toContain("1,154.5");
+    expect(result.content).not.toContain("industryPulse");
+    expect(result.articlesSkippedSummaryFailed).toBe(1);
+  });
+
+  it("keeps an article whose heading figure the body confirms", async () => {
+    const sources: SourceForGeneration[] = [
+      {
+        dataSourceId: "ds-m0",
+        url: "https://example.com/m0",
+        title:
+          "BI Records Primary Money Growth of 17.1% to Rp 2,254.5 Trillion in July 2026",
+        content:
+          "Bank Indonesia melaporkan uang primer (M0) Adjusted pada Juli 2026 tumbuh 17,1% secara tahunan menjadi Rp 2.254,5 triliun.",
+        section: "industryPulse",
+        sectionScore: 0.9,
+      },
+    ];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => ({
+        object: {
+          title: promptTitle(args.prompt),
+          points: [`Uang primer tumbuh 17,1% pada Juli 2026`],
+        },
+      }),
+    });
+
+    const result = await generateNewsletterWithLlm(
+      sources,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(result.articlesSkippedSummaryFailed).toBe(0);
+    expect(result.content).toContain("2,254.5");
+  });
+
   it("drops an article when the summarizer returns no points", async () => {
     const generateObjectFn = makeGenerateFn({
       onSummarize: async (args) => {
