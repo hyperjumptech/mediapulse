@@ -225,6 +225,7 @@ export async function runDataCollection(
     blocked_extension: 0,
     site_homepage: 0,
     non_article_page: 0,
+    non_editorial_page: 0,
     opaque_redirect: 0,
   };
   let droppedByDuplicateCanonicalUrl = 0;

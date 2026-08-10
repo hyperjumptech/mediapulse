@@ -800,3 +800,58 @@ describe("classifyNoisyUrl: Indonesian section pages and pagination", () => {
     expect(classifyNoisyUrl(url).blocked).toBe(false);
   });
 });
+
+describe("classifyNoisyUrl: recruitment listings and image galleries", () => {
+  it("blocks a job listing a publisher files under its news section", () => {
+    const result = classifyNoisyUrl(
+      "https://sulbar.tribunnews.com/news/81692/lowongan-kerja-muf-agustus-2026-dibuka-tersedia-300-lebih-posisi",
+    );
+
+    expect(result.blocked).toBe(true);
+    expect(result.blocked && result.reason).toBe("non_editorial_page");
+  });
+
+  it("blocks a job listing outside a news path", () => {
+    const result = classifyNoisyUrl(
+      "https://banjarmasin.tribunnews.com/kalsel/1371436/lowongan-kerja-adaro-group-penempatan-di-tanahlaut-kalsel",
+    );
+
+    expect(result.blocked).toBe(true);
+    expect(result.blocked && result.reason).toBe("non_editorial_page");
+  });
+
+  it("blocks a careers page", () => {
+    expect(
+      classifyNoisyUrl("https://example.co.id/karier/analyst").blocked,
+    ).toBe(true);
+    expect(
+      classifyNoisyUrl("https://example.com/careers/analyst").blocked,
+    ).toBe(true);
+  });
+
+  it("blocks an image gallery path", () => {
+    const result = classifyNoisyUrl(
+      "https://money.kompas.com/image/2026/08/06/090100626/airlangga-dorong-investasi-china",
+    );
+
+    expect(result.blocked).toBe(true);
+    expect(result.blocked && result.reason).toBe("non_article_page");
+  });
+
+  it("blocks a workforce-data vendor page", () => {
+    const result = classifyNoisyUrl(
+      "https://www.reveliolabs.com/companies/soho-global-health/employees",
+    );
+
+    expect(result.blocked).toBe(true);
+    expect(result.blocked && result.reason).toBe("low_value_source");
+  });
+
+  it("keeps a story that merely reports on hiring", () => {
+    const result = classifyNoisyUrl(
+      "https://market.bisnis.com/read/20260810/192/1993592/bank-mandiri-tambah-3-000-karyawan-tahun-ini",
+    );
+
+    expect(result.blocked).toBe(false);
+  });
+});

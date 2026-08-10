@@ -54,6 +54,12 @@ const LOW_VALUE_SOURCE_DOMAINS = [
   "zoominfo.com",
   "tracxn.com",
   "dealroom.co",
+  // Workforce-data vendors: scraped headcount and org-chart pages keyed by company name. They
+  // match an issuer perfectly and report nothing. One headlined a SOHO issue as though the
+  // company had disclosed its own employee count.
+  "reveliolabs.com",
+  "theorg.com",
+  "growjo.com",
 ] as const;
 
 const LOW_VALUE_SOURCE_HOST_PATTERNS =
@@ -235,6 +241,23 @@ const NON_ARTICLE_PAGE_PATTERNS = [
   /\/(?:berita-)?foto(?:-berita)?(\/|$)/i,
   /\/galer(?:i|y|ies)(\/|$)/i,
   /\/(?:photo|photos|photo-news|gallery|galleries)(\/|$)/i,
+  /\/images?(\/|$)/i,
+] as const;
+
+/**
+ * Job listings and other classified content that a publisher files under its news section.
+ *
+ * Checked before {@link LIKELY_ARTICLE_PATH_PATTERNS}, unlike every other path rule: a recruitment
+ * listing served from `/news/` is still a recruitment listing, and the article-shaped override
+ * would otherwise wave it through. Both examples that reached subscribers did exactly that.
+ */
+const NON_EDITORIAL_PATH_PATTERNS = [
+  /\/lowongan(?:-kerja)?(?:[/-]|$)/i,
+  /(?:^|[/-])loker(?:[/-]|$)/i,
+  /\/kari[er]r?(\/|$)/i,
+  /\/careers?(\/|$)/i,
+  /[/-]job-(?:vacanc|opening|listing)/i,
+  /[/-]rekrutmen(?:[/-]|$)/i,
 ] as const;
 
 /**
@@ -262,6 +285,7 @@ export type UrlNoiseReason =
   | "blocked_extension"
   | "site_homepage"
   | "non_article_page"
+  | "non_editorial_page"
   | "opaque_redirect";
 
 export type UrlNoiseDecision =
@@ -442,6 +466,12 @@ export const classifyNoisyUrl = (rawUrl: string): UrlNoiseDecision => {
   // matter which section name appears earlier in the path.
   if (pathnameIsHomepage(pathname)) {
     return { blocked: true, reason: "site_homepage", canonicalUrl };
+  }
+
+  // Ahead of the article-shaped override: publishers file recruitment listings under /news/, and
+  // the override would otherwise treat the listing as a story.
+  if (NON_EDITORIAL_PATH_PATTERNS.some((pattern) => pattern.test(pathname))) {
+    return { blocked: true, reason: "non_editorial_page", canonicalUrl };
   }
 
   if (pathnameMatchesArticleOverride(pathname)) {
