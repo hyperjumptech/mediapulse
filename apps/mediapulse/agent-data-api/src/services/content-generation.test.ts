@@ -46,6 +46,9 @@ type MockDb = {
   userTicker: {
     findMany: ReturnType<typeof vi.fn>;
   };
+  domainAuthority: {
+    findMany: ReturnType<typeof vi.fn>;
+  };
 };
 
 const createMockDb = (): MockDb => ({
@@ -62,6 +65,9 @@ const createMockDb = (): MockDb => ({
     findFirst: vi.fn(),
   },
   userTicker: {
+    findMany: vi.fn().mockResolvedValue([]),
+  },
+  domainAuthority: {
     findMany: vi.fn().mockResolvedValue([]),
   },
 });

@@ -20,12 +20,14 @@ import type {
 } from "@workspace/agent-data-api-contract";
 
 import type { ResolvedContentGenerationConfig } from "./config-schema.js";
+import { compareSourcesForRanking } from "./lib/rank-sources.js";
 
 export type RequestedFetchSource = {
   dataSourceId: string;
   url: string;
   title: string;
   sectionScore?: number | null;
+  publisherAuthority?: number | null;
   reason?: string;
 };
 
@@ -95,8 +97,7 @@ const applyFetchCap = (
   return sources
     .map((source, index) => ({ source, index }))
     .sort((a, b) => {
-      const scoreDiff =
-        (b.source.sectionScore ?? 0) - (a.source.sectionScore ?? 0);
+      const scoreDiff = compareSourcesForRanking(a.source, b.source);
       if (scoreDiff !== 0) {
         return scoreDiff;
       }

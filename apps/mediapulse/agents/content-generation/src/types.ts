@@ -11,4 +11,6 @@ export type SourceForGeneration = {
   section?: string | null;
   /** Section-fit score 0–1 from article-analysis 3.0.0. */
   sectionScore?: number | null;
+  /** Cached publisher authority 0–10; breaks ties between equal section fit only. */
+  publisherAuthority?: number | null;
 };

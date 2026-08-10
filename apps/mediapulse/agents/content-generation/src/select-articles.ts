@@ -4,6 +4,7 @@ import {
   type NewsletterSectionKey,
 } from "@workspace/email-templates/newsletter-document";
 
+import { compareSourcesForRanking } from "./lib/rank-sources.js";
 import type { SourceForGeneration } from "./types.js";
 
 /** Maps the camelCase section ids used upstream to the document's kebab-case keys. */
@@ -51,9 +52,6 @@ const toSectionKey = (
   return SECTION_KEY_BY_ID[section];
 };
 
-const scoreOf = (source: SourceForGeneration): number =>
-  source.sectionScore ?? 0;
-
 /**
  * Chooses which articles appear in the newsletter and where.
  *
@@ -94,9 +92,9 @@ export const selectArticles = (
       continue;
     }
     const ranked = [...bucket].sort((first, second) => {
-      const scoreDiff = scoreOf(second.source) - scoreOf(first.source);
+      const rankDiff = compareSourcesForRanking(first.source, second.source);
 
-      return scoreDiff !== 0 ? scoreDiff : first.order - second.order;
+      return rankDiff !== 0 ? rankDiff : first.order - second.order;
     });
     droppedOverCap += Math.max(0, ranked.length - MAX_ARTICLES_PER_SECTION);
     for (const entry of ranked.slice(0, MAX_ARTICLES_PER_SECTION)) {

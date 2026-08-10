@@ -40,6 +40,8 @@ export type SourceAnalysisEntryPayload = {
   scoreVariant: SourceAnalysisScoreVariant | null;
   reason: string;
   sectionScores: SectionScorePayload[];
+  publisher: string;
+  publisherAuthorityLabel: string;
 };
 
 /** Shape of one rejected article row in the Rejected results tab. */
@@ -69,6 +71,7 @@ export type BuildSourceAnalysisDeps = {
     typeof prisma.dataSourceTickerSection,
     "findMany"
   >;
+  domainAuthority: Pick<typeof prisma.domainAuthority, "findMany">;
 };
 
 const sectionLabel = (section: string | null): string =>
@@ -134,6 +137,7 @@ export const buildSourceAnalysis = async (
           id: true,
           url: true,
           title: true,
+          registrableDomain: true,
           tickerSections: {
             where: { tickerId },
             select: {
@@ -224,8 +228,31 @@ export const buildSourceAnalysis = async (
     }
   }
 
+  const registrableDomains = [
+    ...new Set(
+      dataSources
+        .map((dataSource) => dataSource.registrableDomain)
+        .filter((domain): domain is string => domain !== null),
+    ),
+  ];
+  const authorityRows =
+    registrableDomains.length === 0
+      ? []
+      : await deps.domainAuthority.findMany({
+          where: { domain: { in: registrableDomains } },
+          select: { domain: true, openPageRank: true },
+        } satisfies Prisma.DomainAuthorityFindManyArgs);
+  const authorityByDomain = new Map(
+    authorityRows.map((row) => [row.domain, row.openPageRank]),
+  );
+
   const assigned = dataSources
     .map((dataSource) => {
+      const registrableDomain = dataSource.registrableDomain;
+      const publisherAuthority =
+        registrableDomain === null
+          ? null
+          : (authorityByDomain.get(registrableDomain) ?? null);
       const tickerSection = dataSource.tickerSections[0];
       const section = tickerSection?.section ?? null;
       const label = sectionLabel(section);
@@ -249,6 +276,9 @@ export const buildSourceAnalysis = async (
             section,
             score,
           ),
+          publisher: registrableDomain ?? "—",
+          publisherAuthorityLabel:
+            publisherAuthority === null ? "—" : publisherAuthority.toFixed(2),
         } satisfies SourceAnalysisEntryPayload,
       };
     })

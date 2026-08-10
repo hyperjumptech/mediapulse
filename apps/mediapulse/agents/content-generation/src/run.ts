@@ -503,6 +503,9 @@ export async function run({
       ...(typeof source.sectionScore === "number"
         ? { sectionScore: source.sectionScore }
         : {}),
+      ...(typeof source.publisherAuthority === "number"
+        ? { publisherAuthority: source.publisherAuthority }
+        : {}),
     });
   };
 
@@ -602,6 +605,9 @@ export async function run({
         ...(typeof s.section === "string" ? { section: s.section } : {}),
         ...(typeof s.sectionScore === "number"
           ? { sectionScore: s.sectionScore }
+          : {}),
+        ...(typeof s.publisherAuthority === "number"
+          ? { publisherAuthority: s.publisherAuthority }
           : {}),
       };
     })

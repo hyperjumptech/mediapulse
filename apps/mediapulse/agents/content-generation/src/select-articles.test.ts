@@ -12,6 +12,74 @@ const source = (
 });
 
 describe("selectArticles", () => {
+  it("breaks an equal-fit tie on publisher authority rather than arrival order", () => {
+    const sources = [
+      source({
+        title: "Content Farm",
+        section: "competitiveLandscape",
+        sectionScore: 0.8,
+        publisherAuthority: 1.2,
+      }),
+      source({
+        title: "Major Daily",
+        section: "competitiveLandscape",
+        sectionScore: 0.8,
+        publisherAuthority: 8.03,
+      }),
+    ];
+
+    const { selected } = selectArticles(sources);
+
+    expect(selected.map((entry) => entry.source.title)).toStrictEqual([
+      "Major Daily",
+      "Content Farm",
+    ]);
+  });
+
+  it("keeps arrival order when fit and authority both tie", () => {
+    const sources = [
+      source({
+        title: "First Seen",
+        section: "competitiveLandscape",
+        sectionScore: 0.8,
+        publisherAuthority: 5,
+      }),
+      source({
+        title: "Second Seen",
+        section: "competitiveLandscape",
+        sectionScore: 0.8,
+        publisherAuthority: 5,
+      }),
+    ];
+
+    const { selected } = selectArticles(sources);
+
+    expect(selected.map((entry) => entry.source.title)).toStrictEqual([
+      "First Seen",
+      "Second Seen",
+    ]);
+  });
+
+  it("never lets authority outrank a better section fit", () => {
+    const sources = [
+      source({
+        title: "Weak Fit Strong Publisher",
+        section: "competitiveLandscape",
+        sectionScore: 0.6,
+        publisherAuthority: 9.5,
+      }),
+      source({
+        title: "Perfect Fit Unknown Publisher",
+        section: "competitiveLandscape",
+        sectionScore: 1,
+      }),
+    ];
+
+    const { selected } = selectArticles(sources);
+
+    expect(selected[0]?.source.title).toBe("Perfect Fit Unknown Publisher");
+  });
+
   it("keeps the highest-scoring three articles in a section", () => {
     const sources = [
       source({
