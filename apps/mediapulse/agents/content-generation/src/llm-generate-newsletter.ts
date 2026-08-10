@@ -50,6 +50,7 @@ import {
   buildSubjectFallback,
   buildSubjectPrompt,
   newsletterSubjectSchema,
+  resolveSubject,
   WRITE_SUBJECT_SYSTEM_PROMPT,
 } from "./write-subject.js";
 import type { SourceForGeneration } from "./types.js";
@@ -854,7 +855,25 @@ export async function generateNewsletterWithLlm(
       isRetryableLlmError,
       { sleepFn: deps.sleepFn },
     );
-    subjectTitle = newsletterSubjectSchema.parse(subjectResult.object).subject;
+    const candidate = newsletterSubjectSchema.parse(
+      subjectResult.object,
+    ).subject;
+    const resolved = resolveSubject(candidate, shippedTitles, {
+      symbol: context.tickerSymbol,
+      name: context.tickerName,
+    });
+    if (resolved.rejection !== null) {
+      logger.warn(
+        {
+          tickerId: context.tickerId,
+          candidate,
+          rejection: resolved.rejection,
+          event: "subject_rejected",
+        },
+        "Generated subject was unusable; fell back to a shipped headline",
+      );
+    }
+    subjectTitle = resolved.subject;
     addUsage(tokenTotals, subjectResult.usage);
   } catch (err) {
     logger.warn(
