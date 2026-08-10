@@ -11,6 +11,7 @@ import {
 } from "./config-schema.js";
 import type { RecentBullet } from "./lib/cross-run-dedup.js";
 import { classifyPersistError } from "./classify-persist-error.js";
+import { describeLlmError } from "./describe-llm-error.js";
 import { classifyLlmError } from "./llm-classify-error.js";
 import { computeConfigVersion } from "./compute-config-version.js";
 import { computePromptHash } from "./compute-prompt-hash.js";
@@ -664,6 +665,7 @@ export async function run({
       durationMs: Date.now() - runStart,
       pipelineRunId,
       executionId,
+      details: { llmError: describeLlmError(err) },
     });
     report(
       ...narrativeRunComplete(subject, {
