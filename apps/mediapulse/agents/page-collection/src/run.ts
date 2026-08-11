@@ -249,6 +249,7 @@ async function executePageCollectionRun(
     publishedAt?: string;
     title?: string;
     description?: string;
+    publisherUrl?: string;
   };
 
   const expanded = await expandSourceUrl(listingUrl, discoveryDeps, {
@@ -263,6 +264,7 @@ async function executePageCollectionRun(
     ...(item.publishedAt ? { publishedAt: item.publishedAt } : {}),
     ...(item.title ? { title: item.title } : {}),
     ...(item.summary ? { description: item.summary } : {}),
+    ...(item.publisherUrl ? { publisherUrl: item.publisherUrl } : {}),
   }));
 
   if (allCandidates.length === 0) {
@@ -513,12 +515,14 @@ async function executePageCollectionRun(
     }
     relevanceMatchedCount += 1;
 
-    const resolvedSource = derivePublisherFromUrl(url);
+    const attributionUrl = item.publisherUrl ?? url;
+    const resolvedSource = derivePublisherFromUrl(attributionUrl);
     sourcesToPersist.push({
       url,
       title,
       description,
       ...(resolvedSource ? { source: resolvedSource } : {}),
+      ...(item.publisherUrl ? { publisherUrl: item.publisherUrl } : {}),
       curatedSourceListingUrl: item.sourceListingUrl,
       tickerId: relevanceMatch.tickerId,
       dataCollectionRunId: runId,
@@ -562,7 +566,7 @@ async function executePageCollectionRun(
 
   const publisherAuthority = await refreshPublisherAuthority({
     domains: sourcesToPersist.map((source) =>
-      deriveRegistrableDomain(source.url),
+      deriveRegistrableDomain(source.publisherUrl ?? source.url),
     ),
     apiKey: config.publisher_authority.apiKey,
     ttlDays: config.publisher_authority.ttlDays,

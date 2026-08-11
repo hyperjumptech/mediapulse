@@ -65,6 +65,32 @@ const asPlainText = (value: unknown): string | undefined => {
 };
 
 /**
+ * Reads the publisher home page an aggregator feed names in its `source` node.
+ *
+ * @param entry - Parsed feed item.
+ * @param listingUrl - URL of the feed, used to resolve a relative value.
+ */
+const parsePublisherUrl = (
+  entry: Record<string, unknown>,
+  listingUrl: string,
+): string | undefined => {
+  const sourceNode = entry["source"];
+  if (typeof sourceNode !== "object" || sourceNode === null) {
+    return undefined;
+  }
+  const rawUrl = (sourceNode as Record<string, unknown>)["@_url"];
+  if (typeof rawUrl !== "string" || rawUrl.trim() === "") {
+    return undefined;
+  }
+
+  try {
+    return new URL(rawUrl.trim(), listingUrl).toString();
+  } catch {
+    return undefined;
+  }
+};
+
+/**
  * Parses RSS 2.0 items from a parsed feed document.
  *
  * @param doc - Parsed XML document.
@@ -104,6 +130,9 @@ const parseRssItems = (
           : {}),
         ...(normalizeDate(entry["pubDate"])
           ? { publishedAt: normalizeDate(entry["pubDate"]) }
+          : {}),
+        ...(parsePublisherUrl(entry, listingUrl)
+          ? { publisherUrl: parsePublisherUrl(entry, listingUrl) }
           : {}),
       },
     ];

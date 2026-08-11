@@ -76,6 +76,30 @@ describe("insertDataSourcesIdempotently", () => {
     );
   });
 
+  it("keeps a registrable domain supplied by the caller", async () => {
+    // Setup
+    const create = vi.fn().mockResolvedValue({ id: "1" });
+
+    // Act
+    await insertDataSourcesIdempotently(
+      [
+        {
+          url: "https://news.google.com/rss/articles/CBMirgFBVV95cUxN",
+          canonicalUrl: "https://news.google.com/rss/articles/CBMirgFBVV95cUxN",
+          title: "A",
+          content: "A",
+          registrableDomain: "kontan.co.id",
+        },
+      ],
+      { dataSource: { create } },
+    );
+
+    // Assert
+    expect(create.mock.calls[0]?.[0].data.registrableDomain).toBe(
+      "kontan.co.id",
+    );
+  });
+
   it("omits the registrable domain when the url is unparsable", async () => {
     // Setup
     const create = vi.fn().mockResolvedValue({ id: "1" });

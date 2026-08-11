@@ -122,6 +122,35 @@ describe("persistPageCollectionArticles", () => {
     });
   });
 
+  it("attributes the registrable domain to the publisher URL when one is given", async () => {
+    const create = vi.fn().mockResolvedValue({ id: "ds-1" });
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        id: "curated-1",
+        listingUrl: "https://news.google.com/rss/search?q=site:kontan.co.id",
+      },
+    ]);
+
+    await persistPageCollectionArticles(
+      [
+        {
+          url: "https://news.google.com/rss/articles/CBMirgFBVV95cUxN",
+          title: "One",
+          description: "Feed description one",
+          publisherUrl: "https://www.kontan.co.id",
+          curatedSourceListingUrl:
+            "https://news.google.com/rss/search?q=site:kontan.co.id",
+          collectionGateStatus: "passed",
+        },
+      ],
+      { db: { curatedSource: { findMany }, dataSource: { create } } },
+    );
+
+    expect(create.mock.calls[0]?.[0]?.data.registrableDomain).toBe(
+      "kontan.co.id",
+    );
+  });
+
   it("returns zero for an empty payload", async () => {
     const create = vi.fn();
 

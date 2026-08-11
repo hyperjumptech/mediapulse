@@ -388,7 +388,7 @@ const rollup = await dataApiClient.sectionCoverageRollup.get({
 Implemented in `apps/mediapulse/agent-data-api/src/routes/page-collection.ts`. Schemas live in `@workspace/agent-data-api-contract` (`page-collection.ts`).
 
 - **POST `/api/v1/page-collection-resolve-sources`** — Body: `listingUrls` (array of URLs). Response: `sources[]` with `listingUrl`, `curatedSourceId`, **`linkType`** (`page` | `listing`), and optional `maxItems`. Used by the page-collection agent before URL expansion.
-- **POST `/api/v1/page-collection`** — Persist ticker-agnostic articles collected from curated sources.
+- **POST `/api/v1/page-collection`** — Persist ticker-agnostic articles collected from curated sources. Optional **`publisherUrl`** carries the publisher home page an aggregator feed names in its item `source` node; when present it sets `registrableDomain` instead of the article `url`, so an article syndicated through an aggregator is attributed to whoever wrote it.
 - **POST `/api/v1/page-collection-existing-urls`** — Global dedup lookup for candidate article URLs.
 - **GET `/api/v1/page-collection-articles`** — Paginated list of page-collection articles with optional gate and analysis filters.
 
