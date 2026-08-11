@@ -20,6 +20,7 @@ import {
   substituteTickerPlaceholders,
   type AcceptanceCriteriaRule,
 } from "./config-schema.js";
+import { namesForeignSymbolHomonym } from "./utilities/foreign-symbol-homonym.js";
 import { titleNamesIssuer } from "./utilities/title-names-issuer.js";
 
 /** Article content past this many characters is truncated before classification. */
@@ -342,6 +343,10 @@ const capReason = (reason: string): string =>
  *   {@link MARKET_ANCHOR_OVERRIDE_MIN} of {@link MARKET_ANCHOR_RULE_IDS} matched and stand in for
  *   it. Fails closed when the judgment is missing and the anchors do not clear that bar. Defaults
  *   to `false` for backward compatibility.
+ * @param issuerNamedInTitle - When true, a headline naming the issuer falls back to the
+ *   best-matching section instead of dropping.
+ * @param foreignSymbolHomonym - When true, the article binds the issuer's symbol to a company on
+ *   another exchange, so it is rejected outright ahead of every other verdict.
  * @returns The deterministic classification with a self-describing score breakdown carrying every
  *   rule's judgment across all sections, not only the winning one.
  */
@@ -350,6 +355,7 @@ export const scoreFromEvaluations = (
   acceptanceCriteria: AcceptanceCriteriaRule[],
   requireIssuerRelevance = false,
   issuerNamedInTitle = false,
+  foreignSymbolHomonym = false,
 ): ArticleSectionClassification => {
   const flat = flattenAcceptanceCriteria(acceptanceCriteria);
   const evaluationById = new Map<string, CriterionEvaluation>(
@@ -453,11 +459,16 @@ export const scoreFromEvaluations = (
   ).length;
   const anchorsOverrideGate =
     !gateMatched && marketAnchors >= MARKET_ANCHOR_OVERRIDE_MIN;
+  // A symbol collision defeats every issuer signal above it. `titleNamesIssuer` matches the bare
+  // symbol, so `CCSI Q1 2026 Earnings` reads as issuer coverage whether the article is about the
+  // IDX cable maker or the NASDAQ cloud-fax company of the same symbol. On 2026-07-27 that put
+  // Consensus Cloud Solutions' USD earnings into a PT Communication Cable Systems Indonesia issue.
   const issuerRelevanceRejected =
-    requireIssuerRelevance &&
-    !gateMatched &&
-    !anchorsOverrideGate &&
-    !issuerNamedInTitle;
+    foreignSymbolHomonym ||
+    (requireIssuerRelevance &&
+      !gateMatched &&
+      !anchorsOverrideGate &&
+      !issuerNamedInTitle);
 
   const issuerRelevance = requireIssuerRelevance
     ? {
@@ -477,13 +488,15 @@ export const scoreFromEvaluations = (
     return {
       section: null,
       score: 0,
-      reason: noRuleJudged
-        ? "Model returned no rule judgments; rejected without a verdict."
-        : issuerRelevanceRejected
-          ? `Rejected — not relevant to issuer context: ${noteFor(ISSUER_RELEVANCE_CRITERION_ID)}.`
-          : noSectionQualified
-            ? "No section met its qualifying rules; rejected."
-            : "No inclusion rule matched in any section; rejected.",
+      reason: foreignSymbolHomonym
+        ? "Rejected — ticker symbol collision: the article binds this symbol to a company listed on another exchange, not to the issuer."
+        : noRuleJudged
+          ? "Model returned no rule judgments; rejected without a verdict."
+          : issuerRelevanceRejected
+            ? `Rejected — not relevant to issuer context: ${noteFor(ISSUER_RELEVANCE_CRITERION_ID)}.`
+            : noSectionQualified
+              ? "No section met its qualifying rules; rejected."
+              : "No inclusion rule matched in any section; rejected.",
       scoreBreakdown: {
         section: null,
         matched: 0,
@@ -596,12 +609,30 @@ export const classifyArticleSection = async (params: {
   /** Chronicle instrumentation: invoked with token usage per classification. */
   onUsage?: OnLlmUsage;
 }): Promise<ArticleSectionClassification> => {
+  const requireIssuerRelevance = params.tickerContext !== undefined;
+
+  // Decided before the model is asked: a symbol collision is a fact about the text, and no rule
+  // judgment can change it. Short-circuiting also saves the call.
+  if (
+    namesForeignSymbolHomonym(
+      `${params.title}\n${params.content}`,
+      params.ticker ?? null,
+    )
+  ) {
+    return scoreFromEvaluations(
+      [],
+      params.acceptanceCriteria,
+      requireIssuerRelevance,
+      false,
+      true,
+    );
+  }
+
   const openai = createOpenAI({
     apiKey: params.apiKey,
     baseURL: params.baseUrl,
   });
 
-  const requireIssuerRelevance = params.tickerContext !== undefined;
   const criterionIds = [
     ...new Set(
       flattenAcceptanceCriteria(params.acceptanceCriteria).map(
