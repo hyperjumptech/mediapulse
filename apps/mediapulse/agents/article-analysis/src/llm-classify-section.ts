@@ -22,6 +22,7 @@ import {
 } from "./config-schema.js";
 import { namesForeignSymbolHomonym } from "./utilities/foreign-symbol-homonym.js";
 import { titleNamesIssuer } from "./utilities/title-names-issuer.js";
+import { isUserGeneratedHost } from "./utilities/user-generated-host.js";
 
 /** Article content past this many characters is truncated before classification. */
 export const MAX_CONTENT_CHARS = 12000;
@@ -347,6 +348,8 @@ const capReason = (reason: string): string =>
  *   best-matching section instead of dropping.
  * @param foreignSymbolHomonym - When true, the article binds the issuer's symbol to a company on
  *   another exchange, so it is rejected outright ahead of every other verdict.
+ * @param excludedSections - Sections this source may not win, whatever the model judged. The
+ *   article still competes for every other section.
  * @returns The deterministic classification with a self-describing score breakdown carrying every
  *   rule's judgment across all sections, not only the winning one.
  */
@@ -356,6 +359,7 @@ export const scoreFromEvaluations = (
   requireIssuerRelevance = false,
   issuerNamedInTitle = false,
   foreignSymbolHomonym = false,
+  excludedSections: ReadonlySet<string> = new Set(),
 ): ArticleSectionClassification => {
   const flat = flattenAcceptanceCriteria(acceptanceCriteria);
   const evaluationById = new Map<string, CriterionEvaluation>(
@@ -374,9 +378,12 @@ export const scoreFromEvaluations = (
     evaluationById.get(id)?.note ?? MISSING_EVALUATION_NOTE;
 
   // Per-section tallies in specificity order, so every tie-break prefers the narrower section over
-  // a catch-all. Sections absent from the config are skipped.
-  const presentSections = NEWSLETTER_SECTION_PRECEDENCE.filter((sectionId) =>
-    flat.some((criterion) => criterion.section === sectionId),
+  // a catch-all. Sections absent from the config are skipped, as are sections this source is not
+  // eligible for: the article still competes for every other section rather than being dropped.
+  const presentSections = NEWSLETTER_SECTION_PRECEDENCE.filter(
+    (sectionId) =>
+      !excludedSections.has(sectionId) &&
+      flat.some((criterion) => criterion.section === sectionId),
   );
 
   const tallies = presentSections.map((sectionId) => {
@@ -588,6 +595,25 @@ export const rejectEmptySource = (
 });
 
 /**
+ * Sections a source may not win on the strength of where it is published.
+ *
+ * Only `issuerPerformance` is closed to reader-contributed posts. That section states the issuer's
+ * own revenue, profit and margins, and a newsletter promising an accuracy check should not rest
+ * those on a blogging platform. On 2026-08-11 Telkom's H1 revenue and profit reached the TLKM issue
+ * from a Kompasiana post by an individual describing himself as a financial analyst, while a
+ * higher-scored analyst piece went unused. Commentary from the same hosts stays eligible for
+ * `industryPulse`, `disruptorsOrTech` and `quickHits`, where it reads as opinion and not as the
+ * issuer's accounts.
+ *
+ * @param url - Article URL.
+ * @returns The section ids this source cannot be assigned to.
+ */
+const sectionsClosedToSource = (
+  url: string | null | undefined,
+): ReadonlySet<string> =>
+  isUserGeneratedHost(url) ? new Set(["issuerPerformance"]) : new Set();
+
+/**
  * Classifies a single article into one newsletter section (or rejects it) with a computed score.
  *
  * The model only judges each inclusion rule as matched or not; the section, score, reason, and
@@ -602,6 +628,8 @@ export const classifyArticleSection = async (params: {
   model: string;
   title: string;
   content: string;
+  /** Article URL, used to keep reader-contributed posts out of Issuer Performance. */
+  url?: string | null;
   acceptanceCriteria: AcceptanceCriteriaRule[];
   ticker?: AnalysisTickerContext | null;
   tickerContext?: string;
@@ -686,5 +714,7 @@ export const classifyArticleSection = async (params: {
     params.acceptanceCriteria,
     requireIssuerRelevance,
     titleNamesIssuer(params.title, params.ticker ?? null),
+    false,
+    sectionsClosedToSource(params.url),
   );
 };

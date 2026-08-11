@@ -842,6 +842,60 @@ describe("scoreFromEvaluations — foreign symbol homonym", () => {
   });
 });
 
+describe("scoreFromEvaluations — excluded sections", () => {
+  it("never returns a section the source is closed to", () => {
+    const result = scoreFromEvaluations(
+      evaluate(["ip1", "ip2", "ip3", "ip4", "ip5"]),
+      criteria,
+      false,
+      false,
+      false,
+      new Set(["industryPulse"]),
+    );
+
+    expect(result.section).not.toBe("industryPulse");
+  });
+
+  it("lets the article win its next-best section rather than dropping it", () => {
+    const result = scoreFromEvaluations(
+      evaluate(["ip1", "ip2", "ip3", "cl1", "cl2"]),
+      criteria,
+      false,
+      false,
+      false,
+      new Set(["industryPulse"]),
+    );
+
+    expect(result.section).toBe("competitiveLandscape");
+  });
+
+  it("rejects when every section the article matched is closed to it", () => {
+    const result = scoreFromEvaluations(
+      evaluate(["ip1", "ip2"]),
+      criteria,
+      false,
+      false,
+      false,
+      new Set(["industryPulse", "competitiveLandscape"]),
+    );
+
+    expect(result.section).toBeNull();
+  });
+
+  it("changes nothing when the exclusion set is empty", () => {
+    const result = scoreFromEvaluations(
+      evaluate(["ip1", "ip3", "ip4"]),
+      criteria,
+      false,
+      false,
+      false,
+      new Set(),
+    );
+
+    expect(result.section).toBe("industryPulse");
+  });
+});
+
 /**
  * competitiveLandscape carrying its real rule ids, three of which are market anchors. Mirrors the
  * shape the classifier returned for peer-only articles in the 2026-08-04 batch.
