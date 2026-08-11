@@ -18,6 +18,8 @@ const BLOCKED_HOST_DOMAINS = [
   "matrixbcg.com",
   "portersfiveforce.com",
   "sch.id",
+  "msn.com",
+  "vietnam.vn",
 ] as const;
 
 const BLOCKED_HOST_PATTERNS = BLOCKED_HOST_DOMAINS.map(hostPattern);
@@ -98,7 +100,6 @@ const NON_ARTICLE_HUB_HOST_PATH_PATTERNS = [
     path: /^\/(markets\/companies|company)\//i,
   },
   { host: /(^|\.)cnbc\.com$/i, path: /^\/quotes?\//i },
-  { host: /(^|\.)msn\.com$/i, path: /\/stockdetails\//i },
   {
     host: /(^|\.)bloomberg\.com$/i,
     path: /^\/(profile|quote)(\/|$)/i,

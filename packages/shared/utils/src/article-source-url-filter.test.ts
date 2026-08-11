@@ -125,11 +125,6 @@ describe("classifyNoisyUrl", () => {
       reason: "blocked_host_path" as const,
     },
     {
-      name: "MSN stock details",
-      url: "https://www.msn.com/en-us/money/stockdetails/bbca-id-stock/fi-bn91jc",
-      reason: "blocked_host_path" as const,
-    },
-    {
       name: "Bloomberg company profile",
       url: "https://www.bloomberg.com/profile/company/BBCA:IJ",
       reason: "blocked_host_path" as const,
@@ -237,6 +232,21 @@ describe("classifyNoisyUrl", () => {
     {
       name: "LinkedIn social host",
       url: "https://www.linkedin.com/pulse/reclaiming-bca-billion-dollar-idea-mistake-leigh-mckiernon-ppdnc",
+      reason: "blocked_host" as const,
+    },
+    {
+      name: "MSN syndicated news article",
+      url: "https://www.msn.com/id-id/berita/other/bank-digital-tak-rem-laju-kredit/ar-AA28",
+      reason: "blocked_host" as const,
+    },
+    {
+      name: "MSN stock details",
+      url: "https://www.msn.com/en-us/money/stockdetails/bbca-id-stock/fi-bn91jc",
+      reason: "blocked_host" as const,
+    },
+    {
+      name: "Vietnam.vn translated article",
+      url: "https://www.vietnam.vn/id/thi-truong-ban-le-dong-gop-tich-cuc-vao-su-phat-trien",
       reason: "blocked_host" as const,
     },
     {
