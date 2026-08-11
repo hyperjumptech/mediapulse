@@ -211,6 +211,7 @@ export async function run(
                 model: config.acceptance.model,
                 title: dataSource.title,
                 content: classifiedText,
+                url: dataSource.url,
                 acceptanceCriteria: config.acceptanceCriteria,
                 ticker: dataSource.ticker,
                 ...(tickerContext ? { tickerContext } : {}),
