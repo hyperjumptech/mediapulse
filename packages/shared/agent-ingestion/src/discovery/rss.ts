@@ -46,6 +46,25 @@ const asText = (value: unknown): string | undefined => {
 };
 
 /**
+ * Reduces feed markup to plain text.
+ *
+ * @param value - Possibly wrapped text that may carry HTML from the feed.
+ */
+const asPlainText = (value: unknown): string | undefined => {
+  const text = asText(value);
+  if (text === undefined) {
+    return undefined;
+  }
+  const stripped = text
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return stripped === "" ? undefined : stripped;
+};
+
+/**
  * Parses RSS 2.0 items from a parsed feed document.
  *
  * @param doc - Parsed XML document.
@@ -80,8 +99,8 @@ const parseRssItems = (
       {
         url,
         ...(asText(entry["title"]) ? { title: asText(entry["title"]) } : {}),
-        ...(asText(entry["description"])
-          ? { summary: asText(entry["description"]) }
+        ...(asPlainText(entry["description"])
+          ? { summary: asPlainText(entry["description"]) }
           : {}),
         ...(normalizeDate(entry["pubDate"])
           ? { publishedAt: normalizeDate(entry["pubDate"]) }
@@ -144,7 +163,9 @@ const parseAtomEntries = (
       {
         url,
         ...(asText(node["title"]) ? { title: asText(node["title"]) } : {}),
-        ...(asText(summaryNode) ? { summary: asText(summaryNode) } : {}),
+        ...(asPlainText(summaryNode)
+          ? { summary: asPlainText(summaryNode) }
+          : {}),
         ...(normalizeDate(node["updated"] ?? node["published"])
           ? { publishedAt: normalizeDate(node["updated"] ?? node["published"]) }
           : {}),
