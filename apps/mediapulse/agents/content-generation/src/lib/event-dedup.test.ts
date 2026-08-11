@@ -201,7 +201,7 @@ describe("dedupeCrossSectionSourceEvents", () => {
     expect(result.sources).toHaveLength(2);
   });
 
-  it("never pairs on headline alone when a source carries no publish date", () => {
+  it("pairs on headline when neither source carries a publish date", () => {
     const sources = [
       source(
         "Konser 35 Tahun Twilite Orchestra Ludes, BRI Buka Akses Eksklusif",
@@ -212,6 +212,50 @@ describe("dedupeCrossSectionSourceEvents", () => {
         "BRI Dukung Ekonomi Kreatif Lewat Konser Twilite Orchestra 35 Tahun",
         "Tiket umum habis dalam satu jam, manajemen menyebut animo penonton sangat tinggi.",
         "quickHits",
+      ),
+    ];
+
+    const result = dedupeCrossSectionSourceEvents(sources);
+
+    expect(result.removedCount).toBe(1);
+    expect(result.sources[0]!.section).toBe("competitiveLandscape");
+  });
+
+  it("pairs a dated source with an undated retelling of the same story", () => {
+    const sources = [
+      {
+        ...source(
+          "Telkom Rampungkan Spin-Off InfraCo Tahap 2, InfraNexia Kelola 112.000 Km Fiber",
+          "Pengalihan aset dan bisnis dengan nilai transaksi mencapai Rp49,9 triliun.",
+          "dealsAndMovements",
+        ),
+        publishedAt: "2026-08-09T00:00:00.000Z",
+      },
+      source(
+        "Telkom Rampungkan Spin-Off InfraCo, InfraNexia Kelola Aset Jaringan",
+        "Manajemen menyebut transformasi digital berlanjut setelah pemisahan usaha.",
+        "competitiveLandscape",
+      ),
+    ];
+
+    const result = dedupeCrossSectionSourceEvents(sources);
+
+    expect(result.removedCount).toBe(1);
+    expect(result.sources).toHaveLength(1);
+    expect(result.drops[0]!.matchedSectionKey).toBe("competitiveLandscape");
+  });
+
+  it("still keeps undated articles whose headlines share too little", () => {
+    const sources = [
+      source(
+        "BBCA Cetak Laba Rp29,5 Triliun di Semester I 2026",
+        "Bank melaporkan pertumbuhan kredit korporasi sebagai pendorong utama.",
+        "quickHits",
+      ),
+      source(
+        "OJK Terbitkan Aturan Baru Pelaporan Transaksi Pindar",
+        "Regulator mewajibkan penyelenggara menyampaikan data pendanaan secara berkala.",
+        "regulatoryPolicyWatch",
       ),
     ];
 
