@@ -77,6 +77,31 @@ const discoverSitemapOrFeed = async (
 };
 
 /**
+ * Attempts RSS discovery for a listing whose URL carries no feed hint.
+ *
+ * @param sourceUrl - Curated listing URL.
+ * @param deps - Shared discovery HTTP dependencies.
+ * @returns Discovered items, or `null` when the URL does not serve a feed.
+ */
+const discoverUnhintedFeed = async (
+  sourceUrl: string,
+  deps: DiscoveryDeps,
+): Promise<DiscoveredItem[] | null> => {
+  if (looksLikeSitemapUrl(sourceUrl) || looksLikeFeedUrl(sourceUrl)) {
+    return null;
+  }
+
+  try {
+    const strategy = createListingDiscoveryStrategy("rss");
+    const items = await strategy.discover(sourceUrl, deps);
+
+    return items.length > 0 ? items : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
  * Expands a curated source URL into candidate article URLs.
  * Page sources return a single URL; listing sources use feed/sitemap heuristics
  * and HTML link extraction.
@@ -103,6 +128,11 @@ export const expandSourceUrl = async (
   }
 
   if (options.linkType === "listing") {
+    const unhintedFeedItems = await discoverUnhintedFeed(sourceUrl, deps);
+    if (unhintedFeedItems) {
+      return cap(unhintedFeedItems);
+    }
+
     try {
       const strategy = createListingDiscoveryStrategy("generic-links");
       const items = await strategy.discover(sourceUrl, deps);

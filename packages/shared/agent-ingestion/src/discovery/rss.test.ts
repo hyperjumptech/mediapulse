@@ -42,6 +42,23 @@ const ATOM_FIXTURE = `<?xml version="1.0" encoding="UTF-8"?>
 
 const MALFORMED_XML = `<?xml version="1.0"?><unclosed>`;
 
+const HTML_DESCRIPTION_FIXTURE = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Markup Feed</title>
+    <item>
+      <title>Article With Image</title>
+      <link>https://example.com/articles/image</link>
+      <description>&lt;img src="https://cdn.example.com/photo.jpeg?w=360&amp;amp;q=90"/&gt; Harga batu bara menguat pada perdagangan hari ini.</description>
+    </item>
+    <item>
+      <title>Anchor Only</title>
+      <link>https://example.com/articles/anchor</link>
+      <description>&lt;a href="https://news.example.com/rss/articles/CBMi"&gt;Anchor Only&lt;/a&gt;&amp;nbsp;&amp;nbsp;&lt;font color="#6f6f6f"&gt;example.com&lt;/font&gt;</description>
+    </item>
+  </channel>
+</rss>`;
+
 const buildDeps = (body: string) => ({
   gotClient: {
     get: vi.fn().mockResolvedValue({ statusCode: 200, body }),
@@ -89,6 +106,19 @@ describe("rssStrategy", () => {
       publishedAt: "2024-03-16T12:00:00.000Z",
     });
     expect(items[1]?.summary).toBeUndefined();
+  });
+
+  it("reduces HTML in item descriptions to plain text", async () => {
+    const deps = buildDeps(HTML_DESCRIPTION_FIXTURE);
+    const items = await rssStrategy.discover(
+      "https://example.com/feed.rss",
+      deps,
+    );
+
+    expect(items[0]?.summary).toBe(
+      "Harga batu bara menguat pada perdagangan hari ini.",
+    );
+    expect(items[1]?.summary).toBe("Anchor Only example.com");
   });
 
   it("throws a classified error on malformed XML", async () => {

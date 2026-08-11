@@ -69,7 +69,12 @@ describe("expandSourceUrl", () => {
   });
 
   it("uses generic-links for listing-type HTML pages", async () => {
-    discoverMock.mockResolvedValue([
+    discoverMock.mockRejectedValueOnce(
+      Object.assign(new Error("Not a recognized RSS or Atom feed"), {
+        errorCategory: "provider_data_invalid",
+      }),
+    );
+    discoverMock.mockResolvedValueOnce([
       { url: "https://example.com/news/a" },
       { url: "https://example.com/news/b" },
     ]);
@@ -85,6 +90,25 @@ describe("expandSourceUrl", () => {
     expect(items).toEqual([
       { url: "https://example.com/news/a" },
       { url: "https://example.com/news/b" },
+    ]);
+  });
+
+  it("parses a listing URL that serves a feed without any feed hint in its path", async () => {
+    discoverMock.mockResolvedValueOnce([
+      { url: "https://example.com/post-1", title: "Post One" },
+    ]);
+
+    const listingUrl = "https://example.com/get/all";
+    const items = await expandSourceUrl(listingUrl, discoveryDeps, {
+      linkType: "listing",
+    });
+
+    expect(createListingDiscoveryStrategy).toHaveBeenCalledWith("rss");
+    expect(createListingDiscoveryStrategy).not.toHaveBeenCalledWith(
+      "generic-links",
+    );
+    expect(items).toEqual([
+      { url: "https://example.com/post-1", title: "Post One" },
     ]);
   });
 
