@@ -90,8 +90,19 @@ const publishedDayOf = (source: SourceForGeneration): string | undefined => {
  * Widened from an exact match because outlets stamp a wire story with their own publication date:
  * three reports of one earnings call routinely carry two or three different days, which skipped this
  * path entirely and let the same event ship twice.
+ *
+ * An absent day counts as close enough. Candidates all arrive from one rolling lookback window, so
+ * an undated source is from the same cycle as everything beside it; requiring a stamp it does not
+ * have only excused it from the check. `published_at` is missing on most rows in practice, which is
+ * what kept this path from firing at all.
  */
-const withinAdjacentDay = (left: string, right: string): boolean => {
+const withinAdjacentDay = (
+  left: string | undefined,
+  right: string | undefined,
+): boolean => {
+  if (left === undefined || right === undefined) {
+    return true;
+  }
   if (left === right) {
     return true;
   }
@@ -144,22 +155,22 @@ const findEventMatch = (
 
 /**
  * Finds a kept event whose headline matches this one on the same or an adjacent day. Runs only
- * after the body path misses, and only for candidates that carry a publish day, so an undated
- * source can never pair on headline alone.
+ * after the body path misses. A missing publish day on either side no longer disqualifies the pair,
+ * since every candidate in a run comes from the same rolling lookback window; the headline guards
+ * still have to clear on their own.
  */
 const findSameDayTitleMatch = (
   titleAnchors: Set<string>,
   publishedDay: string | undefined,
   corpus: readonly EventEntry[],
 ): EventMatch | undefined => {
-  if (publishedDay === undefined || titleAnchors.size === 0) {
+  if (titleAnchors.size === 0) {
     return undefined;
   }
 
   let best: EventMatch | undefined;
   for (const entry of corpus) {
     if (
-      entry.publishedDay === undefined ||
       !withinAdjacentDay(entry.publishedDay, publishedDay) ||
       entry.titleAnchors.size === 0
     ) {
