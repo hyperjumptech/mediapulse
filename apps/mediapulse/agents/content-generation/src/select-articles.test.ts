@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { truncateSources } from "./lib/truncate-sources.js";
 import { selectArticles } from "./select-articles.js";
 import type { SourceForGeneration } from "./types.js";
 
@@ -186,5 +187,29 @@ describe("selectArticles", () => {
 
     expect(selected).toStrictEqual([]);
     expect(report.droppedUnassigned).toBe(1);
+  });
+
+  it("still breaks an equal-fit tie on authority after sources pass through truncateSources", () => {
+    const sources = [
+      source({
+        title: "Content Farm",
+        section: "competitiveLandscape",
+        sectionScore: 0.6,
+        publisherAuthority: 0.71,
+      }),
+      source({
+        title: "Major Daily",
+        section: "competitiveLandscape",
+        sectionScore: 0.6,
+        publisherAuthority: 7.46,
+      }),
+    ];
+    const truncated = truncateSources(sources, 8000, 100000);
+    const { selected } = selectArticles(truncated);
+
+    expect(selected.map((entry) => entry.source.title)).toStrictEqual([
+      "Major Daily",
+      "Content Farm",
+    ]);
   });
 });

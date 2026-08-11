@@ -16,6 +16,9 @@ import type { SourceForGeneration } from "../types.js";
  *    fits. At least one source is always kept; if a single source exceeds the total
  *    limit, its content is truncated to `maxTotalContextChars`.
  *
+ * - Important: Only `content` is rewritten. Every other field is carried through untouched, so
+ *   downstream ranking still sees `sectionScore` and `publisherAuthority`.
+ *
  * @param sources - Data sources with title, url, and content.
  * @param maxCharsPerSource - Max characters per source (tail-truncated).
  * @param maxTotalContextChars - Max combined content characters across all sources.
@@ -36,23 +39,8 @@ export function truncateSources(
       cleaned.length > maxCharsPerSource
         ? cleaned.slice(0, maxCharsPerSource)
         : cleaned;
-    return {
-      ...(source.dataSourceId !== undefined
-        ? { dataSourceId: source.dataSourceId }
-        : {}),
-      url: source.url,
-      title: source.title,
-      content,
-      ...(source.author !== undefined ? { author: source.author } : {}),
-      ...(source.source !== undefined ? { source: source.source } : {}),
-      ...(source.publishedAt !== undefined
-        ? { publishedAt: source.publishedAt }
-        : {}),
-      ...(source.section !== undefined ? { section: source.section } : {}),
-      ...(source.sectionScore !== undefined
-        ? { sectionScore: source.sectionScore }
-        : {}),
-    };
+
+    return { ...source, content };
   });
 
   const totalChars = () =>
@@ -62,23 +50,11 @@ export function truncateSources(
     truncated.pop();
   }
 
-  if (totalChars() > maxTotalContextChars) {
+  const first = truncated[0];
+  if (first !== undefined && totalChars() > maxTotalContextChars) {
     truncated[0] = {
-      ...(truncated[0]!.dataSourceId !== undefined
-        ? { dataSourceId: truncated[0]!.dataSourceId }
-        : {}),
-      url: truncated[0]!.url,
-      title: truncated[0]!.title,
-      content: truncated[0]!.content.slice(0, maxTotalContextChars),
-      ...(truncated[0]!.publishedAt !== undefined
-        ? { publishedAt: truncated[0]!.publishedAt }
-        : {}),
-      ...(truncated[0]!.section !== undefined
-        ? { section: truncated[0]!.section }
-        : {}),
-      ...(truncated[0]!.sectionScore !== undefined
-        ? { sectionScore: truncated[0]!.sectionScore }
-        : {}),
+      ...first,
+      content: first.content.slice(0, maxTotalContextChars),
     };
   }
 
