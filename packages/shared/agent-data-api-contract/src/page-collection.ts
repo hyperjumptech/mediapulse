@@ -9,6 +9,7 @@ const pageCollectionArticleInputSchema = z.object({
   content: z.string().optional(),
   author: z.string().optional(),
   source: z.string().optional(),
+  publisherUrl: z.string().url().optional(),
   curatedSourceListingUrl: z.string().url(),
   tickerId: z.string().uuid().optional(),
   dataCollectionRunId: z.string().uuid().optional(),

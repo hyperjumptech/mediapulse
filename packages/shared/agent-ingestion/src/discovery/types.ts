@@ -8,6 +8,8 @@ export type DiscoveredItem = {
   title?: string;
   summary?: string;
   publishedAt?: string;
+  /** Publisher home page, when the feed names one separately from `url`. */
+  publisherUrl?: string;
 };
 
 /** Minimal structured logger passed to discovery strategies. */

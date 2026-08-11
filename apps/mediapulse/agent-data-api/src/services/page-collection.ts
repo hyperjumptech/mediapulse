@@ -6,7 +6,7 @@ import type {
   PostPageCollectionExistingUrlsBody,
   PostPageCollectionResolveSourcesBody,
 } from "@workspace/agent-data-api-contract";
-import { canonicalizeUrl } from "@workspace/utils";
+import { canonicalizeUrl, deriveRegistrableDomain } from "@workspace/utils";
 import { prisma } from "@mediapulse/database";
 
 import { insertDataSourcesIdempotently } from "./insert-data-sources-idempotently.js";
@@ -53,6 +53,10 @@ export const persistPageCollectionArticles = async (
     const curatedSourceId =
       sourceByUrl.get(row.curatedSourceListingUrl) ?? null;
 
+    const publisherDomain = row.publisherUrl
+      ? deriveRegistrableDomain(row.publisherUrl)
+      : "";
+
     return {
       url: row.url,
       canonicalUrl,
@@ -61,6 +65,7 @@ export const persistPageCollectionArticles = async (
       content: row.content ?? null,
       ...(row.author ? { author: row.author } : {}),
       ...(row.source ? { source: row.source } : {}),
+      ...(publisherDomain ? { registrableDomain: publisherDomain } : {}),
       tickerId: row.tickerId ?? null,
       searchQueryId: null,
       curatedSourceId,

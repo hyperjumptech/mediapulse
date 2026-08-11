@@ -42,6 +42,24 @@ const ATOM_FIXTURE = `<?xml version="1.0" encoding="UTF-8"?>
 
 const MALFORMED_XML = `<?xml version="1.0"?><unclosed>`;
 
+const AGGREGATOR_FIXTURE = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Aggregator Feed</title>
+    <item>
+      <title>Wall Street Ditutup Melemah</title>
+      <link>https://aggregator.example/rss/articles/CBMirgFBVV95cUxN</link>
+      <description>Wall Street Ditutup Melemah</description>
+      <source url="https://www.kontan.co.id">kontan.co.id</source>
+    </item>
+    <item>
+      <title>No Source Node</title>
+      <link>https://example.com/articles/plain</link>
+      <description>Summary of a plain article</description>
+    </item>
+  </channel>
+</rss>`;
+
 const HTML_DESCRIPTION_FIXTURE = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
@@ -119,6 +137,17 @@ describe("rssStrategy", () => {
       "Harga batu bara menguat pada perdagangan hari ini.",
     );
     expect(items[1]?.summary).toBe("Anchor Only example.com");
+  });
+
+  it("reads the publisher URL from an aggregator item source node", async () => {
+    const deps = buildDeps(AGGREGATOR_FIXTURE);
+    const items = await rssStrategy.discover(
+      "https://aggregator.example/rss/search?q=site:kontan.co.id",
+      deps,
+    );
+
+    expect(items[0]?.publisherUrl).toBe("https://www.kontan.co.id/");
+    expect(items[1]?.publisherUrl).toBeUndefined();
   });
 
   it("throws a classified error on malformed XML", async () => {

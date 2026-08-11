@@ -139,6 +139,29 @@ describe("runPageCollection", () => {
     expect(persistedSource).not.toHaveProperty("content");
   });
 
+  it("attributes an aggregator item to the publisher the feed names", async () => {
+    vi.mocked(expandSourceUrl).mockResolvedValue([
+      {
+        url: "https://news.google.com/rss/articles/CBMirgFBVV95cUxN",
+        title: "BBCA article title",
+        summary: "BBCA membukukan laba bersih kuartal III yang naik 12 persen",
+        publisherUrl: "https://www.kontan.co.id",
+      },
+    ]);
+
+    const result = await runPageCollection(createContext());
+
+    expect(result.success).toBe(true);
+
+    const persistedSource = pageCollectionCreateMock.mock.calls[0]![0][0];
+
+    expect(persistedSource.source).toBe("Kontan");
+    expect(persistedSource.publisherUrl).toBe("https://www.kontan.co.id");
+    expect(persistedSource.url).toBe(
+      "https://news.google.com/rss/articles/CBMirgFBVV95cUxN",
+    );
+  });
+
   it("drops articles that discovery yields no description for", async () => {
     vi.mocked(expandSourceUrl).mockResolvedValue([{ url: SOURCE_URL }]);
 

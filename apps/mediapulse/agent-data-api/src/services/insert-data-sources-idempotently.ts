@@ -24,9 +24,9 @@ export const insertDataSourcesIdempotently = async (
   let inserted = 0;
 
   for (const row of rows) {
-    const registrableDomain = deriveRegistrableDomain(
-      row.canonicalUrl || row.url,
-    );
+    const registrableDomain =
+      row.registrableDomain ||
+      deriveRegistrableDomain(row.canonicalUrl || row.url);
 
     try {
       await dataSource.create({
