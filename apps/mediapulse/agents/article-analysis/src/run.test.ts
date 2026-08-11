@@ -3,6 +3,7 @@ import type { AnalysisTickerContext } from "@workspace/agent-data-api-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { articleAnalysisConfigSchema } from "./config-schema.js";
+import { ARTICLE_ANALYSIS_AGENT_VERSION } from "./constants.js";
 
 const analysisGet = vi.fn();
 const analysisCreate = vi.fn();
@@ -282,7 +283,7 @@ describe("article-analysis run — empty-source skip and description classificat
     const runRecord = articleAnalysisRunCreate.mock.calls[0]![0];
 
     expect(runRecord.id).toBe(posted.articleAnalysisRunId);
-    expect(runRecord.agentVersion).toBe("4.0.0");
+    expect(runRecord.agentVersion).toBe(ARTICLE_ANALYSIS_AGENT_VERSION);
   });
 
   it("does not thread a brief when no contract is attached", async () => {

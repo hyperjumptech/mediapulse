@@ -789,6 +789,59 @@ describe("scoreFromEvaluations — issuer-relevance gate", () => {
   });
 });
 
+describe("scoreFromEvaluations — foreign symbol homonym", () => {
+  it("rejects with a collision reason even when every rule matched and the gate passed", () => {
+    const evaluations: CriterionEvaluation[] = [
+      ...evaluate(allIds),
+      {
+        id: ISSUER_RELEVANCE_CRITERION_ID,
+        matched: true,
+        note: "names the issuer symbol",
+      },
+    ];
+
+    const result = scoreFromEvaluations(
+      evaluations,
+      criteria,
+      true,
+      true,
+      true,
+    );
+
+    expect(result.section).toBeNull();
+    expect(result.score).toBe(0);
+    expect(result.reason).toContain("ticker symbol collision");
+  });
+
+  it("prefers the collision reason over the no-judgments reason", () => {
+    const result = scoreFromEvaluations([], criteria, true, false, true);
+
+    expect(result.reason).toContain("ticker symbol collision");
+    expect(result.reason).not.toContain("no rule judgments");
+  });
+
+  it("leaves classification untouched when no collision was detected", () => {
+    const evaluations: CriterionEvaluation[] = [
+      ...evaluate(["ip1", "ip3", "ip4"]),
+      {
+        id: ISSUER_RELEVANCE_CRITERION_ID,
+        matched: true,
+        note: "about the issuer",
+      },
+    ];
+
+    const result = scoreFromEvaluations(
+      evaluations,
+      criteria,
+      true,
+      false,
+      false,
+    );
+
+    expect(result.section).toBe("industryPulse");
+  });
+});
+
 /**
  * competitiveLandscape carrying its real rule ids, three of which are market anchors. Mirrors the
  * shape the classifier returned for peer-only articles in the 2026-08-04 batch.
