@@ -119,4 +119,53 @@ describe("truncateSources", () => {
     expect(result).toHaveLength(3);
     expect(result.map((s) => s.title)).toEqual(["A", "B", "C"]);
   });
+
+  it("carries every ranking field through untouched", () => {
+    const source: SourceForGeneration = {
+      dataSourceId: "ds-1",
+      url: "https://rri.co.id/a",
+      title: "A",
+      content: "body",
+      author: "Reporter",
+      source: "RRI",
+      publishedAt: "2026-08-10T00:00:00.000Z",
+      section: "competitiveLandscape",
+      sectionScore: 0.6,
+      publisherAuthority: 7.46,
+    };
+
+    const result = truncateSources([source], 8000, 100000);
+
+    expect(result[0]).toEqual(source);
+  });
+
+  it("preserves publisherAuthority when content is tail-truncated", () => {
+    const source: SourceForGeneration = {
+      url: "https://rri.co.id/a",
+      title: "A",
+      content: "a".repeat(10000),
+      sectionScore: 0.6,
+      publisherAuthority: 7.46,
+    };
+
+    const result = truncateSources([source], 500, 100000);
+
+    expect(result[0]!.content).toBe("a".repeat(500));
+    expect(result[0]!.publisherAuthority).toBe(7.46);
+  });
+
+  it("preserves publisherAuthority on the single source kept under the total cap", () => {
+    const source: SourceForGeneration = {
+      url: "https://rri.co.id/a",
+      title: "Big",
+      content: "x".repeat(5000),
+      sectionScore: 0.6,
+      publisherAuthority: 7.46,
+    };
+
+    const result = truncateSources([source], 8000, 200);
+
+    expect(result[0]!.content).toBe("x".repeat(200));
+    expect(result[0]!.publisherAuthority).toBe(7.46);
+  });
 });

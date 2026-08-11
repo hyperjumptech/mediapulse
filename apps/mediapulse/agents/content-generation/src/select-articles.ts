@@ -56,9 +56,11 @@ const toSectionKey = (
  * Chooses which articles appear in the newsletter and where.
  *
  * Section placement comes from article-analysis and is never revisited here. Within a
- * section, sources are ranked by `sectionScore` and the top {@link MAX_ARTICLES_PER_SECTION}
- * are kept; ties fall back to the caller's ordering so the result is stable. Sections are
- * emitted in canonical order, so the newsletter's shape does not depend on input order.
+ * section, sources are ranked by {@link compareSourcesForRanking}, which orders on
+ * `sectionScore` and breaks equal fit on `publisherAuthority`, and the top
+ * {@link MAX_ARTICLES_PER_SECTION} are kept. Only when both are equal does the caller's
+ * ordering decide, so the result is stable. Sections are emitted in canonical order, so the
+ * newsletter's shape does not depend on input order.
  *
  * @param sources - Candidate sources, already deduplicated.
  * @returns Selected articles in render order, plus a report of what was dropped.
