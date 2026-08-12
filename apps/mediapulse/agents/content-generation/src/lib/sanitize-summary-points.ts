@@ -4,6 +4,7 @@ import { MAX_POINT_LENGTH } from "@workspace/email-templates/newsletter-document
 export type DroppedPointReason =
   | "non_latin_script"
   | "truncated"
+  | "starts_mid_sentence"
   | "fetch_failure"
   | "no_substance";
 
@@ -120,6 +121,25 @@ export const looksTruncated = (point: string): boolean => {
 };
 
 /**
+ * Reports whether a point opens partway through a sentence.
+ *
+ * A complete point starts on a capital or a digit. One starting on an all-lowercase word lost its
+ * subject, as in "manages universal service obligation financing" or "and satellite to support
+ * national digital transformation". A first word carrying an interior capital is a brand
+ * (`iPhone`, `eFishery`) and is left alone.
+ *
+ * @param point - One generated summary point.
+ */
+export const startsMidSentence = (point: string): boolean => {
+  const firstWord = point.trim().split(/\s+/u)[0] ?? "";
+  if (firstWord.length === 0) {
+    return false;
+  }
+
+  return /^\p{Ll}/u.test(firstWord) && !/\p{Lu}/u.test(firstWord);
+};
+
+/**
  * Reports whether a point carries characters outside the Latin script.
  *
  * @param point - One generated summary point.
@@ -172,6 +192,10 @@ export const sanitizeSummaryPoints = (
     }
     if (looksTruncated(point)) {
       dropped.push({ point, reason: "truncated" });
+      continue;
+    }
+    if (startsMidSentence(point)) {
+      dropped.push({ point, reason: "starts_mid_sentence" });
       continue;
     }
     if (describesFetchFailure(point)) {

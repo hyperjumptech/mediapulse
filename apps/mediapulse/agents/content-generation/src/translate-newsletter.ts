@@ -8,6 +8,11 @@ import {
 import { generateObject } from "ai";
 import { z } from "zod";
 
+import {
+  sanitizeSummaryPoints,
+  type DroppedPoint,
+} from "./lib/sanitize-summary-points.js";
+
 /** Target language codes the translation pass supports (non-English only). */
 export type TranslationTargetLanguage = "id";
 
@@ -48,6 +53,8 @@ export type TranslateNewsletterUsage = {
 export type TranslateNewsletterResult = {
   subject: string;
   content: string;
+  /** Points the translation pass broke, removed before the document was validated. */
+  droppedPoints: DroppedPoint[];
 } & TranslateNewsletterUsage;
 
 /** Injectable wrapper around `generateObject` so tests can substitute the model call. */
@@ -152,6 +159,42 @@ export const rebuildWithTranslatedStrings = (
       }),
     })),
   };
+};
+
+export type PrunedTranslationResult = {
+  document: NewsletterDocument;
+  dropped: DroppedPoint[];
+};
+
+/**
+ * Removes translated points that read as broken prose, along with anything left empty.
+ *
+ * - Important: the source document was sanitized before translation, so everything removed here
+ *   was introduced by the translation pass itself. The model is given a per-point character
+ *   budget as prompt text, and compresses to fit it by dropping a subject or cutting a clause.
+ *
+ * @param document - The translated document, before schema validation.
+ * @returns The document with unusable points, articles, and sections removed, plus what was dropped.
+ */
+export const pruneUnusableTranslatedPoints = (
+  document: NewsletterDocument,
+): PrunedTranslationResult => {
+  const dropped: DroppedPoint[] = [];
+  const sections = document.sections
+    .map((section) => ({
+      key: section.key,
+      articles: section.articles
+        .map((article) => {
+          const sanitized = sanitizeSummaryPoints(article.points);
+          dropped.push(...sanitized.dropped);
+
+          return { ...article, points: sanitized.points };
+        })
+        .filter((article) => article.points.length > 0),
+    }))
+    .filter((section) => section.articles.length > 0);
+
+  return { document: { version: 1, sections }, dropped };
 };
 
 const buildEchoedIndexPrefixPattern = (index: number): RegExp =>
@@ -264,7 +307,8 @@ export async function translateNewsletter(
     document,
     cleanedStrings,
   );
-  const validated = newsletterDocumentSchema.safeParse(translatedDocument);
+  const pruned = pruneUnusableTranslatedPoints(translatedDocument);
+  const validated = newsletterDocumentSchema.safeParse(pruned.document);
   if (!validated.success) {
     const issues = validated.error.issues
       .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
@@ -284,6 +328,7 @@ export async function translateNewsletter(
   return {
     subject: result.object.subject,
     content: JSON.stringify(validated.data),
+    droppedPoints: pruned.dropped,
     promptTokens: inputTokens ?? null,
     completionTokens: outputTokens ?? null,
     totalTokens,

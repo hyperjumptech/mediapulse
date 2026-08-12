@@ -880,6 +880,18 @@ export async function run({
             : {}),
         });
         translatedLanguages.push(targetLanguage);
+        if (translated.droppedPoints.length > 0) {
+          logger.warn(
+            {
+              tickerId: input.tickerId,
+              newsletterId,
+              language: targetLanguage,
+              dropped: translated.droppedPoints,
+              event: "translated_point_rejected",
+            },
+            `Dropped ${String(translated.droppedPoints.length)} point(s) the translation pass broke`,
+          );
+        }
         logger.info(
           { tickerId: input.tickerId, newsletterId, language: targetLanguage },
           "Newsletter translation persisted",
