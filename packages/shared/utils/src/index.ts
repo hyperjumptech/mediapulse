@@ -27,6 +27,7 @@ export type {
   UrlNoiseDecision,
   UrlNoiseReason,
 } from "./article-source-url-filter.js";
+export { isUserGeneratedHost } from "./user-generated-host.js";
 export { buildVCard } from "./build-vcard.js";
 export { derivePublisherFromUrl } from "./derive-publisher-from-url.js";
 export { deriveRegistrableDomain } from "./derive-registrable-domain.js";
