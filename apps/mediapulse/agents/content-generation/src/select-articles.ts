@@ -3,6 +3,7 @@ import {
   NEWSLETTER_SECTION_KEYS,
   type NewsletterSectionKey,
 } from "@workspace/email-templates/newsletter-document";
+import { classifyNoisyUrl, isUserGeneratedHost } from "@workspace/utils";
 
 import { compareSourcesForRanking } from "./lib/rank-sources.js";
 import type { SourceForGeneration } from "./types.js";
@@ -29,6 +30,10 @@ export type SelectArticlesReport = {
   droppedUnassigned: number;
   /** Sources beyond the per-section cap. */
   droppedOverCap: number;
+  /** Sources on a host blocked repo-wide, classified before the host was listed. */
+  droppedBlockedHost: number;
+  /** Reader-contributed sources that had been placed in Issuer Performance. */
+  droppedUserGenerated: number;
 };
 
 export type SelectArticlesResult = {
@@ -69,6 +74,8 @@ export const selectArticles = (
   sources: readonly SourceForGeneration[],
 ): SelectArticlesResult => {
   let droppedUnassigned = 0;
+  let droppedBlockedHost = 0;
+  let droppedUserGenerated = 0;
   const bySection = new Map<
     NewsletterSectionKey,
     Array<{ source: SourceForGeneration; order: number }>
@@ -78,6 +85,17 @@ export const selectArticles = (
     const sectionKey = toSectionKey(source.section);
     if (sectionKey === undefined) {
       droppedUnassigned += 1;
+      return;
+    }
+    if (classifyNoisyUrl(source.url).blocked) {
+      droppedBlockedHost += 1;
+      return;
+    }
+    if (
+      sectionKey === "issuer-performance" &&
+      isUserGeneratedHost(source.url)
+    ) {
+      droppedUserGenerated += 1;
       return;
     }
     const bucket = bySection.get(sectionKey) ?? [];
@@ -104,5 +122,13 @@ export const selectArticles = (
     }
   }
 
-  return { selected, report: { droppedUnassigned, droppedOverCap } };
+  return {
+    selected,
+    report: {
+      droppedUnassigned,
+      droppedOverCap,
+      droppedBlockedHost,
+      droppedUserGenerated,
+    },
+  };
 };

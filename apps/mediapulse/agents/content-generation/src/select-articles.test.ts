@@ -154,6 +154,53 @@ describe("selectArticles", () => {
     expect(report.droppedUnassigned).toBe(2);
   });
 
+  it("drops a source on a blocked host that was classified before the host was listed", () => {
+    const sources = [
+      source({
+        title: "Kept",
+        url: "https://market.bisnis.com/read/20260811/192/1995348/itmg",
+        section: "competitiveLandscape",
+        sectionScore: 0.6,
+      }),
+      source({
+        title: "Syndication Mirror",
+        url: "https://achmadnurhidayat.id/saham-bri-melonjak-pembelian-asing",
+        section: "competitiveLandscape",
+        sectionScore: 0.9,
+      }),
+    ];
+
+    const { selected, report } = selectArticles(sources);
+
+    expect(selected.map((entry) => entry.source.title)).toStrictEqual(["Kept"]);
+    expect(report.droppedBlockedHost).toBe(1);
+  });
+
+  it("drops a reader-contributed source from Issuer Performance but keeps it elsewhere", () => {
+    const sources = [
+      source({
+        title: "Contributed Performance",
+        url: "https://www.readers.id/laba-bersih-itmg-naik-semester-i-2026",
+        section: "issuerPerformance",
+        sectionScore: 0.8,
+      }),
+      source({
+        title: "Contributed Peer News",
+        url: "https://www.readers.id/kinerja-emiten-kawasan-industri",
+        section: "competitiveLandscape",
+        sectionScore: 0.6,
+      }),
+    ];
+
+    const { selected, report } = selectArticles(sources);
+
+    expect(selected.map((entry) => entry.source.title)).toStrictEqual([
+      "Contributed Peer News",
+    ]);
+    expect(report.droppedUserGenerated).toBe(1);
+    expect(report.droppedBlockedHost).toBe(0);
+  });
+
   it("breaks score ties on input order so the result is stable", () => {
     const sources = [
       source({ title: "Earlier", section: "quickHits", sectionScore: 0.5 }),

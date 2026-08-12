@@ -22,7 +22,7 @@ import {
 } from "./config-schema.js";
 import { namesForeignSymbolHomonym } from "./utilities/foreign-symbol-homonym.js";
 import { titleNamesIssuer } from "./utilities/title-names-issuer.js";
-import { isUserGeneratedHost } from "./utilities/user-generated-host.js";
+import { isUserGeneratedHost } from "@workspace/utils";
 
 /** Article content past this many characters is truncated before classification. */
 export const MAX_CONTENT_CHARS = 12000;
