@@ -279,6 +279,37 @@ const REDIRECT_WRAPPER_RULES = [
 /** Query parameters a wrapper uses to carry the destination URL. */
 const REDIRECT_TARGET_PARAMS = ["url", "u", "q", "target", "to"] as const;
 
+/**
+ * Aggregator links whose article id encodes the destination in a form nothing here can decode.
+ *
+ * - Important: these are deliberately not blocked host-wide. page-collection ingests Google News
+ *   feed items and attributes them to the publisher the feed names, which is worth keeping. Only
+ *   the link is unusable, so the check belongs where a URL becomes a reader-facing link.
+ */
+const UNRESOLVABLE_AGGREGATOR_RULES = [
+  { host: /^news\.google\.[a-z.]+$/i, path: /^\/(rss\/)?articles\//i },
+] as const;
+
+/**
+ * Reports whether a URL is an aggregator link that will not resolve to an article for a reader.
+ *
+ * @param rawUrl - Candidate URL.
+ * @returns True when the link would reach an aggregator shell rather than the article.
+ */
+export const isUnresolvableAggregatorUrl = (rawUrl: string): boolean => {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+
+  return UNRESOLVABLE_AGGREGATOR_RULES.some(
+    (rule) =>
+      rule.host.test(parsed.hostname) && rule.path.test(parsed.pathname),
+  );
+};
+
 export type UrlNoiseReason =
   | "blocked_host"
   | "low_value_source"

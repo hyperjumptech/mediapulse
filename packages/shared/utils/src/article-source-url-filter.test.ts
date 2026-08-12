@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   canonicalizeUrl,
   classifyNoisyUrl,
+  isUnresolvableAggregatorUrl,
   unwrapRedirectUrl,
 } from "./article-source-url-filter.js";
 
@@ -868,5 +869,33 @@ describe("classifyNoisyUrl: recruitment listings and image galleries", () => {
     );
 
     expect(result.blocked).toBe(false);
+  });
+});
+
+describe("isUnresolvableAggregatorUrl", () => {
+  it("flags a Google News RSS article link", () => {
+    expect(
+      isUnresolvableAggregatorUrl(
+        "https://news.google.com/rss/articles/CBMiuwFBVV95cUxOR3Jkb0V6REY3RVVrb0c4bkM1S3Zj?oc=5",
+      ),
+    ).toBe(true);
+  });
+
+  it("leaves a publisher article alone", () => {
+    expect(
+      isUnresolvableAggregatorUrl(
+        "https://keuangan.kontan.co.id/news/pembiayaan-emas-bca-syariah-melonjak-1276-hingga-juni-2026",
+      ),
+    ).toBe(false);
+  });
+
+  it("leaves a Google News section page alone", () => {
+    expect(
+      isUnresolvableAggregatorUrl("https://news.google.com/topics/CAAqIQgKIhs"),
+    ).toBe(false);
+  });
+
+  it("treats an unparseable url as resolvable, leaving it to the other rules", () => {
+    expect(isUnresolvableAggregatorUrl("not-a-url")).toBe(false);
   });
 });
