@@ -696,6 +696,75 @@ describe("generateNewsletterWithLlm — summarizer failures", () => {
     expect(result.content).toContain("2,254.5");
   });
 
+  it("drops a figure-bearing point when the source carries only its description", async () => {
+    const sources: SourceForGeneration[] = [
+      {
+        dataSourceId: "ds-bri",
+        url: "https://example.com/bri",
+        title: "BRI shares rise on foreign buying",
+        content:
+          "Saham BRI naik 1,07% ke Rp 3.100 pada 7 Agustus 2026, didorong beli asing dengan nilai transaksi Rp 664,81 miliar.",
+        contentIsDescriptionOnly: true,
+        section: "competitiveLandscape",
+        sectionScore: 0.9,
+      },
+    ];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async () => ({
+        object: {
+          title: "BRI shares rise on foreign buying",
+          points: [
+            "Foreign investors bought BRI shares worth Rp 664.81 billion",
+            "BRI shares closed higher on the day",
+          ],
+        },
+      }),
+    });
+
+    const result = await generateNewsletterWithLlm(
+      sources,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(result.content).not.toContain("664.81");
+    expect(result.content).toContain("BRI shares closed higher on the day");
+  });
+
+  it("keeps a figure-bearing point when the source carries a fetched body", async () => {
+    const sources: SourceForGeneration[] = [
+      {
+        dataSourceId: "ds-bri",
+        url: "https://example.com/bri",
+        title: "BRI shares rise on foreign buying",
+        content:
+          "Investor asing tercatat melakukan net buy senilai Rp 309,37 miliar pada perdagangan itu.",
+        section: "competitiveLandscape",
+        sectionScore: 0.9,
+      },
+    ];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async () => ({
+        object: {
+          title: "BRI shares rise on foreign buying",
+          points: [
+            "Foreign investors bought BRI shares worth Rp 309.37 billion",
+          ],
+        },
+      }),
+    });
+
+    const result = await generateNewsletterWithLlm(
+      sources,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(result.content).toContain("309.37");
+  });
+
   it("drops an article when the summarizer returns no points", async () => {
     const generateObjectFn = makeGenerateFn({
       onSummarize: async (args) => {

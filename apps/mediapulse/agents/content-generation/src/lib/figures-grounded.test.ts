@@ -1,7 +1,30 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 
-import { figuresGrounded, ungroundedFigures } from "./figures-grounded.js";
+import {
+  citedFigures,
+  figuresGrounded,
+  ungroundedFigures,
+} from "./figures-grounded.js";
+
+describe("citedFigures", () => {
+  it("lists the figure the 2026-08-12 BMRI item took from a description", () => {
+    expect(
+      citedFigures(
+        "Foreign investors bought BRI shares with transaction value Rp 664.81 billion",
+      ),
+    ).toEqual([
+      { kind: "currency", value: "66481" },
+      { kind: "scaled", value: "66481" },
+    ]);
+  });
+
+  it("returns nothing for a point asserting no figure", () => {
+    expect(
+      citedFigures("BRI targets mortgage growth at the Danantara expo"),
+    ).toEqual([]);
+  });
+});
 
 describe("ungroundedFigures", () => {
   it("flags the percentages the 2026-08-07 ERAA item invented", () => {

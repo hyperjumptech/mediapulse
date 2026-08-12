@@ -36,6 +36,7 @@ import {
   type FetchSourceBodiesResult,
   type RequestedFetchSource,
 } from "./fetch-source-bodies.js";
+import { citedFigures } from "./lib/figures-grounded.js";
 import { selectSectionCoverageSeeds } from "./lib/section-coverage-seeds.js";
 import { translateNewsletter } from "./translate-newsletter.js";
 import type { TranslationTargetLanguage } from "./translate-newsletter.js";
@@ -508,6 +509,7 @@ export async function run({
       ...(typeof source.publisherAuthority === "number"
         ? { publisherAuthority: source.publisherAuthority }
         : {}),
+      citesFigure: citedFigures(source.description ?? "").length > 0,
     });
   };
 
@@ -591,7 +593,10 @@ export async function run({
     .filter((s) => !fetchResult.droppedByGateIds.has(s.dataSourceId))
     .map((s) => {
       const fetched = fetchResult.fetchedContentById.get(s.dataSourceId);
-      const text = fetched?.content ?? s.content ?? s.description ?? "";
+      const body = fetched?.content ?? s.content;
+      const text = body ?? s.description ?? "";
+      const contentIsDescriptionOnly =
+        body === undefined || body === null || body.trim() === "";
       const publishedAt =
         typeof s.publishedAt === "string"
           ? s.publishedAt
@@ -611,6 +616,7 @@ export async function run({
         ...(typeof s.publisherAuthority === "number"
           ? { publisherAuthority: s.publisherAuthority }
           : {}),
+        contentIsDescriptionOnly,
       };
     })
     .filter((entry) => entry.content.trim().length > 0);

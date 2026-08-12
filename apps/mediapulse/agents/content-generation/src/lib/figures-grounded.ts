@@ -70,6 +70,28 @@ export const figuresGrounded = (point: string, sourceText: string): boolean =>
   ungroundedFigures(point, sourceText).length === 0;
 
 /**
+ * Lists every figure a point asserts, with no source to check it against.
+ *
+ * - Important: for a source carrying only its collection-time description, there is no article
+ *   text to ground against. The description is itself a short machine-written summary, so a figure
+ *   matching it is not evidence the article reports that figure.
+ *
+ * @param point - One generated summary point.
+ * @returns Every percent, currency, and scaled figure the point cites.
+ */
+export const citedFigures = (point: string): UngroundedFigure[] => {
+  const cited: UngroundedFigure[] = [];
+
+  for (const { kind, pattern } of KINDS) {
+    for (const value of collect(point, pattern)) {
+      cited.push({ kind, value });
+    }
+  }
+
+  return cited;
+};
+
+/**
  * Digit runs written with thousands separators, such as `366,000` or `20.223`.
  *
  * Comparison only. Grounding uses {@link KINDS}, which requires a percent, currency or scale

@@ -120,6 +120,49 @@ describe("fetchSourceBodies", () => {
     expect(result.fetchedContentById.has("ds-low")).toBe(false);
   });
 
+  it("fetches a description citing a figure ahead of a better-scoring one that cites none", async () => {
+    const requested: RequestedFetchSource[] = [
+      {
+        dataSourceId: "ds-no-figure",
+        url: "https://x/no-figure",
+        title: "No figure",
+        sectionScore: 0.9,
+      },
+      {
+        dataSourceId: "ds-figure",
+        url: "https://x/figure",
+        title: "Figure",
+        sectionScore: 0.4,
+        citesFigure: true,
+      },
+    ];
+    const performWebFetchFn = vi
+      .fn()
+      .mockImplementation((inputs: WebSearchResult[]) =>
+        Promise.resolve(
+          inputs.map((input) => successOutcome(input.url, "body")),
+        ),
+      );
+
+    await fetchSourceBodies(
+      requested,
+      makeConfig({ maxFetchesPerRun: 1 }),
+      { tickerId: "ticker-1" },
+      {
+        persistFetchedContent: vi.fn().mockResolvedValue({ updatedCount: 1 }),
+        performWebFetchFn: performWebFetchFn as never,
+        runQualityGateFn: () => ({ blocked: false }),
+      },
+    );
+
+    const fetchedInputs = performWebFetchFn.mock
+      .calls[0]![0] as WebSearchResult[];
+
+    expect(fetchedInputs.map((input) => input.url)).toEqual([
+      "https://x/figure",
+    ]);
+  });
+
   it("persists passing bodies and returns them keyed by data-source id", async () => {
     const requested: RequestedFetchSource[] = [
       {
