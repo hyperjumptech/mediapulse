@@ -11,6 +11,20 @@ describe("isUserGeneratedHost", () => {
     ).toBe(true);
   });
 
+  it("flags a Readers.id contributed post", () => {
+    expect(
+      isUserGeneratedHost(
+        "https://www.readers.id/laba-bersih-itmg-naik-semester-i-2026",
+      ),
+    ).toBe(true);
+  });
+
+  it("does not flag a host ending in the same suffix", () => {
+    expect(isUserGeneratedHost("https://thereaders.id/berita/telkom")).toBe(
+      false,
+    );
+  });
+
   it("flags a Blogspot subdomain", () => {
     expect(
       isUserGeneratedHost("https://aristajupiter.blogspot.com/2026/08/x"),

@@ -6,6 +6,7 @@
  */
 const USER_GENERATED_HOSTS = [
   "kompasiana\\.com",
+  "readers\\.id",
   "medium\\.com",
   "blogspot\\.",
   "wordpress\\.com",
