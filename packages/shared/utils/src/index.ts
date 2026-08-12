@@ -21,6 +21,7 @@ export {
 export {
   canonicalizeUrl,
   classifyNoisyUrl,
+  isUnresolvableAggregatorUrl,
   HOST_WIDE_BLOCKED_DOMAINS,
 } from "./article-source-url-filter.js";
 export type {

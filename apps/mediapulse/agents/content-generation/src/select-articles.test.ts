@@ -176,6 +176,30 @@ describe("selectArticles", () => {
     expect(report.droppedBlockedHost).toBe(1);
   });
 
+  it("drops an aggregator link that would not resolve for a reader", () => {
+    const sources = [
+      source({
+        title: "Aggregator Link",
+        url: "https://news.google.com/rss/articles/CBMiuwFBVV95cUxOR3Jkb0V6REY3?oc=5",
+        section: "issuerPerformance",
+        sectionScore: 0.8,
+      }),
+      source({
+        title: "Publisher Article",
+        url: "https://keuangan.kontan.co.id/news/pembiayaan-emas-bca-syariah-melonjak",
+        section: "issuerPerformance",
+        sectionScore: 0.6,
+      }),
+    ];
+
+    const { selected, report } = selectArticles(sources);
+
+    expect(selected.map((entry) => entry.source.title)).toStrictEqual([
+      "Publisher Article",
+    ]);
+    expect(report.droppedBlockedHost).toBe(1);
+  });
+
   it("drops a reader-contributed source from Issuer Performance but keeps it elsewhere", () => {
     const sources = [
       source({
