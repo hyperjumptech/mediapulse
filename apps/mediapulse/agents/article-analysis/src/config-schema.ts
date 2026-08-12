@@ -38,6 +38,11 @@ export const ACCEPTANCE_CRITERIA_PLACEHOLDERS = [
     field: "competitors",
     fallback: "no named peers on file",
   },
+  {
+    token: "{{REGULATORS}}",
+    field: "regulators",
+    fallback: "no named regulators on file",
+  },
 ] as const satisfies readonly {
   token: string;
   field: keyof AnalysisTickerContext;
@@ -299,6 +304,10 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
       {
         id: "rp-obligation-stated",
         text: "Include if the article conveys what the change means for affected companies: what they must do or stop doing, what it will cost them, or which of their activities it governs. An obligation clear from what is reported counts even when no duty is spelled out.",
+      },
+      {
+        id: "rp-market-scope",
+        text: "Include if the rule, programme, or decision governs how companies operating in {{INDUSTRY}} ({{SUB_INDUSTRY}}) may operate, or is taken by a body with authority over that market ({{REGULATORS}}). Judge the market from the issuer's business ({{BUSINESS_ACTIVITY}}), not from whether the article uses that exact wording. The article need not name {{TICKER}} or any competitor.",
       },
     ],
   },

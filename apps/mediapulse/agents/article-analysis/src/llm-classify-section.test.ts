@@ -101,6 +101,7 @@ describe("buildSectionClassificationMessages", () => {
         businessActivity: "Bisnis Kedai Kopi",
         aliases: [],
         competitors: [],
+        regulators: [],
       },
     });
     const user = messages[1]!;
@@ -285,6 +286,10 @@ describe("MARKET_ANCHOR_RULE_IDS", () => {
   it("excludes cl-issuer-side, which measures closeness rather than market membership", () => {
     expect(MARKET_ANCHOR_RULE_IDS.has("cl-issuer-side")).toBe(false);
   });
+
+  it("includes rp-market-scope, the only anchor a company-free policy story can match", () => {
+    expect(MARKET_ANCHOR_RULE_IDS.has("rp-market-scope")).toBe(true);
+  });
 });
 
 describe("renderArticleTickerContext", () => {
@@ -298,6 +303,7 @@ describe("renderArticleTickerContext", () => {
       businessActivity: "Perbankan",
       aliases: [],
       competitors: [],
+      regulators: [],
     });
 
     expect(line).toContain("AGRO (PT Bank Raya Indonesia Tbk)");
@@ -314,6 +320,7 @@ describe("renderArticleTickerContext", () => {
       businessActivity: "Perbankan",
       aliases: [],
       competitors: [],
+      regulators: [],
     });
 
     expect(line).toContain("home market is Indonesia");
@@ -330,6 +337,7 @@ describe("renderArticleTickerContext", () => {
       businessActivity: "Penyelenggara Jaringan dan Jasa Telekom",
       aliases: ["Telkomsel", "IndiHome"],
       competitors: [],
+      regulators: [],
     });
 
     expect(line).toContain("Telkomsel, IndiHome");
@@ -346,6 +354,7 @@ describe("renderArticleTickerContext", () => {
       businessActivity: "Penyelenggara Jaringan dan Jasa Telekom",
       aliases: ["Telkomsel"],
       competitors: [],
+      regulators: [],
     });
 
     expect(line).toContain(
@@ -370,6 +379,7 @@ describe("renderArticleTickerContext", () => {
         { name: "XLSMART Telecom Sejahtera", aliases: ["EXCL", "XLSmart"] },
         { name: "Starlink", aliases: [] },
       ],
+      regulators: [],
     });
 
     expect(line).toContain("Indosat (ISAT)");
@@ -387,10 +397,40 @@ describe("renderArticleTickerContext", () => {
       businessActivity: null,
       aliases: [],
       competitors: [],
+      regulators: [],
     });
 
     expect(line).not.toContain("also trades under");
     expect(line).not.toContain("Known competitors");
+    expect(line).not.toContain("Government bodies");
+  });
+
+  it("renders the issuer's regulators with the spellings they appear under", () => {
+    const line = renderArticleTickerContext({
+      symbol: "DSSA",
+      name: "Dian Swastatika Sentosa Tbk",
+      sector: "Energy",
+      industry: "Coal, Power and Telecom Holdings",
+      subIndustry: "Coal and Power with Data Centres and Telecom",
+      businessActivity: "Coal mining and independent power plants",
+      aliases: [],
+      competitors: [],
+      regulators: [
+        {
+          name: "Ministry of Energy and Mineral Resources",
+          aliases: ["ESDM", "Kementerian ESDM"],
+        },
+        { name: "Indonesia Stock Exchange", aliases: [] },
+      ],
+    });
+
+    expect(line).toContain(
+      "Ministry of Energy and Mineral Resources (ESDM, Kementerian ESDM)",
+    );
+    expect(line).toContain("Indonesia Stock Exchange");
+    expect(line).toContain(
+      "even when the article never names the issuer or a competitor",
+    );
   });
 
   it("returns null for ticker-agnostic rows", () => {

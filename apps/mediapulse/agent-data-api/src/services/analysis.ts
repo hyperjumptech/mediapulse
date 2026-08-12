@@ -96,6 +96,7 @@ type TickerProfileContextRow = {
   businessOperation?: string | null;
   aliases?: string[];
   competitors?: Prisma.JsonValue;
+  regulators?: Prisma.JsonValue;
 } | null;
 
 type TickerRow = {
@@ -148,6 +149,7 @@ const mapTickerContext = (ticker: TickerRow): AnalysisTickerContext => {
     aliases: collectIssuerAliases(ticker),
     competitors:
       profile === null ? [] : parseProfileParties(profile.competitors),
+    regulators: profile === null ? [] : parseProfileParties(profile.regulators),
   };
 };
 
@@ -178,6 +180,7 @@ const tickerProfileContextSelect = {
   businessOperation: true,
   aliases: true,
   competitors: true,
+  regulators: true,
 } satisfies Prisma.TickerProfileSelect;
 
 /** Ticker columns selected to build {@link AnalysisTickerContext}. */

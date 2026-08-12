@@ -16,6 +16,7 @@ const ticker = (
   businessActivity: null,
   aliases: [],
   competitors: [],
+  regulators: [],
   ...overrides,
 });
 

@@ -23,6 +23,7 @@ const foreTicker: AnalysisTickerContext = {
     { name: "Kopi Kenangan", aliases: ["Kenangan Brands"] },
     { name: "Tomoro Coffee", aliases: [] },
   ],
+  regulators: [{ name: "BPOM", aliases: ["Badan POM"] }],
 };
 
 describe("articleAnalysisConfigSchema", () => {

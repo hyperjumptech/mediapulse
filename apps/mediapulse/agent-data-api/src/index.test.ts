@@ -695,6 +695,7 @@ describe("agent-data-api", () => {
               businessActivity: null,
               aliases: [],
               competitors: [],
+              regulators: [],
             },
           },
         ],

@@ -148,6 +148,7 @@ export const analysisTickerContextSchema = z.object({
   aliases: z.array(z.string()).default([]),
   /** Known peers from the issuer's profile, so peer rules match a list instead of a guess. */
   competitors: z.array(analysisTickerPartySchema).default([]),
+  regulators: z.array(analysisTickerPartySchema).default([]),
 });
 
 export const analysisDataSourceSchema = z.object({
