@@ -29,6 +29,11 @@ export type RequestedFetchSource = {
   sectionScore?: number | null;
   publisherAuthority?: number | null;
   reason?: string;
+  /**
+   * True when the description carries a figure, so the article body decides whether that figure
+   * can be reported at all. Ranked ahead of section fit when the budget cannot cover everything.
+   */
+  citesFigure?: boolean;
 };
 
 export type FetchEventDraft = {
@@ -97,6 +102,12 @@ const applyFetchCap = (
   return sources
     .map((source, index) => ({ source, index }))
     .sort((a, b) => {
+      const figureDiff =
+        Number(b.source.citesFigure ?? false) -
+        Number(a.source.citesFigure ?? false);
+      if (figureDiff !== 0) {
+        return figureDiff;
+      }
       const scoreDiff = compareSourcesForRanking(a.source, b.source);
       if (scoreDiff !== 0) {
         return scoreDiff;

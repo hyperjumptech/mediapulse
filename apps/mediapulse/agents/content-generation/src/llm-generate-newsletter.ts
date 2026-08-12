@@ -31,6 +31,7 @@ import {
 } from "./lib/event-dedup.js";
 import { pointsSupportTitle } from "./lib/points-support-title.js";
 import {
+  citedFigures,
   ungroundedFigures,
   type UngroundedFigure,
 } from "./lib/figures-grounded.js";
@@ -663,10 +664,17 @@ export async function generateNewsletterWithLlm(
         }
 
         const sourceText = `${entry.source.title}\n${entry.source.content}`;
+        // A description is a short machine-written summary, so a figure appearing in it is not
+        // evidence the article reports that figure. The 2026-08-12 BMRI issue shipped
+        // "Rp 664.81 billion" of foreign buying from a description whose article says Rp309.37
+        // billion, and the check passed because the wrong number was in the description.
+        const descriptionOnly = entry.source.contentIsDescriptionOnly === true;
         const groundedPoints: string[] = [];
         const ungrounded: { point: string; figures: UngroundedFigure[] }[] = [];
         for (const point of sanitized.points) {
-          const figures = ungroundedFigures(point, sourceText);
+          const figures = descriptionOnly
+            ? citedFigures(point)
+            : ungroundedFigures(point, sourceText);
           if (figures.length === 0) {
             groundedPoints.push(point);
             continue;
