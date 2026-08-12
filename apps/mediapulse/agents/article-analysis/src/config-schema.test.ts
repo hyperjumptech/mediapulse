@@ -46,12 +46,21 @@ describe("articleAnalysisConfigSchema", () => {
     expect(seededSections).toEqual([...NEWSLETTER_SECTION_IDS]);
   });
 
-  it("seeds at least five inclusion rules per section", () => {
+  it("seeds at least four inclusion rules per section", () => {
     const config = articleAnalysisConfigSchema.parse({});
 
     for (const rule of config.acceptanceCriteria) {
-      expect(rule.criteria.length).toBeGreaterThanOrEqual(5);
+      expect(rule.criteria.length).toBeGreaterThanOrEqual(4);
     }
+  });
+
+  it("seeds no rule that a section's own source material cannot satisfy", () => {
+    const config = articleAnalysisConfigSchema.parse({});
+    const ids = flattenAcceptanceCriteria(config.acceptanceCriteria).map(
+      (criterion) => criterion.id,
+    );
+
+    expect(ids).not.toContain("pf-segment-detail");
   });
 
   it("seeds globally unique, non-empty criterion ids", () => {

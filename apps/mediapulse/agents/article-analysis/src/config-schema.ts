@@ -157,7 +157,7 @@ const acceptanceCriteriaRuleSchema = z.object({
 });
 
 /**
- * Default inclusion rules, five per newsletter section. Operators may edit each rule's text or add
+ * Default inclusion rules, four to six per newsletter section. Operators may edit each rule's text or add
  * and remove rules per section through the agent-config editor; the ids stay stable so persisted
  * score breakdowns keep referencing the same rule.
  *
@@ -218,10 +218,6 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
       {
         id: "pf-direction-given",
         text: "Include if it states how a figure moved against a prior period: a percentage change, a prior-period comparison, or an explicit rise, fall, or flat reading.",
-      },
-      {
-        id: "pf-segment-detail",
-        text: "Include if it breaks the result down below the headline figure: by segment, product, commodity, channel, or geography.",
       },
     ],
   },
@@ -368,7 +364,7 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
 ] as const;
 
 /**
- * One acceptance rule per newsletter section. Defaults seed at least five inclusion rules per
+ * One acceptance rule per newsletter section. Defaults seed at least four inclusion rules per
  * section; operators may override the rules per section through the agent-config editor.
  */
 const acceptanceCriteriaSchema = z
@@ -380,7 +376,7 @@ const acceptanceCriteriaSchema = z
     })),
   )
   .describe(
-    `Inclusion rules per newsletter section; seeded with at least five per section, operator may override. Rule text may use these per-article placeholders, substituted from the article's ticker context (a missing value falls back to a generic phrase): ${PLACEHOLDER_TOKENS}.`,
+    `Inclusion rules per newsletter section; seeded with at least four per section, operator may override. Rule text may use these per-article placeholders, substituted from the article's ticker context (a missing value falls back to a generic phrase): ${PLACEHOLDER_TOKENS}.`,
   );
 
 export const articleAnalysisConfigSchema = z
