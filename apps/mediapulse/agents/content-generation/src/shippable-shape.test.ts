@@ -1,10 +1,31 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 
+import type {
+  NewsletterDocument,
+  NewsletterSectionKey,
+} from "@workspace/email-templates/newsletter-document";
+
 import {
+  computeRenderedShape,
   computeShippableShape,
   isBelowShippableFloor,
 } from "./shippable-shape.js";
+
+const documentFor = (
+  sectionCounts: Partial<Record<NewsletterSectionKey, number>>,
+): NewsletterDocument => ({
+  version: 1,
+  sections: Object.entries(sectionCounts).map(([key, count]) => ({
+    key: key as NewsletterSectionKey,
+    articles: Array.from({ length: count }, (_unused, index) => ({
+      title: `${key} article ${String(index + 1)}`,
+      url: `https://example.com/${key}/${String(index + 1)}`,
+      points: ["a point"],
+      source: "Example",
+    })),
+  })),
+});
 
 const sourcesFor = (
   sectionCounts: Record<string, number>,
@@ -40,6 +61,35 @@ describe("computeShippableShape", () => {
       articleCount: 0,
       sectionCount: 0,
     });
+  });
+});
+
+describe("computeRenderedShape", () => {
+  it("counts every rendered article, uncapped", () => {
+    const shape = computeRenderedShape(
+      documentFor({ "industry-pulse": 3, "quick-hits": 1 }),
+    );
+
+    expect(shape).toEqual({ articleCount: 4, sectionCount: 2 });
+  });
+
+  it("returns an empty shape for a document with no sections", () => {
+    expect(computeRenderedShape(documentFor({}))).toEqual({
+      articleCount: 0,
+      sectionCount: 0,
+    });
+  });
+
+  it("suppresses the DSSA 2026-08-12 issue that the pre-generation check let through", () => {
+    const predicted = computeShippableShape(
+      sourcesFor({ competitiveLandscape: 1, dealsAndMovements: 1 }),
+    );
+    const rendered = computeRenderedShape(
+      documentFor({ "competitive-landscape": 1 }),
+    );
+
+    expect(isBelowShippableFloor(predicted, FLOOR)).toBe(false);
+    expect(isBelowShippableFloor(rendered, FLOOR)).toBe(true);
   });
 });
 

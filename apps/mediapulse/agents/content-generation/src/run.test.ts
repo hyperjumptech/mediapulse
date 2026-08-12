@@ -167,6 +167,16 @@ const generatedNewsletter: LlmGenerate.GeneratedContentWithProvenance = {
           },
         ],
       },
+      {
+        key: "competitive-landscape",
+        articles: [
+          {
+            title: "Peer expands",
+            url: "https://example.com/b",
+            points: ["A peer opened a branch."],
+          },
+        ],
+      },
     ],
   }),
   promptTokens: 100,
@@ -746,6 +756,41 @@ describe("run", () => {
       const result = await run(makeContext());
 
       expect(result.success).toBe(true);
+      expect(contentGenerationCreate).not.toHaveBeenCalled();
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.errorCode).toBe("skipped_insufficient_sources");
+    });
+
+    it("calls contentGenerationRuns.create with errorCode=skipped_insufficient_sources when generation drops the issue below the floor", async () => {
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue(makeGetResponse());
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-dropped" });
+      vi.spyOn(LlmGenerate, "generateNewsletterWithLlm").mockResolvedValue({
+        ...generatedNewsletter,
+        content: JSON.stringify({
+          version: 1,
+          sections: [
+            {
+              key: "competitive-landscape",
+              articles: [
+                {
+                  title: "Peer expands",
+                  url: "https://example.com/b",
+                  points: ["A peer opened a branch."],
+                },
+              ],
+            },
+          ],
+        }),
+      });
+
+      const result = await run(makeContext());
+
+      expect(result.success).toBe(true);
+      expect(LlmGenerate.generateNewsletterWithLlm).toHaveBeenCalledTimes(1);
       expect(contentGenerationCreate).not.toHaveBeenCalled();
       const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
       expect(callArg.errorCode).toBe("skipped_insufficient_sources");
