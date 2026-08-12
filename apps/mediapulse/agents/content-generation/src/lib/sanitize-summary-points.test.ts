@@ -7,6 +7,7 @@ import {
   lacksSubstance,
   looksTruncated,
   sanitizeSummaryPoints,
+  startsMidSentence,
 } from "./sanitize-summary-points.js";
 
 const padToBudget = (prefix: string): string =>
@@ -73,6 +74,44 @@ describe("looksTruncated", () => {
 
   it("ignores an empty point", () => {
     expect(looksTruncated("   ")).toBe(false);
+  });
+});
+
+describe("startsMidSentence", () => {
+  it("flags a point that lost its subject", () => {
+    expect(
+      startsMidSentence(
+        "manages universal service obligation financing and telecom infrastructure.",
+      ),
+    ).toBe(true);
+  });
+
+  it("flags a point opening on a conjunction", () => {
+    expect(
+      startsMidSentence(
+        "and satellite to support national digital transformation across Indonesia's remote areas.",
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps a point opening on a capital or a digit", () => {
+    expect(startsMidSentence("Telkom Akses built 366,000 new ports.")).toBe(
+      false,
+    );
+    expect(startsMidSentence("366,000 new ports were built in H1 2026.")).toBe(
+      false,
+    );
+  });
+
+  it("keeps a brand carrying an interior capital", () => {
+    expect(startsMidSentence("eFishery raised a new funding round.")).toBe(
+      false,
+    );
+    expect(startsMidSentence("iPhone shipments rose 4% in Q2.")).toBe(false);
+  });
+
+  it("treats an empty point as complete", () => {
+    expect(startsMidSentence("   ")).toBe(false);
   });
 });
 

@@ -1,10 +1,7 @@
 /** @vitest-environment node */
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  MAX_POINT_LENGTH,
-  readNewsletterDocument,
-} from "@workspace/email-templates/newsletter-document";
+import { readNewsletterDocument } from "@workspace/email-templates/newsletter-document";
 
 import {
   TranslateNewsletterError,
@@ -305,8 +302,79 @@ describe("translateNewsletter", () => {
     expect(call.prompt).toContain("3. (max 100 chars) Margin held.");
   });
 
+  it("drops a translated point that lost its subject and keeps the rest of the article", async () => {
+    const generateObjectFn = vi.fn().mockResolvedValue({
+      object: {
+        subject: "Subjek",
+        strings: [
+          translatedStrings[0],
+          "mengelola pendanaan kewajiban pelayanan universal.",
+          translatedStrings[2],
+          translatedStrings[3],
+          translatedStrings[4],
+        ],
+      },
+    }) satisfies TranslateNewsletterObjectFn;
+
+    const result = await translateNewsletter(
+      {
+        subject: "S",
+        content: sourceContent,
+        targetLanguage: "id",
+        model: "gpt-4o-mini",
+        credentials,
+      },
+      generateObjectFn,
+    );
+
+    const document = readNewsletterDocument(result.content);
+
+    expect(document?.sections[0]?.articles[0]?.points).toEqual([
+      translatedStrings[2],
+    ]);
+    expect(result.droppedPoints).toEqual([
+      {
+        point: "mengelola pendanaan kewajiban pelayanan universal.",
+        reason: "starts_mid_sentence",
+      },
+    ]);
+  });
+
+  it("drops an article whose every translated point broke, keeping the other section", async () => {
+    const generateObjectFn = vi.fn().mockResolvedValue({
+      object: {
+        subject: "Subjek",
+        strings: [
+          translatedStrings[0],
+          "mengelola pendanaan kewajiban pelayanan universal.",
+          "dan satelit untuk mendukung transformasi digital nasional.",
+          translatedStrings[3],
+          translatedStrings[4],
+        ],
+      },
+    }) satisfies TranslateNewsletterObjectFn;
+
+    const result = await translateNewsletter(
+      {
+        subject: "S",
+        content: sourceContent,
+        targetLanguage: "id",
+        model: "gpt-4o-mini",
+        credentials,
+      },
+      generateObjectFn,
+    );
+
+    const document = readNewsletterDocument(result.content);
+
+    expect(document?.sections).toHaveLength(1);
+    expect(document?.sections[0]?.key).toBe("quick-hits");
+    expect(result.droppedPoints).toHaveLength(2);
+  });
+
   it("keeps a point that overshoots the character budget rather than failing the run", async () => {
-    const overLong = "a".repeat(MAX_POINT_LENGTH + 15);
+    const overLong =
+      "Telkom Akses membangun 366 ribu port baru dan menggelar 20.223 kilometer kabel serat optik pada semester I 2026.";
     const generateObjectFn = vi.fn().mockResolvedValue({
       object: {
         subject: "Subjek",

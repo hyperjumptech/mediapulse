@@ -652,6 +652,7 @@ describe("run", () => {
         .mockResolvedValue({
           subject: "id subject",
           content: "id content",
+          droppedPoints: [],
           promptTokens: 10,
           completionTokens: 5,
           totalTokens: 15,
