@@ -250,6 +250,11 @@ describe("classifyNoisyUrl", () => {
       reason: "blocked_host" as const,
     },
     {
+      name: "AchmadNurHidayat.ID syndication mirror",
+      url: "https://achmadnurhidayat.id/saham-bri-melonjak-pembelian-asing",
+      reason: "blocked_host" as const,
+    },
+    {
       name: "MatrixBCG low-signal host",
       url: "https://matrixbcg.com/blogs/owners/bca",
       reason: "blocked_host" as const,

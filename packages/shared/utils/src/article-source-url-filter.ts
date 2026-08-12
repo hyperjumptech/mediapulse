@@ -20,6 +20,7 @@ const BLOCKED_HOST_DOMAINS = [
   "sch.id",
   "msn.com",
   "vietnam.vn",
+  "achmadnurhidayat.id",
 ] as const;
 
 const BLOCKED_HOST_PATTERNS = BLOCKED_HOST_DOMAINS.map(hostPattern);
