@@ -1,4 +1,7 @@
-import { MAX_ARTICLES_PER_SECTION } from "@workspace/email-templates/newsletter-document";
+import {
+  MAX_ARTICLES_PER_SECTION,
+  type NewsletterDocument,
+} from "@workspace/email-templates/newsletter-document";
 
 /** The shape an issue would take if it shipped, before any LLM call. */
 export type ShippableShape = {
@@ -36,6 +39,16 @@ export const computeShippableShape = (
 
   return { articleCount, sectionCount: perSection.size };
 };
+
+export const computeRenderedShape = (
+  document: NewsletterDocument,
+): ShippableShape => ({
+  articleCount: document.sections.reduce(
+    (total, section) => total + section.articles.length,
+    0,
+  ),
+  sectionCount: document.sections.length,
+});
 
 /**
  * Reports whether an issue carries too little to be worth sending.

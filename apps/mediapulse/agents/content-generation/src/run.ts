@@ -17,9 +17,11 @@ import { computeConfigVersion } from "./compute-config-version.js";
 import { computePromptHash } from "./compute-prompt-hash.js";
 import { computeFreshnessWindow } from "./freshness-window.js";
 import {
+  computeRenderedShape,
   computeShippableShape,
   isBelowShippableFloor,
 } from "./shippable-shape.js";
+import { readNewsletterDocument } from "@workspace/email-templates/newsletter-document";
 import {
   generateNewsletterWithLlm,
   groupSourcesBySection,
@@ -690,6 +692,58 @@ export async function run({
   }
 
   logger.info({ tickerId: input.tickerId }, "LLM generation: complete");
+
+  const renderedDocument = readNewsletterDocument(generated.content);
+  const renderedShape =
+    renderedDocument === undefined
+      ? undefined
+      : computeRenderedShape(renderedDocument);
+  if (
+    renderedShape !== undefined &&
+    isBelowShippableFloor(renderedShape, {
+      minShippableArticles: CONTENT_GENERATION_CONSTANTS.minShippableArticles,
+      minShippableSections: CONTENT_GENERATION_CONSTANTS.minShippableSections,
+    })
+  ) {
+    const outcome: AgentOutcome = {
+      outcome: "skipped_insufficient_sources",
+      skipped: true,
+      message: `Only ${String(renderedShape.articleCount)} article(s) across ${String(renderedShape.sectionCount)} section(s) survived generation; skipped`,
+    };
+    logger.info(
+      {
+        tickerId: input.tickerId,
+        ...renderedShape,
+        predictedArticleCount: shippableShape.articleCount,
+        predictedSectionCount: shippableShape.sectionCount,
+        outcome,
+        event: "insufficient_rendered_articles",
+      },
+      "Skipping run: too little survived generation to make an issue",
+    );
+    report(
+      ...narrativeRunComplete(subject, {
+        status: "no_sources",
+        itemsWritten: 0,
+        sectionsFilled: 0,
+        translationLanguages: [],
+      }),
+      "completed",
+    );
+    await writeDiagnostic({
+      dataApiClient,
+      tickerId: input.tickerId,
+      agentOutcome: outcome,
+      durationMs: Date.now() - runStart,
+      pipelineRunId,
+      executionId,
+    });
+
+    return {
+      success: true,
+      message: outcome.message ?? "Too little survived generation; skipped",
+    };
+  }
 
   // -------------------------------------------------------------------------
   // Compute provenance fields (MP-CGA-008)
