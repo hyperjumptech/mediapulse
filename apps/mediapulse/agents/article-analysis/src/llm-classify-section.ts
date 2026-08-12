@@ -92,6 +92,7 @@ export const MARKET_ANCHOR_RULE_IDS: ReadonlySet<string> = new Set([
   "dm-market-link",
   "dt-operating-change",
   "qh-market-actor",
+  "rp-market-scope",
 ]);
 
 /**
@@ -249,6 +250,17 @@ export const renderArticleTickerContext = (
     );
     lines.push(
       `Known competitors of the issuer: ${peers.join("; ")}. Other operators in the same market count as competitors too, even when absent from this list.`,
+    );
+  }
+
+  if (ticker.regulators.length > 0) {
+    const bodies = ticker.regulators.map((regulator) =>
+      regulator.aliases.length > 0
+        ? `${regulator.name} (${regulator.aliases.join(", ")})`
+        : regulator.name,
+    );
+    lines.push(
+      `Government bodies that regulate the issuer: ${bodies.join("; ")}. A rule, programme, tariff, quota, or permit decision issued by any of them governs the conditions under which the issuer operates, even when the article never names the issuer or a competitor. Other bodies with authority over ${ticker.symbol}'s market count the same way, even when absent from this list.`,
     );
   }
 

@@ -63,6 +63,7 @@ const TICKER: AnalysisTickerContext = {
   businessActivity: null,
   aliases: [],
   competitors: [],
+  regulators: [],
 };
 
 const EMPTY_SOURCE = {
