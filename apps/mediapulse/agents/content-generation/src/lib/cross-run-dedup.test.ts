@@ -151,7 +151,7 @@ describe("dedupeSourcesAgainstRecentBullets: figure overlap", () => {
     ]);
   });
 
-  it("does not rescue a section whose only candidate repeats the same figures", () => {
+  it("rescues a section whose only candidate repeats the same figures", () => {
     const recentBullets = [
       {
         sectionKey: "dealsAndMovements",
@@ -170,9 +170,40 @@ describe("dedupeSourcesAgainstRecentBullets: figure overlap", () => {
 
     const result = dedupeSourcesAgainstRecentBullets(sources, recentBullets);
 
-    expect(result.sources).toHaveLength(0);
+    expect(result.sources.map((source) => source.dataSourceId)).toEqual([
+      "ds-bazaar",
+    ]);
+    expect(result.removedCount).toBe(0);
+    expect(result.bySection.dealsAndMovements).toBeUndefined();
+  });
+
+  it("keeps one issuer-performance source when every candidate repeats yesterday's figures", () => {
+    const recentBullets = [
+      {
+        sectionKey: "issuerPerformance",
+        bulletText:
+          "BCA Syariah gold financing soared 127% to Rp 1,72 triliun in the first half of 2026",
+      },
+    ];
+    const sources = [
+      makeSource(
+        "ds-npf",
+        "NPF BCA Syariah Naik Tipis Jadi 1,84%",
+        "Pembiayaan bermasalah BCA Syariah naik menjadi 1,84% dengan pembiayaan emas 127% menjadi Rp 1,72 triliun pada semester I 2026.",
+        "issuerPerformance",
+      ),
+      makeSource(
+        "ds-kpr",
+        "Pembiayaan KPR BCA Syariah Tumbuh 26,1%",
+        "KPR BCA Syariah tumbuh 26,1% menjadi Rp 1,72 triliun pada semester I 2026, seiring pembiayaan emas yang melonjak 127%.",
+        "issuerPerformance",
+      ),
+    ];
+
+    const result = dedupeSourcesAgainstRecentBullets(sources, recentBullets);
+
+    expect(result.sources).toHaveLength(1);
     expect(result.removedCount).toBe(1);
-    expect(result.bySection.dealsAndMovements).toBe(1);
   });
 
   it("keeps an unrelated story that happens to share a single figure", () => {
