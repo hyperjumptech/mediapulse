@@ -80,6 +80,7 @@ model DataSource {
   fetchEvents            FetchEvent[]
   newsletterCitations    NewsletterCitation[]
   newsletterSectionItems NewsletterSectionItem[]
+  developmentCitations   DevelopmentCitation[]
 
   @@index([curatedSourceId])
   @@index([collectionGateStatus, analyzedAt])
@@ -390,6 +391,7 @@ model Ticker {
   newsletters     Newsletter[]
   userTickers     UserTicker[]
 
+  storylineTickers       StorylineTicker[]
   dataCollectionRuns     DataCollectionRun[]
   dataCollectionFailures DataCollectionFailure[]
   collectionUrlOutcomes  CollectionUrlOutcome[]
@@ -833,4 +835,170 @@ model QueryAnalysisRun {
   @@index([tickerId, createdAt])
   @@index([executionId])
   @@map("query_analysis_run")
+}
+
+/// Whether a Storyline is a story readers follow, or a recurring publishing format that only looks
+/// like one (daily index opens, food-price roundups). Format storylines are never read for continuity.
+enum StorylineKind {
+  story
+  format
+}
+
+/// One running thread of real-world moves. Global by design: a Storyline is identified by the thread
+/// itself and never by an issuer, so several Tickers can link to one Storyline and read it differently.
+/// See docs/adr/0012-storylines-are-global.md.
+model Storyline {
+  id   String        @id @default(uuid())
+  /// Human-readable label taken from the article that opened the thread. Copy, not identity:
+  /// nothing is keyed on it and an operator may rename it freely. Identity lives in the anchors.
+  name String
+  kind StorylineKind @default(story)
+
+  /// Set once the thread exceeds the ticker or move ceiling. A locked Storyline accepts no further
+  /// automatic attachment until an operator rules on it, which is what stops a chained mega-thread.
+  locked       Boolean   @default(false)
+  lockedReason String?   @map("locked_reason")
+  lockedAt     DateTime? @map("locked_at")
+
+  /// Observation window, maintained from the Developments beneath it.
+  firstObservedAt DateTime @map("first_observed_at")
+  lastObservedAt  DateTime @map("last_observed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  developments Development[]
+  anchors      StorylineAnchor[]
+  tickers      StorylineTicker[]
+
+  @@index([kind, lastObservedAt])
+  @@index([locked])
+  @@map("storyline")
+}
+
+/// Inverted index over a Storyline's distinctive anchors. Candidate retrieval reads this so the match
+/// space grows with how distinctive an article is, not with how long the system has run.
+model StorylineAnchor {
+  storylineId String @map("storyline_id")
+  anchor      String
+
+  storyline Storyline @relation(fields: [storylineId], references: [id], onDelete: Cascade)
+
+  @@id([storylineId, anchor])
+  @@index([anchor])
+  @@map("storyline_anchor")
+}
+
+/// One real-world move on a Storyline, cited by every Data Source that reported it. Five outlets
+/// reporting one contract delay is a single Development with five citations, never five Developments.
+model Development {
+  id          String @id @default(uuid())
+  storylineId String @map("storyline_id")
+  /// Headline of the article that first reported this move. Copy, like a Storyline's name.
+  title       String
+
+  /// When the pipeline first observed the move, not when the move happened: most Data Sources carry
+  /// no publication date. Sound enough to count how often a Storyline has moved, never sound enough
+  /// to print as the date of an event.
+  observedAt DateTime @map("observed_at")
+
+  /// Exact ingestion run that created this row.
+  ingestionRunId String? @map("ingestion_run_id")
+
+  /// Evidence for the attach decision: shared anchor count, containment and which path matched.
+  /// Null on the Development that opened its Storyline, which attached to nothing.
+  attachEvidence Json? @map("attach_evidence")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  storyline    Storyline              @relation(fields: [storylineId], references: [id], onDelete: Cascade)
+  ingestionRun KnowledgeIngestionRun? @relation(fields: [ingestionRunId], references: [id], onDelete: SetNull)
+  anchors      DevelopmentAnchor[]
+  citations    DevelopmentCitation[]
+
+  @@index([storylineId, observedAt])
+  @@index([ingestionRunId])
+  @@map("development")
+}
+
+/// A Development's own anchors, used for the precision test when a candidate is compared against it.
+model DevelopmentAnchor {
+  developmentId String  @map("development_id")
+  anchor        String
+  /// Anchors drawn from the title alone, for the same-day headline path.
+  fromTitle     Boolean @default(false) @map("from_title")
+
+  development Development @relation(fields: [developmentId], references: [id], onDelete: Cascade)
+
+  @@id([developmentId, anchor])
+  @@map("development_anchor")
+}
+
+/// One Data Source reporting one Development. Several citations on one Development is the normal case:
+/// it is how a Storyline's history counts moves rather than coverage.
+model DevelopmentCitation {
+  id            String   @id @default(uuid())
+  developmentId String   @map("development_id")
+  dataSourceId  String   @map("data_source_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  development Development @relation(fields: [developmentId], references: [id], onDelete: Cascade)
+  dataSource  DataSource  @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+
+  @@unique([developmentId, dataSourceId])
+  @@index([dataSourceId])
+  @@map("development_citation")
+}
+
+/// How a Ticker came to be linked to a Storyline.
+enum StorylineTickerSource {
+  placement
+  operator
+}
+
+/// Which Tickers a Storyline concerns. Links come from Placement (an article admitted into a Section
+/// for that Ticker) and may be added or removed by an operator.
+model StorylineTicker {
+  storylineId String                @map("storyline_id")
+  tickerId    String                @map("ticker_id")
+  source      StorylineTickerSource @default(placement)
+  createdAt   DateTime              @default(now()) @map("created_at")
+
+  storyline Storyline @relation(fields: [storylineId], references: [id], onDelete: Cascade)
+  ticker    Ticker    @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+
+  @@id([storylineId, tickerId])
+  @@index([tickerId])
+  @@map("storyline_ticker")
+}
+
+/// Per-run chronicle for knowledge-ingestion.
+model KnowledgeIngestionRun {
+  id                  String                  @id @default(uuid())
+  scheduleExecutionId String?                 @map("schedule_execution_id")
+  startedAt           DateTime                @map("started_at")
+  completedAt         DateTime?               @map("completed_at")
+  status              DataCollectionRunStatus
+  agentVersion        String?                 @map("agent_version")
+
+  /// High-water mark: Data Sources created at or before this instant have been considered.
+  watermarkAt DateTime? @map("watermark_at")
+
+  considered         Int     @default(0)
+  storylinesOpened   Int     @default(0)
+  developmentsOpened Int     @default(0)
+  citationsAdded     Int     @default(0)
+  storylinesLocked   Int     @default(0)
+  skippedNoAnchors   Int     @default(0)
+  stopReason         String? @map("stop_reason")
+  durationMs         Int?    @map("duration_ms")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  developments Development[]
+
+  @@index([status, startedAt])
+  @@index([scheduleExecutionId])
+  @@map("knowledge_ingestion_run")
 }
