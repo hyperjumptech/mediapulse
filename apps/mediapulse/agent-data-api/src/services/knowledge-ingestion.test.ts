@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   citeKnowledgeDevelopment,
+  latestKnowledgeWatermark,
   findKnowledgeStorylineCandidates,
   listKnowledgeCandidateSources,
   openKnowledgeDevelopment,
@@ -34,7 +35,11 @@ const createDb = (overrides: Record<string, unknown> = {}) => {
       create: vi.fn().mockResolvedValue({}),
       createMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
-    knowledgeIngestionRun: { create: vi.fn(), update: vi.fn() },
+    knowledgeIngestionRun: {
+      create: vi.fn(),
+      update: vi.fn(),
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
     ...overrides,
   };
 
@@ -109,7 +114,11 @@ describe("listKnowledgeCandidateSources", () => {
 
     const result = await listKnowledgeCandidateSources(undefined, 10, db);
 
-    expect(result).toEqual({ sources: [], watermark: null });
+    expect(result).toEqual({
+      sources: [],
+      watermark: null,
+      resumedFrom: null,
+    });
   });
 });
 
@@ -287,5 +296,80 @@ describe("knowledge writes", () => {
       skipDuplicates: true,
     });
     expect(result.developmentId).toBe("dev-1");
+  });
+});
+
+describe("watermark resume", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("resumes from the newest successful run when no since is given", async () => {
+    const db = createDb();
+    db.knowledgeIngestionRun.findFirst.mockResolvedValue({
+      watermarkAt: new Date("2026-07-01T00:00:00.000Z"),
+    });
+    db.dataSource.findMany.mockResolvedValue([]);
+
+    const result = await listKnowledgeCandidateSources(undefined, 100, db);
+    const args = db.dataSource.findMany.mock.calls[0]?.[0];
+
+    expect(args.where).toEqual({
+      createdAt: { gt: new Date("2026-07-01T00:00:00.000Z") },
+    });
+    expect(result.resumedFrom).toBe("2026-07-01T00:00:00.000Z");
+  });
+
+  it("ignores failed runs so their unread articles are not skipped", async () => {
+    const db = createDb();
+    db.dataSource.findMany.mockResolvedValue([]);
+
+    await listKnowledgeCandidateSources(undefined, 100, db);
+    const args = db.knowledgeIngestionRun.findFirst.mock.calls[0]?.[0];
+
+    expect(args.where.status).toBe("success");
+    expect(args.orderBy).toEqual({ watermarkAt: "desc" });
+  });
+
+  it("lets an explicit since override the stored watermark", async () => {
+    const db = createDb();
+    db.knowledgeIngestionRun.findFirst.mockResolvedValue({
+      watermarkAt: new Date("2026-07-01T00:00:00.000Z"),
+    });
+    db.dataSource.findMany.mockResolvedValue([]);
+
+    const result = await listKnowledgeCandidateSources(
+      "2026-06-01T00:00:00.000Z",
+      100,
+      db,
+    );
+
+    expect(result.resumedFrom).toBe("2026-06-01T00:00:00.000Z");
+    expect(db.knowledgeIngestionRun.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("rebuilds from the beginning when fromStart is set", async () => {
+    const db = createDb();
+    db.knowledgeIngestionRun.findFirst.mockResolvedValue({
+      watermarkAt: new Date("2026-07-01T00:00:00.000Z"),
+    });
+    db.dataSource.findMany.mockResolvedValue([]);
+
+    const result = await listKnowledgeCandidateSources(
+      undefined,
+      100,
+      db,
+      true,
+    );
+    const args = db.dataSource.findMany.mock.calls[0]?.[0];
+
+    expect(args.where).toEqual({});
+    expect(result.resumedFrom).toBeNull();
+  });
+
+  it("returns no watermark when the knowledge base is empty", async () => {
+    const db = createDb();
+
+    await expect(latestKnowledgeWatermark(db)).resolves.toBeUndefined();
   });
 });

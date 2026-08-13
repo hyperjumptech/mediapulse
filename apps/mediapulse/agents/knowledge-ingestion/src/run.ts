@@ -21,16 +21,18 @@ export const run = async ({
     token,
   });
 
-  const { sources, watermark } = await client.knowledgeCandidateSources.get({
-    since: input.since,
-    take: input.limit ?? 500,
-  });
+  const { sources, watermark, resumedFrom } =
+    await client.knowledgeCandidateSources.get({
+      since: input.since,
+      fromStart: input.fromStart ?? false,
+      take: input.limit ?? 500,
+    });
 
   if (sources.length === 0) {
     return {
       success: true,
       message: "No new sources to ingest",
-      details: { considered: 0, watermark },
+      details: { considered: 0, watermark, resumedFrom },
     };
   }
 
@@ -71,12 +73,15 @@ export const run = async ({
       });
     }
 
-    logger.info({ ...tally, watermark }, "--> knowledge-ingestion complete");
+    logger.info(
+      { ...tally, watermark, resumedFrom },
+      "--> knowledge-ingestion complete",
+    );
 
     return {
       success: true,
       message: `Ingested ${tally.considered} sources`,
-      details: { ...tally, watermark },
+      details: { ...tally, watermark, resumedFrom },
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -97,6 +102,6 @@ export const run = async ({
       });
     }
 
-    return { success: false, message, details: { watermark } };
+    return { success: false, message, details: { watermark, resumedFrom } };
   }
 };

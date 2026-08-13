@@ -7,6 +7,7 @@ import { AGENT_ID, AGENT_VERSION } from "./agent-version.js";
 const InputSchema = z.object({
   since: z.string().datetime().optional(),
   limit: z.number().int().positive().max(20000).optional(),
+  fromStart: z.boolean().optional(),
 });
 
 const ConfigSchema = z.object({
