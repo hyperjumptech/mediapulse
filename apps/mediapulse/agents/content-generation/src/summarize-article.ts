@@ -31,6 +31,10 @@ For the title: translate the article's own title into English faithfully. Do not
 
 Write only what the article actually says. Do not add figures, companies, dates, causes, or consequences that are not stated in it. Do not infer why something happened when the article does not say. If you are unsure whether the article supports a claim, leave it out.
 
+A headline is not a source. Take every point from the body, and leave out anything the headline states that the body never establishes. A headline announcing that two companies have begun distributing something is not a fact unless the body says they did; when the body only lists those companies among many, report what the body lists and drop the headline's claim. When the body carries nothing beyond a restatement of the headline, return no points at all.
+
+Attribute a claim to whoever made it. When the article frames a statement as something a named party said, claimed, denied, testified, or projected, name that party inside the point: write "the defendant said the full amount was returned", not "the full amount was returned". This matters most in court proceedings, regulatory disputes, and forecasts, where an unattributed claim reads to the reader as a settled finding rather than as one side's account.
+
 Do not repeat a sweep from the headline. When the headline generalises across several items ("all segments grew", "sales rose across the board", "uniform growth"), ignore that framing and report the per-item figures the body gives. If any item moves against the headline's direction, say so in the same point. A headline that claims growth everywhere while the body shows one line falling is a headline you must contradict.
 
 A rate of change belongs to the one figure and period the article attaches it to. Never move a rate onto a different figure, and never pair a quarterly rate with a half-year or full-year total. If the article gives a quarterly figure its own growth rate and a cumulative figure without one, report them as two separate facts rather than merging them.
