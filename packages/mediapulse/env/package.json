@@ -17,7 +17,8 @@
     "build:app.user-registration": "pnpm exec env-to-t3 -i env.app.user-registration.example -o src/app-user-registration.ts",
     "build:agents.article-analysis": "pnpm exec env-to-t3 -i env.agents.article-analysis.example -o src/agents-article-analysis.ts",
     "build:agents.page-collection": "pnpm exec env-to-t3 -i env.agents.page-collection.example -o src/agents-page-collection.ts",
-    "build:agents.newsletter-feedback": "pnpm exec env-to-t3 -i env.agents.newsletter-feedback.example -o src/agents-newsletter-feedback.ts"
+    "build:agents.newsletter-feedback": "pnpm exec env-to-t3 -i env.agents.newsletter-feedback.example -o src/agents-newsletter-feedback.ts",
+    "build:agents.knowledge-ingestion": "pnpm exec env-to-t3 -i env.agents.knowledge-ingestion.example -o src/agents-knowledge-ingestion.ts"
   },
   "exports": {
     "./agents-content-generation": {
@@ -59,6 +60,10 @@
     "./agents-page-collection": {
       "types": "./src/agents-page-collection.ts",
       "default": "./src/agents-page-collection.ts"
+    },
+    "./agents-knowledge-ingestion": {
+      "types": "./src/agents-knowledge-ingestion.ts",
+      "default": "./src/agents-knowledge-ingestion.ts"
     },
     "./agents-newsletter-feedback": {
       "types": "./src/agents-newsletter-feedback.ts",
