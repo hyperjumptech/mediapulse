@@ -40,12 +40,6 @@ export const STORYLINE_MIN_CONTAINMENT = 0.5;
  */
 export const SAME_MOVE_CONTAINMENT = 0.6;
 
-/** Ticker count beyond which a Storyline stops accepting automatic attachment. */
-export const MAX_TICKERS = 5;
-
-/** Development count beyond which a Storyline stops accepting automatic attachment. */
-export const MAX_DEVELOPMENTS = 40;
-
 export type Candidate = {
   dataSourceId: string;
   title: string;
@@ -291,24 +285,4 @@ export const decideAttachment = (
     storylineId: match.storyline.id,
     evidence,
   };
-};
-
-/**
- * Why a Storyline should stop accepting automatic attachment, or null while it may keep growing.
- *
- * @param tickerCount - Tickers currently linked to the Storyline.
- * @param developmentCount - Developments currently on it.
- */
-export const lockReasonFor = (
-  tickerCount: number,
-  developmentCount: number,
-): string | null => {
-  if (tickerCount > MAX_TICKERS) {
-    return `spans ${tickerCount} tickers, over the ceiling of ${MAX_TICKERS}`;
-  }
-  if (developmentCount > MAX_DEVELOPMENTS) {
-    return `holds ${developmentCount} developments, over the ceiling of ${MAX_DEVELOPMENTS}`;
-  }
-
-  return null;
 };

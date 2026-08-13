@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { anchorsFor, type StorylineSnapshot } from "./attach.js";
 import {
@@ -7,246 +7,156 @@ import {
   type KnowledgeStore,
 } from "./ingest.js";
 
-type StoredDevelopment = {
-  id: string;
-  anchors: Set<string>;
-  titleAnchors: Set<string>;
-  figures: Set<string>;
-  day?: string;
-  citations: string[];
-};
+const unlocked = (storylineId: string, developmentId: string | null) => ({
+  storylineId,
+  developmentId,
+  locked: false,
+  lockedReason: null,
+});
 
-type StoredStoryline = {
-  id: string;
-  name: string;
-  anchors: Set<string>;
-  locked: boolean;
-  lockedReason: string | null;
-  tickerIds: Set<string>;
-  developments: StoredDevelopment[];
-};
+const snapshotFrom = (
+  articles: readonly { title: string; text: string }[],
+): StorylineSnapshot => {
+  const developments = articles.map((article, index) => {
+    const anchors = anchorsFor({ dataSourceId: `seed-${index}`, ...article });
 
-const createMemoryStore = () => {
-  const storylines: StoredStoryline[] = [];
-  let sequence = 0;
-
-  const snapshot = (storyline: StoredStoryline): StorylineSnapshot => ({
-    id: storyline.id,
-    anchors: storyline.anchors,
-    tickerCount: storyline.tickerIds.size,
-    locked: storyline.locked,
-    developments: storyline.developments.map((development) => ({
-      id: development.id,
-      anchors: development.anchors,
-      titleAnchors: development.titleAnchors,
-      figures: development.figures,
-      day: development.day,
-    })),
+    return {
+      id: `dev-${index}`,
+      anchors: anchors.anchors,
+      titleAnchors: anchors.titleAnchors,
+      figures: anchors.figures,
+      day: "2026-06-29",
+    };
   });
+  const union = new Set<string>();
+  for (const development of developments) {
+    for (const anchor of development.anchors) {
+      union.add(anchor);
+    }
+  }
 
+  return {
+    id: "story-1",
+    anchors: union,
+    tickerCount: 1,
+    locked: false,
+    developments,
+  };
+};
+
+const createStore = (storylines: StorylineSnapshot[] = []) => {
   const store: KnowledgeStore = {
-    findStorylinesByAnchors: async (anchors) =>
-      storylines
-        .filter((storyline) =>
-          anchors.some((anchor) => storyline.anchors.has(anchor)),
-        )
-        .map(snapshot),
-
-    openStoryline: async (command) => {
-      sequence += 1;
-      const id = `story-${sequence}`;
-      const figures = anchorsFor({
-        dataSourceId: command.dataSourceId,
-        title: command.title,
-        text: "",
-      }).figures;
-      storylines.push({
-        id,
-        name: command.name,
-        anchors: new Set(command.anchors),
-        locked: false,
-        lockedReason: null,
-        tickerIds: new Set(command.tickerIds),
-        developments: [
-          {
-            id: `${id}-dev-1`,
-            anchors: new Set(command.anchors),
-            titleAnchors: new Set(command.titleAnchors),
-            figures,
-            citations: [command.dataSourceId],
-          },
-        ],
-      });
-
-      return id;
-    },
-
-    openDevelopment: async (command) => {
-      const storyline = storylines.find(
-        (item) => item.id === command.storylineId,
-      );
-      if (storyline === undefined) {
-        throw new Error(`unknown storyline ${command.storylineId}`);
-      }
-      const id = `${storyline.id}-dev-${storyline.developments.length + 1}`;
-      storyline.developments.push({
-        id,
-        anchors: new Set(command.anchors),
-        titleAnchors: new Set(command.titleAnchors),
-        figures: new Set(),
-        citations: [command.dataSourceId],
-      });
-      for (const anchor of command.anchors) {
-        storyline.anchors.add(anchor);
-      }
-      for (const tickerId of command.tickerIds) {
-        storyline.tickerIds.add(tickerId);
-      }
-
-      return id;
-    },
-
-    cite: async (command) => {
-      const storyline = storylines.find(
-        (item) => item.id === command.storylineId,
-      );
-      const development = storyline?.developments.find(
-        (item) => item.id === command.developmentId,
-      );
-      if (storyline === undefined || development === undefined) {
-        throw new Error("unknown development");
-      }
-      development.citations.push(command.dataSourceId);
-      for (const tickerId of command.tickerIds) {
-        storyline.tickerIds.add(tickerId);
-      }
-    },
-
-    tickerCountFor: async (storylineId) =>
-      storylines.find((item) => item.id === storylineId)?.tickerIds.size ?? 0,
-
-    developmentCountFor: async (storylineId) =>
-      storylines.find((item) => item.id === storylineId)?.developments.length ??
-      0,
-
-    lockStoryline: async (storylineId, reason) => {
-      const storyline = storylines.find((item) => item.id === storylineId);
-      if (storyline !== undefined) {
-        storyline.locked = true;
-        storyline.lockedReason = reason;
-      }
-    },
+    findStorylinesByAnchors: vi.fn(async () => storylines),
+    openStoryline: vi.fn(async () => unlocked("story-new", "dev-new")),
+    openDevelopment: vi.fn(async () => unlocked("story-1", "dev-next")),
+    cite: vi.fn(async () => unlocked("story-1", "dev-0")),
   };
 
-  return { store, storylines };
+  return store as KnowledgeStore & {
+    findStorylinesByAnchors: ReturnType<typeof vi.fn>;
+    openStoryline: ReturnType<typeof vi.fn>;
+    openDevelopment: ReturnType<typeof vi.fn>;
+    cite: ReturnType<typeof vi.fn>;
+  };
+};
+
+const ANNOUNCEMENT = {
+  dataSourceId: "ds-1",
+  title: "Telkom Pangkas Anak Usaha dari 67 Jadi 19",
+  text: "Telkom Indonesia memangkas jumlah anak usaha dari 67 menjadi 19 entitas menuju strategic holding.",
+};
+
+const SECOND_OUTLET = {
+  dataSourceId: "ds-2",
+  title: "Telkom Pangkas Anak Usaha Jadi 19 Entitas",
+  text: "Telkom Indonesia memangkas anak usaha dari 67 menjadi 19 entitas dalam transformasi strategic holding.",
 };
 
 const candidate = (
   overrides: Partial<IngestCandidate> & { dataSourceId: string; title: string },
 ): IngestCandidate => ({
   text: "",
-  observedAt: new Date("2026-06-29T00:00:00Z"),
+  observedAt: "2026-06-29T00:00:00.000Z",
   tickerIds: ["ticker-tlkm"],
   ...overrides,
 });
 
 describe("ingestCandidates", () => {
-  let memory: ReturnType<typeof createMemoryStore>;
-
   beforeEach(() => {
-    memory = createMemoryStore();
+    vi.clearAllMocks();
   });
 
-  it("opens one storyline and one development for a first article", async () => {
-    const tally = await ingestCandidates(
-      [
-        candidate({
-          dataSourceId: "ds-1",
-          title: "Telkom Pangkas Anak Usaha dari 67 Jadi 19",
-          text: "Telkom Indonesia memangkas jumlah anak usaha dari 67 menjadi 19 entitas menuju strategic holding.",
-        }),
-      ],
-      memory.store,
-    );
+  it("opens a storyline when nothing matches", async () => {
+    const store = createStore();
+
+    const tally = await ingestCandidates([candidate(ANNOUNCEMENT)], store);
 
     expect(tally.storylinesOpened).toBe(1);
     expect(tally.developmentsOpened).toBe(1);
-    expect(memory.storylines).toHaveLength(1);
+    expect(store.openStoryline).toHaveBeenCalledTimes(1);
   });
 
-  it("collapses a second outlet onto the same move instead of counting it twice", async () => {
-    const tally = await ingestCandidates(
-      [
-        candidate({
-          dataSourceId: "ds-1",
-          title: "Telkom Pangkas Anak Usaha dari 67 Jadi 19",
-          text: "Telkom Indonesia memangkas jumlah anak usaha dari 67 menjadi 19 entitas menuju strategic holding.",
-        }),
-        candidate({
-          dataSourceId: "ds-2",
-          title: "Telkom Pangkas Anak Usaha Jadi 19 Entitas",
-          text: "Telkom Indonesia memangkas anak usaha dari 67 menjadi 19 entitas dalam transformasi strategic holding.",
-        }),
-      ],
-      memory.store,
-    );
+  it("cites an existing move when a second outlet reports it", async () => {
+    const store = createStore([snapshotFrom([ANNOUNCEMENT])]);
 
-    expect(tally.storylinesOpened).toBe(1);
+    const tally = await ingestCandidates([candidate(SECOND_OUTLET)], store);
+
     expect(tally.citationsAdded).toBe(1);
-    expect(memory.storylines[0]?.developments).toHaveLength(1);
-    expect(memory.storylines[0]?.developments[0]?.citations).toEqual([
-      "ds-1",
-      "ds-2",
-    ]);
+    expect(store.cite).toHaveBeenCalledTimes(1);
+    expect(store.openDevelopment).not.toHaveBeenCalled();
   });
 
-  it("skips an article that carries no distinctive anchors", async () => {
+  it("skips an article with no distinctive anchors", async () => {
+    const store = createStore();
+
     const tally = await ingestCandidates(
       [candidate({ dataSourceId: "ds-1", title: "PT", text: "" })],
-      memory.store,
+      store,
     );
 
     expect(tally.skippedNoAnchors).toBe(1);
-    expect(tally.storylinesOpened).toBe(0);
+    expect(store.openStoryline).not.toHaveBeenCalled();
   });
 
-  it("opens an unrelated article as its own storyline", async () => {
+  it("counts a locked storyline once even when several writes report it", async () => {
+    const store = createStore();
+    store.openStoryline.mockResolvedValue({
+      storylineId: "story-1",
+      developmentId: "dev-1",
+      locked: true,
+      lockedReason: "spans 6 tickers, over the ceiling of 5",
+    });
+
     const tally = await ingestCandidates(
       [
-        candidate({
-          dataSourceId: "ds-1",
-          title: "Telkom Pangkas Anak Usaha dari 67 Jadi 19",
-          text: "Telkom Indonesia memangkas jumlah anak usaha menjadi 19 entitas menuju strategic holding.",
-        }),
-        candidate({
-          dataSourceId: "ds-2",
-          title: "Harga Pangan Hari Ini: Cabai Rawit Merah Turun",
-          text: "Harga cabai rawit merah tercatat Rp61.900 per kilogram sementara telur ayam stabil.",
-        }),
+        candidate(ANNOUNCEMENT),
+        candidate({ ...ANNOUNCEMENT, dataSourceId: "ds-9" }),
       ],
-      memory.store,
+      store,
     );
 
-    expect(tally.storylinesOpened).toBe(2);
-    expect(tally.citationsAdded).toBe(0);
+    expect(tally.storylinesLocked).toBe(1);
   });
 
-  it("locks a storyline once it spreads past the ticker ceiling", async () => {
-    const seed = candidate({
-      dataSourceId: "ds-1",
-      title: "Telkom Pangkas Anak Usaha dari 67 Jadi 19",
-      text: "Telkom Indonesia memangkas jumlah anak usaha dari 67 menjadi 19 entitas menuju strategic holding.",
-    });
-    const wide = candidate({
-      dataSourceId: "ds-2",
-      title: "Telkom Pangkas Anak Usaha Jadi 19 Entitas",
-      text: "Telkom Indonesia memangkas anak usaha dari 67 menjadi 19 entitas dalam transformasi strategic holding.",
-      tickerIds: ["t1", "t2", "t3", "t4", "t5", "t6"],
-    });
-    const tally = await ingestCandidates([seed, wide], memory.store);
+  it("passes the attach evidence through to the writer", async () => {
+    const store = createStore([snapshotFrom([ANNOUNCEMENT])]);
 
-    expect(tally.storylinesLocked).toBe(1);
-    expect(memory.storylines[0]?.locked).toBe(true);
-    expect(memory.storylines[0]?.lockedReason).toContain("tickers");
+    await ingestCandidates(
+      [
+        candidate({
+          dataSourceId: "ds-3",
+          title: "Telkom Tuntaskan Streamlining 10 Anak Usaha Entitas",
+          text: "Telkom Indonesia menuntaskan streamlining 10 anak usaha entitas senilai Rp2,4 triliun menuju strategic holding.",
+        }),
+      ],
+      store,
+    );
+
+    expect(store.openDevelopment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storylineId: "story-1",
+        evidence: expect.objectContaining({ path: "body" }),
+      }),
+    );
   });
 });

@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   anchorsFor,
   decideAttachment,
-  lockReasonFor,
   type StorylineSnapshot,
 } from "./attach.js";
 
@@ -130,19 +129,5 @@ describe("decideAttachment", () => {
     const decision = decideAttachment(candidate, "2026-06-29", [storyline]);
 
     expect(decision.kind).toBe("openStoryline");
-  });
-});
-
-describe("lockReasonFor", () => {
-  it("leaves a thread open while it is within both ceilings", () => {
-    expect(lockReasonFor(3, 12)).toBeNull();
-  });
-
-  it("locks a thread that spreads past the ticker ceiling", () => {
-    expect(lockReasonFor(9, 4)).toContain("9 tickers");
-  });
-
-  it("locks a thread that grows past the development ceiling", () => {
-    expect(lockReasonFor(2, 608)).toContain("608 developments");
   });
 });

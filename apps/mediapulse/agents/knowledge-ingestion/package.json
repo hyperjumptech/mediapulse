@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@workspace/agent-auth-client": "workspace:*",
+    "@workspace/agent-data-api-client": "workspace:*",
+    "@workspace/agent-data-api-contract": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
     "@workspace/agent-types": "workspace:*",
     "@workspace/utils": "workspace:*",

@@ -17,6 +17,7 @@ export const MEDIAPULSE_ENV_BUILD_TARGET_ORDER = [
   "agents.newsletter-feedback",
   "app.user-registration",
   "agents.page-collection",
+  "agents.knowledge-ingestion",
 ] as const;
 
 /** A single codegen slice key (suffix after `build:` in package.json). */

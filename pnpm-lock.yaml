@@ -767,6 +767,12 @@ importers:
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-auth-client
+      '@workspace/agent-data-api-client':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-data-api-client
+      '@workspace/agent-data-api-contract':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-data-api-contract
       '@workspace/agent-runtime':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-runtime

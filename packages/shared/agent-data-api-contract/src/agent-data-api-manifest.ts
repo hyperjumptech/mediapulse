@@ -56,6 +56,22 @@ import {
   postDataCollectionDeadUrlsRecordResponseSchema,
 } from "./data-collection-dead-url.js";
 import {
+  getKnowledgeCandidateSourcesQuerySchema,
+  getKnowledgeCandidateSourcesResponseSchema,
+  postKnowledgeDevelopmentCitationsBodySchema,
+  postKnowledgeDevelopmentCitationsResponseSchema,
+  postKnowledgeDevelopmentsBodySchema,
+  postKnowledgeDevelopmentsResponseSchema,
+  postKnowledgeIngestionRunsBodySchema,
+  postKnowledgeIngestionRunsFinishBodySchema,
+  postKnowledgeIngestionRunsFinishResponseSchema,
+  postKnowledgeIngestionRunsResponseSchema,
+  postKnowledgeStorylineCandidatesBodySchema,
+  postKnowledgeStorylineCandidatesResponseSchema,
+  postKnowledgeStorylinesBodySchema,
+  postKnowledgeStorylinesResponseSchema,
+} from "./knowledge-ingestion.js";
+import {
   postPublisherAuthorityBodySchema,
   postPublisherAuthorityResponseSchema,
   postPublisherAuthorityStaleBodySchema,
@@ -469,6 +485,118 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postDataCollectionDeadUrlsRecordBodySchema,
         response: postDataCollectionDeadUrlsRecordResponseSchema,
+      },
+    },
+  },
+  knowledgeCandidateSources: {
+    v1: {
+      pathSegment: "/knowledge/candidate-sources",
+      get: {
+        query: getKnowledgeCandidateSourcesQuerySchema,
+        response: getKnowledgeCandidateSourcesResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/knowledge/candidate-sources",
+      get: {
+        query: getKnowledgeCandidateSourcesQuerySchema,
+        response: getKnowledgeCandidateSourcesResponseSchema,
+      },
+    },
+  },
+  knowledgeStorylineCandidates: {
+    v1: {
+      pathSegment: "/knowledge/storyline-candidates",
+      post: {
+        body: postKnowledgeStorylineCandidatesBodySchema,
+        response: postKnowledgeStorylineCandidatesResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/knowledge/storyline-candidates",
+      post: {
+        body: postKnowledgeStorylineCandidatesBodySchema,
+        response: postKnowledgeStorylineCandidatesResponseSchema,
+      },
+    },
+  },
+  knowledgeStorylines: {
+    v1: {
+      pathSegment: "/knowledge/storylines",
+      post: {
+        body: postKnowledgeStorylinesBodySchema,
+        response: postKnowledgeStorylinesResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/knowledge/storylines",
+      post: {
+        body: postKnowledgeStorylinesBodySchema,
+        response: postKnowledgeStorylinesResponseSchema,
+      },
+    },
+  },
+  knowledgeDevelopments: {
+    v1: {
+      pathSegment: "/knowledge/developments",
+      post: {
+        body: postKnowledgeDevelopmentsBodySchema,
+        response: postKnowledgeDevelopmentsResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/knowledge/developments",
+      post: {
+        body: postKnowledgeDevelopmentsBodySchema,
+        response: postKnowledgeDevelopmentsResponseSchema,
+      },
+    },
+  },
+  knowledgeDevelopmentCitations: {
+    v1: {
+      pathSegment: "/knowledge/development-citations",
+      post: {
+        body: postKnowledgeDevelopmentCitationsBodySchema,
+        response: postKnowledgeDevelopmentCitationsResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/knowledge/development-citations",
+      post: {
+        body: postKnowledgeDevelopmentCitationsBodySchema,
+        response: postKnowledgeDevelopmentCitationsResponseSchema,
+      },
+    },
+  },
+  knowledgeIngestionRuns: {
+    v1: {
+      pathSegment: "/knowledge/ingestion-runs",
+      post: {
+        body: postKnowledgeIngestionRunsBodySchema,
+        response: postKnowledgeIngestionRunsResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/knowledge/ingestion-runs",
+      post: {
+        body: postKnowledgeIngestionRunsBodySchema,
+        response: postKnowledgeIngestionRunsResponseSchema,
+      },
+    },
+  },
+  knowledgeIngestionRunsFinish: {
+    v1: {
+      pathSegment: "/knowledge/ingestion-runs/finish",
+      post: {
+        body: postKnowledgeIngestionRunsFinishBodySchema,
+        response: postKnowledgeIngestionRunsFinishResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/knowledge/ingestion-runs/finish",
+      post: {
+        body: postKnowledgeIngestionRunsFinishBodySchema,
+        response: postKnowledgeIngestionRunsFinishResponseSchema,
       },
     },
   },

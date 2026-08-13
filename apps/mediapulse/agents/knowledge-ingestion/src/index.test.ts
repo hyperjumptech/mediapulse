@@ -1,5 +1,26 @@
 /** @vitest-environment node */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@mediapulse/env/agents-knowledge-ingestion", () => ({
+  env: {
+    PORT: 4013,
+    AGENT_DATA_API_URL: "http://localhost:8081",
+    AGENT_AUTH_API_URL: "http://localhost:8080",
+    AGENT_REGISTRY_URL: "http://localhost:8082",
+    AGENT_PUBLIC_URL: "http://localhost:4013",
+    DOMAIN_INTEGRATION_API_KEY: "test-key",
+    DOMAIN_INTEGRATION_ID: "mediapulse",
+  },
+}));
+
+vi.mock("@workspace/logger", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@workspace/logger")>();
+
+  return {
+    ...actual,
+    logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
+  };
+});
 import { createAgentApp } from "@workspace/agent-runtime";
 import { z } from "zod";
 

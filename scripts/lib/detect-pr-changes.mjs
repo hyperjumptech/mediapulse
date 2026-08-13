@@ -35,6 +35,7 @@ export const ALL_DOCKER_SERVICES = [
   "agent-user-registration",
   "agent-newsletter-feedback",
   "page-collection",
+  "knowledge-ingestion",
 ];
 
 /** App deploy workflow services. */
@@ -59,6 +60,7 @@ export const AGENT_DEPLOY_SERVICES = [
   "agent-user-registration",
   "agent-newsletter-feedback",
   "page-collection",
+  "knowledge-ingestion",
 ];
 
 /** @type {Record<string, ServiceDeployConfig>} */
@@ -153,6 +155,12 @@ export const SERVICE_DEPLOY_CONFIG = {
     image: "agent-newsletter-feedback",
     webhook_secret: "COOLIFY_WEBHOOK_AGENT_NEWSLETTER_FEEDBACK",
   },
+  "knowledge-ingestion": {
+    service: "knowledge-ingestion",
+    dockerfile: "apps/mediapulse/agents/knowledge-ingestion/Dockerfile",
+    image: "agent-knowledge-ingestion",
+    webhook_secret: "COOLIFY_WEBHOOK_AGENT_KNOWLEDGE_INGESTION",
+  },
   "page-collection": {
     service: "page-collection",
     dockerfile: "apps/mediapulse/agents/page-collection/Dockerfile",
@@ -213,7 +221,8 @@ export const isSharedDockerChangePath = (filePath) => {
  */
 export const isPrismaDriftPath = (filePath) => {
   if (filePath.startsWith("packages/mediapulse/database/")) return true;
-  if (filePath.startsWith("packages/hermes/orchestration-database/")) return true;
+  if (filePath.startsWith("packages/hermes/orchestration-database/"))
+    return true;
   return false;
 };
 
@@ -239,8 +248,12 @@ export const mapFilePathToDockerService = (filePath) => {
     ["apps/mediapulse/agents/article-analysis/", "article-analysis"],
     ["apps/mediapulse/agents/query-analysis/", "query-analysis"],
     ["apps/mediapulse/agents/user-registration/", "agent-user-registration"],
-    ["apps/mediapulse/agents/newsletter-feedback/", "agent-newsletter-feedback"],
+    [
+      "apps/mediapulse/agents/newsletter-feedback/",
+      "agent-newsletter-feedback",
+    ],
     ["apps/mediapulse/agents/page-collection/", "page-collection"],
+    ["apps/mediapulse/agents/knowledge-ingestion/", "knowledge-ingestion"],
   ];
 
   for (const [prefix, service] of rules) {
