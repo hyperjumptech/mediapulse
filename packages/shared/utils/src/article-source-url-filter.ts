@@ -21,6 +21,7 @@ const BLOCKED_HOST_DOMAINS = [
   "msn.com",
   "vietnam.vn",
   "achmadnurhidayat.id",
+  "qoo10.co.id",
 ] as const;
 
 const BLOCKED_HOST_PATTERNS = BLOCKED_HOST_DOMAINS.map(hostPattern);
@@ -54,6 +55,7 @@ const LOW_VALUE_SOURCE_DOMAINS = [
   "fandom.com",
   "britannica.com",
   "tradingview.com",
+  "journalarta.com",
   "zoominfo.com",
   "tracxn.com",
   "dealroom.co",

@@ -261,6 +261,21 @@ describe("classifyNoisyUrl", () => {
       reason: "blocked_host" as const,
     },
     {
+      name: "Qoo10 marketplace news mirror",
+      url: "https://www.qoo10.co.id/bisnis/541497/jp-morgan-naikkan-target-saham-bbri-rp-3400",
+      reason: "blocked_host" as const,
+    },
+    {
+      name: "Qoo10 marketplace news mirror on a subdomain",
+      url: "https://gadget.qoo10.co.id/bisnis/pembangkit-lirik-batu-bara-saat-minyak-naik-hormuz-tak-pasti",
+      reason: "blocked_host" as const,
+    },
+    {
+      name: "JournalArta generated technical page",
+      url: "https://journalarta.com/news/2026/08/12/saham-amrt-menguat-0-72-death-cross-menekan-jadi-sorotan",
+      reason: "low_value_source" as const,
+    },
+    {
       name: "PDF extension",
       url: "https://www.bca.co.id/-/media/Feature/Report/File/Berita-Investor/2026/20260128-KI-Share-Buyback-EN.pdf",
       reason: "blocked_extension" as const,
