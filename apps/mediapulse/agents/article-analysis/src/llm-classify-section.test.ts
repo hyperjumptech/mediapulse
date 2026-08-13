@@ -702,20 +702,32 @@ describe("scoreFromEvaluations — qualifying gates and precedence", () => {
 
   it("keeps an article that clears no gate when its headline names the issuer", () => {
     const rejected = scoreFromEvaluations(
-      evaluateGated(["ip3", "cl3"]),
+      evaluateGated(["ip1", "ip3", "ip4"]),
       gated,
       false,
       false,
     );
     const kept = scoreFromEvaluations(
-      evaluateGated(["ip3", "cl3"]),
+      evaluateGated(["ip1", "ip3", "ip4"]),
       gated,
       false,
       true,
     );
 
     expect(rejected.section).toBeNull();
-    expect(kept.section).not.toBeNull();
+    expect(kept.section).toBe("industryPulse");
+  });
+
+  it("rejects an issuer-named article matching too few of a section's rules", () => {
+    const result = scoreFromEvaluations(
+      evaluateGated(["ip3", "cl3"]),
+      gated,
+      false,
+      true,
+    );
+
+    expect(result.section).toBeNull();
+    expect(result.reason).toContain("No section met its qualifying rules");
   });
 
   it("still rejects an issuer-named article when no rule matched anywhere", () => {

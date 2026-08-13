@@ -27,6 +27,12 @@ import { isUserGeneratedHost } from "@workspace/utils";
 /** Article content past this many characters is truncated before classification. */
 export const MAX_CONTENT_CHARS = 12000;
 
+/**
+ * Least share of a section's rules an article must match to reach that section on the
+ * issuer-named-in-title fallback, when it clears no section's gate.
+ */
+export const MIN_ISSUER_FALLBACK_FRACTION = 0.5;
+
 /** Reason strings are capped to this length by the analysis contract. */
 const MAX_REASON_CHARS = 2000;
 
@@ -436,10 +442,22 @@ export const scoreFromEvaluations = (
   // An article whose own headline names the issuer is issuer coverage whatever the gates say, so it
   // falls back to the best-matching section rather than dropping. Without this the strict path above
   // discarded Bank Raya's Q2 results from AGRO, Antam's H1 results from ANTM, and three FORE
-  // articles from FORE, leaving each newsletter with no news about its own issuer.
+  // articles from FORE, leaving each newsletter with no news about its own issuer. That fallback
+  // still requires {@link MIN_ISSUER_FALLBACK_FRACTION} of the section's rules, so naming the issuer
+  // in a headline is not on its own enough to enter a section.
   let winner = qualified[0];
-  if (winner === undefined && (!anyGateDefined || issuerNamedInTitle)) {
+  if (winner === undefined && !anyGateDefined) {
     for (const tally of tallies) {
+      if (winner === undefined || tally.fraction > winner.fraction) {
+        winner = tally;
+      }
+    }
+  }
+  if (winner === undefined && anyGateDefined && issuerNamedInTitle) {
+    for (const tally of tallies) {
+      if (tally.fraction < MIN_ISSUER_FALLBACK_FRACTION) {
+        continue;
+      }
       if (winner === undefined || tally.fraction > winner.fraction) {
         winner = tally;
       }
