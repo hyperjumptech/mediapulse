@@ -60,6 +60,11 @@ jobs:
             agent-user-registration) echo "dockerfile=apps/mediapulse/agents/user-registration/Dockerfile" >> "$GITHUB_OUTPUT" ;;
             agent-newsletter-feedback) echo "dockerfile=apps/mediapulse/agents/newsletter-feedback/Dockerfile" >> "$GITHUB_OUTPUT" ;;
             page-collection)        echo "dockerfile=apps/mediapulse/agents/page-collection/Dockerfile" >> "$GITHUB_OUTPUT" ;;
+            knowledge-ingestion)    echo "dockerfile=apps/mediapulse/agents/knowledge-ingestion/Dockerfile" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "::error::No Dockerfile mapping for service '${{ matrix.service }}'. Add an arm to this case block when registering a new service in scripts/lib/detect-pr-changes.mjs." >&2
+              exit 1
+              ;;
           esac
 
       - uses: docker/setup-buildx-action@v3

@@ -60,6 +60,10 @@ const TARGET_SPECS: Readonly<
     input: "env.agents.page-collection.example",
     output: "src/agents-page-collection.ts",
   },
+  "agents.knowledge-ingestion": {
+    input: "env.agents.knowledge-ingestion.example",
+    output: "src/agents-knowledge-ingestion.ts",
+  },
 };
 
 /**
