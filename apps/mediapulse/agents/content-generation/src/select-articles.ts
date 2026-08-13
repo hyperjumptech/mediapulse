@@ -36,7 +36,7 @@ export type SelectArticlesReport = {
   droppedOverCap: number;
   /** Sources on a host blocked repo-wide, classified before the host was listed. */
   droppedBlockedHost: number;
-  /** Reader-contributed sources that had been placed in Issuer Performance. */
+  /** Reader-contributed sources, dropped from every section. */
   droppedUserGenerated: number;
 };
 
@@ -98,10 +98,7 @@ export const selectArticles = (
       droppedBlockedHost += 1;
       return;
     }
-    if (
-      sectionKey === "issuer-performance" &&
-      isUserGeneratedHost(source.url)
-    ) {
+    if (isUserGeneratedHost(source.url)) {
       droppedUserGenerated += 1;
       return;
     }

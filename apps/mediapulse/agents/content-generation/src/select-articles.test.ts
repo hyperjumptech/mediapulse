@@ -200,7 +200,7 @@ describe("selectArticles", () => {
     expect(report.droppedBlockedHost).toBe(1);
   });
 
-  it("drops a reader-contributed source from Issuer Performance but keeps it elsewhere", () => {
+  it("drops a reader-contributed source from every section", () => {
     const sources = [
       source({
         title: "Contributed Performance",
@@ -214,14 +214,32 @@ describe("selectArticles", () => {
         section: "competitiveLandscape",
         sectionScore: 0.6,
       }),
+      source({
+        title: "Contributed Quick Hit",
+        url: "https://www.readers.id/aces-perkuat-stok-naikkan-harga-2026",
+        section: "quickHits",
+        sectionScore: 0.4,
+      }),
+      source({
+        title: "Contributed Industry Pulse",
+        url: "https://www.readers.id/investasi-ai-buka-peluang-operator-telekomunikasi-asean",
+        section: "industryPulse",
+        sectionScore: 1,
+      }),
+      source({
+        title: "Publisher Article",
+        url: "https://investasi.kontan.co.id/news/laba-bersih-itmg-naik",
+        section: "issuerPerformance",
+        sectionScore: 0.5,
+      }),
     ];
 
     const { selected, report } = selectArticles(sources);
 
     expect(selected.map((entry) => entry.source.title)).toStrictEqual([
-      "Contributed Peer News",
+      "Publisher Article",
     ]);
-    expect(report.droppedUserGenerated).toBe(1);
+    expect(report.droppedUserGenerated).toBe(4);
     expect(report.droppedBlockedHost).toBe(0);
   });
 
