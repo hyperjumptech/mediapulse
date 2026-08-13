@@ -68,8 +68,12 @@ export async function listKnowledgeCandidateSources(
   const resumeAt =
     since ?? (fromStart ? undefined : await latestKnowledgeWatermark(db));
   const rows = await db.dataSource.findMany({
-    where:
-      resumeAt === undefined ? {} : { createdAt: { gt: new Date(resumeAt) } },
+    where: {
+      developmentCitations: { none: {} },
+      ...(resumeAt === undefined
+        ? {}
+        : { createdAt: { gt: new Date(resumeAt) } }),
+    },
     orderBy: { createdAt: "asc" },
     take,
     select: {
@@ -240,6 +244,44 @@ const enforceCeiling = async (
 };
 
 /**
+ * The Development an article already reports, when it has been ingested before.
+ *
+ * - Important: a Data Source cites at most one Development, so re-ingesting an article must be a
+ *   no-op rather than a second move for an event that happened once. Every write checks this first,
+ *   which keeps ingestion idempotent even when a watermark fails to advance.
+ *
+ * @param dataSourceId - The article being considered.
+ * @param db - Prisma delegates.
+ */
+const existingCitationFor = async (
+  dataSourceId: string,
+  db: KnowledgeDb,
+): Promise<KnowledgeWriteResult | null> => {
+  const citation = await db.developmentCitation.findUnique({
+    where: { dataSourceId },
+    select: {
+      developmentId: true,
+      development: {
+        select: {
+          storylineId: true,
+          storyline: { select: { locked: true, lockedReason: true } },
+        },
+      },
+    },
+  });
+  if (citation === null) {
+    return null;
+  }
+
+  return {
+    storylineId: citation.development.storylineId,
+    developmentId: citation.developmentId,
+    locked: citation.development.storyline.locked,
+    lockedReason: citation.development.storyline.lockedReason,
+  };
+};
+
+/**
  * Opens a Storyline and its first Development from one article.
  *
  * @param body - The article and the anchors describing it.
@@ -249,6 +291,11 @@ export async function openKnowledgeStoryline(
   body: PostKnowledgeStorylinesBody,
   db: KnowledgeDb,
 ): Promise<KnowledgeWriteResult> {
+  const already = await existingCitationFor(body.dataSourceId, db);
+  if (already !== null) {
+    return already;
+  }
+
   const observedAt = new Date(body.observedAt);
   const storyline = await db.storyline.create({
     data: {
@@ -294,6 +341,11 @@ export async function openKnowledgeDevelopment(
   body: PostKnowledgeDevelopmentsBody,
   db: KnowledgeDb,
 ): Promise<KnowledgeWriteResult> {
+  const already = await existingCitationFor(body.dataSourceId, db);
+  if (already !== null) {
+    return already;
+  }
+
   const observedAt = new Date(body.observedAt);
   const development = await db.development.create({
     data: {
@@ -335,11 +387,16 @@ export async function citeKnowledgeDevelopment(
   body: PostKnowledgeDevelopmentCitationsBody,
   db: KnowledgeDb,
 ): Promise<KnowledgeWriteResult> {
-  await db.developmentCitation.createMany({
-    data: [
-      { developmentId: body.developmentId, dataSourceId: body.dataSourceId },
-    ],
-    skipDuplicates: true,
+  const already = await existingCitationFor(body.dataSourceId, db);
+  if (already !== null) {
+    return already;
+  }
+
+  await db.developmentCitation.create({
+    data: {
+      developmentId: body.developmentId,
+      dataSourceId: body.dataSourceId,
+    },
   });
   await writeDevelopmentAnchors(body.developmentId, body.anchors, [], db);
   await growStorylineAnchors(body.storylineId, body.anchors, db);

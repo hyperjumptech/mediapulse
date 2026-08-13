@@ -940,14 +940,16 @@ model DevelopmentAnchor {
 model DevelopmentCitation {
   id            String   @id @default(uuid())
   developmentId String   @map("development_id")
-  dataSourceId  String   @map("data_source_id")
+  /// Unique: an article reports exactly one move, so a Data Source cites at most one Development.
+  /// This is what makes re-ingesting an article a no-op instead of a second Development for an
+  /// event that only happened once.
+  dataSourceId  String   @unique @map("data_source_id")
   createdAt     DateTime @default(now()) @map("created_at")
 
   development Development @relation(fields: [developmentId], references: [id], onDelete: Cascade)
   dataSource  DataSource  @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
 
-  @@unique([developmentId, dataSourceId])
-  @@index([dataSourceId])
+  @@index([developmentId])
   @@map("development_citation")
 }
 
@@ -986,11 +988,11 @@ model KnowledgeIngestionRun {
   watermarkAt DateTime? @map("watermark_at")
 
   considered         Int     @default(0)
-  storylinesOpened   Int     @default(0)
-  developmentsOpened Int     @default(0)
-  citationsAdded     Int     @default(0)
-  storylinesLocked   Int     @default(0)
-  skippedNoAnchors   Int     @default(0)
+  storylinesOpened   Int     @default(0) @map("storylines_opened")
+  developmentsOpened Int     @default(0) @map("developments_opened")
+  citationsAdded     Int     @default(0) @map("citations_added")
+  storylinesLocked   Int     @default(0) @map("storylines_locked")
+  skippedNoAnchors   Int     @default(0) @map("skipped_no_anchors")
   stopReason         String? @map("stop_reason")
   durationMs         Int?    @map("duration_ms")
 
