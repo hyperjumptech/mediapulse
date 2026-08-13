@@ -45,6 +45,13 @@ export const knowledgeLockReason = (
 
 export const getKnowledgeCandidateSourcesQuerySchema = z.object({
   since: z.string().datetime().optional(),
+  /**
+   * Ignores the stored watermark and starts from the oldest Data Source.
+   *
+   * - Important: only for a deliberate rebuild. A scheduled run must leave this false, or it walks
+   *   the same prefix of the corpus on every invocation and never advances.
+   */
+  fromStart: z.coerce.boolean().default(false),
   take: z.coerce
     .number()
     .int()
@@ -64,7 +71,10 @@ const knowledgeCandidateSourceSchema = z.object({
 
 export const getKnowledgeCandidateSourcesResponseSchema = z.object({
   sources: z.array(knowledgeCandidateSourceSchema),
+  /** Newest observation in this batch, to be stored as the next run's starting point. */
   watermark: z.string().nullable(),
+  /** Where this batch actually started, whether from the caller, the stored watermark, or the beginning. */
+  resumedFrom: z.string().nullable(),
 });
 
 export const postKnowledgeStorylineCandidatesBodySchema = z.object({

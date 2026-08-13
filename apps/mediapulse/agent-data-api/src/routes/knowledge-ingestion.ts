@@ -33,6 +33,7 @@ export async function getKnowledgeCandidateSources(
       parsed.since,
       parsed.take,
       prisma,
+      parsed.fromStart,
     );
 
     return context.json(result, 200);

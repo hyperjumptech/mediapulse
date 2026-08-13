@@ -28,23 +28,48 @@ const dayOf = (value: Date | null): string | null =>
   value === null ? null : value.toISOString().slice(0, 10);
 
 /**
+ * Newest watermark left by a run that finished successfully.
+ *
+ * - Important: failed runs are ignored. Advancing past a batch that errored halfway would skip the
+ *   articles it never reached, and nothing would ever revisit them.
+ *
+ * @param db - Prisma delegates.
+ */
+export async function latestKnowledgeWatermark(
+  db: KnowledgeDb,
+): Promise<string | undefined> {
+  const run = await db.knowledgeIngestionRun.findFirst({
+    where: { status: "success", watermarkAt: { not: null } },
+    orderBy: { watermarkAt: "desc" },
+    select: { watermarkAt: true },
+  });
+
+  return run?.watermarkAt?.toISOString();
+}
+
+/**
  * Lists Data Sources for ingestion, oldest first.
  *
  * - Important: the whole collected corpus is returned, not only articles a Section admitted. A
  *   thread grouped from admitted articles alone would depend on the classification it is meant to
  *   inform, and would then amplify its own errors.
  *
- * @param since - Only sources created after this instant, when given.
+ * @param since - Only sources created after this instant. Falls back to the stored watermark.
  * @param take - Maximum sources to return.
  * @param db - Prisma delegates.
+ * @param fromStart - Ignores the stored watermark and rebuilds from the oldest Data Source.
  */
 export async function listKnowledgeCandidateSources(
   since: string | undefined,
   take: number,
   db: KnowledgeDb,
+  fromStart = false,
 ): Promise<GetKnowledgeCandidateSourcesResponse> {
+  const resumeAt =
+    since ?? (fromStart ? undefined : await latestKnowledgeWatermark(db));
   const rows = await db.dataSource.findMany({
-    where: since === undefined ? {} : { createdAt: { gt: new Date(since) } },
+    where:
+      resumeAt === undefined ? {} : { createdAt: { gt: new Date(resumeAt) } },
     orderBy: { createdAt: "asc" },
     take,
     select: {
@@ -71,7 +96,7 @@ export async function listKnowledgeCandidateSources(
   }));
   const watermark = rows.at(-1)?.createdAt.toISOString() ?? null;
 
-  return { sources, watermark };
+  return { sources, watermark, resumedFrom: resumeAt ?? null };
 }
 
 /**
