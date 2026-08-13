@@ -128,12 +128,13 @@ export const dedupeSourcesAgainstRecentBullets = (
     if (keptCount >= MIN_KEPT_PER_SECTION) {
       continue;
     }
-    // A figure match is not a fuzzy judgment, so it is never rescued. The rescue exists because
-    // lexical similarity can be wrong about a section's only candidate; repeating the same
-    // numbers a third morning is worse than shipping the section short.
-    const rescueCandidates = bucket
-      .filter((decision) => decision.drop && !decision.figureMatch)
-      .sort((left, right) => left.similarity - right.similarity);
+    const byNovelty = (left: Decision, right: Decision): number =>
+      left.similarity - right.similarity;
+    const dropped = bucket.filter((decision) => decision.drop);
+    const rescueCandidates = [
+      ...dropped.filter((decision) => !decision.figureMatch).sort(byNovelty),
+      ...dropped.filter((decision) => decision.figureMatch).sort(byNovelty),
+    ];
     const rescueNeeded = MIN_KEPT_PER_SECTION - keptCount;
     for (const decision of rescueCandidates.slice(0, rescueNeeded)) {
       decision.drop = false;
