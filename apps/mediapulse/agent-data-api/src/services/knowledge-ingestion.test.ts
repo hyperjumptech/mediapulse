@@ -34,6 +34,7 @@ const createDb = (overrides: Record<string, unknown> = {}) => {
     developmentCitation: {
       create: vi.fn().mockResolvedValue({}),
       createMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUnique: vi.fn().mockResolvedValue(null),
     },
     knowledgeIngestionRun: {
       create: vi.fn(),
@@ -103,6 +104,7 @@ describe("listKnowledgeCandidateSources", () => {
     const args = db.dataSource.findMany.mock.calls[0]?.[0];
 
     expect(args.where).toEqual({
+      developmentCitations: { none: {} },
       createdAt: { gt: new Date("2026-06-01T00:00:00.000Z") },
     });
     expect(args.take).toBe(50);
@@ -291,9 +293,8 @@ describe("knowledge writes", () => {
     );
 
     expect(db.development.create).not.toHaveBeenCalled();
-    expect(db.developmentCitation.createMany).toHaveBeenCalledWith({
-      data: [{ developmentId: "dev-1", dataSourceId: "ds-2" }],
-      skipDuplicates: true,
+    expect(db.developmentCitation.create).toHaveBeenCalledWith({
+      data: { developmentId: "dev-1", dataSourceId: "ds-2" },
     });
     expect(result.developmentId).toBe("dev-1");
   });
@@ -315,6 +316,7 @@ describe("watermark resume", () => {
     const args = db.dataSource.findMany.mock.calls[0]?.[0];
 
     expect(args.where).toEqual({
+      developmentCitations: { none: {} },
       createdAt: { gt: new Date("2026-07-01T00:00:00.000Z") },
     });
     expect(result.resumedFrom).toBe("2026-07-01T00:00:00.000Z");
@@ -363,7 +365,7 @@ describe("watermark resume", () => {
     );
     const args = db.dataSource.findMany.mock.calls[0]?.[0];
 
-    expect(args.where).toEqual({});
+    expect(args.where).toEqual({ developmentCitations: { none: {} } });
     expect(result.resumedFrom).toBeNull();
   });
 
@@ -371,5 +373,84 @@ describe("watermark resume", () => {
     const db = createDb();
 
     await expect(latestKnowledgeWatermark(db)).resolves.toBeUndefined();
+  });
+});
+
+describe("idempotency", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const alreadyIngested = {
+    developmentId: "dev-existing",
+    development: {
+      storylineId: "story-existing",
+      storyline: { locked: false, lockedReason: null },
+    },
+  };
+
+  it("does not open a second storyline for an article already ingested", async () => {
+    const db = createDb();
+    db.developmentCitation.findUnique.mockResolvedValue(alreadyIngested);
+
+    const result = await openKnowledgeStoryline(storylineBody, db);
+
+    expect(db.storyline.create).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      storylineId: "story-existing",
+      developmentId: "dev-existing",
+      locked: false,
+      lockedReason: null,
+    });
+  });
+
+  it("does not open a second development for an article already ingested", async () => {
+    const db = createDb();
+    db.developmentCitation.findUnique.mockResolvedValue(alreadyIngested);
+
+    await openKnowledgeDevelopment(
+      {
+        ...storylineBody,
+        storylineId: "story-1",
+        evidence: {
+          sharedAnchors: 5,
+          containment: 0.5,
+          storylineContainment: 0.6,
+          path: "body" as const,
+        },
+      },
+      db,
+    );
+
+    expect(db.development.create).not.toHaveBeenCalled();
+  });
+
+  it("does not add a second citation for an article already ingested", async () => {
+    const db = createDb();
+    db.developmentCitation.findUnique.mockResolvedValue(alreadyIngested);
+
+    await citeKnowledgeDevelopment(
+      {
+        storylineId: "story-1",
+        developmentId: "dev-1",
+        dataSourceId: "ds-2",
+        tickerIds: [],
+        observedAt: "2026-07-06T00:00:00.000Z",
+        anchors: ["telkom"],
+      },
+      db,
+    );
+
+    expect(db.developmentCitation.create).not.toHaveBeenCalled();
+  });
+
+  it("never offers a source that has already been ingested", async () => {
+    const db = createDb();
+    db.dataSource.findMany.mockResolvedValue([]);
+
+    await listKnowledgeCandidateSources(undefined, 100, db);
+    const args = db.dataSource.findMany.mock.calls[0]?.[0];
+
+    expect(args.where.developmentCitations).toEqual({ none: {} });
   });
 });

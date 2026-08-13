@@ -474,6 +474,8 @@ Storage for the Storyline knowledge base, read and written by the `knowledge-ing
 - `POST /api/v1/knowledge/development-citations` — adds one more reporting Data Source to a move already recorded.
 - `POST /api/v1/knowledge/ingestion-runs` and `POST /api/v1/knowledge/ingestion-runs/finish` — the run chronicle.
 
+A Data Source cites at most one Development, enforced by a unique constraint, because an article reports exactly one move. Candidate sources therefore exclude anything already cited, and every write returns the existing Development instead of creating a second one. Re-ingesting an article is a no-op rather than a duplicate move, so a watermark that fails to advance costs a wasted run and nothing else.
+
 Every write returns `{ storylineId, developmentId, locked, lockedReason }`. The ceiling (`KNOWLEDGE_MAX_TICKERS`, `KNOWLEDGE_MAX_DEVELOPMENTS`) is applied server-side on each write and the agent only counts the outcome, so the two cannot drift. A locked Storyline accepts no further automatic attachment until an operator rules on it, which is what stops one thread chaining across unrelated stories.
 
 ## Versioning
