@@ -116,6 +116,19 @@ services:
       - agent-data-api
     restart: unless-stopped
 
+  agent-knowledge-ingestion:
+    build:
+      context: .
+      dockerfile: apps/mediapulse/agents/knowledge-ingestion/Dockerfile
+    ports:
+      - 4013:4013
+    env_file:
+      - packages/mediapulse/env/.env
+    depends_on:
+      - agent-auth-api
+      - agent-data-api
+    restart: unless-stopped
+
   agent-content-generation:
     build:
       context: .

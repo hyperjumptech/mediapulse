@@ -31,6 +31,15 @@ import {
   postDataCollectionDeadUrlsRecord,
 } from "./routes/data-collection-dead-url.js";
 import {
+  getKnowledgeCandidateSources,
+  postKnowledgeDevelopmentCitations,
+  postKnowledgeDevelopments,
+  postKnowledgeIngestionRuns,
+  postKnowledgeIngestionRunsFinish,
+  postKnowledgeStorylineCandidates,
+  postKnowledgeStorylines,
+} from "./routes/knowledge-ingestion.js";
+import {
   postPublisherAuthority,
   postPublisherAuthorityStale,
 } from "./routes/publisher-authority.js";
@@ -183,6 +192,27 @@ const routeHandlers = {
   },
   dataCollectionDeadUrlsRecord: {
     post: postDataCollectionDeadUrlsRecord,
+  },
+  knowledgeCandidateSources: {
+    get: getKnowledgeCandidateSources,
+  },
+  knowledgeStorylineCandidates: {
+    post: postKnowledgeStorylineCandidates,
+  },
+  knowledgeStorylines: {
+    post: postKnowledgeStorylines,
+  },
+  knowledgeDevelopments: {
+    post: postKnowledgeDevelopments,
+  },
+  knowledgeDevelopmentCitations: {
+    post: postKnowledgeDevelopmentCitations,
+  },
+  knowledgeIngestionRuns: {
+    post: postKnowledgeIngestionRuns,
+  },
+  knowledgeIngestionRunsFinish: {
+    post: postKnowledgeIngestionRunsFinish,
   },
   publisherAuthorityStale: {
     post: postPublisherAuthorityStale,

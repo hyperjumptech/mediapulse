@@ -463,6 +463,19 @@ await dataApiClient.tickerDiscoveryRecord.create({
 });
 ```
 
+### Knowledge ingestion (`/api/v1/knowledge/*`)
+
+Storage for the Storyline knowledge base, read and written by the `knowledge-ingestion` agent.
+
+- `GET /api/v1/knowledge/candidate-sources` — Data Sources to consider, oldest first, with a `watermark` for the next run. Returns the whole collected corpus rather than only articles a Section admitted, because a thread grouped from admitted articles alone would depend on the classification it exists to inform. `text` prefers fetched `content` and falls back to the collection `description`.
+- `POST /api/v1/knowledge/storyline-candidates` — Storylines sharing at least one anchor with the candidate. Retrieval is by anchor, never by Ticker: Storylines are global, so narrowing by the candidate's own tickers would hide a thread opened under another issuer and fork it. Storylines flagged `format` are excluded.
+- `POST /api/v1/knowledge/storylines` — opens a Storyline and its first Development.
+- `POST /api/v1/knowledge/developments` — records the next move on an existing Storyline, storing the attach evidence.
+- `POST /api/v1/knowledge/development-citations` — adds one more reporting Data Source to a move already recorded.
+- `POST /api/v1/knowledge/ingestion-runs` and `POST /api/v1/knowledge/ingestion-runs/finish` — the run chronicle.
+
+Every write returns `{ storylineId, developmentId, locked, lockedReason }`. The ceiling (`KNOWLEDGE_MAX_TICKERS`, `KNOWLEDGE_MAX_DEVELOPMENTS`) is applied server-side on each write and the agent only counts the outcome, so the two cannot drift. A locked Storyline accepts no further automatic attachment until an operator rules on it, which is what stops one thread chaining across unrelated stories.
+
 ## Versioning
 
 - `agent-data-api` can serve multiple live versions (for example `v1`, `v2`) under `/api/<version>/...`.

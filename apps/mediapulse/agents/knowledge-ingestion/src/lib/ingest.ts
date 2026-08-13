@@ -1,60 +1,60 @@
+import type { KnowledgeWriteResult } from "@workspace/agent-data-api-contract";
+
 import {
   anchorsFor,
   decideAttachment,
-  lockReasonFor,
   type AttachEvidence,
   type Candidate,
   type StorylineSnapshot,
 } from "./attach.js";
 
 export type IngestCandidate = Candidate & {
-  observedAt: Date;
+  observedAt: string;
   tickerIds: readonly string[];
 };
 
 export type OpenStorylineCommand = {
   name: string;
-  observedAt: Date;
+  title: string;
+  observedAt: string;
   anchors: readonly string[];
   titleAnchors: readonly string[];
-  title: string;
+  figures: readonly string[];
   dataSourceId: string;
   tickerIds: readonly string[];
 };
 
-export type OpenDevelopmentCommand = {
+export type OpenDevelopmentCommand = OpenStorylineCommand & {
   storylineId: string;
-  title: string;
-  observedAt: Date;
-  anchors: readonly string[];
-  titleAnchors: readonly string[];
-  dataSourceId: string;
-  tickerIds: readonly string[];
   evidence: AttachEvidence;
 };
 
 export type CiteCommand = {
-  developmentId: string;
   storylineId: string;
+  developmentId: string;
   dataSourceId: string;
   tickerIds: readonly string[];
-  observedAt: Date;
+  observedAt: string;
+  anchors: readonly string[];
 };
 
 /**
- * Everything ingestion needs from storage. Kept as a port so the decision loop is exercised without
- * a database, and so the reader can retrieve by anchor rather than by scanning every Storyline.
+ * Everything ingestion needs from storage.
+ *
+ * - Important: the ceiling is applied by the writer, not here. Every write reports whether it locked
+ *   the Storyline, so the agent counts the outcome instead of deciding it and the two cannot drift.
  */
 export type KnowledgeStore = {
   findStorylinesByAnchors: (
     anchors: readonly string[],
   ) => Promise<StorylineSnapshot[]>;
-  openStoryline: (command: OpenStorylineCommand) => Promise<string>;
-  openDevelopment: (command: OpenDevelopmentCommand) => Promise<string>;
-  cite: (command: CiteCommand) => Promise<void>;
-  tickerCountFor: (storylineId: string) => Promise<number>;
-  developmentCountFor: (storylineId: string) => Promise<number>;
-  lockStoryline: (storylineId: string, reason: string) => Promise<void>;
+  openStoryline: (
+    command: OpenStorylineCommand,
+  ) => Promise<KnowledgeWriteResult>;
+  openDevelopment: (
+    command: OpenDevelopmentCommand,
+  ) => Promise<KnowledgeWriteResult>;
+  cite: (command: CiteCommand) => Promise<KnowledgeWriteResult>;
 };
 
 export type IngestTally = {
@@ -76,24 +76,6 @@ const emptyTally = (): IngestTally => ({
 });
 
 /**
- * Locks a Storyline that has grown past either ceiling, so it stops accepting further attachment.
- */
-const enforceCeiling = async (
-  store: KnowledgeStore,
-  storylineId: string,
-  tally: IngestTally,
-): Promise<void> => {
-  const tickerCount = await store.tickerCountFor(storylineId);
-  const developmentCount = await store.developmentCountFor(storylineId);
-  const reason = lockReasonFor(tickerCount, developmentCount);
-  if (reason === null) {
-    return;
-  }
-  await store.lockStoryline(storylineId, reason);
-  tally.storylinesLocked += 1;
-};
-
-/**
  * Runs every candidate article through the attach decision and applies it.
  *
  * - Important: candidates must be supplied oldest first. A Storyline's history is append-only, so
@@ -108,6 +90,15 @@ export const ingestCandidates = async (
   store: KnowledgeStore,
 ): Promise<IngestTally> => {
   const tally = emptyTally();
+  const alreadyLocked = new Set<string>();
+
+  const countLock = (result: KnowledgeWriteResult): void => {
+    if (!result.locked || alreadyLocked.has(result.storylineId)) {
+      return;
+    }
+    alreadyLocked.add(result.storylineId);
+    tally.storylinesLocked += 1;
+  };
 
   for (const candidate of candidates) {
     tally.considered += 1;
@@ -120,6 +111,7 @@ export const ingestCandidates = async (
 
     const anchorList = [...anchors.anchors];
     const titleAnchorList = [...anchors.titleAnchors];
+    const figureList = [...anchors.figures];
     const storylines = await store.findStorylinesByAnchors(anchorList);
     const decision = decideAttachment(
       anchors,
@@ -132,46 +124,47 @@ export const ingestCandidates = async (
       continue;
     }
 
+    const base = {
+      name: candidate.title,
+      title: candidate.title,
+      observedAt: candidate.observedAt,
+      anchors: anchorList,
+      titleAnchors: titleAnchorList,
+      figures: figureList,
+      dataSourceId: candidate.dataSourceId,
+      tickerIds: candidate.tickerIds,
+    };
+
     if (decision.kind === "openStoryline") {
-      await store.openStoryline({
-        name: candidate.title,
-        observedAt: candidate.observedAt,
-        anchors: anchorList,
-        titleAnchors: titleAnchorList,
-        title: candidate.title,
-        dataSourceId: candidate.dataSourceId,
-        tickerIds: candidate.tickerIds,
-      });
+      countLock(await store.openStoryline(base));
       tally.storylinesOpened += 1;
       tally.developmentsOpened += 1;
       continue;
     }
 
     if (decision.kind === "openDevelopment") {
-      await store.openDevelopment({
-        storylineId: decision.storylineId,
-        title: candidate.title,
-        observedAt: candidate.observedAt,
-        anchors: anchorList,
-        titleAnchors: titleAnchorList,
-        dataSourceId: candidate.dataSourceId,
-        tickerIds: candidate.tickerIds,
-        evidence: decision.evidence,
-      });
+      countLock(
+        await store.openDevelopment({
+          ...base,
+          storylineId: decision.storylineId,
+          evidence: decision.evidence,
+        }),
+      );
       tally.developmentsOpened += 1;
-      await enforceCeiling(store, decision.storylineId, tally);
       continue;
     }
 
-    await store.cite({
-      developmentId: decision.developmentId,
-      storylineId: decision.storylineId,
-      dataSourceId: candidate.dataSourceId,
-      tickerIds: candidate.tickerIds,
-      observedAt: candidate.observedAt,
-    });
+    countLock(
+      await store.cite({
+        storylineId: decision.storylineId,
+        developmentId: decision.developmentId,
+        dataSourceId: candidate.dataSourceId,
+        tickerIds: candidate.tickerIds,
+        observedAt: candidate.observedAt,
+        anchors: anchorList,
+      }),
+    );
     tally.citationsAdded += 1;
-    await enforceCeiling(store, decision.storylineId, tally);
   }
 
   return tally;
