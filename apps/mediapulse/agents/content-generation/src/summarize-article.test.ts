@@ -45,6 +45,30 @@ describe("SUMMARIZE_ARTICLE_SYSTEM_PROMPT", () => {
     );
   });
 
+  it("refuses a claim the headline makes and the body never establishes", () => {
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "A headline is not a source",
+    );
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "leave out anything the headline states that the body never establishes",
+    );
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "return no points at all",
+    );
+  });
+
+  it("requires a claim to name the party who made it", () => {
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "Attribute a claim to whoever made it",
+    );
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "said, claimed, denied, testified, or projected",
+    );
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "reads to the reader as a settled finding",
+    );
+  });
+
   it("confines an item to the company its headline is about", () => {
     expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
       "report only the facts about the company its headline is about",
