@@ -94,4 +94,85 @@ describe("validateWithJsonSchema", () => {
     const invalidResult = validateWithJsonSchema(schema, invalidData);
     expect(invalidResult.valid).toBe(false);
   });
+
+  it("defers format validation for a string holding a variable placeholder", () => {
+    // Setup
+    const schema = {
+      type: "object",
+      properties: {
+        resend: {
+          type: "object",
+          properties: {
+            from: { type: "string", minLength: 1 },
+            replyTo: { type: "string", format: "email" },
+          },
+        },
+      },
+    };
+    const data = {
+      resend: {
+        from: "MediaPulse <ceo@mediapulse.hyperjump.tech>",
+        replyTo: "{{RESEND_REPLY_TO}}",
+      },
+    };
+
+    // Act
+    const result = validateWithJsonSchema(schema, data);
+
+    // Assert
+    expect(result.valid).toBe(true);
+  });
+
+  it("defers pattern validation for a string holding a variable placeholder", () => {
+    // Setup
+    const schema = {
+      type: "object",
+      properties: {
+        region: { type: "string", pattern: "^[a-z]{2}-[a-z]+-[0-9]$" },
+      },
+    };
+
+    // Act
+    const result = validateWithJsonSchema(schema, { region: "{{AWS_REGION}}" });
+
+    // Assert
+    expect(result.valid).toBe(true);
+  });
+
+  it("still rejects a concrete value that fails the format", () => {
+    // Setup
+    const schema = {
+      type: "object",
+      properties: { replyTo: { type: "string", format: "email" } },
+    };
+
+    // Act
+    const result = validateWithJsonSchema(schema, { replyTo: "not-an-email" });
+
+    // Assert
+    expect(result.valid).toBe(false);
+  });
+
+  it("still reports non-format errors on an object that also holds a placeholder", () => {
+    // Setup
+    const schema = {
+      type: "object",
+      properties: {
+        replyTo: { type: "string", format: "email" },
+        retries: { type: "number" },
+      },
+      required: ["replyTo", "retries"],
+    };
+    const data = { replyTo: "{{RESEND_REPLY_TO}}", retries: "three" };
+
+    // Act
+    const result = validateWithJsonSchema(schema, data);
+
+    // Assert
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors.some((e) => e.includes("/retries"))).toBe(true);
+      expect(result.errors.some((e) => e.includes("/replyTo"))).toBe(false);
+    }
+  });
 });
