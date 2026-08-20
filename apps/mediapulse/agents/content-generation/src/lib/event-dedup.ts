@@ -194,8 +194,14 @@ const findSameDayTitleMatch = (
 };
 
 /**
- * Orders candidates so the copy most likely to ship is seen first: canonical section priority, then
- * `sectionScore` descending, then the caller's ordering.
+ * Orders candidates so the copy most likely to ship is seen first: `sectionScore` descending, then
+ * canonical section priority, then the caller's ordering.
+ *
+ * - Important: score leads, not section. Ranking section first let a weak copy in an earlier
+ *   section delete a strong copy in a later one, because the first copy visited is the one that
+ *   survives. On 2026-08-20 a `dealsAndMovements` article at 0.80 was dropped against a
+ *   `competitiveLandscape` article at 0.60 for no reason other than section order, taking the
+ *   day's largest story out of the newsletter.
  */
 const orderByPlacementPriority = (
   sources: readonly SourceForGeneration[],
@@ -209,13 +215,13 @@ const orderByPlacementPriority = (
   return sources
     .map((source, order) => ({ source, order }))
     .sort((left, right) => {
-      const rankDiff = rankOf(left.source) - rankOf(right.source);
-      if (rankDiff !== 0) {
-        return rankDiff;
-      }
       const scoreDiff = compareSourcesForRanking(left.source, right.source);
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+      const rankDiff = rankOf(left.source) - rankOf(right.source);
 
-      return scoreDiff !== 0 ? scoreDiff : left.order - right.order;
+      return rankDiff !== 0 ? rankDiff : left.order - right.order;
     });
 };
 
@@ -224,9 +230,10 @@ const orderByPlacementPriority = (
  * higher-priority placement, worded differently enough that lexical title dedup misses it.
  *
  * Events are keyed by distinctive, translation-stable anchors (named entities and multi-digit
- * figures) drawn from each source's title and lead body text. Candidates are visited in placement
- * priority order, so the best-placed copy of an event wins and later duplicates drop. Runs before
- * any LLM call, so a duplicate never costs a summarization request.
+ * figures) drawn from each source's title and lead body text. Candidates are visited highest
+ * `sectionScore` first, so the strongest copy of an event wins and weaker duplicates drop against
+ * it whatever section each sits in. Runs before any LLM call, so a duplicate never costs a
+ * summarization request.
  *
  * A second, narrower path catches two outlets covering one story on the same day with lead
  * paragraphs too different for the body guard: same publish day plus
