@@ -801,6 +801,79 @@ describe("generateNewsletterWithLlm — summarizer failures", () => {
     expect(result.content).toContain("BRI shares closed higher on the day");
   });
 
+  it("drops a point naming operators the article's own title never names", async () => {
+    const sources: SourceForGeneration[] = [
+      {
+        dataSourceId: "ds-ntt",
+        url: "https://nasional.kompas.com/read/gempa-ntt-200-bts",
+        title:
+          "Gempa NTT: 200 BTS Terdampak, Komdigi Pantau Pemulihan Jaringan Komunikasi",
+        content:
+          "Gempa Magnitudo 7,7 di Flores sebabkan gangguan serius pada 200 BTS Telkomsel, XLsmart, & Indosat di NTT. Komdigi terus pantau pemulihan.",
+        contentIsDescriptionOnly: true,
+        section: "regulatoryPolicyWatch",
+        sectionScore: 0.5,
+      },
+    ];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async () => ({
+        object: {
+          title: "NTT Earthquake: 200 BTS Affected, Komdigi Monitors Recovery",
+          points: [
+            "The quake disrupted 200 BTS from Telkomsel, XLsmart, and Indosat in NTT",
+            "Komdigi is monitoring the recovery of the communication networks",
+          ],
+        },
+      }),
+    });
+
+    const result = await generateNewsletterWithLlm(
+      sources,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(result.content).not.toContain("Telkomsel");
+    expect(result.content).not.toContain("Indosat");
+    expect(result.content).toContain(
+      "Komdigi is monitoring the recovery of the communication networks",
+    );
+  });
+
+  it("keeps a description-only point whose names the title carries", async () => {
+    const sources: SourceForGeneration[] = [
+      {
+        dataSourceId: "ds-bi",
+        url: "https://example.com/bi-kki",
+        title: "BI Luncurkan Kartu Kredit Indonesia",
+        content: "Bank Indonesia meluncurkan Kartu Kredit Indonesia.",
+        contentIsDescriptionOnly: true,
+        section: "regulatoryPolicyWatch",
+        sectionScore: 0.8,
+      },
+    ];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async () => ({
+        object: {
+          title: "BI launches the Indonesian Credit Card",
+          points: [
+            "The central bank said Bank Indonesia launched the Indonesian Credit Card",
+          ],
+        },
+      }),
+    });
+
+    const result = await generateNewsletterWithLlm(
+      sources,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(result.content).toContain("Bank Indonesia launched");
+  });
+
   it("keeps a figure-bearing point when the source carries a fetched body", async () => {
     const sources: SourceForGeneration[] = [
       {
