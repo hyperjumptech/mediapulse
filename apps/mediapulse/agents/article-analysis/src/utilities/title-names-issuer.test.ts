@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import type { AnalysisTickerContext } from "@workspace/agent-data-api-contract";
 
-import { titleNamesIssuer } from "./title-names-issuer.js";
+import { textNamesIssuer, titleNamesIssuer } from "./title-names-issuer.js";
 
 const ticker = (
   overrides: Partial<AnalysisTickerContext>,
@@ -97,5 +97,54 @@ describe("titleNamesIssuer", () => {
 
   it("returns false without ticker context", () => {
     expect(titleNamesIssuer("Bank Raya posts Q2 profit", null)).toBe(false);
+  });
+});
+
+describe("textNamesIssuer", () => {
+  it("matches an alias that appears only in the body", () => {
+    const agro = ticker({
+      aliases: ["AGRO", "BRI Agroniaga", "Bank Raya", "Bank Raya Indonesia"],
+    });
+
+    expect(
+      textNamesIssuer(
+        "Digital lending grows\nThe report singles out Bank Raya as the fastest grower.",
+        agro,
+      ),
+    ).toBe(true);
+  });
+
+  it("does not match a parent company named without the issuer", () => {
+    const agro = ticker({
+      aliases: ["AGRO", "BRI Agroniaga", "Bank Raya", "Bank Raya Indonesia"],
+    });
+
+    expect(
+      textNamesIssuer(
+        "Hadir Serentak di 131 Lokasi, BRI KKB National Expo Raih Rekor MURI\nBRI menggelar expo serentak di 131 lokasi dan meraih rekor MURI.",
+        agro,
+      ),
+    ).toBe(false);
+  });
+
+  it("does not match a competitor named without the issuer", () => {
+    const tlkm = ticker({
+      symbol: "TLKM",
+      name: "PT Telkom Indonesia (Persero) Tbk",
+      aliases: ["TLKM", "IndiHome", "Telkomsel", "Telkom"],
+    });
+
+    expect(
+      textNamesIssuer(
+        "Indosat Bidik Pendapatan AI Neocloud US$100 Juta pada 2026",
+        tlkm,
+      ),
+    ).toBe(false);
+  });
+
+  it("returns false for empty text", () => {
+    expect(textNamesIssuer("   ", ticker({ aliases: ["Bank Raya"] }))).toBe(
+      false,
+    );
   });
 });

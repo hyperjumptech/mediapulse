@@ -21,15 +21,29 @@ const matches = (title: string, alias: string): boolean => {
   return pattern.test(title);
 };
 
-export const titleNamesIssuer = (
-  title: string,
+/**
+ * Whether any text names the issuer by symbol, registered name, or alias.
+ *
+ * - Important: a bare symbol match is deliberate, so a foreign company sharing the symbol reads as
+ *   issuer coverage here. Callers that cannot tolerate that must rule out a homonym separately.
+ *
+ * @param text - Text to search.
+ * @param ticker - Issuer context, or `null` when none was supplied.
+ */
+export const textNamesIssuer = (
+  text: string,
   ticker: AnalysisTickerContext | null,
 ): boolean => {
-  if (ticker === null || title.trim().length === 0) {
+  if (ticker === null || text.trim().length === 0) {
     return false;
   }
 
   const candidates = [ticker.symbol, ticker.name, ...ticker.aliases];
 
-  return candidates.some((candidate) => matches(title, candidate));
+  return candidates.some((candidate) => matches(text, candidate));
 };
+
+export const titleNamesIssuer = (
+  title: string,
+  ticker: AnalysisTickerContext | null,
+): boolean => textNamesIssuer(title, ticker);
