@@ -23,6 +23,15 @@ export type EventDedupResult = {
   sources: SourceForGeneration[];
   removedCount: number;
   drops: EventDedupDrop[];
+  /**
+   * Sources removed as duplicates, in the order they were visited.
+   *
+   * - Important: another outlet's report of the same event is the ideal stand-in when the copy kept
+   *   here fails to summarize. Discarding these left AADI with no Competitive Landscape section on
+   *   2026-08-20: six articles were accepted, dedup kept two, both failed to summarize, and the four
+   *   alternates covering the same event had already been thrown away.
+   */
+  duplicates: SourceForGeneration[];
 };
 
 /**
@@ -252,6 +261,7 @@ export const dedupeCrossSectionSourceEvents = (
   const corpus: EventEntry[] = [];
   const drops: EventDedupDrop[] = [];
   const keptOrders = new Set<number>();
+  const duplicates: SourceForGeneration[] = [];
 
   for (const entry of orderByPlacementPriority(sources)) {
     const sectionKey = sectionKeyOf(entry.source);
@@ -269,6 +279,7 @@ export const dedupeCrossSectionSourceEvents = (
         containment: roundTwo(match.containment),
         title: entry.source.title,
       });
+      duplicates.push(entry.source);
       continue;
     }
     keptOrders.add(entry.order);
@@ -284,5 +295,5 @@ export const dedupeCrossSectionSourceEvents = (
 
   const kept = sources.filter((_source, order) => keptOrders.has(order));
 
-  return { sources: kept, removedCount: drops.length, drops };
+  return { sources: kept, removedCount: drops.length, drops, duplicates };
 };

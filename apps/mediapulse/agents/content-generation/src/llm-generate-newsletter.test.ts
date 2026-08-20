@@ -563,6 +563,114 @@ describe("generateNewsletterWithLlm — summarizer failures", () => {
     ]);
   });
 
+  it("promotes a dedup-dropped copy when the kept representative fails to summarize", async () => {
+    // Mirrors AADI on 2026-08-20: several outlets covered one event, dedup kept one, that copy
+    // failed to summarize, and the section was removed because the alternates had been discarded.
+    const oneEvent: SourceForGeneration[] = [
+      {
+        dataSourceId: "ds-byan-1",
+        url: "https://example.com/byan-1",
+        title: "Saham BYAN melesat usai isu diakuisisi Haji Isam",
+        content:
+          "Shares of Bayan Resources jumped after reports that Haji Isam would acquire a controlling stake in BYAN.",
+        section: "competitiveLandscape",
+        sectionScore: 0.8,
+      },
+      {
+        dataSourceId: "ds-byan-2",
+        url: "https://example.com/byan-2",
+        title: "Bayan Resources buka suara soal rumor akuisisi Haji Isam",
+        content:
+          "Bayan Resources responded to reports that Haji Isam would acquire a controlling stake in BYAN.",
+        section: "competitiveLandscape",
+        sectionScore: 0.6,
+      },
+      ...testSources.filter((entry) => entry.section === "quickHits"),
+    ];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => {
+        if (
+          promptTitle(args.prompt) ===
+          "Saham BYAN melesat usai isu diakuisisi Haji Isam"
+        ) {
+          throw nonRetryableError;
+        }
+
+        return {
+          object: {
+            title: promptTitle(args.prompt),
+            points: [`Key fact from ${promptTitle(args.prompt)}`],
+          },
+        };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      oneEvent,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+    const parsed = readNewsletterDocument(result.content);
+
+    expect(result.summaryBackfill?.recovered).toBe(1);
+    expect(result.sectionFillSnapshot?.sectionsRemoved).toEqual([]);
+    expect(
+      parsed?.sections
+        .find((section) => section.key === "competitive-landscape")
+        ?.articles.map((entry) => entry.title),
+    ).toStrictEqual([
+      "Bayan Resources buka suara soal rumor akuisisi Haji Isam",
+    ]);
+  });
+
+  it("never ships a dedup-dropped copy when its representative summarized", async () => {
+    const oneEvent: SourceForGeneration[] = [
+      {
+        dataSourceId: "ds-byan-1",
+        url: "https://example.com/byan-1",
+        title: "Saham BYAN melesat usai isu diakuisisi Haji Isam",
+        content:
+          "Shares of Bayan Resources jumped after reports that Haji Isam would acquire a controlling stake in BYAN.",
+        section: "competitiveLandscape",
+        sectionScore: 0.8,
+      },
+      {
+        dataSourceId: "ds-byan-2",
+        url: "https://example.com/byan-2",
+        title: "Bayan Resources buka suara soal rumor akuisisi Haji Isam",
+        content:
+          "Bayan Resources responded to reports that Haji Isam would acquire a controlling stake in BYAN.",
+        section: "competitiveLandscape",
+        sectionScore: 0.6,
+      },
+      ...testSources.filter((entry) => entry.section === "quickHits"),
+    ];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => ({
+        object: {
+          title: promptTitle(args.prompt),
+          points: [`Key fact from ${promptTitle(args.prompt)}`],
+        },
+      }),
+    });
+
+    const result = await generateNewsletterWithLlm(
+      oneEvent,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+    const parsed = readNewsletterDocument(result.content);
+
+    expect(result.summaryBackfill).toBeUndefined();
+    expect(
+      parsed?.sections
+        .find((section) => section.key === "competitive-landscape")
+        ?.articles.map((entry) => entry.title),
+    ).toStrictEqual(["Saham BYAN melesat usai isu diakuisisi Haji Isam"]);
+  });
+
   it("keeps a section alive by promoting its reserve when the selected article fails", async () => {
     const withReserve: SourceForGeneration[] = [
       ...testSources,

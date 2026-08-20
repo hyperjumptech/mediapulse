@@ -29,6 +29,51 @@ const scored = (
 });
 
 describe("dedupeCrossSectionSourceEvents", () => {
+  it("returns the copies it dropped so they can stand in later", () => {
+    const sources = [
+      scored(
+        "Saham BYAN melesat usai isu diakuisisi Haji Isam",
+        "Shares of Bayan Resources jumped after reports that Haji Isam would acquire a controlling stake in BYAN.",
+        "competitiveLandscape",
+        0.8,
+      ),
+      scored(
+        "Bayan Resources buka suara soal rumor akuisisi Haji Isam",
+        "Bayan Resources responded to reports that Haji Isam would acquire a controlling stake in BYAN.",
+        "competitiveLandscape",
+        0.6,
+      ),
+    ];
+
+    const result = dedupeCrossSectionSourceEvents(sources);
+
+    expect(titleOf(result.sources)).toStrictEqual([
+      "Saham BYAN melesat usai isu diakuisisi Haji Isam",
+    ]);
+    expect(titleOf(result.duplicates)).toStrictEqual([
+      "Bayan Resources buka suara soal rumor akuisisi Haji Isam",
+    ]);
+  });
+
+  it("returns no duplicates when nothing was dropped", () => {
+    const sources = [
+      source(
+        "Telkomsel wins block",
+        "Telkomsel secured the largest 700 spectrum block in the auction.",
+        "competitiveLandscape",
+      ),
+      source(
+        "New numbering rules",
+        "Kominfo issued fresh mobile numbering portability rules effective next quarter.",
+        "regulatoryPolicyWatch",
+      ),
+    ];
+
+    const result = dedupeCrossSectionSourceEvents(sources);
+
+    expect(result.duplicates).toStrictEqual([]);
+  });
+
   it("keeps the higher-scoring copy even when it sits in a later-ranked section", () => {
     const sources = [
       scored(

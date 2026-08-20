@@ -622,6 +622,7 @@ export async function generateNewsletterWithLlm(
     }
   }
 
+  let dedupedDuplicates: SourceForGeneration[] = [];
   let crossSectionEventDedupSummary:
     | { removedCount: number; drops: EventDedupDrop[] }
     | undefined;
@@ -632,6 +633,7 @@ export async function generateNewsletterWithLlm(
       CONTENT_GENERATION_CONSTANTS.eventDedup.minContainment,
     );
     candidateSources = eventDeduped.sources;
+    dedupedDuplicates = eventDeduped.duplicates;
     if (eventDeduped.removedCount > 0) {
       crossSectionEventDedupSummary = {
         removedCount: eventDeduped.removedCount,
@@ -664,6 +666,13 @@ export async function generateNewsletterWithLlm(
   }
 
   const selection = selectArticles(candidateSources);
+  // A duplicate covers the same event as the copy that displaced it, so it stands in when that copy
+  // fails to summarize. Ranked behind the genuine per-section overflow, and only ever reached
+  // through backfill, so it can never ship alongside its own representative.
+  const reserve = [
+    ...selection.reserve,
+    ...selectArticles(dedupedDuplicates).selected,
+  ];
   logger.info(
     {
       tickerId: context.tickerId,
@@ -858,7 +867,7 @@ export async function generateNewsletterWithLlm(
 
   const backfill = await backfillFailedSections({
     outcomes: firstPassOutcomes,
-    reserve: selection.reserve,
+    reserve,
     summarize: summarizeEntry,
   });
   const summaryOutcomes = backfill.outcomes;
