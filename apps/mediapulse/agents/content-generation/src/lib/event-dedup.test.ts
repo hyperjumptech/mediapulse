@@ -18,7 +18,65 @@ const source = (
 const titleOf = (sources: readonly SourceForGeneration[]): string[] =>
   sources.map((entry) => entry.title);
 
+const scored = (
+  title: string,
+  content: string,
+  section: string,
+  sectionScore: number,
+): SourceForGeneration => ({
+  ...source(title, content, section),
+  sectionScore,
+});
+
 describe("dedupeCrossSectionSourceEvents", () => {
+  it("keeps the higher-scoring copy even when it sits in a later-ranked section", () => {
+    const sources = [
+      scored(
+        "Bayan Resources buka suara soal rumor akuisisi Haji Isam",
+        "Bayan Resources responded to reports that Haji Isam would acquire a controlling stake in BYAN.",
+        "competitiveLandscape",
+        0.6,
+      ),
+      scored(
+        "Saham BYAN melesat usai isu diakuisisi Haji Isam",
+        "Shares of Bayan Resources jumped after reports that Haji Isam would acquire a controlling stake in BYAN.",
+        "dealsAndMovements",
+        0.8,
+      ),
+    ];
+
+    const result = dedupeCrossSectionSourceEvents(sources);
+
+    expect(titleOf(result.sources)).toStrictEqual([
+      "Saham BYAN melesat usai isu diakuisisi Haji Isam",
+    ]);
+    expect(result.drops[0]?.sectionKey).toBe("competitiveLandscape");
+    expect(result.drops[0]?.matchedSectionKey).toBe("dealsAndMovements");
+  });
+
+  it("falls back to canonical section rank when scores tie", () => {
+    const sources = [
+      scored(
+        "Saham BYAN melesat usai isu diakuisisi Haji Isam",
+        "Shares of Bayan Resources jumped after reports that Haji Isam would acquire a controlling stake in BYAN.",
+        "dealsAndMovements",
+        0.6,
+      ),
+      scored(
+        "Bayan Resources buka suara soal rumor akuisisi Haji Isam",
+        "Bayan Resources responded to reports that Haji Isam would acquire a controlling stake in BYAN.",
+        "competitiveLandscape",
+        0.6,
+      ),
+    ];
+
+    const result = dedupeCrossSectionSourceEvents(sources);
+
+    expect(titleOf(result.sources)).toStrictEqual([
+      "Bayan Resources buka suara soal rumor akuisisi Haji Isam",
+    ]);
+  });
+
   it("drops a lower-priority source that repeats a higher-priority section's event", () => {
     const sources = [
       source(
