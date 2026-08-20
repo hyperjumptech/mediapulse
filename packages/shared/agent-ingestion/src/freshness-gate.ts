@@ -13,6 +13,23 @@ export type FreshnessGateConfig = {
 };
 
 /**
+ * Whether a publication date sits beyond the tolerated clock skew ahead of now.
+ *
+ * - Important: a date parsed out of body text is often not the publication date but a date the
+ *   article mentions, such as when a policy takes effect. Callers that persist an extracted date
+ *   use this to reject those without also applying an age limit.
+ *
+ * @param publishedAt - Candidate publication date.
+ * @param now - Reference time.
+ */
+export const isFutureDated = (
+  publishedAt: Date,
+  now: Date = new Date(),
+): boolean =>
+  publishedAt.getTime() >
+  now.getTime() + MAX_FUTURE_TOLERANCE_DAYS * MS_PER_DAY;
+
+/**
  * Returns whether a page is fresh enough to persist based on its publication date.
  *
  * @param publishedAt - Extracted publication date, or `null` when unknown.
@@ -33,10 +50,7 @@ export const isFresh = (
       : { fresh: false, reason: "unknown_date" };
   }
 
-  const futureLimit = new Date(
-    now.getTime() + MAX_FUTURE_TOLERANCE_DAYS * MS_PER_DAY,
-  );
-  if (publishedAt > futureLimit) {
+  if (isFutureDated(publishedAt, now)) {
     return { fresh: false, reason: "future_dated" };
   }
 

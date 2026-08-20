@@ -4,6 +4,7 @@ import {
   extractPublishedDate,
   HostErrorTracker,
   hostFromUrl,
+  isFutureDated,
   performWebFetch,
   resolveDeadUrls,
   runQualityGate,
@@ -21,6 +22,32 @@ import type {
 
 import type { ResolvedContentGenerationConfig } from "./config-schema.js";
 import { compareSourcesForRanking } from "./lib/rank-sources.js";
+
+/**
+ * Keeps an extracted publication date only when it is not in the future.
+ *
+ * - Important: a date drawn from body text is often not the publication date. On 2026-08-20 an
+ *   article about Bank Indonesia's QRIS policy was stamped 2026-10-01, the date the policy takes
+ *   effect, six weeks after the run. `published_at` drives recency ranking, section freshness, and
+ *   event dedup's same-day path, so a future stamp outranks genuinely fresh sources indefinitely.
+ *
+ * Only the future check applies. Age is settled at collection, and re-applying it here would drop
+ * older sources a section still tolerates.
+ *
+ * @param publishedAt - Date extracted from the fetched page, or `null` when none was found.
+ * @param now - Reference time, injectable for testing.
+ * @returns The date when usable, otherwise `undefined`.
+ */
+export const acceptablePublishedDate = (
+  publishedAt: Date | null,
+  now: Date = new Date(),
+): Date | undefined => {
+  if (publishedAt === null) {
+    return undefined;
+  }
+
+  return isFutureDated(publishedAt, now) ? undefined : publishedAt;
+};
 
 export type RequestedFetchSource = {
   dataSourceId: string;
@@ -231,11 +258,13 @@ export async function fetchSourceBodies(
       return;
     }
 
-    const publishedAt = extractPublishedDate({
-      ...(page.fetchMetadata ? { fetchMetadata: page.fetchMetadata } : {}),
-      content: page.content,
-      url: source.url,
-    })?.toISOString();
+    const publishedAt = acceptablePublishedDate(
+      extractPublishedDate({
+        ...(page.fetchMetadata ? { fetchMetadata: page.fetchMetadata } : {}),
+        content: page.content,
+        url: source.url,
+      }),
+    )?.toISOString();
 
     fetchedContentById.set(source.dataSourceId, {
       content: page.content,

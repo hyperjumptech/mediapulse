@@ -75,6 +75,7 @@ export {
 
 export {
   isFresh,
+  isFutureDated,
   type FreshnessDecision,
   type FreshnessGateConfig,
 } from "./freshness-gate";
