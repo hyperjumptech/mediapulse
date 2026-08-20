@@ -42,6 +42,14 @@ export type SelectArticlesReport = {
 
 export type SelectArticlesResult = {
   selected: SelectedArticle[];
+  /**
+   * Candidates ranked past the per-section cap, kept in rank order.
+   *
+   * - Important: a selected article that fails to summarize leaves its section short, and an
+   *   emptied section is dropped from the newsletter. The reserve lets the caller promote the
+   *   next-ranked candidate instead of shipping without the section.
+   */
+  reserve: SelectedArticle[];
   report: SelectArticlesReport;
 };
 
@@ -72,7 +80,8 @@ const toSectionKey = (
  * newsletter's shape does not depend on input order.
  *
  * @param sources - Candidate sources, already deduplicated.
- * @returns Selected articles in render order, plus a report of what was dropped.
+ * @returns Selected articles in render order, the ranked reserve past the cap, and a report of
+ *   what was dropped.
  */
 export const selectArticles = (
   sources: readonly SourceForGeneration[],
@@ -109,6 +118,7 @@ export const selectArticles = (
 
   let droppedOverCap = 0;
   const selected: SelectedArticle[] = [];
+  const reserve: SelectedArticle[] = [];
 
   for (const sectionKey of NEWSLETTER_SECTION_KEYS) {
     const bucket = bySection.get(sectionKey);
@@ -124,10 +134,14 @@ export const selectArticles = (
     for (const entry of ranked.slice(0, MAX_ARTICLES_PER_SECTION)) {
       selected.push({ sectionKey, source: entry.source });
     }
+    for (const entry of ranked.slice(MAX_ARTICLES_PER_SECTION)) {
+      reserve.push({ sectionKey, source: entry.source });
+    }
   }
 
   return {
     selected,
+    reserve,
     report: {
       droppedUnassigned,
       droppedOverCap,
