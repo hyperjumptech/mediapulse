@@ -21,7 +21,10 @@ import {
   type AcceptanceCriteriaRule,
 } from "./config-schema.js";
 import { namesForeignSymbolHomonym } from "./utilities/foreign-symbol-homonym.js";
-import { titleNamesIssuer } from "./utilities/title-names-issuer.js";
+import {
+  textNamesIssuer,
+  titleNamesIssuer,
+} from "./utilities/title-names-issuer.js";
 import { isUserGeneratedHost } from "@workspace/utils";
 
 /** Article content past this many characters is truncated before classification. */
@@ -638,10 +641,26 @@ export const rejectEmptySource = (
  * @param url - Article URL.
  * @returns The section ids this source cannot be assigned to.
  */
-const sectionsClosedToSource = (
-  url: string | null | undefined,
-): ReadonlySet<string> =>
-  isUserGeneratedHost(url) ? new Set(["issuerPerformance"]) : new Set();
+export const sectionsClosedToSource = (params: {
+  url: string | null | undefined;
+  requireIssuerRelevance: boolean;
+  issuerNamedInArticle: boolean;
+}): ReadonlySet<string> => {
+  const closed = new Set<string>();
+  if (isUserGeneratedHost(params.url)) {
+    closed.add("issuerPerformance");
+  }
+  // Issuer Performance is the one section whose heading asserts whose news it is, so membership is
+  // an entity lookup rather than a judgment. On 2026-08-20 BRI's expo record printed under AGRO's
+  // "Issuer Performance" heading, telling a Bank Raya reader their own bank set the record, and
+  // Indosat's revenue target and BNI's productivity story scored into the same section for TLKM and
+  // BBCA. The article still competes for every other section.
+  if (params.requireIssuerRelevance && !params.issuerNamedInArticle) {
+    closed.add("issuerPerformance");
+  }
+
+  return closed;
+};
 
 /**
  * Classifies a single article into one newsletter section (or rejects it) with a computed score.
@@ -745,6 +764,13 @@ export const classifyArticleSection = async (params: {
     requireIssuerRelevance,
     titleNamesIssuer(params.title, params.ticker ?? null),
     false,
-    sectionsClosedToSource(params.url),
+    sectionsClosedToSource({
+      url: params.url,
+      requireIssuerRelevance,
+      issuerNamedInArticle: textNamesIssuer(
+        `${params.title}\n${params.content}`,
+        params.ticker ?? null,
+      ),
+    }),
   );
 };

@@ -16,6 +16,7 @@ import {
   rejectEmptySource,
   renderArticleTickerContext,
   scoreFromEvaluations,
+  sectionsClosedToSource,
   type CriterionEvaluation,
 } from "./llm-classify-section.js";
 
@@ -1267,6 +1268,58 @@ describe("criteriaHash", () => {
 
     expect(criteriaHash(criteria)).toBe(criteriaHash(criteria));
     expect(criteriaHash(criteria)).not.toBe(criteriaHash(edited));
+  });
+});
+
+describe("sectionsClosedToSource", () => {
+  it("closes Issuer Performance when the article never names the issuer", () => {
+    const closed = sectionsClosedToSource({
+      url: "https://www.cnbcindonesia.com/news/bri-kkb-national-expo",
+      requireIssuerRelevance: true,
+      issuerNamedInArticle: false,
+    });
+
+    expect([...closed]).toStrictEqual(["issuerPerformance"]);
+  });
+
+  it("leaves Issuer Performance open when the article names the issuer", () => {
+    const closed = sectionsClosedToSource({
+      url: "https://www.cnbcindonesia.com/news/bank-raya-q2",
+      requireIssuerRelevance: true,
+      issuerNamedInArticle: true,
+    });
+
+    expect([...closed]).toStrictEqual([]);
+  });
+
+  it("stays inert when no issuer context was supplied", () => {
+    const closed = sectionsClosedToSource({
+      url: "https://www.cnbcindonesia.com/news/bri-kkb-national-expo",
+      requireIssuerRelevance: false,
+      issuerNamedInArticle: false,
+    });
+
+    expect([...closed]).toStrictEqual([]);
+  });
+
+  it("still closes Issuer Performance to a reader-contributed host that names the issuer", () => {
+    const closed = sectionsClosedToSource({
+      url: "https://www.readers.id/laba-bersih-naik",
+      requireIssuerRelevance: true,
+      issuerNamedInArticle: true,
+    });
+
+    expect([...closed]).toStrictEqual(["issuerPerformance"]);
+  });
+
+  it("lists Issuer Performance once when both rules close it", () => {
+    const closed = sectionsClosedToSource({
+      url: "https://www.readers.id/laba-bersih-naik",
+      requireIssuerRelevance: true,
+      issuerNamedInArticle: false,
+    });
+
+    expect([...closed]).toStrictEqual(["issuerPerformance"]);
   });
 });
 
