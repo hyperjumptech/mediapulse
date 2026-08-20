@@ -8,6 +8,7 @@ import type {
 
 import { ContentGenerationConfigSchema } from "./config-schema.js";
 import {
+  acceptablePublishedDate,
   fetchSourceBodies,
   type RequestedFetchSource,
 } from "./fetch-source-bodies.js";
@@ -248,6 +249,51 @@ describe("fetchSourceBodies", () => {
     expect(result.fetchedContentById.get("ds-1")?.publishedAt).toBe(
       "2026-08-05T02:00:00.000Z",
     );
+  });
+
+  it("persists the body but drops a future-dated publishedAt", async () => {
+    const requested: RequestedFetchSource[] = [
+      {
+        dataSourceId: "ds-1",
+        url: "https://investor.id/kado-bi-mdr-qris-0",
+        title: "Kado BI untuk HUT ke-81 RI, Luncurkan MDR QRIS 0%",
+      },
+    ];
+    const body =
+      '<meta property="article:published_time" content="2126-10-01T00:00:00Z" /> Kebijakan MDR QRIS 0% berlaku mulai 1 Oktober.';
+    const performWebFetchFn = vi
+      .fn()
+      .mockResolvedValue([
+        successOutcome(
+          "https://investor.id/kado-bi-mdr-qris-0",
+          body,
+          "serper",
+        ),
+      ]);
+    const persistFetchedContent = vi
+      .fn()
+      .mockResolvedValue({ updatedCount: 1 });
+
+    const result = await fetchSourceBodies(
+      requested,
+      makeConfig(),
+      { tickerId: "ticker-1" },
+      {
+        persistFetchedContent,
+        performWebFetchFn: performWebFetchFn as never,
+        runQualityGateFn: () => ({ blocked: false }),
+      },
+    );
+
+    expect(persistFetchedContent).toHaveBeenCalledWith([
+      {
+        dataSourceId: "ds-1",
+        content: body,
+        fetchProvider: "serper",
+      },
+    ]);
+    expect(result.fetchedContentById.get("ds-1")?.publishedAt).toBeUndefined();
+    expect(result.fetchedContentById.get("ds-1")?.content).toBe(body);
   });
 
   it("omits publishedAt when the body carries no date signal", async () => {
@@ -528,5 +574,31 @@ describe("fetchSourceBodies", () => {
 
     expect(result.counters.droppedByDeadUrlCache).toBe(1);
     expect(fetchedInputs.map((input) => input.url)).toEqual(["https://x/live"]);
+  });
+});
+
+describe("acceptablePublishedDate", () => {
+  const now = new Date("2026-08-20T00:00:00Z");
+
+  it("discards a date lifted from body text that lands in the future", () => {
+    expect(
+      acceptablePublishedDate(new Date("2026-10-01T00:00:00Z"), now),
+    ).toBeUndefined();
+  });
+
+  it("keeps a date within the clock-skew tolerance", () => {
+    const publishedAt = new Date("2026-08-20T18:00:00Z");
+
+    expect(acceptablePublishedDate(publishedAt, now)).toBe(publishedAt);
+  });
+
+  it("keeps a genuinely old date rather than applying an age limit", () => {
+    const publishedAt = new Date("2026-07-01T00:00:00Z");
+
+    expect(acceptablePublishedDate(publishedAt, now)).toBe(publishedAt);
+  });
+
+  it("returns undefined when the page carried no extractable date", () => {
+    expect(acceptablePublishedDate(null, now)).toBeUndefined();
   });
 });

@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { isFresh } from "./freshness-gate";
+import { isFresh, isFutureDated } from "./freshness-gate";
 
 describe("isFresh", () => {
   const now = new Date("2026-05-21T12:00:00.000Z");
@@ -42,5 +42,21 @@ describe("isFresh", () => {
       fresh: false,
       reason: "future_dated",
     });
+  });
+});
+
+describe("isFutureDated", () => {
+  const now = new Date("2026-08-20T00:00:00Z");
+
+  it("accepts a date inside the one-day clock-skew tolerance", () => {
+    expect(isFutureDated(new Date("2026-08-20T18:00:00Z"), now)).toBe(false);
+  });
+
+  it("rejects a date beyond the tolerance", () => {
+    expect(isFutureDated(new Date("2026-10-01T00:00:00Z"), now)).toBe(true);
+  });
+
+  it("accepts a past date whatever its age", () => {
+    expect(isFutureDated(new Date("2023-06-23T00:00:00Z"), now)).toBe(false);
   });
 });
