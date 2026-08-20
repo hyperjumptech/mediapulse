@@ -30,6 +30,7 @@ import {
   type EventDedupDrop,
 } from "./lib/event-dedup.js";
 import { pointsSupportTitle } from "./lib/points-support-title.js";
+import { ungroundedEntities } from "./lib/entities-grounded.js";
 import {
   citedFigures,
   ungroundedFigures,
@@ -742,16 +743,31 @@ export async function generateNewsletterWithLlm(
         // billion, and the check passed because the wrong number was in the description.
         const descriptionOnly = entry.source.contentIsDescriptionOnly === true;
         const groundedPoints: string[] = [];
-        const ungrounded: { point: string; figures: UngroundedFigure[] }[] = [];
+        const ungrounded: {
+          point: string;
+          figures: UngroundedFigure[];
+          entities?: string[];
+        }[] = [];
         for (const point of sanitized.points) {
           const figures = descriptionOnly
             ? citedFigures(point)
             : ungroundedFigures(point, sourceText);
-          if (figures.length === 0) {
+          // The description names entities the article never does. A Kompas report on the 2026-08-15
+          // NTT earthquake named no operator, while its meta description named Telkomsel, XLsmart
+          // and Indosat; all three shipped as fact in EXCL's lead item. The description cannot
+          // vouch for itself, so the article's own headline is the reference.
+          const entities = descriptionOnly
+            ? ungroundedEntities(point, entry.source.title)
+            : [];
+          if (figures.length === 0 && entities.length === 0) {
             groundedPoints.push(point);
             continue;
           }
-          ungrounded.push({ point, figures });
+          ungrounded.push({
+            point,
+            figures,
+            ...(entities.length > 0 ? { entities } : {}),
+          });
         }
 
         if (ungrounded.length > 0) {
@@ -764,7 +780,7 @@ export async function generateNewsletterWithLlm(
               keptCount: groundedPoints.length,
               event: "summary_point_figure_ungrounded",
             },
-            `Dropped ${String(ungrounded.length)} point(s) citing a figure absent from the article`,
+            `Dropped ${String(ungrounded.length)} point(s) citing a figure or name absent from the article`,
           );
         }
 
