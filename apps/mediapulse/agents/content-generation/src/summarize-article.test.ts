@@ -36,6 +36,16 @@ describe("SUMMARIZE_ARTICLE_SYSTEM_PROMPT", () => {
     );
   });
 
+  it("gives Indonesian quantity words their real magnitude", () => {
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain('"belasan" is 11 to 19');
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      'never "dozens", which reads as twenty-four or more',
+    );
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "Never make a vague quantity firmer or larger than the source states",
+    );
+  });
+
   it("requires qualifiers that change a noun's meaning to be carried", () => {
     expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
       "Carry any qualifier that changes what a noun means",

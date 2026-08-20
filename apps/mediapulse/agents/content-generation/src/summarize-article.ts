@@ -29,6 +29,8 @@ Return a title and up to ${String(MAX_POINTS_PER_ARTICLE)} points. Each point mu
 
 For the title: translate the article's own title into English faithfully. Do not paraphrase, summarize, rewrite, or shorten it beyond the translation. If the title is already in English, return it unchanged. Keep every number, percentage, currency figure, date, ticker symbol, and proper noun exactly as written. Remove any trailing publisher or site name, such as a "- Publisher", "| Site", or "— Outlet" at the end; never keep the source name in the title.
 
+Indonesian quantity words carry a magnitude and have no one-word English equivalent, so render them at the size they actually mean, in a title and in a point alike: "belasan" is 11 to 19, "puluhan" is tens, "ratusan" is hundreds, "ribuan" is thousands, and "jutaan" is millions. Write "more than ten companies" for "belasan perusahaan", never "dozens", which reads as twenty-four or more. Never make a vague quantity firmer or larger than the source states.
+
 Write only what the article actually says. Do not add figures, companies, dates, causes, or consequences that are not stated in it. Do not infer why something happened when the article does not say. If you are unsure whether the article supports a claim, leave it out.
 
 A headline is not a source. Take every point from the body, and leave out anything the headline states that the body never establishes. A headline announcing that two companies have begun distributing something is not a fact unless the body says they did; when the body only lists those companies among many, report what the body lists and drop the headline's claim. When the body carries nothing beyond a restatement of the headline, return no points at all.
