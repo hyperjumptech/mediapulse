@@ -153,8 +153,8 @@ describe("getDataSourcesForTicker", () => {
       now: () => new Date("2026-03-19T15:30:00.000Z"),
     });
 
-    // Assert — cutoff is 24h before `now`, not the UTC start of day.
-    const expectedCutoff = new Date("2026-03-18T15:30:00.000Z");
+    // Assert — cutoff is 48h before `now`, not the UTC start of day.
+    const expectedCutoff = new Date("2026-03-17T15:30:00.000Z");
     expect(db.dataSourceTickerSection.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
@@ -196,7 +196,7 @@ describe("getDataSourcesForTicker", () => {
     const call = db.dataSourceTickerSection.findMany.mock.calls[0]?.[0];
     const cutoff = call?.where?.analyzedAt?.gte as Date;
 
-    expect(cutoff).toEqual(new Date("2026-06-30T02:00:00.000Z"));
+    expect(cutoff).toEqual(new Date("2026-06-29T02:00:00.000Z"));
 
     // An article analyzed 06-30 03:48 UTC (as in the incident) is now inside the window, where the
     // old UTC-calendar-day boundary (00:00 UTC 07-01) would have excluded it.
@@ -207,6 +207,32 @@ describe("getDataSourcesForTicker", () => {
       cutoff.getTime(),
     );
     expect(priorDayAnalyzedAt.getTime()).toBeLessThan(oldDayBoundary.getTime());
+  });
+
+  it("includes an article analyzed 27 hours earlier, one analysis cycle back", async () => {
+    // Setup — article-analysis runs at ~21:00 and content-generation at ~00:03, so the previous
+    // night's batch is 27 hours old and a 24h window dropped it.
+    const db = createMockDb();
+    db.ticker.findUniqueOrThrow.mockResolvedValue({
+      symbol: "TEST",
+      name: "Test Company",
+    });
+    db.dataSourceTickerSection.findMany.mockResolvedValue([]);
+
+    // Act
+    await getDataSourcesForTicker("ticker-1", {
+      db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
+      now: () => new Date("2026-08-20T00:03:00.000Z"),
+    });
+
+    // Assert
+    const call = db.dataSourceTickerSection.findMany.mock.calls[0]?.[0];
+    const cutoff = call?.where?.analyzedAt?.gte as Date;
+    const previousCycle = new Date("2026-08-18T21:04:00.000Z");
+    const beyondWindow = new Date("2026-08-17T21:04:00.000Z");
+
+    expect(previousCycle.getTime()).toBeGreaterThanOrEqual(cutoff.getTime());
+    expect(beyondWindow.getTime()).toBeLessThan(cutoff.getTime());
   });
 
   it("returns empty dataSources and ticker metadata when no articles exist within the lookback window", async () => {

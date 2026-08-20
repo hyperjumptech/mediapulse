@@ -15,14 +15,18 @@ const MAX_RECENT_BULLETS = 200;
 /**
  * Rolling lookback (hours) for the source-selection window in {@link getDataSourcesForTicker}.
  *
- * - Important: this must match the window used by the domain-api newsletter-detail mirror
- *   (`domain-api/src/resources/newsletters/selected-sources-window.ts`). Changing one without the
- *   other makes the detail view disagree with what the agent could actually select.
+ * - Important: staleness is not this window's job. `dropStaleForSection` applies each section's own
+ *   age ceiling and `crossRunDedup` suppresses stories already covered, so widening here enlarges
+ *   the candidate pool without shipping material a section considers old.
  *
- * The pipeline runs at ~02:00 UTC; a 24h window reaches back to ~02:00 UTC the prior day so a full
- * collect→analyze cycle is visible, instead of the ~2h that a UTC-calendar-day boundary yields.
+ * Article-analysis runs at ~21:00 and content-generation at ~00:03, so a 24h window leaves under
+ * four hours of margin: an article analysed at 21:04 is 27 hours old by the next night's run and
+ * was dropped, letting re-analysis timing decide editorial outcomes. On 2026-08-20 that held back
+ * 34 accepted articles from TLKM, which shipped two items, and 15 from EXCL, each band containing a
+ * 1.00-scored article. 48h covers two analysis cycles so one late or retried batch cannot silently
+ * empty a newsletter.
  */
-const SOURCE_LOOKBACK_HOURS = 24;
+const SOURCE_LOOKBACK_HOURS = 48;
 
 type ContentGenerationDb = {
   dataSource: Pick<typeof prisma.dataSource, "update" | "updateMany">;
@@ -45,8 +49,8 @@ type ContentGenerationDb = {
  * competitors, and issuer aliases. Reads the per-(article, ticker) section table.
  *
  * Sources are selected with a rolling ``SOURCE_LOOKBACK_HOURS`` window (`analyzedAt >= now - lookback`)
- * so a full collect→analyze cycle is visible at the ~02:00 UTC run time, rather than the ~2h a
- * UTC-calendar-day boundary would yield.
+ * so two full collect→analyze cycles are visible, rather than the ~2h a UTC-calendar-day boundary
+ * would yield.
  *
  * @param tickerId - Ticker id used to scope the per-ticker section rows.
  * @param deps - Optional dependencies for database and current time.
