@@ -115,6 +115,61 @@ describe("selectArticles", () => {
     expect(report.droppedOverCap).toBe(1);
   });
 
+  it("keeps the candidates past the cap as a rank-ordered reserve", () => {
+    const sources = [
+      source({
+        title: "Fifth",
+        section: "competitiveLandscape",
+        sectionScore: 0.1,
+      }),
+      source({
+        title: "First",
+        section: "competitiveLandscape",
+        sectionScore: 0.9,
+      }),
+      source({
+        title: "Fourth",
+        section: "competitiveLandscape",
+        sectionScore: 0.3,
+      }),
+      source({
+        title: "Second",
+        section: "competitiveLandscape",
+        sectionScore: 0.7,
+      }),
+      source({
+        title: "Third",
+        section: "competitiveLandscape",
+        sectionScore: 0.5,
+      }),
+    ];
+
+    const { selected, reserve } = selectArticles(sources);
+
+    expect(selected.map((entry) => entry.source.title)).toStrictEqual([
+      "First",
+      "Second",
+      "Third",
+    ]);
+    expect(reserve.map((entry) => entry.source.title)).toStrictEqual([
+      "Fourth",
+      "Fifth",
+    ]);
+    expect(
+      reserve.every((entry) => entry.sectionKey === "competitive-landscape"),
+    ).toBe(true);
+  });
+
+  it("leaves the reserve empty when no section exceeds the cap", () => {
+    const sources = [
+      source({ title: "Only", section: "quickHits", sectionScore: 0.5 }),
+    ];
+
+    const { reserve } = selectArticles(sources);
+
+    expect(reserve).toStrictEqual([]);
+  });
+
   it("emits sections in canonical order regardless of input order", () => {
     const sources = [
       source({ title: "Hit", section: "quickHits", sectionScore: 0.5 }),

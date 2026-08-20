@@ -256,6 +256,8 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
   structuredReasoningTokens?: number;
   /** Articles dropped because their summarizer call failed every retry. */
   articlesSkippedSummaryFailed?: number;
+  /** Reserve candidates summarized to refill sections a failure had emptied. */
+  summaryBackfill?: SummaryBackfillSummary;
   /** Per-section article counts and removed-section list from the final document. */
   sectionFillSnapshot?: SectionFillSnapshot;
   newsletterCitations?: NewsletterCitationLink[];
@@ -430,6 +432,76 @@ type SummaryOutcome =
       points: string[];
     }
   | { status: "failed"; entry: SelectedArticle };
+
+export type SummaryBackfillSummary = {
+  attempted: number;
+  recovered: number;
+  bySection: Record<string, { attempted: number; recovered: number }>;
+};
+
+/**
+ * Replaces articles that failed to summarize with the next-ranked candidates from their own section.
+ *
+ * - Important: a single round only. A section that keeps failing must degrade rather than spend
+ *   model calls until its reserve is exhausted.
+ *
+ * @param params - First-pass outcomes, the ranked reserve, and the summarizer to retry with.
+ * @returns The first-pass outcomes followed by the backfill outcomes, plus per-section counts.
+ */
+export const backfillFailedSections = async (params: {
+  outcomes: readonly SummaryOutcome[];
+  reserve: readonly SelectedArticle[];
+  summarize: (entry: SelectedArticle) => Promise<SummaryOutcome>;
+}): Promise<{ outcomes: SummaryOutcome[] } & SummaryBackfillSummary> => {
+  const outcomes = [...params.outcomes];
+  const deficitBySection = new Map<NewsletterSectionKey, number>();
+  for (const outcome of params.outcomes) {
+    if (outcome.status === "failed") {
+      const sectionKey = outcome.entry.sectionKey;
+      deficitBySection.set(
+        sectionKey,
+        (deficitBySection.get(sectionKey) ?? 0) + 1,
+      );
+    }
+  }
+
+  const candidates: SelectedArticle[] = [];
+  for (const entry of params.reserve) {
+    const remaining = deficitBySection.get(entry.sectionKey) ?? 0;
+    if (remaining <= 0) {
+      continue;
+    }
+    candidates.push(entry);
+    deficitBySection.set(entry.sectionKey, remaining - 1);
+  }
+
+  if (candidates.length === 0) {
+    return { outcomes, attempted: 0, recovered: 0, bySection: {} };
+  }
+
+  const results = await mapWithConcurrency(
+    candidates,
+    SUMMARIZER_CONCURRENCY,
+    params.summarize,
+  );
+
+  const bySection: Record<string, { attempted: number; recovered: number }> =
+    {};
+  let recovered = 0;
+  for (const result of results) {
+    const sectionKey = result.entry.sectionKey;
+    const counts = bySection[sectionKey] ?? { attempted: 0, recovered: 0 };
+    counts.attempted += 1;
+    if (result.status === "summarized") {
+      counts.recovered += 1;
+      recovered += 1;
+    }
+    bySection[sectionKey] = counts;
+    outcomes.push(result);
+  }
+
+  return { outcomes, attempted: candidates.length, recovered, bySection };
+};
 
 type TokenTotals = {
   promptTokens: number | null;
@@ -620,10 +692,10 @@ export async function generateNewsletterWithLlm(
 
   const tokenTotals = createTokenTotals();
 
-  const summaryOutcomes = await mapWithConcurrency(
-    selection.selected,
-    SUMMARIZER_CONCURRENCY,
-    async (entry): Promise<SummaryOutcome> => {
+  const summarizeEntry = async (
+    entry: SelectedArticle,
+  ): Promise<SummaryOutcome> => {
+    {
       try {
         const result = await retryWithBackoff(
           async () =>
@@ -759,8 +831,33 @@ export async function generateNewsletterWithLlm(
 
         return { status: "failed", entry };
       }
-    },
+    }
+  };
+
+  const firstPassOutcomes = await mapWithConcurrency(
+    selection.selected,
+    SUMMARIZER_CONCURRENCY,
+    summarizeEntry,
   );
+
+  const backfill = await backfillFailedSections({
+    outcomes: firstPassOutcomes,
+    reserve: selection.reserve,
+    summarize: summarizeEntry,
+  });
+  const summaryOutcomes = backfill.outcomes;
+  if (backfill.attempted > 0) {
+    logger.info(
+      {
+        tickerId: context.tickerId,
+        attempted: backfill.attempted,
+        recovered: backfill.recovered,
+        bySection: backfill.bySection,
+        event: "article_summary_backfill",
+      },
+      `Backfilled ${String(backfill.recovered)} of ${String(backfill.attempted)} article(s) from the ranked reserve`,
+    );
+  }
 
   const articlesSkippedSummaryFailed = summaryOutcomes.filter(
     (outcome) => outcome.status === "failed",
@@ -940,6 +1037,15 @@ export async function generateNewsletterWithLlm(
       ? { structuredReasoningTokens: tokenTotals.reasoningTokens }
       : {}),
     articlesSkippedSummaryFailed,
+    ...(backfill.attempted > 0
+      ? {
+          summaryBackfill: {
+            attempted: backfill.attempted,
+            recovered: backfill.recovered,
+            bySection: backfill.bySection,
+          },
+        }
+      : {}),
     sectionFillSnapshot: {
       bySection: computeNewsletterSectionFill(document),
       sectionsRemoved,

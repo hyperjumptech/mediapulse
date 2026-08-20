@@ -1015,6 +1015,9 @@ export async function run({
     ...(generated.articlesSkippedSummaryFailed !== undefined
       ? { articlesSkippedSummaryFailed: generated.articlesSkippedSummaryFailed }
       : {}),
+    ...(generated.summaryBackfill !== undefined
+      ? { summaryBackfill: generated.summaryBackfill }
+      : {}),
     ...(generated.crossRunDedupSummary !== undefined
       ? { crossRunDedup: generated.crossRunDedupSummary }
       : {}),
@@ -1045,6 +1048,9 @@ export async function run({
             articlesSkippedSummaryFailed:
               generated.articlesSkippedSummaryFailed,
           }
+        : {}),
+      ...(generated.summaryBackfill !== undefined
+        ? { summaryBackfill: generated.summaryBackfill }
         : {}),
       ...(generated.sectionFillSnapshot !== undefined
         ? {

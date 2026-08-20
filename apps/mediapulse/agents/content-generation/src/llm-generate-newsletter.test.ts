@@ -9,6 +9,7 @@ import {
   resolveContentGenerationConfig,
 } from "./config-schema.js";
 import {
+  backfillFailedSections,
   collectNewsletterCitations,
   collectNewsletterSections,
   generateNewsletterWithLlm,
@@ -18,6 +19,7 @@ import {
   type GenerateNewsletterObjectFn,
   type GenerateNewsletterObjectResult,
 } from "./llm-generate-newsletter.js";
+import type { SelectedArticle } from "./select-articles.js";
 import { SUMMARIZE_ARTICLE_SYSTEM_PROMPT } from "./summarize-article.js";
 import {
   MAX_SUBJECT_LENGTH,
@@ -561,6 +563,73 @@ describe("generateNewsletterWithLlm — summarizer failures", () => {
     ]);
   });
 
+  it("keeps a section alive by promoting its reserve when the selected article fails", async () => {
+    const withReserve: SourceForGeneration[] = [
+      ...testSources,
+      {
+        dataSourceId: "ds-d",
+        url: "https://example.com/d",
+        title: "Second merger filed",
+        content: "A second regional lender filed its merger plan on Monday.",
+        section: "dealsAndMovements",
+        sectionScore: 0.6,
+      },
+      {
+        dataSourceId: "ds-e",
+        url: "https://example.com/e",
+        title: "Third merger rumoured",
+        content: "A third lender is rumoured to be preparing a merger plan.",
+        section: "dealsAndMovements",
+        sectionScore: 0.5,
+      },
+      {
+        dataSourceId: "ds-f",
+        url: "https://example.com/f",
+        title: "Fourth merger cleared",
+        content: "A fourth lender cleared its merger with the regulator.",
+        section: "dealsAndMovements",
+        sectionScore: 0.4,
+      },
+    ];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => {
+        if (promptTitle(args.prompt) === "Merger closes") {
+          throw nonRetryableError;
+        }
+
+        return {
+          object: {
+            title: promptTitle(args.prompt),
+            points: [`Key fact from ${promptTitle(args.prompt)}`],
+          },
+        };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      withReserve,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+    const parsed = readNewsletterDocument(result.content);
+
+    expect(result.summaryBackfill).toStrictEqual({
+      attempted: 1,
+      recovered: 1,
+      bySection: { "deals-and-movements": { attempted: 1, recovered: 1 } },
+    });
+    expect(result.sectionFillSnapshot?.sectionsRemoved).toEqual([]);
+    expect(parsed?.sections.map((section) => section.key)).toContain(
+      "deals-and-movements",
+    );
+    expect(
+      parsed?.sections
+        .find((section) => section.key === "deals-and-movements")
+        ?.articles.map((entry) => entry.title),
+    ).toContain("Fourth merger cleared");
+  });
+
   it("throws when every article fails to summarize", async () => {
     const generateObjectFn = makeGenerateFn({
       onSummarize: () => Promise.reject(nonRetryableError),
@@ -1074,5 +1143,139 @@ describe("generateNewsletterWithLlm — cross-day dedup", () => {
 
     expect(result.crossRunDedupSummary).toBeUndefined();
     expect(result.content).toContain("Acme acquires fintech");
+  });
+});
+
+const backfillArticle = (
+  title: string,
+  sectionKey = "issuer-performance",
+): SelectedArticle =>
+  ({
+    sectionKey,
+    source: { url: `https://example.com/${title}`, title, content: "Body." },
+  }) as SelectedArticle;
+
+const backfillSummarized = (entry: SelectedArticle) => ({
+  status: "summarized" as const,
+  entry,
+  title: entry.source.title,
+  points: ["A point."],
+});
+
+const backfillFailed = (entry: SelectedArticle) => ({
+  status: "failed" as const,
+  entry,
+});
+
+describe("backfillFailedSections", () => {
+  it("replaces a failed article with the next-ranked reserve candidate", async () => {
+    const lost = backfillArticle("Lost");
+    const spare = backfillArticle("Spare");
+    const summarize = vi.fn(async (entry: SelectedArticle) =>
+      backfillSummarized(entry),
+    );
+
+    const result = await backfillFailedSections({
+      outcomes: [backfillFailed(lost)],
+      reserve: [spare],
+      summarize,
+    });
+
+    expect(summarize).toHaveBeenCalledTimes(1);
+    expect(summarize).toHaveBeenCalledWith(spare);
+    expect(result.attempted).toBe(1);
+    expect(result.recovered).toBe(1);
+    expect(result.bySection["issuer-performance"]).toStrictEqual({
+      attempted: 1,
+      recovered: 1,
+    });
+  });
+
+  it("draws only from the section that came up short", async () => {
+    const lost = backfillArticle("Lost", "issuer-performance");
+    const otherSection = backfillArticle("Other", "quick-hits");
+    const sameSection = backfillArticle("Same", "issuer-performance");
+    const summarize = vi.fn(async (entry: SelectedArticle) =>
+      backfillSummarized(entry),
+    );
+
+    await backfillFailedSections({
+      outcomes: [backfillFailed(lost)],
+      reserve: [otherSection, sameSection],
+      summarize,
+    });
+
+    expect(summarize).toHaveBeenCalledTimes(1);
+    expect(summarize).toHaveBeenCalledWith(sameSection);
+  });
+
+  it("takes at most one reserve candidate per failure", async () => {
+    const lost = backfillArticle("Lost");
+    const summarize = vi.fn(async (entry: SelectedArticle) =>
+      backfillSummarized(entry),
+    );
+
+    const result = await backfillFailedSections({
+      outcomes: [backfillFailed(lost)],
+      reserve: [backfillArticle("Spare One"), backfillArticle("Spare Two")],
+      summarize,
+    });
+
+    expect(summarize).toHaveBeenCalledTimes(1);
+    expect(result.attempted).toBe(1);
+  });
+
+  it("does not retry when a backfill candidate also fails", async () => {
+    const lost = backfillArticle("Lost");
+    const summarize = vi.fn(async (entry: SelectedArticle) =>
+      backfillFailed(entry),
+    );
+
+    const result = await backfillFailedSections({
+      outcomes: [backfillFailed(lost)],
+      reserve: [backfillArticle("Spare"), backfillArticle("Never Tried")],
+      summarize,
+    });
+
+    expect(summarize).toHaveBeenCalledTimes(1);
+    expect(result.attempted).toBe(1);
+    expect(result.recovered).toBe(0);
+  });
+
+  it("leaves a section with no reserve exactly as it was", async () => {
+    const lost = backfillArticle("Lost");
+    const summarize = vi.fn(async (entry: SelectedArticle) =>
+      backfillSummarized(entry),
+    );
+
+    const result = await backfillFailedSections({
+      outcomes: [backfillFailed(lost)],
+      reserve: [],
+      summarize,
+    });
+
+    expect(summarize).not.toHaveBeenCalled();
+    expect(result).toStrictEqual({
+      outcomes: [backfillFailed(lost)],
+      attempted: 0,
+      recovered: 0,
+      bySection: {},
+    });
+  });
+
+  it("does nothing when every selected article summarized", async () => {
+    const kept = backfillArticle("Kept");
+    const summarize = vi.fn(async (entry: SelectedArticle) =>
+      backfillSummarized(entry),
+    );
+
+    const result = await backfillFailedSections({
+      outcomes: [backfillSummarized(kept)],
+      reserve: [backfillArticle("Spare")],
+      summarize,
+    });
+
+    expect(summarize).not.toHaveBeenCalled();
+    expect(result.attempted).toBe(0);
   });
 });
