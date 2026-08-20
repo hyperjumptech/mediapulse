@@ -14,6 +14,45 @@ describe("pointsSupportTitle", () => {
     expect(supported).toBe(false);
   });
 
+  it("rejects the AADI item bridged to its heading only by the word investors", () => {
+    const supported = pointsSupportTitle(
+      "IHSG Predicted to Strengthen, Retail Investors Can Watch Stocks AADI, ANTM, and VKTR",
+      [
+        "Investors await Bank Indonesia's BI Rate decision, expected to remain at 5.75%",
+      ],
+    );
+
+    expect(supported).toBe(false);
+  });
+
+  it("keeps the item beside it, whose bullet names the heading's real subjects", () => {
+    const supported = pointsSupportTitle(
+      "IHSG Rises 0.75% to Level 6,449 Fueled by BYAN Shares",
+      [
+        "Energy stocks, especially BYAN, drove the IHSG increase on that day",
+        "Investors awaited interest rate decisions and foreign debt data",
+      ],
+    );
+
+    expect(supported).toBe(true);
+  });
+
+  it("keeps a short translated heading sharing only its issuer name with its bullet", () => {
+    const supported = pointsSupportTitle("FORE Delays Singapore Expansion", [
+      "Fore Coffee postponed its Singapore rollout on cost grounds.",
+    ]);
+
+    expect(supported).toBe(true);
+  });
+
+  it("bridges a heading and its bullet on a three-letter ticker", () => {
+    const supported = pointsSupportTitle("BRI shares rise on foreign buying", [
+      "BRI shares closed higher on the day",
+    ]);
+
+    expect(supported).toBe(true);
+  });
+
   it("keeps an item whose points echo its heading", () => {
     const supported = pointsSupportTitle(
       "ACES Records Profit of Rp390.3 Billion in H1 2026",
