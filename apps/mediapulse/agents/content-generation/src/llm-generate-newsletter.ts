@@ -39,6 +39,7 @@ import {
 import { dropRepeatedClaims } from "./lib/repeated-claim-dedup.js";
 import { dropStaleForSection } from "./lib/section-freshness.js";
 import { retryWithBackoff } from "./lib/retry.js";
+import { sanitizeArticleTitle } from "./lib/sanitize-article-title.js";
 import { sanitizeSummaryPoints } from "./lib/sanitize-summary-points.js";
 import { truncateSources } from "./lib/truncate-sources.js";
 import { isRetryableLlmError } from "./llm-classify-error.js";
@@ -722,6 +723,7 @@ export async function generateNewsletterWithLlm(
           { sleepFn: deps.sleepFn },
         );
         const summary = articleSummarySchema.parse(result.object);
+        const articleTitle = sanitizeArticleTitle(summary.title);
         addUsage(tokenTotals, result.usage);
 
         // A stray non-Latin glyph or a point cut off against the length budget ships as visibly
@@ -801,7 +803,7 @@ export async function generateNewsletterWithLlm(
         // carries a figure its body contradicts, including the title in the corpus would let the
         // bad figure vouch for itself and ship as the item's most prominent claim.
         const titleFigures = ungroundedFigures(
-          summary.title,
+          articleTitle,
           entry.source.content,
         );
         if (titleFigures.length > 0) {
@@ -810,7 +812,7 @@ export async function generateNewsletterWithLlm(
               tickerId: context.tickerId,
               sectionKey: entry.sectionKey,
               url: entry.source.url,
-              title: summary.title,
+              title: articleTitle,
               ungrounded: titleFigures,
               event: "article_title_figure_ungrounded",
             },
@@ -820,13 +822,13 @@ export async function generateNewsletterWithLlm(
           return { status: "failed", entry };
         }
 
-        if (!pointsSupportTitle(summary.title, groundedPoints)) {
+        if (!pointsSupportTitle(articleTitle, groundedPoints)) {
           logger.warn(
             {
               tickerId: context.tickerId,
               sectionKey: entry.sectionKey,
               url: entry.source.url,
-              title: summary.title,
+              title: articleTitle,
               points: groundedPoints,
               event: "summary_points_off_heading",
             },
@@ -839,7 +841,7 @@ export async function generateNewsletterWithLlm(
         return {
           status: "summarized",
           entry,
-          title: summary.title,
+          title: articleTitle,
           points: groundedPoints,
         };
       } catch (err) {
