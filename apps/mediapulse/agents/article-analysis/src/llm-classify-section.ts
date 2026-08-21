@@ -524,6 +524,7 @@ export const scoreFromEvaluations = (
   const noRuleJudged =
     flat.length > 0 &&
     flat.every((criterion) => !evaluationById.has(criterion.id));
+  const gateVerdictMissing = !evaluationById.has(ISSUER_RELEVANCE_CRITERION_ID);
   if (issuerRelevanceRejected || winner === undefined || winner.matched === 0) {
     return {
       section: null,
@@ -533,7 +534,9 @@ export const scoreFromEvaluations = (
         : noRuleJudged
           ? "Model returned no rule judgments; rejected without a verdict."
           : issuerRelevanceRejected
-            ? `Rejected — not relevant to issuer context: ${noteFor(ISSUER_RELEVANCE_CRITERION_ID)}.`
+            ? gateVerdictMissing
+              ? "Rejected — no issuer-relevance verdict: the model returned no judgment for the issuer-relevance gate, so the article failed closed without being judged irrelevant."
+              : `Rejected — not relevant to issuer context: ${noteFor(ISSUER_RELEVANCE_CRITERION_ID)}.`
             : noSectionQualified
               ? "No section met its qualifying rules; rejected."
               : "No inclusion rule matched in any section; rejected.",
@@ -753,8 +756,16 @@ export const classifyArticleSection = async (params: {
   // rule then reads as unmatched and the article is rejected with a reason that looks like the model
   // decided something. On 2026-08-07 that silently dropped August's coal benchmark price from DSSA,
   // whose gate note discussed the article while all 30 rules read "No judgment returned".
+  const gateJudged = (evaluations: CriterionEvaluation[]): boolean =>
+    evaluations.some(
+      (evaluation) => evaluation.id === ISSUER_RELEVANCE_CRITERION_ID,
+    );
+
   let evaluations = await askOnce();
-  if (ruleIds.size > 0 && judgedRuleCount(evaluations) === 0) {
+  if (
+    (ruleIds.size > 0 && judgedRuleCount(evaluations) === 0) ||
+    (requireIssuerRelevance && !gateJudged(evaluations))
+  ) {
     evaluations = await askOnce();
   }
 

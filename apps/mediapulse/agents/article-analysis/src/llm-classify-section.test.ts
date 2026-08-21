@@ -822,7 +822,35 @@ describe("scoreFromEvaluations — issuer-relevance gate", () => {
     );
 
     expect(result.section).toBeNull();
+    expect(result.reason).toContain("no issuer-relevance verdict");
+  });
+
+  it("does not report an omitted gate judgment as a relevance decision", () => {
+    const result = scoreFromEvaluations(
+      evaluate(["ip1", "ip3"]),
+      criteria,
+      true,
+    );
+
+    expect(result.reason).not.toContain("not relevant to issuer context");
+    expect(result.reason).not.toContain("No judgment returned");
+  });
+
+  it("still reports a judged-false gate as a relevance decision", () => {
+    const evaluations: CriterionEvaluation[] = [
+      ...evaluate(["ip1", "ip3"]),
+      {
+        id: ISSUER_RELEVANCE_CRITERION_ID,
+        matched: false,
+        note: "about a different market",
+      },
+    ];
+
+    const result = scoreFromEvaluations(evaluations, criteria, true);
+
     expect(result.reason).toContain("not relevant to issuer context");
+    expect(result.reason).toContain("about a different market");
+    expect(result.reason).not.toContain("no issuer-relevance verdict");
   });
 
   it("is a no-op when requireIssuerRelevance is false, even if a gate id happens to be present", () => {
