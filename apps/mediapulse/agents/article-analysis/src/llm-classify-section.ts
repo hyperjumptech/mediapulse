@@ -117,6 +117,25 @@ export const MARKET_ANCHOR_RULE_IDS: ReadonlySet<string> = new Set([
 export const MARKET_ANCHOR_OVERRIDE_MIN = 2;
 
 /**
+ * The rule in each section's gate that carries the section's substance rather than its topic.
+ *
+ * Every gate pairs a "what kind of thing is this" rule with a "what happened" rule. The second is
+ * the one the issuer-named-in-title fallback may not overrule: an article naming the issuer but
+ * reporting no result is not issuer performance, and one naming two companies but no transaction is
+ * not a deal. Code-owned like {@link MARKET_ANCHOR_RULE_IDS}, so a custom config that renames these
+ * ids simply skips the restriction.
+ */
+export const SECTION_DEFINING_RULE_IDS: ReadonlySet<string> = new Set([
+  "ip-macro-move",
+  "pf-reported-result",
+  "cl-peer-action",
+  "dm-corporate-action",
+  "rp-regulatory-topic",
+  "dt-tech-subject",
+  "qh-single-fact",
+]);
+
+/**
  * Fit-score ceiling for a section won on issuer-agnostic rules while its issuer-relevance rule is
  * unmatched.
  *
@@ -436,6 +455,16 @@ export const scoreFromEvaluations = (
   const qualified = tallies.filter((tally) => tally.qualified);
   const anyGateDefined = tallies.some((tally) => tally.hasGate);
 
+  const definingRuleSatisfied = (sectionId: string): boolean => {
+    const defining = flat.filter(
+      (criterion) =>
+        criterion.section === sectionId &&
+        SECTION_DEFINING_RULE_IDS.has(criterion.id),
+    );
+
+    return defining.every((criterion) => isMatched(criterion.id));
+  };
+
   // Configs that mark no qualifying rules (an operator override predating gates) keep the original
   // behaviour: highest matched fraction wins, now tie-broken by specificity rather than display order.
   //
@@ -459,6 +488,9 @@ export const scoreFromEvaluations = (
   if (winner === undefined && anyGateDefined && issuerNamedInTitle) {
     for (const tally of tallies) {
       if (tally.fraction < MIN_ISSUER_FALLBACK_FRACTION) {
+        continue;
+      }
+      if (!definingRuleSatisfied(tally.section)) {
         continue;
       }
       if (winner === undefined || tally.fraction > winner.fraction) {
