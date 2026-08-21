@@ -6,6 +6,7 @@ import {
 } from "@workspace/agent-data-api-contract";
 
 import { normalizeQueryText } from "../pipeline/candidates";
+import { isPerishableQuery } from "../pipeline/perishable";
 import type { Candidate, Language } from "../pipeline/types";
 
 /** A persisted query row. */
@@ -25,8 +26,12 @@ export type FinalizeResult = {
 };
 
 /**
- * Selects the persisted query set: the first `queriesPerIntent` candidates for each intent in
- * generation order, then guarantees both phrasing languages appear across the set.
+ * Selects the persisted query set: the first `queriesPerIntent` candidates for each intent, taking
+ * durable phrasings ahead of perishable ones and otherwise keeping generation order, then
+ * guarantees both phrasing languages appear across the set.
+ *
+ * - Important: perishable candidates are ordered last rather than removed, so an intent whose
+ *   candidates are all dated still fills its budget instead of shipping an empty section.
  *
  * @param params - Generated candidates and the per-intent query budget.
  * @returns Ranked queries plus per-intent, per-section, and language telemetry.
@@ -57,7 +62,11 @@ export const finalizeQueries = (params: {
   const chosen: Candidate[] = [];
   const chosenKeys = new Set<string>();
   for (const list of byIntent.values()) {
-    for (const candidate of list.slice(0, queriesPerIntent)) {
+    const durableFirst = [
+      ...list.filter((candidate) => !isPerishableQuery(candidate.text)),
+      ...list.filter((candidate) => isPerishableQuery(candidate.text)),
+    ];
+    for (const candidate of durableFirst.slice(0, queriesPerIntent)) {
       chosenKeys.add(normalizeQueryText(candidate.text));
       chosen.push(candidate);
     }
