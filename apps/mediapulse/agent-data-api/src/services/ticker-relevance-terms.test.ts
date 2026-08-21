@@ -15,11 +15,92 @@ vi.mock("@mediapulse/database", () => ({
 
 import { prisma } from "@mediapulse/database";
 
-import { getTickerRelevanceTermsForAgent } from "./ticker-relevance-terms";
+import {
+  getTickerRelevanceTermsForAgent,
+  taxonomyPhraseSegments,
+} from "./ticker-relevance-terms";
 
 const ANCHOR_TICKER_ID = "11111111-1111-4111-a111-111111111111";
 const PEER_TICKER_ID = "22222222-2222-4222-a222-222222222222";
 const INACTIVE_TICKER_ID = "33333333-3333-4333-a333-333333333333";
+
+describe("taxonomyPhraseSegments", () => {
+  it("recovers the business lines a descriptive label buries", () => {
+    const segments = taxonomyPhraseSegments(
+      "Batu Bara dengan Diversifikasi Emas dan EV",
+    );
+
+    expect(segments).toContain("Batu Bara");
+    expect(segments).toContain("Emas");
+    expect(segments).toContain("EV");
+  });
+
+  it("recovers the product word a coffee issuer is actually reported on", () => {
+    const segments = taxonomyPhraseSegments(
+      "Kedai Kopi Berbasis Aplikasi dan Pengantaran",
+    );
+
+    expect(segments).toContain("Kedai Kopi");
+    expect(segments).toContain("Kopi");
+  });
+
+  it("keeps a plain single-term label as itself and adds nothing", () => {
+    expect(taxonomyPhraseSegments("Bank")).toEqual(["Bank"]);
+    expect(taxonomyPhraseSegments("Minuman Ringan")).toEqual([
+      "Minuman Ringan",
+      "Minuman",
+      "Ringan",
+    ]);
+  });
+
+  it("splits on punctuation as well as connectors", () => {
+    const segments = taxonomyPhraseSegments(
+      "Holding Bank, Asuransi dan Multifinance Grup",
+    );
+
+    expect(segments).toContain("Asuransi");
+    expect(segments).toContain("Bank");
+  });
+
+  it("drops connectors and segments that name no business", () => {
+    const segments = taxonomyPhraseSegments(
+      "Pusat Data Tier IV untuk Penyedia Cloud Hyperscale",
+    );
+
+    expect(segments).toContain("Cloud");
+    expect(segments).not.toContain("dan");
+    expect(segments).not.toContain("untuk");
+    expect(segments).not.toContain("Tier");
+    expect(segments).not.toContain("IV");
+  });
+
+  it("does not emit a bare word from a single-word segment", () => {
+    expect(taxonomyPhraseSegments("Kelistrikan")).toEqual(["Kelistrikan"]);
+  });
+
+  it("does not index a generic business verb or a compound fragment", () => {
+    const coal = taxonomyPhraseSegments("Produksi Batu Bara");
+
+    expect(coal).toContain("Produksi Batu Bara");
+    expect(coal).not.toContain("Produksi");
+    expect(coal).not.toContain("Batu");
+    expect(coal).not.toContain("Bara");
+
+    const industrial = taxonomyPhraseSegments(
+      "Penjualan Lahan Industri dengan Jasa Pengelolaan Kawasan",
+    );
+
+    expect(industrial).toContain("Industri");
+    expect(industrial).toContain("Kawasan");
+    expect(industrial).not.toContain("Penjualan");
+    expect(industrial).not.toContain("Jasa");
+    expect(industrial).not.toContain("Pengelolaan");
+  });
+
+  it("returns nothing for a label made only of connectors", () => {
+    expect(taxonomyPhraseSegments("dan untuk dengan")).toEqual([]);
+  });
+});
 
 describe("getTickerRelevanceTermsForAgent", () => {
   beforeEach(() => {
@@ -206,8 +287,12 @@ describe("getTickerRelevanceTermsForAgent", () => {
       "Energi",
       "Batu Bara",
       "Batu Bara Termal",
+      "Termal",
       "Batu Bara Kalori Menengah",
+      "Kalori",
+      "Menengah",
       "Pertambangan Batu Bara",
+      "Pertambangan",
     ]);
   });
 
