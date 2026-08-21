@@ -112,6 +112,98 @@ describe("createTickerRelevanceMatcher", () => {
   });
 });
 
+describe("terms that news copy never writes verbatim", () => {
+  const cableMaker = {
+    id: "22222222-2222-4222-a222-222222222222",
+    symbol: "CCSI",
+    terms: [
+      "CCSI",
+      "PT Communication Cable Systems Indonesia Tbk.",
+      "Kelistrikan",
+      "Komponen & Peralatan Kelistrikan",
+      "Perindustrian",
+    ],
+  };
+
+  it("matches an ampersand term against the Indonesian conjunction", () => {
+    const ampersandOnly = createTickerRelevanceMatcher([
+      {
+        id: "55555555-5555-4555-a555-555555555555",
+        symbol: "CCSI",
+        terms: ["Komponen & Peralatan Listrik"],
+      },
+    ]);
+
+    expect(
+      ampersandOnly.match("Komponen dan Peralatan Listrik naik tajam"),
+    ).not.toBeNull();
+    expect(
+      ampersandOnly.match("Komponen and Peralatan Listrik demand rises"),
+    ).not.toBeNull();
+    expect(
+      ampersandOnly.match("Komponen & Peralatan Listrik tetap kuat"),
+    ).not.toBeNull();
+    expect(ampersandOnly.match("Peralatan Listrik saja")).toBeNull();
+  });
+
+  it("matches the root word behind a nominalised taxonomy label", () => {
+    const matcher = createTickerRelevanceMatcher([cableMaker]);
+    const result = matcher.match(
+      "Jaringan listrik adalah jalan tol baru Indonesia",
+    );
+
+    expect(result).toMatchObject({
+      tickerSymbol: "CCSI",
+      term: "Kelistrikan",
+    });
+  });
+
+  it("derives a root only for a single-word term", () => {
+    const matcher = createTickerRelevanceMatcher([cableMaker]);
+
+    expect(matcher.match("Pertumbuhan industri manufaktur melambat")).toEqual({
+      tickerId: cableMaker.id,
+      tickerSymbol: "CCSI",
+      term: "Perindustrian",
+    });
+    expect(matcher.match("Peralatan baru dipasang di pabrik")).toBeNull();
+  });
+
+  it("still requires a word boundary on a derived root", () => {
+    const matcher = createTickerRelevanceMatcher([cableMaker]);
+
+    expect(matcher.match("Perusahaan listriknya sedang tumbuh")).toBeNull();
+    expect(matcher.match("Harga industrialisasi meningkat")).toBeNull();
+  });
+
+  it("takes the longest circumfix rather than a shorter overlapping one", () => {
+    const matcher = createTickerRelevanceMatcher([
+      {
+        id: "44444444-4444-4444-a444-444444444444",
+        symbol: "NOBU",
+        terms: ["Perbankan"],
+      },
+    ]);
+
+    expect(matcher.match("Laporan rbank dirilis")).toBeNull();
+    expect(matcher.match("Kredit perbankan tumbuh")).not.toBeNull();
+  });
+
+  it("leaves a short root alone so common words stay unmatched", () => {
+    const matcher = createTickerRelevanceMatcher([
+      {
+        id: "33333333-3333-4333-a333-333333333333",
+        symbol: "AGRO",
+        terms: ["Keuangan", "Perbankan"],
+      },
+    ]);
+
+    expect(matcher.match("Dia menabung uang di celengan")).toBeNull();
+    expect(matcher.match("Antre di bank sejak pagi")).toBeNull();
+    expect(matcher.match("Sektor keuangan tumbuh")).not.toBeNull();
+  });
+});
+
 describe("buildRelevanceMatchText", () => {
   it("joins title and description", () => {
     const text = buildRelevanceMatchText("Article title", "Feed description");
