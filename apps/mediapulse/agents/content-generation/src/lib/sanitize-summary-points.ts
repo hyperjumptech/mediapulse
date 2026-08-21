@@ -5,6 +5,7 @@ export type DroppedPointReason =
   | "non_latin_script"
   | "truncated"
   | "starts_mid_sentence"
+  | "figure_without_subject"
   | "fetch_failure"
   | "no_substance";
 
@@ -126,7 +127,8 @@ export const looksTruncated = (point: string): boolean => {
  * A complete point starts on a capital or a digit. One starting on an all-lowercase word lost its
  * subject, as in "manages universal service obligation financing" or "and satellite to support
  * national digital transformation". A first word carrying an interior capital is a brand
- * (`iPhone`, `eFishery`) and is left alone.
+ * (`iPhone`, `eFishery`) and is left alone. A digit-led point that lost its subject is caught by
+ * {@link startsWithUnanchoredFigure} instead.
  *
  * @param point - One generated summary point.
  */
@@ -137,6 +139,29 @@ export const startsMidSentence = (point: string): boolean => {
   }
 
   return /^\p{Ll}/u.test(firstWord) && !/\p{Lu}/u.test(firstWord);
+};
+
+const LEADING_FIGURE_PATTERN =
+  /^(?:rp|idr|usd|us\$|\$|eur|€|sgd|myr|jpy|¥|£|gbp)?\s*\d[\d.,]*\s*(?:%|persen|percent|pct|triliun|trilyun|trillion|miliar|milyar|billion|juta|million|ribu|thousand|bn|mn|k)?$/iu;
+
+const SUBJECT_ANCHOR_WINDOW = 6;
+
+const bareWord = (word: string): string =>
+  word.replaceAll(/[^\p{L}]/gu, "").toLowerCase();
+
+export const startsWithUnanchoredFigure = (point: string): boolean => {
+  const words = point.trim().split(/\s+/u);
+  const leading = words[0];
+  if (leading === undefined || !LEADING_FIGURE_PATTERN.test(leading)) {
+    return false;
+  }
+  if (bareWord(words[1] ?? "") === "of") {
+    return false;
+  }
+
+  return !words
+    .slice(1, SUBJECT_ANCHOR_WINDOW)
+    .some((word) => /\p{Lu}/u.test(word));
 };
 
 /**
@@ -196,6 +221,10 @@ export const sanitizeSummaryPoints = (
     }
     if (startsMidSentence(point)) {
       dropped.push({ point, reason: "starts_mid_sentence" });
+      continue;
+    }
+    if (startsWithUnanchoredFigure(point)) {
+      dropped.push({ point, reason: "figure_without_subject" });
       continue;
     }
     if (describesFetchFailure(point)) {

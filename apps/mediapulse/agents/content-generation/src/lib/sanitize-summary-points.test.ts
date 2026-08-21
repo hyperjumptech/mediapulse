@@ -8,10 +8,66 @@ import {
   looksTruncated,
   sanitizeSummaryPoints,
   startsMidSentence,
+  startsWithUnanchoredFigure,
 } from "./sanitize-summary-points.js";
 
 const padToBudget = (prefix: string): string =>
   prefix.padEnd(MAX_POINT_LENGTH, "x");
+
+describe("startsWithUnanchoredFigure", () => {
+  it("flags a figure-led point that lost the noun it measures", () => {
+    expect(
+      startsWithUnanchoredFigure(
+        "11.9% quarterly to 664,000 tons, per Devi Harjoto's report dated August 12, 2026.",
+      ),
+    ).toBe(true);
+  });
+
+  it("flags a currency-led fragment carrying no subject", () => {
+    expect(
+      startsWithUnanchoredFigure("Rp27.4 trillion by the end of the period."),
+    ).toBe(true);
+  });
+
+  it("accepts a percentage anchored by the noun it measures", () => {
+    expect(
+      startsWithUnanchoredFigure(
+        "85% of 735 Telkomsel BTS sites in NTT have been restored after the earthquake",
+      ),
+    ).toBe(false);
+    expect(
+      startsWithUnanchoredFigure(
+        "90% of BCA Digital app users are under 40, aligning with the Gen Z focus.",
+      ),
+    ).toBe(false);
+  });
+
+  it("accepts a count-led point naming its subject", () => {
+    expect(
+      startsWithUnanchoredFigure(
+        "8,100 GrabMerchant partners participated in the campaign supporting drivers",
+      ),
+    ).toBe(false);
+    expect(
+      startsWithUnanchoredFigure(
+        "200 BTS sites disrupted across 10 districts in NTT after the M7.7 quake",
+      ),
+    ).toBe(false);
+  });
+
+  it("leaves points that do not open on a figure alone", () => {
+    expect(
+      startsWithUnanchoredFigure(
+        "About 2,000 villages remain uncovered by telecom networks, mostly in Papua",
+      ),
+    ).toBe(false);
+    expect(
+      startsWithUnanchoredFigure(
+        "Coal price rose 0.15% to US$134.25 per ton on August 18, 2026",
+      ),
+    ).toBe(false);
+  });
+});
 
 describe("containsNonLatinScript", () => {
   it("flags a Han glyph inside English prose", () => {
@@ -191,6 +247,24 @@ describe("sanitizeSummaryPoints", () => {
 
     expect(result.points).toEqual(points);
     expect(result.dropped).toEqual([]);
+  });
+
+  it("drops a figure-led point that lost its subject and keeps the rest", () => {
+    const result = sanitizeSummaryPoints([
+      "ANTM Q2-2026 gold sales volume rose 15.4% quarterly to 309,200 troy ounces.",
+      "11.9% quarterly to 664,000 tons, per Devi Harjoto's report dated August 12, 2026.",
+    ]);
+
+    expect(result.points).toEqual([
+      "ANTM Q2-2026 gold sales volume rose 15.4% quarterly to 309,200 troy ounces.",
+    ]);
+    expect(result.dropped).toEqual([
+      {
+        point:
+          "11.9% quarterly to 664,000 tons, per Devi Harjoto's report dated August 12, 2026.",
+        reason: "figure_without_subject",
+      },
+    ]);
   });
 
   it("drops a non-Latin point and reports the reason", () => {
