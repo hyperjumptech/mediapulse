@@ -33172,7 +33172,19 @@
   {
     "symbol": "INDY",
     "name": "Indika Energy",
-    "aliases": ["INDY", "Indika", "Indika Energy", "PT Indika Energy Tbk"],
+    "aliases": [
+      "INDY",
+      "Indika",
+      "Indika Energy",
+      "PT Indika Energy Tbk",
+      "Kideco",
+      "Kideco Jaya Agung",
+      "ALVA",
+      "Ilectra",
+      "Ilectra Motor Group",
+      "Awak Mas",
+      "Tripatra"
+    ],
     "company_overview": "Energy group built on coal through Kideco, now diversifying into gold mining, electric vehicles and renewables.",
     "business_operation": "Earns mainly from thermal coal mining and mining services, while investing in a gold project, electric two-wheelers and solar. Coal still drives cash flow, so the diversification is funded by an asset the company has said it wants to reduce reliance on.",
     "sector": {
