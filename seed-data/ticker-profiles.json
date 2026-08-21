@@ -3215,7 +3215,12 @@
       "AMRT",
       "Alfamart",
       "Sumber Alfaria Trijaya",
-      "PT Sumber Alfaria Trijaya Tbk"
+      "PT Sumber Alfaria Trijaya Tbk",
+      "Alfamidi",
+      "Lawson",
+      "DAN+DAN",
+      "Alfacart",
+      "Midi Utama Indonesia"
     ],
     "company_overview": "Operator of the Alfamart minimarket chain, the largest convenience retail network in Indonesia by store count.",
     "business_operation": "Runs tens of thousands of minimarkets nationwide plus Alfamidi and pharmacy formats, earning on thin grocery margins amplified by very high volume and supplier trading terms. Same-store sales growth and new store additions drive earnings, with rural expansion the main growth engine.",
@@ -19760,7 +19765,7 @@
   {
     "symbol": "DCII",
     "name": "DCI Indonesia",
-    "aliases": ["DCII", "DCI Indonesia", "PT DCI Indonesia Tbk"],
+    "aliases": ["DCII", "DCI Indonesia", "PT DCI Indonesia Tbk", "DCI"],
     "company_overview": "Data centre operator running Tier IV certified facilities in Cibitung, backed by Otto Toto Sugiri and Anthoni Salim.",
     "business_operation": "Leases colocation capacity and power to hyperscale cloud providers, financial institutions and enterprises under long-term contracts. Revenue is contracted and highly recurring, and growth depends on adding megawatts of capacity ahead of cloud demand.",
     "sector": {
@@ -23944,7 +23949,9 @@
       "Erafone",
       "Erajaya",
       "Erajaya Swasembada",
-      "PT Erajaya Swasembada Tbk"
+      "PT Erajaya Swasembada Tbk",
+      "iBox",
+      "Erablue"
     ],
     "company_overview": "Largest distributor and retailer of mobile phones and consumer electronics in Indonesia.",
     "business_operation": "Distributes handsets for Apple, Samsung, Xiaomi and others to third-party retailers and sells directly through Erafone and iBox stores, adding grocery and lifestyle retail ventures. Distribution margins are thin and inventory-heavy, so earnings are sensitive to handset launch cycles and to the rupiah.",
@@ -42593,7 +42600,8 @@
       "MAP Aktif Adiperkasa",
       "MAP Aktif",
       "Map Aktif Adiperkasa",
-      "PT Map Aktif Adiperkasa Tbk"
+      "PT Map Aktif Adiperkasa Tbk",
+      "Sports Station"
     ],
     "company_overview": "Sports and active lifestyle retailer within the Mitra Adiperkasa group, holding Indonesian rights for major athletic brands.",
     "business_operation": "Runs Planet Sports, Sports Station and brand stores for Nike, Adidas, Skechers and others across Indonesia and increasingly the Philippines and Vietnam. Earnings depend on athletic footwear demand, brand allocation from principals and the rupiah cost of imported stock.",
@@ -63563,7 +63571,17 @@
   {
     "symbol": "SMMA",
     "name": "Sinar Mas Multiartha",
-    "aliases": ["SMMA", "Sinar Mas Multiartha", "PT Sinar Mas Multiartha Tbk"],
+    "aliases": [
+      "SMMA",
+      "Sinar Mas Multiartha",
+      "PT Sinar Mas Multiartha Tbk",
+      "Bank Sinarmas",
+      "Asuransi Sinar Mas",
+      "Sinarmas Sekuritas",
+      "Sinarmas Asset Management",
+      "Simas Insurtech",
+      "Bank Nano Syariah"
+    ],
     "company_overview": "Financial services holding company of the Sinar Mas group, consolidating banking, insurance and multifinance interests.",
     "business_operation": "Holds Bank Sinarmas, Asuransi Sinar Mas and other financial subsidiaries, so earnings aggregate banking spread, insurance underwriting and investment income. Reported results are dominated by consolidation effects and asset revaluation rather than a single operating driver.",
     "sector": {
@@ -64187,7 +64205,14 @@
       "SOHO",
       "Soho",
       "Soho Global Health",
-      "PT Soho Global Health Tbk"
+      "PT Soho Global Health Tbk",
+      "Imboost",
+      "Curcuma Plus",
+      "Diapet",
+      "Fitkom",
+      "Lelap",
+      "Sohobion",
+      "Curvit"
     ],
     "company_overview": "Pharmaceutical and consumer health group manufacturing and distributing medicines and supplements.",
     "business_operation": "Produces prescription drugs, herbal medicines and supplements including the Imboost brand, and distributes third-party healthcare products through its own network. Combining manufacturing with distribution captures margin along the chain.",
@@ -68482,7 +68507,10 @@
       "Telkomsel",
       "Telkom",
       "Telkom Indonesia (Persero)",
-      "PT Telkom Indonesia (Persero) Tbk"
+      "PT Telkom Indonesia (Persero) Tbk",
+      "Mitratel",
+      "NeutraDC",
+      "Telkomsat"
     ],
     "company_overview": "State-controlled integrated telecommunications group and the largest telco in Indonesia, majority owned by the government.",
     "business_operation": "Operates mobile through Telkomsel, fixed broadband through IndiHome, towers via Mitratel and a growing data centre business. Revenue depends on mobile data traffic and ARPU in a market with chronic price competition, while results are shaped by capex cycles and spectrum costs.",
