@@ -64,6 +64,41 @@ describe("mapOutcomeToDiagnostic", () => {
     });
   });
 
+  it("maps skipped_nothing_survived_generation to skipped / validate", () => {
+    // Setup
+    const agentOutcome: AgentOutcome = {
+      outcome: "skipped_nothing_survived_generation",
+      skipped: true,
+    };
+
+    // Act
+    const result = mapOutcomeToDiagnostic(agentOutcome);
+
+    // Assert
+    expect(result).toEqual({
+      outcome: "skipped",
+      stage: "validate",
+      errorCode: "skipped_nothing_survived_generation",
+      errorCategory: null,
+    });
+  });
+
+  it("gives the two shippable-floor skips distinct error codes and stages", () => {
+    // Act
+    const precheck = mapOutcomeToDiagnostic({
+      outcome: "skipped_insufficient_sources",
+      skipped: true,
+    });
+    const postGeneration = mapOutcomeToDiagnostic({
+      outcome: "skipped_nothing_survived_generation",
+      skipped: true,
+    });
+
+    // Assert
+    expect(precheck.errorCode).not.toBe(postGeneration.errorCode);
+    expect(precheck.stage).not.toBe(postGeneration.stage);
+  });
+
   it("maps skipped_fresh_newsletter_stale_analysis to skipped / precheck", () => {
     // Setup
     const agentOutcome: AgentOutcome = {
