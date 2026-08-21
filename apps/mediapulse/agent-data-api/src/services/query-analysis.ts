@@ -32,19 +32,107 @@ const parseParties = (value: unknown): ProfileParty[] => {
   return parties;
 };
 
+/**
+ * How far back a query's novel-article history is read when deciding whether it has proven itself.
+ */
+const PROVEN_QUERY_LOOKBACK_DAYS = 30;
+
+/** Most proven queries returned, so a set is seeded rather than fully dictated by history. */
+const PROVEN_QUERY_LIMIT = 12;
+
 type QueryAnalysisDb = {
   ticker: Pick<typeof prisma.ticker, "findUniqueOrThrow">;
   searchQuerySet: Pick<
     typeof prisma.searchQuerySet,
     "updateMany" | "create" | "update" | "findUnique" | "delete"
   >;
-  searchQuery: Pick<typeof prisma.searchQuery, "deleteMany" | "createMany">;
+  searchQuery: Pick<
+    typeof prisma.searchQuery,
+    "deleteMany" | "createMany" | "findMany"
+  >;
 };
 
 const defaultDb: QueryAnalysisDb = {
   ticker: prisma.ticker,
   searchQuerySet: prisma.searchQuerySet,
   searchQuery: prisma.searchQuery,
+};
+
+/**
+ * Query texts for a ticker that produced novel articles recently, strongest first.
+ *
+ * Query sets are regenerated every run, so a query text survives roughly two sets and its yield
+ * history is discarded before it can inform anything. Reading history by text rather than by row
+ * lets a phrasing that worked be carried into the next set instead of being regenerated from
+ * scratch.
+ *
+ * @param tickerId - Ticker whose query history is read.
+ * @param db - Optional injected DB delegates for testing.
+ * @param now - Reference time, injectable for testing.
+ * @returns Distinct query texts ranked by novel articles produced, capped at
+ *   {@link PROVEN_QUERY_LIMIT}.
+ */
+export const getProvenQueries = async (
+  tickerId: string,
+  db: {
+    searchQuery: Pick<typeof prisma.searchQuery, "findMany">;
+  } = defaultDb,
+  now: () => Date = () => new Date(),
+) => {
+  const since = new Date(
+    now().getTime() - PROVEN_QUERY_LOOKBACK_DAYS * 86_400_000,
+  );
+  const rows = (await db.searchQuery.findMany({
+    where: {
+      tickerId,
+      searchQueryYields: { some: { runDate: { gte: since } } },
+    },
+    select: {
+      text: true,
+      intent: true,
+      searchQueryYields: {
+        where: { runDate: { gte: since } },
+        select: { novelArticleCount: true },
+      },
+    },
+  } satisfies Prisma.SearchQueryFindManyArgs)) as {
+    text: string;
+    intent: string;
+    searchQueryYields?: { novelArticleCount: number }[];
+  }[];
+
+  const byText = new Map<
+    string,
+    { text: string; intent: string; novelArticleCount: number }
+  >();
+  for (const row of rows) {
+    const novel = (row.searchQueryYields ?? []).reduce(
+      (total, entry) => total + entry.novelArticleCount,
+      0,
+    );
+    if (novel <= 0) {
+      continue;
+    }
+    const key = row.text.trim().toLowerCase();
+    const existing = byText.get(key);
+    if (existing === undefined) {
+      byText.set(key, {
+        text: row.text,
+        intent: row.intent,
+        novelArticleCount: novel,
+      });
+      continue;
+    }
+    existing.novelArticleCount += novel;
+  }
+
+  return [...byText.values()]
+    .sort((first, second) =>
+      second.novelArticleCount === first.novelArticleCount
+        ? first.text.localeCompare(second.text)
+        : second.novelArticleCount - first.novelArticleCount,
+    )
+    .slice(0, PROVEN_QUERY_LIMIT);
 };
 
 /**
@@ -58,6 +146,7 @@ export const getQueryAnalysisContext = async (
   query: GetQueryAnalysisQuery,
   db: QueryAnalysisDb = defaultDb,
 ) => {
+  const provenQueries = await getProvenQueries(query.tickerId, db);
   const ticker = await db.ticker.findUniqueOrThrow({
     where: { id: query.tickerId },
     select: {
@@ -93,6 +182,7 @@ export const getQueryAnalysisContext = async (
   const profile = ticker.profile;
 
   return {
+    provenQueries,
     ticker: {
       id: ticker.id,
       symbol: ticker.symbol,

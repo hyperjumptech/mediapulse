@@ -265,6 +265,7 @@ export {
 export {
   getQueryAnalysisQuerySchema,
   getQueryAnalysisResponseSchema,
+  provenQuerySchema,
   postQueryAnalysisBodySchema,
   postQueryAnalysisResponseSchema,
   queryAnalysisIntentSchema,
@@ -276,6 +277,7 @@ export {
   tickerProfilePartySchema,
   type GetQueryAnalysisQuery,
   type GetQueryAnalysisResponse,
+  type ProvenQuery,
   type PostQueryAnalysisBody,
   type PostQueryAnalysisResponse,
   type QueryAnalysisIntent,
