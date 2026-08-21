@@ -24,15 +24,28 @@ import type { ResolvedContentGenerationConfig } from "./config-schema.js";
 import { compareSourcesForRanking } from "./lib/rank-sources.js";
 
 /**
- * Keeps an extracted publication date only when it is not in the future.
+ * Longest a backfilled publication date may precede the run before it is read as prose rather than
+ * a byline.
+ *
+ * Collection admits an article only when it is within seven days or carries no date at all, so a
+ * date far older than that is not the byline of anything in the pool. Set an order of magnitude
+ * beyond the collection window, so a moderately old source keeps its date while a year lifted from
+ * the article's own narrative does not.
+ */
+export const MAX_BACKFILL_AGE_DAYS = 90;
+
+/**
+ * Keeps an extracted publication date only when it is neither in the future nor implausibly old.
  *
  * - Important: a date drawn from body text is often not the publication date. On 2026-08-20 an
  *   article about Bank Indonesia's QRIS policy was stamped 2026-10-01, the date the policy takes
  *   effect, six weeks after the run. `published_at` drives recency ranking, section freshness, and
  *   event dedup's same-day path, so a future stamp outranks genuinely fresh sources indefinitely.
  *
- * Only the future check applies. Age is settled at collection, and re-applying it here would drop
- * older sources a section still tolerates.
+ * - Important: the same extractor fails the other way. On 2026-08-21 the ACES lead was stamped
+ *   2025-01-01, the brand-transition date named in the article's first paragraph, against a byline
+ *   of 2026-08-18. The stamp only reaches the row through the null-only backfill, so declining it
+ *   leaves `published_at` null rather than replacing a good value with a worse one.
  *
  * @param publishedAt - Date extracted from the fetched page, or `null` when none was found.
  * @param now - Reference time, injectable for testing.
@@ -45,8 +58,12 @@ export const acceptablePublishedDate = (
   if (publishedAt === null) {
     return undefined;
   }
+  if (isFutureDated(publishedAt, now)) {
+    return undefined;
+  }
+  const ageMs = now.getTime() - publishedAt.getTime();
 
-  return isFutureDated(publishedAt, now) ? undefined : publishedAt;
+  return ageMs > MAX_BACKFILL_AGE_DAYS * 86_400_000 ? undefined : publishedAt;
 };
 
 export type RequestedFetchSource = {

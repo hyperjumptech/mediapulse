@@ -9,6 +9,7 @@ import type {
 import { ContentGenerationConfigSchema } from "./config-schema.js";
 import {
   acceptablePublishedDate,
+  MAX_BACKFILL_AGE_DAYS,
   fetchSourceBodies,
   type RequestedFetchSource,
 } from "./fetch-source-bodies.js";
@@ -592,10 +593,32 @@ describe("acceptablePublishedDate", () => {
     expect(acceptablePublishedDate(publishedAt, now)).toBe(publishedAt);
   });
 
-  it("keeps a genuinely old date rather than applying an age limit", () => {
+  it("keeps a moderately old date well inside the backfill age limit", () => {
     const publishedAt = new Date("2026-07-01T00:00:00Z");
 
     expect(acceptablePublishedDate(publishedAt, now)).toBe(publishedAt);
+  });
+
+  it("discards a date lifted from body text that predates any collectable article", () => {
+    expect(
+      acceptablePublishedDate(new Date("2025-01-01T00:00:00Z"), now),
+    ).toBeUndefined();
+  });
+
+  it("keeps a date on the near side of the backfill age limit", () => {
+    const publishedAt = new Date(
+      now.getTime() - (MAX_BACKFILL_AGE_DAYS - 1) * 86_400_000,
+    );
+
+    expect(acceptablePublishedDate(publishedAt, now)).toBe(publishedAt);
+  });
+
+  it("discards a date past the backfill age limit", () => {
+    const publishedAt = new Date(
+      now.getTime() - (MAX_BACKFILL_AGE_DAYS + 1) * 86_400_000,
+    );
+
+    expect(acceptablePublishedDate(publishedAt, now)).toBeUndefined();
   });
 
   it("returns undefined when the page carried no extractable date", () => {
