@@ -759,10 +759,18 @@ describe("run", () => {
       expect(result.success).toBe(true);
       expect(contentGenerationCreate).not.toHaveBeenCalled();
       const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+
       expect(callArg.errorCode).toBe("skipped_insufficient_sources");
+      expect(callArg.stage).toBe("precheck");
+      expect(LlmGenerate.generateNewsletterWithLlm).not.toHaveBeenCalled();
+      expect(callArg.message).toContain("before generation");
+      expect(callArg.details).toMatchObject({
+        candidateArticleCount: 1,
+        candidateSectionCount: 1,
+      });
     });
 
-    it("calls contentGenerationRuns.create with errorCode=skipped_insufficient_sources when generation drops the issue below the floor", async () => {
+    it("separates a post-generation drop from a precheck skip, and records the counts", async () => {
       contentGenerationNewslettersLatestGet.mockResolvedValue({
         hasNewsletter: false,
         newsletterId: null,
@@ -794,7 +802,15 @@ describe("run", () => {
       expect(LlmGenerate.generateNewsletterWithLlm).toHaveBeenCalledTimes(1);
       expect(contentGenerationCreate).not.toHaveBeenCalled();
       const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
-      expect(callArg.errorCode).toBe("skipped_insufficient_sources");
+
+      expect(callArg.errorCode).toBe("skipped_nothing_survived_generation");
+      expect(callArg.stage).toBe("validate");
+      expect(callArg.outcome).toBe("skipped");
+      expect(callArg.message).toContain("1 article(s) across 1 section(s)");
+      expect(callArg.details).toMatchObject({
+        renderedArticleCount: 1,
+        renderedSectionCount: 1,
+      });
     });
 
     it("calls contentGenerationRuns.create with errorCode=no_sources on the no-sources path", async () => {

@@ -86,6 +86,11 @@ type WriteDiagnosticParams = {
   executionId?: string | null;
   /** Observability snapshot to persist on the success path (e.g. sectionFill). */
   details?: Record<string, unknown> | null;
+  /**
+   * Safe, static human-readable context appended to the diagnostic message, such as the article
+   * and section counts behind a skip. Never pass error objects, LLM output, or config values.
+   */
+  detail?: string | undefined;
 };
 
 /**
@@ -111,6 +116,7 @@ async function writeDiagnostic(params: WriteDiagnosticParams): Promise<void> {
     pipelineRunId = null,
     executionId = null,
     details = null,
+    detail,
   } = params;
 
   const mapped = mapOutcomeToDiagnostic(agentOutcome);
@@ -128,6 +134,7 @@ async function writeDiagnostic(params: WriteDiagnosticParams): Promise<void> {
         tickerId,
         outcomeCode: mapped.errorCode ?? undefined,
         stage: mapped.stage ?? undefined,
+        ...(detail !== undefined ? { detail } : {}),
       }),
       durationMs,
       pipelineRunId,
@@ -449,6 +456,12 @@ export async function run({
       durationMs: Date.now() - runStart,
       pipelineRunId,
       executionId,
+      detail: `${String(shippableShape.articleCount)} article(s) across ${String(shippableShape.sectionCount)} section(s) before generation`,
+      details: {
+        candidateArticleCount: shippableShape.articleCount,
+        candidateSectionCount: shippableShape.sectionCount,
+        sourceCount: sources.length,
+      },
     });
 
     return {
@@ -712,9 +725,9 @@ export async function run({
     })
   ) {
     const outcome: AgentOutcome = {
-      outcome: "skipped_insufficient_sources",
+      outcome: "skipped_nothing_survived_generation",
       skipped: true,
-      message: `Only ${String(renderedShape.articleCount)} article(s) across ${String(renderedShape.sectionCount)} section(s) survived generation; skipped`,
+      message: `Only ${String(renderedShape.articleCount)} article(s) across ${String(renderedShape.sectionCount)} section(s) survived generation, down from ${String(shippableShape.articleCount)} across ${String(shippableShape.sectionCount)}; skipped`,
     };
     logger.info(
       {
@@ -743,6 +756,13 @@ export async function run({
       durationMs: Date.now() - runStart,
       pipelineRunId,
       executionId,
+      detail: `${String(renderedShape.articleCount)} article(s) across ${String(renderedShape.sectionCount)} section(s) survived, down from ${String(shippableShape.articleCount)} across ${String(shippableShape.sectionCount)}`,
+      details: {
+        renderedArticleCount: renderedShape.articleCount,
+        renderedSectionCount: renderedShape.sectionCount,
+        candidateArticleCount: shippableShape.articleCount,
+        candidateSectionCount: shippableShape.sectionCount,
+      },
     });
 
     return {

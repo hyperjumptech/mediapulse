@@ -64,6 +64,14 @@ export function mapOutcomeToDiagnostic(
         errorCategory: null,
       };
 
+    case "skipped_nothing_survived_generation":
+      return {
+        outcome: "skipped",
+        stage: "validate",
+        errorCode: "skipped_nothing_survived_generation",
+        errorCategory: null,
+      };
+
     case "skipped_fresh_newsletter_exists":
       return {
         outcome: "skipped",

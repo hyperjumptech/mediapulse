@@ -15,6 +15,13 @@ export type OutcomeCode =
    * sections holding one. Run is skipped without calling OpenAI.
    */
   | "skipped_insufficient_sources"
+  /**
+   * Sources cleared the precheck floor and the issue was generated, but too few articles
+   * survived summarization and the output guards to ship. Distinct from
+   * `skipped_insufficient_sources`: the LLM ran, so this is attrition inside generation rather
+   * than a quiet news day.
+   */
+  | "skipped_nothing_survived_generation"
   /** A fresh newsletter was generated recently; run is skipped (MP-CGA-006). */
   | "skipped_fresh_newsletter_exists"
   /**
