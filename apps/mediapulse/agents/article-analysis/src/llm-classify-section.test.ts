@@ -439,6 +439,81 @@ describe("renderArticleTickerContext", () => {
   });
 });
 
+describe("issuer-title fallback and section-defining rules", () => {
+  const realCriteria = () =>
+    articleAnalysisConfigSchema.parse({}).acceptanceCriteria;
+
+  const judge = (matchedIds: readonly string[]): CriterionEvaluation[] => {
+    const matched = new Set(matchedIds);
+
+    return flattenAcceptanceCriteria(realCriteria()).map((criterion) => ({
+      id: criterion.id,
+      matched: matched.has(criterion.id),
+      note: matched.has(criterion.id) ? "evidence present" : "absent",
+    }));
+  };
+
+  it("refuses issuerPerformance for a headline naming the issuer that reports no result", () => {
+    const result = scoreFromEvaluations(
+      judge(["pf-issuer-subject", "pf-period-stated"]),
+      realCriteria(),
+      false,
+      true,
+    );
+
+    expect(result.section).toBeNull();
+  });
+
+  it("still admits an issuer result that clears no gate but reports a figure", () => {
+    const result = scoreFromEvaluations(
+      judge(["pf-reported-result", "pf-period-stated", "pf-direction-given"]),
+      realCriteria(),
+      false,
+      true,
+    );
+
+    expect(result.section).toBe("issuerPerformance");
+  });
+
+  it("refuses dealsAndMovements for named parties with no corporate action", () => {
+    const result = scoreFromEvaluations(
+      judge(["dm-parties-named", "dm-terms-stated", "dm-confirmed"]),
+      realCriteria(),
+      false,
+      true,
+    );
+
+    expect(result.section).not.toBe("dealsAndMovements");
+  });
+
+  it("leaves a config whose rules carry none of the defining ids unrestricted", () => {
+    const custom: AcceptanceCriteriaRule[] = [
+      {
+        section: "issuerPerformance",
+        criteria: [
+          { id: "x1", text: "Include if issuer.", qualifying: true },
+          { id: "x2", text: "Include if result.", qualifying: true },
+          { id: "x3", text: "Include if period.", qualifying: false },
+          { id: "x4", text: "Include if direction.", qualifying: false },
+        ],
+      },
+    ];
+    const result = scoreFromEvaluations(
+      [
+        { id: "x1", matched: true, note: "y" },
+        { id: "x2", matched: false, note: "n" },
+        { id: "x3", matched: true, note: "y" },
+        { id: "x4", matched: false, note: "n" },
+      ],
+      custom,
+      false,
+      true,
+    );
+
+    expect(result.section).toBe("issuerPerformance");
+  });
+});
+
 describe("buildEvaluationSchema", () => {
   it("accepts judgments referencing configured ids", () => {
     const schema = buildEvaluationSchema(allIds);
