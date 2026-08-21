@@ -57,7 +57,7 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | POST   | `/api/v1/newsletter-feedback-record`             | Record a classified newsletter reply (idempotent on `graphMessageId`)      |
 | GET    | `/api/v1/ticker`                                 | Get ticker identity, aliases, sector/industry, business context, and peers |
 | GET    | `/api/v1/ticker-relevance-terms`                 | List relevance-matching terms for every ticker with an active query set    |
-| GET    | `/api/v1/query-analysis`                         | Get query-analysis context by ticker                                       |
+| GET    | `/api/v1/query-analysis`                         | Get query-analysis context and proven queries by ticker                    |
 | POST   | `/api/v1/query-analysis`                         | Store and activate a versioned query set                                   |
 | GET    | `/api/v1/section-coverage-rollup`                | Per-section average query coverage and newsletter fill by contract version |
 
@@ -425,6 +425,7 @@ Implemented in `apps/mediapulse/agent-data-api/src/routes/ticker-relevance-terms
 - **GET** — No query parameters. Returns **`{ tickers }`**, one entry per **active** ticker as **`{ id, symbol, terms }`**. A ticker counts as active when it has an active `SearchQuerySet` (`search_query_set.is_active = true`); the `ticker` table has no `isActive` column.
 - **`terms`** is the deduplicated, trimmed, non-empty union of the ticker's `symbol`, `name`, every alias, each peer's `symbol` and `name`, and the `sector`, `industry`, `subSector`, and `subIndustry` labels. Deduplication is case-insensitive and keeps the first-seen casing. `businessActivity` is deliberately excluded because it is long prose rather than a matchable term.
 - Peers reuse the sector/industry resolution from `services/query-analysis-context-helpers.ts` and stay capped at `QUERY_ANALYSIS_PEER_LIMIT` per ticker. Candidates for every active ticker load in one batched query rather than one query per ticker.
+- `GET /api/v1/query-analysis` also returns **`provenQueries`**: distinct query texts for that ticker that produced novel articles in the last 30 days, ranked by novel count and capped at 12. Query sets are regenerated every run, so without this a phrasing that worked is discarded and has to be reinvented; the agent seeds its candidate pool with these so `finalizeQueries` can keep them. Proven queries that have since become perishable (dated, one-off event, embedded figure) are dropped rather than carried forward.
 
 From agents, use the SDK namespace **`tickerRelevanceTerms`**.
 

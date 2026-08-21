@@ -40,6 +40,7 @@ import {
 } from "./pipeline/context";
 import { generateCandidatesWithCoverage } from "./generation/generate-with-coverage";
 import { finalizeQueries } from "./select/finalize";
+import { provenCandidates } from "./pipeline/proven";
 import {
   narrativeRunStart,
   narrativeProfile,
@@ -244,7 +245,10 @@ export const runQueryAnalysis = async (
 
   const finalizeStartMs = now();
   const finalized = finalizeQueries({
-    candidates: generation.candidates,
+    candidates: [
+      ...provenCandidates(queryContext.provenQueries ?? []),
+      ...generation.candidates,
+    ],
     queriesPerIntent,
   });
   const finalizeMs = now() - finalizeStartMs;

@@ -74,9 +74,16 @@ export const queryAnalysisTickerProfileSchema = z.object({
   regulators: z.array(tickerProfilePartySchema).default([]),
 });
 
+export const provenQuerySchema = z.object({
+  text: z.string().trim().min(1),
+  intent: queryAnalysisIntentSchema,
+  novelArticleCount: z.number().int().nonnegative(),
+});
+
 export const getQueryAnalysisResponseSchema = z.object({
   ticker: queryAnalysisTickerSchema,
   profile: queryAnalysisTickerProfileSchema.nullable().default(null),
+  provenQueries: z.array(provenQuerySchema).default([]),
 });
 
 export const postQueryAnalysisResponseSchema = z.object({
@@ -85,6 +92,7 @@ export const postQueryAnalysisResponseSchema = z.object({
   activeSetId: z.string().uuid(),
 });
 
+export type ProvenQuery = z.infer<typeof provenQuerySchema>;
 export type GetQueryAnalysisQuery = z.infer<typeof getQueryAnalysisQuerySchema>;
 export type PostQueryAnalysisBody = z.infer<typeof postQueryAnalysisBodySchema>;
 export type GetQueryAnalysisResponse = z.infer<

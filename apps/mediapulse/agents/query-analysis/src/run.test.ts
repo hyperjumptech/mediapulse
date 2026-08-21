@@ -73,8 +73,10 @@ const generatedCandidates = [
 ];
 
 /** Builds a fresh mock agent-data-api client. */
-const makeClient = (profile: unknown) => {
-  const get = vi.fn().mockResolvedValue({ ticker: baseTicker, profile });
+const makeClient = (profile: unknown, provenQueries: unknown[] = []) => {
+  const get = vi
+    .fn()
+    .mockResolvedValue({ ticker: baseTicker, profile, provenQueries });
   const create = vi.fn().mockResolvedValue({
     created: 1,
     createdSetId: "22222222-2222-4222-a222-222222222222",
@@ -235,6 +237,59 @@ describe("runQueryAnalysis — with a curated profile", () => {
     expect(ranks).toEqual([...ranks].sort((a: number, b: number) => a - b));
     expect(body.queries[0]?.text).toBe("BBRI");
     expect(body.queries[0]?.rank).toBe(1);
+  });
+
+  it("carries a proven query into the new set ahead of a fresh one", async () => {
+    // Setup
+    const { client, create } = makeClient(baseProfile, [
+      {
+        text: "harga batu bara acuan ESDM",
+        intent: "industryPulse",
+        novelArticleCount: 11,
+      },
+    ]);
+    const deps: RunQueryAnalysisDeps = {
+      createClient: vi.fn(() => client) as never,
+      generateQueries: generateQueries as never,
+    };
+
+    // Act
+    await runQueryAnalysis(makeContext() as never, deps);
+
+    // Assert
+    const body = create.mock.calls[0]?.[0];
+    const texts = body.queries.map((query: { text: string }) => query.text);
+
+    const industryPulse = body.queries.filter(
+      (query: { intent: string }) => query.intent === "industryPulse",
+    );
+
+    expect(texts).toContain("harga batu bara acuan ESDM");
+    expect(industryPulse[0]?.text).toBe("harga batu bara acuan ESDM");
+  });
+
+  it("does not carry a proven query that has expired", async () => {
+    // Setup
+    const { client, create } = makeClient(baseProfile, [
+      {
+        text: "promo ritel 17 Agustus 2026",
+        intent: "industryPulse",
+        novelArticleCount: 40,
+      },
+    ]);
+    const deps: RunQueryAnalysisDeps = {
+      createClient: vi.fn(() => client) as never,
+      generateQueries: generateQueries as never,
+    };
+
+    // Act
+    await runQueryAnalysis(makeContext() as never, deps);
+
+    // Assert
+    const body = create.mock.calls[0]?.[0];
+    const texts = body.queries.map((query: { text: string }) => query.text);
+
+    expect(texts).not.toContain("promo ritel 17 Agustus 2026");
   });
 
   it("persists a query for every generated intent", async () => {

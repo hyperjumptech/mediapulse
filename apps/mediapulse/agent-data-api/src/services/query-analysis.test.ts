@@ -15,9 +15,89 @@ vi.mock("./search-query-yield.js", () => ({
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 
 let getQueryAnalysisContext: typeof import("./query-analysis.js").getQueryAnalysisContext;
+let getProvenQueries: typeof import("./query-analysis.js").getProvenQueries;
 
 beforeAll(async () => {
-  ({ getQueryAnalysisContext } = await import("./query-analysis.js"));
+  ({ getQueryAnalysisContext, getProvenQueries } =
+    await import("./query-analysis.js"));
+});
+
+describe("getProvenQueries", () => {
+  const rowsFor = (rows: unknown[]) => ({
+    searchQuery: { findMany: vi.fn().mockResolvedValue(rows) },
+  });
+
+  it("ranks distinct query texts by novel articles produced", async () => {
+    const db = rowsFor([
+      {
+        text: "harga batu bara acuan",
+        intent: "industryPulse",
+        searchQueryYields: [{ novelArticleCount: 3 }, { novelArticleCount: 2 }],
+      },
+      {
+        text: "Kideco produksi",
+        intent: "issuerPerformance",
+        searchQueryYields: [{ novelArticleCount: 9 }],
+      },
+    ]);
+
+    const result = await getProvenQueries(TICKER_ID, db);
+
+    expect(result.map((row) => row.text)).toEqual([
+      "Kideco produksi",
+      "harga batu bara acuan",
+    ]);
+    expect(result[0]?.novelArticleCount).toBe(9);
+    expect(result[1]?.novelArticleCount).toBe(5);
+  });
+
+  it("merges the same phrasing across regenerated sets", async () => {
+    const db = rowsFor([
+      {
+        text: "harga batu bara acuan",
+        intent: "industryPulse",
+        searchQueryYields: [{ novelArticleCount: 2 }],
+      },
+      {
+        text: "Harga Batu Bara Acuan",
+        intent: "industryPulse",
+        searchQueryYields: [{ novelArticleCount: 4 }],
+      },
+    ]);
+
+    const result = await getProvenQueries(TICKER_ID, db);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.novelArticleCount).toBe(6);
+  });
+
+  it("drops a query that produced nothing novel", async () => {
+    const db = rowsFor([
+      {
+        text: "promo 17 Agustus",
+        intent: "industryPulse",
+        searchQueryYields: [{ novelArticleCount: 0 }, { novelArticleCount: 0 }],
+      },
+    ]);
+
+    expect(await getProvenQueries(TICKER_ID, db)).toEqual([]);
+  });
+
+  it("reads only the recent window", async () => {
+    const db = rowsFor([]);
+    await getProvenQueries(
+      TICKER_ID,
+      db,
+      () => new Date("2026-08-21T00:00:00Z"),
+    );
+    const args = db.searchQuery.findMany.mock.calls[0]?.[0] as {
+      where: { searchQueryYields: { some: { runDate: { gte: Date } } } };
+    };
+
+    expect(args.where.searchQueryYields.some.runDate.gte.toISOString()).toBe(
+      "2026-07-22T00:00:00.000Z",
+    );
+  });
 });
 
 describe("getQueryAnalysisContext", () => {
@@ -42,7 +122,11 @@ describe("getQueryAnalysisContext", () => {
         findUnique: vi.fn(),
         delete: vi.fn(),
       },
-      searchQuery: { deleteMany: vi.fn(), createMany: vi.fn() },
+      searchQuery: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn(),
+        createMany: vi.fn(),
+      },
     };
 
     const payload = await getQueryAnalysisContext({ tickerId: TICKER_ID }, db);
@@ -57,8 +141,10 @@ describe("getQueryAnalysisContext", () => {
         subSector: "Application Software",
         subIndustry: "SaaS",
         businessActivity: "Enterprise software",
+        aliases: undefined,
       },
       profile: null,
+      provenQueries: [],
     });
     expect(findUniqueOrThrow).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: TICKER_ID } }),
@@ -105,7 +191,11 @@ describe("getQueryAnalysisContext", () => {
         findUnique: vi.fn(),
         delete: vi.fn(),
       },
-      searchQuery: { deleteMany: vi.fn(), createMany: vi.fn() },
+      searchQuery: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn(),
+        createMany: vi.fn(),
+      },
     };
 
     const payload = await getQueryAnalysisContext({ tickerId: TICKER_ID }, db);
@@ -144,7 +234,11 @@ describe("getQueryAnalysisContext", () => {
         findUnique: vi.fn(),
         delete: vi.fn(),
       },
-      searchQuery: { deleteMany: vi.fn(), createMany: vi.fn() },
+      searchQuery: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn(),
+        createMany: vi.fn(),
+      },
     };
 
     const payload = await getQueryAnalysisContext({ tickerId: TICKER_ID }, db);

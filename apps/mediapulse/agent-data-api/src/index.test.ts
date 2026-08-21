@@ -881,6 +881,7 @@ describe("agent-data-api", () => {
           businessActivity: null,
         },
         profile: null,
+        provenQueries: [],
       });
     });
   });
