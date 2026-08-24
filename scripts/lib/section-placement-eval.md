@@ -1,5 +1,9 @@
 # Section-placement eval
 
+Runner: `scripts/eval-section-placement.mjs`. It lives in `scripts/` rather than inside the agent
+package because it reads credentials from the environment, and `@mediapulse/env` would require a
+database URL and every integration secret just to run an eval.
+
 Measures how often the classifier puts a real article in the section it belongs to.
 
 ## Why it exists
@@ -11,7 +15,7 @@ gate change, or model change needs a same-code baseline first.
 ## Running it
 
 ```bash
-OPENROUTER_API_KEY=... pnpm --filter @mediapulse/article-analysis eval:section
+OPENROUTER_API_KEY=... pnpm eval:section-placement
 ```
 
 Optional environment:
@@ -27,7 +31,7 @@ mean beyond the baseline range.
 
 ## The cases
 
-`section-placement.cases.json` holds 20 real articles from the 2026-08-21 batch, each labelled with
+`scripts/lib/section-placement.cases.json` holds 20 real articles from the 2026-08-21 batch, each labelled with
 the section it should have reached. Labels come from the hand review in `reviews/2026-08-21/`:
 confirmed misplacements, confirmed wrongly-rejected articles, and correctly-placed items kept as
 regression guards. `expectedSection: null` means the article should be rejected.

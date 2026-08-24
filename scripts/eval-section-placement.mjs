@@ -1,28 +1,14 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { articleAnalysisConfigSchema } from "../src/config-schema.js";
-import { classifyArticleSection } from "../src/llm-classify-section.js";
-
-type EvalCase = {
-  id: string;
-  symbol: string;
-  tickerName: string;
-  title: string;
-  content: string;
-  subIndustry: string;
-  industry: string;
-  competitors: string;
-  aliases: string;
-  expectedSection: string | null;
-  note: string;
-};
+import { articleAnalysisConfigSchema } from "../apps/mediapulse/agents/article-analysis/src/config-schema.js";
+import { classifyArticleSection } from "../apps/mediapulse/agents/article-analysis/src/llm-classify-section.js";
 
 const CASES_PATH = fileURLToPath(
-  new URL("./section-placement.cases.json", import.meta.url),
+  new URL("./lib/section-placement.cases.json", import.meta.url),
 );
 
-const requireEnv = (name: string): string => {
+const requireEnv = (name) => {
   const value = process.env[name];
   if (value === undefined || value.trim() === "") {
     throw new Error(`${name} is required to run this eval`);
@@ -33,12 +19,8 @@ const requireEnv = (name: string): string => {
 
 const EVAL_CONCURRENCY = 6;
 
-const mapWithConcurrency = async <Input, Output>(
-  items: readonly Input[],
-  limit: number,
-  worker: (item: Input, index: number) => Promise<Output>,
-): Promise<Output[]> => {
-  const results: Output[] = new Array<Output>(items.length);
+const mapWithConcurrency = async (items, limit, worker) => {
+  const results = new Array(items.length);
   let next = 0;
   const runners = Array.from({ length: Math.min(limit, items.length) }, () =>
     (async () => {
@@ -58,16 +40,16 @@ const mapWithConcurrency = async <Input, Output>(
   return results;
 };
 
-const main = async (): Promise<void> => {
+const main = async () => {
   const apiKey = requireEnv("OPENROUTER_API_KEY");
   const model = process.env.EVAL_MODEL ?? "openai/gpt-4o-mini";
   const baseUrl =
     process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1";
   const repeats = Number.parseInt(process.env.EVAL_REPEATS ?? "1", 10);
-  const cases = JSON.parse(readFileSync(CASES_PATH, "utf8")) as EvalCase[];
+  const cases = JSON.parse(readFileSync(CASES_PATH, "utf8"));
   const { acceptanceCriteria } = articleAnalysisConfigSchema.parse({});
 
-  const classifyOne = async (testCase: EvalCase) => {
+  const classifyOne = async (testCase) => {
     const ticker = {
       symbol: testCase.symbol,
       name: testCase.tickerName,
@@ -86,14 +68,14 @@ const main = async (): Promise<void> => {
       title: testCase.title,
       content: testCase.content,
       acceptanceCriteria,
-      ticker: ticker as never,
+      ticker,
       tickerContext: `Issuer context: collected for ${testCase.symbol} (${testCase.tickerName}), industry ${testCase.industry}, ${testCase.subIndustry}.`,
     });
 
     return result.section;
   };
 
-  const accuracies: number[] = [];
+  const accuracies = [];
   for (let run = 0; run < repeats; run += 1) {
     const actuals = await mapWithConcurrency(
       cases,
@@ -103,7 +85,7 @@ const main = async (): Promise<void> => {
     let correct = 0;
     let falseNegatives = 0;
     let falsePositives = 0;
-    const rows: string[] = [];
+    const rows = [];
 
     cases.forEach((testCase, index) => {
       const actual = actuals[index] ?? null;
