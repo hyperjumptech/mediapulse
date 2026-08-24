@@ -27,8 +27,6 @@ export const ConfigSchema = z.object({
     })
     .optional()
     .default({}),
-  newsletterDeliveryHour: z.number().int().min(0).max(23).optional(),
-  newsletterDeliveryTimezone: z.string().optional(),
   newsletterDeliveryTimeLabel: z.string().optional(),
   inboxPageSize: z.number().int().min(1).max(1000).optional().default(50),
   inboxMaxPagesPerRun: z.number().int().positive().optional().default(20),

@@ -95,6 +95,17 @@ describe("RegistrationForm", () => {
     expect(screen.getByRole("listbox")).toBeInTheDocument();
   });
 
+  it("states the newsletter is sent only when there is news, not daily", () => {
+    render(<RegistrationForm tickers={sampleTickers} />);
+
+    expect(
+      screen.getByText(
+        /We check your ticker every day and email you only when there is news worth reading\./i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/daily stock updates/i)).not.toBeInTheDocument();
+  });
+
   it("opens the mail choice modal on submit and completes native mail path", async () => {
     const user = userEvent.setup();
     render(<RegistrationForm tickers={sampleTickers} />);
@@ -111,6 +122,18 @@ describe("RegistrationForm", () => {
     expect(screen.getByText(/Almost done/i)).toBeInTheDocument();
     expect(
       screen.getByText(/on the draft in your email app to subscribe/i),
+    ).toBeInTheDocument();
+  });
+
+  it("sets first-issue expectations after mail-app submit", async () => {
+    const user = userEvent.setup();
+    render(<RegistrationForm tickers={sampleTickers} />);
+
+    await fillAndSubmitForm(user);
+    await user.click(screen.getByRole("button", { name: /Apple Mail/i }));
+
+    expect(
+      screen.getByText(/has news worth reading. That may be tomorrow/i),
     ).toBeInTheDocument();
   });
 

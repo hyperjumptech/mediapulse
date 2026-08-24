@@ -96,6 +96,11 @@ const RegistrationForm = ({ tickers }: Props) => {
               <strong>{confirmationEmail}</strong>. Click it to finish
               subscribing for <strong>{selectedTicker?.KodeEmiten}</strong>.
             </p>
+            <p className="text-sm text-muted-foreground">
+              After you confirm, your first issue arrives as soon as{" "}
+              {selectedTicker?.KodeEmiten} has news worth reading. That may be
+              tomorrow, or later in the week.
+            </p>
           </div>
           <Button variant="ghost" size="sm" onClick={resetForm}>
             Subscribe to another ticker
@@ -115,6 +120,11 @@ const RegistrationForm = ({ tickers }: Props) => {
             <p className="text-sm text-muted-foreground">
               Tap <strong>Send</strong> on the draft in your email app to
               subscribe for <strong>{selectedTicker?.KodeEmiten}</strong>.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Your first issue arrives as soon as {selectedTicker?.KodeEmiten}{" "}
+              has news worth reading. That may be tomorrow, or later in the
+              week.
             </p>
           </div>
           <div className="w-full rounded-lg border bg-muted/30 px-4 py-3 space-y-3">
@@ -266,7 +276,8 @@ const RegistrationForm = ({ tickers }: Props) => {
           </Button>
         </form>
         <p className="text-balance text-center text-xs text-muted-foreground">
-          By subscribing, you agree to receive daily stock updates.
+          We check your ticker every day and email you only when there is news
+          worth reading.
           <br />
           You can unsubscribe at any time.
         </p>

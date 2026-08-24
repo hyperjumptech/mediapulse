@@ -26,8 +26,8 @@ export const formatNewsletterEmailSubject = (
 
   if (trimmedTitle.length === 0) {
     return symbol.length > 0
-      ? `${symbol} Pulse: Your daily briefing`
-      : "Your daily briefing";
+      ? `${symbol} Pulse: Today's issue`
+      : "Today's issue";
   }
 
   const parsed = parseNewsletterEmailSubject(trimmedTitle);

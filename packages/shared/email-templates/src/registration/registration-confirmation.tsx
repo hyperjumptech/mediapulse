@@ -11,21 +11,26 @@ import {
 export interface RegistrationConfirmationEmailProps {
   /** The ticker symbol the user subscribed to. */
   tickerSymbol: string;
-  /** Human-readable label for when the first newsletter will arrive, e.g. "today at 9:00 AM WIB". */
-  nextDeliveryLabel?: string;
+  /** Human-readable label for the daily review time, e.g. "9:00 AM WIB". */
+  reviewTimeLabel?: string;
 }
 
 /**
  * Email sent when a user's subscription to a newsletter is successfully confirmed.
  *
  * @param props.tickerSymbol - The ticker symbol that was confirmed.
- * @param props.nextDeliveryLabel - Optional label for the first delivery time.
+ * @param props.reviewTimeLabel - Optional label for the time the ticker is reviewed each day.
  * @returns The confirmation email React Email component.
  */
 export const RegistrationConfirmationEmail = ({
   tickerSymbol,
-  nextDeliveryLabel,
+  reviewTimeLabel,
 }: RegistrationConfirmationEmailProps): ReactElement => {
+  const reviewSentence =
+    reviewTimeLabel !== undefined
+      ? `We check ${tickerSymbol} news every day at ${reviewTimeLabel} and send you an issue only when there is news worth reading.`
+      : `We check ${tickerSymbol} news every day and send you an issue only when there is news worth reading.`;
+
   return (
     <EmailShell
       preview="Subscription Confirmed - MediaPulse"
@@ -38,10 +43,10 @@ export const RegistrationConfirmationEmail = ({
       <EmailParagraph>
         Hello,
         {"\n\n"}
-        Your subscription to the '{tickerSymbol}' newsletter has been confirmed
-        {nextDeliveryLabel !== undefined
-          ? ` and you will receive your first newsletter ${nextDeliveryLabel}.`
-          : "."}
+        Your subscription to the '{tickerSymbol}' newsletter is confirmed.
+        {"\n\n"}
+        {reviewSentence} On quiet days you will not hear from us, and nothing is
+        wrong.
       </EmailParagraph>
       <EmailCallout title="Add MediaPulse to your contacts">
         Open the attached contact card (.vcf) and select "Add to Contacts". This
@@ -59,7 +64,7 @@ export const RegistrationConfirmationEmail = ({
 
 RegistrationConfirmationEmail.PreviewProps = {
   tickerSymbol: "AAPL",
-  nextDeliveryLabel: "today at 9:00 AM WIB",
+  reviewTimeLabel: "9:00 AM WIB",
 } satisfies RegistrationConfirmationEmailProps;
 
 export default RegistrationConfirmationEmail;

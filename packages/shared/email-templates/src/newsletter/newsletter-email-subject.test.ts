@@ -54,7 +54,7 @@ describe("formatNewsletterEmailSubject", () => {
     const subject = formatNewsletterEmailSubject("BBCA", "   ");
 
     // Assert
-    expect(subject).toBe("BBCA Pulse: Your daily briefing");
+    expect(subject).toBe("BBCA Pulse: Today's issue");
   });
 });
 
