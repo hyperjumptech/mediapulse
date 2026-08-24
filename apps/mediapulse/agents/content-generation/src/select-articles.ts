@@ -70,6 +70,19 @@ const toSectionKey = (
 };
 
 /**
+ * Whether a source carries article text rather than only its collection-time description.
+ *
+ * Among candidates of equal fit this decides which ships. A description-only source has every
+ * figure stripped at grounding, because a description has carried a figure its article
+ * contradicted before, so a bodiless article reports the story without its numbers. On 2026-08-21
+ * BBCA's issuerPerformance held seventeen candidates tied at 0.75, nearly all the same interim
+ * dividend, three of them with bodies. A bodiless one shipped, and the newsletter announced a
+ * dividend without its amount, its per-share value, or its payment date.
+ */
+const hasBody = (source: SourceForGeneration): boolean =>
+  typeof source.content === "string" && source.content.trim() !== "";
+
+/**
  * Chooses which articles appear in the newsletter and where.
  *
  * Section placement comes from article-analysis and is never revisited here. Within a
@@ -127,8 +140,16 @@ export const selectArticles = (
     }
     const ranked = [...bucket].sort((first, second) => {
       const rankDiff = compareSourcesForRanking(first.source, second.source);
+      if (rankDiff !== 0) {
+        return rankDiff;
+      }
+      const bodyDiff =
+        Number(hasBody(second.source)) - Number(hasBody(first.source));
+      if (bodyDiff !== 0) {
+        return bodyDiff;
+      }
 
-      return rankDiff !== 0 ? rankDiff : first.order - second.order;
+      return first.order - second.order;
     });
     droppedOverCap += Math.max(0, ranked.length - MAX_ARTICLES_PER_SECTION);
     for (const entry of ranked.slice(0, MAX_ARTICLES_PER_SECTION)) {

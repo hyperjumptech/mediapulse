@@ -13,6 +13,53 @@ const source = (
 });
 
 describe("selectArticles", () => {
+  it("prefers a candidate that already has a body when fit and authority tie", () => {
+    const sources = [
+      source({
+        title: "Dividend Announced Amount Withheld",
+        section: "issuerPerformance",
+        sectionScore: 0.75,
+        publisherAuthority: 5,
+        content: "",
+      }),
+      source({
+        title: "Dividend Announced With Body",
+        section: "issuerPerformance",
+        sectionScore: 0.75,
+        publisherAuthority: 5,
+        content:
+          "BCA membagikan dividen interim Rp3,07 triliun, Rp25 per saham.",
+      }),
+    ];
+
+    const result = selectArticles(sources);
+
+    expect(result.selected[0]?.source.title).toBe(
+      "Dividend Announced With Body",
+    );
+  });
+
+  it("still lets a better fit win over a body-carrying candidate", () => {
+    const sources = [
+      source({
+        title: "Weaker Fit With Body",
+        section: "issuerPerformance",
+        sectionScore: 0.5,
+        content: "Full article text.",
+      }),
+      source({
+        title: "Stronger Fit No Body",
+        section: "issuerPerformance",
+        sectionScore: 0.9,
+        content: "",
+      }),
+    ];
+
+    const result = selectArticles(sources);
+
+    expect(result.selected[0]?.source.title).toBe("Stronger Fit No Body");
+  });
+
   it("breaks an equal-fit tie on publisher authority rather than arrival order", () => {
     const sources = [
       source({
