@@ -1,8 +1,11 @@
+import { citedFigures } from "./figures-grounded.js";
+
 export type SectionCoverageSeedSource = {
   dataSourceId: string;
   url: string;
   title: string;
   content?: string | null;
+  description?: string | null;
   section?: string | null;
   sectionScore?: number | null;
 };
@@ -17,6 +20,18 @@ export type SectionCoverageSeed = {
 
 const hasBody = (content: unknown): boolean =>
   typeof content === "string" && content.trim() !== "";
+
+/**
+ * Whether a candidate's description already asserts a figure, so fetching its body turns that
+ * figure from unusable into citable.
+ *
+ * Breaks ties on `sectionScore`, which the classifier hands out in coarse steps: BBCA's
+ * issuerPerformance had fourteen bodiless candidates tied at 0.75 on 2026-08-21 and the seed went
+ * to the first of them, an unrelated Sharia-financing article, while the interim-dividend story
+ * that led the newsletter went unfetched.
+ */
+const citesFigure = (source: SectionCoverageSeedSource): boolean =>
+  citedFigures(source.description ?? "").length > 0;
 
 /**
  * Picks the highest-scoring description-only source in each requested section so the on-demand
@@ -46,9 +61,15 @@ export const selectSectionCoverageSeeds = (
       continue;
     }
 
-    const top = candidates.reduce((best, current) =>
-      (current.sectionScore ?? -1) > (best.sectionScore ?? -1) ? current : best,
-    );
+    const top = candidates.reduce((best, current) => {
+      const scoreDiff =
+        (current.sectionScore ?? -1) - (best.sectionScore ?? -1);
+      if (scoreDiff !== 0) {
+        return scoreDiff > 0 ? current : best;
+      }
+
+      return citesFigure(current) && !citesFigure(best) ? current : best;
+    });
     if (seen.has(top.dataSourceId)) {
       continue;
     }
