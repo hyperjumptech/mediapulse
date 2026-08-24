@@ -158,6 +158,21 @@ describe("renderNewsletterEmail", () => {
     );
   });
 
+  it("tells the reader in the footer that quiet days mean no email", async () => {
+    const { html, text } = await renderNewsletterEmail({
+      title: "Morning Briefing",
+      bodyText: "Body content",
+      tickerSymbol: "TLKM",
+    });
+
+    expect(html).toContain(
+      "We send an issue only when TLKM has news worth reading, so some days there is no email.",
+    );
+    expect(text).toContain(
+      "We send an issue only when TLKM has news worth reading, so some days there is no email.",
+    );
+  });
+
   it("uses the generic default footer when tickerSymbol is omitted", async () => {
     const { html } = await renderNewsletterEmail({
       title: "Morning Briefing",
@@ -854,6 +869,22 @@ describe("renderNewsletterEmail", () => {
     // English chrome must not leak into an Indonesian render.
     expect(html).not.toContain("Brought to you by");
     expect(html).not.toMatch(/reply to this email/i);
+  });
+
+  it("tells the Indonesian reader in the footer that quiet days mean no email", async () => {
+    const { html, text } = await renderNewsletterEmail({
+      title: "Buletin",
+      bodyText: "Isi buletin",
+      tickerSymbol: "TLKM",
+      language: "id",
+    });
+
+    expect(html).toContain(
+      "Kami mengirim edisi hanya saat ada berita TLKM yang layak dibaca, jadi ada hari tanpa email.",
+    );
+    expect(text).toContain(
+      "Kami mengirim edisi hanya saat ada berita TLKM yang layak dibaca, jadi ada hari tanpa email.",
+    );
   });
 
   it("uses the Indonesian generic copy and fallback unsubscribe noun when tickerSymbol is omitted", async () => {

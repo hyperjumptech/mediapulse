@@ -27,7 +27,6 @@ export type RenderNewsletterEmailInput =
       })
   | ({
       variant: "registration-confirmation";
-      nextDeliveryLabel?: string;
     } & RegistrationConfirmationEmailProps)
   | ({
       variant: "registration-pending-confirmation";
@@ -101,7 +100,7 @@ function newsletterElementForVariant(
       return (
         <RegistrationConfirmationEmail
           tickerSymbol={input.tickerSymbol}
-          nextDeliveryLabel={input.nextDeliveryLabel}
+          reviewTimeLabel={input.reviewTimeLabel}
         />
       );
     case "registration-pending-confirmation":

@@ -188,8 +188,8 @@ const FOOTER_COPY: Record<FooterLanguage, FooterCopy> = {
       "Have feedback? Reply to this email and we will use it to improve the newsletter.",
     subscriptionNote: (ticker) =>
       ticker.length > 0
-        ? `You are receiving this because you subscribed to ${ticker} updates.`
-        : "You are receiving this because you subscribed to updates.",
+        ? `You are receiving this because you subscribed to ${ticker} updates. We send an issue only when ${ticker} has news worth reading, so some days there is no email.`
+        : "You are receiving this because you subscribed to updates. We send an issue only when there is news worth reading, so some days there is no email.",
     unsubscribeLabel: (tickerOrFallback) =>
       `Unsubscribe from ${tickerOrFallback} updates`,
     unsubscribeFallback: "these",
@@ -199,8 +199,8 @@ const FOOTER_COPY: Record<FooterLanguage, FooterCopy> = {
       "Punya masukan? Balas email ini dan kami akan menggunakannya untuk meningkatkan buletin.",
     subscriptionNote: (ticker) =>
       ticker.length > 0
-        ? `Anda menerima email ini karena Anda berlangganan pembaruan ${ticker}.`
-        : "Anda menerima email ini karena Anda berlangganan pembaruan.",
+        ? `Anda menerima email ini karena Anda berlangganan pembaruan ${ticker}. Kami mengirim edisi hanya saat ada berita ${ticker} yang layak dibaca, jadi ada hari tanpa email.`
+        : "Anda menerima email ini karena Anda berlangganan pembaruan. Kami mengirim edisi hanya saat ada berita yang layak dibaca, jadi ada hari tanpa email.",
     unsubscribeLabel: (tickerOrFallback) =>
       `Berhenti berlangganan pembaruan ${tickerOrFallback}`,
     unsubscribeFallback: "ini",
