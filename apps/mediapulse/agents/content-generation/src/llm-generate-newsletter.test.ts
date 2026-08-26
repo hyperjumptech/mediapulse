@@ -725,6 +725,7 @@ describe("generateNewsletterWithLlm — summarizer failures", () => {
     expect(result.summaryBackfill).toStrictEqual({
       attempted: 1,
       recovered: 1,
+      skippedDuplicates: 0,
       bySection: { "deals-and-movements": { attempted: 1, recovered: 1 } },
     });
     expect(result.sectionFillSnapshot?.sectionsRemoved).toEqual([]);
@@ -1348,6 +1349,34 @@ const backfillFailed = (entry: SelectedArticle) => ({
   entry,
 });
 
+const backfillEventArticle = (
+  title: string,
+  content: string,
+  sectionKey = "issuer-performance",
+): SelectedArticle =>
+  ({
+    sectionKey,
+    source: { url: `https://example.com/${title}`, title, content },
+  }) as SelectedArticle;
+
+const BRIMO_REPRESENTATIVE = backfillEventArticle(
+  "BRImo Taiwan launched by BRI for migrant workers",
+  "BRI launched BRImo Taiwan digital banking service for Indonesian migrant workers in Taipei.",
+  "deals-and-movements",
+);
+
+const BRIMO_DUPLICATE = backfillEventArticle(
+  "BRI officially launches BRImo Taiwan for diaspora",
+  "BRI officially launched BRImo Taiwan digital banking for Indonesian diaspora and migrant workers in Taipei.",
+  "quick-hits",
+);
+
+const UNRELATED_POLICY = backfillEventArticle(
+  "QRIS merchant discount rate cut to zero",
+  "Bank Indonesia expands the zero merchant discount rate for QRIS transactions from October.",
+  "quick-hits",
+);
+
 describe("backfillFailedSections", () => {
   it("replaces a failed article with the next-ranked reserve candidate", async () => {
     const lost = backfillArticle("Lost");
@@ -1440,8 +1469,80 @@ describe("backfillFailedSections", () => {
       outcomes: [backfillFailed(lost)],
       attempted: 0,
       recovered: 0,
+      skippedDuplicates: 0,
       bySection: {},
     });
+  });
+
+  it("skips a reserve duplicate of an event already summarized in another section", async () => {
+    const lostQuickHit = backfillArticle("Lost", "quick-hits");
+    const summarize = vi.fn(async (entry: SelectedArticle) =>
+      backfillSummarized(entry),
+    );
+
+    const result = await backfillFailedSections({
+      outcomes: [
+        backfillSummarized(BRIMO_REPRESENTATIVE),
+        backfillFailed(lostQuickHit),
+      ],
+      reserve: [BRIMO_DUPLICATE, UNRELATED_POLICY],
+      summarize,
+    });
+
+    expect(summarize).toHaveBeenCalledTimes(1);
+    expect(summarize).toHaveBeenCalledWith(UNRELATED_POLICY);
+    expect(result.skippedDuplicates).toBe(1);
+    expect(result.attempted).toBe(1);
+    expect(result.recovered).toBe(1);
+  });
+
+  it("still promotes a duplicate when its representative failed to summarize", async () => {
+    const summarize = vi.fn(async (entry: SelectedArticle) =>
+      backfillSummarized(entry),
+    );
+
+    const result = await backfillFailedSections({
+      outcomes: [backfillFailed(BRIMO_REPRESENTATIVE)],
+      reserve: [
+        backfillEventArticle(
+          BRIMO_DUPLICATE.source.title,
+          BRIMO_DUPLICATE.source.content,
+          "deals-and-movements",
+        ),
+      ],
+      summarize,
+    });
+
+    expect(summarize).toHaveBeenCalledTimes(1);
+    expect(result.skippedDuplicates).toBe(0);
+    expect(result.recovered).toBe(1);
+  });
+
+  it("promotes only one copy when the reserve holds several of one event", async () => {
+    const summarize = vi.fn(async (entry: SelectedArticle) =>
+      backfillSummarized(entry),
+    );
+
+    const result = await backfillFailedSections({
+      outcomes: [
+        backfillFailed(backfillArticle("Lost One", "quick-hits")),
+        backfillFailed(backfillArticle("Lost Two", "quick-hits")),
+      ],
+      reserve: [
+        backfillEventArticle(
+          BRIMO_REPRESENTATIVE.source.title,
+          BRIMO_REPRESENTATIVE.source.content,
+          "quick-hits",
+        ),
+        BRIMO_DUPLICATE,
+        UNRELATED_POLICY,
+      ],
+      summarize,
+    });
+
+    expect(summarize).toHaveBeenCalledTimes(2);
+    expect(result.skippedDuplicates).toBe(1);
+    expect(result.attempted).toBe(2);
   });
 
   it("does nothing when every selected article summarized", async () => {
