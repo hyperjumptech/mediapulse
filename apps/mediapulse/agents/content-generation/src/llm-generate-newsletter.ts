@@ -27,7 +27,10 @@ import {
 } from "./lib/cross-run-dedup.js";
 import {
   dedupeCrossSectionSourceEvents,
+  eventEntryOf,
+  findKnownEvent,
   type EventDedupDrop,
+  type EventEntry,
 } from "./lib/event-dedup.js";
 import { pointsSupportTitle } from "./lib/points-support-title.js";
 import { ungroundedEntities } from "./lib/entities-grounded.js";
@@ -438,6 +441,7 @@ type SummaryOutcome =
 export type SummaryBackfillSummary = {
   attempted: number;
   recovered: number;
+  skippedDuplicates: number;
   bySection: Record<string, { attempted: number; recovered: number }>;
 };
 
@@ -454,6 +458,8 @@ export const backfillFailedSections = async (params: {
   outcomes: readonly SummaryOutcome[];
   reserve: readonly SelectedArticle[];
   summarize: (entry: SelectedArticle) => Promise<SummaryOutcome>;
+  minSharedAnchors?: number;
+  minContainment?: number;
 }): Promise<{ outcomes: SummaryOutcome[] } & SummaryBackfillSummary> => {
   const outcomes = [...params.outcomes];
   const deficitBySection = new Map<NewsletterSectionKey, number>();
@@ -467,18 +473,60 @@ export const backfillFailedSections = async (params: {
     }
   }
 
+  const shippedEvents: EventEntry[] = [];
+  for (const outcome of params.outcomes) {
+    if (outcome.status !== "summarized") {
+      continue;
+    }
+    const shippedEntry = eventEntryOf(outcome.entry.source);
+    if (shippedEntry !== undefined) {
+      shippedEvents.push(shippedEntry);
+    }
+  }
+
   const candidates: SelectedArticle[] = [];
+  let skippedDuplicates = 0;
   for (const entry of params.reserve) {
     const remaining = deficitBySection.get(entry.sectionKey) ?? 0;
     if (remaining <= 0) {
       continue;
     }
+    const knownEvent = findKnownEvent(
+      entry.source,
+      shippedEvents,
+      params.minSharedAnchors,
+      params.minContainment,
+    );
+    if (knownEvent !== undefined) {
+      skippedDuplicates += 1;
+      logger.info(
+        {
+          sectionKey: entry.sectionKey,
+          matchedSectionKey: knownEvent.entry.sectionKey,
+          sharedAnchors: knownEvent.shared,
+          title: entry.source.title,
+          event: "article_summary_backfill_duplicate_skipped",
+        },
+        "Backfill candidate skipped: its event already summarized in this issue",
+      );
+      continue;
+    }
     candidates.push(entry);
     deficitBySection.set(entry.sectionKey, remaining - 1);
+    const candidateEntry = eventEntryOf(entry.source);
+    if (candidateEntry !== undefined) {
+      shippedEvents.push(candidateEntry);
+    }
   }
 
   if (candidates.length === 0) {
-    return { outcomes, attempted: 0, recovered: 0, bySection: {} };
+    return {
+      outcomes,
+      attempted: 0,
+      recovered: 0,
+      skippedDuplicates,
+      bySection: {},
+    };
   }
 
   const results = await mapWithConcurrency(
@@ -502,7 +550,13 @@ export const backfillFailedSections = async (params: {
     outcomes.push(result);
   }
 
-  return { outcomes, attempted: candidates.length, recovered, bySection };
+  return {
+    outcomes,
+    attempted: candidates.length,
+    recovered,
+    skippedDuplicates,
+    bySection,
+  };
 };
 
 type TokenTotals = {
@@ -871,14 +925,17 @@ export async function generateNewsletterWithLlm(
     outcomes: firstPassOutcomes,
     reserve,
     summarize: summarizeEntry,
+    minSharedAnchors: CONTENT_GENERATION_CONSTANTS.eventDedup.minSharedAnchors,
+    minContainment: CONTENT_GENERATION_CONSTANTS.eventDedup.minContainment,
   });
   const summaryOutcomes = backfill.outcomes;
-  if (backfill.attempted > 0) {
+  if (backfill.attempted > 0 || backfill.skippedDuplicates > 0) {
     logger.info(
       {
         tickerId: context.tickerId,
         attempted: backfill.attempted,
         recovered: backfill.recovered,
+        skippedDuplicates: backfill.skippedDuplicates,
         bySection: backfill.bySection,
         event: "article_summary_backfill",
       },
@@ -1064,11 +1121,12 @@ export async function generateNewsletterWithLlm(
       ? { structuredReasoningTokens: tokenTotals.reasoningTokens }
       : {}),
     articlesSkippedSummaryFailed,
-    ...(backfill.attempted > 0
+    ...(backfill.attempted > 0 || backfill.skippedDuplicates > 0
       ? {
           summaryBackfill: {
             attempted: backfill.attempted,
             recovered: backfill.recovered,
+            skippedDuplicates: backfill.skippedDuplicates,
             bySection: backfill.bySection,
           },
         }

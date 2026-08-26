@@ -60,14 +60,18 @@ export const EVENT_DEDUP_TITLE_MIN_SHARED_ANCHORS = 3;
 export const EVENT_DEDUP_TITLE_MIN_CONTAINMENT = 0.4;
 
 /** An event already kept in a higher-priority section, keyed by its distinctive anchors. */
-type EventEntry = {
+export type EventEntry = {
   sectionKey: string;
   anchors: Set<string>;
   titleAnchors: Set<string>;
   publishedDay?: string;
 };
 
-type EventMatch = { entry: EventEntry; shared: number; containment: number };
+export type EventMatch = {
+  entry: EventEntry;
+  shared: number;
+  containment: number;
+};
 
 const SECTION_KEY_UNASSIGNED = "unassigned";
 
@@ -201,6 +205,41 @@ const findSameDayTitleMatch = (
 
   return best;
 };
+
+export const eventEntryOf = (
+  source: SourceForGeneration,
+): EventEntry | undefined => {
+  const anchors = anchorsFor(source);
+  if (anchors.size === 0) {
+    return undefined;
+  }
+  const publishedDay = publishedDayOf(source);
+
+  return {
+    sectionKey: sectionKeyOf(source),
+    anchors,
+    titleAnchors: titleAnchorsFor(source),
+    ...(publishedDay !== undefined ? { publishedDay } : {}),
+  };
+};
+
+export const findKnownEvent = (
+  source: SourceForGeneration,
+  corpus: readonly EventEntry[],
+  minSharedAnchors: number = EVENT_DEDUP_MIN_SHARED_ANCHORS,
+  minContainment: number = EVENT_DEDUP_MIN_CONTAINMENT,
+): EventMatch | undefined =>
+  findEventMatch(
+    anchorsFor(source),
+    corpus,
+    minSharedAnchors,
+    minContainment,
+  ) ??
+  findSameDayTitleMatch(
+    titleAnchorsFor(source),
+    publishedDayOf(source),
+    corpus,
+  );
 
 /**
  * Orders candidates so the copy most likely to ship is seen first: `sectionScore` descending, then
