@@ -297,9 +297,9 @@ describe("translateNewsletter", () => {
     expect(call.system).toContain("(max N chars)");
     expect(call.prompt).toContain("1. Revenue climbs");
     expect(call.prompt).toContain(
-      "2. (max 100 chars) Revenue rose 12.5% to $4.2B in Q1 2026.",
+      "2. (max 140 chars) Revenue rose 12.5% to $4.2B in Q1 2026.",
     );
-    expect(call.prompt).toContain("3. (max 100 chars) Margin held.");
+    expect(call.prompt).toContain("3. (max 140 chars) Margin held.");
   });
 
   it("drops a translated point that lost its subject and keeps the rest of the article", async () => {

@@ -7,7 +7,7 @@ import { z } from "zod";
  * translation prompt hold the model to it, but a stored document that overshoots is still
  * valid and still delivered. A slightly long point is a wording problem, not a corrupt body.
  */
-export const MAX_POINT_LENGTH = 100;
+export const MAX_POINT_LENGTH = 140;
 
 /** Maximum summary points per article. */
 export const MAX_POINTS_PER_ARTICLE = 3;

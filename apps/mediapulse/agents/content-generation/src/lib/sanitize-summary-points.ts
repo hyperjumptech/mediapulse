@@ -92,6 +92,9 @@ const DANGLING_TRAILING_WORDS = new Set([
  */
 const BUDGET_EDGE_SLACK = 3;
 
+const DANGLING_NUMBER_PATTERN =
+  /\b(?:and|or|to|of|by|dan|atau|up|down|from)\s+\d[\d.,]*\.?$/iu;
+
 const lastWordOf = (point: string): string => {
   const words = point.trim().toLowerCase().split(/[\s]+/u);
 
@@ -113,6 +116,10 @@ export const looksTruncated = (point: string): boolean => {
   }
 
   if (DANGLING_TRAILING_WORDS.has(lastWordOf(trimmed))) {
+    return true;
+  }
+
+  if (DANGLING_NUMBER_PATTERN.test(trimmed.replace(/[.]$/u, ""))) {
     return true;
   }
 
@@ -204,6 +211,34 @@ export const lacksSubstance = (point: string): boolean =>
  * @param points - Points returned by the summarizer.
  * @returns The points safe to render, plus what was dropped and why.
  */
+const MIN_REPAIRED_LENGTH = 45;
+
+export const repairTruncated = (point: string): string | null => {
+  const trimmed = point.trim();
+  const terminal = Math.max(
+    trimmed.lastIndexOf(". "),
+    trimmed.lastIndexOf("! "),
+    trimmed.lastIndexOf("? "),
+  );
+  const boundaries = [terminal, trimmed.lastIndexOf(", ")].filter(
+    (index) => index > 0,
+  );
+  for (const boundary of boundaries.sort((left, right) => right - left)) {
+    const candidate = trimmed.slice(0, boundary).replace(/[\s,;:]+$/u, "");
+    if (
+      candidate.length >= MIN_REPAIRED_LENGTH &&
+      !DANGLING_TRAILING_WORDS.has(lastWordOf(candidate)) &&
+      /\d|\p{Lu}/u.test(candidate)
+    ) {
+      return COMPLETE_ENDING_PATTERN.test(candidate)
+        ? candidate
+        : `${candidate}.`;
+    }
+  }
+
+  return null;
+};
+
 export const sanitizeSummaryPoints = (
   points: readonly string[],
 ): SanitizeSummaryPointsResult => {
@@ -216,7 +251,12 @@ export const sanitizeSummaryPoints = (
       continue;
     }
     if (looksTruncated(point)) {
-      dropped.push({ point, reason: "truncated" });
+      const repaired = repairTruncated(point);
+      if (repaired === null) {
+        dropped.push({ point, reason: "truncated" });
+        continue;
+      }
+      kept.push(repaired);
       continue;
     }
     if (startsMidSentence(point)) {

@@ -10,6 +10,27 @@ import {
 } from "./article-source-url-filter.js";
 
 describe("canonicalizeUrl", () => {
+  it("collapses a paginated article's pages onto one canonical URL", () => {
+    const base =
+      "https://market.bisnis.com/read/20260825/192/1998715/intip-mesin-pertumbuhan-dcii";
+
+    expect(canonicalizeUrl(base)).toBe(base);
+    expect(canonicalizeUrl(`${base}/2`)).toBe(base);
+    expect(canonicalizeUrl(`${base}/All`)).toBe(base);
+  });
+
+  it("leaves trailing numeric segments alone on hosts that do not paginate articles", () => {
+    const url = "https://www.cnbcindonesia.com/market/2026/top-5-emiten/3";
+
+    expect(canonicalizeUrl(url)).toBe(url);
+  });
+
+  it("keeps a paginating host's non-article paths intact", () => {
+    const url = "https://market.bisnis.com/topic/2026";
+
+    expect(canonicalizeUrl(url)).toBe(url);
+  });
+
   it("strips hashes and tracking params while preserving non-tracking params", () => {
     const canonical = canonicalizeUrl(
       "https://Finance.Yahoo.com/quote/BBCA.JK/?utm_source=x&region=ID#fragment",
