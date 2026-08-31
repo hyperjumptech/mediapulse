@@ -133,6 +133,22 @@ describe("articleAnalysisConfigSchema", () => {
     expect(materialDevelopment?.text).toContain("belongs to issuerPerformance");
   });
 
+  it("does not let a regulator's identity alone place a rule in the issuer's market", () => {
+    const config = articleAnalysisConfigSchema.parse({});
+    const marketScope = config.acceptanceCriteria
+      .find((rule) => rule.section === "regulatoryPolicyWatch")
+      ?.criteria.find((criterion) => criterion.id === "rp-market-scope");
+
+    expect(marketScope).toBeDefined();
+    expect(marketScope?.text).not.toContain(
+      "or is taken by a body with authority over that market",
+    );
+    expect(marketScope?.text).toContain("does not settle it on its own");
+    expect(marketScope?.text).toContain(
+      "another industry the same authority happens to oversee",
+    );
+  });
+
   it("rejects a section rule with no criteria", () => {
     expect(() =>
       articleAnalysisConfigSchema.parse({
