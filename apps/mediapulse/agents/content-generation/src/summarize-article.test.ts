@@ -97,6 +97,24 @@ describe("SUMMARIZE_ARTICLE_SYSTEM_PROMPT", () => {
     );
   });
 
+  it("requires a figure in the title to appear in a point", () => {
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "When your title carries a figure, one of your points must carry that figure too",
+    );
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "given a headline number the item never evidences",
+    );
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "with the base it moved from when the article gives one",
+    );
+  });
+
+  it("extends that to a penalty, threshold, or deadline the title announces", () => {
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "if the heading says twelve years in prison, a point states the sentence and what triggers it",
+    );
+  });
+
   it("confines an item to the company its headline is about", () => {
     expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
       "report only the facts about the company its headline is about",
