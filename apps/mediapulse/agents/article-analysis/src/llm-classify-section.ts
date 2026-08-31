@@ -72,6 +72,7 @@ const ISSUER_RELEVANCE_CRITERION_TEXT =
  * `issuerPerformance` is absent for the same reason and more strongly: its gate rule
  * `pf-issuer-subject` asks whether the article's subject is the issuer itself, so a section win is
  * already a statement of issuer relevance and there is nothing left for a cap to corroborate.
+ * `issuerNews` is absent on the same ground, since `in-issuer-subject` asks the same question.
  *
  * - Important: these ids must track `DEFAULT_ACCEPTANCE_CRITERIA`. They silently went stale once
  *   already, which disabled the cap entirely; `llm-classify-section.test.ts` now pins them.
@@ -96,6 +97,7 @@ export const ISSUER_RELEVANCE_RULE_IDS: ReadonlySet<string> = new Set([
 export const MARKET_ANCHOR_RULE_IDS: ReadonlySet<string> = new Set([
   "ip-market-named",
   "pf-issuer-subject",
+  "in-issuer-subject",
   "cl-peer-named",
   "cl-market-overlap",
   "dm-market-link",
@@ -128,6 +130,7 @@ export const MARKET_ANCHOR_OVERRIDE_MIN = 2;
 export const SECTION_DEFINING_RULE_IDS: ReadonlySet<string> = new Set([
   "ip-macro-move",
   "pf-reported-result",
+  "in-material-development",
   "cl-peer-action",
   "dm-corporate-action",
   "rp-regulatory-topic",
