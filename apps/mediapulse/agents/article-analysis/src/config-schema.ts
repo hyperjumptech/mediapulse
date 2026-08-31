@@ -326,7 +326,7 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
       },
       {
         id: "rp-market-scope",
-        text: "Include if the rule, programme, or decision governs how companies operating in {{INDUSTRY}} ({{SUB_INDUSTRY}}) may operate, or is taken by a body with authority over that market ({{REGULATORS}}). Judge the market from the issuer's business ({{BUSINESS_ACTIVITY}}), not from whether the article uses that exact wording. The article need not name {{TICKER}} or any competitor.",
+        text: "Include if the rule, programme, or decision governs how companies operating in {{INDUSTRY}} ({{SUB_INDUSTRY}}) may operate: it reaches the products they sell, the services they provide, the customers they serve, or the conduct of that business. Judge the market from the issuer's business ({{BUSINESS_ACTIVITY}}), not from whether the article uses that exact wording. The article need not name {{TICKER}} or any competitor. A body with authority over that market ({{REGULATORS}}) taking the action supports this, but does not settle it on its own: these regulators supervise several industries each, and a rule they issue for a different one does not govern {{INDUSTRY}}. Answer false when the action falls squarely in another industry the same authority happens to oversee.",
       },
     ],
   },
