@@ -114,6 +114,25 @@ describe("articleAnalysisConfigSchema", () => {
     }
   });
 
+  it("seeds issuerNews with a gate that excludes reported results", () => {
+    const config = articleAnalysisConfigSchema.parse({});
+    const issuerNews = config.acceptanceCriteria.find(
+      (rule) => rule.section === "issuerNews",
+    );
+
+    expect(issuerNews).toBeDefined();
+    const gate = (issuerNews?.criteria ?? [])
+      .filter((criterion) => criterion.qualifying)
+      .map((criterion) => criterion.id);
+
+    expect(gate).toEqual(["in-issuer-subject", "in-material-development"]);
+    const materialDevelopment = issuerNews?.criteria.find(
+      (criterion) => criterion.id === "in-material-development",
+    );
+
+    expect(materialDevelopment?.text).toContain("belongs to issuerPerformance");
+  });
+
   it("rejects a section rule with no criteria", () => {
     expect(() =>
       articleAnalysisConfigSchema.parse({

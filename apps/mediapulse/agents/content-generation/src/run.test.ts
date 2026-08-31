@@ -190,6 +190,7 @@ const generatedNewsletter: LlmGenerate.GeneratedContentWithProvenance = {
     bySection: {
       industryPulse: { citedBullets: 1 },
       issuerPerformance: { citedBullets: 1 },
+      issuerNews: { citedBullets: 0 },
       competitiveLandscape: { citedBullets: 2 },
       dealsAndMovements: { citedBullets: 1 },
       regulatoryPolicyWatch: { citedBullets: 1 },

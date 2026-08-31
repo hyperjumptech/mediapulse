@@ -16,6 +16,7 @@ import type { SourceForGeneration } from "./types.js";
 const SECTION_KEY_BY_ID: Record<string, NewsletterSectionKey> = {
   industryPulse: "industry-pulse",
   issuerPerformance: "issuer-performance",
+  issuerNews: "issuer-news",
   competitiveLandscape: "competitive-landscape",
   dealsAndMovements: "deals-and-movements",
   regulatoryPolicyWatch: "regulatory-policy-watch",

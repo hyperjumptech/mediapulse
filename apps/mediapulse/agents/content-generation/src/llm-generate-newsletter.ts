@@ -73,6 +73,7 @@ export const SECTION_ID_BY_DOCUMENT_KEY: Record<
 > = {
   "industry-pulse": "industryPulse",
   "issuer-performance": "issuerPerformance",
+  "issuer-news": "issuerNews",
   "competitive-landscape": "competitiveLandscape",
   "deals-and-movements": "dealsAndMovements",
   "regulatory-policy-watch": "regulatoryPolicyWatch",

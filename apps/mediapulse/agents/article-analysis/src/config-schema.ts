@@ -222,6 +222,29 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
     ],
   },
   {
+    section: "issuerNews",
+    criteria: [
+      {
+        id: "in-issuer-subject",
+        text: "Include if the article's main subject is {{TICKER}}, {{TICKER_NAME}}, or one of its own trading names, brands, or subsidiaries ({{ALIASES}}), rather than a peer or the market at large. A company in {{TICKER_NAME}}'s corporate group counts as the issuer even when it is listed separately under its own symbol.",
+        qualifying: true,
+      },
+      {
+        id: "in-material-development",
+        text: "Include if it reports a material development at that issuer other than a published operating or financial result: a move in its share price, its trading volume, or its inclusion in or removal from an index; regulatory, supervisory, or legal action naming it; an executive of the issuer speaking on its strategy, capacity, capital spending, or outlook; or a launch, campaign, partnership, contract, licence, or expansion it announces. An article whose subject is the issuer's own reported figures belongs to issuerPerformance, so answer false here for revenue, profit, margin, volume, guidance, or a payout decision.",
+        qualifying: true,
+      },
+      {
+        id: "in-specific-detail",
+        text: "Include if it gives at least one concrete detail of that development: a figure, a date, a named party, a named venue or market, or a stated decision. An article that only asserts the issuer is doing well or badly, with nothing to check, does not qualify.",
+      },
+      {
+        id: "in-consequence-stated",
+        text: "Include if it states what the development means for the issuer: a cost, a constraint, an opportunity, an effect on its shares, or a response it has made or plans.",
+      },
+    ],
+  },
+  {
     section: "competitiveLandscape",
     criteria: [
       {

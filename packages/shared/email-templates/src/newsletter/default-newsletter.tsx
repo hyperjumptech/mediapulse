@@ -94,6 +94,10 @@ export const SECTION_COPY: Record<
       label: "Issuer Performance",
       description: "The numbers the company itself just reported.",
     },
+    "issuer-news": {
+      label: "Issuer News",
+      description: "What is happening to the company beyond its results.",
+    },
     "competitive-landscape": {
       label: "Competitive Landscape",
       description: "The rivals gaining ground, and the ones falling behind.",
@@ -125,6 +129,11 @@ export const SECTION_COPY: Record<
     "issuer-performance": {
       label: "Kinerja Emiten",
       description: "Angka yang baru saja dilaporkan perusahaan itu sendiri.",
+    },
+    "issuer-news": {
+      label: "Kabar Emiten",
+      description:
+        "Hal yang terjadi pada perusahaan di luar laporan kinerjanya.",
     },
     "competitive-landscape": {
       label: "Peta Persaingan",
