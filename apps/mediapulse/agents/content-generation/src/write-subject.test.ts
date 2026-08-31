@@ -281,3 +281,56 @@ describe("WRITE_SUBJECT_SYSTEM_PROMPT", () => {
     expect(WRITE_SUBJECT_SYSTEM_PROMPT).toContain("name the specific tension");
   });
 });
+
+describe("trimSubjectToBudget cuts left by the 2026-08-31 batch", () => {
+  it("drops a subordinating conjunction the budget cut a clause from", () => {
+    expect(
+      trimSubjectToBudget(
+        "Bank Mandiri Shares Keep Falling Despite Clarification",
+      ),
+    ).toBe("Bank Mandiri Shares Keep Falling");
+  });
+
+  it("drops a lone participle left hanging after a comma", () => {
+    expect(trimSubjectToBudget("Linknet expands fiber network, boosting")).toBe(
+      "Linknet expands fiber network",
+    );
+  });
+
+  it("keeps a lone word after a comma that opens a real second half", () => {
+    expect(
+      trimSubjectToBudget(
+        "Operating Profit Increased 111.3%, KAEF Accelerates National Health",
+      ),
+    ).toBe("Operating Profit Increased 111.3%, KAEF");
+  });
+
+  it("keeps a deliberate two-part subject that fits the budget", () => {
+    expect(trimSubjectToBudget("Spot price falls, reference rises")).toBe(
+      "Spot price falls, reference rises",
+    );
+  });
+
+  it("strips a run of dangling words rather than only the last one", () => {
+    expect(trimSubjectToBudget("Coal output climbs over the")).toBe(
+      "Coal output climbs",
+    );
+  });
+
+  it("leaves a subject that already fits untouched", () => {
+    expect(trimSubjectToBudget("Antam posts Rp 6.91T profit in H1 2026")).toBe(
+      "Antam posts Rp 6.91T profit in H1 2026",
+    );
+  });
+});
+
+describe("WRITE_SUBJECT_SYSTEM_PROMPT", () => {
+  it("refuses to soften a reported result into a possibility", () => {
+    expect(WRITE_SUBJECT_SYSTEM_PROMPT).toContain(
+      'write "rises 184%", never "may rise 184%"',
+    );
+    expect(WRITE_SUBJECT_SYSTEM_PROMPT).toContain(
+      'Do not add "could", "may", or "set to" to something the headline states outright',
+    );
+  });
+});

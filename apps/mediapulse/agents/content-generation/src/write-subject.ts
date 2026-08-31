@@ -40,7 +40,7 @@ Significance is judged from the reader's seat. The reader runs the issuer named 
 
 Do not add a ticker prefix; the system adds one.
 
-Stay faithful to what the headlines claim. When a headline describes a forecast, a risk, or a possibility, keep it conditional: write "could surge" or "may rise", never "surges".
+Stay faithful to what the headlines claim. When a headline describes a forecast, a risk, or a possibility, keep it conditional: write "could surge" or "may rise", never "surges". Keep a reported fact just as firm: a headline stating that revenue rose 184 percent is a result already recorded, so write "rises 184%", never "may rise 184%". Do not add "could", "may", or "set to" to something the headline states outright.
 
 When the headlines point in opposite directions, name the specific tension rather than retreating to a neutral verb. "Spot price falls as reference price rises" beats "Prices change".
 
@@ -164,34 +164,82 @@ export const buildSubjectFallback = (titles: readonly string[]): string => {
 /** Function words a subject must not end on once it has been cut to the budget. */
 const DANGLING_TRAILING_WORDS: ReadonlySet<string> = new Set([
   "a",
+  "after",
+  "against",
+  "amid",
+  "amidst",
   "an",
   "and",
   "as",
   "at",
+  "before",
+  "behind",
+  "below",
+  "beyond",
   "but",
   "by",
+  "despite",
+  "during",
   "for",
   "from",
   "in",
+  "into",
   "of",
   "on",
+  "onto",
   "or",
+  "over",
+  "per",
+  "since",
+  "than",
+  "that",
   "the",
+  "through",
   "to",
+  "toward",
+  "towards",
+  "under",
+  "until",
+  "upon",
+  "via",
+  "while",
   "with",
+  "within",
+  "without",
 ]);
 
 const stripDanglingWord = (text: string): string => {
-  const words = text.split(" ");
-  const last = words[words.length - 1]?.toLowerCase() ?? "";
-  if (words.length > 1 && DANGLING_TRAILING_WORDS.has(last)) {
-    return words
+  let current = text;
+  for (;;) {
+    const words = current.split(" ");
+    const last = words[words.length - 1]?.toLowerCase() ?? "";
+    if (words.length < 2 || !DANGLING_TRAILING_WORDS.has(last)) {
+      return current;
+    }
+    current = words
       .slice(0, -1)
       .join(" ")
       .replace(DANGLING_TRAILING_PUNCTUATION, "");
   }
+};
 
-  return text;
+/**
+ * Drops a lone participle left hanging after a comma.
+ *
+ * Cutting to the budget mid-clause leaves text like "Linknet expands fiber network, boosting",
+ * where the comma promises a clause the subject no longer carries. Restricted to a single word
+ * ending in `-ing`, which is how a cut participial clause reads: any other lone word after a comma
+ * is usually the start of a real second half, as in "Operating Profit Increased 111.3%, KAEF".
+ */
+const TRAILING_PARTICIPLE = /,\s*\p{L}*ing$/u;
+
+const stripTrailingCommaFragment = (text: string): string => {
+  if (!TRAILING_PARTICIPLE.test(text)) {
+    return text;
+  }
+  const lastComma = text.lastIndexOf(",");
+
+  return text.slice(0, lastComma).replace(DANGLING_TRAILING_PUNCTUATION, "");
 };
 
 /**
@@ -201,7 +249,11 @@ const stripDanglingWord = (text: string): string => {
  * @returns The subject trimmed to {@link MAX_SUBJECT_LENGTH}.
  */
 export const trimSubjectToBudget = (text: string): string =>
-  stripDanglingWord(truncateOnWordBoundary(text, MAX_SUBJECT_LENGTH));
+  stripDanglingWord(
+    stripTrailingCommaFragment(
+      stripDanglingWord(truncateOnWordBoundary(text, MAX_SUBJECT_LENGTH)),
+    ),
+  );
 
 /** Why a model-written subject cannot be sent as-is. */
 export type SubjectRejection =
