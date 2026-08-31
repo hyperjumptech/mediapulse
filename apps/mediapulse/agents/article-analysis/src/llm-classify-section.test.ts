@@ -12,6 +12,7 @@ import {
   ISSUER_RELEVANCE_CRITERION_ID,
   ISSUER_RELEVANCE_RULE_IDS,
   MARKET_ANCHOR_RULE_IDS,
+  SECTION_DEFINING_RULE_IDS,
   MAX_CONTENT_CHARS,
   rejectEmptySource,
   renderArticleTickerContext,
@@ -290,6 +291,52 @@ describe("MARKET_ANCHOR_RULE_IDS", () => {
 
   it("includes rp-market-scope, the only anchor a company-free policy story can match", () => {
     expect(MARKET_ANCHOR_RULE_IDS.has("rp-market-scope")).toBe(true);
+  });
+
+  it("gives every seeded section an anchor, so no section is unreachable through the override", () => {
+    const config = articleAnalysisConfigSchema.parse({});
+    const criteria = flattenAcceptanceCriteria(config.acceptanceCriteria);
+    const anchoredSections = new Set(
+      criteria
+        .filter((criterion) => MARKET_ANCHOR_RULE_IDS.has(criterion.id))
+        .map((criterion) => criterion.section),
+    );
+
+    for (const section of new Set(criteria.map((c) => c.section))) {
+      expect(
+        anchoredSections.has(section),
+        `section '${section}' has no MARKET_ANCHOR_RULE_IDS entry`,
+      ).toBe(true);
+    }
+  });
+});
+
+describe("SECTION_DEFINING_RULE_IDS", () => {
+  it("names exactly one qualifying rule in every seeded section", () => {
+    const config = articleAnalysisConfigSchema.parse({});
+    const criteria = flattenAcceptanceCriteria(config.acceptanceCriteria);
+    const bySection = new Map<string, string[]>();
+    for (const criterion of criteria) {
+      if (!SECTION_DEFINING_RULE_IDS.has(criterion.id)) {
+        continue;
+      }
+      bySection.set(criterion.section, [
+        ...(bySection.get(criterion.section) ?? []),
+        criterion.id,
+      ]);
+
+      expect(
+        criterion.qualifying,
+        `defining rule '${criterion.id}' must be qualifying`,
+      ).toBe(true);
+    }
+
+    for (const section of new Set(criteria.map((c) => c.section))) {
+      expect(
+        bySection.get(section)?.length,
+        `section '${section}' must name exactly one defining rule`,
+      ).toBe(1);
+    }
   });
 });
 
