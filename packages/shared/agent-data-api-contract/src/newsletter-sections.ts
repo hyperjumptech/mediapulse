@@ -15,6 +15,12 @@ export const MEDIAPULSE_NEWSLETTER_SECTIONS = [
       "Bullets covering the issuer's own reported results: revenue, profit, margin, volume, guidance, and payout decisions.",
   },
   {
+    id: "issuerNews",
+    label: "Issuer News",
+    description:
+      "Bullets covering material developments at the issuer that are not reported results: share and index moves, regulatory or legal action against it, capex and guidance commentary, and its own launches and partnerships.",
+  },
+  {
     id: "competitiveLandscape",
     label: "Competitive Landscape",
     description:
@@ -71,6 +77,7 @@ export const NEWSLETTER_SECTION_IDS: readonly NewsletterSectionId[] =
  */
 export const NEWSLETTER_SECTION_PRECEDENCE: readonly NewsletterSectionId[] = [
   "issuerPerformance",
+  "issuerNews",
   "dealsAndMovements",
   "competitiveLandscape",
   "regulatoryPolicyWatch",

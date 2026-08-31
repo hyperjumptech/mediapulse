@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import { QUERY_ANALYSIS_INTENTS } from "./query-analysis.js";
 import {
+  MEDIAPULSE_NEWSLETTER_SECTIONS,
   NEWSLETTER_SECTION_IDS,
+  NEWSLETTER_SECTION_PRECEDENCE,
   summarizeSectionCoverage,
 } from "./newsletter-sections.js";
 
@@ -24,13 +26,17 @@ describe("QUERY_ANALYSIS_INTENTS", () => {
     expect(intents.has("quickHits")).toBe(false);
   });
 
-  it("covers every section except quickHits", () => {
+  it("covers every section a generated query can feed", () => {
     const intents = new Set<string>(QUERY_ANALYSIS_INTENTS);
     const unfedSections = NEWSLETTER_SECTION_IDS.filter(
       (sectionId) => !intents.has(sectionId),
     );
 
-    expect(unfedSections).toEqual(["quickHits"]);
+    expect(unfedSections).toEqual([
+      "issuerPerformance",
+      "issuerNews",
+      "quickHits",
+    ]);
   });
 });
 
@@ -101,5 +107,49 @@ describe("summarizeSectionCoverage", () => {
       expect(result[sectionId].count).toBe(0);
       expect(result[sectionId].share).toBe(0);
     }
+  });
+});
+
+describe("issuerNews", () => {
+  const displayOrder = MEDIAPULSE_NEWSLETTER_SECTIONS.map(
+    (section) => section.id,
+  );
+
+  it("is displayed under the issuer's own results and above any peer", () => {
+    expect(displayOrder.indexOf("issuerNews")).toBeGreaterThan(
+      displayOrder.indexOf("issuerPerformance"),
+    );
+    expect(displayOrder.indexOf("issuerNews")).toBeLessThan(
+      displayOrder.indexOf("competitiveLandscape"),
+    );
+  });
+
+  it("loses to issuerPerformance so a reported result keeps the narrower section", () => {
+    expect(NEWSLETTER_SECTION_PRECEDENCE.indexOf("issuerNews")).toBeGreaterThan(
+      NEWSLETTER_SECTION_PRECEDENCE.indexOf("issuerPerformance"),
+    );
+  });
+
+  it("outranks every catch-all and every peer or deal section", () => {
+    const issuerNews = NEWSLETTER_SECTION_PRECEDENCE.indexOf("issuerNews");
+    for (const section of [
+      "dealsAndMovements",
+      "competitiveLandscape",
+      "regulatoryPolicyWatch",
+      "disruptorsOrTech",
+      "industryPulse",
+      "quickHits",
+    ] as const) {
+      expect(NEWSLETTER_SECTION_PRECEDENCE.indexOf(section)).toBeGreaterThan(
+        issuerNews,
+      );
+    }
+  });
+
+  it("is a section every id list already carries", () => {
+    expect(NEWSLETTER_SECTION_IDS).toContain("issuerNews");
+    expect(NEWSLETTER_SECTION_PRECEDENCE).toHaveLength(
+      NEWSLETTER_SECTION_IDS.length,
+    );
   });
 });

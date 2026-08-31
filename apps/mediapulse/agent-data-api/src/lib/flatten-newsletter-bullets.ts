@@ -5,6 +5,7 @@ import { readNewsletterDocument } from "@workspace/email-templates/newsletter-do
 const DOCUMENT_KEY_TO_SECTION_KEY: Record<NewsletterSectionKey, string> = {
   "industry-pulse": "industryPulse",
   "issuer-performance": "issuerPerformance",
+  "issuer-news": "issuerNews",
   "competitive-landscape": "competitiveLandscape",
   "deals-and-movements": "dealsAndMovements",
   "regulatory-policy-watch": "regulatoryPolicyWatch",

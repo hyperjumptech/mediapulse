@@ -19,6 +19,7 @@ export const MAX_ARTICLES_PER_SECTION = 3;
 export const NEWSLETTER_SECTION_KEYS = [
   "industry-pulse",
   "issuer-performance",
+  "issuer-news",
   "competitive-landscape",
   "deals-and-movements",
   "regulatory-policy-watch",

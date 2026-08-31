@@ -14,6 +14,7 @@ const MS_PER_DAY = 86_400_000;
  */
 export const SECTION_MAX_AGE_DAYS: Readonly<Record<string, number>> = {
   industryPulse: 3,
+  issuerNews: 3,
   competitiveLandscape: 5,
   quickHits: 5,
 };
