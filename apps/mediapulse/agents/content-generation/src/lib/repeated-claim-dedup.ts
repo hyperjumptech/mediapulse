@@ -53,6 +53,14 @@ export const figureKeys = (point: string): Set<string> => {
       continue;
     }
     const unitWord = match[2]?.toLowerCase();
+    if (
+      unitWord === undefined &&
+      /^\d{4}$/u.test(normalized) &&
+      Number.parseInt(normalized, 10) >= 1900 &&
+      Number.parseInt(normalized, 10) <= 2100
+    ) {
+      continue;
+    }
     const unit =
       unitWord === undefined
         ? ""
@@ -66,6 +74,16 @@ export const figureKeys = (point: string): Set<string> => {
   }
 
   return keys;
+};
+
+const addsNewFigure = (later: Set<string>, earlier: Set<string>): boolean => {
+  for (const value of later) {
+    if (!earlier.has(value)) {
+      return true;
+    }
+  }
+
+  return false;
 };
 
 const sharedCount = (left: Set<string>, right: Set<string>): number => {
@@ -117,6 +135,7 @@ export const dropRepeatedClaims = (
       seen.some(
         (entry) =>
           sharedCount(figures, entry.figures) > 0 &&
+          !addsNewFigure(figures, entry.figures) &&
           sharedCount(anchors, entry.anchors) >= minSharedAnchors,
       );
 

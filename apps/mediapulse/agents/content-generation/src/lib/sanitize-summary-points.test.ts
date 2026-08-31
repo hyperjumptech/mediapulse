@@ -238,6 +238,24 @@ describe("describesFetchFailure", () => {
 });
 
 describe("sanitizeSummaryPoints", () => {
+  it("trims a point cut off at the budget back to its last complete clause", () => {
+    const result = sanitizeSummaryPoints([
+      "DCII posted revenue of Rp1.77 trillion and net profit of Rp732.5 billion in H1 2026, up 10.9% and 9.",
+    ]);
+
+    expect(result.points).toEqual([
+      "DCII posted revenue of Rp1.77 trillion and net profit of Rp732.5 billion in H1 2026.",
+    ]);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("drops a truncated point when nothing substantive survives the trim", () => {
+    const result = sanitizeSummaryPoints(["Growth was driven by the"]);
+
+    expect(result.points).toHaveLength(0);
+    expect(result.dropped[0]?.reason).toBe("truncated");
+  });
+
   it("keeps clean points untouched", () => {
     const points = [
       "Newcastle coal ended at US$134.00 per ton, down from US$134.05.",

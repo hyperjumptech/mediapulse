@@ -26,6 +26,24 @@ describe("figureKeys", () => {
 });
 
 describe("dropRepeatedClaims", () => {
+  it("keeps a point that adds a figure the earlier point never carried", () => {
+    const result = dropRepeatedClaims([
+      "Data center demand grew 10.9% across the sector in the first half",
+      "DCII posted revenue of Rp1.77 trillion and net profit of Rp732.5 billion, growing 10.9% and 9.7%",
+    ]);
+
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("does not treat a shared reporting year as a repeated figure", () => {
+    const result = dropRepeatedClaims([
+      "DCII posted revenue of Rp1.77 trillion and net profit of Rp732.5 billion in H1/2026",
+      "Revenue grew 10.9% and net profit rose 9.7% year-on-year for H1/2026",
+    ]);
+
+    expect(result.dropped).toHaveLength(0);
+  });
+
   it("drops TLKM's half-year revenue after its first telling", () => {
     const result = dropRepeatedClaims([
       "Telkom Indonesia posts Rp75.9 trillion revenue, up 3.9% year-on-year in H1 2026",

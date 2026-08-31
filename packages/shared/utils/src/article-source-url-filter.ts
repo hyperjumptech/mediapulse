@@ -334,6 +334,28 @@ export type UrlNoiseDecision =
  * @returns Canonical URL with normalized host/path and stripped tracking query params.
  * @throws When `rawUrl` is not a valid absolute URL.
  */
+const PAGINATING_ARTICLE_HOSTS: readonly { host: RegExp; path: RegExp }[] = [
+  { host: /(^|\.)bisnis\.com$/iu, path: /^\/read\//iu },
+  { host: /(^|\.)kontan\.co\.id$/iu, path: /^\/news\//iu },
+];
+
+const PAGINATION_SEGMENT_PATTERN = /\/(?:all|\d{1,3})$/iu;
+
+export const stripPaginationSegment = (
+  hostname: string,
+  pathname: string,
+): string => {
+  const rule = PAGINATING_ARTICLE_HOSTS.find(
+    (entry) => entry.host.test(hostname) && entry.path.test(pathname),
+  );
+  if (rule === undefined) {
+    return pathname;
+  }
+  const stripped = pathname.replace(PAGINATION_SEGMENT_PATTERN, "");
+
+  return stripped.length > 1 ? stripped : pathname;
+};
+
 export const canonicalizeUrl = (rawUrl: string): string => {
   const parsed = new URL(rawUrl);
   parsed.hash = "";
@@ -352,10 +374,11 @@ export const canonicalizeUrl = (rawUrl: string): string => {
   parsed.search = keptParams.toString();
 
   const normalizedPathname = parsed.pathname.replace(/\/{2,}/g, "/");
-  parsed.pathname =
+  const trimmedPathname =
     normalizedPathname.length > 1
       ? normalizedPathname.replace(/\/+$/g, "")
       : normalizedPathname;
+  parsed.pathname = stripPaginationSegment(parsed.hostname, trimmedPathname);
 
   if (parsed.pathname === "/" && parsed.search === "") {
     return `${parsed.protocol}//${parsed.hostname}`;
