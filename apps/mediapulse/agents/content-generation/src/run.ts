@@ -1035,6 +1035,12 @@ export async function run({
     ...(generated.articlesSkippedSummaryFailed !== undefined
       ? { articlesSkippedSummaryFailed: generated.articlesSkippedSummaryFailed }
       : {}),
+    ...(generated.articlesSkippedSummaryFailedByReason !== undefined
+      ? {
+          articlesSkippedSummaryFailedByReason:
+            generated.articlesSkippedSummaryFailedByReason,
+        }
+      : {}),
     ...(generated.summaryBackfill !== undefined
       ? { summaryBackfill: generated.summaryBackfill }
       : {}),
@@ -1067,6 +1073,12 @@ export async function run({
         ? {
             articlesSkippedSummaryFailed:
               generated.articlesSkippedSummaryFailed,
+          }
+        : {}),
+      ...(generated.articlesSkippedSummaryFailedByReason !== undefined
+        ? {
+            articlesSkippedSummaryFailedByReason:
+              generated.articlesSkippedSummaryFailedByReason,
           }
         : {}),
       ...(generated.summaryBackfill !== undefined

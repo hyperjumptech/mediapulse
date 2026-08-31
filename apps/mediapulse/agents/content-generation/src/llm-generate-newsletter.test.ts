@@ -12,9 +12,11 @@ import {
   backfillFailedSections,
   collectNewsletterCitations,
   collectNewsletterSections,
+  countSummaryFailureReasons,
   generateNewsletterWithLlm,
   groupSourcesBySection,
   SUMMARIZER_CONCURRENCY,
+  SUMMARY_FAILURE_REASONS,
   type GenerateNewsletterObjectArgs,
   type GenerateNewsletterObjectFn,
   type GenerateNewsletterObjectResult,
@@ -1347,6 +1349,7 @@ const backfillSummarized = (entry: SelectedArticle) => ({
 const backfillFailed = (entry: SelectedArticle) => ({
   status: "failed" as const,
   entry,
+  reason: "llm_error" as const,
 });
 
 const backfillEventArticle = (
@@ -1559,5 +1562,40 @@ describe("backfillFailedSections", () => {
 
     expect(summarize).not.toHaveBeenCalled();
     expect(result.attempted).toBe(0);
+  });
+});
+
+describe("countSummaryFailureReasons", () => {
+  it("reports every reason so an absent cause reads as zero, not as missing", () => {
+    const counts = countSummaryFailureReasons([]);
+
+    expect(Object.keys(counts).sort()).toEqual(
+      [...SUMMARY_FAILURE_REASONS].sort(),
+    );
+    expect(Object.values(counts).every((count) => count === 0)).toBe(true);
+  });
+
+  it("counts each failed outcome against its own cause", () => {
+    const counts = countSummaryFailureReasons([
+      { status: "failed", reason: "llm_error" },
+      { status: "failed", reason: "llm_error" },
+      { status: "failed", reason: "points_ungrounded" },
+      { status: "failed", reason: "title_figure_ungrounded" },
+      { status: "summarized" },
+    ]);
+
+    expect(counts.llm_error).toBe(2);
+    expect(counts.points_ungrounded).toBe(1);
+    expect(counts.title_figure_ungrounded).toBe(1);
+    expect(counts.points_unusable).toBe(0);
+    expect(counts.points_off_heading).toBe(0);
+  });
+
+  it("ignores summarized outcomes even when one carries a stray reason", () => {
+    const counts = countSummaryFailureReasons([
+      { status: "summarized", reason: "llm_error" },
+    ]);
+
+    expect(counts.llm_error).toBe(0);
   });
 });

@@ -261,6 +261,7 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
   structuredReasoningTokens?: number;
   /** Articles dropped because their summarizer call failed every retry. */
   articlesSkippedSummaryFailed?: number;
+  articlesSkippedSummaryFailedByReason?: SummaryFailureCounts;
   /** Reserve candidates summarized to refill sections a failure had emptied. */
   summaryBackfill?: SummaryBackfillSummary;
   /** Per-section article counts and removed-section list from the final document. */
@@ -429,6 +430,33 @@ const mapWithConcurrency = async <TItem, TResult>(
   return results;
 };
 
+export const SUMMARY_FAILURE_REASONS = [
+  "points_unusable",
+  "points_ungrounded",
+  "title_figure_ungrounded",
+  "points_off_heading",
+  "llm_error",
+] as const;
+
+export type SummaryFailureReason = (typeof SUMMARY_FAILURE_REASONS)[number];
+
+export type SummaryFailureCounts = Record<SummaryFailureReason, number>;
+
+export const countSummaryFailureReasons = (
+  outcomes: readonly { status: string; reason?: SummaryFailureReason }[],
+): SummaryFailureCounts => {
+  const counts = Object.fromEntries(
+    SUMMARY_FAILURE_REASONS.map((reason) => [reason, 0]),
+  ) as SummaryFailureCounts;
+  for (const outcome of outcomes) {
+    if (outcome.status === "failed" && outcome.reason !== undefined) {
+      counts[outcome.reason] += 1;
+    }
+  }
+
+  return counts;
+};
+
 type SummaryOutcome =
   | {
       status: "summarized";
@@ -436,7 +464,7 @@ type SummaryOutcome =
       title: string;
       points: string[];
     }
-  | { status: "failed"; entry: SelectedArticle };
+  | { status: "failed"; entry: SelectedArticle; reason: SummaryFailureReason };
 
 export type SummaryBackfillSummary = {
   attempted: number;
@@ -798,7 +826,7 @@ export async function generateNewsletterWithLlm(
           );
         }
         if (sanitized.points.length === 0) {
-          return { status: "failed", entry };
+          return { status: "failed", entry, reason: "points_unusable" };
         }
 
         const sourceText = `${entry.source.title}\n${entry.source.content}`;
@@ -850,7 +878,7 @@ export async function generateNewsletterWithLlm(
         }
 
         if (groundedPoints.length === 0) {
-          return { status: "failed", entry };
+          return { status: "failed", entry, reason: "points_ungrounded" };
         }
 
         // Checked against the body alone, never `sourceText`: when a publisher's own headline
@@ -873,7 +901,7 @@ export async function generateNewsletterWithLlm(
             "Dropped article: its heading cites a figure absent from the article body",
           );
 
-          return { status: "failed", entry };
+          return { status: "failed", entry, reason: "title_figure_ungrounded" };
         }
 
         if (!pointsSupportTitle(articleTitle, groundedPoints)) {
@@ -889,7 +917,7 @@ export async function generateNewsletterWithLlm(
             "Dropped article: no summary point relates to its own heading",
           );
 
-          return { status: "failed", entry };
+          return { status: "failed", entry, reason: "points_off_heading" };
         }
 
         return {
@@ -910,7 +938,7 @@ export async function generateNewsletterWithLlm(
           "Article summarization failed after retries; skipping article",
         );
 
-        return { status: "failed", entry };
+        return { status: "failed", entry, reason: "llm_error" };
       }
     }
   };
@@ -946,22 +974,25 @@ export async function generateNewsletterWithLlm(
   const articlesSkippedSummaryFailed = summaryOutcomes.filter(
     (outcome) => outcome.status === "failed",
   ).length;
-
-  if (articlesSkippedSummaryFailed === summaryOutcomes.length) {
-    throw new EmptyNewsletterError(
-      "Every selected article failed to summarize",
-    );
-  }
+  const articlesSkippedSummaryFailedByReason =
+    countSummaryFailureReasons(summaryOutcomes);
 
   if (articlesSkippedSummaryFailed > 0) {
     logger.warn(
       {
         tickerId: context.tickerId,
         skippedCount: articlesSkippedSummaryFailed,
+        byReason: articlesSkippedSummaryFailedByReason,
         selectedCount: summaryOutcomes.length,
         event: "article_summaries_skipped",
       },
       `Skipped ${String(articlesSkippedSummaryFailed)} article(s) whose summarization failed`,
+    );
+  }
+
+  if (articlesSkippedSummaryFailed === summaryOutcomes.length) {
+    throw new EmptyNewsletterError(
+      "Every selected article failed to summarize",
     );
   }
 
@@ -1121,6 +1152,7 @@ export async function generateNewsletterWithLlm(
       ? { structuredReasoningTokens: tokenTotals.reasoningTokens }
       : {}),
     articlesSkippedSummaryFailed,
+    articlesSkippedSummaryFailedByReason,
     ...(backfill.attempted > 0 || backfill.skippedDuplicates > 0
       ? {
           summaryBackfill: {
