@@ -55,6 +55,24 @@ describe("SUMMARIZE_ARTICLE_SYSTEM_PROMPT", () => {
     );
   });
 
+  it("requires a figure's subject to be the measured term, not the article's topic", () => {
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "Name a figure's subject with the article's own term for what was measured, never with the article's topic",
+    );
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      'writing "retail consumption" swaps a narrower category onto the number',
+    );
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "Translate the measured subject, do not replace it",
+    );
+  });
+
+  it("keeps a measure's regulatory sense when it is translated", () => {
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      '"aset keuangan digital" is digital financial assets, not digital banking accounts',
+    );
+  });
+
   it("refuses a claim the headline makes and the body never establishes", () => {
     expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
       "A headline is not a source",
