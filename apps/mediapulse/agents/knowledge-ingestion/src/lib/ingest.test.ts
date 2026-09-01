@@ -89,7 +89,7 @@ describe("ingestCandidates", () => {
   it("opens a storyline when nothing matches", async () => {
     const store = createStore();
 
-    const tally = await ingestCandidates([candidate(ANNOUNCEMENT)], store);
+    const { tally } = await ingestCandidates([candidate(ANNOUNCEMENT)], store);
 
     expect(tally.storylinesOpened).toBe(1);
     expect(tally.developmentsOpened).toBe(1);
@@ -99,7 +99,7 @@ describe("ingestCandidates", () => {
   it("cites an existing move when a second outlet reports it", async () => {
     const store = createStore([snapshotFrom([ANNOUNCEMENT])]);
 
-    const tally = await ingestCandidates([candidate(SECOND_OUTLET)], store);
+    const { tally } = await ingestCandidates([candidate(SECOND_OUTLET)], store);
 
     expect(tally.citationsAdded).toBe(1);
     expect(store.cite).toHaveBeenCalledTimes(1);
@@ -109,7 +109,7 @@ describe("ingestCandidates", () => {
   it("skips an article with no distinctive anchors", async () => {
     const store = createStore();
 
-    const tally = await ingestCandidates(
+    const { tally } = await ingestCandidates(
       [candidate({ dataSourceId: "ds-1", title: "PT", text: "" })],
       store,
     );
@@ -127,7 +127,7 @@ describe("ingestCandidates", () => {
       lockedReason: "spans 6 tickers, over the ceiling of 5",
     });
 
-    const tally = await ingestCandidates(
+    const { tally } = await ingestCandidates(
       [
         candidate(ANNOUNCEMENT),
         candidate({ ...ANNOUNCEMENT, dataSourceId: "ds-9" }),
@@ -158,5 +158,37 @@ describe("ingestCandidates", () => {
         evidence: expect.objectContaining({ path: "body" }),
       }),
     );
+  });
+
+  it("records a failing candidate and carries on with the rest", async () => {
+    const store = createStore();
+    store.findStorylinesByAnchors.mockRejectedValueOnce(
+      new Error("Agent data API error: 400"),
+    );
+
+    const { tally, failures } = await ingestCandidates(
+      [
+        candidate(ANNOUNCEMENT),
+        candidate({ ...ANNOUNCEMENT, dataSourceId: "ds-9" }),
+      ],
+      store,
+    );
+
+    expect(tally.considered).toBe(2);
+    expect(tally.storylinesOpened).toBe(1);
+    expect(failures).toEqual([
+      { dataSourceId: "ds-1", message: "Agent data API error: 400" },
+    ]);
+  });
+
+  it("reports no failures when every candidate is ingested", async () => {
+    const store = createStore();
+
+    const { failures } = await ingestCandidates(
+      [candidate(ANNOUNCEMENT)],
+      store,
+    );
+
+    expect(failures).toEqual([]);
   });
 });

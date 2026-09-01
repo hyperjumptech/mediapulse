@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { KNOWLEDGE_ANCHOR_LOOKUP_MAX } from "@workspace/agent-data-api-contract";
 
 import {
   anchorsFor,
@@ -61,6 +62,33 @@ const storylineFrom = (
     ...overrides,
   };
 };
+
+describe("anchorsFor", () => {
+  const runOnWords = (count: number): string =>
+    Array.from({ length: count }, (_, index) => `entitas${index}`).join(" ");
+
+  it("bounds the anchors a scraped-page title can contribute", () => {
+    const anchors = anchorsFor({
+      dataSourceId: "ds-long-title",
+      title: runOnWords(600),
+      text: "",
+    });
+
+    expect(anchors.anchors.size).toBeLessThanOrEqual(
+      KNOWLEDGE_ANCHOR_LOOKUP_MAX,
+    );
+    expect(anchors.titleAnchors.size).toBeLessThanOrEqual(
+      KNOWLEDGE_ANCHOR_LOOKUP_MAX,
+    );
+  });
+
+  it("leaves a normal headline untouched", () => {
+    const anchors = anchorsFor(TELKOM_ANNOUNCEMENT);
+
+    expect(anchors.titleAnchors.has("telkom")).toBe(true);
+    expect(anchors.titleAnchors.has("pangkas")).toBe(true);
+  });
+});
 
 describe("decideAttachment", () => {
   it("skips an article with no distinctive anchors", () => {

@@ -1,4 +1,5 @@
 import type { AgentDataApiClient } from "@workspace/agent-data-api-client";
+import { KNOWLEDGE_ANCHOR_LOOKUP_MAX } from "@workspace/agent-data-api-contract";
 import type { KnowledgeStorylineSnapshot } from "@workspace/agent-data-api-contract";
 
 import type { StorylineSnapshot } from "./attach.js";
@@ -34,7 +35,7 @@ export const createKnowledgeStore = (
 ): KnowledgeStore => ({
   findStorylinesByAnchors: async (anchors) => {
     const response = await client.knowledgeStorylineCandidates.create({
-      anchors: [...anchors],
+      anchors: [...anchors].slice(0, KNOWLEDGE_ANCHOR_LOOKUP_MAX),
     });
 
     return response.storylines.map(toSnapshot);

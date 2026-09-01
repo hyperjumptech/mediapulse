@@ -66,6 +66,16 @@ export type IngestTally = {
   skippedNoAnchors: number;
 };
 
+export type IngestFailure = {
+  dataSourceId: string;
+  message: string;
+};
+
+export type IngestOutcome = {
+  tally: IngestTally;
+  failures: IngestFailure[];
+};
+
 const emptyTally = (): IngestTally => ({
   considered: 0,
   storylinesOpened: 0,
@@ -81,15 +91,19 @@ const emptyTally = (): IngestTally => ({
  * - Important: candidates must be supplied oldest first. A Storyline's history is append-only, so
  *   ingesting out of order would attribute a move to the wrong point in the thread.
  *
+ * - Important: a candidate that throws is recorded and skipped rather than ending the run, so one
+ *   unusable row cannot stall the watermark for every row behind it.
+ *
  * @param candidates - Articles to consider, oldest first.
  * @param store - Storage port.
- * @returns Counters for the run chronicle.
+ * @returns Counters for the run chronicle, plus every candidate that could not be ingested.
  */
 export const ingestCandidates = async (
   candidates: readonly IngestCandidate[],
   store: KnowledgeStore,
-): Promise<IngestTally> => {
+): Promise<IngestOutcome> => {
   const tally = emptyTally();
+  const failures: IngestFailure[] = [];
   const alreadyLocked = new Set<string>();
 
   const countLock = (result: KnowledgeWriteResult): void => {
@@ -100,13 +114,12 @@ export const ingestCandidates = async (
     tally.storylinesLocked += 1;
   };
 
-  for (const candidate of candidates) {
-    tally.considered += 1;
-
+  const ingestOne = async (candidate: IngestCandidate): Promise<void> => {
     const anchors = anchorsFor(candidate);
     if (anchors.anchors.size === 0) {
       tally.skippedNoAnchors += 1;
-      continue;
+
+      return;
     }
 
     const anchorList = [...anchors.anchors];
@@ -121,7 +134,8 @@ export const ingestCandidates = async (
 
     if (decision.kind === "skip") {
       tally.skippedNoAnchors += 1;
-      continue;
+
+      return;
     }
 
     const base = {
@@ -139,7 +153,8 @@ export const ingestCandidates = async (
       countLock(await store.openStoryline(base));
       tally.storylinesOpened += 1;
       tally.developmentsOpened += 1;
-      continue;
+
+      return;
     }
 
     if (decision.kind === "openDevelopment") {
@@ -151,7 +166,8 @@ export const ingestCandidates = async (
         }),
       );
       tally.developmentsOpened += 1;
-      continue;
+
+      return;
     }
 
     countLock(
@@ -165,7 +181,18 @@ export const ingestCandidates = async (
       }),
     );
     tally.citationsAdded += 1;
+  };
+
+  for (const candidate of candidates) {
+    tally.considered += 1;
+
+    try {
+      await ingestOne(candidate);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      failures.push({ dataSourceId: candidate.dataSourceId, message });
+    }
   }
 
-  return tally;
+  return { tally, failures };
 };
