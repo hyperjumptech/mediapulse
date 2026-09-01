@@ -8,6 +8,8 @@ import { AGENT_VERSION } from "./agent-version.js";
 import { ingestCandidates, type IngestCandidate } from "./lib/ingest.js";
 import { createKnowledgeStore } from "./lib/store.js";
 
+const FAILURE_SAMPLE_LIMIT = 3;
+
 export const run = async ({
   input,
   config,
@@ -55,33 +57,52 @@ export const run = async ({
   }));
 
   try {
-    const tally = await ingestCandidates(
+    const { tally, failures } = await ingestCandidates(
       candidates,
       createKnowledgeStore(client, ingestionRunId),
     );
     const completedAt = new Date();
+    const stopReason =
+      failures.length === 0
+        ? null
+        : `${failures.length} of ${tally.considered} candidates failed: ${failures
+            .slice(0, FAILURE_SAMPLE_LIMIT)
+            .map((failure) => `${failure.dataSourceId}: ${failure.message}`)
+            .join("; ")}`;
 
     if (ingestionRunId !== null) {
       await client.knowledgeIngestionRunsFinish.create({
         ingestionRunId,
-        status: "success",
+        status: failures.length === 0 ? "success" : "partial_success",
         completedAt: completedAt.toISOString(),
         watermarkAt: watermark,
         ...tally,
-        stopReason: null,
+        stopReason,
         durationMs: completedAt.getTime() - startedAt.getTime(),
       });
     }
 
+    if (failures.length > 0) {
+      logger.warn(
+        { failures, watermark },
+        "--> knowledge-ingestion skipped candidates that failed",
+      );
+    }
+
     logger.info(
-      { ...tally, watermark, resumedFrom },
+      { ...tally, failed: failures.length, watermark, resumedFrom },
       "--> knowledge-ingestion complete",
     );
 
     return {
       success: true,
       message: `Ingested ${tally.considered} sources`,
-      details: { ...tally, watermark, resumedFrom },
+      details: {
+        ...tally,
+        failed: failures.length,
+        watermark,
+        resumedFrom,
+      },
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

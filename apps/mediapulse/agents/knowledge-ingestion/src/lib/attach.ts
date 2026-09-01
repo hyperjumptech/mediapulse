@@ -13,6 +13,8 @@ import {
  */
 export const COMPARISON_CHAR_LIMIT = 300;
 
+export const TITLE_CHAR_LIMIT = 300;
+
 /** Minimum shared anchors before two articles are treated as reporting the same move. */
 export const MIN_SHARED_ANCHORS = 4;
 
@@ -120,11 +122,12 @@ const withinAdjacentDay = (
  * @param candidate - The article being considered.
  */
 export const anchorsFor = (candidate: Candidate): CandidateAnchors => {
-  const comparisonText = `${candidate.title}\n${candidate.text.slice(0, COMPARISON_CHAR_LIMIT)}`;
+  const title = candidate.title.slice(0, TITLE_CHAR_LIMIT);
+  const comparisonText = `${title}\n${candidate.text.slice(0, COMPARISON_CHAR_LIMIT)}`;
 
   return {
     anchors: distinctiveAnchorTokens(tokenize(comparisonText)),
-    titleAnchors: distinctiveAnchorTokens(tokenize(candidate.title)),
+    titleAnchors: distinctiveAnchorTokens(tokenize(title)),
     figures: extractFigures(comparisonText),
   };
 };
