@@ -6,12 +6,16 @@ import { z } from "zod";
 
 import type { SourceForGeneration } from "./types.js";
 
-/** Structured output contract for a single article summary. */
+/**
+ * Structured output contract for a single article summary.
+ *
+ * - Important: no `.max()` on a point. A max on this field reaches the provider as a JSON Schema
+ *   `maxLength`, which stops constrained decoding mid-word instead of failing validation, so the
+ *   budget is enforced by `sanitizeSummaryPoints` after the call rather than during it.
+ */
 export const articleSummarySchema = z.object({
   title: z.string().trim().min(1),
-  points: z
-    .array(z.string().trim().min(1).max(MAX_POINT_LENGTH))
-    .max(MAX_POINTS_PER_ARTICLE),
+  points: z.array(z.string().trim().min(1)).max(MAX_POINTS_PER_ARTICLE),
 });
 
 export type ArticleSummary = z.infer<typeof articleSummarySchema>;
