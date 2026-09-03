@@ -9,6 +9,7 @@ import {
   sanitizeSummaryPoints,
   startsMidSentence,
   startsWithUnanchoredFigure,
+  trimToBudget,
 } from "./sanitize-summary-points.js";
 
 const padToBudget = (prefix: string): string =>
@@ -432,5 +433,57 @@ describe("sanitizeSummaryPoints — no-substance points", () => {
       "no_substance",
       "no_substance",
     ]);
+  });
+});
+
+describe("trimToBudget", () => {
+  it("leaves a point already inside the budget untouched", () => {
+    const point =
+      "Coal export value rose 4.75% to US$14.47 billion in Jan-Jul 2026.";
+
+    expect(trimToBudget(point)).toBe(point);
+  });
+
+  it("cuts an over-long point back to its last complete clause", () => {
+    const point =
+      "Bank Mandiri posted a net profit of Rp30.41 trillion in the first half of 2026, and management guided to further growth across its corporate lending book.";
+
+    expect(point.length).toBeGreaterThan(MAX_POINT_LENGTH);
+
+    const trimmed = trimToBudget(point);
+
+    expect(trimmed).toBe(
+      "Bank Mandiri posted a net profit of Rp30.41 trillion in the first half of 2026.",
+    );
+  });
+
+  it("drops an over-long point that carries no clause boundary to cut at", () => {
+    const point =
+      "The government plans to optimize Public Service Agency functions in energy so that it can supply coal and gas to power plants under a new Presidential Regulation.";
+
+    expect(point.length).toBeGreaterThan(MAX_POINT_LENGTH);
+    expect(trimToBudget(point)).toBeNull();
+  });
+});
+
+describe("sanitizeSummaryPoints — budget enforcement", () => {
+  it("never emits a point longer than the budget", () => {
+    const result = sanitizeSummaryPoints([
+      "Bank Mandiri posted a net profit of Rp30.41 trillion in the first half of 2026, and management guided to further growth across its corporate lending book.",
+    ]);
+
+    expect(result.points).toHaveLength(1);
+    for (const point of result.points) {
+      expect(point.length).toBeLessThanOrEqual(MAX_POINT_LENGTH);
+    }
+  });
+
+  it("reports an unsalvageable over-long point as over_budget", () => {
+    const result = sanitizeSummaryPoints([
+      "The government plans to optimize Public Service Agency functions in energy so that it can supply coal and gas to power plants under a new Presidential Regulation.",
+    ]);
+
+    expect(result.points).toHaveLength(0);
+    expect(result.dropped[0]?.reason).toBe("over_budget");
   });
 });

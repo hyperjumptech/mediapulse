@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 import {
   articleSummarySchema,
@@ -143,5 +144,13 @@ describe("buildArticlePrompt", () => {
     expect(prompt).toContain("Title: Telkom H1 profit");
     expect(prompt).toContain("Telkom booked Rp75.9 trillion in revenue.");
     expect(prompt.endsWith(" ")).toBe(false);
+  });
+});
+
+describe("articleSummarySchema as JSON Schema", () => {
+  it("sets no maxLength on a point", () => {
+    const json = JSON.stringify(zodToJsonSchema(articleSummarySchema));
+
+    expect(json).not.toContain("maxLength");
   });
 });

@@ -4,6 +4,7 @@ import { MAX_POINT_LENGTH } from "@workspace/email-templates/newsletter-document
 export type DroppedPointReason =
   | "non_latin_script"
   | "truncated"
+  | "over_budget"
   | "starts_mid_sentence"
   | "figure_without_subject"
   | "fetch_failure"
@@ -213,18 +214,23 @@ export const lacksSubstance = (point: string): boolean =>
  */
 const MIN_REPAIRED_LENGTH = 45;
 
-export const repairTruncated = (point: string): string | null => {
-  const trimmed = point.trim();
+/**
+ * Cuts `text` back to the latest clause boundary that still leaves a usable sentence.
+ *
+ * @param text - The already-trimmed text to scan.
+ * @returns The clipped sentence, terminated, or `null` when no boundary leaves enough behind.
+ */
+const clipAtClauseBoundary = (text: string): string | null => {
   const terminal = Math.max(
-    trimmed.lastIndexOf(". "),
-    trimmed.lastIndexOf("! "),
-    trimmed.lastIndexOf("? "),
+    text.lastIndexOf(". "),
+    text.lastIndexOf("! "),
+    text.lastIndexOf("? "),
   );
-  const boundaries = [terminal, trimmed.lastIndexOf(", ")].filter(
+  const boundaries = [terminal, text.lastIndexOf(", ")].filter(
     (index) => index > 0,
   );
   for (const boundary of boundaries.sort((left, right) => right - left)) {
-    const candidate = trimmed.slice(0, boundary).replace(/[\s,;:]+$/u, "");
+    const candidate = text.slice(0, boundary).replace(/[\s,;:]+$/u, "");
     if (
       candidate.length >= MIN_REPAIRED_LENGTH &&
       !DANGLING_TRAILING_WORDS.has(lastWordOf(candidate)) &&
@@ -237,6 +243,28 @@ export const repairTruncated = (point: string): string | null => {
   }
 
   return null;
+};
+
+export const repairTruncated = (point: string): string | null =>
+  clipAtClauseBoundary(point.trim());
+
+/**
+ * Holds a point to {@link MAX_POINT_LENGTH} without cutting a word in half.
+ *
+ * The summarizer schema carries no `maxLength`, so an over-long point arrives as a whole sentence
+ * and can be cut back at a clause boundary here. Enforcing the budget during decoding instead
+ * stops the token stream mid-word, which ships as visibly broken text.
+ *
+ * @param point - One generated summary point that passed every content check.
+ * @returns The point within budget, or `null` when no clause boundary leaves enough behind.
+ */
+export const trimToBudget = (point: string): string | null => {
+  const trimmed = point.trim();
+  if (trimmed.length <= MAX_POINT_LENGTH) {
+    return trimmed;
+  }
+
+  return clipAtClauseBoundary(trimmed.slice(0, MAX_POINT_LENGTH));
 };
 
 export const sanitizeSummaryPoints = (
@@ -252,11 +280,13 @@ export const sanitizeSummaryPoints = (
     }
     if (looksTruncated(point)) {
       const repaired = repairTruncated(point);
-      if (repaired === null) {
+      const repairedWithinBudget =
+        repaired === null ? null : trimToBudget(repaired);
+      if (repairedWithinBudget === null) {
         dropped.push({ point, reason: "truncated" });
         continue;
       }
-      kept.push(repaired);
+      kept.push(repairedWithinBudget);
       continue;
     }
     if (startsMidSentence(point)) {
@@ -275,7 +305,12 @@ export const sanitizeSummaryPoints = (
       dropped.push({ point, reason: "no_substance" });
       continue;
     }
-    kept.push(point);
+    const withinBudget = trimToBudget(point);
+    if (withinBudget === null) {
+      dropped.push({ point, reason: "over_budget" });
+      continue;
+    }
+    kept.push(withinBudget);
   }
 
   return { points: kept, dropped };
