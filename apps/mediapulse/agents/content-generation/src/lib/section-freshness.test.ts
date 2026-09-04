@@ -123,3 +123,58 @@ describe("dropStaleForSection", () => {
     }
   });
 });
+
+describe("dropStaleForSection quoted levels", () => {
+  const now = new Date("2026-09-04T00:00:00Z");
+
+  it("drops a price quoted six days ago even when the article carries no publish date", () => {
+    const sources = [
+      {
+        dataSourceId: "ds-gold",
+        url: "https://example.com/gold",
+        title:
+          "Antam Gold Price at Pegadaian August 29, 2026, Check the Latest Details",
+        content: "Harga emas Antam turun Rp5.000.",
+        section: "quickHits",
+      },
+    ] as const;
+
+    const result = dropStaleForSection([...sources], now);
+
+    expect(result.droppedCount).toBe(1);
+    expect(result.sources).toStrictEqual([]);
+  });
+
+  it("keeps a price quoted the day before", () => {
+    const sources = [
+      {
+        dataSourceId: "ds-fx",
+        url: "https://example.com/fx",
+        title: "Kurs Dolar AS di BCA Hari Ini, 3 September 2026",
+        content: "Kurs dolar AS hari ini.",
+        section: "quickHits",
+      },
+    ] as const;
+
+    const result = dropStaleForSection([...sources], now);
+
+    expect(result.droppedCount).toBe(0);
+  });
+
+  it("leaves a dated development alone", () => {
+    const sources = [
+      {
+        dataSourceId: "ds-buyback",
+        url: "https://example.com/buyback",
+        title:
+          "Erajaya Prepares Rp 500 Billion Stock Buyback Starting September 4, 2026",
+        content: "Erajaya menyiapkan buyback.",
+        section: "issuerNews",
+      },
+    ] as const;
+
+    const result = dropStaleForSection([...sources], now);
+
+    expect(result.droppedCount).toBe(0);
+  });
+});

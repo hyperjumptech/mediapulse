@@ -1,4 +1,5 @@
 import type { SourceForGeneration } from "../types.js";
+import { quotedLevelDate } from "./claim-date.js";
 
 const MS_PER_DAY = 86_400_000;
 
@@ -65,9 +66,18 @@ export const dropStaleForSection = (
   const drops: { section: string; ageDays: number; title: string }[] = [];
 
   for (const source of sources) {
-    const age = ageInDays(source.publishedAt, now);
+    // A headline quoting a price as of a named day is stale from that day, whatever the article's
+    // own timestamp says. The section windows measure publication, and a fresh write-up of a
+    // week-old quote passes them while being exactly as useless as an old article.
+    const quoted = quotedLevelDate(source.title);
+    const age = Math.max(
+      ageInDays(source.publishedAt, now) ?? Number.NEGATIVE_INFINITY,
+      quoted === null
+        ? Number.NEGATIVE_INFINITY
+        : (now.getTime() - quoted.getTime()) / MS_PER_DAY,
+    );
     const limit = maxAgeFor(source.section);
-    if (age !== null && age > limit) {
+    if (Number.isFinite(age) && age > limit) {
       drops.push({
         section: source.section ?? "unassigned",
         ageDays: Math.round(age * 10) / 10,
