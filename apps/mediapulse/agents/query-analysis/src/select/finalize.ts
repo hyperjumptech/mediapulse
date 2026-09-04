@@ -7,6 +7,7 @@ import {
 
 import { normalizeQueryText } from "../pipeline/candidates";
 import { isPerishableQuery } from "../pipeline/perishable";
+import { isVagueQuery, type QuerySubject } from "../pipeline/specificity";
 import type { Candidate, Language } from "../pipeline/types";
 
 /** A persisted query row. */
@@ -39,8 +40,9 @@ export type FinalizeResult = {
 export const finalizeQueries = (params: {
   candidates: Candidate[];
   queriesPerIntent: number;
+  subject?: QuerySubject;
 }): FinalizeResult => {
-  const { candidates, queriesPerIntent } = params;
+  const { candidates, queriesPerIntent, subject } = params;
 
   const poolByKey = new Map<string, Candidate>();
   for (const candidate of candidates) {
@@ -62,9 +64,23 @@ export const finalizeQueries = (params: {
   const chosen: Candidate[] = [];
   const chosenKeys = new Set<string>();
   for (const list of byIntent.values()) {
+    // Two demotions, applied in order of how little the query says. A vague query names nothing
+    // tying it to this issuer's market, so it wastes a search slot on whatever the web returns; a
+    // perishable one was specific when its date was current. Ordering rather than removing keeps an
+    // intent from shipping empty when every candidate it has is weak.
+    const specific =
+      subject === undefined
+        ? list
+        : list.filter((candidate) => !isVagueQuery(candidate.text, subject));
+    const vague =
+      subject === undefined
+        ? []
+        : list.filter((candidate) => isVagueQuery(candidate.text, subject));
     const durableFirst = [
-      ...list.filter((candidate) => !isPerishableQuery(candidate.text)),
-      ...list.filter((candidate) => isPerishableQuery(candidate.text)),
+      ...specific.filter((candidate) => !isPerishableQuery(candidate.text)),
+      ...specific.filter((candidate) => isPerishableQuery(candidate.text)),
+      ...vague.filter((candidate) => !isPerishableQuery(candidate.text)),
+      ...vague.filter((candidate) => isPerishableQuery(candidate.text)),
     ];
     for (const candidate of durableFirst.slice(0, queriesPerIntent)) {
       chosenKeys.add(normalizeQueryText(candidate.text));

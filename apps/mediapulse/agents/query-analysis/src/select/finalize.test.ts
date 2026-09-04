@@ -136,3 +136,71 @@ describe("finalizeQueries", () => {
     expect(result.perSection.quickHits).toBe(0);
   });
 });
+
+describe("finalizeQueries vague-query demotion", () => {
+  const subject = {
+    symbol: "MAPI",
+    name: "PT Mitra Adiperkasa Tbk",
+    aliases: [],
+    sectorTerms: ["Ritel Khusus"],
+  };
+
+  it("drops a bare symbol and a themeless phrase out of the budget", () => {
+    const result = finalizeQueries({
+      candidates: [
+        { text: "MAPI", intent: "industryPulse", language: "en" },
+        {
+          text: "Cultural Resurgence",
+          intent: "industryPulse",
+          language: "en",
+        },
+        {
+          text: "PT Mitra Adiperkasa Tbk industry trend",
+          intent: "industryPulse",
+          language: "en",
+        },
+        {
+          text: "ritel pakaian Indonesia konsolidasi",
+          intent: "industryPulse",
+          language: "id",
+        },
+      ],
+      queriesPerIntent: 2,
+      subject,
+    });
+
+    expect(result.queries.map((query) => query.text)).toStrictEqual([
+      "PT Mitra Adiperkasa Tbk industry trend",
+      "ritel pakaian Indonesia konsolidasi",
+    ]);
+  });
+
+  it("still fills the budget when every candidate is vague", () => {
+    const result = finalizeQueries({
+      candidates: [
+        { text: "MAPI", intent: "industryPulse", language: "en" },
+        { text: "Cultural Titans", intent: "industryPulse", language: "en" },
+      ],
+      queriesPerIntent: 2,
+      subject,
+    });
+
+    expect(result.queries).toHaveLength(2);
+  });
+
+  it("changes nothing when no subject is supplied", () => {
+    const result = finalizeQueries({
+      candidates: [
+        { text: "MAPI", intent: "industryPulse", language: "en" },
+        {
+          text: "PT Mitra Adiperkasa Tbk deals",
+          intent: "industryPulse",
+          language: "en",
+        },
+      ],
+      queriesPerIntent: 1,
+    });
+
+    expect(result.queries[0]?.text).toBe("MAPI");
+  });
+});

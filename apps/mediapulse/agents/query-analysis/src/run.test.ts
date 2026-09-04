@@ -235,15 +235,20 @@ describe("runQueryAnalysis — with a curated profile", () => {
     const body = create.mock.calls[0]?.[0];
     const ranks = body.queries.map((query: { rank: number }) => query.rank);
     expect(ranks).toEqual([...ranks].sort((a: number, b: number) => a - b));
-    expect(body.queries[0]?.text).toBe("BBRI");
+    // The bare symbol is demoted behind the full name for the same intent. With a
+    // budget of one query per intent, "Bank Rakyat Indonesia" takes the slot.
+    expect(body.queries[0]?.text).toBe("Bank Rakyat Indonesia");
     expect(body.queries[0]?.rank).toBe(1);
+    expect(
+      body.queries.map((query: { text: string }) => query.text),
+    ).not.toContain("BBRI");
   });
 
   it("carries a proven query into the new set ahead of a fresh one", async () => {
     // Setup
     const { client, create } = makeClient(baseProfile, [
       {
-        text: "harga batu bara acuan ESDM",
+        text: "kredit mikro Bank Rakyat Indonesia tumbuh",
         intent: "industryPulse",
         novelArticleCount: 11,
       },
@@ -264,8 +269,10 @@ describe("runQueryAnalysis — with a curated profile", () => {
       (query: { intent: string }) => query.intent === "industryPulse",
     );
 
-    expect(texts).toContain("harga batu bara acuan ESDM");
-    expect(industryPulse[0]?.text).toBe("harga batu bara acuan ESDM");
+    expect(texts).toContain("kredit mikro Bank Rakyat Indonesia tumbuh");
+    expect(industryPulse[0]?.text).toBe(
+      "kredit mikro Bank Rakyat Indonesia tumbuh",
+    );
   });
 
   it("does not carry a proven query that has expired", async () => {
