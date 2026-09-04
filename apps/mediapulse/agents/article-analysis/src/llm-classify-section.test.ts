@@ -902,6 +902,88 @@ describe("scoreFromEvaluations — issuer-relevance gate", () => {
     expect(result.scoreBreakdown.issuerRelevance?.overridden).toBe(true);
   });
 
+  it("does not reject on a failed gate when the article names a listed regulator", () => {
+    const evaluations: CriterionEvaluation[] = [
+      ...evaluate(["ip1", "ip3"]),
+      {
+        id: ISSUER_RELEVANCE_CRITERION_ID,
+        matched: false,
+        note: "does not concern FORE or any of its competitors",
+      },
+    ];
+
+    const result = scoreFromEvaluations(
+      evaluations,
+      criteria,
+      true,
+      false,
+      false,
+      new Set(),
+      null,
+      {
+        kind: "regulator",
+        name: "National Agency of Drug and Food Control",
+      },
+    );
+
+    expect(result.section).not.toBeNull();
+    expect(result.scoreBreakdown.issuerRelevance?.overridden).toBe(true);
+    expect(result.scoreBreakdown.issuerRelevance?.marketParty).toStrictEqual({
+      kind: "regulator",
+      name: "National Agency of Drug and Food Control",
+    });
+  });
+
+  it("does not reject on a failed gate when the article names a listed competitor", () => {
+    const evaluations: CriterionEvaluation[] = [
+      ...evaluate(["ip1", "ip3"]),
+      {
+        id: ISSUER_RELEVANCE_CRITERION_ID,
+        matched: false,
+        note: "the article is about Telkom's subsidiary Telin, not a direct competitor",
+      },
+    ];
+
+    const result = scoreFromEvaluations(
+      evaluations,
+      criteria,
+      true,
+      false,
+      false,
+      new Set(),
+      null,
+      { kind: "competitor", name: "Telkom Indonesia (Persero)" },
+    );
+
+    expect(result.section).not.toBeNull();
+    expect(result.scoreBreakdown.issuerRelevance?.overridden).toBe(true);
+  });
+
+  it("still rejects a failed gate when the article names no listed party", () => {
+    const evaluations: CriterionEvaluation[] = [
+      ...evaluate(["ip1", "ip3"]),
+      {
+        id: ISSUER_RELEVANCE_CRITERION_ID,
+        matched: false,
+        note: "unrelated topic",
+      },
+    ];
+
+    const result = scoreFromEvaluations(
+      evaluations,
+      criteria,
+      true,
+      false,
+      false,
+      new Set(),
+      null,
+      null,
+    );
+
+    expect(result.section).toBeNull();
+    expect(result.reason).toContain("not relevant to issuer context");
+  });
+
   it("rejects when the gate is not matched, even though other criteria matched (quickHits-style false win)", () => {
     const evaluations: CriterionEvaluation[] = [
       ...evaluate(["ip1", "ip3"]),

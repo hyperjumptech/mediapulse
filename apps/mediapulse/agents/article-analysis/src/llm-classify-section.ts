@@ -22,6 +22,10 @@ import {
 } from "./config-schema.js";
 import { namesForeignSymbolHomonym } from "./utilities/foreign-symbol-homonym.js";
 import {
+  textNamesMarketParty,
+  type MarketPartyMatch,
+} from "./utilities/names-market-party.js";
+import {
   nonNewsContentClass,
   type NonNewsClass,
 } from "./utilities/non-news-content.js";
@@ -291,7 +295,7 @@ export const renderArticleTickerContext = (
         : competitor.name,
     );
     lines.push(
-      `Known competitors of the issuer: ${peers.join("; ")}. Other operators in the same market count as competitors too, even when absent from this list.`,
+      `Known competitors of the issuer: ${peers.join("; ")}. A subsidiary, brand, or other company in a competitor's corporate group is that competitor, even when it trades under its own name and its own exchange symbol: news about Telkom's Telin is news about Telkom. Other operators in the same market count as competitors too, even when absent from this list.`,
     );
   }
 
@@ -415,6 +419,7 @@ export const scoreFromEvaluations = (
   foreignSymbolHomonym = false,
   excludedSections: ReadonlySet<string> = new Set(),
   nonNewsClass: NonNewsClass | null = null,
+  marketParty: MarketPartyMatch | null = null,
 ): ArticleSectionClassification => {
   const flat = flattenAcceptanceCriteria(acceptanceCriteria);
   const evaluationById = new Map<string, CriterionEvaluation>(
@@ -546,6 +551,14 @@ export const scoreFromEvaluations = (
   ).length;
   const anchorsOverrideGate =
     !gateMatched && marketAnchors >= MARKET_ANCHOR_OVERRIDE_MIN;
+  // The gate prompt already says an article about a competitor qualifies "even when the issuer
+  // itself is never mentioned", and that a regulator's rule governs the issuer's operating
+  // conditions. The model does not apply either clause reliably: on 2026-09-04 eight articles about
+  // one BPOM rule were judged for FORE, whose profile lists BPOM, and seven were rejected over a
+  // note reasoning only about the issuer and its competitors. Naming a party from the issuer's own
+  // stored profile is decided here instead of being asked of the model. This lifts the gate only;
+  // the article must still win a section on that section's qualifying rules.
+  const marketPartyOverridesGate = !gateMatched && marketParty !== null;
   // A symbol collision defeats every issuer signal above it. `titleNamesIssuer` matches the bare
   // symbol, so `CCSI Q1 2026 Earnings` reads as issuer coverage whether the article is about the
   // IDX cable maker or the NASDAQ cloud-fax company of the same symbol. On 2026-07-27 that put
@@ -556,6 +569,7 @@ export const scoreFromEvaluations = (
     (requireIssuerRelevance &&
       !gateMatched &&
       !anchorsOverrideGate &&
+      !marketPartyOverridesGate &&
       !issuerNamedInTitle);
 
   const issuerRelevance = requireIssuerRelevance
@@ -563,7 +577,13 @@ export const scoreFromEvaluations = (
         matched: gateMatched,
         note: noteFor(ISSUER_RELEVANCE_CRITERION_ID),
         marketAnchors,
-        overridden: anchorsOverrideGate || (!gateMatched && issuerNamedInTitle),
+        overridden:
+          anchorsOverrideGate ||
+          marketPartyOverridesGate ||
+          (!gateMatched && issuerNamedInTitle),
+        ...(marketPartyOverridesGate && marketParty !== null
+          ? { marketParty }
+          : {}),
       }
     : undefined;
 
@@ -850,5 +870,10 @@ export const classifyArticleSection = async (params: {
         params.ticker ?? null,
       ),
     }),
+    null,
+    textNamesMarketParty(
+      `${params.title}\n${params.content}`,
+      params.ticker ?? null,
+    ),
   );
 };
