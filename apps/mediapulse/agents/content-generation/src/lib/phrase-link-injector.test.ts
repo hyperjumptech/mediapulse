@@ -17,6 +17,16 @@ describe("tokenize", () => {
     expect(tokens).toEqual(["bank", "central", "asia"]);
   });
 
+  it("folds combining marks so accented and plain spellings share a token", () => {
+    // Act
+    const accented = tokenize("Dampak El Ni\u00f1o");
+    const plain = tokenize("Dampak El Nino");
+
+    // Assert
+    expect(accented).toEqual(["dampak", "nino"]);
+    expect(accented).toEqual(plain);
+  });
+
   it("filters out stop words", () => {
     // Act
     const tokens = tokenize("the rise of inflation");

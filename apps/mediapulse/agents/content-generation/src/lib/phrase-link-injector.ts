@@ -45,14 +45,31 @@ const MAX_WINDOW_SIZE = 7;
 const MIN_SCORE_THRESHOLD = 0.2;
 
 /**
+ * Strips combining marks so an accented word folds to its plain-ASCII spelling.
+ *
+ * `tokenize` splits on `\W+`, which is ASCII-only, so a combining mark is a token boundary. Without
+ * folding, "Nino" survives as one token while "Nino" written with a tilde splits into two fragments
+ * that both fall under the three-character floor and are discarded. Two headlines about one event
+ * then share fewer anchors than they should: on 2026-09-04 a DSSA duplicate about El Nino missed
+ * event dedup on containment of 0.375 against a 0.40 threshold for exactly this reason.
+ *
+ * @param text - Raw text.
+ * @returns The text with combining marks removed.
+ */
+const foldDiacritics = (text: string): string =>
+  text.normalize("NFD").replaceAll(/\p{Mn}/gu, "");
+
+/**
  * Tokenizes a string into lowercase, punctuation-stripped, stop-word-filtered terms.
+ *
+ * Accented characters are folded to their base letter first, so "Nino" and the tilde spelling of the
+ * same name produce the same token.
  *
  * @param text - Raw text to tokenize.
  * @returns Array of meaningful lowercase terms.
  */
 export const tokenize = (text: string): string[] =>
-  text
-    .toLowerCase()
+  foldDiacritics(text.toLowerCase())
     .split(/\W+/)
     .filter((t) => t.length >= 3 && !STOP_WORDS.has(t));
 
