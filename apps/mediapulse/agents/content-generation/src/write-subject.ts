@@ -46,6 +46,18 @@ When the headlines point in opposite directions, name the specific tension rathe
 
 Write plainly. No colons splicing two ideas together, no clickbait, no questions.`;
 
+/**
+ * Appended when no headline in the issue names the issuer.
+ *
+ * On 2026-09-04 a MORA subscriber received "Telkom's Profit Rises 6.2% on Digital" and a WIFI
+ * subscriber received "MoraRepublic Partners with Huawei", each the lead competitor's own
+ * announcement presented as the issue's headline. The ranking in the system prompt cannot help
+ * there: with no issuer story in the list, a competitor's move is correctly the most significant
+ * thing available. What is wrong is the framing, so the framing is what this changes.
+ */
+export const COMPETITOR_ONLY_ISSUE_DIRECTIVE =
+  "No headline in this issue is about the issuer itself. Write the subject as competitive intelligence for the issuer, naming the rival and what it did, so the reader is not left thinking this is their own company's news.";
+
 /** Who the issue is for, so the writer can tell the issuer's news from a competitor's. */
 export type SubjectIssuerContext = {
   symbol?: string | undefined;
@@ -57,6 +69,39 @@ export type SubjectIssuerContext = {
 export type SubjectHeadline = {
   title: string;
   section?: string | undefined;
+};
+
+/**
+ * Whether any headline names the issuer by symbol or registered name.
+ *
+ * Matched on a word boundary so `MORA` is not found inside `MoraRepublic`, which is a competitor's
+ * brand and the exact confusion this exists to catch.
+ *
+ * @param headlines - Shipped headlines in render order.
+ * @param issuer - The issuer the newsletter is written for.
+ */
+const anyHeadlineNamesIssuer = (
+  headlines: readonly (SubjectHeadline | string)[],
+  issuer: SubjectIssuerContext,
+): boolean => {
+  const candidates = [issuer.symbol, issuer.name]
+    .map((candidate) => candidate?.trim())
+    .filter((candidate): candidate is string => (candidate?.length ?? 0) >= 3);
+  if (candidates.length === 0) {
+    return true;
+  }
+  const titles = headlines.map((headline) =>
+    typeof headline === "string" ? headline : headline.title,
+  );
+
+  return candidates.some((candidate) => {
+    const pattern = new RegExp(
+      `(?<![\\p{L}\\p{N}])${candidate.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?![\\p{L}\\p{N}])`,
+      "iu",
+    );
+
+    return titles.some((title) => pattern.test(title));
+  });
 };
 
 const renderIssuerLine = (issuer: SubjectIssuerContext): string | null => {
@@ -98,8 +143,11 @@ export const buildSubjectPrompt = (
       : `- ${headline.title}`;
   });
 
+  const competitorOnly = !anyHeadlineNamesIssuer(headlines, issuer);
+
   return [
     ...(issuerLine ? [issuerLine, ""] : []),
+    ...(competitorOnly ? [COMPETITOR_ONLY_ISSUE_DIRECTIVE, ""] : []),
     "Headlines in this issue:",
     "",
     ...lines,
