@@ -1,0 +1,11 @@
+-- Collection asks "which of these URLs do I already have for this ticker" on every run, in
+-- `postDataCollectionExistingUrls`: WHERE ticker_id = ? AND url IN (...). No index covered `url`,
+-- so that filter scanned every row the ticker had ever collected. The same absence made a duplicate
+-- audit of the table impossible: grouping `data_source` by URL timed out repeatedly against
+-- production on 2026-09-04.
+--
+-- Non-unique on purpose. `data_source` carries `ticker_id`, so one URL collected for two tickers is
+-- two legitimate rows, and `newsletter_citation` cascades on delete, so collapsing rows blind would
+-- delete citations from newsletters that have already shipped. Deduplicating is a separate change
+-- that needs the audit this index makes possible.
+CREATE INDEX "data_source_ticker_id_url_idx" ON "data_source"("ticker_id", "url");

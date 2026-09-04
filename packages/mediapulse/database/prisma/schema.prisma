@@ -87,6 +87,10 @@ model DataSource {
   @@index([tickerId, section])
   @@index([dataCollectionRunId])
   @@index([registrableDomain])
+  /// Serves the collection dedup lookup in `postDataCollectionExistingUrls`, which asks
+  /// `WHERE ticker_id = ? AND url IN (...)` on every collection run. Without it that filter scans
+  /// every row the ticker has ever collected.
+  @@index([tickerId, url])
   @@map("data_source")
 }
 
