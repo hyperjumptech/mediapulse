@@ -2,11 +2,11 @@ import { NEWSLETTER_SECTION_IDS } from "@workspace/agent-data-api-contract";
 
 import type { SourceForGeneration } from "../types.js";
 import { compareSourcesForRanking } from "./rank-sources.js";
+import { sharesDistinctiveAnchor, stemIndonesian } from "./indonesian-stem.js";
 import { tokenize } from "./phrase-link-injector.js";
 import {
   buildSourceComparisonText,
   distinctiveAnchorTokens,
-  shingleIntersectionCount,
 } from "./text-similarity.js";
 
 /** One dropped source, recorded so a reviewer can see which event it collapsed into. */
@@ -81,8 +81,26 @@ const sectionKeyOf = (source: SourceForGeneration): string =>
 const anchorsFor = (source: SourceForGeneration): Set<string> =>
   distinctiveAnchorTokens(tokenize(buildSourceComparisonText(source)));
 
-const titleAnchorsFor = (source: SourceForGeneration): Set<string> =>
-  distinctiveAnchorTokens(tokenize(source.title));
+/**
+ * Headline anchors reduced to Indonesian stems, so two publishers' wordings of one event line up.
+ *
+ * Indonesian affixation makes one verb look like several tokens. On 2026-09-04 an EXCL issue carried
+ * the same Komdigi circular twice because `dilarang`/`larang`, `hanguskan`/`hangus`, and
+ * `menkomdigi`/`komdigi` counted as six distinct anchors: the headlines shared 2 against a threshold
+ * of 3. Stemmed, they share 5.
+ *
+ * - Important: applied to headlines only. A headline is short, so one affix difference swings the
+ *   ratio; a lead paragraph carries enough anchors already, and stemming there merged two separate
+ *   BRI stories that shared nothing but "kredit", "tumbuh" and "triliun".
+ */
+const titleAnchorsFor = (source: SourceForGeneration): Set<string> => {
+  const anchors = new Set<string>();
+  for (const anchor of distinctiveAnchorTokens(tokenize(source.title))) {
+    anchors.add(stemIndonesian(anchor));
+  }
+
+  return anchors;
+};
 
 /**
  * Calendar day of a source's publish timestamp, or `undefined` when it carries none.
@@ -150,8 +168,11 @@ const findEventMatch = (
     if (entry.anchors.size === 0) {
       continue;
     }
-    const shared = shingleIntersectionCount(anchors, entry.anchors);
-    if (shared < minShared) {
+    const sharedStems = [...anchors].filter((anchor) =>
+      entry.anchors.has(anchor),
+    );
+    const shared = sharedStems.length;
+    if (shared < minShared || !sharesDistinctiveAnchor(sharedStems)) {
       continue;
     }
     const containment = shared / Math.min(anchors.size, entry.anchors.size);
@@ -189,8 +210,14 @@ const findSameDayTitleMatch = (
     ) {
       continue;
     }
-    const shared = shingleIntersectionCount(titleAnchors, entry.titleAnchors);
-    if (shared < EVENT_DEDUP_TITLE_MIN_SHARED_ANCHORS) {
+    const sharedStems = [...titleAnchors].filter((stem) =>
+      entry.titleAnchors.has(stem),
+    );
+    const shared = sharedStems.length;
+    if (
+      shared < EVENT_DEDUP_TITLE_MIN_SHARED_ANCHORS ||
+      !sharesDistinctiveAnchor(sharedStems)
+    ) {
       continue;
     }
     const containment =
