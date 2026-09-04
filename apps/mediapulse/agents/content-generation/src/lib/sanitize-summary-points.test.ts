@@ -487,3 +487,52 @@ describe("sanitizeSummaryPoints — budget enforcement", () => {
     expect(result.dropped[0]?.reason).toBe("over_budget");
   });
 });
+
+describe("looksTruncated on abbreviations and trailing fragments", () => {
+  it.each([
+    "Prof Ida Nurlinda said the Industrial Zone Bill should not re-regulate land issues already covered by Law No.",
+    "Minister Meutya Hafid officially bans all cellular operators from forfeiting customers' remaining internet quota per Circular No.",
+    "BPOM supports domestic innovation through special regulatory pathways per BPOM regulations No. 8 and No.",
+  ])("treats a point stopping on an abbreviation as truncated: %s", (point) => {
+    expect(looksTruncated(point)).toBe(true);
+  });
+
+  it("treats a bare prepositional phrase after a clause break as truncated", () => {
+    const point =
+      "PNBP tariffs range from 15% to 28% depending on HBA levels; at US$126.87.";
+
+    expect(looksTruncated(point)).toBe(true);
+  });
+
+  it.each([
+    "Indonesia targets 69.5 GW additional power capacity by 2034.",
+    "TLKM's NeutraDC targets 300-500 MW total data center capacity by 2030.",
+    "Grab expects the deal to add at least $60 million in adjusted core profit by 2028",
+    "Indonesia's data center capacity to increase from 580 MW to 3.5 GW by 2030",
+  ])("leaves a sentence ending on a target year alone: %s", (point) => {
+    expect(looksTruncated(point)).toBe(false);
+  });
+
+  it("still catches a figure cut away from its unit", () => {
+    expect(looksTruncated("Operating profit grew by 12")).toBe(true);
+  });
+
+  it.each([
+    "The Ministry of Energy set the reference coal price at US$126.87 per ton for early September 2026.",
+    "Bank Mandiri booked net profit of Rp30.4 trillion in H1 2026, up 24.4% year on year.",
+    "Telkomsel net profit rose 8.3% year on year, to Rp10.4 trillion.",
+    "Bank Indonesia raised its macroprudential liquidity incentive to 6%.",
+  ])("leaves a complete sentence alone: %s", (point) => {
+    expect(looksTruncated(point)).toBe(false);
+  });
+
+  it("drops a point whose only clause boundary would still end on an abbreviation", () => {
+    const point =
+      "BPOM supports domestic innovation through special regulatory pathways per BPOM regulations No. 8 and No.";
+
+    const result = sanitizeSummaryPoints([point]);
+
+    expect(result.points).toStrictEqual([]);
+    expect(result.dropped).toStrictEqual([{ point, reason: "truncated" }]);
+  });
+});

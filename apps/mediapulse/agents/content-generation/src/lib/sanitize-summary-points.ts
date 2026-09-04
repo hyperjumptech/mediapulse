@@ -93,8 +93,38 @@ const DANGLING_TRAILING_WORDS = new Set([
  */
 const BUDGET_EDGE_SLACK = 3;
 
+/**
+ * A figure left hanging after a preposition, as in "operating profit grew by 12" where the unit was
+ * cut away.
+ *
+ * A four-digit year is excluded, because ending on one is how a complete sentence states a target
+ * date: "Indonesia targets 69.5 GW additional power capacity by 2034" is finished, not cut. Without
+ * the exclusion this pattern deleted 14 complete points out of 2,232 replayed from newsletters
+ * published since 20 August 2026, and rewrote two more so they lost their second figure.
+ */
 const DANGLING_NUMBER_PATTERN =
-  /\b(?:and|or|to|of|by|dan|atau|up|down|from)\s+\d[\d.,]*\.?$/iu;
+  /\b(?:and|or|to|of|by|dan|atau|up|down|from)\s+(?!(?:19|20)\d{2}\b\.?$)\d[\d.,]*\.?$/iu;
+
+/**
+ * Abbreviations a point never ends on. The character budget cuts a sentence where it runs out, and
+ * when that lands just before a law or regulation number the remaining "No." reads as a full stop:
+ * `lastWordOf` reduces it to `no`, which is absent from {@link DANGLING_TRAILING_WORDS}, and the
+ * trailing period satisfies {@link COMPLETE_ENDING_PATTERN}. Four points shipped this way on
+ * 2026-09-04, including "already covered by Law No." and "per Circular No.".
+ */
+const TRAILING_ABBREVIATION_PATTERN =
+  /\b(?:No|Nos|Art|Vol|Ch|Sec|UU|PP|POJK|SE|PMK|Perpres|Permen|Kepmen)\.$/u;
+
+/**
+ * A bare prepositional phrase left hanging after a clause break, as in
+ * "PNBP tariffs range from 15% to 28% depending on HBA levels; at US$126.87."
+ *
+ * The delimiter is required: without it "The ministry set the price at US$126.87." would match, and
+ * that is a complete sentence. The phrase must also end on the bare figure, so "profit rose, to
+ * Rp30.4 trillion" keeps its unit and does not match.
+ */
+const TRAILING_PREPOSITIONAL_FRAGMENT_PATTERN =
+  /[;,]\s+(?:at|by|to|of|for|from|with|in|on|per)\s+(?:rp|idr|us\$|usd|\$)?\s*\d[\d.,]*\.?$/iu;
 
 const lastWordOf = (point: string): string => {
   const words = point.trim().toLowerCase().split(/[\s]+/u);
@@ -105,8 +135,9 @@ const lastWordOf = (point: string): string => {
 /**
  * Reports whether a point reads as cut off rather than finished.
  *
- * Two signals: it ran into the character budget without a terminal character, or it ends on a
- * word no complete sentence ends on.
+ * Four signals: it ran into the character budget without a terminal character, it ends on a word no
+ * complete sentence ends on, it stops on an abbreviation such as "Law No.", or it trails a bare
+ * prepositional phrase after a clause break.
  *
  * @param point - One generated summary point.
  */
@@ -121,6 +152,14 @@ export const looksTruncated = (point: string): boolean => {
   }
 
   if (DANGLING_NUMBER_PATTERN.test(trimmed.replace(/[.]$/u, ""))) {
+    return true;
+  }
+
+  if (TRAILING_ABBREVIATION_PATTERN.test(trimmed)) {
+    return true;
+  }
+
+  if (TRAILING_PREPOSITIONAL_FRAGMENT_PATTERN.test(trimmed)) {
     return true;
   }
 
@@ -234,6 +273,7 @@ const clipAtClauseBoundary = (text: string): string | null => {
     if (
       candidate.length >= MIN_REPAIRED_LENGTH &&
       !DANGLING_TRAILING_WORDS.has(lastWordOf(candidate)) &&
+      !TRAILING_ABBREVIATION_PATTERN.test(`${candidate}.`) &&
       /\d|\p{Lu}/u.test(candidate)
     ) {
       return COMPLETE_ENDING_PATTERN.test(candidate)
