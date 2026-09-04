@@ -934,6 +934,53 @@ describe("generateNewsletterWithLlm — summarizer failures", () => {
     expect(result.articlesSkippedSummaryFailed).toBe(1);
   });
 
+  it("drops a second summary of one event when the sources were in different languages", async () => {
+    const sources: SourceForGeneration[] = [
+      {
+        dataSourceId: "ds-ojk-id",
+        url: "https://example.com/ojk-id",
+        title: "OJK: Ekonomi On-Chain Indonesia Segera Hadir",
+        content:
+          "OJK menyatakan ekonomi on-chain Indonesia segera hadir dengan pengakuan penyedia aset kripto sebagai lembaga jasa keuangan.",
+        section: "regulatoryPolicyWatch",
+        sectionScore: 0.9,
+      },
+      {
+        dataSourceId: "ds-ojk-en",
+        url: "https://example.com/ojk-en",
+        title: "OJK: Indonesia's 'On-Chain Economy' is Coming",
+        content:
+          "OJK sees crypto assets evolving into transactions, DeFi and tokenization as Indonesia's on-chain economy arrives.",
+        section: "regulatoryPolicyWatch",
+        sectionScore: 0.8,
+      },
+    ];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => ({
+        object: {
+          title: args.prompt.includes("Segera Hadir")
+            ? "OJK: Indonesia's On-Chain Economy Coming Soon"
+            : "OJK: Indonesia's 'On-Chain Economy' is Coming",
+          points: [
+            args.prompt.includes("Segera Hadir")
+              ? "OJK plans to recognise crypto asset providers as financial service institutions."
+              : "OJK will regulate crypto providers as financial institutions.",
+          ],
+        },
+      }),
+    });
+
+    const result = await generateNewsletterWithLlm(
+      sources,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(result.content).toContain("On-Chain Economy Coming Soon");
+    expect(result.content).not.toContain("'On-Chain Economy' is Coming");
+  });
+
   it("keeps an article whose heading figure the body confirms", async () => {
     const sources: SourceForGeneration[] = [
       {
