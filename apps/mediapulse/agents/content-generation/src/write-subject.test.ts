@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildSubjectFallback,
+  COMPETITOR_ONLY_ISSUE_DIRECTIVE,
   buildSubjectPrompt,
   MAX_SUBJECT_LENGTH,
   newsletterSubjectSchema,
@@ -332,5 +333,49 @@ describe("WRITE_SUBJECT_SYSTEM_PROMPT", () => {
     expect(WRITE_SUBJECT_SYSTEM_PROMPT).toContain(
       'Do not add "could", "may", or "set to" to something the headline states outright',
     );
+  });
+});
+
+describe("buildSubjectPrompt competitor-only issues", () => {
+  it("tells the writer to frame the subject as competitive intelligence when no headline names the issuer", () => {
+    const prompt = buildSubjectPrompt(
+      [
+        { title: "Telkom's Normalized Profit Grows 6.2 Percent in H1 2026" },
+        { title: "Iforte Extends IBST Stock Tender Offer at Rp 5,400" },
+      ],
+      { symbol: "MORA", name: "Mora Telematika Indonesia" },
+    );
+
+    expect(prompt).toContain(COMPETITOR_ONLY_ISSUE_DIRECTIVE);
+  });
+
+  it("does not add the directive when a headline names the issuer", () => {
+    const prompt = buildSubjectPrompt(
+      [
+        { title: "MORA Adds Investment Credit Facility up to Rp 4 Trillion" },
+        { title: "Telkom's Normalized Profit Grows 6.2 Percent" },
+      ],
+      { symbol: "MORA", name: "Mora Telematika Indonesia" },
+    );
+
+    expect(prompt).not.toContain(COMPETITOR_ONLY_ISSUE_DIRECTIVE);
+  });
+
+  it("does not treat a competitor brand containing the symbol as issuer coverage", () => {
+    const prompt = buildSubjectPrompt(
+      [
+        { title: "MoraRepublic and Huawei Indonesia Establish a Partnership" },
+        { title: "MoraRepublic Supports Connectivity for a Jakarta Match" },
+      ],
+      { symbol: "WIFI", name: "Solusi Sinergi Digital" },
+    );
+
+    expect(prompt).toContain(COMPETITOR_ONLY_ISSUE_DIRECTIVE);
+  });
+
+  it("adds nothing when the issue has no issuer context to compare against", () => {
+    const prompt = buildSubjectPrompt([{ title: "Some headline" }], {});
+
+    expect(prompt).not.toContain(COMPETITOR_ONLY_ISSUE_DIRECTIVE);
   });
 });
