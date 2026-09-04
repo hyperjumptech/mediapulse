@@ -250,6 +250,27 @@ export const runQueryAnalysis = async (
       ...generation.candidates,
     ],
     queriesPerIntent,
+    subject: {
+      symbol: ticker.symbol,
+      name: ticker.name,
+      aliases: profile?.aliases ?? [],
+      sectorTerms: [
+        classification.sector,
+        classification.industry,
+        classification.subIndustry,
+        classification.businessActivity,
+      ].filter((term): term is string => typeof term === "string"),
+      partyNames: [
+        ...(profile?.competitors ?? []).flatMap((party) => [
+          party.name,
+          ...party.aliases,
+        ]),
+        ...(profile?.regulators ?? []).flatMap((party) => [
+          party.name,
+          ...party.aliases,
+        ]),
+      ],
+    },
   });
   const finalizeMs = now() - finalizeStartMs;
 
