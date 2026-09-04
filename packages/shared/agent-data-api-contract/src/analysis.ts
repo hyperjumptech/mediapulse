@@ -91,14 +91,24 @@ export const postAnalysisScoreBreakdownSchema = z.object({
    * `marketAnchors` counts the per-section rules that independently place the article in the
    * issuer's market. Two or more of them override a `matched: false` gate, so recording both the
    * raw judgment and the count is what makes an override auditable after the fact.
+   *
+   * `marketParty` names the competitor or regulator from the issuer's stored profile that the
+   * article named, when that is what overrode the gate. Recorded for the same reason: an override
+   * that cannot be traced to its cause cannot be reviewed.
    */
   issuerRelevance: z
     .object({
       matched: z.boolean(),
       note: z.string(),
       marketAnchors: z.number().int().nonnegative(),
-      /** Whether market anchors overrode a gate judgment of `false`. */
+      /** Whether market anchors or a named market party overrode a gate judgment of `false`. */
       overridden: z.boolean().default(false),
+      marketParty: z
+        .object({
+          kind: z.enum(["competitor", "regulator"]),
+          name: z.string(),
+        })
+        .optional(),
     })
     .optional(),
 });
