@@ -33,6 +33,7 @@ import {
   type EventEntry,
 } from "./lib/event-dedup.js";
 import { pointsSupportTitle } from "./lib/points-support-title.js";
+import { statesImplausibleAggregate } from "./lib/implausible-aggregate.js";
 import { lonePointLacksFact } from "./lib/lone-point-substance.js";
 import { findSummarizedEventMatch } from "./lib/summarized-event-dedup.js";
 import { titleFiguresMissingFromPoints } from "./lib/title-figure-coverage.js";
@@ -467,6 +468,7 @@ export const SUMMARY_FAILURE_REASONS = [
   "points_ungrounded",
   "title_figure_ungrounded",
   "title_figure_uncovered",
+  "implausible_aggregate",
   "points_off_heading",
   "llm_error",
 ] as const;
@@ -938,6 +940,25 @@ export async function generateNewsletterWithLlm(
           );
 
           return { status: "failed", entry, reason: "title_figure_ungrounded" };
+        }
+
+        // Grounding cannot catch a publisher's own unit error: the figure is in the article, so the
+        // summary is faithful and the number is still wrong. The whole item rests on that unit, so
+        // the article is given up rather than the point, and the reserve supplies a replacement.
+        const implausible = groundedPoints.find(statesImplausibleAggregate);
+        if (implausible !== undefined) {
+          logger.warn(
+            {
+              tickerId: context.tickerId,
+              sectionKey: entry.sectionKey,
+              url: entry.source.url,
+              point: implausible,
+              event: "article_implausible_aggregate",
+            },
+            "Dropped article: it states a national aggregate too small to be real",
+          );
+
+          return { status: "failed", entry, reason: "implausible_aggregate" };
         }
 
         const uncoveredFigures = titleFiguresMissingFromPoints(
