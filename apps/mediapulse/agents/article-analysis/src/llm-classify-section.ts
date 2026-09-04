@@ -22,10 +22,21 @@ import {
 } from "./config-schema.js";
 import { namesForeignSymbolHomonym } from "./utilities/foreign-symbol-homonym.js";
 import {
+  nonNewsContentClass,
+  type NonNewsClass,
+} from "./utilities/non-news-content.js";
+import {
   textNamesIssuer,
   titleNamesIssuer,
 } from "./utilities/title-names-issuer.js";
 import { isUserGeneratedHost } from "@workspace/utils";
+
+/** Reader-facing names for the non-news classes, used in the rejection reason. */
+const NON_NEWS_LABELS: Record<NonNewsClass, string> = {
+  recruitment: "recruitment notice",
+  competition_call: "competition or award call for entries",
+  community_activity: "community or CSR activity report",
+};
 
 /** Article content past this many characters is truncated before classification. */
 export const MAX_CONTENT_CHARS = 12000;
@@ -403,6 +414,7 @@ export const scoreFromEvaluations = (
   issuerNamedInTitle = false,
   foreignSymbolHomonym = false,
   excludedSections: ReadonlySet<string> = new Set(),
+  nonNewsClass: NonNewsClass | null = null,
 ): ArticleSectionClassification => {
   const flat = flattenAcceptanceCriteria(acceptanceCriteria);
   const evaluationById = new Map<string, CriterionEvaluation>(
@@ -540,6 +552,7 @@ export const scoreFromEvaluations = (
   // Consensus Cloud Solutions' USD earnings into a PT Communication Cable Systems Indonesia issue.
   const issuerRelevanceRejected =
     foreignSymbolHomonym ||
+    nonNewsClass !== null ||
     (requireIssuerRelevance &&
       !gateMatched &&
       !anchorsOverrideGate &&
@@ -564,17 +577,20 @@ export const scoreFromEvaluations = (
     return {
       section: null,
       score: 0,
-      reason: foreignSymbolHomonym
-        ? "Rejected — ticker symbol collision: the article binds this symbol to a company listed on another exchange, not to the issuer."
-        : noRuleJudged
-          ? "Model returned no rule judgments; rejected without a verdict."
-          : issuerRelevanceRejected
-            ? gateVerdictMissing
-              ? "Rejected — no issuer-relevance verdict: the model returned no judgment for the issuer-relevance gate, so the article failed closed without being judged irrelevant."
-              : `Rejected — not relevant to issuer context: ${noteFor(ISSUER_RELEVANCE_CRITERION_ID)}.`
-            : noSectionQualified
-              ? "No section met its qualifying rules; rejected."
-              : "No inclusion rule matched in any section; rejected.",
+      reason:
+        nonNewsClass !== null
+          ? `Rejected — carries no news: the article is a ${NON_NEWS_LABELS[nonNewsClass]} naming the issuer or its market, with no financial, operational, or regulatory fact.`
+          : foreignSymbolHomonym
+            ? "Rejected — ticker symbol collision: the article binds this symbol to a company listed on another exchange, not to the issuer."
+            : noRuleJudged
+              ? "Model returned no rule judgments; rejected without a verdict."
+              : issuerRelevanceRejected
+                ? gateVerdictMissing
+                  ? "Rejected — no issuer-relevance verdict: the model returned no judgment for the issuer-relevance gate, so the article failed closed without being judged irrelevant."
+                  : `Rejected — not relevant to issuer context: ${noteFor(ISSUER_RELEVANCE_CRITERION_ID)}.`
+                : noSectionQualified
+                  ? "No section met its qualifying rules; rejected."
+                  : "No inclusion rule matched in any section; rejected.",
       scoreBreakdown: {
         section: null,
         matched: 0,
@@ -725,6 +741,22 @@ export const classifyArticleSection = async (params: {
   onUsage?: OnLlmUsage;
 }): Promise<ArticleSectionClassification> => {
   const requireIssuerRelevance = params.tickerContext !== undefined;
+
+  // Also decided before the model is asked. A recruitment advert or a village briefing names the
+  // right company, so the gate answers yes and the article competes for a slot on that alone. On
+  // 2026-09-04 an ANTM issue spent three of seven slots this way.
+  const nonNews = nonNewsContentClass(params.title, params.content);
+  if (nonNews !== null) {
+    return scoreFromEvaluations(
+      [],
+      params.acceptanceCriteria,
+      requireIssuerRelevance,
+      false,
+      false,
+      new Set(),
+      nonNews,
+    );
+  }
 
   // Decided before the model is asked: a symbol collision is a fact about the text, and no rule
   // judgment can change it. Short-circuiting also saves the call.
