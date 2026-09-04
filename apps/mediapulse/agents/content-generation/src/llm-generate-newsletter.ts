@@ -33,6 +33,7 @@ import {
   type EventEntry,
 } from "./lib/event-dedup.js";
 import { pointsSupportTitle } from "./lib/points-support-title.js";
+import { lonePointLacksFact } from "./lib/lone-point-substance.js";
 import { findSummarizedEventMatch } from "./lib/summarized-event-dedup.js";
 import { titleFiguresMissingFromPoints } from "./lib/title-figure-coverage.js";
 import { ungroundedEntities } from "./lib/entities-grounded.js";
@@ -449,6 +450,15 @@ const SUMMARY_ATTEMPTS = 2;
  * @param title - The article's translated heading.
  * @returns A directive appended to the article prompt on the retry.
  */
+/**
+ * Asks for a fact when the only surviving point stated a purpose instead of an event.
+ *
+ * Deliberately does not ask for more points: the summarizer is told to write as many as the article
+ * earns and never to pad, and asking for a count would undo that.
+ */
+const LONE_POINT_DIRECTIVE =
+  "\n\nYour previous summary of this article produced a single point describing what something supports or aims at, rather than what happened. Report the article's most concrete fact instead: a figure, a date, a named party, or a decision taken.";
+
 const buildTitleFigureDirective = (title: string): string =>
   `\n\nYour previous summary of this article stated no point carrying a figure its heading names: "${title}". Report that figure in one of your points, with the base it moved from when the article gives one.`;
 
@@ -963,6 +973,24 @@ export async function generateNewsletterWithLlm(
           );
 
           return { status: "failed", entry, reason: "title_figure_uncovered" };
+        }
+
+        if (
+          lonePointLacksFact(groundedPoints) &&
+          attempt < SUMMARY_ATTEMPTS - 1
+        ) {
+          figureDirective = LONE_POINT_DIRECTIVE;
+          logger.info(
+            {
+              tickerId: context.tickerId,
+              sectionKey: entry.sectionKey,
+              url: entry.source.url,
+              point: groundedPoints[0],
+              event: "article_lone_point_lacks_fact_retry",
+            },
+            "Retrying summary: its only point states a purpose rather than an event",
+          );
+          continue;
         }
 
         if (!pointsSupportTitle(articleTitle, groundedPoints)) {
