@@ -438,3 +438,49 @@ describe("dedupeCrossSectionSourceEvents accented headlines", () => {
     expect(result.removedCount).toBe(1);
   });
 });
+
+describe("dedupeCrossSectionSourceEvents Indonesian affixation", () => {
+  it("collapses two reports of one regulation whose headlines inflect the same verbs", () => {
+    const sources = [
+      scored(
+        "SE Menkomdigi Terbit, Operator Dilarang Hanguskan Sisa Kuota Internet Pelanggan",
+        "Kementerian Komunikasi dan Digital menerbitkan surat edaran yang melarang operator menghanguskan sisa kuota internet pelanggan.",
+        "regulatoryPolicyWatch",
+        0.8,
+      ),
+      scored(
+        "Aturan Komdigi Larang Kuota Internet Hangus, Begini Respons XLSMART",
+        "Pemerintah melarang operator menghanguskan kuota internet berbayar milik pelanggan.",
+        "regulatoryPolicyWatch",
+        0.6,
+      ),
+    ];
+
+    const result = dedupeCrossSectionSourceEvents(sources);
+
+    expect(titleOf(result.sources)).toStrictEqual([
+      "SE Menkomdigi Terbit, Operator Dilarang Hanguskan Sisa Kuota Internet Pelanggan",
+    ]);
+  });
+
+  it("keeps two financial stories that share only market vocabulary", () => {
+    const sources = [
+      scored(
+        "Ekspansi Kredit dan Penguatan Dana Murah Bawa Laba BRI Tumbuh 17,5 Persen Jadi Rp31,2 Triliun",
+        "Laba bersih BRI tumbuh 17,5 persen menjadi Rp31,2 triliun pada semester I 2026.",
+        "issuerPerformance",
+        0.8,
+      ),
+      scored(
+        "Kredit UMKM BRI Tumbuh 8,6% menjadi Rp1.235,4 Triliun Semester I/2026",
+        "Penyaluran kredit UMKM BRI tumbuh 8,6 persen menjadi Rp1.235,4 triliun.",
+        "competitiveLandscape",
+        0.6,
+      ),
+    ];
+
+    const result = dedupeCrossSectionSourceEvents(sources);
+
+    expect(result.sources).toHaveLength(2);
+  });
+});
