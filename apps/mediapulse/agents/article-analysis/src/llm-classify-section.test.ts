@@ -934,6 +934,60 @@ describe("scoreFromEvaluations — issuer-relevance gate", () => {
     });
   });
 
+  it("caps the fit score when relevance rests only on a regulator", () => {
+    const evaluations: CriterionEvaluation[] = [
+      ...evaluate(["ip1", "ip2", "ip3", "ip4", "ip5"]),
+      {
+        id: ISSUER_RELEVANCE_CRITERION_ID,
+        matched: false,
+        note: "does not concern the issuer",
+      },
+    ];
+
+    const result = scoreFromEvaluations(
+      evaluations,
+      criteria,
+      true,
+      false,
+      false,
+      new Set(),
+      null,
+      {
+        kind: "regulator",
+        name: "National Agency of Drug and Food Control",
+      },
+    );
+
+    expect(result.section).not.toBeNull();
+    expect(result.score).toBeLessThanOrEqual(0.4);
+    expect(result.reason).toContain("rests only on the regulator");
+  });
+
+  it("does not cap the fit score when a competitor carries the relevance", () => {
+    const evaluations: CriterionEvaluation[] = [
+      ...evaluate(["ip1", "ip2", "ip3", "ip4", "ip5"]),
+      {
+        id: ISSUER_RELEVANCE_CRITERION_ID,
+        matched: false,
+        note: "does not mention the issuer",
+      },
+    ];
+
+    const result = scoreFromEvaluations(
+      evaluations,
+      criteria,
+      true,
+      false,
+      false,
+      new Set(),
+      null,
+      { kind: "competitor", name: "Tomoro Coffee" },
+    );
+
+    expect(result.score).toBeGreaterThan(0.4);
+    expect(result.reason).not.toContain("rests only on the regulator");
+  });
+
   it("does not reject on a failed gate when the article names a listed competitor", () => {
     const evaluations: CriterionEvaluation[] = [
       ...evaluate(["ip1", "ip3"]),

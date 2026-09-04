@@ -635,9 +635,18 @@ export const scoreFromEvaluations = (
   );
   const issuerRelevanceUnmatched =
     winnerIssuerRule !== undefined && !isMatched(winnerIssuerRule.id);
-  const score = issuerRelevanceUnmatched
-    ? Math.min(winner.fraction, ISSUER_UNMATCHED_SCORE_CAP)
-    : winner.fraction;
+  // A regulator's rule places an article in the issuer's regulatory environment, which is weaker
+  // evidence than the issuer's own news or a competitor's move: the same body writes rules that
+  // reach the issuer and rules that do not. On 2026-09-04 a SOHO issue carried BPOM's food-packaging
+  // migration limits, which govern drinking-water gallons rather than medicines. Capping de-ranks
+  // such an item within its section rather than dropping it, so it ships only when nothing stronger
+  // competes for the slot.
+  const regulatorOnlyRelevance =
+    marketPartyOverridesGate && marketParty?.kind === "regulator";
+  const score =
+    issuerRelevanceUnmatched || regulatorOnlyRelevance
+      ? Math.min(winner.fraction, ISSUER_UNMATCHED_SCORE_CAP)
+      : winner.fraction;
 
   const label = labelById.get(winner.section) ?? winner.section;
   const matchedIds = winnerCriteria
@@ -656,6 +665,9 @@ export const scoreFromEvaluations = (
     issuerRelevanceUnmatched && winnerIssuerRule !== undefined
       ? ` Issuer-relevance rule ${winnerIssuerRule.id} unmatched; fit score capped at ${ISSUER_UNMATCHED_SCORE_CAP.toFixed(2)}.`
       : "";
+  const regulatorCapText = regulatorOnlyRelevance
+    ? ` Issuer relevance rests only on the regulator ${marketParty?.name ?? ""}; fit score capped at ${ISSUER_UNMATCHED_SCORE_CAP.toFixed(2)}.`
+    : "";
   const gateOverrideText = anchorsOverrideGate
     ? ` Issuer gate returned false but ${String(marketAnchors)} market-anchor rules matched; treated as issuer-relevant.`
     : "";
@@ -666,7 +678,7 @@ export const scoreFromEvaluations = (
     ? ` Chosen as the most specific qualifying section${runnersUp.length > 0 ? ` over ${runnersUp.join(", ")}` : ""}.`
     : " No section met its qualifying rules; chosen on matched fraction.";
   const reason = capReason(
-    `${label} — matched ${winner.matched}/${winner.total}${matchedText}.${selectionText}${missedText}${issuerCapText}${gateOverrideText}`,
+    `${label} — matched ${winner.matched}/${winner.total}${matchedText}.${selectionText}${missedText}${issuerCapText}${regulatorCapText}${gateOverrideText}`,
   );
 
   return {
