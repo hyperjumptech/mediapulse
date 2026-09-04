@@ -33,6 +33,7 @@ import {
   type EventEntry,
 } from "./lib/event-dedup.js";
 import { pointsSupportTitle } from "./lib/points-support-title.js";
+import { findSummarizedEventMatch } from "./lib/summarized-event-dedup.js";
 import { titleFiguresMissingFromPoints } from "./lib/title-figure-coverage.js";
 import { ungroundedEntities } from "./lib/entities-grounded.js";
 import {
@@ -1066,11 +1067,36 @@ export async function generateNewsletterWithLlm(
   const selectedSources: SourceForGeneration[] = [];
   const claimsSeen: string[] = [];
   let repeatedClaimsDropped = 0;
+  const keptEvents: { title: string; points: readonly string[] }[] = [];
+  let translatedDuplicatesDropped = 0;
   for (const outcome of summaryOutcomes) {
     if (outcome.status !== "summarized") {
       continue;
     }
     const { source } = outcome.entry;
+
+    // Source-level dedup compared each publisher's own title, so it cannot see that an Indonesian
+    // report and an English one are the same story. Both headings are English by now, so the pair
+    // it missed is visible here.
+    const duplicateOf = findSummarizedEventMatch(
+      { title: outcome.title, points: outcome.points },
+      keptEvents,
+    );
+    if (duplicateOf !== undefined) {
+      translatedDuplicatesDropped += 1;
+      logger.info(
+        {
+          tickerId: context.tickerId,
+          sectionKey: outcome.entry.sectionKey,
+          url: source.url,
+          title: outcome.title,
+          matchedTitle: keptEvents[duplicateOf]?.title,
+          event: "translated_event_duplicate_dropped",
+        },
+        "Dropped article: its summarized heading repeats an event already in this issue",
+      );
+      continue;
+    }
 
     // Two different articles can carry one figure, which source-level dedup has nothing to match
     // on. Points are visited in reading order so the first telling survives.
@@ -1082,6 +1108,7 @@ export async function generateNewsletterWithLlm(
     }
     repeatedClaimsDropped += outcome.points.length - points.length;
     claimsSeen.push(...points);
+    keptEvents.push({ title: outcome.title, points });
 
     const author = trimmedOrUndefined(source.author);
     const sourceName = trimmedOrUndefined(source.source);
@@ -1096,6 +1123,17 @@ export async function generateNewsletterWithLlm(
     bucket.push(article);
     articlesBySection.set(outcome.entry.sectionKey, bucket);
     selectedSources.push(source);
+  }
+
+  if (translatedDuplicatesDropped > 0) {
+    logger.info(
+      {
+        tickerId: context.tickerId,
+        translatedDuplicatesDropped,
+        event: "translated_event_duplicates_dropped",
+      },
+      `Dropped ${String(translatedDuplicatesDropped)} article(s) repeating an event under a translated heading`,
+    );
   }
 
   if (repeatedClaimsDropped > 0) {
