@@ -843,6 +843,97 @@ describe("generateNewsletterWithLlm — summarizer failures", () => {
     expect(result.articlesSkippedSummaryFailed).toBe(1);
   });
 
+  it("retries once when no point carries a figure the heading states", async () => {
+    const sources: SourceForGeneration[] = [
+      {
+        dataSourceId: "ds-hpal",
+        url: "https://example.com/hpal",
+        title: "Vale bersiap operasikan 3 smelter nikel HPAL",
+        content:
+          "PT Vale Indonesia bersiap mengoperasikan 3 smelter nikel HPAL di Sulawesi untuk mendukung hilirisasi nikel.",
+        section: "dealsAndMovements",
+        sectionScore: 0.9,
+      },
+      ...testSources,
+    ];
+    let hpalCalls = 0;
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => {
+        if (!args.prompt.includes("smelter nikel HPAL")) {
+          return {
+            object: {
+              title: promptTitle(args.prompt),
+              points: [`Key fact from ${promptTitle(args.prompt)}`],
+            },
+          };
+        }
+        hpalCalls += 1;
+
+        return {
+          object: {
+            title: "Vale Prepares to Operate 3 HPAL Nickel Smelters",
+            points:
+              hpalCalls === 1
+                ? ["The move supports nickel downstreaming in Sulawesi."]
+                : ["Vale is preparing 3 HPAL nickel smelters in Sulawesi."],
+          },
+        };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      sources,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(hpalCalls).toBe(2);
+    expect(result.content).toContain("3 HPAL nickel smelters");
+    expect(result.articlesSkippedSummaryFailed).toBe(0);
+  });
+
+  it("drops an article when the retry still carries no heading figure", async () => {
+    const sources: SourceForGeneration[] = [
+      {
+        dataSourceId: "ds-hpal",
+        url: "https://example.com/hpal",
+        title: "Vale bersiap operasikan 3 smelter nikel HPAL",
+        content:
+          "PT Vale Indonesia bersiap mengoperasikan 3 smelter nikel HPAL di Sulawesi untuk mendukung hilirisasi nikel.",
+        section: "dealsAndMovements",
+        sectionScore: 0.9,
+      },
+      ...testSources,
+    ];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) =>
+        args.prompt.includes("smelter nikel HPAL")
+          ? {
+              object: {
+                title: "Vale Prepares to Operate 3 HPAL Nickel Smelters",
+                points: ["The move supports nickel downstreaming in Sulawesi."],
+              },
+            }
+          : {
+              object: {
+                title: promptTitle(args.prompt),
+                points: [`Key fact from ${promptTitle(args.prompt)}`],
+              },
+            },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      sources,
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(result.content).not.toContain("HPAL");
+    expect(result.articlesSkippedSummaryFailed).toBe(1);
+  });
+
   it("keeps an article whose heading figure the body confirms", async () => {
     const sources: SourceForGeneration[] = [
       {
@@ -932,7 +1023,7 @@ describe("generateNewsletterWithLlm — summarizer failures", () => {
           title: "NTT Earthquake: 200 BTS Affected, Komdigi Monitors Recovery",
           points: [
             "The quake disrupted 200 BTS from Telkomsel, XLsmart, and Indosat in NTT",
-            "Komdigi is monitoring the recovery of the communication networks",
+            "Komdigi is monitoring the recovery of the 200 affected BTS",
           ],
         },
       }),
@@ -948,7 +1039,7 @@ describe("generateNewsletterWithLlm — summarizer failures", () => {
     expect(result.content).not.toContain("Telkomsel");
     expect(result.content).not.toContain("Indosat");
     expect(result.content).toContain(
-      "Komdigi is monitoring the recovery of the communication networks",
+      "Komdigi is monitoring the recovery of the 200 affected BTS",
     );
   });
 

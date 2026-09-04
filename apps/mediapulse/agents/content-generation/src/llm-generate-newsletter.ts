@@ -33,6 +33,7 @@ import {
   type EventEntry,
 } from "./lib/event-dedup.js";
 import { pointsSupportTitle } from "./lib/points-support-title.js";
+import { titleFiguresMissingFromPoints } from "./lib/title-figure-coverage.js";
 import { ungroundedEntities } from "./lib/entities-grounded.js";
 import {
   citedFigures,
@@ -431,10 +432,30 @@ const mapWithConcurrency = async <TItem, TResult>(
   return results;
 };
 
+/**
+ * Attempts allowed per article. The second exists only for a heading whose figure no point carried:
+ * that is a dropped instruction rather than an unusable article, and naming the omission recovers
+ * most of them. Every other failure gives up on the first attempt.
+ */
+const SUMMARY_ATTEMPTS = 2;
+
+/**
+ * Tells the summarizer which heading it left unevidenced.
+ *
+ * The heading is quoted rather than the parsed figure, because the figure is held normalized
+ * ("4465" for "Rp446.5 trillion") and would read as a different number.
+ *
+ * @param title - The article's translated heading.
+ * @returns A directive appended to the article prompt on the retry.
+ */
+const buildTitleFigureDirective = (title: string): string =>
+  `\n\nYour previous summary of this article stated no point carrying a figure its heading names: "${title}". Report that figure in one of your points, with the base it moved from when the article gives one.`;
+
 export const SUMMARY_FAILURE_REASONS = [
   "points_unusable",
   "points_ungrounded",
   "title_figure_ungrounded",
+  "title_figure_uncovered",
   "points_off_heading",
   "llm_error",
 ] as const;
@@ -789,7 +810,10 @@ export async function generateNewsletterWithLlm(
   const summarizeEntry = async (
     entry: SelectedArticle,
   ): Promise<SummaryOutcome> => {
-    {
+    // A heading's figure missing from every point is the model forgetting an instruction, not a bad
+    // article, so the article gets one more attempt with the omission named before it is given up.
+    let figureDirective = "";
+    for (let attempt = 0; attempt < SUMMARY_ATTEMPTS; attempt += 1) {
       try {
         const result = await retryWithBackoff(
           async () =>
@@ -797,7 +821,7 @@ export async function generateNewsletterWithLlm(
               model,
               schema: articleSummarySchema,
               system: systemPrompt,
-              prompt: buildArticlePrompt(entry.source),
+              prompt: `${buildArticlePrompt(entry.source)}${figureDirective}`,
               maxRetries: 0,
               timeout: requestTimeoutMs,
             }),
@@ -905,6 +929,41 @@ export async function generateNewsletterWithLlm(
           return { status: "failed", entry, reason: "title_figure_ungrounded" };
         }
 
+        const uncoveredFigures = titleFiguresMissingFromPoints(
+          articleTitle,
+          groundedPoints,
+        );
+        if (uncoveredFigures.length > 0) {
+          if (attempt < SUMMARY_ATTEMPTS - 1) {
+            figureDirective = buildTitleFigureDirective(articleTitle);
+            logger.info(
+              {
+                tickerId: context.tickerId,
+                sectionKey: entry.sectionKey,
+                url: entry.source.url,
+                title: articleTitle,
+                uncovered: uncoveredFigures,
+                event: "article_title_figure_uncovered_retry",
+              },
+              "Retrying summary: no point carries a figure the heading states",
+            );
+            continue;
+          }
+          logger.warn(
+            {
+              tickerId: context.tickerId,
+              sectionKey: entry.sectionKey,
+              url: entry.source.url,
+              title: articleTitle,
+              uncovered: uncoveredFigures,
+              event: "article_title_figure_uncovered",
+            },
+            "Dropped article: no point carries a figure its heading states",
+          );
+
+          return { status: "failed", entry, reason: "title_figure_uncovered" };
+        }
+
         if (!pointsSupportTitle(articleTitle, groundedPoints)) {
           logger.warn(
             {
@@ -942,6 +1001,9 @@ export async function generateNewsletterWithLlm(
         return { status: "failed", entry, reason: "llm_error" };
       }
     }
+
+    /* v8 ignore next 2 -- every loop path returns or continues, and the last cannot continue */
+    return { status: "failed", entry, reason: "title_figure_uncovered" };
   };
 
   const firstPassOutcomes = await mapWithConcurrency(
