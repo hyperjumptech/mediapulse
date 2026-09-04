@@ -412,3 +412,29 @@ describe("dedupeCrossSectionSourceEvents", () => {
     expect(titleOf(result.sources)).toEqual(["Quick note", "Policy shift"]);
   });
 });
+
+describe("dedupeCrossSectionSourceEvents accented headlines", () => {
+  it("collapses two reports of one event whose headlines spell a name with and without a tilde", () => {
+    const sources = [
+      scored(
+        "Batu Bara RI Bisa Naik ke US$140/Ton Gegara El Niño Ganggu Ekspor",
+        "Harga batu bara Indonesia bisa naik ke US$140 per ton karena El Niño mengganggu ekspor.",
+        "industryPulse",
+        0.8,
+      ),
+      scored(
+        "Harga CPO dan Batu Bara Naik Dipicu Khawatir Pasokan Dampak El Nino",
+        "Harga CPO dan batu bara naik dipicu kekhawatiran pasokan akibat dampak El Nino.",
+        "industryPulse",
+        0.6,
+      ),
+    ];
+
+    const result = dedupeCrossSectionSourceEvents(sources);
+
+    expect(titleOf(result.sources)).toStrictEqual([
+      "Batu Bara RI Bisa Naik ke US$140/Ton Gegara El Niño Ganggu Ekspor",
+    ]);
+    expect(result.removedCount).toBe(1);
+  });
+});
