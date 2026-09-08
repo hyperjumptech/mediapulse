@@ -7,6 +7,7 @@ export type AnalysisStopReason =
   | "max_pairs_reached"
   | "no_progress"
   | "nothing_to_do"
+  | "time_budget_reached"
   | null;
 
 export function narrativeRunStart(backlog: number): [string, string] {
@@ -61,6 +62,9 @@ export function narrativeRunComplete(opts: {
   } else if (opts.stopReason === "max_pairs_reached") {
     stopClause =
       " The per-run limit was reached; the rest is left for the next run.";
+  } else if (opts.stopReason === "time_budget_reached") {
+    stopClause =
+      " The run's time budget was reached; the rest is left for the next run.";
   } else if (opts.stopReason === "no_progress") {
     stopClause = " Classification stalled, so the run stopped early.";
   }

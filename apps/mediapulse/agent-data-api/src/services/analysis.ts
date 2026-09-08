@@ -18,6 +18,7 @@ import { parseProfileParties } from "./ticker-profile-parties.js";
 const MAX_CANDIDATE_ARTICLE_SCAN = 1500;
 /** Only articles created within this window are considered for candidate pairs. */
 const CANDIDATE_ARTICLE_RECENCY_DAYS = 3;
+const UNANALYZED_ARTICLE_RECENCY_DAYS = 7;
 /** Per-(article, ticker) section upserts committed per transaction, to stay under the timeout. */
 const SECTION_UPSERT_CHUNK_SIZE = 20;
 const ACCEPTED_CAP_PER_TICKER = 50;
@@ -230,9 +231,10 @@ const buildAnalysisCandidatePairs = async (
     "dataSource" | "dataSourceTickerSection" | "ticker" | "searchQuerySet"
   >,
 ): Promise<GetAnalysisResponse> => {
-  const recencyFloor = new Date(
-    Date.now() - CANDIDATE_ARTICLE_RECENCY_DAYS * 24 * 60 * 60 * 1000,
-  );
+  const recencyDays = query.unanalyzed
+    ? UNANALYZED_ARTICLE_RECENCY_DAYS
+    : CANDIDATE_ARTICLE_RECENCY_DAYS;
+  const recencyFloor = new Date(Date.now() - recencyDays * 24 * 60 * 60 * 1000);
   const createdAtWhere =
     query.start !== undefined || query.end !== undefined
       ? ({

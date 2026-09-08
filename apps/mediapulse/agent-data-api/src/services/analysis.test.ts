@@ -320,6 +320,25 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
     }
   });
 
+  it("holds unanalyzed backlog in the candidate window longer than fresh candidates", async () => {
+    const readFloor = async (unanalyzed: boolean): Promise<Date> => {
+      const db = buildDb([]);
+      await loadAnalysisContext({ unanalyzed, limit: 10 }, { db: db as never });
+      const call = db.dataSource.findMany.mock.calls[0]![0] as {
+        where: { createdAt: { gte: Date } };
+      };
+
+      return call.where.createdAt.gte;
+    };
+    const now = Date.now();
+    const backlogFloor = await readFloor(true);
+    const freshFloor = await readFloor(false);
+    const dayMs = 24 * 60 * 60 * 1000;
+
+    expect(Math.round((now - backlogFloor.getTime()) / dayMs)).toBe(7);
+    expect(Math.round((now - freshFloor.getTime()) / dayMs)).toBe(3);
+  });
+
   it("gates a curated article on its description when content is null", async () => {
     const db = buildDb([
       {
