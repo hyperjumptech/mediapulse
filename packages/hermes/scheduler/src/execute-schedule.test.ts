@@ -676,6 +676,126 @@ describe("executeSchedule", () => {
     ).toBe(true);
   });
 
+  const createTwoStepSchedule = (): DueSchedule => {
+    const now = new Date();
+    const step = (
+      id: string,
+      order: number,
+      agentId: string,
+    ): DueSchedule["pipeline"]["steps"][number] =>
+      ({
+        id,
+        order,
+        agentId,
+        agentVersion: "1.0.0",
+        pipelineId: "p1",
+        input: { tickerId: "db:userTicker:tickerId" },
+        config: {},
+        createdById: null,
+        createdAt: now,
+        updatedAt: now,
+        agentConfigId: null,
+        agentConfig: null,
+        agentContractId: null,
+        agentContract: null,
+      }) as DueSchedule["pipeline"]["steps"][number];
+
+    return createMockSchedule({
+      pipeline: {
+        id: "p1",
+        domainIntegrationId: "di-1",
+        name: "p1",
+        description: null,
+        timeout: null,
+        isActive: true,
+        executionConfig: null,
+        createdById: null,
+        createdAt: now,
+        updatedAt: now,
+        steps: [step("step1", 0, "agent-a"), step("step2", 1, "agent-b")],
+      },
+    } as Partial<DueSchedule>);
+  };
+
+  const createTwoAgentDb = () => {
+    const db = createMockDb();
+    db.agentRegistry.findMany = vi.fn().mockResolvedValue(
+      ["agent-a", "agent-b"].map((agentId) => ({
+        agentId,
+        agentVersion: "1.0.0",
+        endpoint: { url: "https://agent.example/run", method: "POST" },
+        isActive: true,
+      })),
+    );
+
+    return db;
+  };
+
+  it("depends a sequential downstream job only on the upstream job with the same input", async () => {
+    const schedule = createTwoStepSchedule();
+    const db = createTwoAgentDb();
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
+    const deps: ExecuteScheduleDeps = {
+      db: db as unknown as ExecuteScheduleDeps["db"],
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      enqueueAgentInvocations,
+      expandStepInputs: async () =>
+        Array.from({ length: 3 }, (_, index) => ({
+          tickerId: `t-${index}`,
+        })),
+    };
+
+    await executeSchedule(schedule, deps);
+
+    const [items] = enqueueAgentInvocations.mock.calls[0] as [
+      EnqueueInvokeAgentItem[],
+    ];
+    const upstream = items.slice(0, 3);
+    const downstream = items.slice(3);
+
+    expect(items).toHaveLength(6);
+    expect(upstream.every((item) => item.payload.agentId === "agent-a")).toBe(
+      true,
+    );
+    expect(downstream.every((item) => item.payload.agentId === "agent-b")).toBe(
+      true,
+    );
+    expect(upstream.map((item) => item.dependsOnBatchIndices)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(downstream.map((item) => item.dependsOnBatchIndices)).toEqual([
+      [0],
+      [1],
+      [2],
+    ]);
+  });
+
+  it("keeps the whole-wave dependency when the two steps expand differently", async () => {
+    const schedule = createTwoStepSchedule();
+    const db = createTwoAgentDb();
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
+    const deps: ExecuteScheduleDeps = {
+      db: db as unknown as ExecuteScheduleDeps["db"],
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      enqueueAgentInvocations,
+      expandStepInputs: async (context) =>
+        context.pipelineStepId === "step1"
+          ? [{ tickerId: "t-0" }, { tickerId: "t-1" }]
+          : [{ batchId: "b-0" }],
+    };
+
+    await executeSchedule(schedule, deps);
+
+    const [items] = enqueueAgentInvocations.mock.calls[0] as [
+      EnqueueInvokeAgentItem[],
+    ];
+
+    expect(items).toHaveLength(3);
+    expect(items[2]?.dependsOnBatchIndices).toEqual([0, 1]);
+  });
+
   it("skips execution but still claims the tick when a non-terminal execution already exists", async () => {
     const schedule = createMockSchedule();
     const scheduleUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
