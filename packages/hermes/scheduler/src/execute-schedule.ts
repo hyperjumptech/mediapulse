@@ -19,6 +19,7 @@ import {
   buildPairingIndex,
   resolvePairedDependencies,
 } from "./pair-wave-dependencies";
+import { redactSecretValues } from "./redact-secret-values";
 
 /**
  * Payload for a single agent invocation job (DataQueue job type `invoke_agent`).
@@ -343,7 +344,10 @@ export const executeSchedule = async (
         priority: schedule.priority,
         enqueuedAt: executionTime,
         params: p.body.input as Prisma.InputJsonValue,
-        invocationConfig: p.body.config as Prisma.InputJsonValue,
+        invocationConfig: redactSecretValues(
+          p.body.config,
+          planningResult.secretValues,
+        ) as Prisma.InputJsonValue,
       })),
     });
 

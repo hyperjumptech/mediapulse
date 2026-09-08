@@ -43,10 +43,13 @@ vi.mock("@hermes/scheduler", async () => {
     await import("../../../../packages/hermes/scheduler/src/execution-config");
   const { diagnosticFromCaughtError } =
     await import("../../../../packages/hermes/scheduler/src/enqueue-diagnostics");
+  const { redactSecretValues } =
+    await import("../../../../packages/hermes/scheduler/src/redact-secret-values");
   return {
     planPipelineInvocations: vi.fn(),
     mergeExecutionConfig,
     diagnosticFromCaughtError,
+    redactSecretValues,
   };
 });
 
@@ -69,6 +72,7 @@ describe("executeHttpTrigger", () => {
         ],
       ],
       errors: [],
+      secretValues: [],
     });
   });
 
