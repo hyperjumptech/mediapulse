@@ -207,14 +207,98 @@ describe("article-analysis run — input scoping", () => {
     );
   });
 
-  it("does not repeat the stall sweep on the completion write", async () => {
+  it("also sweeps stalled runs on the completion write", async () => {
     drainOnce();
 
     await run({ input: {}, config, token: "Bearer test" });
 
     const completion = articleAnalysisRunCreate.mock.calls[1]![0];
 
-    expect(completion.stalledBefore).toBeUndefined();
+    expect(completion.stalledBefore).toEqual(expect.any(String));
+    expect(
+      Date.parse(completion.completedAt) - Date.parse(completion.stalledBefore),
+    ).toBe(60 * 60 * 1000);
+  });
+
+  it("stops draining a large backlog once the run's time budget is spent", async () => {
+    analysisGet.mockResolvedValue({
+      dataSources: [DESCRIBED_SOURCE],
+      dataSourceTotalCount: 2000,
+    });
+    (classifyArticleSection as ReturnType<typeof vi.fn>).mockResolvedValue({
+      section: "industryPulse",
+      score: 0.4,
+      reason: "matched",
+      scoreBreakdown: {
+        section: "industryPulse",
+        matched: 2,
+        total: 5,
+        criteriaHash: "hash",
+        criteria: [],
+        sections: [],
+      },
+    });
+
+    const startOfRun = Date.now();
+    let elapsedMs = 0;
+    const nowSpy = vi
+      .spyOn(Date, "now")
+      .mockImplementation(() => startOfRun + elapsedMs);
+    analysisCreate.mockImplementation(() => {
+      elapsedMs += 21 * 60 * 1000;
+
+      return Promise.resolve({
+        articlesScored: 1,
+        articlesRejected: 0,
+        skippedByCap: 0,
+        cappedTickerCount: 0,
+      });
+    });
+
+    await run({ input: {}, config, token: "Bearer test" });
+
+    const completion = articleAnalysisRunCreate.mock.calls[1]![0];
+
+    expect(completion.stopReason).toBe("time_budget_reached");
+    expect(completion.status).toBe("success");
+    expect(analysisGet).toHaveBeenCalledTimes(1);
+
+    nowSpy.mockRestore();
+  });
+
+  it("records the peak backlog rather than the drained-to-zero tail", async () => {
+    analysisGet
+      .mockResolvedValueOnce({
+        dataSources: [DESCRIBED_SOURCE],
+        dataSourceTotalCount: 640,
+      })
+      .mockResolvedValueOnce({ dataSources: [], dataSourceTotalCount: 0 });
+    analysisCreate.mockResolvedValue({
+      articlesScored: 1,
+      articlesRejected: 0,
+      skippedByCap: 0,
+      cappedTickerCount: 0,
+    });
+    (classifyArticleSection as ReturnType<typeof vi.fn>).mockResolvedValue({
+      section: "industryPulse",
+      score: 0.4,
+      reason: "matched",
+      scoreBreakdown: {
+        section: "industryPulse",
+        matched: 2,
+        total: 5,
+        criteriaHash: "hash",
+        criteria: [],
+        sections: [],
+      },
+    });
+
+    await run({ input: {}, config, token: "Bearer test" });
+
+    const completion = articleAnalysisRunCreate.mock.calls[1]![0];
+
+    expect(completion.backlog).toBe(640);
+    expect(completion.stopReason).toBe("drained");
   });
 
   it("continues the run when claiming the run row fails", async () => {

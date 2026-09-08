@@ -28,6 +28,7 @@ import {
 const BATCH_SIZE = 100;
 /** Safety bound on total pairs classified in a single run. */
 const MAX_PAIRS_PER_RUN = 1000;
+const RUN_TIME_BUDGET_MS = 20 * 60 * 1000;
 
 /**
  * A run still marked `running` after this long has crashed rather than stalled mid-batch. The
@@ -171,13 +172,18 @@ export async function run(
       break;
     }
 
+    if (Date.now() - startedAt.getTime() >= RUN_TIME_BUDGET_MS) {
+      stopReason = "time_budget_reached";
+      break;
+    }
+
     const { dataSources, dataSourceTotalCount } =
       await dataApiClient.analysis.get({
         unanalyzed: true,
         limit: batchSize,
         ...(input.tickerId !== undefined ? { tickerId: input.tickerId } : {}),
       });
-    backlog = dataSourceTotalCount;
+    backlog = Math.max(backlog, dataSourceTotalCount);
 
     if (!startReported) {
       log.info(
@@ -321,6 +327,7 @@ export async function run(
         : {}),
       startedAt: startedAt.toISOString(),
       completedAt: new Date().toISOString(),
+      stalledBefore: new Date(Date.now() - STALLED_RUN_AFTER_MS).toISOString(),
       status,
       model: config.acceptance.model,
       agentVersion: ARTICLE_ANALYSIS_AGENT_VERSION,
