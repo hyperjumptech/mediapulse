@@ -15,6 +15,10 @@ import {
   type EnqueueDiagnosticEntry,
 } from "./enqueue-diagnostics";
 import { planPipelineInvocations } from "./plan-pipeline-invocations";
+import {
+  buildPairingIndex,
+  resolvePairedDependencies,
+} from "./pair-wave-dependencies";
 
 /**
  * Payload for a single agent invocation job (DataQueue job type `invoke_agent`).
@@ -248,6 +252,7 @@ export const executeSchedule = async (
 
   const enqueueItems: EnqueueInvokeAgentItem[] = [];
   let lastWaveIndices: number[] = [];
+  let lastWavePairingIndex = new Map<string, number | null>();
 
   for (const wave of waveList) {
     const waveStart = enqueueItems.length;
@@ -276,7 +281,11 @@ export const executeSchedule = async (
           priority: schedule.priority,
         },
         dependsOnBatchIndices: useSequentialDeps
-          ? [...lastWaveIndices]
+          ? resolvePairedDependencies(
+              job.input,
+              lastWavePairingIndex,
+              lastWaveIndices,
+            )
           : undefined,
       });
     }
@@ -284,6 +293,10 @@ export const executeSchedule = async (
       lastWaveIndices = Array.from(
         { length: enqueueItems.length - waveStart },
         (_, k) => waveStart + k,
+      );
+      lastWavePairingIndex = buildPairingIndex(
+        wave.map((job) => job.input),
+        waveStart,
       );
     }
   }

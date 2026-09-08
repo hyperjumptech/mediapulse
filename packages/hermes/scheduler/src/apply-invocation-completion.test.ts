@@ -35,7 +35,11 @@ import {
 } from "@hermes/orchestration-database";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { applyInvocationCompletion } from "./apply-invocation-completion";
+import {
+  applyInvocationCompletion,
+  DEFAULT_COMPLETION_TRANSACTION_MAX_WAIT_MS,
+  DEFAULT_COMPLETION_TRANSACTION_TIMEOUT_MS,
+} from "./apply-invocation-completion";
 
 describe("applyInvocationCompletion", () => {
   afterEach(() => {
@@ -110,6 +114,96 @@ describe("applyInvocationCompletion", () => {
         succeededInvocationCount: 0,
         failedInvocationCount: 1,
       },
+    });
+  });
+
+  type TransactionOptions = { timeout: number; maxWait: number };
+
+  const buildCompletionDb = () => {
+    const tx = {
+      agentJobExecution: {
+        update: vi.fn().mockResolvedValue(undefined),
+        findMany: vi.fn().mockResolvedValue([
+          {
+            status: AgentJobExecutionStatus.failed,
+            error: { message: "orphan" },
+          },
+        ]),
+      },
+      scheduleExecution: {
+        update: vi.fn().mockResolvedValue(undefined),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      scheduleStepExecution: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    };
+
+    return {
+      scheduleExecution: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "00000000-0000-4000-8000-000000000020",
+          runStatus: ScheduleRunStatus.pending,
+          cancelledAt: null,
+          effectiveExecutionConfig: null,
+        }),
+      },
+      $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+    };
+  };
+
+  const completionInput = {
+    jobId: "00000000-0000-4000-8000-000000000022",
+    scheduleExecutionId: "00000000-0000-4000-8000-000000000020",
+    pipelineStepId: "00000000-0000-4000-8000-000000000021",
+    terminal: {
+      status: AgentJobExecutionStatus.failed,
+      error: { message: "orphan" },
+    },
+  };
+
+  it("gives the completion transaction a budget well past the 5s Prisma default", async () => {
+    const db = buildCompletionDb();
+    const logger = { warn: vi.fn(), error: vi.fn() };
+
+    await applyInvocationCompletion(completionInput, {
+      db: db as never,
+      logger,
+    });
+
+    const [, options] = db.$transaction.mock.calls[0] as unknown as [
+      unknown,
+      TransactionOptions,
+    ];
+
+    expect(options).toEqual({
+      timeout: DEFAULT_COMPLETION_TRANSACTION_TIMEOUT_MS,
+      maxWait: DEFAULT_COMPLETION_TRANSACTION_MAX_WAIT_MS,
+    });
+    expect(DEFAULT_COMPLETION_TRANSACTION_TIMEOUT_MS).toBeGreaterThan(5_000);
+  });
+
+  it("lets the caller override the completion transaction budget", async () => {
+    const db = buildCompletionDb();
+    const logger = { warn: vi.fn(), error: vi.fn() };
+
+    await applyInvocationCompletion(completionInput, {
+      db: db as never,
+      logger,
+      transactionTimeoutMs: 45_000,
+      transactionMaxWaitMs: 20_000,
+    });
+
+    const [, options] = db.$transaction.mock.calls[0] as unknown as [
+      unknown,
+      TransactionOptions,
+    ];
+
+    expect(options).toEqual({
+      timeout: 45_000,
+      maxWait: 20_000,
     });
   });
 
