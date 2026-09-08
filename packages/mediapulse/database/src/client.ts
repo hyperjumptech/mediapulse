@@ -4,6 +4,9 @@ import { Pool } from "pg";
 import { env } from "@mediapulse/env";
 import { getDatabaseParams } from "./utils";
 
+export const TRANSACTION_TIMEOUT_MS = 30_000;
+export const TRANSACTION_MAX_WAIT_MS = 15_000;
+
 /**
  * Creates a Prisma client configured for Mediapulse domain storage.
  *
@@ -41,6 +44,10 @@ export class PrismaClientWithSchema extends PrismaClient {
       adapter,
       log: ["info", "warn", "error"],
       errorFormat: "minimal",
+      transactionOptions: {
+        timeout: TRANSACTION_TIMEOUT_MS,
+        maxWait: TRANSACTION_MAX_WAIT_MS,
+      },
     });
   }
 
