@@ -13,6 +13,7 @@ import {
   diagnosticFromCaughtError,
   mergeExecutionConfig,
   planPipelineInvocations,
+  redactSecretValues,
   resolveInvokeAgentJobTimeoutMs,
   type EnqueueDiagnosticEntry,
   type EnqueueInvokeAgentItem,
@@ -535,7 +536,10 @@ export const createRunPipelineHandler = ({
           status: AgentJobExecutionStatus.pending,
           enqueuedAt: executionTime,
           params: item.payload.body.input as Prisma.InputJsonValue,
-          invocationConfig: item.payload.body.config as Prisma.InputJsonValue,
+          invocationConfig: redactSecretValues(
+            item.payload.body.config,
+            planning.secretValues,
+          ) as Prisma.InputJsonValue,
         })),
       });
 

@@ -11,6 +11,7 @@ import {
   diagnosticFromCaughtError,
   mergeExecutionConfig,
   planPipelineInvocations,
+  redactSecretValues,
   type EnqueueDiagnosticEntry,
   type ExpandStepInputs,
 } from "@hermes/scheduler";
@@ -215,7 +216,10 @@ export const executeHttpTrigger = async (
         status: AgentJobExecutionStatus.pending,
         enqueuedAt: new Date(),
         params: item.payload.body.input as Prisma.InputJsonValue,
-        invocationConfig: item.payload.body.config as Prisma.InputJsonValue,
+        invocationConfig: redactSecretValues(
+          item.payload.body.config,
+          planningResult.secretValues,
+        ) as Prisma.InputJsonValue,
       })),
     });
   });

@@ -6,6 +6,7 @@ import {
 
 import { AgentEndpointSchema } from "./invoke-agent";
 import { substituteVariables } from "./substitute-variables";
+import { collectSecretValues } from "./redact-secret-values";
 import { validateWithJsonSchema } from "./validate-json-schema";
 import type { ExpandStepInputs } from "./execute-schedule";
 import type { EnqueueDiagnosticEntry } from "./enqueue-diagnostics";
@@ -23,6 +24,7 @@ export type PlannedInvocation = {
 export type PlanPipelineInvocationsResult = {
   waveList: PlannedInvocation[][];
   errors: EnqueueDiagnosticEntry[];
+  secretValues: readonly string[];
 };
 
 type PipelineStepForPlanning = {
@@ -89,6 +91,7 @@ export const planPipelineInvocations = async ({
     include: { encryptedPayload: true },
   });
   const variableMap = new Map<string, string>();
+  const secretPlaintexts: string[] = [];
   for (const variable of variables) {
     if (!variable.isSecret) {
       variableMap.set(variable.key, variable.value);
@@ -107,6 +110,7 @@ export const planPipelineInvocations = async ({
     }
     if (!isEncryptedSecretVariablePayload(ciphertext)) {
       variableMap.set(variable.key, ciphertext);
+      secretPlaintexts.push(ciphertext);
       continue;
     }
     try {
@@ -116,6 +120,7 @@ export const planPipelineInvocations = async ({
         variableSecretFallbackMasterKey,
       );
       variableMap.set(variable.key, plaintext);
+      secretPlaintexts.push(plaintext);
     } catch {
       throw new Error(
         `Failed to decrypt secret variable "${variable.key}" for invocation planning`,
@@ -266,5 +271,9 @@ export const planPipelineInvocations = async ({
     }
   }
 
-  return { waveList, errors };
+  return {
+    waveList,
+    errors,
+    secretValues: collectSecretValues(secretPlaintexts),
+  };
 };

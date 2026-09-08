@@ -34,6 +34,7 @@ vi.mock("@hermes/orchestration-database", () => ({
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { encryptSecretVariableValue } from "@hermes/domain-integration-crypto";
+import { REDACTED_PLACEHOLDER } from "./redact-secret-values";
 import {
   executeSchedule,
   type EnqueueInvokeAgentItem,
@@ -357,6 +358,95 @@ describe("executeSchedule", () => {
     expect(p).toBeDefined();
     expect(p!.body.input).toEqual({ apiKey: "resolved-secret" });
     expect(p!.body.config).toEqual({ token: "resolved-secret" });
+  });
+
+  it("keeps the resolved secret on the queue payload but not on the persisted job row", async () => {
+    const now = new Date();
+    const masterKey = "0".repeat(64);
+    const secret = "sk-live-should-not-persist";
+    const schedule = createMockSchedule({
+      pipeline: {
+        id: "p1",
+        domainIntegrationId: "di-1",
+        name: "p1",
+        description: null,
+        timeout: null,
+        isActive: true,
+        executionConfig: null,
+        createdById: null,
+        createdAt: now,
+        updatedAt: now,
+        steps: [
+          {
+            id: "step1",
+            order: 0,
+            agentId: "agent-a",
+            agentVersion: "1.0.0",
+            pipelineId: "p1",
+            input: { tickerId: "t-1" },
+            config: { model: { apiKey: "{{MY_SECRET}}", model: "gpt" } },
+            createdById: null,
+            createdAt: now,
+            updatedAt: now,
+            agentConfigId: null,
+            agentConfig: null,
+            agentContractId: null,
+            agentContract: null,
+          } as DueSchedule["pipeline"]["steps"][number],
+        ],
+      },
+    } as Partial<DueSchedule>);
+
+    const agentJobExecutionCreateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const base = createMockDb();
+    base.variable.findMany = vi.fn().mockResolvedValue([
+      {
+        key: "MY_SECRET",
+        value: "",
+        isSecret: true,
+        encryptedPayload: {
+          ciphertext: encryptSecretVariableValue(secret, masterKey),
+        },
+      },
+    ]);
+    const db = {
+      ...base,
+      $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({
+          scheduleExecution: {
+            create: vi.fn().mockResolvedValue({ id: "se-secret" }),
+          },
+          scheduleStepExecution: {
+            createMany: vi.fn().mockResolvedValue({ count: 1 }),
+          },
+          agentJobExecution: { createMany: agentJobExecutionCreateMany },
+        }),
+      ),
+    };
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
+
+    await executeSchedule(schedule, {
+      db: db as unknown as ExecuteScheduleDeps["db"],
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      enqueueAgentInvocations,
+      variableSecretMasterKey: masterKey,
+    } as ExecuteScheduleDeps);
+
+    const [items] = enqueueAgentInvocations.mock.calls[0] as [
+      EnqueueInvokeAgentItem[],
+    ];
+    const persisted = agentJobExecutionCreateMany.mock.calls[0]?.[0] as {
+      data: { invocationConfig: unknown }[];
+    };
+    const persistedConfig = persisted.data[0]?.invocationConfig;
+
+    expect(items[0]?.payload.body.config).toEqual({
+      model: { apiKey: secret, model: "gpt" },
+    });
+    expect(persistedConfig).toEqual({
+      model: { apiKey: REDACTED_PLACEHOLDER, model: "gpt" },
+    });
+    expect(JSON.stringify(persistedConfig)).not.toContain(secret);
   });
 
   it("clears nextRunAt via the claim when repeat is once", async () => {

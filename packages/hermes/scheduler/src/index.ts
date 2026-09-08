@@ -69,6 +69,11 @@ export {
   substituteInString,
 } from "./substitute-variables";
 export {
+  collectSecretValues,
+  redactSecretValues,
+  REDACTED_PLACEHOLDER,
+} from "./redact-secret-values";
+export {
   getDueSchedules,
   type DueSchedule,
   type GetDueSchedulesDb,
