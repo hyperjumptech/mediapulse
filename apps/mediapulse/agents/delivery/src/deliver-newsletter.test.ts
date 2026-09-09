@@ -2,11 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Resend } from "resend";
 import type { SlidingWindowRateLimiter } from "@workspace/utils";
-import {
-  DEFAULT_HYPERJUMP_SITE_URL,
-  DEFAULT_MEDIAPULSE_SITE_URL,
-  renderNewsletterEmail,
-} from "@workspace/email-templates";
+import { renderNewsletterEmail } from "@workspace/email-templates";
 
 import { DeliveryConfigSchema, type DeliveryConfig } from "./config-schema.js";
 import {
@@ -143,8 +139,6 @@ describe("deliverNewsletterToSubscribers", () => {
         "https://example.com/unsubscribe",
       ),
       tickerSymbol: "AAPL",
-      mediapulseSiteUrl: DEFAULT_MEDIAPULSE_SITE_URL,
-      hyperjumpSiteUrl: DEFAULT_HYPERJUMP_SITE_URL,
       language: "en",
     });
     expect(acquire).toHaveBeenCalledOnce();
@@ -462,42 +456,6 @@ describe("deliverNewsletterToSubscribers", () => {
     expect(sendWithRetry.mock.calls[0]?.[1]).toMatchObject({
       replyTo: "replies@example.com",
       tags: [{ name: "env", value: "test" }],
-    });
-  });
-
-  it("forwards operator-configured branding URLs to renderNewsletterEmail", async () => {
-    // Setup
-    const mediapulseSiteUrl = "https://staging.mediapulse.example";
-    const hyperjumpSiteUrl = "https://staging.hyperjump.example";
-    const cfg = withUnsubscribe(
-      DeliveryConfigSchema.parse({
-        resendApiKey: "re_k",
-        resend: { from: "from@example.com" },
-        branding: { mediapulseSiteUrl, hyperjumpSiteUrl },
-      }),
-    );
-    const sendWithRetry = vi
-      .fn()
-      .mockResolvedValue({ id: "re_brand", attempts: 1 });
-
-    // Act
-    await deliverNewsletterToSubscribers(
-      newsletter,
-      [{ userTickerId, email: "u@example.com", language: "en" }],
-      [],
-      cfg,
-      {
-        resend: {} as Resend,
-        rateLimiter: mockRateLimiter(),
-        sendWithRetry,
-      },
-    );
-
-    // Assert
-    const renderCall = vi.mocked(renderNewsletterEmail).mock.calls[0]?.[0];
-    expect(renderCall).toMatchObject({
-      mediapulseSiteUrl,
-      hyperjumpSiteUrl,
     });
   });
 

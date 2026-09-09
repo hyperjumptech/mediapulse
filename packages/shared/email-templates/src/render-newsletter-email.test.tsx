@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  DEFAULT_HYPERJUMP_SITE_URL,
-  DEFAULT_MEDIAPULSE_SITE_URL,
-  renderNewsletterEmail,
-} from "./index.js";
+import { renderNewsletterEmail } from "./index.js";
 import {
   NEWSLETTER_PREVIEW_PROPS,
   SECTION_COPY,
@@ -182,116 +178,6 @@ describe("renderNewsletterEmail", () => {
     expect(html).toContain(
       "You are receiving this because you subscribed to updates.",
     );
-  });
-
-  it("renders default MediaPulse and Hyperjump branding links in the footer", async () => {
-    // Act
-    const { html, text } = await renderNewsletterEmail({
-      title: "Morning Briefing",
-      bodyText: "Body content",
-    });
-
-    // Assert
-    expect(html).toMatch(
-      new RegExp(
-        `<a[^>]+href=["']?${DEFAULT_MEDIAPULSE_SITE_URL}["']?[^>]*>\\s*MediaPulse\\s*</a>`,
-        "i",
-      ),
-    );
-    expect(html).toMatch(
-      new RegExp(
-        `<a[^>]+href=["']?${DEFAULT_HYPERJUMP_SITE_URL}["']?[^>]*>\\s*Hyperjump\\s*</a>`,
-        "i",
-      ),
-    );
-    expect(text.toLowerCase()).toContain("mediapulse");
-    expect(text.toLowerCase()).toContain("hyperjump");
-    expect(text).toContain(DEFAULT_MEDIAPULSE_SITE_URL);
-    expect(text).toContain(DEFAULT_HYPERJUMP_SITE_URL);
-  });
-
-  it("honours operator-configured branding URLs when provided", async () => {
-    // Setup
-    const mediapulseSiteUrl = "https://staging.mediapulse.example/";
-    const hyperjumpSiteUrl = "https://staging.hyperjump.example/";
-
-    // Act
-    const { html, text } = await renderNewsletterEmail({
-      title: "Morning Briefing",
-      bodyText: "Body content",
-      mediapulseSiteUrl,
-      hyperjumpSiteUrl,
-    });
-
-    // Assert
-    expect(html).toMatch(
-      new RegExp(
-        `<a[^>]+href=["']?${mediapulseSiteUrl}["']?[^>]*>\\s*MediaPulse\\s*</a>`,
-        "i",
-      ),
-    );
-    expect(html).toMatch(
-      new RegExp(
-        `<a[^>]+href=["']?${hyperjumpSiteUrl}["']?[^>]*>\\s*Hyperjump\\s*</a>`,
-        "i",
-      ),
-    );
-    expect(html).not.toContain(DEFAULT_MEDIAPULSE_SITE_URL);
-    expect(html).not.toContain(DEFAULT_HYPERJUMP_SITE_URL);
-    expect(text).toContain(mediapulseSiteUrl);
-    expect(text).toContain(hyperjumpSiteUrl);
-  });
-
-  it("renders branding link targets together when all props are supplied", async () => {
-    const mediapulseSiteUrl = "https://staging.mediapulse.example/";
-    const hyperjumpSiteUrl = "https://staging.hyperjump.example/";
-    const tickerSymbol = "BBCA";
-
-    const { html, text } = await renderNewsletterEmail({
-      title: "Morning Briefing",
-      bodyText: "Body content",
-      tickerSymbol,
-      mediapulseSiteUrl,
-      hyperjumpSiteUrl,
-    });
-
-    expect(html).not.toMatch(/this digest covers/i);
-    expect(html).toMatch(
-      new RegExp(
-        `<a[^>]+href=["']?${mediapulseSiteUrl}["']?[^>]*>\\s*MediaPulse\\s*</a>`,
-        "i",
-      ),
-    );
-    expect(html).toMatch(
-      new RegExp(
-        `<a[^>]+href=["']?${hyperjumpSiteUrl}["']?[^>]*>\\s*Hyperjump\\s*</a>`,
-        "i",
-      ),
-    );
-    expect(text).toContain(mediapulseSiteUrl);
-    expect(text).toContain(hyperjumpSiteUrl);
-    expect(text).toContain(
-      "You are receiving this because you subscribed to BBCA updates.",
-    );
-  });
-
-  it("places the branding block above the subscription footer note", async () => {
-    // Setup
-    const footerNote = "You are receiving this because you subscribed.";
-
-    // Act
-    const { html } = await renderNewsletterEmail({
-      title: "Morning Briefing",
-      bodyText: "Body content",
-      footerNote,
-    });
-
-    // Assert
-    const brandingIndex = html.indexOf("Brought to you by");
-    const footerNoteIndex = html.indexOf(footerNote);
-    expect(brandingIndex).toBeGreaterThan(-1);
-    expect(footerNoteIndex).toBeGreaterThan(-1);
-    expect(brandingIndex).toBeLessThan(footerNoteIndex);
   });
 
   it("invites subscribers to reply with feedback in the footer", async () => {
@@ -896,8 +782,6 @@ describe("renderNewsletterEmail", () => {
       language: "id",
     });
 
-    expect(html).toContain("Dipersembahkan oleh");
-    expect(html).toContain(", produk dari");
     expect(html).toContain(
       "Punya masukan? Balas email ini dan kami akan menggunakannya untuk meningkatkan buletin.",
     );
@@ -909,7 +793,6 @@ describe("renderNewsletterEmail", () => {
       "Anda menerima email ini karena Anda berlangganan pembaruan TLKM.",
     );
     // English chrome must not leak into an Indonesian render.
-    expect(html).not.toContain("Brought to you by");
     expect(html).not.toMatch(/reply to this email/i);
   });
 
@@ -950,8 +833,7 @@ describe("renderNewsletterEmail", () => {
       tickerSymbol: "TLKM",
     });
 
-    expect(html).toContain("Brought to you by");
     expect(html).toMatch(/reply to this email/i);
-    expect(html).not.toContain("Dipersembahkan oleh");
+    expect(html).not.toMatch(/Punya masukan\?/i);
   });
 });
