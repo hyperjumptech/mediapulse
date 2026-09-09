@@ -38,6 +38,7 @@ import {
 } from "./fetch-source-bodies.js";
 import { citedFigures } from "./lib/figures-grounded.js";
 import { selectSectionCoverageSeeds } from "./lib/section-coverage-seeds.js";
+import { resolvePublisherNames } from "./resolve-publisher-names.js";
 import { translateNewsletter } from "./translate-newsletter.js";
 import type { TranslationTargetLanguage } from "./translate-newsletter.js";
 import {
@@ -614,13 +615,18 @@ export async function run({
         typeof s.publishedAt === "string"
           ? s.publishedAt
           : fetched?.publishedAt;
+      // Site metadata read during this run beats the stored name, so a first-time domain ships
+      // with its real name in the same issue that discovered it.
+      const publisherName =
+        fetched?.source ??
+        (typeof s.source === "string" ? s.source : undefined);
       return {
         dataSourceId: s.dataSourceId,
         url: s.url,
         title: s.title,
         content: text,
         ...(typeof s.author === "string" ? { author: s.author } : {}),
-        ...(typeof s.source === "string" ? { source: s.source } : {}),
+        ...(publisherName !== undefined ? { source: publisherName } : {}),
         ...(typeof publishedAt === "string" ? { publishedAt } : {}),
         ...(typeof s.section === "string" ? { section: s.section } : {}),
         ...(typeof s.sectionScore === "number"
@@ -1061,6 +1067,20 @@ export async function run({
     executionId,
     details: successDetails,
   });
+
+  // Runs after the issue is persisted so a slow or failing model call cannot cost a newsletter.
+  // Names resolved here apply from the next run onwards.
+  await resolvePublisherNames({
+    listUnresolved: (query) => dataApiClient.publishersUnresolved.get(query),
+    recordNames: (body) => dataApiClient.publisherNames.create(body),
+    model: {
+      apiKey: config.model.apiKey,
+      model: config.model.model,
+      ...(config.model.baseUrl ? { baseUrl: config.model.baseUrl } : {}),
+    },
+    logger,
+  });
+
   return {
     success: true,
     details: {

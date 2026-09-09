@@ -109,6 +109,31 @@ model DomainAuthority {
   @@map("domain_authority")
 }
 
+/// Where a publisher's display name came from. Ranked: a lower-ranked source never
+/// overwrites a higher-ranked one.
+enum PublisherNameSource {
+  derived
+  llm
+  site_metadata
+  manual
+}
+
+/// Display name for a publisher, keyed by registrable domain. Read alongside
+/// `DomainAuthority` at generation time and copied into the newsletter document as a
+/// plain string, so a corrected name applies to future issues without a backfill.
+model Publisher {
+  id          String              @id @default(uuid())
+  domain      String              @unique
+  displayName String              @map("display_name")
+  nameSource  PublisherNameSource @default(derived) @map("name_source")
+  lastSeenAt  DateTime            @map("last_seen_at")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  @@index([nameSource, lastSeenAt])
+  @@map("publisher")
+}
+
 /// Per-(article, ticker) newsletter-section classification produced by article-analysis.
 /// Replaces the 1:1 DataSource.section/sectionScore/sectionReason columns so one curated/global
 /// article can belong to a different section for each active ticker.

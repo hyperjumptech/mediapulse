@@ -19,6 +19,7 @@ import type {
   PostContentGenerationFetchedContentBody,
   PostDataCollectionDeadUrlsRecordBody,
 } from "@workspace/agent-data-api-contract";
+import { sanitizePublisherDisplayName } from "@workspace/utils";
 
 import type { ResolvedContentGenerationConfig } from "./config-schema.js";
 import { compareSourcesForRanking } from "./lib/rank-sources.js";
@@ -91,6 +92,7 @@ export type FetchedBody = {
   content: string;
   fetchProvider: string;
   publishedAt?: string;
+  source?: string;
 };
 
 export type FetchSourceBodiesCounters = {
@@ -283,16 +285,19 @@ export async function fetchSourceBodies(
       }),
     )?.toISOString();
 
+    const siteName = sanitizePublisherDisplayName(page.source);
     fetchedContentById.set(source.dataSourceId, {
       content: page.content,
       fetchProvider: page.provider,
       ...(publishedAt ? { publishedAt } : {}),
+      ...(siteName ? { source: siteName } : {}),
     });
     persistBody.push({
       dataSourceId: source.dataSourceId,
       content: page.content,
       fetchProvider: page.provider,
       ...(publishedAt ? { publishedAt } : {}),
+      ...(siteName ? { source: siteName } : {}),
     });
     fetchEvents.push({
       dataSourceId: source.dataSourceId,

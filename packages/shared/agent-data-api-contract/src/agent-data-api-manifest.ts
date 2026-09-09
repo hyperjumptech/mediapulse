@@ -78,6 +78,14 @@ import {
   postPublisherAuthorityStaleResponseSchema,
 } from "./publisher-authority.js";
 import {
+  getPublishersUnresolvedQuerySchema,
+  getPublishersUnresolvedResponseSchema,
+  postPublisherNamesBodySchema,
+  postPublisherNamesResponseSchema,
+  postPublishersSeenBodySchema,
+  postPublishersSeenResponseSchema,
+} from "./publisher.js";
+import {
   postListingDiscoveryCacheLookupBodySchema,
   postListingDiscoveryCacheLookupResponseSchema,
   postListingDiscoveryCacheRecordBodySchema,
@@ -629,6 +637,54 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postPublisherAuthorityBodySchema,
         response: postPublisherAuthorityResponseSchema,
+      },
+    },
+  },
+  publishersSeen: {
+    v1: {
+      pathSegment: "/publishers/seen",
+      post: {
+        body: postPublishersSeenBodySchema,
+        response: postPublishersSeenResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/publishers/seen",
+      post: {
+        body: postPublishersSeenBodySchema,
+        response: postPublishersSeenResponseSchema,
+      },
+    },
+  },
+  publishersUnresolved: {
+    v1: {
+      pathSegment: "/publishers/unresolved",
+      get: {
+        query: getPublishersUnresolvedQuerySchema,
+        response: getPublishersUnresolvedResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/publishers/unresolved",
+      get: {
+        query: getPublishersUnresolvedQuerySchema,
+        response: getPublishersUnresolvedResponseSchema,
+      },
+    },
+  },
+  publisherNames: {
+    v1: {
+      pathSegment: "/publishers/names",
+      post: {
+        body: postPublisherNamesBodySchema,
+        response: postPublisherNamesResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/publishers/names",
+      post: {
+        body: postPublisherNamesBodySchema,
+        response: postPublisherNamesResponseSchema,
       },
     },
   },

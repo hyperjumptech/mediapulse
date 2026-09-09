@@ -49,6 +49,12 @@ type MockDb = {
   domainAuthority: {
     findMany: ReturnType<typeof vi.fn>;
   };
+  publisher: {
+    findMany: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    updateMany: ReturnType<typeof vi.fn>;
+  };
 };
 
 const createMockDb = (): MockDb => ({
@@ -69,6 +75,12 @@ const createMockDb = (): MockDb => ({
   },
   domainAuthority: {
     findMany: vi.fn().mockResolvedValue([]),
+  },
+  publisher: {
+    findMany: vi.fn().mockResolvedValue([]),
+    create: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn().mockResolvedValue({ count: 0 }),
   },
 });
 
@@ -175,6 +187,66 @@ describe("getDataSourcesForTicker", () => {
     expect(result.dataSources[1]?.description).toBeNull();
     expect(result.tickerSymbol).toBe("TEST");
     expect(result.tickerName).toBe("Test Company");
+  });
+
+  it("prefers the publisher reference name over the name stored at collection time", async () => {
+    // Setup
+    const db = createMockDb();
+    db.ticker.findUniqueOrThrow.mockResolvedValue({
+      symbol: "TEST",
+      name: "Test Company",
+    });
+    db.publisher.findMany.mockResolvedValue([
+      { domain: "thejakartapost.com", displayName: "The Jakarta Post" },
+    ]);
+    db.dataSourceTickerSection.findMany.mockResolvedValue([
+      {
+        section: "quickHits",
+        sectionScore: 0.8,
+        sectionReason: "note",
+        dataSource: {
+          id: "ds-referenced",
+          url: "https://thejakartapost.com/a",
+          title: "Referenced",
+          description: null,
+          content: "Body",
+          author: null,
+          source: "Thejakartapost",
+          registrableDomain: "thejakartapost.com",
+          searchQueryId: null,
+          metadata: null,
+          publishedAt: null,
+        },
+      },
+      {
+        section: "quickHits",
+        sectionScore: 0.7,
+        sectionReason: "note",
+        dataSource: {
+          id: "ds-unreferenced",
+          url: "https://bisnis.com/b",
+          title: "Unreferenced",
+          description: null,
+          content: "Body",
+          author: null,
+          source: "Bisnis",
+          registrableDomain: "bisnis.com",
+          searchQueryId: null,
+          metadata: null,
+          publishedAt: null,
+        },
+      },
+    ]);
+
+    // Act
+    const result = await getDataSourcesForTicker("ticker-1", {
+      db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
+      now: () => new Date("2026-09-09T00:00:00.000Z"),
+    });
+
+    // Assert — a domain with no reference row keeps the name the collection run stored.
+    expect(result.dataSources[0]?.source).toBe("The Jakarta Post");
+    expect(result.dataSources[1]?.source).toBe("Bisnis");
   });
 
   it("includes an article analyzed during the prior UTC day (rolling-window regression)", async () => {
@@ -787,7 +859,7 @@ describe("updateFetchedContent", () => {
   });
 
   it("updates each row with content, fetchedAt, and fetchProvider and returns the count", async () => {
-    const update = vi.fn().mockResolvedValue({ id: "ds-1" });
+    const update = vi.fn().mockResolvedValue({ registrableDomain: null });
     const db = { dataSource: { update } };
     const now = new Date("2026-07-13T00:00:00.000Z");
 
@@ -808,15 +880,92 @@ describe("updateFetchedContent", () => {
     expect(update).toHaveBeenNthCalledWith(1, {
       where: { id: "ds-1" },
       data: { content: "Body 1", fetchedAt: now, fetchProvider: "serper" },
+      select: { registrableDomain: true },
     });
     expect(update).toHaveBeenNthCalledWith(2, {
       where: { id: "ds-2" },
       data: { content: "Body 2", fetchedAt: now, fetchProvider: "tavily" },
+      select: { registrableDomain: true },
     });
   });
 
+  it("promotes a site-metadata publisher name onto the reference", async () => {
+    const update = vi
+      .fn()
+      .mockResolvedValue({ registrableDomain: "thejakartapost.com" });
+    const publisher = {
+      findMany: vi
+        .fn()
+        .mockResolvedValue([
+          { domain: "thejakartapost.com", nameSource: "derived" },
+        ]),
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    };
+    const db = { dataSource: { update }, publisher };
+
+    await updateFetchedContent(
+      [
+        {
+          dataSourceId: "ds-1",
+          content: "Body 1",
+          fetchProvider: "serper",
+          source: "The Jakarta Post",
+        },
+      ],
+      {
+        db: db as unknown as NonNullable<
+          Parameters<typeof updateFetchedContent>[1]
+        >["db"],
+      },
+    );
+
+    expect(publisher.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { domain: "thejakartapost.com" },
+        data: expect.objectContaining({
+          displayName: "The Jakarta Post",
+          nameSource: "site_metadata",
+        }),
+      }),
+    );
+  });
+
+  it("ignores a placeholder site name rather than storing it as a publisher", async () => {
+    const update = vi
+      .fn()
+      .mockResolvedValue({ registrableDomain: "bisnis.com" });
+    const publisher = {
+      findMany: vi.fn().mockResolvedValue([]),
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+    };
+    const db = { dataSource: { update }, publisher };
+
+    await updateFetchedContent(
+      [
+        {
+          dataSourceId: "ds-1",
+          content: "Body 1",
+          fetchProvider: "serper",
+          source: "Home",
+        },
+      ],
+      {
+        db: db as unknown as NonNullable<
+          Parameters<typeof updateFetchedContent>[1]
+        >["db"],
+      },
+    );
+
+    expect(publisher.findMany).not.toHaveBeenCalled();
+    expect(publisher.update).not.toHaveBeenCalled();
+  });
+
   it("backfills publishedAt only on rows that still have none", async () => {
-    const update = vi.fn().mockResolvedValue({ id: "ds-1" });
+    const update = vi.fn().mockResolvedValue({ registrableDomain: null });
     const updateMany = vi.fn().mockResolvedValue({ count: 1 });
     const db = { dataSource: { update, updateMany } };
 
@@ -849,7 +998,7 @@ describe("updateFetchedContent", () => {
     const update = vi
       .fn()
       .mockRejectedValueOnce(new Error("row not found"))
-      .mockResolvedValueOnce({ id: "ds-2" });
+      .mockResolvedValueOnce({ registrableDomain: null });
     const db = { dataSource: { update } };
 
     const result = await updateFetchedContent(
