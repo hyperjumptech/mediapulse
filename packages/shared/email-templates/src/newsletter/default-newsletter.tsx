@@ -1,4 +1,5 @@
 import { Heading, Hr, Link, Section, Text } from "@react-email/components";
+import { ExternalLink } from "lucide-react";
 import { Fragment, type ReactElement } from "react";
 
 import { parseNewsletterBody } from "./parse-newsletter-body.js";
@@ -161,10 +162,10 @@ export const SECTION_COPY: Record<
 };
 
 /**
- * Label for an article's source link, keyed by language.
+ * Accessible name for an article's source link, keyed by language.
  *
- * Deliberately generic: the article title is rendered directly above the link, so
- * repeating it in the link text would print the same words twice.
+ * The link shows the source name and an external-link icon, so this text is carried on the
+ * anchor's `title` and `aria-label` instead of being shown.
  *
  * - Important: reads the same as content-generation's `READ_FULL_ARTICLE_LABEL`, the wire-format
  *   marker the parser strips before rendering. A leaked marker is still detectable because it
@@ -174,6 +175,10 @@ const ARTICLE_LINK_LABEL: Record<FooterLanguage, string> = {
   en: "Read the full article…",
   id: "Baca artikel selengkapnya…",
 };
+
+const ARTICLE_SOURCE_LINK_CLASS_NAME = "e-faint text-faint no-underline";
+
+const ARTICLE_LINK_ICON_SIZE = 14;
 
 /** Newsletter footer language. Alias of the shared {@link EmailLanguage}. */
 export type FooterLanguage = EmailLanguage;
@@ -214,24 +219,6 @@ const FOOTER_COPY: Record<FooterLanguage, FooterCopy> = {
       `Berhenti berlangganan pembaruan ${tickerOrFallback}`,
     unsubscribeFallback: "ini",
   },
-};
-
-/**
- * Builds the byline line shown above an article.
- *
- * @param byline - Optional author and source for the article.
- * @returns `By {author} · {source}` when an author exists, the source alone when only the source exists, or `undefined`.
- */
-export const formatArticleByline = (byline: {
-  author?: string;
-  source?: string;
-}): string | undefined => {
-  const author = byline.author?.trim() ?? "";
-  const source = byline.source?.trim() ?? "";
-  if (author.length > 0) {
-    return source.length > 0 ? `By ${author} · ${source}` : `By ${author}`;
-  }
-  return source.length > 0 ? source : undefined;
 };
 
 /**
@@ -328,18 +315,27 @@ export const DefaultNewsletterEmail = ({
     articleIndex: number,
     isLast: boolean,
   ): ReactElement => {
-    const byline = formatArticleByline(article);
+    const source = article.source?.trim() ?? "";
 
     return (
       <Section key={`${sectionKey}-a-${String(articleIndex)}`}>
         <Text className="e-ink m-0 mb-1 text-[17px] font-semibold leading-snug text-ink">
           {article.title}
         </Text>
-        {byline !== undefined ? (
-          <Text className="e-faint m-0 mb-3 text-xs font-normal uppercase leading-normal tracking-[0.04em] text-faint">
-            {byline}
-          </Text>
-        ) : null}
+        <Text className="e-faint m-0 mb-3 text-xs font-normal uppercase leading-normal tracking-[0.04em] text-faint">
+          <Link
+            href={article.url}
+            className={ARTICLE_SOURCE_LINK_CLASS_NAME}
+            title={ARTICLE_LINK_LABEL[language]}
+            aria-label={ARTICLE_LINK_LABEL[language]}
+          >
+            {source.length > 0 ? `${source} ` : null}
+            <ExternalLink
+              size={ARTICLE_LINK_ICON_SIZE}
+              style={{ display: "inline-block", verticalAlign: "-2px" }}
+            />
+          </Link>
+        </Text>
         <ul className="e-body m-0 mb-0 list-disc pl-5 text-[15px] leading-[1.65] text-body">
           {article.points.map((point, pointIndex) => (
             <li key={`p-${String(pointIndex)}`} className="mb-2 pl-1">
@@ -349,11 +345,6 @@ export const DefaultNewsletterEmail = ({
             </li>
           ))}
         </ul>
-        <Text className="m-0 mt-3 text-sm font-medium leading-normal">
-          <Link href={article.url} className={emailLinkClassName}>
-            {ARTICLE_LINK_LABEL[language]}
-          </Link>
-        </Text>
         {isLast ? null : (
           <Hr className="e-rule my-6 border-0 border-t border-rule" />
         )}

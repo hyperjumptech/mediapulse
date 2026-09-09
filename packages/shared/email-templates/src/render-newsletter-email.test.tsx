@@ -343,6 +343,41 @@ describe("renderNewsletterEmail", () => {
     expect(text).toContain("https://lead.example/article");
   });
 
+  it("links the source name and an external-link icon to the article", async () => {
+    // Setup
+    const industryBody = buildDocumentBody([
+      {
+        key: "industry-pulse",
+        articles: [
+          {
+            title: "The sector is shifting",
+            source: "Warta Ekonomi",
+            url: "https://lead.example/article",
+            points: ["The sector is shifting rapidly."],
+          },
+        ],
+      },
+    ]);
+
+    // Act
+    const { html } = await renderNewsletterEmail({
+      title: "Industry Briefing",
+      bodyText: industryBody,
+    });
+
+    // Assert
+    const stripped = html.replace(/<!-- -->/g, "");
+
+    const sourceAnchor =
+      /<a[^>]*href="https:\/\/lead\.example\/article"[^>]*>\s*Warta Ekonomi\s*<svg[^>]*>.*?<\/svg>\s*<\/a>/s;
+
+    expect(stripped).toMatch(sourceAnchor);
+    expect(stripped).toMatch(
+      /<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/,
+    );
+    expect(stripped).not.toMatch(/>\s*Read the full article[^<]*<\/a>/);
+  });
+
   it("labels the article link generically instead of repeating the article title", async () => {
     // Setup
     const industryBody = buildDocumentBody([
@@ -595,7 +630,7 @@ describe("renderNewsletterEmail", () => {
     expect(stripped).toContain("Third point.");
   });
 
-  it("renders a byline from the article author and source", async () => {
+  it("renders the source as the byline and ignores the author", async () => {
     // Setup
     const industryBody = buildDocumentBody([
       {
@@ -632,9 +667,16 @@ describe("renderNewsletterEmail", () => {
     // Assert
     const stripped = html.replace(/<!-- -->/g, "");
 
-    expect(stripped).toContain("By Jane Doe · Market Wire");
-    expect(stripped).toContain("Telecom Daily");
-    expect(stripped).toContain("With no byline at all");
+    expect(stripped).not.toContain("Jane Doe");
+    expect(stripped).toMatch(
+      /<a[^>]*href="https:\/\/example\.com\/byline"[^>]*>\s*Market Wire\s*<svg/,
+    );
+    expect(stripped).toMatch(
+      /<a[^>]*href="https:\/\/example\.com\/source-only"[^>]*>\s*Telecom Daily\s*<svg/,
+    );
+    expect(stripped).toMatch(
+      /<a[^>]*href="https:\/\/example\.com\/no-byline"[^>]*>\s*<svg/,
+    );
   });
 
   it("renders each section description under its heading, only for sections present in the issue", async () => {
