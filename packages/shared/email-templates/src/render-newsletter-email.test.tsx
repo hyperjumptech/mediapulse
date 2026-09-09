@@ -49,7 +49,7 @@ describe("renderNewsletterEmail", () => {
       tickerSymbol: "AAPL",
     });
     // React Email inserts comment nodes between JSX expressions
-    expect(html).toMatch(/Unsubscribe from.*AAPL.*updates/i);
+    expect(html).toMatch(/Unsubscribe from.*MediaPulse: AAPL.*updates/i);
     expect(html).toContain("https://app.example.com/api/unsubscribe?token=abc");
   });
 
@@ -59,7 +59,21 @@ describe("renderNewsletterEmail", () => {
       bodyText: "B",
       unsubscribeUrl: "https://app.example.com/api/unsubscribe?token=abc",
     });
+
     expect(html).toMatch(/Unsubscribe from.*these.*updates/i);
+    expect(html).not.toMatch(/MediaPulse:/i);
+  });
+
+  it("omits the brand prefix when tickerSymbol is blank", async () => {
+    const { html } = await renderNewsletterEmail({
+      title: "T",
+      bodyText: "B",
+      unsubscribeUrl: "https://app.example.com/api/unsubscribe?token=abc",
+      tickerSymbol: "   ",
+    });
+
+    expect(html).toMatch(/Unsubscribe from.*these.*updates/i);
+    expect(html).not.toMatch(/MediaPulse:/i);
   });
 
   it("falls back to static render when stream render is unavailable", async () => {
@@ -788,7 +802,7 @@ describe("renderNewsletterEmail", () => {
     expect(html).toContain(
       "Anda menerima email ini karena Anda berlangganan pembaruan TLKM.",
     );
-    expect(html).toMatch(/Berhenti berlangganan pembaruan.*TLKM/i);
+    expect(html).toMatch(/Berhenti berlangganan pembaruan.*MediaPulse: TLKM/i);
     expect(text).toContain(
       "Anda menerima email ini karena Anda berlangganan pembaruan TLKM.",
     );
