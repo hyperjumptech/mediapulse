@@ -43,6 +43,11 @@ import {
   postPublisherAuthority,
   postPublisherAuthorityStale,
 } from "./routes/publisher-authority.js";
+import {
+  getPublishersUnresolved,
+  postPublisherNames,
+  postPublishersSeen,
+} from "./routes/publisher.js";
 import { getDataCollectionRecentSourceFingerprints } from "./routes/data-collection-recent-source-fingerprints.js";
 import { postDataCollectionCuratedListingQuery } from "./routes/data-collection-curated-listing-query.js";
 import {
@@ -219,6 +224,15 @@ const routeHandlers = {
   },
   publisherAuthority: {
     post: postPublisherAuthority,
+  },
+  publishersSeen: {
+    post: postPublishersSeen,
+  },
+  publishersUnresolved: {
+    get: getPublishersUnresolved,
+  },
+  publisherNames: {
+    post: postPublisherNames,
   },
   dataCollectionRecentSourceFingerprints: {
     get: getDataCollectionRecentSourceFingerprints,

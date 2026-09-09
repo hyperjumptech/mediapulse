@@ -35,6 +35,7 @@ import {
   createTitleDeduper,
   MIN_DESCRIPTION_CHARS,
   refreshPublisherAuthority,
+  reportSeenPublishers,
 } from "@workspace/agent-ingestion";
 import {
   performWebSearch,
@@ -628,6 +629,12 @@ export async function runDataCollection(
       }
     }
   }
+
+  await reportSeenPublishers({
+    domains: [...persistedDomains],
+    reportSeen: (body) => dataApiClient.publishersSeen.create(body),
+    logger: log,
+  });
 
   const publisherAuthority = await refreshPublisherAuthority({
     domains: [...persistedDomains],

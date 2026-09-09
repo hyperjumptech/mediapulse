@@ -6,8 +6,10 @@ import type {
 } from "@workspace/agent-data-api-contract";
 
 import type { Prisma } from "@mediapulse/database";
+import { sanitizePublisherDisplayName } from "@workspace/utils";
 
 import { flattenBulletsFromNewsletterDocument } from "../lib/flatten-newsletter-bullets.js";
+import { recordPublisherNames, upsertPublishersSeen } from "./publisher.js";
 import { parseProfileParties } from "./ticker-profile-parties.js";
 
 const MAX_RECENT_BULLETS = 200;
@@ -42,6 +44,31 @@ type ContentGenerationDb = {
   searchQuerySet: Pick<typeof prisma.searchQuerySet, "findFirst">;
   userTicker: Pick<typeof prisma.userTicker, "findMany">;
   domainAuthority: Pick<typeof prisma.domainAuthority, "findMany">;
+  publisher: Pick<
+    typeof prisma.publisher,
+    "findMany" | "create" | "update" | "updateMany"
+  >;
+};
+
+/**
+ * Picks the publisher name shown to readers, preferring the shared reference over the name the
+ * collection run derived from the URL.
+ *
+ * @param registrableDomain - The article's registrable domain, or `null` when it has none.
+ * @param collectedSource - Publisher name stored on the data source at collection time.
+ * @param publisherNameByDomain - Display names from the publisher reference, keyed by domain.
+ * @returns The name to render, or `null` when neither source has one.
+ */
+const resolvePublisherName = (
+  registrableDomain: string | null,
+  collectedSource: string | null,
+  publisherNameByDomain: Map<string, string>,
+): string | null => {
+  if (registrableDomain === null) {
+    return collectedSource;
+  }
+
+  return publisherNameByDomain.get(registrableDomain) ?? collectedSource;
 };
 
 /**
@@ -61,7 +88,11 @@ export const getDataSourcesForTicker = async (
   deps: {
     db?: Pick<
       ContentGenerationDb,
-      "dataSourceTickerSection" | "ticker" | "userTicker" | "domainAuthority"
+      | "dataSourceTickerSection"
+      | "ticker"
+      | "userTicker"
+      | "domainAuthority"
+      | "publisher"
     >;
     now?: () => Date;
   } = {},
@@ -126,6 +157,16 @@ export const getDataSourcesForTicker = async (
   const authorityByDomain = new Map(
     authorityRows.map((row) => [row.domain, row.openPageRank]),
   );
+  const publisherRows =
+    registrableDomains.length === 0
+      ? []
+      : await db.publisher.findMany({
+          where: { domain: { in: registrableDomains } },
+          select: { domain: true, displayName: true },
+        } satisfies Prisma.PublisherFindManyArgs);
+  const publisherNameByDomain = new Map(
+    publisherRows.map((row) => [row.domain, row.displayName]),
+  );
 
   const dataSources = sectionRows.map((row) => ({
     dataSourceId: row.dataSource.id,
@@ -134,7 +175,11 @@ export const getDataSourcesForTicker = async (
     description: row.dataSource.description,
     content: row.dataSource.content,
     author: row.dataSource.author,
-    source: row.dataSource.source,
+    source: resolvePublisherName(
+      row.dataSource.registrableDomain,
+      row.dataSource.source,
+      publisherNameByDomain,
+    ),
     registrableDomain: row.dataSource.registrableDomain,
     publisherAuthority:
       row.dataSource.registrableDomain === null
@@ -222,24 +267,30 @@ export const createNewsletter = async (
 export const updateFetchedContent = async (
   items: PostContentGenerationFetchedContentBody,
   deps: {
-    db?: Pick<ContentGenerationDb, "dataSource">;
+    db?: Pick<ContentGenerationDb, "dataSource" | "publisher">;
     now?: () => Date;
   } = {},
 ): Promise<{ updatedCount: number }> => {
   const { db = prisma, now = () => new Date() } = deps;
   const fetchedAt = now();
+  const siteNameByDomain = new Map<string, string>();
   let updatedCount = 0;
 
   for (const item of items) {
     try {
-      await db.dataSource.update({
+      const updated = await db.dataSource.update({
         where: { id: item.dataSourceId },
         data: {
           content: item.content,
           fetchedAt,
           fetchProvider: item.fetchProvider,
         },
+        select: { registrableDomain: true },
       } satisfies Prisma.DataSourceUpdateArgs);
+      const siteName = sanitizePublisherDisplayName(item.source);
+      if (updated.registrableDomain !== null && siteName.length > 0) {
+        siteNameByDomain.set(updated.registrableDomain, siteName);
+      }
       if (item.publishedAt !== undefined) {
         await db.dataSource.updateMany({
           where: { id: item.dataSourceId, publishedAt: null },
@@ -251,6 +302,30 @@ export const updateFetchedContent = async (
       logger.warn(
         { dataSourceId: item.dataSourceId, err: error },
         "Failed to persist fetched content for data source",
+      );
+    }
+  }
+
+  if (siteNameByDomain.size > 0) {
+    const publishers = [...siteNameByDomain].map(([domain, displayName]) => ({
+      domain,
+      displayName,
+    }));
+    try {
+      // A domain first seen by page-collection or an older run may have no reference row yet, so
+      // it is seeded before the name is promoted above the derived fallback.
+      await upsertPublishersSeen(publishers, { publisher: db.publisher });
+      await recordPublisherNames(
+        publishers.map((publisher) => ({
+          ...publisher,
+          nameSource: "site_metadata" as const,
+        })),
+        { publisher: db.publisher },
+      );
+    } catch (error) {
+      logger.warn(
+        { err: error },
+        "Failed to record publisher names from site metadata",
       );
     }
   }

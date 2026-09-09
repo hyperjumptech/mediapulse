@@ -35,6 +35,7 @@ import {
   isFresh,
   extractDateFromUrl,
   refreshPublisherAuthority,
+  reportSeenPublishers,
 } from "@workspace/agent-ingestion";
 import {
   classifyNoisyUrl,
@@ -564,10 +565,18 @@ async function executePageCollectionRun(
     persistedCount += result.persistedCount;
   }
 
+  const persistedDomains = sourcesToPersist.map((source) =>
+    deriveRegistrableDomain(source.publisherUrl ?? source.url),
+  );
+
+  await reportSeenPublishers({
+    domains: persistedDomains,
+    reportSeen: (body) => dataApiClient.publishersSeen.create(body),
+    logger: log,
+  });
+
   const publisherAuthority = await refreshPublisherAuthority({
-    domains: sourcesToPersist.map((source) =>
-      deriveRegistrableDomain(source.publisherUrl ?? source.url),
-    ),
+    domains: persistedDomains,
     apiKey: config.publisher_authority.apiKey,
     ttlDays: config.publisher_authority.ttlDays,
     lookupStale: (body) => dataApiClient.publisherAuthorityStale.create(body),

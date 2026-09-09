@@ -72,6 +72,8 @@ export const contentGenerationFetchedContentItemSchema = z.object({
   content: z.string().min(1),
   fetchProvider: z.string().min(1),
   publishedAt: z.string().datetime().optional(),
+  /** Publisher name the fetch provider read from `og:site_name` or its own site metadata. */
+  source: z.string().trim().min(1).optional(),
 });
 
 export const postContentGenerationFetchedContentBodySchema = z

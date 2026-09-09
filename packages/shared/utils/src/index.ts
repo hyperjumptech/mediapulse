@@ -40,6 +40,10 @@ export { buildVCard } from "./build-vcard.js";
 export { derivePublisherFromUrl } from "./derive-publisher-from-url.js";
 export { deriveRegistrableDomain } from "./derive-registrable-domain.js";
 export {
+  publisherNameMatchesDomain,
+  sanitizePublisherDisplayName,
+} from "./publisher-display-name.js";
+export {
   MEDIAPULSE_SENDER_NAME,
   formatResendSender,
 } from "./format-resend-sender.js";

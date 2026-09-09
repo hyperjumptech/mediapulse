@@ -24,6 +24,7 @@
     "generate": "prisma generate",
     "lint": "eslint \"src/**/*.ts\" \"scripts/**/*.ts\"",
     "backfill-registrable-domain": "tsx scripts/backfill-data-source-registrable-domain.ts",
+    "seed-publishers": "tsx scripts/seed-publishers-from-data-sources.ts",
     "seed-data-collection-local": "tsx scripts/seed-data-collection-local.ts",
     "studio": "prisma studio",
     "test": "vitest run",

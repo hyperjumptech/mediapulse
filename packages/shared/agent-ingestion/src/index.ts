@@ -114,6 +114,12 @@ export {
   type RefreshPublisherAuthorityOptions,
   type RefreshPublisherAuthorityResult,
 } from "./publisher-authority/refresh-publisher-authority";
+export {
+  reportSeenPublishers,
+  type ReportPublishersSeen,
+  type ReportSeenPublishersOptions,
+  type ReportSeenPublishersResult,
+} from "./publisher-authority/report-seen-publishers";
 
 export {
   resolveExistingDataSourceUrls,
