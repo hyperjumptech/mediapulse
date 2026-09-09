@@ -159,6 +159,8 @@ const ARTICLE_SOURCE_LINK_CLASS_NAME = "e-faint text-faint no-underline";
 
 const ARTICLE_LINK_ICON_SIZE = 14;
 
+const MEDIAPULSE_BRAND_NAME = "MediaPulse";
+
 /** Newsletter footer language. Alias of the shared {@link EmailLanguage}. */
 export type FooterLanguage = EmailLanguage;
 
@@ -281,7 +283,11 @@ export const DefaultNewsletterEmail = ({
   const copy = FOOTER_COPY[language];
   const resolvedFooterNote =
     footerNote ?? buildDefaultFooterNote(tickerSymbol, language);
-  const unsubscribeTarget = tickerSymbol ?? copy.unsubscribeFallback;
+  const trimmedTicker = tickerSymbol?.trim() ?? "";
+  const unsubscribeTarget =
+    trimmedTicker.length > 0
+      ? `${MEDIAPULSE_BRAND_NAME}: ${trimmedTicker}`
+      : copy.unsubscribeFallback;
 
   const renderArticle = (
     article: NewsletterArticle,
