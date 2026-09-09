@@ -296,7 +296,7 @@ export const DefaultNewsletterEmail = ({
         <Text className="e-ink m-0 mb-1 text-[17px] font-semibold leading-snug text-ink">
           {article.title}
         </Text>
-        <Text className="e-faint m-0 mb-3 text-xs font-normal uppercase leading-normal tracking-[0.04em] text-faint">
+        <Text className="e-faint m-0 mb-3 text-xs font-normal leading-normal tracking-[0.01em] text-faint">
           <Link
             href={article.url}
             className={ARTICLE_SOURCE_LINK_CLASS_NAME}
