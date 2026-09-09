@@ -222,20 +222,6 @@ const FOOTER_COPY: Record<FooterLanguage, FooterCopy> = {
 };
 
 /**
- * Builds the plain-text part of the byline that precedes the linked source.
- *
- * @param byline - Optional author for the article.
- * @returns `By {author}` when an author exists, otherwise `undefined`.
- */
-export const formatArticleBylinePrefix = (byline: {
-  author?: string;
-}): string | undefined => {
-  const author = byline.author?.trim() ?? "";
-
-  return author.length > 0 ? `By ${author}` : undefined;
-};
-
-/**
  * Renders a section header as the canonical section label.
  *
  * @param sectionKey - Canonical section key.
@@ -329,11 +315,7 @@ export const DefaultNewsletterEmail = ({
     articleIndex: number,
     isLast: boolean,
   ): ReactElement => {
-    const authorPrefix = formatArticleBylinePrefix(article);
     const source = article.source?.trim() ?? "";
-    const prefixSeparator = source.length > 0 ? " · " : " ";
-    const bylinePrefix =
-      authorPrefix === undefined ? "" : `${authorPrefix}${prefixSeparator}`;
 
     return (
       <Section key={`${sectionKey}-a-${String(articleIndex)}`}>
@@ -341,7 +323,6 @@ export const DefaultNewsletterEmail = ({
           {article.title}
         </Text>
         <Text className="e-faint m-0 mb-3 text-xs font-normal uppercase leading-normal tracking-[0.04em] text-faint">
-          {bylinePrefix.length > 0 ? bylinePrefix : null}
           <Link
             href={article.url}
             className={ARTICLE_SOURCE_LINK_CLASS_NAME}

@@ -179,7 +179,7 @@ importers:
     devDependencies:
       '@types/bun':
         specifier: latest
-        version: 1.4.2
+        version: 1.3.14
       dotenv-cli:
         specifier: 'catalog:'
         version: 7.4.4
@@ -222,7 +222,7 @@ importers:
     devDependencies:
       '@types/bun':
         specifier: latest
-        version: 1.4.2
+        version: 1.3.14
       dotenv-cli:
         specifier: 'catalog:'
         version: 7.4.4
@@ -413,7 +413,7 @@ importers:
     devDependencies:
       '@types/bun':
         specifier: latest
-        version: 1.4.2
+        version: 1.3.14
       '@workspace/eslint-config':
         specifier: workspace:^
         version: link:../../../packages/shared/eslint-config
@@ -480,7 +480,7 @@ importers:
     devDependencies:
       '@types/bun':
         specifier: latest
-        version: 1.4.2
+        version: 1.3.14
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../../packages/shared/typescript-config
@@ -541,7 +541,7 @@ importers:
     devDependencies:
       '@types/bun':
         specifier: latest
-        version: 1.4.2
+        version: 1.3.14
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../../../packages/shared/typescript-config
@@ -617,7 +617,7 @@ importers:
     devDependencies:
       '@types/bun':
         specifier: latest
-        version: 1.4.2
+        version: 1.3.14
       '@workspace/email-templates':
         specifier: workspace:*
         version: link:../../../../packages/shared/email-templates
@@ -684,7 +684,7 @@ importers:
     devDependencies:
       '@types/bun':
         specifier: latest
-        version: 1.4.2
+        version: 1.3.14
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../../../packages/shared/typescript-config
@@ -745,7 +745,7 @@ importers:
     devDependencies:
       '@types/bun':
         specifier: latest
-        version: 1.4.2
+        version: 1.3.14
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../../../packages/shared/typescript-config
@@ -797,7 +797,7 @@ importers:
     devDependencies:
       '@types/bun':
         specifier: latest
-        version: 1.4.2
+        version: 1.3.14
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../../../packages/shared/typescript-config
@@ -858,7 +858,7 @@ importers:
     devDependencies:
       '@types/bun':
         specifier: latest
-        version: 1.4.2
+        version: 1.3.14
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../../../packages/shared/typescript-config
@@ -910,7 +910,7 @@ importers:
     devDependencies:
       '@types/bun':
         specifier: latest
-        version: 1.4.2
+        version: 1.3.14
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../../../packages/shared/typescript-config
@@ -965,7 +965,7 @@ importers:
     devDependencies:
       '@types/bun':
         specifier: latest
-        version: 1.4.2
+        version: 1.3.14
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../../../packages/shared/typescript-config
@@ -1008,7 +1008,7 @@ importers:
     devDependencies:
       '@types/bun':
         specifier: latest
-        version: 1.4.2
+        version: 1.3.14
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../../../packages/shared/typescript-config
@@ -1066,7 +1066,7 @@ importers:
     devDependencies:
       '@types/bun':
         specifier: latest
-        version: 1.4.2
+        version: 1.3.14
       '@workspace/typescript-config':
         specifier: workspace:*
         version: link:../../../../packages/shared/typescript-config
@@ -1136,7 +1136,7 @@ importers:
         version: 7.2.0-4.0c8ef2ce45c83248ab3df073180d5eda9e8be7a3
       '@types/bun':
         specifier: latest
-        version: 1.4.2
+        version: 1.3.14
       '@workspace/eslint-config':
         specifier: workspace:^
         version: link:../../../packages/shared/eslint-config
@@ -5556,8 +5556,8 @@ packages:
   '@types/bcrypt@6.0.0':
     resolution: {integrity: sha512-/oJGukuH3D2+D+3H4JWLaAsJ/ji86dhRidzZ/Od7H/i8g+aCmvkeCc6Ni/f9uxGLSQVCRZkX2/lqEFG2BvWtlQ==}
 
-  '@types/bun@1.4.2':
-    resolution: {integrity: sha512-GimotNn7+ZV0uVArItBbriZsR1oNf0+WTzPkdcFrzShI7k2norL0uzEaJT8T33dWr7O/c9ZDuAFQrctKCi72oQ==}
+  '@types/bun@1.3.14':
+    resolution: {integrity: sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw==}
 
   '@types/cacheable-request@6.0.3':
     resolution: {integrity: sha512-IQ3EbTzGxIigb1I3qPZc1rWJnH0BmSKv5QYTalEwweFvyBDLSAe24zP0le/hyi7ecGfZVlIVAg4BZqb8WBwKqw==}
@@ -6197,8 +6197,8 @@ packages:
   builtins@5.1.0:
     resolution: {integrity: sha512-SW9lzGTLvWTP1AY8xeAMZimqDrIaSdLQUcVr9DMef51niJ022Ri87SwRRKYm4A6iHfkPaiVUu/Duw2Wc4J7kKg==}
 
-  bun-types@1.4.2:
-    resolution: {integrity: sha512-bxV1FgK7yBIzjRe5zBozIM4Bem11ZJcCXSrjWRG3YWLt8yFDePu4cLjpebO8OvPeIE9trbyPF4fuj3Cia4Fj3w==}
+  bun-types@1.3.14:
+    resolution: {integrity: sha512-4N0ig0fEomHt5R0KCFWjovxow98rIoRwKolrYdCcknNwMekCXRnWEUvgu5soYV8QXtVsrUD8B95MBOZGPvr6KQ==}
 
   bundle-name@4.1.0:
     resolution: {integrity: sha512-tjwM5exMg6BGRI+kNmTntNsvdZS1X8BFYS6tnJ2hdH0kVxM6/eVZ2xy+FqStSWvYmtfFMDLIxurorHwDKfDz5Q==}
@@ -14502,9 +14502,9 @@ snapshots:
     dependencies:
       '@types/node': 25.2.3
 
-  '@types/bun@1.4.2':
+  '@types/bun@1.3.14':
     dependencies:
-      bun-types: 1.4.2
+      bun-types: 1.3.14
 
   '@types/cacheable-request@6.0.3':
     dependencies:
@@ -15342,7 +15342,7 @@ snapshots:
     dependencies:
       semver: 7.7.4
 
-  bun-types@1.4.2:
+  bun-types@1.3.14:
     dependencies:
       '@types/node': 25.2.3
 

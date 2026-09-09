@@ -630,7 +630,7 @@ describe("renderNewsletterEmail", () => {
     expect(stripped).toContain("Third point.");
   });
 
-  it("renders a byline from the article author and source", async () => {
+  it("renders the source as the byline and ignores the author", async () => {
     // Setup
     const industryBody = buildDocumentBody([
       {
@@ -667,7 +667,7 @@ describe("renderNewsletterEmail", () => {
     // Assert
     const stripped = html.replace(/<!-- -->/g, "");
 
-    expect(stripped).toContain("By Jane Doe ·");
+    expect(stripped).not.toContain("Jane Doe");
     expect(stripped).toMatch(
       /<a[^>]*href="https:\/\/example\.com\/byline"[^>]*>\s*Market Wire\s*<svg/,
     );
