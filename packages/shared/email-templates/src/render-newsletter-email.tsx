@@ -21,8 +21,6 @@ export type RenderNewsletterEmailInput =
   | ({ variant?: "default" } & DefaultNewsletterEmailProps & {
         unsubscribeUrl?: string;
         tickerSymbol?: string;
-        mediapulseSiteUrl?: string;
-        hyperjumpSiteUrl?: string;
         language?: "en" | "id";
       })
   | ({
@@ -91,8 +89,6 @@ function newsletterElementForVariant(
           footerNote={input.footerNote}
           unsubscribeUrl={input.unsubscribeUrl}
           tickerSymbol={input.tickerSymbol}
-          mediapulseSiteUrl={input.mediapulseSiteUrl}
-          hyperjumpSiteUrl={input.hyperjumpSiteUrl}
           language={input.language}
         />
       );

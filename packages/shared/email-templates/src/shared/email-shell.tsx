@@ -13,14 +13,8 @@ import {
 } from "@react-email/components";
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 
-/** Languages the shared email chrome (branding line) is translated into. */
+/** Languages the shared email chrome is translated into. */
 export type EmailLanguage = "en" | "id";
-
-/** Default Mediapulse marketing site link used for previews and when config omits the URL. */
-export const DEFAULT_MEDIAPULSE_SITE_URL = "https://mediapulse.hyperjump.tech";
-
-/** Default Hyperjump marketing site link used for previews and when config omits the URL. */
-export const DEFAULT_HYPERJUMP_SITE_URL = "https://hyperjump.tech";
 
 /** Brand link color, shared by the Tailwind palette and inline link styles. */
 const BRAND_BLUE = "#2563eb";
@@ -126,15 +120,6 @@ const EMAIL_CARD_STYLE = [
   "}",
 ].join("");
 
-/** Branding line copy, split around the Mediapulse and Hyperjump links. */
-const BRANDING_COPY: Record<
-  EmailLanguage,
-  { prefix: string; middle: string; suffix: string }
-> = {
-  en: { prefix: "Brought to you by ", middle: ", a product of ", suffix: "." },
-  id: { prefix: "Dipersembahkan oleh ", middle: ", produk dari ", suffix: "." },
-};
-
 /** Shared heading style used for the title of every email. */
 export const emailHeadingClassName =
   "e-ink m-0 mb-2 text-2xl font-semibold leading-tight text-ink";
@@ -165,20 +150,14 @@ export interface EmailShellProps {
   preview: string;
   /** Card body content. */
   children: ReactNode;
-  /** Branding line language. Defaults to "en". */
-  language?: EmailLanguage;
-  /** HTTPS URL for the Mediapulse footer link. */
-  mediapulseSiteUrl?: string;
-  /** HTTPS URL for the Hyperjump footer link. */
-  hyperjumpSiteUrl?: string;
-  /** Footer lines shown below the branding line. */
+  /** Footer lines shown in the centered footer. */
   footer?: EmailFooterContent;
 }
 
 /**
  * Shared layout for every Mediapulse email: a paper-stack white card holding the
- * `children`, with a centered footer rendered outside the card. The branding
- * line is localized; templates pass their own footer lines.
+ * `children`, with a centered footer rendered outside the card. Templates pass
+ * their own footer lines.
  *
  * @param props - See {@link EmailShellProps}.
  * @returns The email document tree.
@@ -186,13 +165,8 @@ export interface EmailShellProps {
 export const EmailShell = ({
   preview,
   children,
-  language = "en",
-  mediapulseSiteUrl = DEFAULT_MEDIAPULSE_SITE_URL,
-  hyperjumpSiteUrl = DEFAULT_HYPERJUMP_SITE_URL,
   footer,
 }: EmailShellProps): ReactElement => {
-  const branding = BRANDING_COPY[language];
-
   return (
     <Html>
       <Tailwind config={emailTailwindConfig}>
@@ -210,19 +184,8 @@ export const EmailShell = ({
             {children}
           </Container>
           <Container className="mx-auto max-w-[650px] px-6 pb-8 text-center">
-            <Text className="e-body m-0 mb-2 text-center text-[13px] leading-normal text-body">
-              {branding.prefix}
-              <Link href={mediapulseSiteUrl} className={emailLinkClassName}>
-                MediaPulse
-              </Link>
-              {branding.middle}
-              <Link href={hyperjumpSiteUrl} className={emailLinkClassName}>
-                Hyperjump
-              </Link>
-              {branding.suffix}
-            </Text>
             {footer?.feedback !== undefined ? (
-              <Text className="e-muted m-0 mb-2 text-center text-xs leading-normal text-muted">
+              <Text className="e-body m-0 mb-2 text-center text-[13px] leading-normal text-body">
                 {footer.feedback}
               </Text>
             ) : null}

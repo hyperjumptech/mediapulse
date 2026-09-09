@@ -10,8 +10,6 @@ import type {
 } from "./newsletter-document.js";
 import { renderInlineMarkdownLinks } from "./render-inline-markdown-links.js";
 import {
-  DEFAULT_HYPERJUMP_SITE_URL,
-  DEFAULT_MEDIAPULSE_SITE_URL,
   EmailHeading,
   EmailShell,
   emailLink as link,
@@ -40,32 +38,13 @@ export interface DefaultNewsletterEmailProps {
    */
   tickerSymbol?: string;
   /**
-   * Absolute HTTPS URL for the Mediapulse marketing site, used in the footer
-   * branding section. Defaults to the public Mediapulse site so previews and
-   * standalone renders stay correct; delivery passes operator-configured
-   * values from Hermes when available.
-   */
-  mediapulseSiteUrl?: string;
-  /**
-   * Absolute HTTPS URL for the Hyperjump marketing site, used in the footer
-   * branding section. Defaults to the public Hyperjump site so previews and
-   * standalone renders stay correct; delivery passes operator-configured
-   * values from Hermes when available.
-   */
-  hyperjumpSiteUrl?: string;
-  /**
    * Footer chrome language. The newsletter body is translated upstream
    * (NewsletterTranslation); this only localizes the static footer strings
-   * (branding line, feedback line, subscription note, unsubscribe label).
+   * (feedback line, subscription note, unsubscribe label).
    * Defaults to "en".
    */
   language?: FooterLanguage;
 }
-
-export {
-  DEFAULT_MEDIAPULSE_SITE_URL,
-  DEFAULT_HYPERJUMP_SITE_URL,
-} from "../shared/email-shell.js";
 
 /** Reader-facing name and remit of one newsletter section. */
 interface SectionCopy {
@@ -281,16 +260,13 @@ export const buildDefaultFooterNote = (
  *
  * Industry briefings omit the body title and render every section, Industry Pulse
  * included, as a block under its canonical section label, and close with a glossary
- * box defining those labels. The footer carries a
- * Mediapulse / Hyperjump branding block directly above the subscription disclaimer.
+ * box defining those labels.
  *
  * @param props.title - Heading text in the body.
  * @param props.bodyText - Main content; structured plain text or free-form.
  * @param props.footerNote - Optional footer copy.
  * @param props.unsubscribeUrl - Optional URL for the one-click unsubscribe link.
  * @param props.tickerSymbol - Ticker symbol used in the footer and unsubscribe link.
- * @param props.mediapulseSiteUrl - HTTPS URL for the Mediapulse footer link.
- * @param props.hyperjumpSiteUrl - HTTPS URL for the Hyperjump footer link.
  * @returns React Email document tree.
  */
 export const DefaultNewsletterEmail = ({
@@ -299,8 +275,6 @@ export const DefaultNewsletterEmail = ({
   footerNote,
   unsubscribeUrl,
   tickerSymbol,
-  mediapulseSiteUrl = DEFAULT_MEDIAPULSE_SITE_URL,
-  hyperjumpSiteUrl = DEFAULT_HYPERJUMP_SITE_URL,
   language = "en",
 }: DefaultNewsletterEmailProps): ReactElement => {
   const document = parseNewsletterBody(bodyText);
@@ -376,9 +350,6 @@ export const DefaultNewsletterEmail = ({
   return (
     <EmailShell
       preview={title}
-      language={language}
-      mediapulseSiteUrl={mediapulseSiteUrl}
-      hyperjumpSiteUrl={hyperjumpSiteUrl}
       footer={{
         feedback: copy.feedback,
         note: resolvedFooterNote,
@@ -566,6 +537,4 @@ export const NEWSLETTER_PREVIEW_PROPS = {
   }),
   unsubscribeUrl: "https://example.com/api/unsubscribe?token=preview",
   tickerSymbol: "ACME",
-  mediapulseSiteUrl: DEFAULT_MEDIAPULSE_SITE_URL,
-  hyperjumpSiteUrl: DEFAULT_HYPERJUMP_SITE_URL,
 } satisfies DefaultNewsletterEmailProps;
