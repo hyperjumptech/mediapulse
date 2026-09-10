@@ -1,5 +1,4 @@
 import { Heading, Hr, Link, Section, Text } from "@react-email/components";
-import { ExternalLink } from "lucide-react";
 import { Fragment, type ReactElement } from "react";
 
 import { parseNewsletterBody } from "./parse-newsletter-body.js";
@@ -143,8 +142,9 @@ export const SECTION_COPY: Record<
 /**
  * Accessible name for an article's source link, keyed by language.
  *
- * The link shows the source name and an external-link icon, so this text is carried on the
- * anchor's `title` and `aria-label` instead of being shown.
+ * The link shows the source name when the article has one, so this text is carried on the
+ * anchor's `title` and `aria-label`. It becomes the visible link text only when the source
+ * name is missing.
  *
  * - Important: reads the same as content-generation's `READ_FULL_ARTICLE_LABEL`, the wire-format
  *   marker the parser strips before rendering. A leaked marker is still detectable because it
@@ -155,9 +155,8 @@ const ARTICLE_LINK_LABEL: Record<FooterLanguage, string> = {
   id: "Baca artikel selengkapnya…",
 };
 
-const ARTICLE_SOURCE_LINK_CLASS_NAME = "e-faint text-faint no-underline";
-
-const ARTICLE_LINK_ICON_SIZE = 14;
+const ARTICLE_SOURCE_LINK_CLASS_NAME =
+  "e-faint text-faint underline decoration-[0.5px] underline-offset-2";
 
 const MEDIAPULSE_BRAND_NAME = "MediaPulse";
 
@@ -309,11 +308,7 @@ export const DefaultNewsletterEmail = ({
             title={ARTICLE_LINK_LABEL[language]}
             aria-label={ARTICLE_LINK_LABEL[language]}
           >
-            {source.length > 0 ? `${source} ` : null}
-            <ExternalLink
-              size={ARTICLE_LINK_ICON_SIZE}
-              style={{ display: "inline-block", verticalAlign: "-2px" }}
-            />
+            {source.length > 0 ? source : ARTICLE_LINK_LABEL[language]}
           </Link>
         </Text>
         <ul className="e-body m-0 mb-0 list-disc pl-5 text-[15px] leading-[1.65] text-body">
