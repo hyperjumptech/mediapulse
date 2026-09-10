@@ -1,6 +1,12 @@
 import type { QueryAnalysisIntent } from "./query-analysis.js";
 
-/** Canonical newsletter sections in display order. */
+/**
+ * Canonical newsletter sections in display order.
+ *
+ * - Important: `label` is interpolated into the article-analysis and content-generation prompts,
+ *   so changing it re-runs classification and moves the prompt hash. Operator- and reader-facing
+ *   surfaces read {@link NEWSLETTER_SECTION_DISPLAY_LABEL_BY_ID} instead, which is free to change.
+ */
 export const MEDIAPULSE_NEWSLETTER_SECTIONS = [
   {
     id: "industryPulse",
@@ -54,6 +60,36 @@ export const MEDIAPULSE_NEWSLETTER_SECTIONS = [
 
 export type NewsletterSectionId =
   (typeof MEDIAPULSE_NEWSLETTER_SECTIONS)[number]["id"];
+
+/**
+ * Reader- and operator-facing section names, keyed by section id.
+ *
+ * Kept apart from each section's `label` because that value reaches the model prompts. A name
+ * here can be reworded whenever the newsletter's copy changes, with no effect on routing.
+ */
+export const NEWSLETTER_SECTION_DISPLAY_LABEL_BY_ID: Record<
+  NewsletterSectionId,
+  string
+> = {
+  industryPulse: "Industry Pulse",
+  issuerPerformance: "Issuer Performance",
+  issuerNews: "Issuer News",
+  competitiveLandscape: "Competitive Landscape",
+  dealsAndMovements: "Corporate Actions",
+  regulatoryPolicyWatch: "Regulatory & Policy Watch",
+  disruptorsOrTech: "Technology & Innovation",
+  quickHits: "Quick Hits",
+};
+
+/**
+ * Resolves a section id to its display name.
+ *
+ * @param sectionId - Section id from article-analysis or a persisted newsletter section.
+ * @returns The display name, or the id itself when it is not a canonical section.
+ */
+export const newsletterSectionDisplayLabel = (sectionId: string): string =>
+  NEWSLETTER_SECTION_DISPLAY_LABEL_BY_ID[sectionId as NewsletterSectionId] ??
+  sectionId;
 
 /** Ordered list of all newsletter section ids — use this wherever a section list is needed. */
 export const NEWSLETTER_SECTION_IDS: readonly NewsletterSectionId[] =

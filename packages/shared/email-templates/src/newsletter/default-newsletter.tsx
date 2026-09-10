@@ -2,10 +2,11 @@ import { Heading, Hr, Link, Section, Text } from "@react-email/components";
 import { Fragment, type ReactElement } from "react";
 
 import { parseNewsletterBody } from "./parse-newsletter-body.js";
-import type {
-  NewsletterArticle,
-  NewsletterSection,
-  NewsletterSectionKey,
+import {
+  NEWSLETTER_SECTION_KEYS,
+  type NewsletterArticle,
+  type NewsletterSection,
+  type NewsletterSectionKey,
 } from "./newsletter-document.js";
 import { renderInlineMarkdownLinks } from "./render-inline-markdown-links.js";
 import {
@@ -82,18 +83,17 @@ export const SECTION_COPY: Record<
       description: "The rivals gaining ground, and the ones falling behind.",
     },
     "deals-and-movements": {
-      label: "Deals & Movements",
-      description:
-        "The deals, funding, and leadership changes reshaping companies.",
+      label: "Corporate Actions",
+      description: "Ownership, capital, and leadership changes at companies.",
     },
     "regulatory-policy-watch": {
       label: "Regulatory & Policy Watch",
       description: "The rules and decisions changing what companies can do.",
     },
     "disruptors-or-tech": {
-      label: "Disruptors & Tech",
+      label: "Technology & Innovation",
       description:
-        "The technology and new entrants changing how the sector works.",
+        "Technology being deployed in the sector, and what it changes.",
     },
     "quick-hits": {
       label: "Quick Hits",
@@ -120,17 +120,15 @@ export const SECTION_COPY: Record<
     },
     "deals-and-movements": {
       label: "Aksi Korporasi",
-      description:
-        "Transaksi dan pergantian pemimpin yang menggerakkan perusahaan.",
+      description: "Perubahan kepemilikan, modal, dan kepemimpinan perusahaan.",
     },
     "regulatory-policy-watch": {
       label: "Pantauan Regulasi",
       description: "Aturan dan keputusan yang mengubah ruang gerak perusahaan.",
     },
     "disruptors-or-tech": {
-      label: "Disrupsi & Teknologi",
-      description:
-        "Teknologi dan pemain baru yang mengubah cara kerja industri.",
+      label: "Teknologi & Inovasi",
+      description: "Teknologi yang mulai diterapkan di industri dan dampaknya.",
     },
     "quick-hits": {
       label: "Sekilas Info",
@@ -237,6 +235,78 @@ export const renderSectionHeader = (
  */
 export const hasRenderableContent = (section: NewsletterSection): boolean =>
   section.articles.some((article) => article.points.length > 0);
+
+/** Fewest articles a section may carry before it is folded into Quick Hits. */
+export const MIN_SECTION_ARTICLES = 2;
+
+const QUICK_HITS_KEY: NewsletterSectionKey = "quick-hits";
+
+/**
+ * Folds sections carrying fewer than {@link MIN_SECTION_ARTICLES} articles into Quick Hits.
+ *
+ * - Important: this is a presentation rule only. The stored document and the persisted
+ *   `NewsletterSectionItem` rows keep each article under the section that routed it, so
+ *   provenance and section-level observability are unaffected by what the reader sees.
+ *
+ * @param sections - Sections in canonical display order.
+ * @returns Sections in canonical display order, with thin ones merged into Quick Hits.
+ */
+export const foldThinSectionsIntoQuickHits = (
+  sections: NewsletterSection[],
+): NewsletterSection[] => {
+  const kept: NewsletterSection[] = [];
+  const foldedArticles: NewsletterArticle[] = [];
+
+  for (const section of sections) {
+    const renderableArticles = section.articles.filter(
+      (article) => article.points.length > 0,
+    );
+
+    if (renderableArticles.length === 0) {
+      continue;
+    }
+
+    if (
+      section.key === QUICK_HITS_KEY ||
+      renderableArticles.length >= MIN_SECTION_ARTICLES
+    ) {
+      kept.push({ ...section, articles: renderableArticles });
+
+      continue;
+    }
+
+    foldedArticles.push(...renderableArticles);
+  }
+
+  if (foldedArticles.length === 0) {
+    return kept;
+  }
+
+  const quickHitsIndex = kept.findIndex(
+    (section) => section.key === QUICK_HITS_KEY,
+  );
+
+  if (quickHitsIndex === -1) {
+    kept.push({ key: QUICK_HITS_KEY, articles: foldedArticles });
+  } else {
+    const quickHits = kept[quickHitsIndex];
+
+    if (quickHits === undefined) {
+      throw new Error("Quick Hits section index resolved to no section");
+    }
+
+    kept[quickHitsIndex] = {
+      ...quickHits,
+      articles: [...quickHits.articles, ...foldedArticles],
+    };
+  }
+
+  return kept.sort(
+    (first, second) =>
+      NEWSLETTER_SECTION_KEYS.indexOf(first.key) -
+      NEWSLETTER_SECTION_KEYS.indexOf(second.key),
+  );
+};
 
 /**
  * Builds the default subscription footer when no explicit `footerNote` is passed.
@@ -345,8 +415,9 @@ export const DefaultNewsletterEmail = ({
   );
 
   const isIndustryFormat = document !== undefined;
-  const industryBodySections =
-    document?.sections.filter(hasRenderableContent) ?? [];
+  const industryBodySections = foldThinSectionsIntoQuickHits(
+    document?.sections ?? [],
+  );
 
   return (
     <EmailShell
