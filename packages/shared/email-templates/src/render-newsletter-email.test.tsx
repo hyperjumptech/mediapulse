@@ -243,7 +243,7 @@ describe("renderNewsletterEmail", () => {
     expect(text).toContain("https://lead.example/article");
   });
 
-  it("links the source name and an external-link icon to the article", async () => {
+  it("underlines the source name thinly as the article link", async () => {
     // Setup
     const industryBody = buildDocumentBody([
       {
@@ -269,12 +269,19 @@ describe("renderNewsletterEmail", () => {
     const stripped = html.replace(/<!-- -->/g, "");
 
     const sourceAnchor =
-      /<a[^>]*href="https:\/\/lead\.example\/article"[^>]*>\s*Warta Ekonomi\s*<svg[^>]*>.*?<\/svg>\s*<\/a>/s;
+      /<a[^>]*href="https:\/\/lead\.example\/article"[^>]*>\s*Warta Ekonomi\s*<\/a>/;
+    const underlinedSourceAnchor =
+      /<a[^>]*href="https:\/\/lead\.example\/article"[^>]*text-decoration(?:-line)?:\s*underline/;
+    const thinUnderlineSourceAnchor =
+      /<a[^>]*href="https:\/\/lead\.example\/article"[^>]*text-decoration-thickness:\s*0\.5px/;
+    const offsetUnderlineSourceAnchor =
+      /<a[^>]*href="https:\/\/lead\.example\/article"[^>]*text-underline-offset:\s*2px/;
 
     expect(stripped).toMatch(sourceAnchor);
-    expect(stripped).toMatch(
-      /<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/,
-    );
+    expect(stripped).toMatch(underlinedSourceAnchor);
+    expect(stripped).toMatch(thinUnderlineSourceAnchor);
+    expect(stripped).toMatch(offsetUnderlineSourceAnchor);
+    expect(stripped).not.toContain("<svg");
     expect(stripped).not.toMatch(/>\s*Read the full article[^<]*<\/a>/);
   });
 
@@ -569,13 +576,13 @@ describe("renderNewsletterEmail", () => {
 
     expect(stripped).not.toContain("Jane Doe");
     expect(stripped).toMatch(
-      /<a[^>]*href="https:\/\/example\.com\/byline"[^>]*>\s*Market Wire\s*<svg/,
+      /<a[^>]*href="https:\/\/example\.com\/byline"[^>]*>\s*Market Wire\s*<\/a>/,
     );
     expect(stripped).toMatch(
-      /<a[^>]*href="https:\/\/example\.com\/source-only"[^>]*>\s*Telecom Daily\s*<svg/,
+      /<a[^>]*href="https:\/\/example\.com\/source-only"[^>]*>\s*Telecom Daily\s*<\/a>/,
     );
     expect(stripped).toMatch(
-      /<a[^>]*href="https:\/\/example\.com\/no-byline"[^>]*>\s*<svg/,
+      /<a[^>]*href="https:\/\/example\.com\/no-byline"[^>]*>\s*Read the full article…\s*<\/a>/,
     );
   });
 

@@ -35,7 +35,6 @@
   "dependencies": {
     "@react-email/components": "^0.5.7",
     "@react-email/render": "^1.4.0",
-    "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "zod": "catalog:"
