@@ -540,6 +540,22 @@ export async function run({
     pushFetchSource(request.dataSourceId, request.reason);
   }
 
+  // Spend whatever budget the seeds and triage left. Triage decides which body-less sources look
+  // worth fetching, but it is conservative and issues are small, so the cap was never the binding
+  // constraint: over a 21-day window 84% of body-less shipped items carried no fetch attempt at
+  // all, and those items averaged 1.40 bullets against 2.41 for items with a body. Requesting the
+  // rest costs nothing when the budget is already paid for, and `applyFetchCap` still decides the
+  // order, figure-bearing descriptions first.
+  for (const source of sources) {
+    if (typeof source.content === "string" && source.content.trim() !== "") {
+      continue;
+    }
+    if (requestedFetchSources.length >= resolvedConfig.maxFetchesPerRun) {
+      break;
+    }
+    pushFetchSource(source.dataSourceId, "budget top-up: body-less candidate");
+  }
+
   let fetchResult: FetchSourceBodiesResult = {
     fetchedContentById: new Map(),
     droppedByGateIds: new Set(),

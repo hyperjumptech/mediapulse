@@ -78,3 +78,6 @@ docs
 reviews
 CONTEXT.md
 ACCEPTANCE_CRITERIA*.md
+# Eval response caches
+.eval-cache
+summarizer-eval.json

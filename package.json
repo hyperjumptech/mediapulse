@@ -31,7 +31,8 @@
     "code-quality": "turbo run lint type:check test:coverage && pnpm run merge-workspace-coverage && pnpm run format:check",
     "dev:agent-article-analysis": "turbo dev --filter=@mediapulse/article-analysis",
     "dev:agent-newsletter-feedback": "turbo dev --filter=@mediapulse/newsletter-feedback",
-    "eval:section-placement": "tsx scripts/eval-section-placement.mjs"
+    "eval:section-placement": "tsx scripts/eval-section-placement.mjs",
+    "eval:summarizer": "tsx scripts/eval-summarizer.mjs"
   },
   "devDependencies": {
     "@opentelemetry/api": "^1.9.0",

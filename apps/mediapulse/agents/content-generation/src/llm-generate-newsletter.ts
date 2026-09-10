@@ -35,6 +35,7 @@ import {
 import { pointsSupportTitle } from "./lib/points-support-title.js";
 import { statesImplausibleAggregate } from "./lib/implausible-aggregate.js";
 import { lonePointLacksFact } from "./lib/lone-point-substance.js";
+import { lonePointRestatesTitle } from "./lib/lone-point-restates-title.js";
 import { findSummarizedEventMatch } from "./lib/summarized-event-dedup.js";
 import { titleFiguresMissingFromPoints } from "./lib/title-figure-coverage.js";
 import { ungroundedEntities } from "./lib/entities-grounded.js";
@@ -459,6 +460,15 @@ const SUMMARY_ATTEMPTS = 2;
  */
 const LONE_POINT_DIRECTIVE =
   "\n\nYour previous summary of this article produced a single point describing what something supports or aims at, rather than what happened. Report the article's most concrete fact instead: a figure, a date, a named party, or a decision taken.";
+
+/**
+ * Asks for a fact the heading did not already state, when the only point echoed the heading.
+ *
+ * Written to be answerable with nothing: the article may genuinely carry no fact past its heading,
+ * and the prompt already requires an empty list in that case.
+ */
+const LONE_POINT_RESTATES_TITLE_DIRECTIVE =
+  "\n\nYour previous summary of this article produced a single point that repeats the heading and adds nothing to it. Report a fact the heading does not already state. If the article carries none, return no points at all.";
 
 const buildTitleFigureDirective = (title: string): string =>
   `\n\nYour previous summary of this article stated no point carrying a figure its heading names: "${title}". Report that figure in one of your points, with the base it moved from when the article gives one.`;
@@ -994,6 +1004,32 @@ export async function generateNewsletterWithLlm(
           );
 
           return { status: "failed", entry, reason: "title_figure_uncovered" };
+        }
+
+        // Scoped to description-only sources. With a body in hand a lone echo of the heading is
+        // rarer and likelier to be the article's actual substance, and a retry there risks
+        // thinning an item that was fine. The 150-character description is where this defect
+        // lives: there is often nothing past the headline to find, and the prompt already says to
+        // return no points in that case.
+        if (
+          descriptionOnly &&
+          lonePointRestatesTitle(groundedPoints, articleTitle) &&
+          attempt < SUMMARY_ATTEMPTS - 1
+        ) {
+          figureDirective = LONE_POINT_RESTATES_TITLE_DIRECTIVE;
+          logger.info(
+            {
+              tickerId: context.tickerId,
+              sectionKey: entry.sectionKey,
+              url: entry.source.url,
+              title: articleTitle,
+              point: groundedPoints[0],
+              descriptionOnly,
+              event: "article_lone_point_restates_title_retry",
+            },
+            "Retrying summary: its only point repeats the heading",
+          );
+          continue;
         }
 
         if (

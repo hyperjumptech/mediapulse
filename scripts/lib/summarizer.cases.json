@@ -1,0 +1,542 @@
+[
+  {
+    "id": "36509c78-ac73-4e0f-be9e-021fcda32f45",
+    "symbol": "EXCL",
+    "title": "Pengamat: SE Menkomdigi No. 4/2026 Soal Kuota Hangus Akomodasi Kepentingan Industri",
+    "content": "SE Menkomdigi No. 4/2026 melindungi sisa kuota pelanggan, mengharuskan operator menawarkan pilihan layanan tanpa biaya tambahan, dan menekankan hak...",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "7a1decdd-5fe8-4a4b-8e71-58671260417b",
+    "symbol": "GOTO",
+    "title": "8.100 Mitra GrabMerchant Ikut Gerakan Traktir Driver",
+    "content": "AKURAT.CO Momen perayaan Hari Ulang Tahun ke-81 Kemerdekaan Republik Indonesia dimanfaatkan Grab untuk memperkuat semangat gotong royong di dalam...",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "6a588f49-e653-4191-84b0-7a4ddf8e570d",
+    "symbol": "BBCA",
+    "title": "BNPL Makin Tumbuh, OJK Minta Multifinance Perketat Manajemen Risiko",
+    "content": "Otoritas Jasa Keuangan (OJK) meminta perusahaan pembiayaan atau multifinance menjaga kualitas portofolio di tengah pertumbuhan permintaan layanan buy now...",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "b710b2f5-9129-46ed-be39-f71c3395acbc",
+    "symbol": "TLKM",
+    "title": "Divestasi NeutraDC, Telkom: Evaluasi Binding Offer Ditarget Rampung Akhir 2026",
+    "content": "Telkom Indonesia menargetkan divestasi saham NeutraDC selesai akhir 2026, dengan mencari strategic partnership untuk mempercepat pengembangan pusat data.",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "bc54d817-15f7-404e-9321-c05d2d240486",
+    "symbol": "GOTO",
+    "title": "OJK Peringatkan Maraknya Penipuan Digital Berbasis AI dan Judi Online",
+    "content": "OJK memperingatkan maraknya scam berbasis AI dan judi online serta meminta masyarakat waspada terhadap penipuan transaksi keuangan digital.",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "60884bb6-b39e-4f12-8199-3ea5dc276cfb",
+    "symbol": "DSSA",
+    "title": "AKRA siap mendukung program mandatori biodiesel B50",
+    "content": "PT AKR Corporindo Tbk (AKRA) menyatakan siap mendukung penerapan program mandatori biodiesel 50 (B50), yang dibuktikan dengan kesiapan infrastruktur...",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "4a3c0e39-c943-49f6-b492-d73609dcc538",
+    "symbol": "INDY",
+    "title": "Siapa di Balik PT Alamjaya Bara Pratama? Nama Endri Erawan Muncul, KPK Telusuri Saham Keluarga Rita Widyasari",
+    "content": "Tiga perusahaan batu bara, PT Alamjaya Bara Pratama, PT Sinar Kumala Naga dan PT Bara Kumala Sakti, ditetapkan KPK sebagai tersangka korporasi dalam kasus...",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "aec19ecf-17d6-4539-9f7d-b5213ae9a069",
+    "symbol": "AGRO",
+    "title": "Luncurkan Brimo Taiwan, BRI Perluas Akses Layanan Keuangan Diaspora Indonesia - Laman 2 dari 2",
+    "content": "“Kehadiran BRI di Taiwan bukan semata tentang membuka kantor atau menghadirkan layanan digital. Ini adalah tentang hadir lebih dekat dengan masyarakat...",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "4f67d3de-8cc5-4b41-ac66-eea9038432a6",
+    "symbol": "TLKM",
+    "title": "Kominfo Larang Operator Seluler Hapus Sisa Kuota Internet Sepihak",
+    "content": "Kominfo menetapkan aturan larangan penghapusan sisa kuota internet oleh operator seluler tanpa izin pelanggan.",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "22f5f891-16f7-40e7-becf-f749a63ac32e",
+    "symbol": "TLKM",
+    "title": "Indosat Hadirkan Garuda Spark Innovation Hub di Jayapura, Buka Ruang bagi Talenta Digital Papua - Manadoku",
+    "content": "Garuda Spark Innovation Hub hadir di Jayapura untuk membuka ruang bagi talenta digital Papua belajar, berinovasi, mengembangkan keterampilan.",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "d56a9ef1-76d7-4e25-90bc-3acf1194ad59",
+    "symbol": "NOBU",
+    "title": "Gencarkan Inklusi Keuangan Nasional, OJK Penganugerahan KEJAR Award dan Financial Literacy Award 2026",
+    "content": "BRI, BCA, hingga BSI sabet penghargaan KEJAR Award & Financial Literacy Award OJK 2026. Ini daftar pemenang lembaga jasa keuangan dan pemda terbaik.",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "fc3987d9-31eb-4918-bf5e-a404d2cce8ea",
+    "symbol": "SMMA",
+    "title": "KPR Bisa 40 Tahun, OJK Ungkap Dampaknya ke Asuransi Jiwa",
+    "content": "OJK mengungkap perpanjangan tenor KPR subsidi hingga 40 tahun dapat meningkatkan pendapatan premi asuransi jiwa, namun juga meningkatkan risiko klaim.",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "ca2c642d-f9d8-418c-9ee6-ea88044b1b04",
+    "symbol": "TLKM",
+    "title": "Komdigi Larang Kuota Internet Hangus, Telkomsel Pastikan Ikut Aturan",
+    "content": "Telkomsel buka suara soal peraturan terbaru dari Kementerian Komunikasi dan Digital (Komdigi) yang melarang operator seluler menghanguskan atau...",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "4df62621-c147-4446-a475-4ef28446dd29",
+    "symbol": "TLKM",
+    "title": "Telkom Solution Perkuat B2B ICT, Bidik Bisnis Enterprise Asia Pasifik",
+    "content": "Telkom Solution sebagai payung solusi digital PT Telkom Indonesia (Persero) Tbk (Telkom) yang berfokus menyediakan layanan B2B ICT bagi segmen enterprise,...",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "9d3de273-6a8c-4d5c-94c9-e31999ed7b60",
+    "symbol": "NOBU",
+    "title": "Qlola by BRI Dorong Bisnis Retail Naik Kelas di Indonesia Retail Summit",
+    "content": "Qlola by BRI mendukung transformasi digital bisnis retail di Indonesia Retail Summit 2026, menawarkan solusi keuangan terintegrasi untuk efisiensi...",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "20588e21-1e4c-4b18-b716-da24fcf9449f",
+    "symbol": "BBCA",
+    "title": "BCA UMKM Fest 2026 Resmi Dibuka Secara Offline, Perluas Akses Pasar",
+    "content": "BCA UMKM Fest 2026 resmi dibuka di Jakarta, mendukung lebih dari 1.600 usaha, fokus empat sektor unggulan, komitmen bantu pertumbuhan UMKM.",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "8997a82a-ed0d-47cb-bff5-697e432dc98d",
+    "symbol": "ANTM",
+    "title": "Bahlil: Indonesia Bisa Tentukan Harga Komoditas SDA Lewat Bursa Mineral",
+    "content": "MENTERI Energi dan Sumber Daya Mineral ESDM Bahlil Lahadalia menyatakan Indonesia berpeluang memiliki kendali lebih besar terhadap harga komoditas SDA...",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "b317e747-be9b-4303-8827-83bc76843482",
+    "symbol": "TLKM",
+    "title": "Taktik Anak Usaha Telkom (TLKM) InfraNexia Kerek Pendapatan di Tahun Perdana",
+    "content": "Bisnis.com, JAKARTA — PT Telkom Infrastruktur Indonesia (InfraNexia) menerapkan sejumlah taktik komersial untuk mendongkrak pendapatan pada tahun perdananya...",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "a86d326c-8216-4475-a8da-89a57314be29",
+    "symbol": "AMRT",
+    "title": "Analisis Pergerakan Saham AMRT di Tengah Tekanan Jual",
+    "content": "Pergerakan AMRT di 1315.00 memberi sinyal penting bagi pelaku pasar: tekanan jual belum hilang, tetapi ruang pantul jangka pendek masih terbuka.",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "e4ffef73-9216-455e-ac03-b3d3cbfecf88",
+    "symbol": "BMRI",
+    "title": "OJK Terbitkan Aturan Penyelenggaraan Teknologi Informasi Bank Umum",
+    "content": "OJK terbitkan aturan baru tentang penyelenggaraan TI oleh bank umum. Aturan ini bertujuan untuk mitigasi risiko dan optimalisasi tata kelola TI di...",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "9b63310b-0ac2-49bb-8bc7-104cd6bb9882",
+    "symbol": "AGRO",
+    "title": "OJK Genjot Literasi Keuangan dan Budaya Menabung Anak Muda",
+    "content": "Otoritas Jasa Keuangan (OJK) mendorong budaya menabung serta meningkatkan literasi dan inklusi keuangan, khususnya di kalangan generasi muda.",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "7aa6879a-54ae-4934-9c05-a617218c04e5",
+    "symbol": "BBCA",
+    "title": "BNI (BBNI) Dorong Literasi Keuangan Generasi Muda di Era Digital",
+    "content": "JAKARTA, KOMPAS.com - PT Bank Negara Indonesia (Persero) Tbk (BBNI) terus mendorong peningkatan literasi keuangan masyarakat, khususnya generasi muda,...",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "5a175989-278c-4d61-86a1-884f3e88230f",
+    "symbol": "MORA",
+    "title": "TelkomGroup Tuntaskan Perbaikan Infrastruktur Pascagempa NTT",
+    "content": "INFO TEMPO – Tiga hari pascabencana gempa bumi di wilayah Nusa Tenggara Timur (NTT), PT Telkom Indonesia (Persero) Tbk (Telkom) bersama seluruh operating...",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "8416b924-91ff-487c-866f-aced75577d30",
+    "symbol": "ANTM",
+    "title": "Prabowo Tegaskan Harga Mineral Tak Boleh Diatur Bursa Asing, APNI Sambut Pembentukan BMKS",
+    "content": "JawaPos.com - Asosiasi Penambang Nikel Indonesia (APNI) menilai pembentukan Bursa Mineral dan Komoditas Strategis (BMKS) merupakan langkah yang baik dalam...",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "fd7e09f4-f246-4124-91d8-e9c239cc689e",
+    "symbol": "ERAA",
+    "title": "Xiaomi Sebut Segmen Smartphone Paling Laris di Indonesia pada 2026",
+    "content": "Segmen entry-level menjadi penopang utama pasar smartphone Indonesia 2026, didorong besarnya konsumen dan penguatan fitur perangkat terjangkau.",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "a3de55dd-2997-458e-ae63-3e598fed5882",
+    "symbol": "ANTM",
+    "title": "Antam Net Profit Surges 34% on Bullion Demand and Downstream Nickel Expansion",
+    "content": "State-backed diversified miner PT Aneka Tambang Tbk delivered a 34% year-on-year increase in first-half 2026 net profit to Rp 6.91 trillion ($434.59...",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "30bf20e8-4efc-417b-82d2-99a0054496b7",
+    "symbol": "BMRI",
+    "title": "🌷 BI Pertahankan Suku Bunga di 5,75%, Perluas Insentif Stabilisasi",
+    "content": "Bank Indonesia pada Rabu (19/8) mempertahankan suku bunga BI Rate di level 5,75%, sejalan dengan ekspektasi konsensus, dengan lending facility dan deposit...",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "f71cd47c-1043-4042-81af-1f7250eb5c9d",
+    "symbol": "EXCL",
+    "title": "Telkom dan CrowdStrike Jalin Kerja Sama Perkuat Keamanan Siber Berbasis AI",
+    "content": "PT Telkom Indonesia (Persero) Tbk menjalin kerja sama dengan perusahaan keamanan siber CrowdStrike melalui penandatanganan Memorandum of Understanding (MoU)...",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "7ec186a4-fce2-4d9c-a85b-f609d7174265",
+    "symbol": "BMRI",
+    "title": "BRI Memutakhirkan Qlola Dorong Efisiensi Pengelolaan Keuangan Bisnis",
+    "content": "PT Bank Rakyat Indonesia (Persero) Tbk atau BRI resmi memperkenalkan tampilan terbaru Qlola by BRI melalui soft launch Qlola New Skin.",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "2b8c0729-ad8e-40cd-b529-a6eb7ce54a49",
+    "symbol": "BMRI",
+    "title": "Leading first BI meeting, Destry stresses growth, vigilance",
+    "content": "Interim BI governor Destry Damayanti, widely expected to become the central bank's chief soon, has conveyed a restrictive monetary policy stance in a...",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "3c8c6be1-5fef-4ff8-b3c0-d352b8183fe1",
+    "symbol": "AMAN",
+    "title": "Jababeka Bizpark Raih Properti Indonesia Award 2026, Tegaskan Potensi Kawasan Industri Jababeka",
+    "content": "Penghargaan Properti Indonesia Award 2026 akan memperkuat posisi Jababeka Bizpark dalam menjawab kebutuhan pelaku usaha di tengah pertumbuhan koridor Timur...",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "8b4dee59-15e3-447b-afea-f1b5bd50ffac",
+    "symbol": "TLKM",
+    "title": "Indibiz Dorong UMKM Komunitas Love Cooking Naik Kelas lewat Digitalisasi dan AI",
+    "content": "RADARBEKASI.ID, BEKASI — PT Telkom Indonesia (Persero) Tbk melalui Indibiz kembali memperkuat komitmennya dalam mendorong transformasi digital pelaku Usaha...",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "0f83d4bb-433e-4b8a-9614-8c60714dff50",
+    "symbol": "BBCA",
+    "title": "OJK Cabut Izin Usaha 13 Bank, Data Terbaru Awal September 2026",
+    "content": "OJK cabut izin 13 bank di 2026 untuk perkuat industri perbankan dan jaga kepercayaan publik. LPS akan tangani penjaminan dan likuidasi bank-bank tersebut.",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "792659b1-320c-4f47-b137-9de55660d296",
+    "symbol": "BBCA",
+    "title": "OJK Perkuat Ekosistem Keuangan Digital lewat Digination Day 2026",
+    "content": "Otoritas Jasa Keuangan memperkuat ekosistem Inovasi Teknologi Sektor Keuangan, Aset Keuangan Digital, dan Aset Kripto melalui penguatan regulasi,...",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "6a15baa8-2bf5-466e-b406-d20275296f5c",
+    "symbol": "DSSA",
+    "title": "Kebut Proyek PLTS 100 GW, Menteri Bahlil Buka Tender Tahap Awal 30 GW",
+    "content": "Pemerintah Indonesia memulai tender proyek PLTS 30 GW pada 2026, bagian dari target 100 GW untuk transisi energi bersih dan mengurangi ketergantungan fosil.",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "d3f501a5-4884-4504-878f-636b20e9867e",
+    "symbol": "AMAN",
+    "title": "Booming Data Center, Kebutuhan Lahan hingga Air di Kawasan Industri Meningkat",
+    "content": "Pertumbuhan minat investasi data center memicu peningkatan kebutuhan lahan, listrik, hingga air di kawasan industri.",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "e0860b1d-9c57-4713-833a-342dfe55f710",
+    "symbol": "BBCA",
+    "title": "Imbauan OJK Menjelang Penarikan Saldo Anggaran Lebih",
+    "content": "Kepala Eksekutif Pengawas Perbankan OJK Dian Ediana Rae mengatakan likuiditas perbankan tetap terjaga.",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "29b0f736-1b9c-46fd-ac61-fd583eb5352a",
+    "symbol": "LUCY",
+    "title": "McDonald’s Indonesia Buka Restoran Kelima di Batam, Serap Puluhan Tenaga Kerja Lokal di Tengah Pertumbuhan Ekonomi Kota - Haluan Riau",
+    "content": "McDonald's Indonesia kembali memperluas jaringan bisnisnya di Kota Batam dengan membuka McDonald's Botania Garden, restoran kelima di kota.",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "5e360bf6-5b81-4b45-b04d-6b1edeb10dd1",
+    "symbol": "BBCA",
+    "title": "Likuiditas Perbankan Makin Ketat, OJK Beberkan Penyebabnya",
+    "content": "Otoritas Jasa Keuangan (OJK) menyampaikan rasio likuiditas industri perbankan pada Juni 2026 menurun. Hal itu disebabkan oleh pertumbuhan kredit yang lebih...",
+    "arm": "description-only",
+    "restatementOnly": false,
+    "note": "Description carries at least one fact beyond the headline."
+  },
+  {
+    "id": "53658436-a635-4a51-a04b-03505315468b",
+    "symbol": "BMRI",
+    "title": "BRI: Likuiditas Perbankan Nasional Di Level Memadai",
+    "content": "JAKARTA - Wakil Direktur Utama PT Bank Rakyat Indonesia (Persero) Tbk (BRI) Viviana Dyah Ayu Retno Kumalasari angkat bicara mengenai kondisi likuiditas...",
+    "arm": "description-only",
+    "restatementOnly": true,
+    "note": "Description restates the headline; the summarizer must return no points."
+  },
+  {
+    "id": "8fbaebc3-0115-484c-b9a5-d4a82b2f5488",
+    "symbol": "BBCA",
+    "title": "BI Catat Penyaluran Kredit Juli 2026 Melonjak Jadi 13,58%",
+    "content": "BI Catat Penyaluran Kredit Juli 2026 Melonjak Jadi 13,58% ILUSTRASI. INDONESIA-ECONOMY-CURRENCY (AFP/YASUYOSHI CHIBA) Reporter: Aura Putri | Editor: Tri Sulistiowati KONTAN.CO.ID - JAKARTA. Penyaluran kredit perbankan makin melaju. Bank Indonesia (BI) mencatat kredit perbankan tumbuh 13,58% secara tahunan (year on year/yoy) pada Juli 2026. Pertumbuhan tersebut lebih tinggi dibandingkan Juni 2026 sebesar 12,67% yoy. Pejabat Sementara Gubernur BI Destry Damayanti mengatakan, peningkatan intermediasi perbankan tersebut didukung ketahanan perbankan yang tetap terjaga. \"Intermediasi perbankan terus naik dengan didukung ketahanan perbankan yang terjaga,\" ujar Destry dalam konferensi pers hasil Rapat Dewan Gubernur BI, Rabu (19/8/2026). Pertumbuhan kredit tersebut juga sejalan dengan kondisi likuiditas dalam sistem perekonomian yang tetap terjaga. Destry mengatakan, pertumbuhan uang primer atau M0 pada Juli 2026 mencapai 18,3% yoy, terutama didorong pertumbuhan giro bank umum sebesar 22,4% yoy dan uang kartal sebesar 15,1% yoy. Baca Juga: Bank Digital Perkuat Peran di Ekosistem Lifestyle, Bidik Transaksi Nasabah Destry mengatakan untuk terus mendorong penyaluran kredit, BI memperkuat Kebijakan Insentif Likuiditas Makroprudensial (KLM). \"Hal ini dilakukan untuk mendorong peningkatan kredit atau pembiayaan perbankan ke sektor prioritas,\" katanya. Hingga minggu pertama Agustus 2026, insentif KLM yang diperoleh perbankan mencapai Rp 446,5 triliun. Dari total insentif tersebut, alokasi melalui financing channel mencapai Rp 368,4 triliun. Sementara itu, interest rate channel sebesar Rp 73,2 triliun dan financing to funding channel sebesar Rp 4,9 triliun. BI juga menyiapkan KLM Pendalaman Pasar Uang (PPU) untuk memperkuat kebijakan makroprudensial sekaligus mendukung pengelolaan likuiditas di pasar uang dan perbankan. KLM PPU diberikan dengan insentif paling tinggi 2% dari DPK dan mulai berlaku 1 September 2026. Skema ini akan menggantikan interest rate channel dan financing to funding channel. Dalam penyempurnaan tersebut, total insentif KLM yang dapat diterima bank dinaikkan menjadi paling tinggi 6% dari dana pihak ketiga (DPK), dari sebelumnya 5,5% dari DPK. Sementara itu, alokasi untuk financing channel disesuaikan menjadi paling tinggi 4% dari DPK, dari sebelumnya 4,5%. Baca Juga: Transaksi Travel DOKU Mencatat Pertumbuhan 33% di Semester I-2026 Cek Berita dan Artikel yang lain di Google News Tag  * Bank Indonesia  * Bank Indonesia (BI)  * Penyaluran Kredit  * Penyaluran Kredit Baru",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "74e7f1ad-80de-4234-9f20-03ec261f885b",
+    "symbol": "MORA",
+    "title": "Linknet Sabet Award Transformasi Bisnis Berkelanjutan dan Berdampak Nyata",
+    "content": "Linknet Sabet Award Transformasi Bisnis Berkelanjutan dan Berdampak Nyata Jakarta - PT Link Net Tbk meraih Apresiasi Atas Transformasi Bisnis Berkelanjutan dan Berdampak Nyata di acara Anugerah Ekonomi Hijau oleh detikcom, Kamis (3/9/2026). Penghargaan ini diserahkan oleh Fajar Pratama Wakil Pemimpin Redaksi detikcom kepada Lidia Elvina Head Of Regulatory & Sustainability Linknet. Dalam acara penyerahan award yang berlangsung di Auditorium Menara Bank Mega, KaptenTendean, Jakarta Selatan,Linknet dianggap berhasil mendukung pengelolaan lingkungan yang berkelanjutan. Berbagai upaya dilakukan oleh PT Link Net Tbk dalam menunjukkan komitmennya melalui berbagai inisiatif yang berfokus pada penerapan praktik ekonomi sirkular, pengurangan limbah, dan pelestarian ekosistem. Upaya PT Link Net Tbk yang Patut Diapresiasi Sebagai bagian dari upaya mengurangi dampak lingkungan dari kegiatan operasional, Link Net menjalankan program pengelolaan limbah melalui kerja sama dengan DUITIN. Linknet Sabet Award Transformasi Bisnis Berkelanjutan dan Berdampak Nyata. Foto: Detikfoto Pada tahun 2025, Linknet menargetkan daur ulang sebanyak 792 kilogram limbah, namun berhasil melampaui target tersebut dengan mendaur ulang sekitar 1,39 ton limbah. Program ini turut didukung oleh pengembangan sistem pemantauan berbasis dashboard Power BI yang memungkinkan proses pengambilan, pencatatan, analisis, hingga pelaporan pengelolaan limbah secara lebih terstruktur dan transparan. Di samping itu, Linknet juga berkontribusi dalam pelestarian lingkungan melalui berbagai kegiatan rehabilitasi ekosistem. Melalui program #LinktoEarth, Linknet bekerja sama dengan Lindungi Hutan untuk menanam 3.000 bibit mangrove di kawasan Pantai Indah Kapuk, Jakarta Utara, sebagai upaya mendukung pelestarian ekosistem pesisir sekaligus meningkatkan ketahanan kawasan pantai terhadap dampah perubahan iklim. Sementara itu, melalui program New Home-New Pass, New Tree, Link Net menanam 22.500 pohon di tujuh kota di Indonesia sebagai bagian dari komitmen untuk mengintegrasikan pengembangan infrastruktur dengan upaya penghijauan dan keberlanjutan lingkungan. Linknet memperkuat posisi sebagai perusahaan yang menciptakan dampak positif bagi lingkungan, sehingga layak mendapatkan apresiasi sebagai perusahaan yang berkontribusi nyata dalam mendorong ekonomi hijau di Indonesia. (ask/fay)",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "64c8a455-a567-4e86-aa2d-f7d90e9913ed",
+    "symbol": "SMMA",
+    "title": "Pendanaan Multifinance Masih Bergantung pada Bank, Suku Bunga Jadi Perhatian",
+    "content": "Pendanaan Multifinance Masih Bergantung pada Bank, Suku Bunga Jadi Perhatian ILUSTRASI. Piutang Pembiayaan: Suasana di Kantor Cabang FIFGroup (KONTAN/Baihaki) Reporter: Ade Priyatin | Editor: Ignatia Maria Sri Sayekti KONTAN.CO.ID - JAKARTA. Industri pembiayaan atau multifinance masih mengandalkan perbankan sebagai sumber pendanaan utama. Kepala Direktorat Pengawasan Lembaga Pembiayaan Otoritas Jasa Keuangan (OJK) Moch. Riezky Purnomo mengatakan dalam ekosistem industri pembiayaan, sumber pendanaan terbesar masih berasal dari perbankan melalui skema executing loan, joint financing, dan channeling. Kondisi ini membuat perubahan suku bunga menjadi salah satu faktor yang harus diperhatikan pelaku industri karena bisa memengaruhi biaya dana atau cost of fund perusahaan pembiayaan. \"Kita ketahui bahwa ada tendensi peningkatan atau kenaikan suku bunga sehingga ini akan meningkatkan cost of fund dari perusahaan pembiayaan,\" ujarnya di Webinar OJK Institute, Kamis (3/9). Di sisi lain, kebutuhan pembiayaan masih cukup besar karena perusahaan multifinance menyalurkan pembiayaan kepada individu maupun badan usaha. Berdasarkan kegiatan usaha, pembiayaan multiguna masih menjadi porsi terbesar yaitu 54%, disusul pembiayaan investasi sebesar 35% dan modal kerja sebesar 11%. Baca Juga: BI Rate Naik, BRI Finance Optimalkan Struktur Pendanaan Selain itu, objek pembiayaan perusahaan multifinance juga masih cukup besar berasal dari kendaraan dan alat berat. Kondisi ini menunjukkan, pasar pembiayaan masih memiliki ruang untuk berkembang. Sayangnya, peluang pertumbuhannya tetap menghadapi tantangan dari sisi pendanaan. Ketika sebagian besar sumber dana masih berasal dari perbankan, perubahan kondisi suku bunga bisa memengaruhi biaya dana sekaligus ruang perusahaan pembiayaan dalam mengembangkan bisnis. Di sisi lain, pengendalian cost of fund juga perlu diikuti dengan penguatan kualitas penyaluran pembiayaan. Menurutnya, kenaikan suku bunga yang dibarengi proses underwriting atau pemilihan debitur yang kurang memadai berpotensi meningkatkan potensi kenaikan non-performing financing (NPF). Baca Juga: Tren Kenaikan Yield Obligasi, OJK Nilai Biaya Pendanaan Multifinance Bakal Terdampak Per Juni 2026, OJK mencatatkan NPF gross industri pembiayaan berada di level 3,01%. Meskipun masih berada di batas aman regulator, potensi kredit macet diprediksi masih membayangi industri hingga sisa tahun ini seiring daya beli dan kondisi ekonomi yang masih tertekan. Oleh karena itu, OJK melalui Direktorat Pengawasan Lembaga Pembiayaan terus melakukan pemantauan terhadap kondisi industri pembiayaan. Pengawasan dilakukan melalui monitoring berkala dan pemeriksaan secara langsung. Upaya ini diharapkan bisa memberikan gambaran yang lebih utuh kepada regulator mengenai kondisi industri pembiayaan di lapangan. Sebagai informasi, OJK mencatat industri pembiayaan berhasil membukukan total aset sebesar Rp596,2 triliun dan laba bersih sebesar Rp12,75 triliun pada semester I-2026. Baca Juga: BI Rate Naik Jadi 5,25%, CNAF Waspadai Kenaikan Biaya Pendanaan Cek Berita dan Artikel yang lain di Google News",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "472fe256-1f8e-4097-91ba-fd6cb0fecb4c",
+    "symbol": "MORA",
+    "title": "Telkom Salurkan Bantuan Kemanusiaan Rp1,3 Miliar ke NTT",
+    "content": "Telkom Salurkan Bantuan Kemanusiaan Rp1,3 Miliar ke NTT PT Telkom Indonesia (Persero) Tbk (Telkom) bersama dengan operating company Telkom Group menyalurkan bantuan kemanusiaan dengan nilai mencapai Rp1,3 miliar (di luar dukungan konektivitas) bagi masyarakat terdampak gempa bumi di Nusa Tenggara Timur (NTT). Bantuan disalurkan secara bertahap dan terkoordinasi ke lebih dari 10 wilayah untuk membantu memenuhi kebutuhan masyarakat selama masa tanggap darurat dan proses pemulihan pascabencana. Sejak penyaluran bantuan pertama, Telkom Group bersinergi dengan Danantara, BP BUMN, BNPB, BPBD setempat, Kementerian Kesehatan, serta berbagai pihak terkait untuk memetakan kebutuhan masyarakat, cakupan wilayah, serta skema penyaluran yang tepat, sehingga dukungan dapat diberikan secara terukur dan tepat sasaran. SGM Social Responsibility Telkom, Hery Susanto, menyampaikan bahwa kehadiran Telkom Group dalam situasi bencana merupakan bagian dari komitmen perusahaan untuk membantu masyarakat bangkit dan kembali menjalankan aktivitasnya. \"Telkom Group berkomitmen untuk selalu hadir di tengah masyarakat, khususnya ketika terjadi situasi darurat dan bencana. Bantuan yang kami salurkan merupakan bentuk kepedulian sekaligus upaya untuk membantu memenuhi kebutuhan dasar masyarakat terdampak,\" katanya dalam keterangan yang diterima di Jakarta, Kamis (27/8/2026). Baca Juga: Peduli Korban Gempa, PERURI Salurkan Bantuan Logistik ke NTT \"Kami berharap dukungan ini dapat meringankan beban saudara-saudara kita di NTT dan menjadi bagian dari proses pemulihan mereka. Dalam penyaluran bantuan ini, Telkom Group terus berkoordinasi dan bersinergi dengan berbagai pihak terkait untuk memahami kebutuhan masyarakat di lapangan dan mengidentifikasi dukungan yang dapat diberikan Telkom Group secara tepat dan optimal,\" kata Hery. Melalui Posko BNPB Halim, Telkom Group menyalurkan bantuan pada 18 dan 20 Agustus 2026 yang mencakup paket sembako, logistik rumah tangga, perlengkapan bayi dan anak, obat-obatan, serta kebutuhan kebersihan. Dari kedua tahap tersebut, secara keseluruhan sebanyak 3,65 ton bantuan telah didistribusikan dan dimanfaatkan masyarakat terutama di titik-titik pengungsian. Dukungan kemudian diperluas ke sejumlah wilayah antara lain Nagekeo, Reo, Ruteng, Maumere, Bima, Lewur, dan Lambelada Selatan. Penyaluran dilakukan melalui koordinasi dengan BPBD setempat dan posko pengungsian untuk memastikan bantuan dapat menyesuaikan kebutuhan di lapangan.  Sementara untuk menjangkau masyarakat di wilayah terisolir seperti Londar Pesisir Utara, Desa Sarae Naru, Kecamatan Macang Pacar, Kabupaten Manggarai Barat, TelkomGroup turut menyalurkan bantuan melalui BPBD Ruteng via jalur laut. Selain bantuan logistik, Telkom Group juga memenuhi kebutuhan masyarakat di lokasi pengungsian melalui dukungan dapur umum, layanan kesehatan, dan penyediaan air bersih. Di Kecamatan Wae Rii, Kabupaten Manggarai, Telkom Group mendukung operasional dapur umum bagi sekitar 1.100 jiwa, serta posko kesehatan dan obat-obatan di Desa Golo Mendo.  Sementara di Desa Wudi, Kecamatan Cibal, Kabupaten Manggarai, Telkom mendukung operasional dapur umum sekaligus suplai air bersih yang menjadi kebutuhan utama. Untuk memperkuat layanan kesehatan, Telkom Group juga menyiapkan bantuan melalui Kementerian Kesehatan berupa alat laboratorium dan unit sanitasi portable yang didistribusikan pada 27 Agustus 2026. Bagi Telkom Group, dukungan terhadap masyarakat terdampak bencana tidak berhenti pada masa tanggap darurat, tetapi berlanjut seiring kebutuhan masyarakat memasuki fase pemulihan. Melalui koordinasi dan kolaborasi dengan berbagai pihak, Telkom Group terus mengarahkan dukungan pada kebutuhan yang relevan di lapangan, mulai dari pemenuhan kebutuhan dasar hingga dukungan terhadap layanan kesehatan dan operasional dapur umum. Sejalan dengan semangat \"Bersama Jadi Bisa\", Telkom Group akan terus hadir mendampingi masyarakat NTT dalam proses pemulihan pascabencana. Lebih dari sekadar bantuan dalam situasi darurat, langkah ini menjadi bagian dari upaya Telkom Group untuk menguatkan semangat, menumbuhkan optimisme, dan menjaga harapan masyarakat NTT di tengah proses pemulihan pascabencana.",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "c54ffb49-3642-47d8-94bb-831ed7012fd8",
+    "symbol": "SOHO",
+    "title": "Satu Dekade EMOS Perkuat Ekosistem Kesehatan Digital Indonesia",
+    "content": "Satu Dekade EMOS Perkuat Ekosistem Kesehatan Digital Indonesia EmitenNews.com - Kalbe Farma Tbk (KLBF) melalui PT EMOS Global Digital menandai satu dekade perjalanan dengan menyelenggarakan National EMOS Talkshow (NET) 2026. Forum kolaborasi itu, mempertemukan regulator, tenaga kefarmasian, industri kesehatan, akademisi, dan berbagai pemangku kepentingan untuk mendorong transformasi ekosistem kesehatan Indonesia. Acara tahun ini mengusung tema \"EMOS Xtraordinary Decade: Connecting Healthcare, Empowering The Future\". NET 2026 juga menjadi momentum peluncuran berbagai inovasi digital terbaru dari EMOS. EMOS merupakan wujud komitmen perusahaan untuk terus menghadirkan inovasi yang memberikan nilai tambah bagi seluruh pemangku kepentingan. “Selama satu dekade, EMOS terus berkembang sebagai platform yang menghubungkan berbagai pemangku kepentingan kesehatan dalam satu ekosistem digital yang terintegrasi. Kami percaya bahwa transformasi kesehatan membutuhkan kolaborasi, inovasi, dan pemanfaatan teknologi yang mampu memberikan dampak nyata bagi masyarakat. NET 2026 menjadi momentum untuk melangkah menuju dekade berikutnya dengan menghadirkan solusi digital yang semakin relevan bagi ekosistem kesehatan Indonesia,\" ujar Direktur PT EMOS Global Digital, Eddy T. Nawawi. Momentum perayaan 10 tahun EMOS juga diwarnai dengan pencapaian penting melalui pemenuhan standar Cara Distribusi Obat yang Baik (CDOB) bagi Penyelenggara Sistem Elektronik Farmasi (PSEF). Hal ini menjadi tonggak penting dalam penguatan tata kelola platform digital perusahaan. Perayaan 10 tahun EMOS disambut baik oleh Kementerian Kesehatan (Kemenkes) dan BPOM (Badan Pengawas Obat dan Makanan). “Transformasi pelayanan kefarmasian menuntut pergeseran dari orientasi logistik menuju layanan klinis, digital, dan berbasis kinerja, dengan menempatkan patient first sebagai landasan utama. Pada akhirnya, transformasi ini bukan sekadar tentang obat, tetapi tentang keselamatan pasien dan terwujudnya derajat kesehatan yang lebih baik,” tutur Direktur Jenderal Farmasi dan Alat Kesehatan, Kementerian Kesehatan, Dr. L. Rizka Andalucia. “Momentum satu dekade EMOS, hendaknya menjadi pengingat bahwa inovasi digital bukan tujuan akhir, tujuan kita adalah menghadirkan sistem pelayanan kefarmasian yang semakin aman, semakin tangguh, dan semakin dipercaya masyarakat. Teknologi dapat mempercepat distribusi obat tetapi hanya pengawasan yang cerdas yang mampu menjaga kepercayaan. Mari kita terus memperkuat sinergi, membangun kepercayaan, serta mendorong inovasi berorientasi pada perlindungan masyarakat. Dengan semangat kolaborasi saya yakin kita dapat mewujudkan sistem distribusi obat yang semakin tangguh, terpercaya, dan siap menghadapi tantangan masa depan,” kata Kepala BPOM (Badan Pengawas Obat dan Makanan), Prof. dr. Taruna Ikrar. Sejak berdiri, EMOS telah berkembang menjadi platform  digital menghubungkan lebih dari 50 ribu apotek dan fasilitas pelayanan kesehatan di seluruh Indonesia. Sebagai bagian dari Kalbe Group, EMOS terus memperkuat perannya dalam menghadirkan solusi digital menghubungkan industri kesehatan, regulator, tenaga kefarmasian, serta para pengambil keputusan untuk menciptakan ekosistem kesehatan lebih terintegrasi. Pada penyelenggaraan NET 2026, EMOS menghadirkan EMOS Metaverse, platform virtual menghadirkan pengalaman acara secara lebih interaktif melalui teknologi Interactive 3D Immersive Experience. Peserta dapat menjelajahi lingkungan virtual menyerupai pameran secara langsung, mengunjungi booth dan toko virtual para sponsor, mengakses materi edukasi, serta membangun interaksi dengan sesama peserta dalam satu ekosistem digital terintegrasi. EMOS Metaverse menghadirkan pengalaman disesuaikan dengan kebutuhan peserta. Apoteker dapat mengikuti berbagai sesi ilmiah, mengakses materi edukasi, serta memperluas wawasan mengenai perkembangan regulasi, praktik kefarmasian, dan inovasi di sektor kesehatan. Sementara itu, Key Person Decision Makers (KPDM) memperoleh pengalaman berbeda melalui konsep Digital Economy. Di antaranya, berpartisipasi di rangkaian pre-event dengan berbagai penawaran khusus dan memperoleh berbagai keuntungan yang dapat dimanfaatkan saat acara utama berlangsung. KPDM juga dapat melakukan eksplorasi dan transaksi secara langsung di berbagai store virtual, termasuk YOUC1000 dan Nicorette, yang menghadirkan pengalaman belanja digital secara lebih interaktif dan imersif. Selain itu, konsep ini juga didukung oleh berbagai mitra lainnya, seperti DKT Indonesia, Darya-Varia, InovaPharma, Haleon, Henson, Menarini, Reckitt, BCA, dan ICS, turut menghadirkan digital booth interaktif.",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "06aef7b9-a9e0-4de7-93e7-8c5cd59053a8",
+    "symbol": "SMMA",
+    "title": "Klaim Asuransi Umum Melonjak 17,3%, OJK Wanti-wanti Dampak Cuaca Ekstrem",
+    "content": "Klaim Asuransi Umum Melonjak 17,3%, OJK Wanti-wanti Dampak Cuaca Ekstrem Warta Ekonomi, Jakarta - Otoritas Jasa Keuangan (OJK) mencatat klaim industri asuransi umum dan reasuransi mencapai Rp43,34 triliun hingga Juli 2026. Nilai tersebut meningkat Rp6,39 triliun atau 17,30% secara tahunan (year-on-year/yoy). Kenaikan klaim terjadi di tengah meningkatnya frekuensi bencana alam dan ancaman cuaca ekstrem. OJK menilai nilai klaim masih berpotensi meningkat pada semester II-2026 seiring risiko bencana yang dapat berdampak terhadap lini usaha asuransi yang memberikan perlindungan atas risiko tersebut. Kepala Eksekutif Pengawas Perasuransian, Penjaminan dan Dana Pensiun OJK Ogi Prastomi mengatakan kenaikan frekuensi dan intensitas bencana perlu menjadi perhatian industri asuransi dalam mengelola risiko. “Berdasarkan data posisi Juli 2026, industri asuransi jiwa mencatatkan klaim sebesar Rp89,17 triliun, meningkat Rp2,87 triliun atau 3,33% secara yoy. Sementara itu, industri asuransi umum dan reasuransi mencatatkan klaim sebesar Rp43,34 triliun, meningkat Rp6,39 triliun atau 17,30% yoy,” ujar Ogi dalam lembar jawaban tertulis, Selasa (8/9/2026). Meski nilai klaim meningkat, rasio klaim industri masih berada di bawah 100%. Rasio klaim asuransi jiwa tercatat 80,01%, sedangkan rasio klaim asuransi umum dan reasuransi berada pada level 49,05%. Ogi mengatakan peningkatan frekuensi dan intensitas bencana serta cuaca ekstrem dapat meningkatkan klaim pada produk asuransi yang menanggung risiko terkait. \"Apabila frekuensi dan intensitas bencana serta cuaca ekstrem meningkat, tentunya terdapat potensi peningkatan klaim pada lini usaha yang memberikan perlindungan terhadap risiko tersebut,” kata Ogi. Karena itu, perusahaan asuransi perlu memperkuat pengelolaan risiko, terutama pada wilayah dengan tingkat eksposur bencana yang tinggi. Sejumlah aspek yang perlu diperhatikan mencakup kecukupan underwriting, penetapan harga (pricing), pencadangan, reasuransi, serta pengelolaan akumulasi risiko. Menurut Ogi, langkah tersebut penting untuk menjaga kemampuan perusahaan dalam memenuhi kewajiban pembayaran klaim apabila terjadi peningkatan risiko bencana. Baca Juga: Erupsi Anak Krakatau Bisa Picu Kerugian Ekonomi, AAUI Ingatkan Soal Klaim Asuransi Baca Juga: Bisnis Asuransi Kredit BUMN Dipangkas, Klaim Melonjak 32,7% Namun, Ogi menegaskan kenaikan klaim hingga Juli 2026 belum dapat secara langsung dikaitkan seluruhnya dengan bencana yang terjadi di berbagai wilayah. Pasalnya, data tersebut merupakan nilai total klaim industri asuransi umum dan reasuransi sepanjang periode hingga Juli 2026 sehingga belum memisahkan klaim berdasarkan penyebab atau kejadian bencana tertentu. Dengan demikian, peningkatan klaim perlu dilihat dalam konteks keseluruhan kinerja industri, sekaligus menjadi perhatian bagi perusahaan dalam mengantisipasi potensi peningkatan risiko pada semester II-2026. Mau Berita Terbaru Lainnya dari Warta Ekonomi? Yuk Follow Kami di Google News dengan Klik Simbol Bintang.",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "eb154c99-a682-48f1-9b55-70ed38a853f1",
+    "symbol": "ANTM",
+    "title": "Bukan Lagi Price Taker, Benarkah Indonesia Jadi Pengendali Pasar Nikel Dunia?",
+    "content": "Bukan Lagi Price Taker, Benarkah Indonesia Jadi Pengendali Pasar Nikel Dunia? KABARBURSA.COM - Perubahan peta kekuatan industri pertambangan global menempatkan Indonesia pada posisi tawar yang sangat strategis. Asosiasi Penambang Nikel Indonesia (APNI) menegaskan bahwa Indonesia tidak lagi berada pada posisi penerima harga (price taker), melainkan telah bertransformasi menjadi penentu dan pengontrol utama arah harga pasar nikel dunia (price setter). Anggota Dewan Penasihat sekaligus Dewan Pengawas APNI Djoko Widajatno, menguraikan besarnya pangsa pasar serta penguasaan cadangan bijih nikel yang dimiliki tanah air saat ini. \"Ekspansi telah penuh, tetapi kualitas nilai tambah dan intensitas prioritas menjadi pembeda. Kita bukan lagi sekadar produsen. Saat ini Indonesia sudah penentu dari market. Produk Indonesia itu porsinya 57 persen di dunia, sementara cadangan nikel kita sekitar 54 juta ton, jadi hampir separuhnya dunia,\" ujar Djoko dalam diskusi publik terkait pengelolaan tambang di Jakarta, dikutip Senin, 31 Agustus 2026. Djoko memaparkan bahwa dominasi Indonesia yang menguasai lebih dari separuh pasokan nikel global membuat setiap kebijakan domestik berimplikasi langsung terhadap dinamika harga di bursa London Metal Exchange (LME) maupun Shanghai Futures Exchange. Harga Nikel \"Dikuasai\" Indonesia Pergerakan harga nikel dunia kini sangat bergantung pada keputusan regulasi yang diterbitkan oleh pemerintah Indonesia, terutama terkait pengaturan kuota pasokan. \"Setiap isu atau kebijakan penyesuaian kuota produksi di Jakarta langsung menggetarkan bursa global. Ketika ada isu penambahan kuota RKAB saja, harga nikel dunia langsung terkoreksi ratusan dolar AS. Ini membuktikan betapa besarnya pengaruh kendali pasar yang kita pegang,\" kata Djoko. Kendati memiliki posisi tawar yang dominan, APNI mengingatkan pemerintah agar tidak terjebak dalam euforia dan tetap cermat dalam mengelola ekosistem hilirisasi secara berkelanjutan. Penguasaan pasar harus dimanfaatkan untuk meningkatkan margin keuntungan negara tanpa menguras cadangan mineral secara ugal-ugalan. \"Dari sisi penerimaan, nikel memberikan porsi sangat banyak. Pertanyaannya, mending produksi banyak tapi harga hancur, atau produksi terukur tapi harga naik? Kalau saya mending harga naik, karena tidak capek. Duduk, jual 5 ton juga untungnya banyak. Kita harus berpikir strategis,\" bebernya. Penerapan SIMBARA Segera Dimulai Untuk memperkuat posisi tawar di mata konsumen global, pemerintah juga telah merampungkan sistem digitalisasi rantai pasok terintegrasi untuk menjamin legalitas dan asal-usul barang. Menurutnya, penerapan Sistem Informasi Mineral dan Batubara (SIMBARA) menjadi benteng utama dalam mengikis praktik perdagangan ilegal serta rekayasa data ekspor. \"Mengenai traceability ini sudah kita susun. Mulai dari tambang, jetty, stockpile, blending, sampai dengan buyer, sudah dibuat oleh pemerintah yang namanya SIMBARA. Kita sudah sangat lengkap,\" jelas Djoko. Langkah transparansi tata kelola melalui SIMBARA juga terbukti berhasil menutup celah kebocoran penerimaan negara serta praktik transfer pricing di sektor ekspor pertambangan. Pengintegrasian data antar-lembaga membuat transaksi penjualan mineral dapat dipantau secara real-time oleh kementerian teknis dan instansi penerimaan negara. \"Dengan adanya SIMBARA, manipulasi data ekspor dan transfer pricing bisa ditekan. Bahkan perbaikan birokrasi di EXIM saja kemarin bisa menghasilkan potensi penerimaan belasan triliun rupiah,\" tambahnya. Djoko menambahkan, reputasi Indonesia sebagai penentu pasar nikel dunia harus ditopang oleh koordinasi yang harmonis antara regulator dan pelaku usaha dalam negeri. \"Kita punya kekuatan cadangan dan pasokan. Sekarang tinggal bagaimana kita mengontrolnya secara cerdas agar kekayaan alam ini memberikan nilai tambah maksimal bagi kemakmuran rakyat,\" ungkapnya. Tentang SIMBARA Pemerintah terus memperkuat pengawasan sektor mineral dan batubara melalui digitalisasi tata kelola pertambangan. Salah satu instrumen utama yang digunakan adalah Sistem Informasi Mineral dan Batubara Antar Kementerian/Lembaga (SIMBARA), sebuah ekosistem digital yang mengintegrasikan data dan proses pengawasan komoditas tambang dari hulu hingga hilir. SIMBARA pertama kali diluncurkan pada 2022 dengan fokus awal pada tata niaga batubara. Dalam perkembangannya, cakupan sistem diperluas ke komoditas strategis lain, termasuk nikel dan timah.  Perluasan tersebut menjadi bagian dari upaya pemerintah menekan praktik pertambangan ilegal, mengurangi kebocoran penerimaan negara, sekaligus memperkuat pengawasan terhadap rantai pasok komoditas minerba. Sistem ini menghubungkan sejumlah kementerian dan lembaga. Kementerian ESDM berperan dalam pengawasan perizinan serta RKAB, sementara Kementerian Keuangan berkaitan dengan pembayaran PNBP dan bea keluar.  Kementerian Perdagangan dan Perhubungan turut mendukung validasi kegiatan ekspor serta pengangkutan, sedangkan Bank Indonesia berkaitan dengan pemantauan Devisa Hasil Ekspor (DHE). Kekuatan SIMBARA terletak pada kemampuan melakukan ketelusuran secara menyeluruh. Pemerintah dapat menelusuri dokumen, barang, jasa pengangkutan, aliran uang, hingga identitas entitas usaha.  Dengan demikian, data produksi dan perdagangan tidak hanya dilihat dari sisi administrasi, tetapi dapat dikaitkan dengan aktivitas fisik dan transaksi ekonominya. Bagi negara, integrasi tersebut berpotensi meningkatkan akurasi penerimaan negara sekaligus mempersempit ruang manipulasi dalam tata niaga pertambangan. Sistem juga dapat digunakan untuk memantau kepatuhan perusahaan terhadap kewajiban seperti PNBP dan kebutuhan dalam negeri. Sementara bagi pelaku usaha, SIMBARA menawarkan mekanisme single entry data yang dapat memangkas pengulangan administrasi antarinstansi. Dengan semakin luasnya cakupan komoditas, SIMBARA bukan sekadar aplikasi pemerintah. Sistem ini diarahkan menjadi infrastruktur pengawasan digital untuk memastikan kekayaan sumber daya alam Indonesia tercatat, diperdagangkan, dan menghasilkan penerimaan negara secara lebih transparan dan akuntabel.(*)",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "6a6357cf-7506-4a29-b3f7-36d76c38c05c",
+    "symbol": "WIFI",
+    "title": "MoraRepublic Dukung Konektivitas Duel Chelsea vs AC Milan di Jakarta",
+    "content": "MoraRepublic Dukung Konektivitas Duel Chelsea vs AC Milan di Jakarta – Sentralberita SentralBerita.com — MoraRepublic turut mendukung kebutuhan konektivitas internet untuk keseluruhan rangkaian pertandingan Chelsea vs AC Milan Pertandingan persahabatan antara dua klub sepak bola ternama dunia, Chelsea dan AC Milan, sukses digelar di Stadion Utama Gelora Bung Karno (GBK), Jakarta, pada Sabtu (8/8). Pertandingan yang mempertemukan dua klub raksasa Eropa tersebut menjadi salah satu momentum olahraga internasional yang dinantikan oleh para penggemar sepak bola di Indonesia. PT Ekamas Mora Republik Tbk (MoraRepublic) turut mendukung kebutuhan konektivitas internet untuk keseluruhan rangkaian kegiatan pertandingan yang diselenggarakan oleh promotor NineSport Inc. Dukungan ini menjadi bagian dari upaya MoraRepublic dalam menghadirkan konektivitas yang dapat menunjang kelancaran berbagai aktivitas digital dalam penyelenggaraan event berskala besar. Antusiasme penggemar terlihat sejak pertandingan dimulai. Chelsea berhasil mengamankan kemenangan dengan skor 3-0 atas AC Milan. Selain menjadi bagian penting dalam menunjang kebutuhan operasional acara, konektivitas internet juga semakin berperan dalam menghadirkan pengalaman pertandingan yang lebih terkoneksi. Akses internet memungkinkan berbagai aktivitas digital selama acara, mulai dari kebutuhan penyelenggara dan kru hingga aktivitas pengunjung dalam berbagi pengalaman secara langsung melalui kanal digital. “Event olahraga berskala internasional seperti pertandingan Chelsea dan AC Milan memiliki kebutuhan konektivitas yang tinggi untuk mendukung berbagai aktivitas di dalamnya. Kami senang dapat menjadi bagian dari penyelenggaraan pertandingan ini dengan menghadirkan dukungan konektivitas internet selama acara berlangsung,” ujar Edward Anwar, Chief Enterprise & Wholesale Officer (CEWO) MoraRepublic. Dukungan terhadap pertandingan Chelsea vs AC Milan di Jakarta juga mencerminkan semakin eratnya hubungan antara olahraga, hiburan, dan teknologi. Sebagai perusahaan yang memiliki ekosistem infrastruktur dan layanan digital terintegrasi, MoraRepublic terus memperkuat perannya dalam menghadirkan konektivitas untuk berbagai kebutuhan, mulai dari rumah tangga dan bisnis hingga mendukung penyelenggaraan event dan aktivitas berskala besar. Melalui dukungan terhadap pertandingan Chelsea vs AC Milan, MoraRepublic kembali menjadi bagian dari momentum yang mempertemukan olahraga dan masyarakat dalam sebuah pengalaman yang semakin terkoneksi. Tentang MoraRepublic PT Ekamas Mora Republik Tbk (“MoraRepublic” atau “BEI: MORA”) adalah perusahaan infrastruktur dan layanan digital terintegrasi yang lahir dari penggabungan PT Mora Telematika Indonesia Tbk dan PT Eka Mas Republik. Sinergi ini memperkuat posisi MoraRepublic sebagai pemain kunci dalam ekosistem digital Indonesia, dengan mengintegrasikan jaringan backbone berkapasitas tinggi melalui merek komersial Moratelindo, layanan last mile fiber to the home (FTTH) melalui merek komersial MyRepublic Fiber dan Oxygen.id, serta fixed wireless access (FWA) melalui merek komersial MyRepublic Air yang menjangkau pelanggan secara langsung. Didukung oleh jaringan kabel bawah laut yang mencakup skala nasional dan internasional, serta fiber optik yang luas, MoraRepublic tidak hanya menghadirkan akses internet, tetapi juga membuka peluang, memperluas inklusi digital, dan mendorong pertumbuhan berkelanjutan bagi generasi mendatang. MoraRepublic terus berkomitmen untuk memberikan dampak yang berkelanjutan untuk mengakselerasi konektivitas Indonesia menuju masa depan digital yang lebih maju dan inklusif. Press release ini juga sudah tayang di VRITIMES.",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "0132355b-647e-4897-b404-10caa8ebcc1c",
+    "symbol": "ANTM",
+    "title": "Prospek ANTM Dibayangi Risiko Harga Emas dan Bijih Nikel, Cek Rekomendasi Analis",
+    "content": "Prospek ANTM Dibayangi Risiko Harga Emas dan Bijih Nikel, Cek Rekomendasi Analis Reporter: Vendy Yhulia Susanto | Editor: Noverius Laoli KONTAN.CO.ID - JAKARTA. Kinerja PT Aneka Tambang Tbk (ANTM) mendapat dorongan dari kenaikan volume penjualan sejumlah komoditas pada kuartal II-2026. Namun, prospek saham emiten tambang ini masih menghadapi risiko dari penurunan harga jual bijih nikel dan melandainya permintaan emas domestik.  Equity Analyst OCBC Sekuritas Devi Harjoto mencatat, volume penjualan emas ANTM pada kuartal II-2026 naik 15,4% secara kuartalan menjadi 309.200 ons troi. Meski demikian, secara semester I-2026, volume penjualan emas masih turun 38,3% secara tahunan akibat gangguan pasokan. Baca Juga: Segmen Emas dan Nikel Tumbuh Solid, Analis Pasang Rekomendasi Beli Saham ANTM Kinerja segmen nikel juga membaik. Penjualan feronikel (FeNi) melonjak 71,3% secara kuartalan, ditopang pengiriman ekspor yang lebih kuat dan pengurangan persediaan. Kenaikan penjualan tersebut terjadi meski produksi FeNi turun 4,1% secara kuartalan. Sementara itu, penjualan bijih nikel relatif stabil di level 3,4 juta wet metric ton (WMT). Penjualan bauksit tumbuh 11,9% secara kuartalan menjadi 664.000 ton. Dengan demikian, penjualan bauksit sepanjang semester I-2026 meningkat 22,6% secara tahunan. Devi memperkirakan pendapatan ANTM pada kuartal II-2026 mencapai Rp 31,5 triliun, naik 7,5% secara kuartalan. EBITDA diperkirakan sekitar Rp 5 triliun sehingga EBITDA semester I-2026 mencapai Rp 9,8 triliun. \"Pendapatan semester I-2026 diperkirakan mencapai Rp 60,8 triliun atau tumbuh 3,1% secara tahunan,\" tulis Devi dalam riset tertanggal 12 Agustus 2026. Namun, memasuki semester II-2026, pergerakan harga komoditas menjadi risiko utama bagi kinerja ANTM. Analis Indo Premier Sekuritas Ryan Winipta memperkirakan harga jual rata-rata (ASP) bijih nikel ANTM mulai menurun pada kuartal III-2026. Baca Juga: Prospek Indocement Tunggal Prakarsa (INTP) Masih Terbatas, Cek Rekomendasi Analis Penurunan tersebut diperkirakan terjadi seiring membaiknya cuaca dan meningkatnya biaya bahan bakar. Kondisi itu dapat membatasi kemampuan pabrik peleburan untuk menyerap bijih nikel dengan harga lebih tinggi. Tekanan juga datang dari bisnis emas. Meski penjualan emas semester I-2026 masih sesuai ekspektasi, Ryan melihat permintaan domestik mulai melemah pada Juli 2026 seiring tren penurunan harga emas belakangan ini. \"Risikonya berasal dari melandainya permintaan emas domestik pada Juli 2026,\" ujar Ryan kepada KONTAN, Jumat (14/8). Risiko lain berasal dari Weda Bay Nickel (WBN). Ryan memperkirakan WBN berpotensi membukukan kerugian sekitar Rp 120 miliar pada kuartal II-2026 setelah memperhitungkan kepemilikan ANTM sebesar 10%. Secara keseluruhan, WBN mencatat penyelesaian tunai sekitar Rp 700 miliar terkait izin kehutanan. Tag  * rekomendasi saham  * Target Harga Saham  * Harga Nikel Global  * Risiko Komoditas  * permintaan baterai listrik  * hiliarisasi nikel  * analisis saham ANTM  * ekspor feronikel  * penjualan bauksit Indonesia  * proyeksi EBITDA 2026  * WBN kerugian",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "cc2a4a2b-5edb-49e6-a300-11a4c1e4d9be",
+    "symbol": "DSSA",
+    "title": "TBS Bukukan Laba Kotor USD28,2 Juta, Bisnis Non-Batu Bara Makin Unggul",
+    "content": "TBS Bukukan Laba Kotor USD28,2 Juta, Bisnis Non-Batu Bara Makin Unggul Makin mudah baca berita nasional dan internasional.  * Home  * Bursa Finansial Jum'at, 28 Agustus 2026 - 18:44 WIB PT TBS Energi Utama Tbk (TBS/TOBA) melaporkan kinerja semester I 2026. FOTO/dok.SindoNews JAKARTA - PT TBS Energi Utama Tbk (TBS/TOBA) membukukan laba kotor konsolidasi sebesar USD28,2 juta pada semester I 2026, naik lebih dari dua kali lipat dibandingkan USD13,9 juta pada periode yang sama tahun sebelumnya. Kinerja tersebut ditopang pergeseran portofolio perseroan ke bisnis non-batu bara, terutama pengelolaan limbah dan ekosistem kendaraan listrik. \"Tahun lalu batu bara masih jadi penyumbang utama pendapatan kami. Hari ini bisnis non-batu bara kami dua kali lipat lebih besar, dan bisnis inilah yang menghasilkan kas. Inilah transisi yang kami janjikan, dan kuartal kedua menunjukkan kami berada di jalur yang benar untuk bertransformasi menjadi bisnis infrastruktur berkelanjutan,\" kata Direktur dan Chief Financial Officer TBS Juli Oktarina dalam keterangannya, Jumat (28/8/2026). Baca Juga: Dukung Ekonomi Hijau, TBS Foundation Munculkan Inovasi Bisnis Mahasiswa Sepanjang semester I 2026, bisnis non-batu bara menyumbang 66,5% terhadap pendapatan konsolidasi TBS, lebih dari dua kali lipat dibandingkan kontribusi bisnis batu bara sebesar 31,4%. Pendapatan konsolidasi relatif stabil di USD173 juta meskipun perseroan telah sepenuhnya keluar dari bisnis pembangkit listrik tenaga batu bara dan memangkas perdagangan batu bara sekitar dua pertiga secara tahunan. Kenaikan laba kotor didorong penurunan beban pokok pendapatan sebesar USD13,5 juta sehingga margin kotor meningkat menjadi 16,3% dari 8,1%. Sementara itu, EBITDA konsolidasi tumbuh 23,7% dan arus kas operasi berbalik positif menjadi USD14,6 juta dari sebelumnya negatif USD31,6 juta. Segmen pengelolaan limbah menjadi penopang utama kinerja dengan pendapatan USD105,9 juta, tumbuh 77,8% secara tahunan, serta menyumbang 61,2% pendapatan konsolidasi dan 92% EBITDA konsolidasi. Laba kotor segmen tersebut naik 91,9% menjadi USD17,6 juta, sedangkan EBITDA lebih dari dua kali lipat menjadi USD23,6 juta. Follow WhatsApp Channel SINDOnews untuk Berita Terbaru Setiap Hari Follow  * kinerja Dapatkan berita terkini dan kejutan menarik dari SINDOnews.com, Klik Disini untuk mendaftarkan diri anda sekarang juga! Lanjut Baca Berita Terkait Lainnya Infografis 125 Juta Orang Dapat Binasa Akibat Perang Nuklir India-Pakistan",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "71901dbe-8ba4-4d78-b049-628d657a0934",
+    "symbol": "DSSA",
+    "title": "Proyek PLTS Saguling Siap Berlanjut: Pemerintah Buka Tender 30 GW",
+    "content": "Proyek PLTS Saguling Siap Berlanjut: Pemerintah Buka Tender 30 GW – Berita Hari Ini * Berita Utama Proyek PLTS Saguling Siap Berlanjut: Pemerintah Buka Tender 30 GW Berita Hari Ini – 22 Agustus 2026 | Pemerintah Indonesia melalui Menteri Energi dan Sumber Daya Mineral (ESDM), Bahlil Lahadalia, memastikan bahwa proyek Pembangkit Listrik Tenaga Surya (PLTS) Saguling dapat segera dilanjutkan. Dalam sebuah acara di Jakarta, Bahlil mengungkapkan bahwa tender untuk pembangunan PLTS berkapasitas 100 gigawatt (GW) akan segera dibuka, dimulai dengan tahap pertama yakni 30 GW. Bahlil menjelaskan bahwa langkah ini merupakan bagian dari upaya pemerintah untuk mengurangi ketergantungan terhadap bahan bakar fosil dan beralih ke sumber energi terbarukan. “Tahun ini kita sudah mulai. Di tahun 2026 kita akan mulai masuk tahap pertama dengan pembangunan 30 GW. Tendernya akan segera kita lakukan,” ujarnya. 🔖 Baca juga: Peta Rawan Banjir Bandang Jawa: Cek Risiko Rumahmu Sekarang Perencanaan pengembangan energi baru terbarukan ini juga sejalan dengan Rencana Umum Penyediaan Tenaga Listrik (RUPTL) PLN 2025–2035, yang menargetkan porsi bauran energi sebesar 70–75 persen berasal dari energi baru terbarukan. Ini mencakup sumber-sumber seperti gas, solar panel, geothermal, dan energi air. Pentingnya Proyek PLTS bagi Kemandirian Energi Presiden Prabowo Subianto sebelumnya menekankan pentingnya pengembangan PLTS sebagai alternatif untuk menggantikan Pembangkit Listrik Tenaga Diesel (PLTD) yang dinilai mahal dan tidak efisien, terutama di daerah terpencil. Menurutnya, Indonesia memiliki potensi besar dalam energi surya, yang dapat dimanfaatkan untuk menyediakan listrik secara berkelanjutan. “Kita mendapat anugerah sinar matahari hampir sepanjang tahun. Tidak masuk akal pulau terkecil harus menunggu kapal membawa solar hanya untuk memperoleh listrik. Ongkos ekonominya sangat tidak efisien,” ungkap Prabowo dalam pidato kenegaraannya. 🔖 Baca juga: Pramono Anung Jajal Ring Tinju, Berhasil Tekan Angka Tawuran Rencana Pembangunan PLTS Secara Bertahap Pemerintah telah menetapkan target untuk pembangunan PLTS secara bertahap hingga mencapai kapasitas total 100 GW. Dalam perhitungan Kementerian Koordinator Perekonomian, potensi kapasitas ini dapat menghemat biaya pokok produksi listrik hingga Rp73,9 triliun per tahun. Dengan adanya langkah ini, diharapkan tidak hanya dapat meningkatkan akses energi di kawasan terpencil, tetapi juga memperkuat kemandirian energi nasional. Proyek ini diharapkan dapat berkontribusi signifikan dalam transisi energi Indonesia menuju keberlanjutan. Prospek dan Tantangan Namun, proyek ini juga menghadapi tantangan, seperti pengadaan teknologi, pembiayaan, dan koordinasi antar lembaga. Oleh karena itu, kolaborasi antara pemerintah, sektor swasta, dan masyarakat sangat diperlukan untuk memastikan keberhasilan proyek ini. 🔖 Baca juga: Tolak Angin Kuasai 72% Market Share, Ini Alasannya Dengan langkah-langkah yang telah diambil dan komitmen yang ditunjukkan oleh pemerintah, harapan untuk mencapai kemandirian energi melalui pengembangan PLTS menjadi semakin nyata. Proyek PLTS Saguling dan lainnya diharapkan dapat memberikan solusi bagi kebutuhan energi di masa depan.",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "9383f5e4-aeb9-4063-ad91-4a0ab48d5f4d",
+    "symbol": "INDY",
+    "title": "Ini Daftar Harga Batubara Acuan (HBA) pada Periode Kedua Agustus 2026",
+    "content": "Ini Daftar Harga Batubara Acuan (HBA) pada Periode Kedua Agustus 2026 ILUSTRASI. PELNI Angkut 335.415 Metrik Ton Batubara ke PLTU pada Semester I-2026 (PELNI/dok) Reporter: Arif Ferdianto | Editor: Yudho Winarto KONTAN.CO.ID - JAKARTA. Kementerian Energi dan Sumber Daya Mineral (ESDM) menetapkan Harga Batubara Acuan (HBA) terbaru untuk periode kedua Agustus 2026. Penetapan tersebut tertuang dalam Keputusan Menteri ESDM Nomor 336.K/MB.01/MEM.B/2026 tentang Harga Mineral Logam Acuan dan Harga Batubara Acuan untuk Periode Kedua Bulan Agustus Tahun 2026. Baca Juga: Target Lifting Minyak Stagnan 610.000 BOPD di RAPBN 2027, IATMI: Tidak Realistis Keputusan tersebut ditandatangani Menteri ESDM Bahlil Lahadalia pada 14 Agustus 2026. Mengutip Keputusan tersebut Selasa (18/8/2026), pergerakan HBA pada periode kedua Agustus 2026 bervariasi berdasarkan tingkat kalori batubara. Batubara berkalori tinggi mengalami penurunan tipis, sementara sejumlah jenis batubara berkalori lebih rendah mencatat kenaikan. Untuk batubara dengan kesetaraan nilai kalori 6.322 kcal/kg GAR, pemerintah menetapkan HBA sebesar US$ 124,06 per ton. Angka tersebut turun tipis dari HBA periode pertama Agustus 2026 sebesar US$ 124,44 per ton. Sementara itu, HBA batubara dengan kesetaraan nilai kalori 5.300 kcal/kg GAR ditetapkan sebesar US$ 96,92 per ton. Harga tersebut naik dari periode pertama Agustus yang berada di level US$ 93,27 per ton. Baca Juga: Pelayaran Nasional Ekalya (ELPI) Raih Kontrak Rp582,76 Miliar hingga Semester I-2026 HBA Batubara Kalori Rendah Ikut Naik Untuk batubara dengan kesetaraan nilai kalori 4.100 kcal/kg GAR, pemerintah menetapkan HBA sebesar US$ 65,81 per ton pada periode kedua Agustus 2026. Angka tersebut meningkat dibandingkan periode pertama Agustus 2026 yang tercatat sebesar US$ 65,48 per ton. Adapun HBA batubara dengan kesetaraan nilai kalori 3.400 kcal/kg GAR ditetapkan sebesar US$ 45,34 per ton. Nilai tersebut naik tipis dibandingkan HBA periode pertama yang sebesar US$ 45,27 per ton. Dengan demikian, penetapan HBA periode kedua Agustus 2026 menunjukkan pergerakan harga yang berbeda di setiap kategori kalori, dengan kenaikan terutama terjadi pada batubara berkalori 5.300 kcal/kg GAR dan di bawahnya. Baca Juga: Semarak HUT ke-81 RI, PTBA Menyalakan Energi, Masyarakat Berdaya, Lingkungan Terjaga Cek Berita dan Artikel yang lain di Google News",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "6c529890-858e-4317-9551-51d6bc74e1cb",
+    "symbol": "ANTM",
+    "title": "Kementerian ESDM Tetapkan HBA dan HMA Periode Pertama September 2026",
+    "content": "Kementerian ESDM Tetapkan HBA dan HMA Periode Pertama September 2026 Published Sep 2, 2026 - 13:50 15 Reads Last Update Sep 2, 2026 - 13:50 Smallest Font Largest Font Kementerian Energi dan Sumber Daya Mineral (ESDM) resmi menetapkan Harga Batubara Acuan (HBA) dan Harga Mineral Acuan (HMA) untuk periode pertama bulan September 2026. Penyesuaian ini membuat harga batu bara kalori tinggi menguat, sementara kategori lainnya mengalami penurunan, sebagaimana dilansir dari Detik Finance. Ketetapan harga acuan terbaru tersebut disahkan melalui Keputusan Menteri ESDM Nomor 312.K/MB.01/MEM.B/2026. \"Menetapkan Harga Batubara Acuan yang selanjutnya disebut HBA untuk Periode Pertama Bulan September Tahun 2026 dengan besaran tercantum dalam Lampiran II yang merupakan bagian tidak terpisahkan dari Keputusan Menteri ini,\" tulis diktum kedua aturan tersebut. Berdasarkan regulasi itu, HBA batu bara kalori tinggi dengan nilai 6.322 kcal/kg GAR ditetapkan naik menjadi US$ 126,87 per ton dari posisi sebelumnya sebesar US$ 124,06 per ton pada periode kedua Agustus 2026. Sebaliknya, batu bara kategori 5.300 kcal/kg GAR turun menjadi US$ 95,05 per ton dari sebelumnya US$ 96,92 per ton. Penurunan juga terjadi pada kelompok 4.100 kcal/kg GAR (HBA II) dari US$ 65,81 menjadi US$ 65,05 per ton, serta kelompok 3.400 kcal/kg GAR (HBA III) yang tergerus dari US$ 45,35 menjadi US$ 44,15 per ton. Selain komoditas batu bara, Kementerian ESDM turut merilis daftar HMA untuk berbagai jenis komoditas tambang mineral. Pada periode ini, HMA nikel dipatok sebesar US$ 16.733,33/dmt dan tembaga senilai US$ 14.358,53/dmt. Pemerintah juga menetapkan tarif HMA untuk kobal senilai US$ 55.852,67/dmt, timbal US$ 1.853,87/dmt, seng US$ 3.849,17/dmt, aluminium US$ 3.253,30/dmt, emas sebagai mineral ikutan US$ 4.421,49/dmt, perak sebagai mineral ikutan US$ 64,38/dmt, mangan US$ 3,59/dmt, bijih besi US$ 1,43/dmt, bijih krom US$ 6,37/dmt, serta konsentrat timah sebesar US$ 8,55/dmt.    0        Like    0        Dislike    0        Funny    0        Angry    0        Sad    0        Wow",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "372a601b-5926-463f-9be4-c02497cd7a1c",
+    "symbol": "TLKM",
+    "title": "Telkom Siapkan Infrastruktur Digital untuk Hadapi Ledakan Kebutuhan AI",
+    "content": "Telkom Siapkan Infrastruktur Digital untuk Hadapi Ledakan Kebutuhan AI Published Aug 26, 2026 - 10:50 7 Reads Last Update Aug 26, 2026 - 10:50 Smallest Font Largest Font Telkom Indonesia menyiapkan infrastruktur digital yang siap menghadapi ledakan kebutuhan kecerdasan buatan (AI), termasuk pembangunan pusat data yang mendukung AI. Pernyataan ini disampaikan Direktur Utama Telkom Dian Siswarini pada pembukaan Bali Annual Telkom International Conference (BATIC) 2026 di Nusa Dua, Rabu (26/8/2026), seperti dilansir dari Detik iNET. Dian menjelaskan perkembangan AI mengubah industri digital secara signifikan, dengan platform yang semakin cerdas dan terdistribusi dalam aktivitas ekonomi. Namun, fondasi utama yang menopang teknologi tersebut adalah konektivitas. \"Konektivitas tidak lagi sekadar infrastruktur yang membawa informasi. Konektivitas menjadi fondasi tempat ekonomi digital masa depan akan dibangun,\" ujar Dian. Menurut Dian, kebutuhan infrastruktur digital kini harus menghubungkan jaringan internasional dengan domestik, pusat data, kapasitas komputasi, serta layanan digital cerdas dan solusi enterprise. Semua ini harus bekerja sebagai ekosistem terintegrasi yang mendorong pertumbuhan digital. Dian menambahkan, AI meningkatkan belanja industri dan permintaan kapasitas, sehingga Telkom memprioritaskan pembangunan infrastruktur pusat data siap AI melalui NeutraDC sebagai salah satu dari tiga inisiatif utama perusahaan, selain bisnis mobile dan fixed broadband. \"NeutraDC akan memperkuat posisi Telkom di sektor infrastruktur pusat data sekaligus membangun ekosistem yang mampu mendukung generasi AI berikutnya,\" kata Dian. Telkom berencana menyediakan kapasitas yang terus meningkat, konektivitas, dan kemitraan strategis, serta menanamkan kemampuan cerdas dan inovasi teknologi dalam infrastrukturnya. Selain pusat data, Telkom juga memperkuat backbone infrastruktur domestik dan konektivitas internasional melalui Telin. Dian menyatakan, perusahaan bertransformasi dari sekadar memiliki infrastruktur menjadi mengoptimalkan aset tersebut dengan kolaborasi mitra untuk menciptakan nilai lebih besar. \"Platform ini akan meningkatkan tingkat pemanfaatan infrastruktur, mempercepat inovasi, dan memungkinkan kolaborasi yang lebih kuat di seluruh ekosistem,\" ujar Dian. Ketiga inisiatif ini merupakan bagian dari transformasi besar Telkom untuk menjadi pemimpin infrastruktur digital dan penggerak ekosistem AI di masa depan, menurut Dian. \"Semuanya membentuk satu ambisi yang terintegrasi, yaitu mentransformasi Telkom dari penyedia konektivitas menjadi pemimpin infrastruktur digital dan pada akhirnya menjadi penggerak ekosistem AI,\" pungkas Dian.    0        Like    0        Dislike    0        Funny    0        Angry    0        Sad    0        Wow",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "907c46cb-69e7-445a-8de3-5216a547e1a9",
+    "symbol": "BBCA",
+    "title": "Rapor Kinerja Bank Jumbo (BRI, BNI, Mandiri, BCA) Semester I/2026, Siapa Paling Moncer?",
+    "content": "Rapor Kinerja Bank Jumbo (BRI, BNI, Mandiri, BCA) Semester I/2026, Siapa Paling Moncer? Bisnis.com, JAKARTA — Empat bank jumbo penghuni Kelompok Bank berdasarkan Modal Inti (KBMI) IV membukukan pertumbuhan laba pada semester I/2026. BRI memimpin perolehan laba, sedangkan Bank Mandiri mencatat pertumbuhan paling tinggi. PT Bank Rakyat Indonesia (Persero) Tbk. (BBRI) membukukan laba bersih Rp31,18 triliun, disusul PT Bank Mandiri (Persero) Tbk. (BMRI) Rp30,4 triliun dan PT Bank Central Asia Tbk. (BBCA) Rp29,5 triliun. Sementara itu, PT Bank Negara Indonesia (Persero) Tbk. (BBNI) mencatatkan laba bersih konsolidasian Rp10,80 triliun. Dari sisi pertumbuhan laba, Bank Mandiri menjadi yang paling kencang dengan kenaikan 24,4% secara tahunan atau year on year (YoY). BRI menyusul dengan pertumbuhan 17,5% YoY, sedangkan laba BNI naik 6,33% YoY. Sementara itu, BNI membukukan ekspansi kredit paling agresif. Total kredit perseroan mencapai Rp968,53 triliun atau meningkat 24,38% YoY dari Rp778,68 triliun. Bank Mandiri mencatat pertumbuhan kredit 19,9% YoY, sedangkan kredit BCA tumbuh 8% YoY dan untuk pertama kalinya menembus Rp1.000 triliun menjadi Rp1.036 triliun. Adapun, kredit BRI mencapai Rp1.580,42 triliun hingga akhir Juni 2026. Kekuatan masing-masing bank juga terlihat dari struktur pendanaan dan kualitas aset. BCA mempertahankan keunggulan dana murah dengan current account saving account (CASA) mencapai Rp1.082 triliun atau sekitar 84,3% dari total dana pihak ketiga (DPK). Baca Juga  * Bank Jumbo Adu Jumlah Pengguna, Siapa Raja M-Banking di Semester I/2026?  * OJK Terbitkan Aturan Penyelenggaraan Teknologi Informasi Bank Umum, Ini Ketentuannya  * Adu Kuat Kinerja Himbara vs Bank Swasta Jumbo pada Paruh Pertama 2026 Bank Mandiri menjaga rasio kredit bermasalah atau non-performing loan (NPL) pada level 0,98%. Sementara itu, NPL BNI dan BCA masing-masing berada pada level 1,9%. Berikut kinerja empat bank KBMI IV pada semester I/2026. BRI BRI membukukan laba bersih Rp31,18 triliun pada semester I/2026, meningkat 17,5% dibandingkan dengan periode yang sama tahun sebelumnya sebesar Rp26,53 triliun. Capaian tersebut menempatkan BRI sebagai bank dengan perolehan laba terbesar di antara empat bank KBMI IV. Pertumbuhan laba ditopang peningkatan pendapatan bunga bersih dan pendapatan operasional. Merujuk pada laporan keuangan BRI yang diterbitkan Harian Bisnis Indonesia pada Senin (31/8/2026), pendapatan bunga bersih konsolidasian BRI mencapai Rp80,53 triliun pada semester I/2026, naik 9,9% YoY dari Rp73,27 triliun pada semester I/2025. Secara keseluruhan, pendapatan bunga BRI meningkat 5,4% YoY menjadi Rp107,92 triliun dari Rp102,37 triliun. Pada saat yang sama, beban bunga turun 5,9% YoY menjadi Rp27,39 triliun dari Rp29,10 triliun. Perbaikan pada pendapatan bunga tersebut berjalan beriringan dengan tekanan dari sejumlah pos beban. BRI mencatatkan beban bersih dari pendapatan operasional lainnya sebesar Rp40,99 triliun, meningkat 5,9% dibandingkan dengan Rp38,71 triliun pada semester I/2025. Kerugian penurunan nilai aset keuangan atau impairment tercatat Rp25,51 triliun, naik 9,5% dari Rp23,27 triliun pada periode yang sama tahun sebelumnya. Sementara itu, beban lainnya mencapai Rp65,60 triliun atau meningkat 46% dibandingkan dengan Rp44,94 triliun pada semester I/2025. Meski menghadapi kenaikan beban, laba operasional BRI tetap meningkat 14,8% YoY menjadi Rp40,17 triliun dari Rp35 triliun. Bank Mandiri Bank Mandiri membukukan laba bersih konsolidasi Rp30,4 triliun hingga Juni 2026. Laba tersebut tumbuh 24,4% YoY dan menjadi pertumbuhan laba tertinggi di antara tiga bank KBMI IV dalam materi ini. Pertumbuhan laba tersebut ditopang ekspansi bisnis yang tetap kuat. DPK Bank Mandiri meningkat 17,1% YoY, kemudian disalurkan sehingga aset kredit tumbuh 19,9% YoY. Direktur Finance & Strategy Bank Mandiri Novita Widya Anggraini mengatakan pertumbuhan tersebut menghasilkan pendapatan dan pendapatan bunga bersih atau net interest income (NII) yang tetap tumbuh. “Jadi dengan pertumbuhan ini tentunya menghasilkan revenue ataupun NII yang cukup baik di 8%,” ungkap Novita dalam Paparan Kinerja Kuartal II/2026 secara virtual, Kamis (23/7/2026). Dari sisi kualitas aset, Bank Mandiri mempertahankan NPL pada level 0,98%. Perseroan juga mencatatkan coverage ratio sebesar 242% dan cost of credit (CoC) sebesar 0,52%. Pertumbuhan laba juga ditopang peningkatan pendapatan nonbunga yang berasal dari fee-based income. Fee dari Livin' by Mandiri tumbuh 46% YoY, fee Kopra by Mandiri meningkat 22,8% YoY, sedangkan fee transaksi treasury naik 23% YoY. “Dengan kondisi yang pencapaian volume bisnis, kemudian tingkat profitabilitas yang baik, ini menghasilkan laba Bank Mandiri di Rp30,4 triliun,” ujarnya. BNI PT Bank Negara Indonesia (Persero) Tbk. (BBNI) mencatatkan laba bersih konsolidasian Rp10,80 triliun pada semester I/2026. Laba tersebut tumbuh 6,33% YoY dari Rp10,16 triliun pada periode yang sama tahun sebelumnya. Meski pertumbuhan labanya lebih rendah dibandingkan Bank Mandiri, BNI mencatat ekspansi kredit paling agresif. Total kredit mencapai Rp968,53 triliun atau meningkat 24,38% YoY dari Rp778,68 triliun. Pertumbuhan kredit berjalan seiring dengan kenaikan DPK sebesar 22,26% YoY menjadi Rp1.100,18 triliun. Pertumbuhan tersebut terutama didorong oleh deposito yang melonjak 50,70% YoY menjadi Rp380,22 triliun. Giro meningkat 12,32% YoY menjadi Rp428,64 triliun, sedangkan tabungan tumbuh 9,56% YoY menjadi Rp291,32 triliun. Total aset konsolidasian BNI pun meningkat 21,58% YoY menjadi Rp1.461 triliun. Dari sisi pendapatan, pendapatan bunga BNI mencapai Rp38,63 triliun, tumbuh 14,92% YoY. Beban bunga juga meningkat 15,94% YoY menjadi Rp16,34 triliun. Pendapatan bunga bersih BNI akhirnya tumbuh 14,19% YoY menjadi Rp22,28 triliun dari Rp19,51 triliun pada semester I/2025. Namun, ekspansi tersebut diikuti peningkatan beban. Beban operasional selain bunga bersih meningkat 26,77% YoY menjadi Rp9,49 triliun. Impairment juga meningkat 36,17% YoY menjadi Rp5,05 triliun. Tekanan tersebut tercermin pada NIM yang turun menjadi 3,55% dari 3,83%. Rasio biaya operasional terhadap pendapatan operasional juga meningkat menjadi 73,11% dari 71,36%. Di sisi lain, kualitas aset BNI membaik. Loan at risk (LAR) turun dari 11% menjadi 8,1%, sementara NPL berada pada level 1,9%. Direktur Finance & Strategy BNI Hussein Paolo Kartadjoemena mengatakan peningkatan profitabilitas menunjukkan kontribusi bisnis inti BNI yang semakin solid dan berimbang. “Peningkatan pendapatan tidak hanya berasal dari ekspansi kredit, tetapi juga dari pertumbuhan transaksi, solusi cash management, layanan digital, serta aktivitas berbasis komisi lainnya. Diversifikasi sumber pendapatan ini penting untuk menjaga ketahanan profitabilitas BNI dalam berbagai kondisi siklus ekonomi,” kata Paolo dalam keterangannya, Rabu (5/8/2026). Pendapatan komisi BNI juga meningkat 13,51% YoY menjadi Rp5,50 triliun, sedangkan pendapatan lainnya tumbuh 8,70% YoY menjadi Rp3,08 triliun. BCA BCA membukukan laba bersih konsolidasi Rp29,5 triliun pada semester I/2026. Kinerja tersebut ditopang oleh pertumbuhan kredit yang untuk pertama kalinya menembus Rp1.000 triliun. Total kredit BCA mencapai Rp1.036 triliun hingga Juni 2026 atau tumbuh 8% YoY. Segmen produktif menjadi penopang utama dengan nilai Rp802 triliun atau tumbuh 11% YoY. Kredit korporasi meningkat 13,6% YoY menjadi Rp513,4 triliun, sementara kredit komersial dan usaha kecil menengah tumbuh 6,6% YoY menjadi Rp288,5 triliun. Presiden Direktur BCA Hendra Lembong mengatakan kinerja perseroan pada paruh pertama 2026 ditopang aktivitas bisnis nasabah dan penyaluran kredit produktif ke berbagai sektor ekonomi. “Kinerja BCA pada paruh pertama 2026 ditopang berbagai hal, seperti BCA Expoversary 2026 dan penyaluran kredit produktif ke berbagai sektor,” ujarnya dalam paparan, Selasa (28/7/2026). BCA mempertahankan kualitas kredit dengan LAR sebesar 4,9% d",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "02b07371-5c03-4132-a0fc-84a08c231739",
+    "symbol": "DCII",
+    "title": "Ekspansi Infrastruktur Digital Pacu Prospek Saham Sektor Data Center",
+    "content": "Ekspansi Infrastruktur Digital Pacu Prospek Saham Sektor Data Center JAKARTA - Kebutuhan infrastruktur cloud, kecerdasan buatan (AI), serta digitalisasi enterprise yang terus menunjukkan tren kenaikan menjadi pemicu utama bagi pertumbuhan emiten data center di tanah air. Dinamika ini membuka peluang ekspansi kapasitas secara masif sekaligus mendorong penyesuaian nilai jual saham para pelakunya hingga pengujung tahun 2026. Total kapasitas terpasang IT data center di Indonesia tercatat menyentuh angka sekitar 580 megawatt (MW) pada semester I-2026. Angka tersebut diproyeksikan melonjak hingga 3,5 gigawatt (GW) pada tahun 2030, atau mencerminkan Compound Annual Growth Rate (CAGR) sebesar 56,7 persen. Pendorong utamanya yakni tingginya kebutuhan sarana AI yang padat GPU serta pemrosesan cloud. Di samping itu, keterbatasan kapasitas di Singapura akibat rezim DC-CFA serta pembatasan daya di Johor, Malaysia, menempatkan Indonesia sebagai area penampung limpahan permintaan kawasan regional. Peta persaingan domestik masih didominasi wilayah Jakarta dengan kapasitas terpasang mencapai 322 MW dan proyeksi pengembangan menembus 1,7 GW. Sementara itu, kawasan Batam tumbuh pesat sebagai pusat limpahan regional berbasis hyperscale dengan kapasitas operasional 126 MW serta target pengembangan 1,4 GW. Di jajaran emiten bursa, PT Telkom Indonesia Tbk (TLKM) mengoperasikan unit bisnis data center lewat NeutraDC. Saat ini NeutraDC mengelola kapasitas live IT sebesar 90,4 MW dan membidik target ekspansi hingga 300 MW pada tahun 2030, dengan jaringan utama di Cikarang, Batam, hingga Singapura. Fasilitas Kampus Cikarang 1 dirancang memiliki daya 21,5 MW, sedangkan Kampus 2 disiapkan untuk menambah kapasitas hingga 120 MW. Fasilitas Kampus Batam berkapasitas 18 MW ditargetkan siap beroperasi tahun ini dengan penyewa utama Gorilla Technology. Saat ini TLKM berada dalam proses pelepasam 70 persen saham NeutraDC dengan taksiran nilai transaksi sekitar US$ 1,0–1,5 miliar. Skema ini bertujuan menggandeng operator global demi memperkuat kemampuan operasional dalam melayani penyewa skala besar. Potensi monetisasi NeutraDC dinilai sebagai katalis yang sangat dinantikan oleh jajaran pelaku pasar. \"Dampak utama divestasi NeutraDC kemungkinan lebih besar terhadap rerating valuasi dan persepsi pasar dibandingkan terhadap lonjakan pendapatan langsung pada 2026,\" kata perwakilan analisis pasar. Perbaikan lini bisnis utama, pembenahan struktur perusahaan, serta potensi dividen turut menjadi pendorong kinerja TLKM. Apabila nilai transaksi sesuai atau melampaui estimasi, TLKM berpeluang mengantongi pemicu positif yang signifikan hingga akhir tahun, sekaligus menjadi pilihan menarik dari sudut pandang risk-adjusted return. Di sisi lain, keterlibatan PT Indosat Tbk (ISAT) dalam bisnis data center dijalankan melalui dua unit usaha. Entitas pertama yakni BDx Indonesia, tempat ISAT menggenggam 25 persen saham. BDx mengelola kapasitas 30 MW di tiga kampus pusat data edge serta 72 MW pusat data hyperscale di CGK4 Jatiluhur, dengan komitmen pasokan daya PLN mencapai 1,2 GW. Entitas kedua yakni Zankore, proyek usaha bersama Neocloud AI berdampingan dengan Ooredoo, di mana ISAT berpotensi menguasai 30 persen porsi saham. Proyek AI Factory Zankore fase awal berkapasitas 200 MW di Batang dijadwalkan mulai beroperasi pada semester I-2027 dan ditargetkan berkembang hingga 1 GW. Kontribusi Zankore diproyeksikan sanggup menyumbang kenaikan hingga 35 persen terhadap nilai ekuitas ISAT. Strategi ekosistem AI ini dinilai dapat mengubah pandangan pasar terhadap ISAT secara mendasar, menggeser posisi perusahaan dari penyedia jasa telekomunikasi menjadi penyedia sarana GPU, cloud, edge computing, dan layanan AI. Meski sumbangan pendapatan Zankore pada tahun 2026 diprediksi belum terlalu besar, perkembangan kemitraan dan kontrak hyperscaler dapat menjadi pemicu penyesuaian harga. Karena itu, ISAT dinilai mengantongi potensi kenaikan yang besar meski terbilang peka terhadap eksekusi proyek. Adapun PT Dian Swastatika Sentosa Tbk (DSSA) mengoperasikan 24 edge data center berkapasitas 10 MW lewat merek SM+. DSSA turut menggarap fasilitas hyperscale SMX01 di Jakarta lewat kemitraan bersama LG bernilai US$ 300 juta. Fasilitas berstandar Tier IV ini dirancang khusus untuk operasional AI memakai teknologi pendingin cair. SMX01 diproyeksikan mulai beroperasi pada kuartal IV-2026 dengan daya awal 18 MW yang dapat ditingkatkan hingga 60 MW. Transformasi DSSA menuju ekosistem teknologi dan telekomunikasi memperluas total pasar yang dapat disasar grup menjadi berkisar US$ 76 miliar. Penggabungan ini dinilai sanggup menaikkan kualitas keuntungan serta menciptakan arus kas bebas yang lebih stabil. Diferensiasi para emiten data center terletak pada fokus strategi masing-masing entitas di lapangan. \"TLKM lebih defensif dengan potensi re-rating dari monetisasi NeutraDC; ISAT berpotensi mendapat re-rating dari tema AI, meski kontribusi Zankore terhadap laba 2026 masih terbatas; DSSA menarik dari transformasi menuju digital infrastructure; sedangkan DCII memiliki pertumbuhan paling agresif, tetapi valuasinya juga sudah relatif premium,\" ujar pengamat pasar modal. Sebagai penyedia layanan murni terbesar, PT DCI Indonesia Tbk (DCII) mengelola kapasitas terpasang 132 MW yang tersebar di lima area. Portofolio tersebut mencakup H1 Cibitung berkapasitas 73 MW, H2 Karawang 27 MW, E1 Jakarta 19 MW, dan E2 Surabaya 9 MW. DCII diperkirakan menguasai pangsa pasar sebesar 25,6 persen di Indonesia, ditopang sertifikasi Tier IV Gold serta akses langsung ke enam platform cloud global. Untuk jangka panjang, DCII menyiapkan megaproyek Bintan Data Center Park berkapasitas hingga 1.000 MW di atas lahan seluas 700 hektare. Dari aspek pendanaan, DCII baru saja memperoleh fasilitas pinjaman senilai Rp17 triliun dari BCA. Namun, saham DCII dicatat diperdagangkan pada nilai tinggi dengan P/E 493,7x serta tingkat likuiditas transaksi yang relatif terbatas. Di jajaran emiten yang sedang berkembang, PT NexAI Digital Infrastruktur Tbk (MGLV) berencana mengalihkan fokus bisnis utamanya menjadi penyedia data center. MGLV bersiap mengambil alih dua aset Nextier berkapasitas total 96 MW, yakni MettaDC di Cikarang dan NGC di Batang, yang didukung penerbitan hingga 285,7 juta saham baru. Sementara itu, PT Sinergi Inti Andalan Prima Tbk (INET) lewat anak perusahaannya mengoperasikan sarana JKT01 di Gedung Cyber 1 Jakarta, serta merencanakan pembukaan kawasan green data center seluas 180–200 hektare di Jatiluhur, Purwakarta. Adapun PT Bakrie & Brothers Tbk (BNBR) melalui PT Multi Kontrol Nusantara telah mengamankan lahan seluas 1,67 hektare di Kalideres, Jakarta Barat, senilai Rp500 miliar untuk pengembangan pusat data perkotaan. Mengenai panduan investasi saham, TLKM direkomendasikan add dengan target harga Rp3.030 per saham, ISAT disarankan buy dengan sasaran harga Rp3.430 per saham, sedangkan DSSA diberi rekomendasi buy dengan target harga Rp1.500 per saham.",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "461a3ea3-a684-4c2a-b919-03740f89df25",
+    "symbol": "GOTO",
+    "title": "Gojek dan YGMP Salurkan Bantuan untuk Mitra Driver yang Terdampak Gempa NTT hingga Karhutla",
+    "content": "Gojek dan YGMP Salurkan Bantuan untuk Mitra Driver yang Terdampak Gempa NTT hingga Karhutla CANTIKA.COM, Jakarta - Aksi tanggap darurat dan kepedulian terus digalang untuk meringankan beban para mitra pengemudi Gojek yang terdampak bencana alam di berbagai wilayah Indonesia. Gojek bersama Yayasan GoTo Merah Putih (YGMP) resmi menyalurkan bantuan kemanusiaan bagi para mitra pengemudi yang terdampak musibah gempa bumi di Nusa Tenggara Timur (NTT) dan kebakaran hutan dan lahan (karhutla) di Kalimantan serta Sumatra. Penyaluran bantuan ini dirancang khusus untuk mempercepat proses pemulihan ekonomi sekaligus memenuhi kebutuhan mendesak para mitra beserta keluarga mereka. Skema Bantuan dari Uang Tunai sampai Voucher Belanja Head of Driver Operations Gojek sekaligus Sekretaris YGMP, Bambang Adi Wirawan, menjelaskan bahwa bentuk bantuan disesuaikan dengan kondisi dan kebutuhan riil para mitra di lapangan. Wilayah NTT: Bantuan diberikan dalam bentuk dana tunai langsung untuk membantu proses pemulihan pascagempa. Wilayah Kalimantan & Sumatra: Bantuan berupa voucher belanja Alfamart agar mitra memiliki fleksibilitas memilih bahan pokok sesuai kebutuhan keluarga. \"Melalui bantuan ini, kami ingin memastikan para Mitra Driver mendapatkan dukungan yang mereka butuhkan untuk melewati masa sulit,\" ujar Bambang dalam siaran pers yang diterima Cantika, Senin, 31 Agustus 2026. Posko Masker dan Vitamin di Rumah Mitra Menanggapi bahaya kabut asap akibat karhutla di Kalimantan dan Sumatra, Gojek dan YGMP juga menyiagakan bantuan kesehatan ekstra. Masker dan paket vitamin disalurkan dan disiagakan di seluruh Rumah Mitra yang tersebar di berbagai kota. Skema ini diterapkan agar para driver yang masih beroperasi di area terdampak kabut asap bisa mengakses perlindungan kesehatan secara cepat dan mudah. Solidaritas Tanpa Batas Mitra Driver Gojek dari Komunitas relawan ETB Rescue Banjarbaru membantu pemadaman bersama tim Unit Pelaksana Teknis (UPT) Damkar Pemkot Banjarbaru. Foto: Dok. Gojek Tidak hanya menerima bantuan, semangat gotong royong juga ditunjukkan langsung oleh komunitas Mitra Driver di berbagai daerah yang bahu-membahu membantu sesama dan masyarakat umum: Banjarmasin: Komunitas Driver Gojek Galuh Borneo Kalimantan Selatan membagikan 2.000 masker gratis kepada warga sekitar. Palembang: Asosiasi Driver Online Bersatu (ADOB) menggerakkan aksi serupa dengan mendistribusikan ribuan masker untuk mengantisipasi ISPA. Banjarbaru: Komunitas relawan Emergency Tanggap Bencana (ETB) Rescue Banjarbaru—yang mayoritas anggotanya adalah Mitra Driver Gojek—secara mandiri terjun langsung membantu UPT Damkar Pemkot Banjarbaru memadamkan titik-titik api karhutla. Aksi solidaritas dari para mitra di lapangan ini mendapat apresiasi mendalam dari manajemen Gojek dan ekosistem GoTo. \"Kami ikut bersyukur dan tersentuh melihat para Mitra Driver yang tetap memilih untuk saling membantu di tengah situasi yang tidak mudah. Kepedulian yang ditunjukkan mencerminkan semangat gotong royong yang menjadi kekuatan kita bersama,\" tutup Bambang. Seluruh paket bantuan dari Gojek dan YGMP dipastikan telah disalurkan langsung kepada para Mitra Driver yang membutuhkan. Pilihan Editor: Cara Gojek Edukasi Cegah Kekerasan Seksual, Ada Pelatihan Khusus untuk Driver SILVY RIANA PUTRI Halo Sahabat Cantika, Yuk Update Informasi Terkini Gaya Hidup Cewek Y dan Z di Instagram dan TikTok Cantika.  * Gojek  * Yayasan GoTo Merah Putih  * Mitra Driver  * Gempa NTT  * Karhutla  * Kalimantan  * Sumatra  * Sumatera",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "d72704b0-1090-450a-b08a-1a3b87f43f74",
+    "symbol": "GOTO",
+    "title": "Transaksi Digital Tumbuh 28,69%, Peluang UMKM Genjot Penjualan Makin Besar",
+    "content": "Transaksi Digital Tumbuh 28,69%, Peluang UMKM Genjot Penjualan Makin Besar ILUSTRASI. Kontan - Kilas Online. Dok. Istimewa. Photo: shutterstock.com (Shutterstock/DOK) Reporter: Prayogi Ikhrawinata | Editor: Noverius Laoli KONTAN.CO.ID - JAKARTA. Pertumbuhan transaksi pembayaran digital membuka peluang bagi usaha mikro, kecil, dan menengah (UMKM) untuk meningkatkan penjualan melalui marketplace. Bank Indonesia (BI) mencatat volume transaksi pembayaran digital mencapai 5,50 miliar transaksi pada Juli 2026. Angka tersebut tumbuh 28,69% secara tahunan (yoy). Sekretaris Jenderal Asosiasi UMKM Indonesia (Akumindo) Edy Misero menilai, peningkatan transaksi digital turut mendorong penjualan produk UMKM. Menurutnya, semakin tinggi transaksi, semakin besar pula peluang produk UMKM terjual.  Baca Juga: BI Mencatat Volume Transaksi Digital Tumbuh 40,35% pada Februari 2026 “Kalau transaksinya meningkat, pasti produk UMKM yang laku juga meningkat,” ujar Edy kepada KONTAN, Kamis (3/9/2026). Edy menyebut produk pakaian dan kuliner menjadi sejumlah sektor yang berpeluang menikmati pertumbuhan tersebut. Namun, ia belum memiliki data rinci mengenai besaran kenaikan penjualan masing-masing sektor. Menurut Edy, peluang bisnis UMKM melalui marketplace masih terbuka pada paruh kedua 2026. Kondisi tersebut sejalan dengan perubahan pola perdagangan yang semakin mengandalkan kanal digital. Karena itu, UMKM perlu beradaptasi dengan teknologi dan memperluas pemanfaatan platform digital. Langkah tersebut dinilai penting agar pelaku UMKM tidak tertinggal dalam perubahan pola perdagangan. Baca Juga: BI Catat Transaksi Digital Tumbuh 28,69% per Juli 2026 Dari sisi ekosistem, Edy menilai marketplace dan UMKM memiliki hubungan yang saling menguntungkan. Marketplace menyediakan platform untuk mempertemukan penjual dengan konsumen. Sementara itu, UMKM dapat memanfaatkan platform tersebut untuk memperluas pasar. Edy berharap kesempatan menjadi seller di marketplace juga semakin terbuka bagi pelaku UMKM. “Marketplace sudah membuka peluang untuk menjadi seller. Kami berharap kesempatan itu semakin terbuka lebar,” pungkas Edy. Selain akses pasar, Edy menilai kebutuhan modal kerja juga menjadi perhatian bagi UMKM. Tambahan pembiayaan diperlukan agar pelaku usaha mampu meningkatkan produksi dan memenuhi permintaan. Baca Juga: Bank Genjot Transaksi Digital Nasabah Bisnis Menurutnya, dukungan pembiayaan dapat membantu UMKM menyiapkan stok dan meningkatkan kapasitas usaha. Dengan demikian, pertumbuhan transaksi digital dapat lebih banyak dimanfaatkan oleh pelaku UMKM. Cek Berita dan Artikel yang lain di Google News Tag  * Platform Digital Indonesia  * Modal Kerja UMKM  * Transaksi digital 2026  * pertumbuhan UMKM  * marketplace penjualan  * produk pakaian kuliner  * peluang seller UMKM  * pembiayaan usaha kecil  * volume transaksi 5,5 miliar  * peluang pasar digital",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "7d68b6fc-578e-4c7d-902b-0a649fa2b628",
+    "symbol": "BBCA",
+    "title": "Undisbursed Loan di Bank Capai Rp 2.548 Triliun, BI: Demand Masih Jadi Tantangan",
+    "content": "Undisbursed Loan di Bank Capai Rp 2.548 Triliun, BI: Demand Masih Jadi Tantangan ILUSTRASI. BI menilai tingginya undisbursed loan menunjukkan bahwa persoalan intermediasi perbankan saat ini tidak semata-mata berkaitan dengan likuiditas. (KONTAN/Cheppy A. Muchlis) Reporter: Selvi Mayasari | Editor: Herlina Kartika Dewi KONTAN.CO.ID-JAKARTA. Bank Indonesia (BI) menilai tingginya fasilitas kredit yang belum ditarik debitur (undisbursed loan) menunjukkan bahwa persoalan intermediasi perbankan saat ini tidak semata-mata berkaitan dengan likuiditas. Ketidakpastian ekonomi dan kehati-hatian dunia usaha masih menjadi tantangan dalam mendorong permintaan kredit. BI mencatat, fasilitas kredit yang belum ditarik debitur mencapai Rp 2.548 triliun atau 21,8% dari total plafon kredit pada Juli 2026. Direktur Departemen Kebijakan Makroprudensial BI Alexander Lubis mengatakan, kondisi global yang masih penuh ketidakpastian turut mempengaruhi keputusan korporasi maupun calon debitur dalam memanfaatkan fasilitas kredit yang telah tersedia. Baca Juga: BI: Kebijakan Insentif Likuiditas Makroprudensial Tak Langsung Tekan Bunga Kredit \"Memang kita tidak bisa lepas dari kondisi global. Ketidakpastian global dan dampak ekonominya masih tinggi,\" ujar Alexander dalam diskusi dengan media di Jakarta, Jumat (28/8/2026). Menurut Alexander, kondisi tersebut menunjukkan bahwa persoalan pertumbuhan kredit merupakan kombinasi antara sisi supply dan demand. Dari sisi supply, BI terus memastikan perbankan memiliki likuiditas yang cukup agar tidak terdapat hambatan dalam penyaluran pembiayaan. \"Yang mau kita pastikan adalah tidak ada permasalahan supply atau permasalahan likuiditas. Jangan sampai bank itu tidak bisa menyalurkan kredit gara-gara secara sistem banknya sudah kering duluan,\" jelasnya. Namun, likuiditas yang tersedia di perbankan tidak serta-merta membuat debitur menarik seluruh fasilitas kreditnya. Dunia usaha masih mempertimbangkan prospek ekonomi dan kebutuhan ekspansi sebelum menggunakan pembiayaan. Baca Juga: BI Tak Hanya Suntik Likuiditas, Kini Cari Debitur untuk Dongkrak Kredit Alexander mengatakan, BI karena itu tidak hanya mendorong kredit melalui kebijakan dari sisi likuiditas. Bank sentral juga berupaya mempertemukan perbankan dengan calon debitur, termasuk korporasi dan pelaku usaha mikro, kecil dan menengah (UMKM). \"Kita coba duduk bersama, kita lihat kondisi apa yang setiap hari kita hadapi. Kita coba temukan sisi korporasi, kita coba temukan sisi UMKM,\" katanya. Besarnya undisbursed loan juga membuat BI tidak melihat tambahan insentif likuiditas sebagai satu-satunya solusi untuk mengakselerasi pertumbuhan kredit. Alexander menegaskan, Kebijakan Insentif Likuiditas Makroprudensial (KLM) tetap diperlukan untuk memastikan tidak ada persoalan likuiditas dari sisi perbankan. Namun, efektivitasnya tetap bergantung pada kesiapan bank dan permintaan kredit dari dunia usaha. Pasalnya, sulit untuk mengukur secara langsung berapa besar tambahan kredit yang berasal dari insentif KLM. Menurut Alexander, likuiditas yang diperoleh bank dari KLM akan bercampur dengan sumber pendanaan lainnya. Baca Juga: Likuiditas Ketat, BJB Syariah Rem Ekspansi Pembiayaan hingga Akhir 2026 \"Kalau kita memastikan bahwa KLM dikasih Rp 1 triliun oleh BI, kreditnya Rp 1 triliun, tidak bisa begitu juga. Sulit juga karena Rp 1 triliun itu blended,\" jelasnya. Karena itu, BI akan melihat efektivitas kebijakan melalui sejumlah indikator, antara lain pertumbuhan kredit dan pertumbuhan kredit pada sektor-sektor yang menjadi sasaran kebijakan. Sementara dalam KLM Pendalaman Pasar Uang (PPU), BI juga akan melihat perkembangan aktivitas pasar uang, termasuk jumlah pelaku dan volume transaksi. Di sisi lain, Alexander mengatakan, keputusan bank dalam menyalurkan kredit juga sangat bergantung pada kemampuan debitur membayar kewajibannya. \"Bank itu bukan menolak kreditnya. Pasti memberikan kredit, tapi Anda mampu bayarnya,\" ujarnya. Artinya, ketika bank menilai profil risiko calon debitur belum cukup meyakinkan, fasilitas kredit yang tersedia belum tentu langsung ditarik ataupun ditingkatkan. Selain profil risiko debitur, penetapan harga kredit juga mempertimbangkan biaya operasional (overhead cost) serta margin keuntungan bank. Alexander menyebut digitalisasi perbankan dapat membantu menekan biaya operasional. Proses yang sebelumnya dilakukan secara manual dapat dialihkan ke sistem digital sehingga membuka ruang bagi bank untuk menawarkan kredit dengan harga yang lebih kompetitif. \"Overhead cost yang tadinya banyak dilakukan secara manual bisa dilakukan ini sehingga harapannya marginnya itu oke,\" katanya. Dengan demikian, BI melihat percepatan kredit membutuhkan kombinasi antara kecukupan likuiditas, harga kredit yang kompetitif, kesiapan perbankan menyalurkan pembiayaan, serta meningkatnya keyakinan dunia usaha untuk melakukan ekspansi. Alexander menambahkan, BI juga terus mengidentifikasi sektor-sektor yang membutuhkan pembiayaan serta mendorong terjadinya business matching antara bank dan calon debitur. Langkah tersebut diharapkan dapat mengatasi persoalan ketika bank memiliki likuiditas dan fasilitas kredit, tetapi belum menemukan debitur yang sesuai atau debitur masih menahan diri untuk menarik pembiayaan. Cek Berita dan Artikel yang lain di Google News",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  },
+  {
+    "id": "3bacb2d4-948e-445e-aac7-26bba7a44b11",
+    "symbol": "BBCA",
+    "title": "Bertambah Lagi, OJK Tutup 12 Bank hingga Agustus 2026",
+    "content": "Bertambah Lagi, OJK Tutup 12 Bank hingga Agustus 2026 Bisnis.com, JAKARTA — Otoritas Jasa Keuangan (OJK) tercatat telah menutup 12 bank hingga Agustus 2026. Langkah tersebut merupakan bagian tindakan pengawasan yang dilakukan otoritas guna menjaga dan memperkuat industri perbankan serta menjaga kepercayaan masyarakat. Pada Januari 2026, OJK mencabut izin usaha dua BPR yakni BPR Suliki Gunung Mas dan BPR Prima Master Bank. Lalu pada Februari 2026, otoritas kembali menutup dua bank yaitu BPR Bank Cirebon dan BPR Kamadana. Pencabutan izin usaha kembali berlanjut pada bulan-bulan berikutnya. OJK menutup BPR Koperindo Jaya dan BPR Pembangunan Nagari pada Maret 2026. Kemudian pada April 2026, otoritas mencabut izin usaha BPR Sungai Rumbai, BPR Ceper Permata Artha pada Juni 2026, serta BPR Dwicahaya Nusaperkasa, BPR Mataram Mitra Manunggal dan BPR Syariah Hasanah Mandiri pada Juli 2026. Terbaru, OJK mencabut izin usaha PT BPR Citra Bersada Abadi yang beralamat di Komplek Pertokoan Pasar Pagi Bintara Blok D/20-21, Bintara, Bekasi Barat, Kota Bekasi, Provinsi Jawa Barat. Pencabutan izin tersebut dilakukan berdasarkan Keputusan Anggota Dewan Komisioner OJK Nomor KEP-62/D.03/2026 tanggal 19 Agustus 2026 tentang Pencabutan Izin Usaha PT Bank Perekonomian Rakyat (BPR) Citra Bersada Abadi. Baca Juga  * Destry Jadi Gubernur BI, OJK Dorong Penguatan Koordinasi KSSK  * Bursa Mineral Siap Jalan, OJK: Komoditasnya Terserah Pak Presiden  * OJK Dorong Ekstensifikasi Bisnis Asuransi Melansir laman resmi Lembaga Penjamin Simpanan (LPS), Minggu (30/8/2026), hingga lima hari kerja sejak pencabutan izin usaha tersebut, LPS telah menetapkan 318 rekening milik 295 nasabah sebagai Simpanan Layak Bayar, dengan total nilai simpanan sebesar Rp3.655.535.634 atau Rp3,65 miliar. Adapun lembaga tersebut masih melanjutkan proses rekonsiliasi dan verifikasi terhadap seluruh data simpanan nasabah BPR Citra Bersada Abadi. Proses tersebut dilakukan untuk memastikan setiap rekening dapat diverifikasi dan ditetapkan status penjaminannya secara tepat sesuai dengan ketentuan yang berlaku. Direktur Group Kesekretariatan Lembaga LPS Damaiyanti Sakti menyampaikan, LPS terus mengupayakan agar proses pembayaran simpanan nasabah dapat dilaksanakan secara optimal dengan tetap memperhatikan ketelitian dan ketepatan dalam setiap tahapan. “Kami memastikan setiap tahapan dilakukan secara cermat agar hak nasabah yang memenuhi ketentuan dapat segera dibayarkan sesuai dengan ketentuan yang berlaku,” ujar Damaiyanti dalam keterangannya. Berikut daftar bank bangkrut atau BPR yang ditutup hingga Agustus 2026:  1.  BPR Suliki Gunung Mas  2.  BPR Prima Master Bank  3.  BPR Bank Cirebon  4.  BPR Kamadana Bangli  5.  BPR Koperindo Jaya  6.  BPR Pembangunan Nagari  7.  BPR Sungai Rumbai Dharmasraya  8.  BPR Ceper Permata Artha  9.  BPR Dwicahaya Nusaperkasa  10. BPR Mataram Mitra Manunggal  11. BPR Syariah Hasanah Mandiri  12. BPR Citra Bersada Abadi Cek Berita dan Artikel yang lain di Google News dan WA Channel",
+    "arm": "body",
+    "restatementOnly": false,
+    "note": "Article body available; judged on substance, rule compliance and faithfulness."
+  }
+]
