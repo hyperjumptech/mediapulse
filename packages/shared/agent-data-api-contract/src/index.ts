@@ -463,8 +463,10 @@ export {
 } from "./page-collection.js";
 export {
   MEDIAPULSE_NEWSLETTER_SECTIONS,
+  NEWSLETTER_SECTION_DISPLAY_LABEL_BY_ID,
   NEWSLETTER_SECTION_IDS,
   NEWSLETTER_SECTION_PRECEDENCE,
+  newsletterSectionDisplayLabel,
   summarizeSectionCoverage,
   type NewsletterSectionId,
 } from "./newsletter-sections.js";

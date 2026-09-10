@@ -72,7 +72,7 @@ describe("buildContentGeneration", () => {
         isPoint: false,
       },
       {
-        label: "Deals & Movements - Rp22T Dividend",
+        label: "Corporate Actions - Rp22T Dividend",
         url: null,
         isSection: true,
         isPoint: false,
@@ -112,7 +112,7 @@ describe("buildContentGeneration", () => {
     const sectionFindMany = vi.fn().mockResolvedValue([
       {
         sectionKey: "dealsAndMovements",
-        heading: "Deals & Movements",
+        heading: "Corporate Actions",
         summary: null,
         items: [],
       },
@@ -129,7 +129,7 @@ describe("buildContentGeneration", () => {
     });
 
     expect(result.rows.map((row) => row.label)).toEqual([
-      "Deals & Movements",
+      "Corporate Actions",
       "Quick Hits",
     ]);
   });

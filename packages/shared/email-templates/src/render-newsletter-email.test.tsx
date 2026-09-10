@@ -405,6 +405,11 @@ describe("renderNewsletterEmail", () => {
               "The telecom market is repairing rather than roaring this week.",
             ],
           },
+          {
+            title: "Tariffs hold steady",
+            url: "https://example.com/pulse-two",
+            points: ["Headline tariffs were unchanged across operators."],
+          },
         ],
       },
       {
@@ -418,6 +423,11 @@ describe("renderNewsletterEmail", () => {
               "Second player responded with pricing.",
             ],
           },
+          {
+            title: "Third operator retrenches",
+            url: "https://example.com/competition-two",
+            points: ["A third operator withdrew from two provinces."],
+          },
         ],
       },
       {
@@ -427,6 +437,11 @@ describe("renderNewsletterEmail", () => {
             title: "Deals desk",
             url: "https://example.com/deals",
             points: ["A regional acquisition closed."],
+          },
+          {
+            title: "Board reshuffle",
+            url: "https://example.com/deals-two",
+            points: ["A new commissioner was appointed."],
           },
         ],
       },
@@ -492,6 +507,14 @@ describe("renderNewsletterEmail", () => {
       SECTION_COPY.en["deals-and-movements"].description,
     );
     expect(stripped).toContain("A regional acquisition closed.");
+    expect(stripped).not.toContain(
+      SECTION_COPY.en["regulatory-policy-watch"].description,
+    );
+    expect(stripped).not.toContain(
+      SECTION_COPY.en["disruptors-or-tech"].description,
+    );
+    expect(stripped).toContain("Agencies hinted at tighter oversight.");
+    expect(stripped).toContain("Founders keep shipping faster release cycles.");
     expect(html).not.toMatch(/Quote of the Week/i);
     expect(html).not.toMatch(/Read, Watch, Listen/i);
     expect(html).not.toMatch(/this digest covers/i);
@@ -600,6 +623,11 @@ describe("renderNewsletterEmail", () => {
             url: "https://example.com/pulse",
             points: ["The telecom market is repairing rather than roaring."],
           },
+          {
+            title: "Tariffs hold steady",
+            url: "https://example.com/pulse-two",
+            points: ["Headline tariffs were unchanged across operators."],
+          },
         ],
       },
       {
@@ -609,6 +637,11 @@ describe("renderNewsletterEmail", () => {
             title: "Deals",
             url: "https://example.com/deals",
             points: ["A regional acquisition closed."],
+          },
+          {
+            title: "Board reshuffle",
+            url: "https://example.com/deals-two",
+            points: ["A new commissioner was appointed."],
           },
         ],
       },
@@ -775,6 +808,11 @@ describe("renderNewsletterEmail", () => {
             title: "Sorotan pekan ini",
             url: "https://example.com/sorotan",
             points: ["Pasar bergerak mendatar pekan ini."],
+          },
+          {
+            title: "Tarif data stabil",
+            url: "https://example.com/sorotan-dua",
+            points: ["Tarif data tidak berubah di seluruh operator."],
           },
         ],
       },

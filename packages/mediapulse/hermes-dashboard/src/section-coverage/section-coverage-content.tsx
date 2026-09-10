@@ -19,9 +19,9 @@ const SECTION_LABELS: Record<string, string> = {
   industryPulse: "Industry Pulse",
   issuerPerformance: "Issuer Performance",
   competitiveLandscape: "Competitive Landscape",
-  dealsAndMovements: "Deals & Movements",
+  dealsAndMovements: "Corporate Actions",
   regulatoryPolicyWatch: "Regulatory & Policy Watch",
-  disruptorsOrTech: "Disruptors / Tech",
+  disruptorsOrTech: "Technology & Innovation",
   quickHits: "Quick Hits",
 };
 

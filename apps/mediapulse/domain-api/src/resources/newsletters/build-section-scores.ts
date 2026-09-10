@@ -1,4 +1,7 @@
-import { MEDIAPULSE_NEWSLETTER_SECTIONS } from "@workspace/agent-data-api-contract";
+import {
+  MEDIAPULSE_NEWSLETTER_SECTIONS,
+  newsletterSectionDisplayLabel,
+} from "@workspace/agent-data-api-contract";
 
 /** Badge variant for a section-fit score, banded green / orange / red. */
 export type SectionScoreVariant = "success" | "warning" | "destructive";
@@ -29,7 +32,10 @@ type StoredSection = {
 };
 
 const SECTION_LABEL_BY_ID = new Map<string, string>(
-  MEDIAPULSE_NEWSLETTER_SECTIONS.map((section) => [section.id, section.label]),
+  MEDIAPULSE_NEWSLETTER_SECTIONS.map((section) => [
+    section.id,
+    newsletterSectionDisplayLabel(section.id),
+  ]),
 );
 
 const SECTION_ORDER_BY_ID = new Map<string, number>(

@@ -1,4 +1,7 @@
-import { MEDIAPULSE_NEWSLETTER_SECTIONS } from "@workspace/agent-data-api-contract";
+import {
+  MEDIAPULSE_NEWSLETTER_SECTIONS,
+  newsletterSectionDisplayLabel,
+} from "@workspace/agent-data-api-contract";
 import type { Prisma, prisma } from "@mediapulse/database";
 
 import {
@@ -12,7 +15,10 @@ const STAGE_TIMEZONE = "Asia/Jakarta";
 const ARTICLE_ANALYSIS_AGENT_ID = "article-analysis" as const;
 
 const SECTION_LABEL_BY_ID = new Map<string, string>(
-  MEDIAPULSE_NEWSLETTER_SECTIONS.map((section) => [section.id, section.label]),
+  MEDIAPULSE_NEWSLETTER_SECTIONS.map((section) => [
+    section.id,
+    newsletterSectionDisplayLabel(section.id),
+  ]),
 );
 
 const SECTION_ORDER_BY_ID = new Map<string, number>(
