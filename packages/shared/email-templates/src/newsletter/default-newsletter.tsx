@@ -156,7 +156,7 @@ const ARTICLE_LINK_LABEL: Record<FooterLanguage, string> = {
 };
 
 const ARTICLE_SOURCE_LINK_CLASS_NAME =
-  "e-faint text-faint underline decoration-[0.5px] underline-offset-2";
+  "e-faint text-faint underline decoration-dotted decoration-[0.5px] underline-offset-2";
 
 const MEDIAPULSE_BRAND_NAME = "MediaPulse";
 
