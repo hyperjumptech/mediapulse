@@ -243,7 +243,7 @@ describe("renderNewsletterEmail", () => {
     expect(text).toContain("https://lead.example/article");
   });
 
-  it("underlines the source name thinly as the article link", async () => {
+  it("underlines the source name with a thin dotted rule as the article link", async () => {
     // Setup
     const industryBody = buildDocumentBody([
       {
@@ -274,12 +274,15 @@ describe("renderNewsletterEmail", () => {
       /<a[^>]*href="https:\/\/lead\.example\/article"[^>]*text-decoration(?:-line)?:\s*underline/;
     const thinUnderlineSourceAnchor =
       /<a[^>]*href="https:\/\/lead\.example\/article"[^>]*text-decoration-thickness:\s*0\.5px/;
+    const dottedUnderlineSourceAnchor =
+      /<a[^>]*href="https:\/\/lead\.example\/article"[^>]*text-decoration-style:\s*dotted/;
     const offsetUnderlineSourceAnchor =
       /<a[^>]*href="https:\/\/lead\.example\/article"[^>]*text-underline-offset:\s*2px/;
 
     expect(stripped).toMatch(sourceAnchor);
     expect(stripped).toMatch(underlinedSourceAnchor);
     expect(stripped).toMatch(thinUnderlineSourceAnchor);
+    expect(stripped).toMatch(dottedUnderlineSourceAnchor);
     expect(stripped).toMatch(offsetUnderlineSourceAnchor);
     expect(stripped).not.toContain("<svg");
     expect(stripped).not.toMatch(/>\s*Read the full article[^<]*<\/a>/);
