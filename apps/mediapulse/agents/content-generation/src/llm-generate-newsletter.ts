@@ -8,6 +8,7 @@ import {
 } from "@workspace/agent-data-api-contract";
 import { applyContractBrief } from "@workspace/agent-runtime";
 import {
+  MAX_POINT_LENGTH,
   NEWSLETTER_SECTION_KEYS,
   type NewsletterArticle,
   type NewsletterDocument,
@@ -467,6 +468,17 @@ const LONE_POINT_DIRECTIVE =
  * Written to be answerable with nothing: the article may genuinely carry no fact past its heading,
  * and the prompt already requires an empty list in that case.
  */
+/**
+ * Asks for a rewrite when a point overran the character budget.
+ *
+ * `sanitizeSummaryPoints` clips an over-long point at a clause boundary rather than dropping it, so
+ * the reader receives the sentence with its ending gone, and the ending is usually where the
+ * consequence sits. Measured across 60 shipped-article cases, every model tested overran on 10% to
+ * 49% of its bullets, so this is the common failure rather than an edge case.
+ */
+const buildOverlongPointDirective = (points: readonly string[]): string =>
+  `\n\nYour previous summary of this article ran past the ${String(MAX_POINT_LENGTH)}-character limit on ${String(points.length)} point${points.length === 1 ? "" : "s"}. Rewrite ${points.length === 1 ? "it" : "them"} as shorter complete sentences carrying the same fact, rather than trimming the ending: ${points.map((point) => `"${point.slice(0, 60)}…"`).join(", ")}.`;
+
 const LONE_POINT_RESTATES_TITLE_DIRECTIVE =
   "\n\nYour previous summary of this article produced a single point that repeats the heading and adds nothing to it. Report a fact the heading does not already state. If the article carries none, return no points at all.";
 
@@ -1011,6 +1023,24 @@ export async function generateNewsletterWithLlm(
         // thinning an item that was fine. The 150-character description is where this defect
         // lives: there is often nothing past the headline to find, and the prompt already says to
         // return no points in that case.
+        const overlongPoints = groundedPoints.filter(
+          (point) => point.length > MAX_POINT_LENGTH,
+        );
+        if (overlongPoints.length > 0 && attempt < SUMMARY_ATTEMPTS - 1) {
+          figureDirective = buildOverlongPointDirective(overlongPoints);
+          logger.info(
+            {
+              tickerId: context.tickerId,
+              sectionKey: entry.sectionKey,
+              url: entry.source.url,
+              lengths: overlongPoints.map((point) => point.length),
+              event: "article_overlong_point_retry",
+            },
+            "Retrying summary: a point ran past the character budget and would ship clipped",
+          );
+          continue;
+        }
+
         if (
           descriptionOnly &&
           lonePointRestatesTitle(groundedPoints, articleTitle) &&

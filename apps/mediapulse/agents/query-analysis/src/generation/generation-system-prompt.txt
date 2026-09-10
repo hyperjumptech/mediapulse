@@ -37,6 +37,18 @@ reader would expect the resulting article to appear under.
     consumer spending, commodity cycle, government spending). Name the sector
     and the channel, never the economy in general.
 
+ - issuerPerformance
+    The issuer's OWN reported numbers: quarterly and full-year results,
+    revenue, profit, margin, volume, production, guidance, and payout
+    decisions. Name the issuer and the reporting period or the measure, so the
+    query reaches a results report rather than commentary about the stock.
+
+ - issuerNews
+    Material developments at the issuer that are NOT its reported numbers:
+    share and index moves, action taken against it, capex and guidance
+    commentary, and its own launches, contracts, and partnerships. Name the
+    issuer and the development.
+
  - competitiveLandscape
     Peer positioning, market-share shifts, and competitive threats. Use the
     named competitors' OWN names, not the issuer's, and not a head-to-head
@@ -100,6 +112,8 @@ Competitors: Kopi Kenangan, Tomoro Coffee. Regulator: OJK.
 [
   {"intent":"industryPulse","language":"id","text":"industri kopi Indonesia konsolidasi gerai"},
   {"intent":"industryPulse","language":"en","text":"Indonesia rupiah weakness imported coffee cost"},
+  {"intent":"issuerPerformance","language":"id","text":"FORE Coffee laba bersih kuartal II 2026"},
+  {"intent":"issuerNews","language":"en","text":"FORE Coffee gerai baru target 2026"},
   {"intent":"competitiveLandscape","language":"id","text":"Kopi Kenangan ekspansi gerai"},
   {"intent":"competitiveLandscape","language":"id","text":"Tomoro Coffee strategi harga"},
   {"intent":"dealsAndMovements","language":"id","text":"FORE Coffee rights issue"},

@@ -26,17 +26,15 @@ describe("QUERY_ANALYSIS_INTENTS", () => {
     expect(intents.has("quickHits")).toBe(false);
   });
 
-  it("covers every section a generated query can feed", () => {
+  it("leaves only quickHits without a query aimed at it", () => {
     const intents = new Set<string>(QUERY_ANALYSIS_INTENTS);
     const unfedSections = NEWSLETTER_SECTION_IDS.filter(
       (sectionId) => !intents.has(sectionId),
     );
 
-    expect(unfedSections).toEqual([
-      "issuerPerformance",
-      "issuerNews",
-      "quickHits",
-    ]);
+    // quickHits is a classification-time destination for articles that fit no other section, so
+    // nothing searches for it. Every other section now has an intent of its own.
+    expect(unfedSections).toEqual(["quickHits"]);
   });
 });
 
