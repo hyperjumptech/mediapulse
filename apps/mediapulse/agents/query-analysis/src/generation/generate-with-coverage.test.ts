@@ -1,4 +1,5 @@
 /** @vitest-environment node */
+import { QUERY_ANALYSIS_INTENTS } from "@workspace/agent-data-api-contract";
 import { describe, expect, it, vi } from "vitest";
 
 import { GENERATION_MAX_ATTEMPTS } from "../constants";
@@ -34,13 +35,8 @@ const makeGenerate = (
   return generate;
 };
 
-const ALL_INTENTS = [
-  "industryPulse",
-  "competitiveLandscape",
-  "dealsAndMovements",
-  "regulatoryPolicyWatch",
-  "disruptorsOrTech",
-] as const;
+/** Derived from the contract so adding an intent cannot leave this fixture short. */
+const ALL_INTENTS = QUERY_ANALYSIS_INTENTS;
 
 /**
  * One candidate per intent, so the per-intent quota is satisfied and the retry

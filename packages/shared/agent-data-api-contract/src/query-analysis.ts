@@ -6,9 +6,16 @@ import { z } from "zod";
  * Each intent is named for the newsletter section it feeds, so an intent *is* a section id.
  * `quickHits` is deliberately absent: it is a classification-time destination for articles that
  * fit no section, never something a query searches for.
+ *
+ * - Important: `issuerPerformance` and `issuerNews` were absent for the same reason until it was
+ *   measured. Over 21 days those two sections shipped 150 items with none of them found by a query
+ *   aimed at them: they filled only when a search for something else happened to return the
+ *   issuer's own results or news. Both are now searched for directly.
  */
 export const QUERY_ANALYSIS_INTENTS = [
   "industryPulse",
+  "issuerPerformance",
+  "issuerNews",
   "competitiveLandscape",
   "dealsAndMovements",
   "regulatoryPolicyWatch",

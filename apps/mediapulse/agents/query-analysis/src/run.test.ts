@@ -70,6 +70,16 @@ const generatedCandidates = [
   { intent: "regulatoryPolicyWatch", language: "id", text: "OJK" },
   { intent: "industryPulse", language: "id", text: "industri Bank Indonesia" },
   { intent: "disruptorsOrTech", language: "id", text: "fintech Indonesia" },
+  {
+    intent: "issuerPerformance",
+    language: "id",
+    text: "BBRI laba bersih kuartal II 2026",
+  },
+  {
+    intent: "issuerNews",
+    language: "id",
+    text: "BBRI ekspansi layanan digital",
+  },
 ];
 
 /** Builds a fresh mock agent-data-api client. */

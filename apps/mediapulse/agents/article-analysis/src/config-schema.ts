@@ -277,12 +277,12 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
     criteria: [
       {
         id: "dm-corporate-action",
-        text: "Include if the article reports a specific corporate action: an acquisition, merger, divestiture, funding round, IPO, share issuance, buyback, joint venture, or an appointment to a board or executive role. A company winning a licence, spectrum block, tender, permit, or government contract is not a corporate action, nor is an ordinary commercial launch, expansion, or earnings result. An article whose subject is a company's own reported figures belongs to issuerPerformance or competitiveLandscape, so answer false here even when those figures are described as a milestone, a record, or a transformation.",
+        text: "Include if the article reports a specific corporate action: an acquisition, merger, divestiture, funding round, IPO, share issuance, buyback, joint venture, a dividend decision such as a payout ratio or a distribution, or a change of seat on a board or in an executive role, whether an appointment, a resignation, or a dismissal. A company winning a licence, spectrum block, tender, permit, or government contract is not a corporate action, nor is an ordinary commercial launch, expansion, or earnings result. An article whose subject is a company's own reported figures belongs to issuerPerformance or competitiveLandscape, so answer false here even when those figures are described as a milestone, a record, or a transformation. A dividend is the exception to that: report it here, because it is a decision about capital rather than a figure the period produced.",
         qualifying: true,
       },
       {
         id: "dm-parties-named",
-        text: "Include if it names the companies on each side of that action: acquirer and target, investor and recipient, the partners to the venture, or the appointee and the role they take. A regulator, ministry, or court running a process is not a party to a corporate action.",
+        text: "Include if it names the companies on each side of that action: acquirer and target, investor and recipient, the partners to the venture, or the person and the role they take or leave. Several corporate actions have only one side, and a buyback, a dividend decision, or a departure qualifies on the acting company alone. A regulator, ministry, or court running a process is not a party to a corporate action.",
         qualifying: true,
       },
       {
@@ -366,7 +366,7 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
       },
       {
         id: "qh-market-actor",
-        text: "Include if it names {{TICKER}}, {{TICKER_NAME}}, or another company operating in {{INDUSTRY}} ({{SUB_INDUSTRY}}).",
+        text: "Include if the item reaches {{TICKER}}: it names {{TICKER}} or {{TICKER_NAME}}, or it names a company in {{INDUSTRY}} ({{SUB_INDUSTRY}}) whose situation the article ties to {{TICKER}} — a parent or group company, a named peer whose move the article compares to {{TICKER}}, or a counterparty {{TICKER}} deals with. A story about another company in the same industry, with no stated connection to {{TICKER}}, does not qualify: this newsletter goes to readers who follow {{TICKER}}, and a rival's recruitment drive or branch-level figures are not their news.",
         qualifying: true,
       },
       {

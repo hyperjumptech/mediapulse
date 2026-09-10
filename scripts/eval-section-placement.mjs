@@ -58,7 +58,13 @@ const main = async () => {
       subIndustry: testCase.subIndustry,
       businessActivity: null,
       aliases: testCase.aliases.split(", ").filter(Boolean),
-      competitors: testCase.competitors.split(", ").filter(Boolean),
+      // `competitors` is a list of parties, each carrying its own aliases, not a list of names.
+      // Passing bare strings threw "aliases is not iterable" inside the prompt builder, which left
+      // this eval unrunnable and the classification gate unmeasured.
+      competitors: testCase.competitors
+        .split(", ")
+        .filter(Boolean)
+        .map((name) => ({ name, aliases: [] })),
       regulators: [],
     };
     const result = await classifyArticleSection({

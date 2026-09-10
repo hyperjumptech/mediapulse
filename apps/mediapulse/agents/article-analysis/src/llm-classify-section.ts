@@ -54,6 +54,20 @@ export const MIN_ISSUER_FALLBACK_FRACTION = 0.5;
 /** Reason strings are capped to this length by the analysis contract. */
 const MAX_REASON_CHARS = 2000;
 
+/** Longest note kept per rule in the persisted score breakdown. */
+const NOTE_DISPLAY_LIMIT = 240;
+
+/**
+ * Holds a rule note to {@link NOTE_DISPLAY_LIMIT} for storage.
+ *
+ * @param note - Note as the model wrote it.
+ * @returns The note, truncated when it runs long.
+ */
+const clampNote = (note: string): string =>
+  note.length <= NOTE_DISPLAY_LIMIT
+    ? note
+    : `${note.slice(0, NOTE_DISPLAY_LIMIT - 1)}…`;
+
 /** Fallback note when the model omits a judgment for a configured rule. */
 const MISSING_EVALUATION_NOTE = "No judgment returned; treated as not matched.";
 
@@ -195,7 +209,13 @@ export const buildEvaluationSchema = (criterionIds: string[]) =>
       z.object({
         id: z.enum(criterionIds as unknown as [string, ...string[]]),
         matched: z.boolean(),
-        note: z.string().trim().min(1).max(240),
+        // Deliberately uncapped. A note is diagnostic text, and `generateObject` validates before
+        // this agent sees the response, so a cap here does not trim a long note: it throws, the
+        // per-article catch in `run.ts` turns the throw into `null`, and the article is dropped
+        // without a section. Verbosity varies by model, so the cap silently cost articles whenever
+        // the configured model wrote at length. Length is bounded at persist time by
+        // `NOTE_DISPLAY_LIMIT` instead.
+        note: z.string().trim().min(1),
       }),
     ),
   });
@@ -206,6 +226,7 @@ const SYSTEM_PROMPT = [
   "For EACH rule decide whether the article satisfies its condition (matched true or false).",
   "In the note, cite the specific article detail that satisfies the rule (for a match) or state",
   "what is missing (for a miss) — do not restate the rule.",
+  "Keep each note under 240 characters: one sentence naming the detail, not a paragraph.",
   "Do NOT choose a section or a score; those are computed from your judgments.",
   "Judge every rule independently and return exactly one judgment per rule.",
   "When a mandatory issuer-relevance gate rule is present, judge it exactly like any other rule:",
@@ -435,7 +456,7 @@ export const scoreFromEvaluations = (
   const isMatched = (id: string): boolean =>
     evaluationById.get(id)?.matched === true;
   const noteFor = (id: string): string =>
-    evaluationById.get(id)?.note ?? MISSING_EVALUATION_NOTE;
+    clampNote(evaluationById.get(id)?.note ?? MISSING_EVALUATION_NOTE);
 
   // Per-section tallies in specificity order, so every tie-break prefers the narrower section over
   // a catch-all. Sections absent from the config are skipped, as are sections this source is not
