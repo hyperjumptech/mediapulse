@@ -627,6 +627,8 @@ describe("createAgentDataApiClient", () => {
             newsletterId: "nl-1",
             sectionKey: "quickHits",
             bulletText: "BCA profit up 12%",
+            dataSourceId: "ds-1",
+            url: "https://example.com/bca",
             createdAt: "2026-04-20T12:00:00.000Z",
           },
         ],
@@ -648,6 +650,8 @@ describe("createAgentDataApiClient", () => {
     // Assert
     expect(result.items).toHaveLength(1);
     expect(result.items[0]?.bulletText).toBe("BCA profit up 12%");
+    expect(result.items[0]?.dataSourceId).toBe("ds-1");
+    expect(result.items[0]?.url).toBe("https://example.com/bca");
   });
 
   it("builds contentGenerationRuns GET with typed query", async () => {

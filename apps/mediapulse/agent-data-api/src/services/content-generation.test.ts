@@ -706,34 +706,30 @@ describe("getRecentNewsletterBullets", () => {
     vi.restoreAllMocks();
   });
 
-  it("flattens bullets from recent newsletters within the lookback window", async () => {
+  it("returns persisted section items within the lookback window", async () => {
     // Setup
     const db = createMockNewsletterDb();
-    const document = JSON.stringify({
-      version: 1,
-      sections: [
-        {
-          key: "competitive-landscape",
-          articles: [
-            {
-              title: "Rival A underbids",
-              url: "https://example.com/rival-a",
-              points: ["Rival A underbid."],
-            },
-            {
-              title: "Fleet oversupply",
-              url: "https://example.com/fleet",
-              points: ["Fleet oversupply."],
-            },
-          ],
-        },
-      ],
-    });
     db.newsletter.findMany.mockResolvedValue([
       {
         id: "nl-1",
-        content: document,
         createdAt: new Date("2026-04-20T12:00:00.000Z"),
+        sections: [
+          {
+            sectionKey: "competitiveLandscape",
+            items: [
+              {
+                points: ["Rival A underbid."],
+                dataSourceId: "ds-rival-a",
+                url: "https://example.com/rival-a",
+              },
+              {
+                points: ["Fleet oversupply."],
+                dataSourceId: "ds-fleet",
+                url: "https://example.com/fleet",
+              },
+            ],
+          },
+        ],
       },
     ]);
 
@@ -752,6 +748,11 @@ describe("getRecentNewsletterBullets", () => {
     ]);
     expect(result.items[0]?.bulletText).toContain("Rival A underbid.");
     expect(result.items[0]?.newsletterId).toBe("nl-1");
+    expect(result.items.map((item) => item.dataSourceId)).toEqual([
+      "ds-rival-a",
+      "ds-fleet",
+    ]);
+    expect(result.items[0]?.url).toBe("https://example.com/rival-a");
     expect(db.newsletter.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -761,6 +762,40 @@ describe("getRecentNewsletterBullets", () => {
         orderBy: { createdAt: "desc" },
       }),
     );
+  });
+
+  it("keeps an item that carries a data source but no written points", async () => {
+    // Setup
+    const db = createMockNewsletterDb();
+    db.newsletter.findMany.mockResolvedValue([
+      {
+        id: "nl-1",
+        createdAt: new Date("2026-04-20T12:00:00.000Z"),
+        sections: [
+          {
+            sectionKey: "quickHits",
+            items: [
+              {
+                points: [],
+                dataSourceId: "ds-quiet",
+                url: "https://q.example",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    // Act
+    const result = await getRecentNewsletterBullets(
+      "ticker-1",
+      14,
+      db as unknown as Parameters<typeof getRecentNewsletterBullets>[2],
+    );
+
+    // Assert
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.dataSourceId).toBe("ds-quiet");
   });
 });
 

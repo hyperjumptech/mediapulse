@@ -9,6 +9,8 @@ import {
 export type RecentBullet = {
   sectionKey: string;
   bulletText: string;
+  dataSourceId?: string | null;
+  url?: string | null;
 };
 
 /** Outcome of the cross-run (cross-day) dedup pass. */
@@ -17,6 +19,8 @@ export type CrossRunDedupResult = {
   removedCount: number;
   /** Removed counts keyed by the source's upstream section. Only sections with removals appear. */
   bySection: Record<string, number>;
+  /** Of `removedCount`, how many were dropped because the article itself already shipped. */
+  removedByIdentity: number;
 };
 
 /**
@@ -42,6 +46,70 @@ const MIN_KEPT_PER_SECTION = 1;
 export const MIN_SHARED_FIGURES = 2;
 
 const SECTION_KEY_UNASSIGNED = "unassigned";
+
+/**
+ * Reduces a URL to the key two records of the same article must agree on.
+ *
+ * - Important: query strings are preserved. A paginated article carries its page in the query, and
+ *   those pages are separate records upstream.
+ */
+export const buildUrlIdentityKey = (rawUrl: string): string | undefined => {
+  const trimmed = rawUrl.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+
+  const withoutScheme = trimmed.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "");
+  const withoutHash = withoutScheme.split("#")[0] ?? "";
+  const withoutWww = withoutHash.replace(/^www\./i, "");
+  const normalized = withoutWww.toLowerCase().replace(/\/+$/, "");
+
+  return normalized.length === 0 ? undefined : normalized;
+};
+
+/**
+ * Collects the article identities a recent newsletter already spent.
+ */
+const buildShippedIdentity = (
+  recentBullets: ReadonlyArray<RecentBullet>,
+): { dataSourceIds: Set<string>; urlKeys: Set<string> } => {
+  const dataSourceIds = new Set<string>();
+  const urlKeys = new Set<string>();
+  for (const bullet of recentBullets) {
+    if (
+      typeof bullet.dataSourceId === "string" &&
+      bullet.dataSourceId.length > 0
+    ) {
+      dataSourceIds.add(bullet.dataSourceId);
+    }
+    if (typeof bullet.url === "string") {
+      const key = buildUrlIdentityKey(bullet.url);
+      if (key !== undefined) {
+        urlKeys.add(key);
+      }
+    }
+  }
+
+  return { dataSourceIds, urlKeys };
+};
+
+/**
+ * Reports whether this exact article already shipped in the recent window.
+ */
+const hasShipped = (
+  source: SourceForGeneration,
+  shipped: { dataSourceIds: Set<string>; urlKeys: Set<string> },
+): boolean => {
+  if (
+    typeof source.dataSourceId === "string" &&
+    shipped.dataSourceIds.has(source.dataSourceId)
+  ) {
+    return true;
+  }
+  const key = buildUrlIdentityKey(source.url);
+
+  return key !== undefined && shipped.urlKeys.has(key);
+};
 
 const sectionKeyOf = (source: SourceForGeneration): string =>
   source.section ?? SECTION_KEY_UNASSIGNED;
@@ -83,8 +151,20 @@ const scoreAgainstRecentBullets = (
  * Removes candidate sources whose story was already told by a recently published bullet.
  *
  * Runs before any LLM call so no tokens are spent summarizing an article that is about to be
- * discarded. A per-section floor keeps at least one candidate in every section that had one, so a
- * heavily overlapping day still leaves the selector something to choose from.
+ * discarded. Two passes apply in order:
+ *
+ * 1. Identity. A candidate that is the same record, or the same URL, as one a recent newsletter
+ *    already cited is dropped outright.
+ * 2. Wording. Whatever survives is scored against the recent bullets, with a per-section floor that
+ *    keeps at least one candidate in every section that had one.
+ *
+ * - Important: the floor rescues only wording matches. An article that verifiably shipped is never
+ *   rescued, because an empty section folds into Quick Hits while a rescued repeat reaches readers
+ *   as the same story twice.
+ *
+ * - Important: the wording pass compares the candidate's own language against bullets already
+ *   written in the newsletter's language, so it cannot see a translated repeat. Identity does not
+ *   depend on language and carries that case.
  *
  * @param sources - Candidate sources for this run.
  * @param recentBullets - Bullets published in recent newsletters for this ticker.
@@ -97,10 +177,28 @@ export const dedupeSourcesAgainstRecentBullets = (
 ): CrossRunDedupResult => {
   const bySection: Record<string, number> = {};
   if (recentBullets.length === 0 || sources.length === 0) {
-    return { sources: [...sources], removedCount: 0, bySection };
+    return {
+      sources: [...sources],
+      removedCount: 0,
+      bySection,
+      removedByIdentity: 0,
+    };
   }
 
-  const decisions: Decision[] = sources.map((source, order) => {
+  const shipped = buildShippedIdentity(recentBullets);
+  const survivors: SourceForGeneration[] = [];
+  let removedByIdentity = 0;
+  for (const source of sources) {
+    if (hasShipped(source, shipped)) {
+      const sectionKey = sectionKeyOf(source);
+      bySection[sectionKey] = (bySection[sectionKey] ?? 0) + 1;
+      removedByIdentity += 1;
+      continue;
+    }
+    survivors.push(source);
+  }
+
+  const decisions: Decision[] = survivors.map((source, order) => {
     const { similarity, figureMatch } = scoreAgainstRecentBullets(
       source,
       recentBullets,
@@ -141,7 +239,7 @@ export const dedupeSourcesAgainstRecentBullets = (
     }
   }
 
-  let removedCount = 0;
+  let removedCount = removedByIdentity;
   const kept: SourceForGeneration[] = [];
   for (const decision of decisions) {
     if (!decision.drop) {
@@ -153,5 +251,5 @@ export const dedupeSourcesAgainstRecentBullets = (
     removedCount += 1;
   }
 
-  return { sources: kept, removedCount, bySection };
+  return { sources: kept, removedCount, bySection, removedByIdentity };
 };

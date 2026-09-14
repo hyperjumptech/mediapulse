@@ -128,6 +128,8 @@ export const contentGenerationBulletRecentItemSchema = z.object({
   newsletterId: z.string(),
   sectionKey: z.string(),
   bulletText: z.string(),
+  dataSourceId: z.string().nullable(),
+  url: z.string().nullable(),
   createdAt: z.string().datetime(),
 });
 

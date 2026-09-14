@@ -332,7 +332,7 @@ describe("agent-data-api", () => {
   });
 
   describe(`GET ${contentGenerationBulletsRecentPath}`, () => {
-    it("returns flattened bullets for a ticker", async () => {
+    it("returns recent section items for a ticker", async () => {
       const mod = await getContentGenerationService();
       vi.mocked(mod.getRecentNewsletterBullets).mockResolvedValue({
         items: [
@@ -340,6 +340,8 @@ describe("agent-data-api", () => {
             newsletterId: "nl-1",
             sectionKey: "quickHits",
             bulletText: "BCA profit up 12%",
+            dataSourceId: "ds-1",
+            url: "https://example.com/bca",
             createdAt: "2026-04-20T12:00:00.000Z",
           },
         ],
@@ -354,6 +356,8 @@ describe("agent-data-api", () => {
 
       expect(res.status).toBe(200);
       expect(body.items).toHaveLength(1);
+      expect(body.items[0].dataSourceId).toBe("ds-1");
+      expect(body.items[0].url).toBe("https://example.com/bca");
       expect(mod.getRecentNewsletterBullets).toHaveBeenCalledWith(
         TICKER_ID,
         14,

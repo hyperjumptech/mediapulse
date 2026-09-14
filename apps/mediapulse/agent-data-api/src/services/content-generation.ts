@@ -8,7 +8,6 @@ import type {
 import type { Prisma } from "@mediapulse/database";
 import { sanitizePublisherDisplayName } from "@workspace/utils";
 
-import { flattenBulletsFromNewsletterDocument } from "../lib/flatten-newsletter-bullets.js";
 import { recordPublisherNames, upsertPublishersSeen } from "./publisher.js";
 import { parseProfileParties } from "./ticker-profile-parties.js";
 
@@ -437,7 +436,8 @@ export const getRecentNewsletterSubjects = async (
 };
 
 /**
- * Lists flattened bullets from recent newsletter wire bodies for cross-run dedup.
+ * Lists persisted section items from recent newsletters for cross-run dedup, each carrying its
+ * cited data source id so a repeat can be matched by identity rather than by wording.
  *
  * @param tickerId - Ticker id to match.
  * @param days - Lookback window in calendar days.
@@ -452,6 +452,8 @@ export const getRecentNewsletterBullets = async (
     newsletterId: string;
     sectionKey: string;
     bulletText: string;
+    dataSourceId: string | null;
+    url: string | null;
     createdAt: string;
   }>;
 }> => {
@@ -463,7 +465,20 @@ export const getRecentNewsletterBullets = async (
       tickerId,
       createdAt: { gte: since },
     },
-    select: { id: true, content: true, createdAt: true },
+    select: {
+      id: true,
+      createdAt: true,
+      sections: {
+        select: {
+          sectionKey: true,
+          items: {
+            select: { points: true, dataSourceId: true, url: true },
+            orderBy: { position: "asc" as const },
+          },
+        },
+        orderBy: { position: "asc" as const },
+      },
+    },
     orderBy: { createdAt: "desc" as const },
   } satisfies Prisma.NewsletterFindManyArgs;
 
@@ -472,19 +487,30 @@ export const getRecentNewsletterBullets = async (
     newsletterId: string;
     sectionKey: string;
     bulletText: string;
+    dataSourceId: string | null;
+    url: string | null;
     createdAt: string;
   }> = [];
 
   for (const row of rows) {
-    const flattened = flattenBulletsFromNewsletterDocument(
-      row.id,
-      row.content,
-      row.createdAt.toISOString(),
-    );
-    for (const bullet of flattened) {
-      items.push(bullet);
-      if (items.length >= MAX_RECENT_BULLETS) {
-        return { items };
+    const createdAt = row.createdAt.toISOString();
+    for (const section of row.sections) {
+      for (const item of section.items) {
+        const bulletText = item.points.join(" ").trim();
+        if (bulletText.length === 0 && item.dataSourceId === null) {
+          continue;
+        }
+        items.push({
+          newsletterId: row.id,
+          sectionKey: section.sectionKey,
+          bulletText,
+          dataSourceId: item.dataSourceId,
+          url: item.url,
+          createdAt,
+        });
+        if (items.length >= MAX_RECENT_BULLETS) {
+          return { items };
+        }
       }
     }
   }
