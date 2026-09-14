@@ -280,6 +280,7 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
   crossRunDedupSummary?: {
     removedCount: number;
     bySection: Record<string, number>;
+    removedByIdentity: number;
   };
   /** Cross-section same-event dedup counters and per-drop provenance, present when it removed rows. */
   crossSectionEventDedupSummary?: {
@@ -734,7 +735,11 @@ export async function generateNewsletterWithLlm(
   let candidateSources: SourceForGeneration[] = truncatedSources;
 
   let crossRunDedupSummary:
-    | { removedCount: number; bySection: Record<string, number> }
+    | {
+        removedCount: number;
+        bySection: Record<string, number>;
+        removedByIdentity: number;
+      }
     | undefined;
   if (recentBullets.length > 0) {
     const crossRunDeduped = dedupeSourcesAgainstRecentBullets(
@@ -746,6 +751,7 @@ export async function generateNewsletterWithLlm(
     crossRunDedupSummary = {
       removedCount: crossRunDeduped.removedCount,
       bySection: crossRunDeduped.bySection,
+      removedByIdentity: crossRunDeduped.removedByIdentity,
     };
 
     if (crossRunDeduped.removedCount > 0) {
@@ -753,6 +759,7 @@ export async function generateNewsletterWithLlm(
         {
           tickerId: context.tickerId,
           removedCount: crossRunDeduped.removedCount,
+          removedByIdentity: crossRunDeduped.removedByIdentity,
           bySection: crossRunDeduped.bySection,
           minSimilarity: CONTENT_GENERATION_CONSTANTS.crossRunDedup.similarity,
           event: "cross_run_dedup",

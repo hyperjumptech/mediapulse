@@ -670,6 +670,8 @@ export async function run({
       recentBullets = recent.items.map((item) => ({
         sectionKey: item.sectionKey,
         bulletText: item.bulletText,
+        dataSourceId: item.dataSourceId,
+        url: item.url,
       }));
     } catch (err) {
       logger.warn(

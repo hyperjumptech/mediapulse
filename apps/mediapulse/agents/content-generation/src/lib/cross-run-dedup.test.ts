@@ -227,3 +227,133 @@ describe("dedupeSourcesAgainstRecentBullets: figure overlap", () => {
     expect(result.removedCount).toBe(0);
   });
 });
+
+describe("dedupeSourcesAgainstRecentBullets identity pass", () => {
+  it("drops a source whose data source id already shipped, however it is worded", () => {
+    const sources = [source("Rival", NOVEL_TEXT, "competitiveLandscape")];
+    const recent: RecentBullet[] = [
+      {
+        sectionKey: "competitiveLandscape",
+        bulletText: "Wording that shares nothing with the candidate at all",
+        dataSourceId: "ds-Rival",
+        url: null,
+      },
+    ];
+
+    const result = dedupeSourcesAgainstRecentBullets(sources, recent);
+
+    expect(result.sources).toHaveLength(0);
+    expect(result.removedCount).toBe(1);
+    expect(result.removedByIdentity).toBe(1);
+    expect(result.bySection["competitiveLandscape"]).toBe(1);
+  });
+
+  it("drops a source repeated across languages, which wording alone cannot catch", () => {
+    const indonesian = source(
+      "Singapura Batasi Data Center, Telkom Garap Peluang di Batam",
+      "Singapura membatasi pembangunan pusat data baru karena konsumsi listrik tinggi",
+      "competitiveLandscape",
+    );
+    const english: RecentBullet = {
+      sectionKey: "competitiveLandscape",
+      bulletText:
+        "Singapore restricts new data center builds due to high power consumption.",
+      dataSourceId: indonesian.dataSourceId ?? null,
+      url: null,
+    };
+
+    const result = dedupeSourcesAgainstRecentBullets([indonesian], [english]);
+
+    expect(result.sources).toHaveLength(0);
+    expect(result.removedByIdentity).toBe(1);
+  });
+
+  it("matches a shipped url across scheme, host case and www variants", () => {
+    const candidate: SourceForGeneration = {
+      dataSourceId: "ds-new-row",
+      url: "https://Money.Kompas.com/read/123/data-center/",
+      title: "Investasi Data Center",
+      content: NOVEL_TEXT,
+      section: "industryPulse",
+    };
+    const recent: RecentBullet[] = [
+      {
+        sectionKey: "industryPulse",
+        bulletText: NOVEL_TEXT,
+        dataSourceId: "ds-old-row",
+        url: "http://www.money.kompas.com/read/123/data-center",
+      },
+    ];
+
+    const result = dedupeSourcesAgainstRecentBullets([candidate], recent);
+
+    expect(result.sources).toHaveLength(0);
+    expect(result.removedByIdentity).toBe(1);
+  });
+
+  it("keeps a paginated sibling, which is a separate record upstream", () => {
+    const candidate: SourceForGeneration = {
+      dataSourceId: "ds-page-2",
+      url: "https://wartaekonomi.co.id/read631924/bahlil?page=2",
+      title: "Bahlil",
+      content: NOVEL_TEXT,
+      section: "industryPulse",
+    };
+    const recent: RecentBullet[] = [
+      {
+        sectionKey: "industryPulse",
+        bulletText: "Unrelated wording entirely",
+        dataSourceId: "ds-page-1",
+        url: "https://wartaekonomi.co.id/read631924/bahlil",
+      },
+    ];
+
+    const result = dedupeSourcesAgainstRecentBullets([candidate], recent);
+
+    expect(result.sources).toHaveLength(1);
+    expect(result.removedByIdentity).toBe(0);
+  });
+
+  it("never rescues an identity match, even when it empties the section", () => {
+    const sources = [
+      source("Rival", NOVEL_TEXT, "competitiveLandscape"),
+      source("Regulator", NOVEL_TEXT, "competitiveLandscape"),
+    ];
+    const recent: RecentBullet[] = [
+      {
+        sectionKey: "competitiveLandscape",
+        bulletText: "Nothing in common",
+        dataSourceId: "ds-Rival",
+        url: null,
+      },
+      {
+        sectionKey: "competitiveLandscape",
+        bulletText: "Nothing in common either",
+        dataSourceId: "ds-Regulator",
+        url: null,
+      },
+    ];
+
+    const result = dedupeSourcesAgainstRecentBullets(sources, recent);
+
+    expect(result.sources).toHaveLength(0);
+    expect(result.removedByIdentity).toBe(2);
+  });
+
+  it("still rescues a wording match so an overlapping day keeps a section", () => {
+    const sources = [source("Rival", REPEATED_TEXT, "competitiveLandscape")];
+    const recent: RecentBullet[] = [
+      {
+        sectionKey: "competitiveLandscape",
+        bulletText: REPEATED_TEXT,
+        dataSourceId: "ds-someone-else",
+        url: null,
+      },
+    ];
+
+    const result = dedupeSourcesAgainstRecentBullets(sources, recent);
+
+    expect(result.sources).toHaveLength(1);
+    expect(result.removedByIdentity).toBe(0);
+  });
+});
