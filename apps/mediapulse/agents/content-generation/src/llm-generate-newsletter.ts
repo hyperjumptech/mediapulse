@@ -58,6 +58,7 @@ import {
   articleSummarySchema,
   buildArticlePrompt,
   buildIssuerCoverageDirective,
+  EMPTY_SUMMARY_DIRECTIVE,
   type IssuerFocus,
   SUMMARIZE_ARTICLE_SYSTEM_PROMPT,
 } from "./summarize-article.js";
@@ -924,6 +925,30 @@ export async function generateNewsletterWithLlm(
         const summary = articleSummarySchema.parse(result.object);
         const articleTitle = sanitizeArticleTitle(summary.title);
         addUsage(tokenTotals, result.usage);
+
+        // Restraint is right for a source carrying only its description, where an empty list is the
+        // correct answer to a headline restatement. Against a fetched body it is the model dropping
+        // an article the newsletter had already selected, so the omission is named once before the
+        // article is given up.
+        if (
+          summary.points.length === 0 &&
+          entry.source.contentIsDescriptionOnly !== true &&
+          attempt < SUMMARY_ATTEMPTS - 1
+        ) {
+          figureDirective = EMPTY_SUMMARY_DIRECTIVE;
+          logger.info(
+            {
+              tickerId: context.tickerId,
+              sectionKey: entry.sectionKey,
+              url: entry.source.url,
+              title: articleTitle,
+              contentLength: entry.source.content.length,
+              event: "article_empty_summary_retry",
+            },
+            "Retrying summary: the model returned no points for a fetched body",
+          );
+          continue;
+        }
 
         // A stray non-Latin glyph or a point cut off against the length budget ships as visibly
         // broken prose, so the point is withheld rather than rendered. An article left with no

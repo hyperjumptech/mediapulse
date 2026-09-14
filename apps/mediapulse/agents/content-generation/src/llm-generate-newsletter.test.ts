@@ -20,6 +20,7 @@ import {
   type GenerateNewsletterObjectArgs,
   type GenerateNewsletterObjectFn,
   type GenerateNewsletterObjectResult,
+  EmptyNewsletterError,
 } from "./llm-generate-newsletter.js";
 import type { SelectedArticle } from "./select-articles.js";
 import { SUMMARIZE_ARTICLE_SYSTEM_PROMPT } from "./summarize-article.js";
@@ -1941,5 +1942,101 @@ describe("generateNewsletterWithLlm — issuer coverage", () => {
 
     expect(prompts).toHaveLength(1);
     expect(prompts[0]).not.toContain("This article is being summarized");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateNewsletterWithLlm — empty summaries
+// ---------------------------------------------------------------------------
+
+describe("generateNewsletterWithLlm — empty summaries", () => {
+  const fetchedBody: SourceForGeneration = {
+    dataSourceId: "ds-body",
+    url: "https://example.com/body",
+    title: "Merger closes",
+    content:
+      "A merger between two regional lenders closed on Friday morning, " +
+      "creating a bank with Rp40 trillion of assets across 120 branches.",
+    section: "dealsAndMovements",
+    sectionScore: 0.9,
+  };
+
+  it("retries once when the model returns no points for a fetched body", async () => {
+    let calls = 0;
+    const prompts: string[] = [];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => {
+        calls += 1;
+        prompts.push(args.prompt);
+
+        return {
+          object: {
+            title: "Merger closes",
+            points:
+              calls === 1
+                ? []
+                : [
+                    "The merger creates a bank holding Rp40 trillion of assets.",
+                  ],
+          },
+        };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      [fetchedBody],
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(calls).toBe(2);
+    expect(prompts[1]).toContain(
+      "Your previous summary of this article returned no points",
+    );
+    expect(result.content).toContain("Rp40 trillion");
+    expect(result.articlesSkippedSummaryFailed).toBe(0);
+  });
+
+  it("does not retry a description-only source that correctly returned nothing", async () => {
+    let calls = 0;
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async () => {
+        calls += 1;
+
+        return { object: { title: "Merger closes", points: [] } };
+      },
+    });
+
+    await expect(
+      generateNewsletterWithLlm(
+        [{ ...fetchedBody, contentIsDescriptionOnly: true }],
+        baseConfig,
+        testContext,
+        { generateObjectFn, sleepFn: noopSleepFn },
+      ),
+    ).rejects.toThrow(EmptyNewsletterError);
+
+    expect(calls).toBe(1);
+  });
+
+  it("gives up after one retry when the body really carries nothing", async () => {
+    let calls = 0;
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async () => {
+        calls += 1;
+
+        return { object: { title: "Merger closes", points: [] } };
+      },
+    });
+
+    await expect(
+      generateNewsletterWithLlm([fetchedBody], baseConfig, testContext, {
+        generateObjectFn,
+        sleepFn: noopSleepFn,
+      }),
+    ).rejects.toThrow(EmptyNewsletterError);
+
+    expect(calls).toBe(2);
   });
 });
