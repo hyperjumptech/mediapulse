@@ -4,6 +4,7 @@ import {
 } from "@workspace/email-templates/newsletter-document";
 import { z } from "zod";
 
+import { issuerMentions } from "./lib/issuer-mentions.js";
 import type { SourceForGeneration } from "./types.js";
 
 /**
@@ -57,6 +58,8 @@ When your title carries a figure, one of your points must carry that figure too.
 
 Every point must be supported by the article's own headline subject. When the article is a market round-up naming several unrelated companies, report only the facts about the company its headline is about, and leave the others out rather than mixing them into one item.
 
+A feature whose headline names no company is the exception to that rule. When the headline generalises over a group, such as "conglomerates", "issuers", "the sector", or "several companies", and the body walks through those companies in turn, the headline subject is the trend and not whichever company the article happens to open with. State the trend in one point, then report the companies the body gives figures for, naming each company inside its own point. Summarizing only the company in the opening paragraphs throws away everything the article was written to compare.
+
 Never write a point about what the article does not say, does not detail, leaves unexplained, or reports as unclear. An absence of information is not a fact. Never write a point whose only content is potential, ambition, or the need for a strategy: every point must carry a number, a name, a date, or a decision.
 
 Lead with the concrete thing: the number, the name, the decision, the change. Cut throat-clearing ("The article reports that", "It is worth noting"), scene-setting, and hedging. Use plain language a busy reader understands at a glance, and expand jargon the first time it appears.
@@ -69,11 +72,37 @@ Never cut a point short to fit the character limit. If a fact does not fit, writ
 
 Write as many points as the article earns and no more. Most articles carry one or two things worth knowing. Never pad to reach ${String(MAX_POINTS_PER_ARTICLE)}, and return an empty list rather than inventing one.`;
 
+export type IssuerFocus = {
+  label: string;
+  names: readonly string[];
+};
+
+export const buildIssuerFocusDirective = (label: string): string =>
+  `This article is being summarized for a newsletter about ${label}, and the article names ${label} in its text. Report what the article says about ${label} itself: the figures it attaches to it, the facilities or products it credits to it, the plans it states for it, and the people it quotes for it. Lead with that. A fact about another company the article covers earns a point only after ${label} has been reported, and only when the article places it in the same market. Never write a point saying that ${label} is absent, unmentioned, or not discussed, and never attach ${label} to a parent group, a subsidiary, or a figure the article gives to someone else. If the article reports nothing about ${label}, summarize the article as written and say nothing about ${label} at all.`;
+
+export const buildIssuerCoverageDirective = (label: string): string =>
+  `\n\nYour previous summary of this article named ${label} in no point, although the article names ${label} in its text. This newsletter is read by ${label}, so a summary of the other companies alone is the wrong article. Report what the article states about ${label}, with its figures, and lead with it. Every point you write about ${label} must carry a figure, a facility, a date, or a decision the article states about it. Never write a point whose content is that ${label} is named, mentioned, referenced, or covered, and never describe what this article does or does not contain. If the article states no such fact about ${label}, return the summary you wrote before, unchanged.`;
+
 /**
  * Builds the user prompt for one article.
  *
  * @param source - The article to summarize.
+ * @param issuer - The subscribed issuer, when the caller knows it.
  * @returns Prompt text carrying the article's title and body.
  */
-export const buildArticlePrompt = (source: SourceForGeneration): string =>
-  [`Title: ${source.title}`, "", "Article:", source.content.trim()].join("\n");
+export const buildArticlePrompt = (
+  source: SourceForGeneration,
+  issuer?: IssuerFocus,
+): string => {
+  const body = source.content.trim();
+  const lines = [`Title: ${source.title}`, "", "Article:", body];
+  const mentioned =
+    issuer === undefined
+      ? []
+      : issuerMentions(`${source.title}\n${body}`, issuer.names);
+  if (issuer !== undefined && mentioned.length > 0) {
+    lines.push("", buildIssuerFocusDirective(issuer.label));
+  }
+
+  return lines.join("\n");
+};
