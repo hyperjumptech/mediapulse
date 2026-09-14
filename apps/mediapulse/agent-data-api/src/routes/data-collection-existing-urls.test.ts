@@ -52,8 +52,8 @@ describe("postDataCollectionExistingUrls", () => {
     vi.mocked(prisma.dataSource.findMany)
       .mockResolvedValueOnce([{ url: "https://exists.example/other" }] as never)
       .mockResolvedValueOnce([
-        { url: "https://exists.example" },
-        { url: "https://exists.example" },
+        { canonicalUrl: "https://exists.example" },
+        { canonicalUrl: "https://exists.example" },
       ] as never);
 
     const app = new Hono();
@@ -76,6 +76,29 @@ describe("postDataCollectionExistingUrls", () => {
     expect(body.existingUrls).toEqual(["https://exists.example"]);
     expect(body.hostCounts).toEqual({ "exists.example": 1 });
     expect(prisma.dataSource.findMany).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports a stored variant of a requested URL as already present", async () => {
+    vi.mocked(prisma.dataSource.findMany)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        { canonicalUrl: "https://money.kompas.com/read/123/x" },
+      ] as never);
+
+    const app = new Hono();
+    app.post("/test", postDataCollectionExistingUrls);
+
+    const requested = "http://www.money.kompas.com/read/123/x?source=terkini";
+    const res = await app.request("http://localhost/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tickerId: TICKER_ID, urls: [requested] }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { existingUrls: string[] };
+
+    expect(body.existingUrls).toEqual([requested]);
   });
 
   it("returns 400 when body fails schema validation", async () => {

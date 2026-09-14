@@ -1040,8 +1040,8 @@ describe("agent-data-api", () => {
       vi.mocked(prisma.dataSource.findMany)
         .mockResolvedValueOnce([{ url: "https://exists.example/a" }] as never)
         .mockResolvedValueOnce([
-          { url: "https://exists.example/a" },
-          { url: "https://exists.example/a" },
+          { canonicalUrl: "https://exists.example/a" },
+          { canonicalUrl: "https://exists.example/a" },
         ] as never);
 
       const { app } = await import("./index.js");
@@ -1068,11 +1068,11 @@ describe("agent-data-api", () => {
       expect(prisma.dataSource.findMany).toHaveBeenLastCalledWith({
         where: {
           tickerId: TICKER_ID,
-          url: {
+          canonicalUrl: {
             in: ["https://exists.example/a", "https://new.example/b"],
           },
         },
-        select: { url: true },
+        select: { canonicalUrl: true },
       });
     });
   });

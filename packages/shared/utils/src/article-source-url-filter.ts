@@ -5,6 +5,10 @@ const TRACKING_QUERY_PARAM_PREFIXES = [
   "mc_",
 ] as const;
 
+const DROPPED_QUERY_PARAMS = ["amp", "source"] as const;
+
+const WHOLE_ARTICLE_PAGE_VALUES = ["all"] as const;
+
 const hostPattern = (domain: string): RegExp =>
   new RegExp(`(^|\\.)${domain.replace(/\./g, "\\.")}$`, "i");
 
@@ -359,15 +363,28 @@ export const stripPaginationSegment = (
 export const canonicalizeUrl = (rawUrl: string): string => {
   const parsed = new URL(rawUrl);
   parsed.hash = "";
-  parsed.protocol = parsed.protocol.toLowerCase();
-  parsed.hostname = parsed.hostname.toLowerCase();
+  if (parsed.protocol === "http:") {
+    parsed.protocol = "https:";
+  } else {
+    parsed.protocol = parsed.protocol.toLowerCase();
+  }
+  parsed.hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
 
   const keptParams = new URLSearchParams();
   for (const [key, value] of parsed.searchParams.entries()) {
+    const normalizedKey = key.toLowerCase();
     const isTracking = TRACKING_QUERY_PARAM_PREFIXES.some((prefix) =>
-      key.toLowerCase().startsWith(prefix),
+      normalizedKey.startsWith(prefix),
     );
-    if (!isTracking) {
+    const isDropped = DROPPED_QUERY_PARAMS.some(
+      (param) => param === normalizedKey,
+    );
+    const isWholeArticlePage =
+      normalizedKey === "page" &&
+      WHOLE_ARTICLE_PAGE_VALUES.some(
+        (pageValue) => pageValue === value.toLowerCase(),
+      );
+    if (!isTracking && !isDropped && !isWholeArticlePage) {
       keptParams.append(key, value);
     }
   }

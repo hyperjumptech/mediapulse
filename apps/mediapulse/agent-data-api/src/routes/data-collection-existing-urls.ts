@@ -4,11 +4,15 @@ import { postDataCollectionExistingUrlsBodySchema } from "@workspace/agent-data-
 import { internalError } from "@workspace/api-utils";
 import type { Prisma } from "@mediapulse/database";
 import { prisma } from "@mediapulse/database";
+import { canonicalizeUrl } from "@workspace/utils";
 
 import { getDataSourceHostCountsForTicker } from "../services/data-source-host-counts.js";
 
 /**
- * Returns which of the given URLs already have a `data_source` row for the ticker (exact URL match).
+ * Returns which of the given URLs already have a `data_source` row for the ticker.
+ *
+ * - Important: matching is on the canonical URL, so a row stored under a different scheme, a `www.`
+ *   host or a stripped query parameter still counts as present.
  *
  * @param context - Hono context; JSON body `{ tickerId, urls }`.
  * @returns JSON `{ existingUrls, hostCounts }`.
@@ -27,16 +31,33 @@ export async function postDataCollectionExistingUrls(
       return context.json({ existingUrls: [], hostCounts }, 200);
     }
 
+    const requestedByCanonical = new Map<string, string[]>();
+    for (const url of uniqueRequested) {
+      let canonical: string;
+      try {
+        canonical = canonicalizeUrl(url);
+      } catch {
+        canonical = url;
+      }
+      const bucket = requestedByCanonical.get(canonical) ?? [];
+      bucket.push(url);
+      requestedByCanonical.set(canonical, bucket);
+    }
+
     const findArgs = {
       where: {
         tickerId: parsed.tickerId,
-        url: { in: uniqueRequested },
+        canonicalUrl: { in: [...requestedByCanonical.keys()] },
       },
-      select: { url: true },
+      select: { canonicalUrl: true },
     } satisfies Prisma.DataSourceFindManyArgs;
 
     const rows = await prisma.dataSource.findMany(findArgs);
-    const existingUrls = [...new Set(rows.map((row) => row.url))];
+    const existingUrls = [
+      ...new Set(
+        rows.flatMap((row) => requestedByCanonical.get(row.canonicalUrl) ?? []),
+      ),
+    ];
 
     return context.json({ existingUrls, hostCounts }, 200);
   } catch (error) {
