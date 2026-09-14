@@ -83,6 +83,9 @@ export const buildIssuerFocusDirective = (label: string): string =>
 export const buildIssuerCoverageDirective = (label: string): string =>
   `\n\nYour previous summary of this article named ${label} in no point, although the article names ${label} in its text. This newsletter is read by ${label}, so a summary of the other companies alone is the wrong article. Report what the article states about ${label}, with its figures, and lead with it. Every point you write about ${label} must carry a figure, a facility, a date, or a decision the article states about it. Never write a point whose content is that ${label} is named, mentioned, referenced, or covered, and never describe what this article does or does not contain. If the article states no such fact about ${label}, return the summary you wrote before, unchanged.`;
 
+export const EMPTY_SUMMARY_DIRECTIVE =
+  "\n\nYour previous summary of this article returned no points. This article carries a fetched body, not a headline restatement, so returning nothing drops it from the newsletter entirely. Report the facts the body states: its figures, the companies it names, the capacities, the dates, the decisions. Return no points again only if the body genuinely states none.";
+
 /**
  * Builds the user prompt for one article.
  *
