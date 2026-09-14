@@ -50,14 +50,18 @@ import { dropStaleForSection } from "./lib/section-freshness.js";
 import { retryWithBackoff } from "./lib/retry.js";
 import { sanitizeArticleTitle } from "./lib/sanitize-article-title.js";
 import { sanitizeSummaryPoints } from "./lib/sanitize-summary-points.js";
+import { isMetaPoint } from "./lib/meta-point.js";
 import { truncateSources } from "./lib/truncate-sources.js";
 import { isRetryableLlmError } from "./llm-classify-error.js";
 import { selectArticles, type SelectedArticle } from "./select-articles.js";
 import {
   articleSummarySchema,
   buildArticlePrompt,
+  buildIssuerCoverageDirective,
+  type IssuerFocus,
   SUMMARIZE_ARTICLE_SYSTEM_PROMPT,
 } from "./summarize-article.js";
+import { issuerMentions, issuerNamesFrom } from "./lib/issuer-mentions.js";
 import {
   buildSubjectFallback,
   buildSubjectPrompt,
@@ -486,6 +490,27 @@ const LONE_POINT_RESTATES_TITLE_DIRECTIVE =
 const buildTitleFigureDirective = (title: string): string =>
   `\n\nYour previous summary of this article stated no point carrying a figure its heading names: "${title}". Report that figure in one of your points, with the base it moved from when the article gives one.`;
 
+const resolveIssuerFocus = (context: {
+  tickerName?: string;
+  tickerSymbol?: string;
+  issuerAliases?: string[];
+}): IssuerFocus | undefined => {
+  const names = issuerNamesFrom({
+    name: context.tickerName,
+    symbol: context.tickerSymbol,
+    aliases: context.issuerAliases,
+  });
+  if (names.length === 0) {
+    return undefined;
+  }
+  const label =
+    context.tickerName !== undefined && context.tickerSymbol !== undefined
+      ? `${context.tickerName} (${context.tickerSymbol})`
+      : (context.tickerName ?? context.tickerSymbol ?? names[0] ?? "");
+
+  return { label, names };
+};
+
 export const SUMMARY_FAILURE_REASONS = [
   "points_unusable",
   "points_ungrounded",
@@ -847,6 +872,8 @@ export async function generateNewsletterWithLlm(
     context.brief !== undefined ? { brief: context.brief } : undefined,
   );
 
+  const issuerFocus = resolveIssuerFocus(context);
+
   const tokenTotals = createTokenTotals();
 
   const summarizeEntry = async (
@@ -855,6 +882,29 @@ export async function generateNewsletterWithLlm(
     // A heading's figure missing from every point is the model forgetting an instruction, not a bad
     // article, so the article gets one more attempt with the omission named before it is given up.
     let figureDirective = "";
+    let issuerRetryFallback: { title: string; points: string[] } | undefined;
+    const failed = (reason: SummaryFailureReason): SummaryOutcome => {
+      if (issuerRetryFallback === undefined) {
+        return { status: "failed", entry, reason };
+      }
+      logger.info(
+        {
+          tickerId: context.tickerId,
+          sectionKey: entry.sectionKey,
+          url: entry.source.url,
+          reason,
+          event: "article_issuer_retry_reverted",
+        },
+        "Issuer retry produced no usable summary; keeping the first summary",
+      );
+
+      return {
+        status: "summarized",
+        entry,
+        title: issuerRetryFallback.title,
+        points: issuerRetryFallback.points,
+      };
+    };
     for (let attempt = 0; attempt < SUMMARY_ATTEMPTS; attempt += 1) {
       try {
         const result = await retryWithBackoff(
@@ -863,7 +913,7 @@ export async function generateNewsletterWithLlm(
               model,
               schema: articleSummarySchema,
               system: systemPrompt,
-              prompt: `${buildArticlePrompt(entry.source)}${figureDirective}`,
+              prompt: `${buildArticlePrompt(entry.source, issuerFocus)}${figureDirective}`,
               maxRetries: 0,
               timeout: requestTimeoutMs,
             }),
@@ -892,8 +942,25 @@ export async function generateNewsletterWithLlm(
             `Dropped ${String(sanitized.dropped.length)} unusable summary point(s)`,
           );
         }
-        if (sanitized.points.length === 0) {
-          return { status: "failed", entry, reason: "points_unusable" };
+        const metaPoints = sanitized.points.filter(isMetaPoint);
+        const presentPoints = sanitized.points.filter(
+          (point) => !isMetaPoint(point),
+        );
+        if (metaPoints.length > 0) {
+          logger.warn(
+            {
+              tickerId: context.tickerId,
+              sectionKey: entry.sectionKey,
+              url: entry.source.url,
+              dropped: metaPoints,
+              keptCount: presentPoints.length,
+              event: "summary_point_meta",
+            },
+            `Dropped ${String(metaPoints.length)} point(s) describing the article rather than the news`,
+          );
+        }
+        if (presentPoints.length === 0) {
+          return failed("points_unusable");
         }
 
         const sourceText = `${entry.source.title}\n${entry.source.content}`;
@@ -908,7 +975,7 @@ export async function generateNewsletterWithLlm(
           figures: UngroundedFigure[];
           entities?: string[];
         }[] = [];
-        for (const point of sanitized.points) {
+        for (const point of presentPoints) {
           const figures = descriptionOnly
             ? citedFigures(point)
             : ungroundedFigures(point, sourceText);
@@ -945,7 +1012,7 @@ export async function generateNewsletterWithLlm(
         }
 
         if (groundedPoints.length === 0) {
-          return { status: "failed", entry, reason: "points_ungrounded" };
+          return failed("points_ungrounded");
         }
 
         // Checked against the body alone, never `sourceText`: when a publisher's own headline
@@ -968,7 +1035,7 @@ export async function generateNewsletterWithLlm(
             "Dropped article: its heading cites a figure absent from the article body",
           );
 
-          return { status: "failed", entry, reason: "title_figure_ungrounded" };
+          return failed("title_figure_ungrounded");
         }
 
         // Grounding cannot catch a publisher's own unit error: the figure is in the article, so the
@@ -987,7 +1054,7 @@ export async function generateNewsletterWithLlm(
             "Dropped article: it states a national aggregate too small to be real",
           );
 
-          return { status: "failed", entry, reason: "implausible_aggregate" };
+          return failed("implausible_aggregate");
         }
 
         const uncoveredFigures = titleFiguresMissingFromPoints(
@@ -1022,7 +1089,7 @@ export async function generateNewsletterWithLlm(
             "Dropped article: no point carries a figure its heading states",
           );
 
-          return { status: "failed", entry, reason: "title_figure_uncovered" };
+          return failed("title_figure_uncovered");
         }
 
         // Scoped to description-only sources. With a body in hand a lone echo of the heading is
@@ -1087,6 +1154,70 @@ export async function generateNewsletterWithLlm(
           continue;
         }
 
+        if (issuerFocus !== undefined) {
+          const inArticle = issuerMentions(
+            `${entry.source.title}\n${entry.source.content}`,
+            issuerFocus.names,
+          );
+          const inPoints = issuerMentions(
+            groundedPoints.join("\n"),
+            issuerFocus.names,
+          );
+          if (inArticle.length > 0 && inPoints.length === 0) {
+            if (attempt < SUMMARY_ATTEMPTS - 1) {
+              figureDirective = buildIssuerCoverageDirective(issuerFocus.label);
+              issuerRetryFallback = {
+                title: articleTitle,
+                points: groundedPoints,
+              };
+              logger.info(
+                {
+                  tickerId: context.tickerId,
+                  sectionKey: entry.sectionKey,
+                  url: entry.source.url,
+                  title: articleTitle,
+                  matchedNames: inArticle,
+                  event: "article_issuer_uncovered_retry",
+                },
+                "Retrying summary: no point names the issuer the article reports on",
+              );
+              continue;
+            }
+            if (issuerRetryFallback !== undefined) {
+              logger.info(
+                {
+                  tickerId: context.tickerId,
+                  sectionKey: entry.sectionKey,
+                  url: entry.source.url,
+                  title: issuerRetryFallback.title,
+                  matchedNames: inArticle,
+                  event: "article_issuer_retry_reverted",
+                },
+                "Issuer retry named no issuer either; keeping the first summary",
+              );
+
+              return {
+                status: "summarized",
+                entry,
+                title: issuerRetryFallback.title,
+                points: issuerRetryFallback.points,
+              };
+            }
+            logger.warn(
+              {
+                tickerId: context.tickerId,
+                sectionKey: entry.sectionKey,
+                url: entry.source.url,
+                title: articleTitle,
+                matchedNames: inArticle,
+                points: groundedPoints,
+                event: "summary_omits_issuer",
+              },
+              "Summary names no point about the issuer its article reports on",
+            );
+          }
+        }
+
         if (!pointsSupportTitle(articleTitle, groundedPoints)) {
           logger.warn(
             {
@@ -1100,7 +1231,7 @@ export async function generateNewsletterWithLlm(
             "Dropped article: no summary point relates to its own heading",
           );
 
-          return { status: "failed", entry, reason: "points_off_heading" };
+          return failed("points_off_heading");
         }
 
         return {
@@ -1121,12 +1252,12 @@ export async function generateNewsletterWithLlm(
           "Article summarization failed after retries; skipping article",
         );
 
-        return { status: "failed", entry, reason: "llm_error" };
+        return failed("llm_error");
       }
     }
 
     /* v8 ignore next 2 -- every loop path returns or continues, and the last cannot continue */
-    return { status: "failed", entry, reason: "title_figure_uncovered" };
+    return failed("title_figure_uncovered");
   };
 
   const firstPassOutcomes = await mapWithConcurrency(

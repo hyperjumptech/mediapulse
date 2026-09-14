@@ -4,6 +4,7 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import {
   articleSummarySchema,
   buildArticlePrompt,
+  buildIssuerCoverageDirective,
   SUMMARIZE_ARTICLE_SYSTEM_PROMPT,
 } from "./summarize-article.js";
 
@@ -122,6 +123,18 @@ describe("SUMMARIZE_ARTICLE_SYSTEM_PROMPT", () => {
     );
   });
 
+  it("exempts a feature whose headline names no company", () => {
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "A feature whose headline names no company is the exception to that rule",
+    );
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "the headline subject is the trend and not whichever company the article happens to open with",
+    );
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "naming each company inside its own point",
+    );
+  });
+
   it("keeps the guards added for the 2026-08-05 errors", () => {
     expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
       "Do not repeat a sweep from the headline",
@@ -144,6 +157,65 @@ describe("buildArticlePrompt", () => {
     expect(prompt).toContain("Title: Telkom H1 profit");
     expect(prompt).toContain("Telkom booked Rp75.9 trillion in revenue.");
     expect(prompt.endsWith(" ")).toBe(false);
+  });
+});
+
+describe("buildArticlePrompt with an issuer", () => {
+  const kompasFeature = {
+    dataSourceId: "ds-2",
+    url: "https://www.kompas.id/artikel/ketika-konglomerat-membidik-bisnis-infrastruktur-ai",
+    title: "Ketika Konglomerat Membidik Bisnis Infrastruktur AI",
+    content:
+      "RAIA Grid dikembangkan oleh IFT. Melalui PT Dian Swastatika Sentosa Tbk (DSSA), " +
+      "Sinarmas Group berekspansi ke infrastruktur digital.",
+  } as Parameters<typeof buildArticlePrompt>[0];
+
+  it("asks for the subscribed issuer when the article names it", () => {
+    const prompt = buildArticlePrompt(kompasFeature, {
+      label: "Dian Swastatika Sentosa Tbk (DSSA)",
+      names: ["DSSA", "Dian Swastatika Sentosa Tbk"],
+    });
+
+    expect(prompt).toContain(
+      "This article is being summarized for a newsletter about Dian Swastatika Sentosa Tbk (DSSA)",
+    );
+    expect(prompt).toContain("Lead with that");
+  });
+
+  it("leaves the prompt alone when the article never names the issuer", () => {
+    const prompt = buildArticlePrompt(kompasFeature, {
+      label: "PT DCI Indonesia Tbk (DCII)",
+      names: ["DCII", "DCI Indonesia"],
+    });
+
+    expect(prompt).not.toContain("This article is being summarized");
+    expect(prompt).toContain(
+      "Title: Ketika Konglomerat Membidik Bisnis Infrastruktur AI",
+    );
+  });
+
+  it("leaves the prompt alone when no issuer is supplied", () => {
+    const prompt = buildArticlePrompt(kompasFeature);
+
+    expect(prompt).not.toContain("This article is being summarized");
+  });
+});
+
+describe("buildIssuerCoverageDirective", () => {
+  it("names the issuer the previous summary left out and keeps the fallback", () => {
+    const directive = buildIssuerCoverageDirective(
+      "Dian Swastatika Sentosa Tbk (DSSA)",
+    );
+
+    expect(directive).toContain(
+      "named Dian Swastatika Sentosa Tbk (DSSA) in no point",
+    );
+    expect(directive).toContain(
+      "return the summary you wrote before, unchanged",
+    );
+    expect(directive).toContain(
+      "never describe what this article does or does not contain",
+    );
   });
 });
 

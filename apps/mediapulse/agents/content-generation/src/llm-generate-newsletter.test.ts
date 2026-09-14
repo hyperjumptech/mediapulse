@@ -1737,3 +1737,209 @@ describe("countSummaryFailureReasons", () => {
     expect(counts.llm_error).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// generateNewsletterWithLlm — issuer coverage
+// ---------------------------------------------------------------------------
+
+describe("generateNewsletterWithLlm — issuer coverage", () => {
+  const FEATURE_TITLE =
+    "When Conglomerates Target the AI Infrastructure Business";
+  const OTHER_COMPANY_POINT =
+    "RAIA Grid, an AI infrastructure platform, was launched by IFT.";
+  const ISSUER_POINT =
+    "DSSA expanded into digital infrastructure through Sinarmas Group.";
+
+  const conglomerateFeature: SourceForGeneration = {
+    dataSourceId: "ds-kompas",
+    url: "https://www.kompas.id/artikel/ketika-konglomerat-membidik-bisnis-infrastruktur-ai",
+    title: "Ketika Konglomerat Membidik Bisnis Infrastruktur AI",
+    content:
+      "RAIA Grid dikembangkan oleh IFT, hasil kolaborasi Indosat dan Arsari Group. " +
+      "Melalui PT Dian Swastatika Sentosa Tbk (DSSA), Sinarmas Group berekspansi ke " +
+      "infrastruktur digital.",
+    section: "disruptorsOrTech",
+    sectionScore: 0.9,
+  };
+
+  const dssaContext = {
+    tickerId: "ticker-dssa",
+    date: "2026-09-13",
+    tickerSymbol: "DSSA",
+    tickerName: "Dian Swastatika Sentosa Tbk",
+    issuerAliases: ["Dian Swastatika", "PT Dian Swastatika Sentosa Tbk"],
+  };
+
+  it("asks the summarizer for the issuer the feature names", async () => {
+    const prompts: string[] = [];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => {
+        prompts.push(args.prompt);
+
+        return {
+          object: { title: FEATURE_TITLE, points: [ISSUER_POINT] },
+        };
+      },
+    });
+
+    await generateNewsletterWithLlm(
+      [conglomerateFeature],
+      baseConfig,
+      dssaContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0]).toContain(
+      "This article is being summarized for a newsletter about Dian Swastatika Sentosa Tbk (DSSA)",
+    );
+  });
+
+  it("retries once when no point names the issuer the article reports on", async () => {
+    let calls = 0;
+    const prompts: string[] = [];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => {
+        calls += 1;
+        prompts.push(args.prompt);
+
+        return {
+          object: {
+            title: FEATURE_TITLE,
+            points: calls === 1 ? [OTHER_COMPANY_POINT] : [ISSUER_POINT],
+          },
+        };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      [conglomerateFeature],
+      baseConfig,
+      dssaContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(calls).toBe(2);
+    expect(prompts[1]).toContain(
+      "named Dian Swastatika Sentosa Tbk (DSSA) in no point",
+    );
+    expect(result.content).toContain("digital infrastructure");
+    expect(result.articlesSkippedSummaryFailed).toBe(0);
+  });
+
+  it("ships the summary rather than dropping it when the retry still omits the issuer", async () => {
+    let calls = 0;
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async () => {
+        calls += 1;
+
+        return {
+          object: { title: FEATURE_TITLE, points: [OTHER_COMPANY_POINT] },
+        };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      [conglomerateFeature],
+      baseConfig,
+      dssaContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(calls).toBe(2);
+    expect(result.articlesSkippedSummaryFailed).toBe(0);
+    expect(result.content).toContain("RAIA Grid");
+  });
+
+  it("drops a point reporting that the issuer is absent from the article", async () => {
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async () => ({
+        object: {
+          title: FEATURE_TITLE,
+          points: [
+            "DCII is not mentioned in the article; it covers Arsari Group instead.",
+            OTHER_COMPANY_POINT,
+          ],
+        },
+      }),
+    });
+
+    const result = await generateNewsletterWithLlm(
+      [conglomerateFeature],
+      baseConfig,
+      dssaContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(result.content).not.toContain("is not mentioned in the article");
+    expect(result.content).toContain("RAIA Grid");
+  });
+
+  it("keeps the first summary when the retry answers with meta-points only", async () => {
+    let calls = 0;
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async () => {
+        calls += 1;
+
+        return {
+          object: {
+            title: FEATURE_TITLE,
+            points:
+              calls === 1
+                ? [OTHER_COMPANY_POINT]
+                : [
+                    "DSSA is named in the article as a digital infrastructure operator.",
+                  ],
+          },
+        };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      [conglomerateFeature],
+      baseConfig,
+      dssaContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(calls).toBe(2);
+    expect(result.articlesSkippedSummaryFailed).toBe(0);
+    expect(result.content).toContain("RAIA Grid");
+    expect(result.content).not.toContain("is named in the article");
+  });
+
+  it("leaves an article that never names the issuer untouched", async () => {
+    const prompts: string[] = [];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => {
+        prompts.push(args.prompt);
+
+        return {
+          object: {
+            title: promptTitle(args.prompt),
+            points: ["Rival A opened branches in eastern Indonesia."],
+          },
+        };
+      },
+    });
+
+    await generateNewsletterWithLlm(
+      [
+        {
+          dataSourceId: "ds-rival",
+          url: "https://example.com/rival",
+          title: "Rival A expands",
+          content: "Rival A expanded its branches across eastern Indonesia.",
+          section: "competitiveLandscape",
+          sectionScore: 0.8,
+        },
+      ],
+      baseConfig,
+      dssaContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0]).not.toContain("This article is being summarized");
+  });
+});
