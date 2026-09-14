@@ -51,14 +51,18 @@ import { retryWithBackoff } from "./lib/retry.js";
 import { sanitizeArticleTitle } from "./lib/sanitize-article-title.js";
 import { sanitizeSummaryPoints } from "./lib/sanitize-summary-points.js";
 import { isMetaPoint } from "./lib/meta-point.js";
+import { pointsOmitStatedFigures } from "./lib/material-figure-coverage.js";
+import { splicesClauses } from "./lib/clause-splice.js";
 import { truncateSources } from "./lib/truncate-sources.js";
 import { isRetryableLlmError } from "./llm-classify-error.js";
 import { selectArticles, type SelectedArticle } from "./select-articles.js";
 import {
   articleSummarySchema,
   buildArticlePrompt,
+  buildClauseSpliceDirective,
   buildIssuerCoverageDirective,
   EMPTY_SUMMARY_DIRECTIVE,
+  MATERIAL_FIGURE_DIRECTIVE,
   type IssuerFocus,
   SUMMARIZE_ARTICLE_SYSTEM_PROMPT,
 } from "./summarize-article.js";
@@ -448,7 +452,7 @@ const mapWithConcurrency = async <TItem, TResult>(
  * that is a dropped instruction rather than an unusable article, and naming the omission recovers
  * most of them. Every other failure gives up on the first attempt.
  */
-const SUMMARY_ATTEMPTS = 2;
+const SUMMARY_ATTEMPTS = 3;
 
 /**
  * Tells the summarizer which heading it left unevidenced.
@@ -883,9 +887,26 @@ export async function generateNewsletterWithLlm(
     // A heading's figure missing from every point is the model forgetting an instruction, not a bad
     // article, so the article gets one more attempt with the omission named before it is given up.
     let figureDirective = "";
-    let issuerRetryFallback: { title: string; points: string[] } | undefined;
+    let softRetryFallback: { title: string; points: string[] } | undefined;
+    // One complaint per article. Without this a guard that the model cannot satisfy would spend
+    // every attempt restating itself, and the second defect in the same summary would never be put
+    // to it.
+    const issuedDirectives = new Set<string>();
+    const requestRetry = (
+      attempt: number,
+      key: string,
+      directive: string,
+    ): boolean => {
+      if (attempt >= SUMMARY_ATTEMPTS - 1 || issuedDirectives.has(key)) {
+        return false;
+      }
+      issuedDirectives.add(key);
+      figureDirective = directive;
+
+      return true;
+    };
     const failed = (reason: SummaryFailureReason): SummaryOutcome => {
-      if (issuerRetryFallback === undefined) {
+      if (softRetryFallback === undefined) {
         return { status: "failed", entry, reason };
       }
       logger.info(
@@ -902,8 +923,8 @@ export async function generateNewsletterWithLlm(
       return {
         status: "summarized",
         entry,
-        title: issuerRetryFallback.title,
-        points: issuerRetryFallback.points,
+        title: softRetryFallback.title,
+        points: softRetryFallback.points,
       };
     };
     for (let attempt = 0; attempt < SUMMARY_ATTEMPTS; attempt += 1) {
@@ -933,9 +954,8 @@ export async function generateNewsletterWithLlm(
         if (
           summary.points.length === 0 &&
           entry.source.contentIsDescriptionOnly !== true &&
-          attempt < SUMMARY_ATTEMPTS - 1
+          requestRetry(attempt, "empty_summary", EMPTY_SUMMARY_DIRECTIVE)
         ) {
-          figureDirective = EMPTY_SUMMARY_DIRECTIVE;
           logger.info(
             {
               tickerId: context.tickerId,
@@ -1087,8 +1107,13 @@ export async function generateNewsletterWithLlm(
           groundedPoints,
         );
         if (uncoveredFigures.length > 0) {
-          if (attempt < SUMMARY_ATTEMPTS - 1) {
-            figureDirective = buildTitleFigureDirective(articleTitle);
+          if (
+            requestRetry(
+              attempt,
+              "title_figure",
+              buildTitleFigureDirective(articleTitle),
+            )
+          ) {
             logger.info(
               {
                 tickerId: context.tickerId,
@@ -1125,8 +1150,14 @@ export async function generateNewsletterWithLlm(
         const overlongPoints = groundedPoints.filter(
           (point) => point.length > MAX_POINT_LENGTH,
         );
-        if (overlongPoints.length > 0 && attempt < SUMMARY_ATTEMPTS - 1) {
-          figureDirective = buildOverlongPointDirective(overlongPoints);
+        if (
+          overlongPoints.length > 0 &&
+          requestRetry(
+            attempt,
+            "overlong_point",
+            buildOverlongPointDirective(overlongPoints),
+          )
+        ) {
           logger.info(
             {
               tickerId: context.tickerId,
@@ -1143,9 +1174,12 @@ export async function generateNewsletterWithLlm(
         if (
           descriptionOnly &&
           lonePointRestatesTitle(groundedPoints, articleTitle) &&
-          attempt < SUMMARY_ATTEMPTS - 1
+          requestRetry(
+            attempt,
+            "lone_point_restates_title",
+            LONE_POINT_RESTATES_TITLE_DIRECTIVE,
+          )
         ) {
-          figureDirective = LONE_POINT_RESTATES_TITLE_DIRECTIVE;
           logger.info(
             {
               tickerId: context.tickerId,
@@ -1163,9 +1197,8 @@ export async function generateNewsletterWithLlm(
 
         if (
           lonePointLacksFact(groundedPoints) &&
-          attempt < SUMMARY_ATTEMPTS - 1
+          requestRetry(attempt, "lone_point_lacks_fact", LONE_POINT_DIRECTIVE)
         ) {
-          figureDirective = LONE_POINT_DIRECTIVE;
           logger.info(
             {
               tickerId: context.tickerId,
@@ -1189,9 +1222,14 @@ export async function generateNewsletterWithLlm(
             issuerFocus.names,
           );
           if (inArticle.length > 0 && inPoints.length === 0) {
-            if (attempt < SUMMARY_ATTEMPTS - 1) {
-              figureDirective = buildIssuerCoverageDirective(issuerFocus.label);
-              issuerRetryFallback = {
+            if (
+              requestRetry(
+                attempt,
+                "issuer_coverage",
+                buildIssuerCoverageDirective(issuerFocus.label),
+              )
+            ) {
+              softRetryFallback = {
                 title: articleTitle,
                 points: groundedPoints,
               };
@@ -1208,13 +1246,13 @@ export async function generateNewsletterWithLlm(
               );
               continue;
             }
-            if (issuerRetryFallback !== undefined) {
+            if (softRetryFallback !== undefined) {
               logger.info(
                 {
                   tickerId: context.tickerId,
                   sectionKey: entry.sectionKey,
                   url: entry.source.url,
-                  title: issuerRetryFallback.title,
+                  title: softRetryFallback.title,
                   matchedNames: inArticle,
                   event: "article_issuer_retry_reverted",
                 },
@@ -1224,8 +1262,8 @@ export async function generateNewsletterWithLlm(
               return {
                 status: "summarized",
                 entry,
-                title: issuerRetryFallback.title,
-                points: issuerRetryFallback.points,
+                title: softRetryFallback.title,
+                points: softRetryFallback.points,
               };
             }
             logger.warn(
@@ -1241,6 +1279,80 @@ export async function generateNewsletterWithLlm(
               "Summary names no point about the issuer its article reports on",
             );
           }
+        }
+
+        if (
+          pointsOmitStatedFigures(entry.source.content, groundedPoints) &&
+          !descriptionOnly
+        ) {
+          if (
+            requestRetry(attempt, "material_figure", MATERIAL_FIGURE_DIRECTIVE)
+          ) {
+            softRetryFallback ??= {
+              title: articleTitle,
+              points: groundedPoints,
+            };
+            logger.info(
+              {
+                tickerId: context.tickerId,
+                sectionKey: entry.sectionKey,
+                url: entry.source.url,
+                title: articleTitle,
+                points: groundedPoints,
+                event: "article_material_figure_uncovered_retry",
+              },
+              "Retrying summary: no point carries a figure the article states",
+            );
+            continue;
+          }
+          logger.warn(
+            {
+              tickerId: context.tickerId,
+              sectionKey: entry.sectionKey,
+              url: entry.source.url,
+              title: articleTitle,
+              points: groundedPoints,
+              event: "summary_omits_stated_figures",
+            },
+            "Summary carries no figure although the article states several",
+          );
+        }
+
+        const splicedPoints = groundedPoints.filter(splicesClauses);
+        if (splicedPoints.length > 0) {
+          if (
+            requestRetry(
+              attempt,
+              "clause_splice",
+              buildClauseSpliceDirective(splicedPoints),
+            )
+          ) {
+            softRetryFallback ??= {
+              title: articleTitle,
+              points: groundedPoints,
+            };
+            logger.info(
+              {
+                tickerId: context.tickerId,
+                sectionKey: entry.sectionKey,
+                url: entry.source.url,
+                spliced: splicedPoints,
+                event: "article_clause_splice_retry",
+              },
+              "Retrying summary: a point joins two clauses with a semicolon",
+            );
+            continue;
+          }
+          logger.warn(
+            {
+              tickerId: context.tickerId,
+              sectionKey: entry.sectionKey,
+              url: entry.source.url,
+              spliced: splicedPoints,
+              event: "summary_point_clause_splice",
+            },
+            "Summary ships a point joining two clauses with a semicolon",
+          );
         }
 
         if (!pointsSupportTitle(articleTitle, groundedPoints)) {
