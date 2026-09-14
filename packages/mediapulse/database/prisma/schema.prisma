@@ -90,9 +90,9 @@ model DataSource {
   @@index([dataCollectionRunId])
   @@index([registrableDomain])
   /// Serves the collection dedup lookup in `postDataCollectionExistingUrls`, which asks
-  /// `WHERE ticker_id = ? AND url IN (...)` on every collection run. Without it that filter scans
-  /// every row the ticker has ever collected.
-  @@index([tickerId, url])
+  /// `WHERE ticker_id = ? AND canonical_url IN (...)` on every collection run. Without it that
+  /// filter scans every row the ticker has ever collected.
+  @@index([tickerId, canonicalUrl])
   @@map("data_source")
 }
 

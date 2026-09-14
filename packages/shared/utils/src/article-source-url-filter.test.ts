@@ -20,9 +20,49 @@ describe("canonicalizeUrl", () => {
   });
 
   it("leaves trailing numeric segments alone on hosts that do not paginate articles", () => {
-    const url = "https://www.cnbcindonesia.com/market/2026/top-5-emiten/3";
+    const url = "https://cnbcindonesia.com/market/2026/top-5-emiten/3";
 
     expect(canonicalizeUrl(url)).toBe(url);
+  });
+
+  it("folds http, a www host and a trailing slash onto one URL", () => {
+    const canonical = "https://money.kompas.com/read/123/data-center";
+
+    expect(
+      canonicalizeUrl("http://www.money.kompas.com/read/123/data-center/"),
+    ).toBe(canonical);
+    expect(
+      canonicalizeUrl("https://money.kompas.com/read/123/data-center"),
+    ).toBe(canonical);
+    expect(
+      canonicalizeUrl("http://money.kompas.com/read/123/data-center"),
+    ).toBe(canonical);
+  });
+
+  it("drops the amp and source parameters publishers append to the same article", () => {
+    const canonical = "https://money.kompas.com/read/123/data-center";
+
+    expect(
+      canonicalizeUrl(
+        "https://money.kompas.com/read/123/data-center?source=terkini_artikel",
+      ),
+    ).toBe(canonical);
+    expect(
+      canonicalizeUrl("https://money.kompas.com/read/123/data-center?amp=1"),
+    ).toBe(canonical);
+  });
+
+  it("folds page=all, which is the whole article, and keeps a real page", () => {
+    const base = "https://wartaekonomi.co.id/read631924/bahlil";
+
+    expect(canonicalizeUrl(`${base}?page=all`)).toBe(base);
+    expect(canonicalizeUrl(`${base}?page=2`)).toBe(`${base}?page=2`);
+  });
+
+  it("keeps a www-only host reachable rather than emptying it", () => {
+    expect(canonicalizeUrl("https://www.kompas.id/artikel/pusat-data")).toBe(
+      "https://kompas.id/artikel/pusat-data",
+    );
   });
 
   it("keeps a paginating host's non-article paths intact", () => {

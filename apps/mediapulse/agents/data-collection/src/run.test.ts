@@ -38,7 +38,7 @@ const withTestConfig = (
   });
 
 const searchHit: WebSearchResult = {
-  url: "http://example.com/news/bbca-laba-kuartal-iii",
+  url: "https://example.com/news/bbca-laba-kuartal-iii",
   title: validTitle,
   content:
     "Bank Central Asia membukukan laba bersih yang naik pada kuartal ini",
@@ -217,7 +217,7 @@ describe("runDataCollection", () => {
     });
     expect(createMock).toHaveBeenCalledWith([
       {
-        url: "http://example.com/news/bbca-laba-kuartal-iii",
+        url: "https://example.com/news/bbca-laba-kuartal-iii",
         title: validTitle,
         description:
           "Bank Central Asia membukukan laba bersih yang naik pada kuartal ini",
@@ -242,7 +242,7 @@ describe("runDataCollection", () => {
 
   it("skips hits whose canonical URL already exists", async () => {
     existingUrlsCreateMock.mockResolvedValueOnce({
-      existingUrls: ["http://example.com/news/bbca-laba-kuartal-iii"],
+      existingUrls: ["https://example.com/news/bbca-laba-kuartal-iii"],
       hostCounts: {},
     });
 
@@ -258,13 +258,13 @@ describe("runDataCollection", () => {
     const searchHits = Array.from({ length: 10 }, (_, index) =>
       success({
         ...searchHit,
-        url: `http://example.com/page-${index}`,
+        url: `https://example.com/page-${index}`,
         title: `${validTitle} ${index}`,
       }),
     );
     vi.mocked(performWebSearch).mockResolvedValueOnce(searchHits);
     deadUrlsLookupMock.mockResolvedValueOnce({
-      deadUrls: ["http://example.com/page-0", "http://example.com/page-1"],
+      deadUrls: ["https://example.com/page-0", "https://example.com/page-1"],
     });
 
     const result = await runDataCollection(
@@ -278,15 +278,15 @@ describe("runDataCollection", () => {
     // 8 survivors persisted, first-round target is met after the first hit
     expect(createMock).toHaveBeenCalled();
     const persistedUrls = createMock.mock.calls.map((call) => call[0][0].url);
-    expect(persistedUrls).not.toContain("http://example.com/page-0");
-    expect(persistedUrls).not.toContain("http://example.com/page-1");
+    expect(persistedUrls).not.toContain("https://example.com/page-0");
+    expect(persistedUrls).not.toContain("https://example.com/page-1");
   });
 
   it("drops hits with an empty snippet as empty_description", async () => {
     vi.mocked(performWebSearch).mockResolvedValueOnce([
       success({
         ...searchHit,
-        url: "http://example.com/blank",
+        url: "https://example.com/blank",
         content: "   ",
       }),
     ]);
@@ -325,24 +325,24 @@ describe("runDataCollection", () => {
       vi.mocked(performWebSearch).mockResolvedValueOnce([
         success({
           ...searchHit,
-          url: "http://example.com/fresh",
+          url: "https://example.com/fresh",
           title: `${validTitle} fresh`,
           publishedAt: isoDaysAgo(2),
         }),
         success({
           ...searchHit,
-          url: "http://example.com/stale",
+          url: "https://example.com/stale",
           title: `${validTitle} stale`,
           publishedAt: isoDaysAgo(30),
         }),
         success({
           ...searchHit,
-          url: "http://example.com/unknown",
+          url: "https://example.com/unknown",
           title: `${validTitle} unknown`,
         }),
         success({
           ...searchHit,
-          url: "http://example.com/future",
+          url: "https://example.com/future",
           title: `${validTitle} future`,
           publishedAt: isoDaysAhead(5),
         }),
@@ -364,13 +364,13 @@ describe("runDataCollection", () => {
       expect(createMock).toHaveBeenCalledTimes(2);
       expect(createMock).toHaveBeenCalledWith([
         expect.objectContaining({
-          url: "http://example.com/fresh",
+          url: "https://example.com/fresh",
           title: `${validTitle} fresh`,
           publishedAt: isoDaysAgo(2),
         }),
       ]);
       expect(createMock).toHaveBeenCalledWith([
-        expect.objectContaining({ url: "http://example.com/unknown" }),
+        expect.objectContaining({ url: "https://example.com/unknown" }),
       ]);
     } finally {
       vi.useRealTimers();
@@ -441,14 +441,14 @@ describe("runDataCollection", () => {
       .mockResolvedValueOnce([
         success({
           ...searchHit,
-          url: "http://example.com/a",
+          url: "https://example.com/a",
           title: `${validTitle} a`,
         }),
       ])
       .mockResolvedValueOnce([
         success({
           ...searchHit,
-          url: "http://example.com/b",
+          url: "https://example.com/b",
           title: `${validTitle} b`,
         }),
       ]);
@@ -474,27 +474,27 @@ describe("runDataCollection", () => {
     vi.mocked(performWebSearch).mockResolvedValue([
       success({
         ...searchHit,
-        url: "http://example.com/a",
+        url: "https://example.com/a",
         title: `${validTitle} a`,
       }),
       success({
         ...searchHit,
-        url: "http://example.com/b",
+        url: "https://example.com/b",
         title: `${validTitle} b`,
       }),
       success({
         ...searchHit,
-        url: "http://example.com/c",
+        url: "https://example.com/c",
         title: `${validTitle} c`,
       }),
       success({
         ...searchHit,
-        url: "http://example.com/d",
+        url: "https://example.com/d",
         title: `${validTitle} d`,
       }),
       success({
         ...searchHit,
-        url: "http://example.com/e",
+        url: "https://example.com/e",
         title: `${validTitle} e`,
       }),
     ]);
@@ -543,7 +543,7 @@ describe("runDataCollection", () => {
       return [
         success({
           ...searchHit,
-          url: `http://example.com/loop-${roundIndex}`,
+          url: `https://example.com/loop-${roundIndex}`,
           title: `${validTitle} loop ${roundIndex}`,
         }),
       ];
