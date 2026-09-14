@@ -2040,3 +2040,155 @@ describe("generateNewsletterWithLlm — empty summaries", () => {
     expect(calls).toBe(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// generateNewsletterWithLlm — point quality
+// ---------------------------------------------------------------------------
+
+describe("generateNewsletterWithLlm — point quality", () => {
+  const figureRichSource: SourceForGeneration = {
+    dataSourceId: "ds-figures",
+    url: "https://example.com/figures",
+    title: "Merger closes",
+    content:
+      "A merger between two regional lenders closed on Friday. The combined bank " +
+      "holds Rp40 trillion of assets, posted Rp2.1 trillion of profit, and runs " +
+      "120 branches across eastern Indonesia.",
+    section: "dealsAndMovements",
+    sectionScore: 0.9,
+  };
+
+  it("retries when no point carries a figure the article states", async () => {
+    let calls = 0;
+    const prompts: string[] = [];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => {
+        calls += 1;
+        prompts.push(args.prompt);
+
+        return {
+          object: {
+            title: "Merger closes",
+            points:
+              calls === 1
+                ? ["The merger was welcomed by staff at both lenders."]
+                : [
+                    "The merger creates a bank holding Rp40 trillion of assets.",
+                  ],
+          },
+        };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      [figureRichSource],
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(calls).toBe(2);
+    expect(prompts[1]).toContain(
+      "Your previous summary carried no figure in any point",
+    );
+    expect(result.content).toContain("Rp40 trillion");
+  });
+
+  it("retries a point that joins two clauses with a semicolon", async () => {
+    let calls = 0;
+    const prompts: string[] = [];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => {
+        calls += 1;
+        prompts.push(args.prompt);
+
+        return {
+          object: {
+            title: "Merger closes",
+            points:
+              calls === 1
+                ? [
+                    "The merger creates a bank holding Rp40 trillion of assets; its operator, Bank A.",
+                  ]
+                : [
+                    "The merger creates a bank holding Rp40 trillion of assets.",
+                  ],
+          },
+        };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      [figureRichSource],
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(calls).toBe(2);
+    expect(prompts[1]).toContain("joined two clauses with a semicolon");
+    expect(result.content).not.toContain("its operator, Bank A");
+  });
+
+  it("puts a second complaint to the model rather than repeating the first", async () => {
+    const prompts: string[] = [];
+    const answers = [
+      ["The merger was welcomed by staff at both lenders."],
+      [
+        "The merger creates a bank holding Rp40 trillion of assets; its operator, Bank A.",
+      ],
+      ["The merger creates a bank holding Rp40 trillion of assets."],
+    ];
+    let calls = 0;
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => {
+        prompts.push(args.prompt);
+        const points = answers[calls] ?? [];
+        calls += 1;
+
+        return { object: { title: "Merger closes", points } };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      [figureRichSource],
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(calls).toBe(3);
+    expect(prompts[1]).toContain(
+      "Your previous summary carried no figure in any point",
+    );
+    expect(prompts[2]).toContain("joined two clauses with a semicolon");
+    expect(result.content).toContain("Rp40 trillion");
+  });
+
+  it("ships the first summary when every retry is spent", async () => {
+    let calls = 0;
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async () => {
+        calls += 1;
+
+        return {
+          object: {
+            title: "Merger closes",
+            points: ["The merger was welcomed by staff at both lenders."],
+          },
+        };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      [figureRichSource],
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(calls).toBe(2);
+    expect(result.articlesSkippedSummaryFailed).toBe(0);
+    expect(result.content).toContain("welcomed by staff");
+  });
+});

@@ -86,6 +86,12 @@ export const buildIssuerCoverageDirective = (label: string): string =>
 export const EMPTY_SUMMARY_DIRECTIVE =
   "\n\nYour previous summary of this article returned no points. This article carries a fetched body, not a headline restatement, so returning nothing drops it from the newsletter entirely. Report the facts the body states: its figures, the companies it names, the capacities, the dates, the decisions. Return no points again only if the body genuinely states none.";
 
+export const MATERIAL_FIGURE_DIRECTIVE =
+  "\n\nYour previous summary carried no figure in any point, although this article states several. Report the figures the article attaches to the companies it names: the amounts, the percentages, the capacities, the dates. Background or colour about a person is not worth a point while a stated figure goes unreported.";
+
+export const buildClauseSpliceDirective = (points: readonly string[]): string =>
+  `\n\nYour previous summary joined two clauses with a semicolon in ${points.length === 1 ? "one point" : `${String(points.length)} points`}: ${points.map((point) => `"${point}"`).join(", ")}. Each point carries one fact and is read on its own, so write the halves as separate points or drop the weaker half. Never leave a point ending in a noun phrase that states nothing about the subject.`;
+
 /**
  * Builds the user prompt for one article.
  *
