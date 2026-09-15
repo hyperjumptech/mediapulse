@@ -298,6 +298,96 @@ export const detailBlockStatCardsSchema = z.object({
 });
 
 /**
+ * Palette slot for a node group in a `graph` block. Slots are deliberately abstract: the renderer
+ * maps each to a theme token, so a manifest never names a color and stays readable in both themes.
+ */
+export const detailBlockGraphPaletteSlotSchema = z.enum([
+  "accent1",
+  "accent2",
+  "accent3",
+  "accent4",
+  "accent5",
+  "neutral",
+]);
+
+/**
+ * How each entry of a `graph` block's bound nodes array is read. Every `*Field` is a dotted path
+ * on the entry itself, not on the enclosing response.
+ */
+export const detailBlockGraphNodeSchema = z.object({
+  /** Path to the node's stable identity. Entries without one are dropped; duplicates keep the first. */
+  idField: z.string().min(1),
+  /** Path to the node's visible caption. Falls back to the id when it does not resolve. */
+  labelField: z.string().min(1),
+  /**
+   * Path to a grouping value naming a category. Groups drive node color: declare `groupVariants`
+   * to pin a slot, otherwise slots are assigned in first-appearance order.
+   */
+  groupField: z.string().min(1).optional(),
+  /** Path to longer text revealed on hover and read out in the block's text fallback. */
+  tooltipField: z.string().min(1).optional(),
+  /**
+   * Path to an explicit layer index, 0 nearest the root. When any node lacks one, layers are
+   * derived from the edge list by walking forward from the nodes nothing points at.
+   */
+  rankField: z.string().min(1).optional(),
+  /** Path to a number ordering nodes inside their layer. Ties and absences keep input order. */
+  orderField: z.string().min(1).optional(),
+  /** Path to a boolean marking a node as the focus of the graph, drawn with a heavier outline. */
+  emphasisField: z.string().min(1).optional(),
+  /**
+   * Optional URL template resolved against the response, the node entry, and a `node` namespace.
+   * A template variable that does not resolve leaves the node unlinked.
+   */
+  linkTemplate: z.string().min(1).optional(),
+  /** Open node links in a new tab with `rel="noopener noreferrer"`. */
+  linkExternal: z.boolean().optional(),
+});
+
+/**
+ * How each entry of a `graph` block's bound edges array is read. Every `*Field` is a dotted path
+ * on the entry itself.
+ */
+export const detailBlockGraphEdgeSchema = z.object({
+  /** Path to the id of the node the edge leaves. */
+  sourceField: z.string().min(1),
+  /** Path to the id of the node the edge enters. */
+  targetField: z.string().min(1),
+  /** Path to a short caption drawn at the edge midpoint. */
+  labelField: z.string().min(1).optional(),
+});
+
+/**
+ * `graph` block — a node-link diagram over two bound arrays. Nodes are laid out in layers, so the
+ * same response always draws the same picture with no measuring pass and no layout library.
+ *
+ * - Important: edges whose endpoints are not among the rendered nodes are dropped rather than
+ *   drawn dangling, and self-loops are never drawn.
+ */
+export const detailBlockGraphSchema = z.object({
+  type: z.literal("graph"),
+  ...detailBlockCommonShape,
+  /** Dotted field path on the response; must resolve to an array. */
+  nodesField: z.string().min(1),
+  /** Dotted field path on the response; must resolve to an array. */
+  edgesField: z.string().min(1),
+  node: detailBlockGraphNodeSchema,
+  edge: detailBlockGraphEdgeSchema,
+  /** Direction layers advance in. */
+  orientation: z.enum(["horizontal", "vertical"]).default("horizontal"),
+  /** Pins a group value to a palette slot. Unlisted groups take the next slot in rotation. */
+  groupVariants: z.record(detailBlockGraphPaletteSlotSchema).optional(),
+  /** Renderer-side safety net. Nodes past this count are dropped and reported beneath the diagram. */
+  maxNodes: z.number().int().positive().max(500).default(150),
+  /** Maximum drawing height in pixels before the diagram scrolls inside its frame. */
+  maxHeight: z.number().int().positive().max(2000).default(520),
+  /** Caption template (e.g. `{graph.nodes.length} nodes`) resolved against the full response. */
+  captionTemplate: z.string().min(1).optional(),
+  /** Copy shown when the bound nodes array is empty. */
+  emptyState: z.string().min(1).optional(),
+});
+
+/**
  * Non-tabs leaf block kinds. Tabs may only contain these block types, which
  * keeps the discriminated union flat and prevents recursive nesting.
  */
@@ -306,6 +396,7 @@ export const detailBlockLeafSchema = z.discriminatedUnion("type", [
   detailBlockMarkdownSchema,
   detailBlockHtmlPreviewSchema,
   detailBlockSubTableSchema,
+  detailBlockGraphSchema,
 ]);
 
 export const detailBlockTabBadgeSchema = z.object({
@@ -349,6 +440,7 @@ export const detailBlockPanelChildSchema = z.discriminatedUnion("type", [
   detailBlockHtmlPreviewSchema,
   detailBlockSubTableSchema,
   detailBlockStatCardsSchema,
+  detailBlockGraphSchema,
   detailBlockTabsSchema,
 ]);
 
@@ -372,6 +464,7 @@ export const detailBlockSchema = z.discriminatedUnion("type", [
   detailBlockHtmlPreviewSchema,
   detailBlockSubTableSchema,
   detailBlockStatCardsSchema,
+  detailBlockGraphSchema,
   detailBlockPanelSchema,
   detailBlockTabsSchema,
 ]);
@@ -389,6 +482,12 @@ export type DetailBlockHtmlPreview = z.infer<
 export type DetailBlockSubTable = z.infer<typeof detailBlockSubTableSchema>;
 export type DetailBlockStatCards = z.infer<typeof detailBlockStatCardsSchema>;
 export type DetailBlockStatCard = z.infer<typeof detailBlockStatCardSchema>;
+export type DetailBlockGraph = z.infer<typeof detailBlockGraphSchema>;
+export type DetailBlockGraphNode = z.infer<typeof detailBlockGraphNodeSchema>;
+export type DetailBlockGraphEdge = z.infer<typeof detailBlockGraphEdgeSchema>;
+export type DetailBlockGraphPaletteSlot = z.infer<
+  typeof detailBlockGraphPaletteSlotSchema
+>;
 export type DetailBlockPanel = z.infer<typeof detailBlockPanelSchema>;
 export type DetailBlockPanelChild = z.infer<typeof detailBlockPanelChildSchema>;
 export type DetailBlockSubTableColumn = z.infer<

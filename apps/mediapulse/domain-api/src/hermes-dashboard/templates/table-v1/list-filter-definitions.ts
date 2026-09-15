@@ -116,3 +116,30 @@ export const feedbackReceivedAtDateRangeListFilter = {
   ui: "date-range",
   rangeParams: { from: "from", to: "to" },
 } satisfies TableV1ListFilterDefinition;
+
+/** Storyline kind dropdown filter (`kind` query param). */
+export const storylineKindSelectListFilter = {
+  key: "kind",
+  label: "Kind",
+  ui: "select",
+  placeholderAll: "All kinds",
+  staticOptions: [
+    { value: "story", label: "Story" },
+    { value: "format", label: "Format" },
+  ],
+} satisfies TableV1ListFilterDefinition;
+
+/** Locked yes/no filter (`locked` query param). */
+export const lockedBooleanSelectListFilter = {
+  key: "locked",
+  label: "Locked",
+  ui: "boolean-select",
+} satisfies TableV1ListFilterDefinition;
+
+/** Last-observed date range filter for storylines. */
+export const lastObservedAtDateRangeListFilter = {
+  key: "lastObservedAt",
+  label: "Last observed",
+  ui: "date-range",
+  rangeParams: { from: "from", to: "to" },
+} satisfies TableV1ListFilterDefinition;

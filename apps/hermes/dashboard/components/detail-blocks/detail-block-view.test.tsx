@@ -21,6 +21,39 @@ describe("DetailBlockView", () => {
     expect(screen.getByText("Apple earnings")).toBeInTheDocument();
   });
 
+  it("renders a graph block", () => {
+    const { container } = render(
+      <DetailBlockView
+        block={{
+          type: "graph",
+          label: "Knowledge graph",
+          nodesField: "graph.nodes",
+          edgesField: "graph.edges",
+          orientation: "horizontal",
+          maxNodes: 150,
+          maxHeight: 520,
+          node: { idField: "id", labelField: "label", rankField: "rank" },
+          edge: { sourceField: "source", targetField: "target" },
+        }}
+        data={{
+          graph: {
+            nodes: [
+              { id: "a", label: "Contract delay", rank: 0 },
+              { id: "b", label: "Delay confirmed", rank: 1 },
+            ],
+            edges: [{ source: "a", target: "b" }],
+          },
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Knowledge graph" }),
+    ).toBeInTheDocument();
+    expect(container.querySelector("svg")?.getAttribute("role")).toBe("img");
+    expect(container.querySelectorAll("path")).toHaveLength(1);
+  });
+
   it("renders a markdown block", () => {
     render(
       <DetailBlockView
