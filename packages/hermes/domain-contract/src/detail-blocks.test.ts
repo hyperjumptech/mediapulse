@@ -181,6 +181,131 @@ describe("detailBlockSchema", () => {
     ).toThrow();
   });
 
+  it("parses a minimal graph block and applies defaults", () => {
+    const parsed = detailBlockSchema.parse({
+      type: "graph",
+      nodesField: "graph.nodes",
+      edgesField: "graph.edges",
+      node: { idField: "id", labelField: "label" },
+      edge: { sourceField: "source", targetField: "target" },
+    });
+
+    expect(parsed.type).toBe("graph");
+    if (parsed.type !== "graph") return;
+    expect(parsed.orientation).toBe("horizontal");
+    expect(parsed.maxNodes).toBe(150);
+    expect(parsed.maxHeight).toBe(520);
+  });
+
+  it("parses a graph block with group variants, ranks and links", () => {
+    const parsed = detailBlockSchema.parse({
+      type: "graph",
+      label: "Knowledge graph",
+      nodesField: "graph.nodes",
+      edgesField: "graph.edges",
+      orientation: "vertical",
+      maxNodes: 220,
+      node: {
+        idField: "id",
+        labelField: "label",
+        groupField: "group",
+        tooltipField: "tooltip",
+        rankField: "rank",
+        orderField: "order",
+        emphasisField: "emphasis",
+        linkTemplate: "/dashboard/{integrationId}/{linkResource}/{linkId}",
+      },
+      edge: {
+        sourceField: "source",
+        targetField: "target",
+        labelField: "label",
+      },
+      groupVariants: { storyline: "accent1", overflow: "neutral" },
+      captionTemplate: "{graph.nodes.length} nodes",
+      emptyState: "Nothing to draw yet.",
+    });
+
+    expect(parsed.type).toBe("graph");
+    if (parsed.type !== "graph") return;
+    expect(parsed.orientation).toBe("vertical");
+    expect(parsed.maxNodes).toBe(220);
+    expect(parsed.groupVariants?.storyline).toBe("accent1");
+    expect(parsed.node.rankField).toBe("rank");
+  });
+
+  it("rejects a graph block missing its bound arrays", () => {
+    expect(() => detailBlockSchema.parse({ type: "graph" })).toThrow();
+  });
+
+  it("rejects a graph block with an out-of-range maxNodes", () => {
+    const base = {
+      type: "graph",
+      nodesField: "graph.nodes",
+      edgesField: "graph.edges",
+      node: { idField: "id", labelField: "label" },
+      edge: { sourceField: "source", targetField: "target" },
+    };
+
+    expect(() => detailBlockSchema.parse({ ...base, maxNodes: 0 })).toThrow();
+    expect(() => detailBlockSchema.parse({ ...base, maxNodes: 501 })).toThrow();
+  });
+
+  it("rejects an unknown palette slot in groupVariants", () => {
+    expect(() =>
+      detailBlockSchema.parse({
+        type: "graph",
+        nodesField: "graph.nodes",
+        edgesField: "graph.edges",
+        node: { idField: "id", labelField: "label" },
+        edge: { sourceField: "source", targetField: "target" },
+        groupVariants: { storyline: "accent9" },
+      }),
+    ).toThrow();
+  });
+
+  it("accepts a graph block inside a tab", () => {
+    const parsed = detailBlockSchema.parse({
+      type: "tabs",
+      tabs: [
+        {
+          label: "Graph",
+          block: {
+            type: "graph",
+            nodesField: "graph.nodes",
+            edgesField: "graph.edges",
+            node: { idField: "id", labelField: "label" },
+            edge: { sourceField: "source", targetField: "target" },
+          },
+        },
+      ],
+    });
+
+    expect(parsed.type).toBe("tabs");
+    if (parsed.type !== "tabs") return;
+    expect(parsed.tabs[0]?.block.type).toBe("graph");
+  });
+
+  it("accepts a graph block inside a panel", () => {
+    const parsed = detailBlockSchema.parse({
+      type: "panel",
+      label: "Storyline",
+      blocks: [
+        { type: "statCards", cards: [{ label: "Kind", field: "kindLabel" }] },
+        {
+          type: "graph",
+          nodesField: "graph.nodes",
+          edgesField: "graph.edges",
+          node: { idField: "id", labelField: "label" },
+          edge: { sourceField: "source", targetField: "target" },
+        },
+      ],
+    });
+
+    expect(parsed.type).toBe("panel");
+    if (parsed.type !== "panel") return;
+    expect(parsed.blocks[1]?.type).toBe("graph");
+  });
+
   it("rejects unknown block type", () => {
     expect(() =>
       detailBlockSchema.parse({ type: "unknown", field: "foo" }),

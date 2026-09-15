@@ -6,6 +6,40 @@ import { describe, expect, it } from "vitest";
 import { DetailBlockTabsView } from "./detail-block-tabs";
 
 describe("DetailBlockTabsView", () => {
+  it("renders a graph block inside a tab", () => {
+    const { container } = render(
+      <DetailBlockTabsView
+        block={{
+          type: "tabs",
+          label: "Evidence",
+          tabs: [
+            {
+              label: "Graph",
+              block: {
+                type: "graph",
+                nodesField: "graph.nodes",
+                edgesField: "graph.edges",
+                orientation: "horizontal",
+                maxNodes: 150,
+                maxHeight: 520,
+                node: { idField: "id", labelField: "label", rankField: "rank" },
+                edge: { sourceField: "source", targetField: "target" },
+              },
+            },
+          ],
+        }}
+        data={{
+          graph: {
+            nodes: [{ id: "a", label: "Contract delay", rank: 0 }],
+            edges: [],
+          },
+        }}
+      />,
+    );
+
+    expect(container.querySelector("svg")?.getAttribute("role")).toBe("img");
+  });
+
   it("renders the outer label and tab triggers, defaulting to the first tab", () => {
     render(
       <DetailBlockTabsView

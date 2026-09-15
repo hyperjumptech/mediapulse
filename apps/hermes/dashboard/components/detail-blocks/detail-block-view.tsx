@@ -3,6 +3,7 @@ import type { DetailBlock } from "@hermes/domain-contract";
 import { Card } from "@workspace/ui/components/card";
 
 import { DetailBlockSectionHeader } from "./detail-block-section-header";
+import { DetailBlockGraphView } from "./detail-block-graph";
 import { DetailBlockHtmlPreviewView } from "./detail-block-html-preview";
 import { DetailBlockKeyValueView } from "./detail-block-key-value";
 import { DetailBlockMarkdownView } from "./detail-block-markdown";
@@ -38,6 +39,9 @@ export const DetailBlockView = ({
   }
   if (block.type === "statCards") {
     return <DetailBlockStatCardsView block={block} data={data} />;
+  }
+  if (block.type === "graph") {
+    return <DetailBlockGraphView block={block} data={data} />;
   }
   if (block.type === "panel") {
     return (

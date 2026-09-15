@@ -26,6 +26,7 @@ import {
 } from "@workspace/ui/components/tabs";
 
 import { DetailBlockEmptyState } from "./detail-block-empty-state";
+import { DetailBlockGraphView } from "./detail-block-graph";
 import { DetailBlockSectionHeader } from "./detail-block-section-header";
 import { DetailBlockHtmlPreviewView } from "./detail-block-html-preview";
 import { DetailBlockKeyValueView } from "./detail-block-key-value";
@@ -93,6 +94,9 @@ const renderLeafBlock = (block: DetailBlockLeaf, data: unknown) => {
   }
   if (block.type === "subTable") {
     return <DetailBlockSubTableView block={block} data={data} />;
+  }
+  if (block.type === "graph") {
+    return <DetailBlockGraphView block={block} data={data} />;
   }
   const exhaustive: never = block;
   throw new Error(`Unknown tab block type: ${JSON.stringify(exhaustive)}`);

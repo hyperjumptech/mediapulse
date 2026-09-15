@@ -85,6 +85,10 @@ export {
 } from "./contracts";
 export {
   detailBlockBadgeVariantSchema,
+  detailBlockGraphEdgeSchema,
+  detailBlockGraphNodeSchema,
+  detailBlockGraphPaletteSlotSchema,
+  detailBlockGraphSchema,
   detailBlockHtmlPreviewSchema,
   detailBlockKeyValueRowSchema,
   detailBlockKeyValueSchema,
@@ -100,6 +104,10 @@ export {
   detailBlockTabsSchema,
   type DetailBlock,
   type DetailBlockBadgeVariant,
+  type DetailBlockGraph,
+  type DetailBlockGraphEdge,
+  type DetailBlockGraphNode,
+  type DetailBlockGraphPaletteSlot,
   type DetailBlockHtmlPreview,
   type DetailBlockKeyValue,
   type DetailBlockKeyValueRow,
