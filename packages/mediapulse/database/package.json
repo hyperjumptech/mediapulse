@@ -31,7 +31,8 @@
     "studio": "prisma studio",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "type:check": "tsc --noEmit"
+    "type:check": "tsc --noEmit",
+    "seed-tickers-local": "tsx scripts/seed-tickers-local.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.2.0",

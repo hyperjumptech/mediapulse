@@ -55,7 +55,17 @@ export function buildStorylineListWhere(
   const parts: Prisma.StorylineWhereInput[] = [];
 
   if (filters.q && filters.q.trim().length > 0) {
-    parts.push({ name: { contains: filters.q.trim(), mode: "insensitive" } });
+    const term = filters.q.trim();
+    parts.push({
+      OR: [
+        { name: { contains: term, mode: "insensitive" } },
+        {
+          anchors: {
+            some: { anchor: { contains: term, mode: "insensitive" } },
+          },
+        },
+      ],
+    });
   }
 
   if (filters.kind) {
