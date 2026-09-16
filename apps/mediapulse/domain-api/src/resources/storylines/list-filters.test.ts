@@ -40,9 +40,16 @@ describe("buildStorylineListWhere", () => {
     expect(buildStorylineListWhere({})).toEqual({});
   });
 
-  it("searches the name case-insensitively", () => {
+  it("searches the name and the anchors case-insensitively", () => {
     expect(buildStorylineListWhere({ q: "  delay " })).toEqual({
-      name: { contains: "delay", mode: "insensitive" },
+      OR: [
+        { name: { contains: "delay", mode: "insensitive" } },
+        {
+          anchors: {
+            some: { anchor: { contains: "delay", mode: "insensitive" } },
+          },
+        },
+      ],
     });
   });
 
