@@ -40,7 +40,7 @@ wrk -->|"domain-contract HTTP"| dapi
 
 ## Hermes domain (orchestration)
 
-**Role:** Pipelines, schedules, API keys, agent registry metadata, **admin** users for the dashboard, and the worker that runs scheduled jobs. Hermes does **not** store newsletter, ticker, or knowledge-graph tables. **Saved data-source expansion templates** (reusable `db:…` strings) are stored in orchestration per **domain integration**; **runtime** expansion and **preview** still go to the **Mediapulse domain API** over HTTP. For other dashboard UIs that need Mediapulse data, Hermes proxies list/meta/CRUD to the domain API (see [How the domains connect at runtime](#how-the-domains-connect-at-runtime) below).
+**Role:** Pipelines, schedules, API keys, agent registry metadata, **admin** users for the dashboard, and the worker that runs scheduled jobs. Hermes does **not** store newsletter, ticker, or knowledge-base tables. **Saved data-source expansion templates** (reusable `db:…` strings) are stored in orchestration per **domain integration**; **runtime** expansion and **preview** still go to the **Mediapulse domain API** over HTTP. For other dashboard UIs that need Mediapulse data, Hermes proxies list/meta/CRUD to the domain API (see [How the domains connect at runtime](#how-the-domains-connect-at-runtime) below).
 
 | Area                                                     | Location / package                                                          |
 | -------------------------------------------------------- | --------------------------------------------------------------------------- |
@@ -55,7 +55,7 @@ wrk -->|"domain-contract HTTP"| dapi
 
 ## Mediapulse domain (product data & agents)
 
-**Role:** Ticker/newsletter/knowledge-graph data, **Mediapulse users** (subscribers), agent-data persistence API, user-facing registration app, operational **agents** (HTTP services invoked by Hermes), and the **domain API** that serves Mediapulse-specific expansion and Hermes dashboard `table-v1` resources (including **Mediapulse users** CRUD).
+**Role:** Ticker, newsletter and knowledge-base data, **Mediapulse users** (subscribers), agent-data persistence API, user-facing registration app, operational **agents** (HTTP services invoked by Hermes), and the **domain API** that serves Mediapulse-specific expansion and Hermes dashboard `table-v1` resources (including **Mediapulse users** CRUD).
 
 | Area                                                               | Location / package                                                                                |
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |

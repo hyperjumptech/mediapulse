@@ -1,16 +1,21 @@
-import { createAgentApp } from "@workspace/agent-runtime";
+import { createAgentApp, hermesTickerIdSchema } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-knowledge-ingestion";
 import { z } from "zod";
 import { run } from "./run.js";
 import { AGENT_ID, AGENT_VERSION } from "./agent-version.js";
 
 const InputSchema = z.object({
+  /** Extraction is per issuer: an entity's relevance to a ticker is a per-ticker fact. */
+  tickerId: hermesTickerIdSchema,
   since: z.string().datetime().optional(),
-  limit: z.number().int().positive().max(20000).optional(),
+  limit: z.number().int().positive().max(500).optional(),
   fromStart: z.boolean().optional(),
 });
 
 const ConfigSchema = z.object({
+  model: z.string().default("{{AI_MODEL}}"),
+  apiKey: z.string().default("{{AI_API_KEY}}"),
+  baseUrl: z.string().default("{{AI_BASE_URL}}"),
   dryRun: z.boolean().optional(),
 });
 
@@ -27,7 +32,7 @@ const app = createAgentApp<
     agentId: AGENT_ID,
     agentVersion: AGENT_VERSION,
     description:
-      "Groups collected articles into Storylines so recurring news can be recognised.",
+      "Reads an issuer's articles for the entities they name and the relations they state, building that issuer's knowledge base.",
     inputSchema: InputSchema,
     configSchema: ConfigSchema,
     run,

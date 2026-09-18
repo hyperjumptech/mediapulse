@@ -28,11 +28,16 @@ import { AGENT_ID, AGENT_VERSION } from "./agent-version.js";
 import { run } from "./run.js";
 
 const InputSchema = z.object({
+  tickerId: z.string().trim().min(1),
   since: z.string().datetime().optional(),
-  limit: z.number().int().positive().max(20000).optional(),
+  limit: z.number().int().positive().max(500).optional(),
+  fromStart: z.boolean().optional(),
 });
 
 const ConfigSchema = z.object({
+  model: z.string().default("gpt-test"),
+  apiKey: z.string().default("test-key"),
+  baseUrl: z.string().default("http://localhost/llm"),
   dryRun: z.boolean().optional(),
 });
 

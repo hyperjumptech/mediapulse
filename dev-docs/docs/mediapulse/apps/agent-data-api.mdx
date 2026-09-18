@@ -464,20 +464,18 @@ await dataApiClient.tickerDiscoveryRecord.create({
 });
 ```
 
-### Knowledge ingestion (`/api/v1/knowledge/*`)
+### Knowledge extraction (`/api/v1/knowledge/*`)
 
-Storage for the Storyline knowledge base, read and written by the `knowledge-ingestion` agent.
+Storage for the per-issuer knowledge base, read and written by the `knowledge-ingestion` agent.
 
-- `GET /api/v1/knowledge/candidate-sources` — Data Sources to consider, oldest first, with a `watermark` for the next run. With no `since`, the batch resumes from the newest watermark left by a run that finished successfully, so a scheduled agent advances through the corpus instead of rewalking its start. Failed runs are ignored, otherwise the articles a half-finished batch never reached would be skipped for good. `fromStart=true` ignores the watermark for a deliberate rebuild, and `resumedFrom` reports where the batch actually began. Returns the whole collected corpus rather than only articles a Section admitted, because a thread grouped from admitted articles alone would depend on the classification it exists to inform. `text` prefers fetched `content` and falls back to the collection `description`.
-- `POST /api/v1/knowledge/storyline-candidates` — Storylines sharing at least one anchor with the candidate. Retrieval is by anchor, never by Ticker: Storylines are global, so narrowing by the candidate's own tickers would hide a thread opened under another issuer and fork it. Storylines flagged `format` are excluded.
-- `POST /api/v1/knowledge/storylines` — opens a Storyline and its first Development.
-- `POST /api/v1/knowledge/developments` — records the next move on an existing Storyline, storing the attach evidence.
-- `POST /api/v1/knowledge/development-citations` — adds one more reporting Data Source to a move already recorded.
-- `POST /api/v1/knowledge/ingestion-runs` and `POST /api/v1/knowledge/ingestion-runs/finish` — the run chronicle.
+- `GET /api/v1/knowledge/extraction-candidates` — one issuer's profile parties, the relation-kind registry's vocabulary, and the articles no extraction has read yet, with a `watermark` for the next run. With no `since`, the batch resumes from the newest watermark left by a run that finished successfully, and failed runs are ignored, otherwise the articles a half-finished batch never reached would be skipped for good. `fromStart=true` ignores the watermark for a deliberate rebuild. Only articles carrying a Placement for that issuer are returned: an article the issuer's own pipeline rejected says nothing about its market.
+- `POST /api/v1/knowledge/extraction-seed` — creates the relation-kind registry and the entities the issuer's Ticker Profile names, with their `competes_with` and `regulates` relations. Idempotent, and marked `profile` so curated input is never mistaken for an article's claim.
+- `POST /api/v1/knowledge/extractions` — applies one article's entities and relations.
+- `POST /api/v1/knowledge/extraction-runs` and `POST /api/v1/knowledge/extraction-runs/finish` — the run chronicle. Finishing a run also relabels the issuer's entities to the spelling its own corpus uses most.
 
-A Data Source cites at most one Development, enforced by a unique constraint, because an article reports exactly one move. Candidate sources therefore exclude anything already cited, and every write returns the existing Development instead of creating a second one. Re-ingesting an article is a no-op rather than a duplicate move, so a watermark that fails to advance costs a wasted run and nothing else.
+Every write re-runs the extraction guards against the stored article: an evidence span must appear in it verbatim, an entity must be named in it as a whole word, both endpoints of a relation must resolve to an entity that survived, and no relation may join a party to itself. The agent applies the same checks before posting, but the server is what enforces them, because the agent is an untrusted caller. Each refusal comes back in `rejected` and is counted on the run rather than discarded silently.
 
-Every write returns `{ storylineId, developmentId, locked, lockedReason }`. The ceiling (`KNOWLEDGE_MAX_TICKERS`, `KNOWLEDGE_MAX_DEVELOPMENTS`) is applied server-side on each write and the agent only counts the outcome, so the two cannot drift. A locked Storyline accepts no further automatic attachment until an operator rules on it, which is what stops one thread chaining across unrelated stories.
+A mention is unique per `(ticker, entity, article)` and a relation per `(subject, kind, object)`, so re-reading an article confirms what is already held instead of duplicating it: `observations` and `lastObservedAt` move, and nothing else does.
 
 ## Versioning
 
@@ -524,5 +522,5 @@ This skill keeps the implementation order correct and prevents API route drift f
 
 - [agent-auth-api](/hermes/apps/agent-auth-api) — Token verification.
 - [Agents overview](/mediapulse/apps/agents/content-generation) — Existing consumer agents.
-- [Knowledge Graph](/mediapulse/knowledge-graph/knowledge-graph) — query-analysis and analysis context.
+- [Knowledge Base](/mediapulse/knowledge-base/knowledge-base) — the per-issuer entity and relation model.
 - [Packages: agent-runtime](/hermes/packages/agent-runtime), [agent-data-api-client](/hermes/packages/agent-data-api-client).

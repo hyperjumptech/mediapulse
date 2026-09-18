@@ -47,3 +47,12 @@ export {
   MEDIAPULSE_SENDER_NAME,
   formatResendSender,
 } from "./format-resend-sender.js";
+export {
+  normalizeEntityName,
+  textNamesEntity,
+  textNamesMarketParties,
+  textNamesMarketParty,
+  type MarketParty,
+  type MarketPartyMatch,
+  type MarketPartyProfile,
+} from "./market-party-names.js";

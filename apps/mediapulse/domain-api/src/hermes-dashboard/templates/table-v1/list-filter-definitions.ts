@@ -17,15 +17,6 @@ export const tickerIdSelectListFilter = {
   optionsMetaKey: "tickerOptions",
 } satisfies TableV1ListFilterDefinition;
 
-/** Entity type dropdown filter; options from meta `filterOptions.entityTypeOptions`. */
-export const entityTypeIdSelectListFilter = {
-  key: "typeId",
-  label: "Type",
-  ui: "select",
-  placeholderAll: "All types",
-  optionsMetaKey: "entityTypeOptions",
-} satisfies TableV1ListFilterDefinition;
-
 /** Active-set yes/no filter (`isActive` query param). */
 export const isActiveBooleanSelectListFilter = {
   key: "isActive",
@@ -115,45 +106,4 @@ export const feedbackReceivedAtDateRangeListFilter = {
   label: "Received",
   ui: "date-range",
   rangeParams: { from: "from", to: "to" },
-} satisfies TableV1ListFilterDefinition;
-
-/** Storyline kind dropdown filter (`kind` query param). */
-export const storylineKindSelectListFilter = {
-  key: "kind",
-  label: "Kind",
-  ui: "select",
-  placeholderAll: "All kinds",
-  staticOptions: [
-    { value: "story", label: "Story" },
-    { value: "format", label: "Format" },
-  ],
-} satisfies TableV1ListFilterDefinition;
-
-/** Locked yes/no filter (`locked` query param). */
-export const lockedBooleanSelectListFilter = {
-  key: "locked",
-  label: "Locked",
-  ui: "boolean-select",
-} satisfies TableV1ListFilterDefinition;
-
-/** Last-observed date range filter for storylines. */
-export const lastObservedAtDateRangeListFilter = {
-  key: "lastObservedAt",
-  label: "Last observed",
-  ui: "date-range",
-  rangeParams: { from: "from", to: "to" },
-} satisfies TableV1ListFilterDefinition;
-
-/** Run status dropdown filter for the knowledge-ingestion chronicle. */
-export const knowledgeIngestionRunStatusSelectListFilter = {
-  key: "status",
-  label: "Status",
-  ui: "select",
-  placeholderAll: "All statuses",
-  staticOptions: [
-    { value: "running", label: "Running" },
-    { value: "success", label: "Success" },
-    { value: "partial_success", label: "Partial success" },
-    { value: "failed", label: "Failed" },
-  ],
 } satisfies TableV1ListFilterDefinition;
