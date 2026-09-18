@@ -1,6 +1,8 @@
 {
   "extends": "@workspace/typescript-config/node16.json",
   "compilerOptions": {
+    // `with-api-step.ts` wraps an error with `{ cause }`, which node16.json's ES2021 lib omits.
+    "lib": ["ES2021", "ES2022.Error"],
     "module": "ES2022"
   },
   "include": ["src", "vitest.config.ts"],

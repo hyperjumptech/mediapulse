@@ -31,14 +31,12 @@ import {
   postDataCollectionDeadUrlsRecord,
 } from "./routes/data-collection-dead-url.js";
 import {
-  getKnowledgeCandidateSources,
-  postKnowledgeDevelopmentCitations,
-  postKnowledgeDevelopments,
-  postKnowledgeIngestionRuns,
-  postKnowledgeIngestionRunsFinish,
-  postKnowledgeStorylineCandidates,
-  postKnowledgeStorylines,
-} from "./routes/knowledge-ingestion.js";
+  getKnowledgeExtractionCandidates,
+  postKnowledgeExtractionRuns,
+  postKnowledgeExtractionRunsFinish,
+  postKnowledgeExtractionSeed,
+  postKnowledgeExtractions,
+} from "./routes/knowledge-extraction.js";
 import {
   postPublisherAuthority,
   postPublisherAuthorityStale,
@@ -198,26 +196,20 @@ const routeHandlers = {
   dataCollectionDeadUrlsRecord: {
     post: postDataCollectionDeadUrlsRecord,
   },
-  knowledgeCandidateSources: {
-    get: getKnowledgeCandidateSources,
+  knowledgeExtractionCandidates: {
+    get: getKnowledgeExtractionCandidates,
   },
-  knowledgeStorylineCandidates: {
-    post: postKnowledgeStorylineCandidates,
+  knowledgeExtractionSeed: {
+    post: postKnowledgeExtractionSeed,
   },
-  knowledgeStorylines: {
-    post: postKnowledgeStorylines,
+  knowledgeExtractions: {
+    post: postKnowledgeExtractions,
   },
-  knowledgeDevelopments: {
-    post: postKnowledgeDevelopments,
+  knowledgeExtractionRuns: {
+    post: postKnowledgeExtractionRuns,
   },
-  knowledgeDevelopmentCitations: {
-    post: postKnowledgeDevelopmentCitations,
-  },
-  knowledgeIngestionRuns: {
-    post: postKnowledgeIngestionRuns,
-  },
-  knowledgeIngestionRunsFinish: {
-    post: postKnowledgeIngestionRunsFinish,
+  knowledgeExtractionRunsFinish: {
+    post: postKnowledgeExtractionRunsFinish,
   },
   publisherAuthorityStale: {
     post: postPublisherAuthorityStale,

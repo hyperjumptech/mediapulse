@@ -1,0 +1,53 @@
+---
+title: Knowledge Base
+description: The per-issuer entity and relation model, and how Hermes draws it
+icon: Network
+---
+
+## What it holds
+
+One issuer's knowledge base answers two questions: which real-world parties its news keeps naming, and how those parties relate to it. A party is an **entity**. A statement joining two entities is a **relation**. An article naming an entity is a **mention**.
+
+Entities are global. Mitra Adiperkasa is one company whichever issuer is reading about it, so the entity carries no ticker column and relevance lives in a membership row instead. That is the same split `Storyline` used with `StorylineTicker`, and the reasoning in [ADR 0012](https://github.com/hyperjump-tech/mediapulse/blob/main/docs/adr/0012-storylines-are-global.md) applies unchanged.
+
+An issuer is an entity too. `KnowledgeEntity.tickerId` pins one entity to a `Ticker`, so `FORE competes with Starbucks` is an ordinary edge between two entities rather than a special case.
+
+## The tables
+
+| Table | What one row is |
+| --- | --- |
+| `knowledge_entity` | One real-world party. Identity is `normalized_name`, unique per kind. |
+| `knowledge_entity_alias` | One spelling that resolves to that party. |
+| `knowledge_ticker_entity` | That party belongs to this issuer's knowledge base. Carries `is_issuer` and `mention_count`. |
+| `knowledge_relation_kind` | One relation verb, with the label an edge prints and its inverse. |
+| `knowledge_relation_kind_alias` | One phrasing that resolves to that verb, with `inverted` when it reads backwards. |
+| `knowledge_relation` | One directed statement between two entities, with its evidence. |
+| `knowledge_ticker_relation` | That statement belongs to this issuer's knowledge base. |
+| `knowledge_entity_mention` | This article named this entity while being read for this issuer. |
+| `knowledge_extraction_run` | One pass, with its tally. Every row above carries its run id. |
+
+## Entity kinds are closed, relation kinds are not
+
+`KnowledgeEntityKind` is a Postgres enum: `issuer`, `company`, `brand`, `regulator`, `government`, `person`, `product`, `place`, `other`. It drives node colour in the graph, it has not grown across 949 curated profiles, and extraction offers it to the model as a `z.enum`, so a kind cannot be invented.
+
+Relation kinds are a registry instead. The news keeps producing verbs nobody enumerated, so a phrase with no row becomes a new row marked `curated: false`, and its phrasing is recorded as an alias. `"competitor of"`, `"rival of"` and `"pesaing"` all resolve to `competes_with` through those aliases, and `observations` counts how often each kind is seen, which is what tells you later whether an uncurated kind deserves promoting or folding into an existing one.
+
+Direction is stored once. `regulates` always has the regulator as subject; the reverse reading comes from `inverse_label`, so the two can never disagree. A phrasing that reads backwards is marked `inverted` on its alias and the endpoints are swapped on resolution.
+
+## Where the facts come from
+
+`KnowledgeFactSource` says how a row arrived:
+
+- `profile` — copied from the issuer's **Ticker Profile**: its curated competitors and regulators. Curated input, so it carries no evidence span.
+- `extracted` — stated by an article, and confirmed against a literal span of that article.
+- `operator` — added or corrected by hand.
+
+The dashboard counts the two apart on purpose. A relation with an empty evidence span is something a human wrote down, not something a publisher stands behind, and hiding that behind a single "relations" number would make the graph look better grounded than it is.
+
+## How Hermes draws it
+
+Sidebar entry **Knowledge Base** lists every issuer holding an entity. Opening a row gives three layers: the issuer at rank 0, its entities at rank 1, and their articles at rank 2. The issuer's own entity folds into the rank-0 node so it is never drawn twice.
+
+Edges cross ranks only. Two entities share rank 1, and the renderer draws a horizontal edge from a node's right edge to the target's left, so a same-rank edge would run backwards through both boxes. Relations between two entities are therefore listed in the Relations tab and counted in the caption instead of drawn.
+
+Caps: 16 entities, 3 articles per entity, 36 articles in total, with a `+N more` node wherever something was left out.

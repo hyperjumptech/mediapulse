@@ -5,7 +5,7 @@ import { env } from "@mediapulse/env/agents-knowledge-ingestion";
 
 import { Input, Config } from "./index.js";
 import { AGENT_VERSION } from "./agent-version.js";
-import { ingestCandidates, type IngestCandidate } from "./lib/ingest.js";
+import { extractEntityRelations } from "./lib/extract-entity-relations.js";
 import { createKnowledgeStore } from "./lib/store.js";
 
 const FAILURE_SAMPLE_LIMIT = 3;
@@ -22,60 +22,142 @@ export const run = async ({
     version: "v1",
     token,
   });
+  const store = createKnowledgeStore(client);
 
-  const { sources, watermark, resumedFrom } =
-    await client.knowledgeCandidateSources.get({
-      since: input.since,
-      fromStart: input.fromStart ?? false,
-      take: input.limit ?? 500,
-    });
-
-  if (sources.length === 0) {
-    return {
-      success: true,
-      message: "No new sources to ingest",
-      details: { considered: 0, watermark, resumedFrom },
-    };
-  }
+  const candidates = await store.candidates({
+    tickerId: input.tickerId,
+    since: input.since,
+    fromStart: input.fromStart ?? false,
+    take: input.limit,
+  });
 
   const dryRun = config.dryRun ?? false;
-  const { ingestionRunId } = dryRun
-    ? { ingestionRunId: null }
-    : await client.knowledgeIngestionRuns.create({
+  const { extractionRunId } = dryRun
+    ? { extractionRunId: null }
+    : await client.knowledgeExtractionRuns.create({
+        tickerId: input.tickerId,
         scheduleExecutionId: hermesCorrelation?.scheduleExecutionId ?? null,
         agentVersion: AGENT_VERSION,
         startedAt: startedAt.toISOString(),
       });
 
-  const candidates: IngestCandidate[] = sources.map((source) => ({
-    dataSourceId: source.dataSourceId,
-    title: source.title,
-    text: source.text,
-    observedAt: source.observedAt,
-    publishedDay: source.publishedDay ?? undefined,
-    tickerIds: source.tickerIds,
-  }));
+  const tally = {
+    considered: 0,
+    skippedNoCandidates: 0,
+    entitiesCreated: 0,
+    relationsOpened: 0,
+    relationsConfirmed: 0,
+    mentionsWritten: 0,
+    kindsCreated: 0,
+    rejectedSpanNotInText: 0,
+    rejectedNameNotInText: 0,
+  };
+  const failures: { dataSourceId: string; message: string }[] = [];
 
   try {
-    const { tally, failures } = await ingestCandidates(
-      candidates,
-      createKnowledgeStore(client, ingestionRunId),
-    );
+    if (!dryRun) {
+      const seeded = await store.seedFromProfile({
+        tickerId: input.tickerId,
+        extractionRunId,
+      });
+      tally.entitiesCreated += seeded.entitiesCreated;
+      tally.relationsOpened += seeded.relationsOpened;
+      tally.relationsConfirmed += seeded.relationsConfirmed;
+    }
+
+    for (const article of candidates.articles) {
+      tally.considered += 1;
+
+      try {
+        const outcome = await extractEntityRelations({
+          article: {
+            title: article.title,
+            description: article.description,
+            content: article.content,
+          },
+          issuer: {
+            symbol: candidates.issuer.symbol,
+            name: candidates.issuer.name,
+            aliases: candidates.issuer.aliases,
+            companyOverview: candidates.issuer.companyOverview,
+          },
+          candidates: candidates.parties.map((party) => ({
+            name: party.name,
+            aliases: party.aliases,
+            kind: party.kind === "regulator" ? "regulator" : "company",
+          })),
+          relationKindLabels: candidates.relationKindLabels,
+          llm: {
+            model: config.model,
+            apiKey: config.apiKey,
+            baseUrl: config.baseUrl,
+          },
+        });
+
+        if (!outcome.modelCalled) {
+          tally.skippedNoCandidates += 1;
+
+          continue;
+        }
+        for (const rejection of outcome.rejections) {
+          if (rejection.reason === "span-not-in-text") {
+            tally.rejectedSpanNotInText += 1;
+          }
+          if (rejection.reason === "name-not-in-text") {
+            tally.rejectedNameNotInText += 1;
+          }
+        }
+        if (dryRun) {
+          continue;
+        }
+
+        const written = await store.apply({
+          tickerId: input.tickerId,
+          dataSourceId: article.dataSourceId,
+          extractionRunId,
+          entities: outcome.entities,
+          relations: outcome.relations.map((relation) => ({
+            subject: relation.subject,
+            kind: relation.kind,
+            object: relation.object,
+            evidenceSpan: relation.evidenceSpan,
+          })),
+        });
+        tally.entitiesCreated += written.entitiesCreated;
+        tally.mentionsWritten += written.mentionsWritten;
+        tally.relationsOpened += written.relationsOpened;
+        tally.relationsConfirmed += written.relationsConfirmed;
+        tally.kindsCreated += written.kindsCreated;
+        // The server re-runs every guard, so a claim it refused is counted here too.
+        for (const rejection of written.rejected) {
+          if (rejection.reason === "span-not-in-text") {
+            tally.rejectedSpanNotInText += 1;
+          }
+          if (rejection.reason === "name-not-in-text") {
+            tally.rejectedNameNotInText += 1;
+          }
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        failures.push({ dataSourceId: article.dataSourceId, message });
+      }
+    }
+
     const completedAt = new Date();
     const stopReason =
       failures.length === 0
         ? null
-        : `${failures.length} of ${tally.considered} candidates failed: ${failures
+        : `${failures.length} of ${tally.considered} articles failed: ${failures
             .slice(0, FAILURE_SAMPLE_LIMIT)
             .map((failure) => `${failure.dataSourceId}: ${failure.message}`)
             .join("; ")}`;
 
-    if (ingestionRunId !== null) {
-      await client.knowledgeIngestionRunsFinish.create({
-        ingestionRunId,
+    if (extractionRunId !== null) {
+      await client.knowledgeExtractionRunsFinish.create({
+        extractionRunId,
         status: failures.length === 0 ? "success" : "partial_success",
         completedAt: completedAt.toISOString(),
-        watermarkAt: watermark,
+        watermarkAt: candidates.watermark,
         ...tally,
         stopReason,
         durationMs: completedAt.getTime() - startedAt.getTime(),
@@ -84,45 +166,40 @@ export const run = async ({
 
     if (failures.length > 0) {
       logger.warn(
-        { failures, watermark },
-        "--> knowledge-ingestion skipped candidates that failed",
+        { failures, tickerId: input.tickerId },
+        "--> knowledge-ingestion skipped articles that failed",
       );
     }
 
     logger.info(
-      { ...tally, failed: failures.length, watermark, resumedFrom },
+      { ...tally, failed: failures.length, watermark: candidates.watermark },
       "--> knowledge-ingestion complete",
     );
 
     return {
       success: true,
-      message: `Ingested ${tally.considered} sources`,
+      message: `Read ${String(tally.considered)} articles for ${candidates.issuer.symbol}`,
       details: {
         ...tally,
         failed: failures.length,
-        watermark,
-        resumedFrom,
+        watermark: candidates.watermark,
+        resumedFrom: candidates.resumedFrom,
       },
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (ingestionRunId !== null) {
-      await client.knowledgeIngestionRunsFinish.create({
-        ingestionRunId,
+    if (extractionRunId !== null) {
+      await client.knowledgeExtractionRunsFinish.create({
+        extractionRunId,
         status: "failed",
         completedAt: new Date().toISOString(),
         watermarkAt: null,
-        considered: candidates.length,
-        storylinesOpened: 0,
-        developmentsOpened: 0,
-        citationsAdded: 0,
-        storylinesLocked: 0,
-        skippedNoAnchors: 0,
+        ...tally,
         stopReason: message,
-        durationMs: null,
+        durationMs: Date.now() - startedAt.getTime(),
       });
     }
 
-    return { success: false, message, details: { watermark, resumedFrom } };
+    throw error;
   }
 };

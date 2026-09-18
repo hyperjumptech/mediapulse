@@ -1,0 +1,63 @@
+---
+title: Extraction
+description: How an issuer's knowledge base is written, and what stops a model inventing it
+icon: Bot
+---
+
+## The pass
+
+`knowledge-ingestion` reads one issuer at a time. Its input is `{ tickerId, since?, limit?, fromStart? }`, and a run does three things:
+
+1. **Seeds** the relation-kind registry and the entities the issuer's **Ticker Profile** names, through `POST /knowledge/extraction-seed`. FORE yields 14 entities and 13 relations before any model call, which is also the graph you see if extraction never runs.
+2. **Reads** each unread article through the extraction module, which asks a model for the parties the article names and the relations it states.
+3. **Writes** each result through `POST /knowledge/extractions`, and closes the run with its tally.
+
+Only articles with a **Placement** for that issuer are read. An article the issuer's own pipeline rejected says nothing about its market, and reading it would put entities in the graph that the newsletter declined to carry.
+
+## Endpoints
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /knowledge/extraction-candidates` | The issuer, its profile's parties, the registry's vocabulary, and unread articles. |
+| `POST /knowledge/extraction-seed` | Seeds the registry and the profile's entities and relations. |
+| `POST /knowledge/extractions` | Applies one article's result. |
+| `POST /knowledge/extraction-runs` | Opens a run. |
+| `POST /knowledge/extraction-runs/finish` | Closes a run, and relabels entities to their corpus spelling. |
+
+## The guards
+
+Nothing a model returns is trusted. Every claim passes four checks, in the agent and then again in the service, because the agent is an untrusted caller and the second pass reads the stored article rather than whatever the caller says it read:
+
+1. **The evidence span must be in the article, verbatim** (whitespace normalised). A paraphrase is a fabricated citation and is dropped.
+2. **The entity must be named in the article**, matched as a whole word through the shared market-party matcher and its stoplist of generic tokens, so "Kopi Kenangan" is never matched on "Kopi".
+3. **Both endpoints of a relation must resolve** to an entity that survived check 2, or to the issuer.
+4. **No relation from a party to itself.**
+
+Each rejection is counted on the run (`rejected_span_not_in_text`, `rejected_name_not_in_text`) rather than swallowed. A run with a high span-rejection count means the prompt is wrong, and you learn it from one run instead of after a month of quiet invention.
+
+Extraction is open-vocabulary: the profile's parties are offered as preferred spellings, not as a closed list, because a knowledge base that can only contain what curation already knew cannot tell you that the press has started writing about Starbucks. The guards are what make that safe.
+
+## Labels follow the corpus
+
+A curated profile calls a competitor by its registered name and the press rarely does: FORE's profile says "Mitra Adiperkasa" where 28 of its articles say "Starbucks". When a run finishes, each of the issuer's entities is relabelled to the spelling its own corpus uses most, so the label a reader sees is the one the reader has read. The issuer keeps its registered name, because its node anchors the graph.
+
+## Running it locally
+
+Local Hermes carries no `AI_MODEL` variable, so the agent cannot be invoked here without inventing one. `pnpm spike:fore-kb` does exactly what the agent does, over the same endpoints:
+
+```bash
+# needs agent-auth-api on :8080 and agent-data-api on :8081
+pnpm spike:fore-kb -- --ticker-id <uuid> --seed-only --apply   # profile only, no model call
+OPENROUTER_API_KEY=... pnpm spike:fore-kb -- --ticker-id <uuid> --limit 30 --apply
+```
+
+`--seed-only` writes the profile skeleton and calls no model, which is the cheap way to check the write path and the Hermes graph. `EVAL_MODEL` and `OPENROUTER_BASE_URL` override the model and provider, matching the other eval scripts.
+
+To get a real corpus into a local database, pull one issuer from a remote one first:
+
+```bash
+pnpm --filter @mediapulse/database run pull-ticker-local -- \
+  --symbol FORE --source-url "postgresql://..." --apply
+```
+
+It reads the remote database over plain SQL, writes through the local Prisma client, and refuses to run unless `MEDIAPULSE_DATABASE_URL` is local.

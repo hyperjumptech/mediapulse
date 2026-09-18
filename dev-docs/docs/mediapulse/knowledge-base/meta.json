@@ -1,0 +1,5 @@
+{
+  "title": "Knowledge Base",
+  "pages": ["knowledge-base", "extraction"],
+  "defaultOpen": true
+}

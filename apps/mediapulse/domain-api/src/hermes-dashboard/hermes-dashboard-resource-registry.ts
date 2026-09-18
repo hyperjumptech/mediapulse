@@ -10,8 +10,7 @@ import { mediapulseUsersHermesDashboardResource } from "../resources/mediapulse-
 import { newslettersHermesDashboardResource } from "../resources/newsletters/resource-definition";
 import { queryAnalysisRunsHermesDashboardResource } from "../resources/query-analysis-runs/resource-definition";
 import { searchQueriesHermesDashboardResource } from "../resources/search-queries/resource-definition";
-import { knowledgeIngestionRunsHermesDashboardResource } from "../resources/knowledge-ingestion-runs/resource-definition";
-import { storylinesHermesDashboardResource } from "../resources/storylines/resource-definition";
+import { knowledgeBaseHermesDashboardResource } from "../resources/knowledge-base/resource-definition";
 import { searchQuerySetsHermesDashboardResource } from "../resources/search-query-sets/resource-definition";
 import { tickerProfilesHermesDashboardResource } from "../resources/ticker-profiles/resource-definition";
 import { tickersHermesDashboardResource } from "../resources/tickers/resource-definition";
@@ -31,8 +30,7 @@ export const hermesDashboardResources = [
   dataSourcesHermesDashboardResource,
   searchQuerySetsHermesDashboardResource,
   searchQueriesHermesDashboardResource,
-  storylinesHermesDashboardResource,
-  knowledgeIngestionRunsHermesDashboardResource,
+  knowledgeBaseHermesDashboardResource,
   deliveryRunsHermesDashboardResource,
   queryAnalysisRunsHermesDashboardResource,
   newslettersHermesDashboardResource,

@@ -22,10 +22,6 @@ import {
 } from "./config-schema.js";
 import { namesForeignSymbolHomonym } from "./utilities/foreign-symbol-homonym.js";
 import {
-  textNamesMarketParty,
-  type MarketPartyMatch,
-} from "./utilities/names-market-party.js";
-import {
   nonNewsContentClass,
   type NonNewsClass,
 } from "./utilities/non-news-content.js";
@@ -33,7 +29,11 @@ import {
   textNamesIssuer,
   titleNamesIssuer,
 } from "./utilities/title-names-issuer.js";
-import { isUserGeneratedHost } from "@workspace/utils";
+import {
+  isUserGeneratedHost,
+  textNamesMarketParty,
+  type MarketPartyMatch,
+} from "@workspace/utils";
 
 /** Reader-facing names for the non-news classes, used in the rejection reason. */
 const NON_NEWS_LABELS: Record<NonNewsClass, string> = {

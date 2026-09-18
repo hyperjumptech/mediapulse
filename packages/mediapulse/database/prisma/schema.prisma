@@ -83,6 +83,8 @@ model DataSource {
   newsletterCitations    NewsletterCitation[]
   newsletterSectionItems NewsletterSectionItem[]
   developmentCitations   DevelopmentCitation[]
+  knowledgeMentions      KnowledgeEntityMention[]
+  knowledgeRelations     KnowledgeRelation[]
 
   @@index([curatedSourceId])
   @@index([collectionGateStatus, analyzedAt])
@@ -432,6 +434,12 @@ model Ticker {
   articleAnalysisRuns    ArticleAnalysisRun[]
   queryAnalysisRuns      QueryAnalysisRun[]
   tickerSections         DataSourceTickerSection[]
+
+  knowledgeEntity          KnowledgeEntity?
+  knowledgeTickerEntities  KnowledgeTickerEntity[]
+  knowledgeTickerRelations KnowledgeTickerRelation[]
+  knowledgeMentions        KnowledgeEntityMention[]
+  knowledgeExtractionRuns  KnowledgeExtractionRun[]
 
   @@map("ticker")
 }
@@ -1034,4 +1042,343 @@ model KnowledgeIngestionRun {
   @@index([status, startedAt])
   @@index([scheduleExecutionId])
   @@map("knowledge_ingestion_run")
+}
+
+/// What kind of real-world thing a knowledge-base Entity is.
+///
+/// A closed enum rather than a table: the extraction agent emits this value inside a `generateObject`
+/// schema, so a fixed set is enforced when the model decodes rather than checked afterwards. It also
+/// drives node colour in the Hermes graph, which needs a legend that does not grow on its own.
+/// #1061 carried this as `entity_type` and needed a dashboard resource to administer a vocabulary
+/// nobody curated.
+enum KnowledgeEntityKind {
+  issuer
+  company
+  brand
+  regulator
+  government
+  person
+  product
+  place
+  other
+}
+
+/// How an Entity, relation, alias or mention entered the knowledge base.
+enum KnowledgeFactSource {
+  /// Copied from the Ticker Profile's curated competitors and regulators. Curated input, never a
+  /// claim read out of the press, so it carries no article evidence.
+  profile
+  /// Asserted by an article, confirmed against a literal span of that article.
+  extracted
+  /// Added or corrected by an operator.
+  operator
+}
+
+/// One real-world thing the news names. Global for the same reason a Storyline is global: Mitra
+/// Adiperkasa is one company whichever issuer is reading about it. Relevance to an issuer lives in
+/// KnowledgeTickerEntity and never in a column here.
+model KnowledgeEntity {
+  id String @id @default(uuid())
+
+  kind KnowledgeEntityKind
+
+  /// The name to print. Copy, not identity: an operator may correct it freely, and the extraction
+  /// pass prefers whichever spelling the corpus actually uses.
+  canonicalName String @map("canonical_name")
+
+  /// Identity. `canonicalName` with case, diacritics, punctuation and legal suffixes removed.
+  /// An emitted name is resolved against this, never against `canonicalName`.
+  normalizedName String @map("normalized_name")
+
+  description String? @db.Text
+
+  /// Set on the one Entity that is a listed issuer in this database, which makes a ticker's own node
+  /// an ordinary Entity rather than a special case.
+  tickerId String? @unique @map("ticker_id")
+
+  source KnowledgeFactSource @default(extracted)
+
+  /// Exact extraction run that created this row.
+  extractionRunId String? @map("extraction_run_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ticker        Ticker?                 @relation(fields: [tickerId], references: [id], onDelete: SetNull)
+  extractionRun KnowledgeExtractionRun? @relation(fields: [extractionRunId], references: [id], onDelete: SetNull)
+
+  aliases            KnowledgeEntityAlias[]
+  tickerLinks        KnowledgeTickerEntity[]
+  mentions           KnowledgeEntityMention[]
+  relationsAsSubject KnowledgeRelation[]      @relation("KnowledgeRelationSubject")
+  relationsAsObject  KnowledgeRelation[]      @relation("KnowledgeRelationObject")
+
+  /// The constraint #1061 lacked: its `entity` table had no unique key on any name, so nothing could
+  /// have deduplicated an extraction even if one had ever run.
+  ///
+  /// Keyed on the name alone and not on `(kind, name)`: an extraction that reads BPKN as a regulator
+  /// and then as an organisation is describing one body twice, and a kind in the key would store it
+  /// twice. Kind is an attribute of an entity, not part of its identity.
+  @@unique([normalizedName])
+  @@index([extractionRunId])
+  @@map("knowledge_entity")
+}
+
+/// Alternative spellings an Entity appears under in the press. A Ticker Profile ships "Starbucks" as
+/// an alias of Mitra Adiperkasa, which is what this table is for.
+model KnowledgeEntityAlias {
+  entityId        String @map("entity_id")
+  normalizedAlias String @map("normalized_alias")
+
+  /// The spelling as written, for display ("seen as: Starbucks").
+  alias String
+
+  source    KnowledgeFactSource @default(profile)
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  entity KnowledgeEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@id([entityId, normalizedAlias])
+  @@index([normalizedAlias])
+  @@map("knowledge_entity_alias")
+}
+
+/// Which Entities belong to one Ticker's knowledge base. The per-ticker half of the split: the Entity
+/// is the fact, this row is the relevance.
+model KnowledgeTickerEntity {
+  tickerId String @map("ticker_id")
+  entityId String @map("entity_id")
+
+  /// True on the one Entity that is this issuer. It is the graph's rank-0 node and an endpoint of
+  /// every edge the graph draws.
+  ///
+  /// - Important: one per Ticker is enforced by the write path, not by a constraint. Postgres can
+  ///   express it as a partial unique index and Prisma cannot, so a hand-written index would be
+  ///   dropped again by the next `migrate dev` that diffs the schema.
+  isIssuer Boolean @default(false) @map("is_issuer")
+
+  source KnowledgeFactSource @default(extracted)
+
+  /// Articles in this Ticker's corpus that named this Entity. Denormalised on purpose: it orders the
+  /// graph's entity layer and sizes the overflow label, which a `take` cannot do.
+  mentionCount Int @default(0) @map("mention_count")
+
+  firstSeenAt DateTime @default(now()) @map("first_seen_at")
+  lastSeenAt  DateTime @default(now()) @map("last_seen_at")
+
+  ticker Ticker          @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+  entity KnowledgeEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@id([tickerId, entityId])
+  /// Serves the graph query: one ticker's entity layer, most-mentioned first.
+  @@index([tickerId, mentionCount(sort: Desc)])
+  @@index([entityId])
+  @@map("knowledge_ticker_entity")
+}
+
+/// The verb of a KnowledgeRelation, as an observed registry rather than an enum.
+///
+/// Relation kinds are not a closed set: the news keeps producing new ones. A row appears the first
+/// time a kind is observed, which is what makes this different from #1061's `relation_type`, an
+/// admin-curated vocabulary that had to be filled in before anything could be written.
+model KnowledgeRelationKind {
+  slug String @id
+
+  /// What an edge prints when read from subject to object ("competes with").
+  label String
+
+  /// What an edge prints when read from object to subject ("owned by" for `owns_stake_in`). Null when
+  /// the relation is symmetric or has no natural inverse. Both directions are never stored as rows,
+  /// because two rows can disagree.
+  inverseLabel String? @map("inverse_label")
+
+  symmetric Boolean @default(false)
+
+  /// False on a kind the extraction pass invented. An uncurated kind seen once is noise; seen often
+  /// it deserves promoting or folding into an existing slug.
+  curated Boolean @default(false)
+
+  observations Int @default(0)
+
+  firstObservedAt DateTime @default(now()) @map("first_observed_at")
+  lastObservedAt  DateTime @default(now()) @map("last_observed_at")
+
+  /// Exact extraction run that first observed this kind.
+  extractionRunId String? @map("extraction_run_id")
+
+  extractionRun KnowledgeExtractionRun?      @relation(fields: [extractionRunId], references: [id], onDelete: SetNull)
+  aliases       KnowledgeRelationKindAlias[]
+  relations     KnowledgeRelation[]
+
+  @@index([curated, observations])
+  @@map("knowledge_relation_kind")
+}
+
+/// Phrasings that resolve to one relation kind, so "competitor of", "rival of" and "pesaing" all land
+/// on `competes_with` instead of forking it three ways.
+model KnowledgeRelationKindAlias {
+  kindSlug        String @map("kind_slug")
+  normalizedAlias String @map("normalized_alias")
+
+  /// The phrase as emitted, kept for display.
+  alias String
+
+  /// True when the phrase reads the relation backwards, so "regulated by" resolves to `regulates`
+  /// with its endpoints swapped. Without this a model writing the natural English would store
+  /// "FORE regulates BPOM".
+  inverted Boolean @default(false)
+
+  source    KnowledgeFactSource @default(extracted)
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  kind KnowledgeRelationKind @relation(fields: [kindSlug], references: [slug], onDelete: Cascade)
+
+  @@id([kindSlug, normalizedAlias])
+  @@index([normalizedAlias])
+  @@map("knowledge_relation_kind_alias")
+}
+
+/// A directed, labelled fact between two Entities. Global, like the Entities it joins.
+model KnowledgeRelation {
+  id String @id @default(uuid())
+
+  /// Subject and object, not from and to: direction carries meaning. `regulates` is stored once with
+  /// the regulator as subject, and the graph renders the reverse reading from `inverseLabel`.
+  subjectEntityId String @map("subject_entity_id")
+  objectEntityId  String @map("object_entity_id")
+
+  kindSlug String @map("kind_slug")
+
+  /// The phrase the extraction emitted, verbatim, before it was resolved to a kind. Kept so an
+  /// operator can see what the article actually said and judge the resolution.
+  label String?
+
+  source KnowledgeFactSource @default(extracted)
+
+  /// The Data Source that asserted this relation and the span in it that does. Required on an
+  /// `extracted` row and null on a `profile` row, and that difference is visible in the dashboard on
+  /// purpose: a relation with no span is curated input, not something an article stands behind.
+  evidenceDataSourceId String? @map("evidence_data_source_id")
+  evidenceSpan         String? @map("evidence_span") @db.Text
+
+  observations Int @default(1)
+
+  firstObservedAt DateTime @default(now()) @map("first_observed_at")
+  lastObservedAt  DateTime @default(now()) @map("last_observed_at")
+
+  extractionRunId String? @map("extraction_run_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  subjectEntity      KnowledgeEntity         @relation("KnowledgeRelationSubject", fields: [subjectEntityId], references: [id], onDelete: Cascade)
+  objectEntity       KnowledgeEntity         @relation("KnowledgeRelationObject", fields: [objectEntityId], references: [id], onDelete: Cascade)
+  kind               KnowledgeRelationKind   @relation(fields: [kindSlug], references: [slug])
+  evidenceDataSource DataSource?             @relation(fields: [evidenceDataSourceId], references: [id], onDelete: SetNull)
+  extractionRun      KnowledgeExtractionRun? @relation(fields: [extractionRunId], references: [id], onDelete: SetNull)
+
+  tickerLinks KnowledgeTickerRelation[]
+
+  @@unique([subjectEntityId, kindSlug, objectEntityId])
+  @@index([objectEntityId])
+  @@index([kindSlug])
+  @@index([evidenceDataSourceId])
+  @@index([extractionRunId])
+  @@map("knowledge_relation")
+}
+
+/// Which relations belong to one Ticker's knowledge base. Mirrors StorylineTicker: the relation is
+/// global, the link is per-ticker, so a ticker-scoped edge query is one indexed lookup instead of
+/// re-deriving membership from both endpoints on every read.
+model KnowledgeTickerRelation {
+  tickerId   String @map("ticker_id")
+  relationId String @map("relation_id")
+
+  source    KnowledgeFactSource @default(extracted)
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  ticker   Ticker            @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+  relation KnowledgeRelation @relation(fields: [relationId], references: [id], onDelete: Cascade)
+
+  @@id([tickerId, relationId])
+  @@index([relationId])
+  @@map("knowledge_ticker_relation")
+}
+
+/// One article naming one Entity while being read for one Ticker. Replaces #1061's `article_entity`
+/// and `entity_evidence`, whose keys differed only by the ticker column.
+model KnowledgeEntityMention {
+  tickerId     String @map("ticker_id")
+  entityId     String @map("entity_id")
+  dataSourceId String @map("data_source_id")
+
+  /// The spelling the article used, so a node can say "Mitra Adiperkasa, seen as Starbucks".
+  surfaceForm String? @map("surface_form")
+
+  /// The sentence that names it, verified to be a literal span of the article before this row is
+  /// written. A span that is not in the text is a fabrication and is rejected rather than stored.
+  evidenceSpan String? @map("evidence_span") @db.Text
+
+  source KnowledgeFactSource @default(extracted)
+
+  extractionRunId String? @map("extraction_run_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticker        Ticker                  @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+  entity        KnowledgeEntity         @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  dataSource    DataSource              @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+  extractionRun KnowledgeExtractionRun? @relation(fields: [extractionRunId], references: [id], onDelete: SetNull)
+
+  @@id([tickerId, entityId, dataSourceId])
+  /// Serves the graph's article layer: mentions of one Entity, for one Ticker.
+  @@index([entityId, tickerId])
+  @@index([dataSourceId])
+  @@index([extractionRunId])
+  @@map("knowledge_entity_mention")
+}
+
+/// Per-run chronicle for knowledge entity extraction. Every entity, relation, kind and mention row
+/// carries this run's id, so provenance is an exact foreign key and never a time window.
+model KnowledgeExtractionRun {
+  id String @id @default(uuid())
+
+  scheduleExecutionId String? @map("schedule_execution_id")
+
+  /// Set when a run was scoped to one issuer; null on an unscoped sweep.
+  tickerId String? @map("ticker_id")
+
+  startedAt    DateTime                @map("started_at")
+  completedAt  DateTime?               @map("completed_at")
+  status       DataCollectionRunStatus
+  agentVersion String?                 @map("agent_version")
+
+  /// High-water mark: Data Sources created at or before this instant have been considered.
+  watermarkAt DateTime? @map("watermark_at")
+
+  considered            Int @default(0)
+  skippedNoCandidates   Int @default(0) @map("skipped_no_candidates")
+  entitiesCreated       Int @default(0) @map("entities_created")
+  relationsOpened       Int @default(0) @map("relations_opened")
+  relationsConfirmed    Int @default(0) @map("relations_confirmed")
+  mentionsWritten       Int @default(0) @map("mentions_written")
+  kindsCreated          Int @default(0) @map("kinds_created")
+  rejectedSpanNotInText Int @default(0) @map("rejected_span_not_in_text")
+  rejectedNameNotInText Int @default(0) @map("rejected_name_not_in_text")
+
+  stopReason String? @map("stop_reason")
+  durationMs Int?    @map("duration_ms")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticker Ticker? @relation(fields: [tickerId], references: [id], onDelete: SetNull)
+
+  entities      KnowledgeEntity[]
+  relations     KnowledgeRelation[]
+  relationKinds KnowledgeRelationKind[]
+  mentions      KnowledgeEntityMention[]
+
+  @@index([status, startedAt])
+  @@index([tickerId, startedAt])
+  @@map("knowledge_extraction_run")
 }

@@ -923,6 +923,7 @@ describe("scoreFromEvaluations — issuer-relevance gate", () => {
       {
         kind: "regulator",
         name: "National Agency of Drug and Food Control",
+        surfaceForm: "BPOM",
       },
     );
 
@@ -931,6 +932,7 @@ describe("scoreFromEvaluations — issuer-relevance gate", () => {
     expect(result.scoreBreakdown.issuerRelevance?.marketParty).toStrictEqual({
       kind: "regulator",
       name: "National Agency of Drug and Food Control",
+      surfaceForm: "BPOM",
     });
   });
 
@@ -955,6 +957,7 @@ describe("scoreFromEvaluations — issuer-relevance gate", () => {
       {
         kind: "regulator",
         name: "National Agency of Drug and Food Control",
+        surfaceForm: "BPOM",
       },
     );
 
@@ -981,7 +984,11 @@ describe("scoreFromEvaluations — issuer-relevance gate", () => {
       false,
       new Set(),
       null,
-      { kind: "competitor", name: "Tomoro Coffee" },
+      {
+        kind: "competitor",
+        name: "Tomoro Coffee",
+        surfaceForm: "Tomoro Coffee",
+      },
     );
 
     expect(result.score).toBeGreaterThan(0.4);
@@ -1006,7 +1013,11 @@ describe("scoreFromEvaluations — issuer-relevance gate", () => {
       false,
       new Set(),
       null,
-      { kind: "competitor", name: "Telkom Indonesia (Persero)" },
+      {
+        kind: "competitor",
+        name: "Telkom Indonesia (Persero)",
+        surfaceForm: "Telkom Indonesia (Persero)",
+      },
     );
 
     expect(result.section).not.toBeNull();
