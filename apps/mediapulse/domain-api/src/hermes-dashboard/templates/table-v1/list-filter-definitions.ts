@@ -107,3 +107,17 @@ export const feedbackReceivedAtDateRangeListFilter = {
   ui: "date-range",
   rangeParams: { from: "from", to: "to" },
 } satisfies TableV1ListFilterDefinition;
+
+/** Run status dropdown filter for the knowledge-extraction chronicle. */
+export const extractionRunStatusSelectListFilter = {
+  key: "status",
+  label: "Status",
+  ui: "select",
+  placeholderAll: "All statuses",
+  staticOptions: [
+    { value: "running", label: "Running" },
+    { value: "success", label: "Success" },
+    { value: "partial_success", label: "Partial success" },
+    { value: "failed", label: "Failed" },
+  ],
+} satisfies TableV1ListFilterDefinition;

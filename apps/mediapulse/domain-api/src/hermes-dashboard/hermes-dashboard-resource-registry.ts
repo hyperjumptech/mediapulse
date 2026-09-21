@@ -11,6 +11,7 @@ import { newslettersHermesDashboardResource } from "../resources/newsletters/res
 import { queryAnalysisRunsHermesDashboardResource } from "../resources/query-analysis-runs/resource-definition";
 import { searchQueriesHermesDashboardResource } from "../resources/search-queries/resource-definition";
 import { knowledgeBaseHermesDashboardResource } from "../resources/knowledge-base/resource-definition";
+import { knowledgeExtractionRunsHermesDashboardResource } from "../resources/knowledge-extraction-runs/resource-definition";
 import { searchQuerySetsHermesDashboardResource } from "../resources/search-query-sets/resource-definition";
 import { tickerProfilesHermesDashboardResource } from "../resources/ticker-profiles/resource-definition";
 import { tickersHermesDashboardResource } from "../resources/tickers/resource-definition";
@@ -31,6 +32,7 @@ export const hermesDashboardResources = [
   searchQuerySetsHermesDashboardResource,
   searchQueriesHermesDashboardResource,
   knowledgeBaseHermesDashboardResource,
+  knowledgeExtractionRunsHermesDashboardResource,
   deliveryRunsHermesDashboardResource,
   queryAnalysisRunsHermesDashboardResource,
   newslettersHermesDashboardResource,
