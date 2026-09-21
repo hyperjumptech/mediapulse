@@ -1,0 +1,32 @@
+{
+  "name": "@mediapulse/scripts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint \"*.ts\"",
+    "type:check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "seed-kg-pipelines": "tsx seed-kg-pipelines.ts",
+    "seed-knowledge-extraction-schedule": "tsx seed-knowledge-extraction-schedule.ts"
+  },
+  "dependencies": {
+    "@hermes/orchestration-database": "workspace:*",
+    "@hermes/scheduler": "workspace:*",
+    "@mediapulse/database": "workspace:*",
+    "@workspace/agent-runtime": "workspace:*",
+    "dotenv": "catalog:",
+    "zod-to-json-schema": "^3.25.1"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "eslint": "^9.32.0",
+    "tsx": "^4",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

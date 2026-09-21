@@ -10,7 +10,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { enrichConfigSchemaForHermesUi } from "../../../../packages/shared/agent-runtime/src/enrich-config-schema-for-hermes-ui.js";
+import { enrichConfigSchemaForHermesUi } from "@workspace/agent-runtime";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 const repoRoot = path.resolve(
