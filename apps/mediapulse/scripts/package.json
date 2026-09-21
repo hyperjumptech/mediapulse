@@ -13,9 +13,9 @@
   },
   "dependencies": {
     "@hermes/orchestration-database": "workspace:*",
-    "@hermes/scheduler": "workspace:*",
     "@mediapulse/database": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
+    "cron-parser": "^5.5.0",
     "dotenv": "catalog:",
     "zod-to-json-schema": "^3.25.1"
   },

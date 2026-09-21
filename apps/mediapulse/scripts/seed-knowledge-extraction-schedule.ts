@@ -26,6 +26,8 @@ import type { Prisma } from "@hermes/orchestration-database";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import { computeNextRunAt as computeCronNextRunAt } from "./next-run-at.js";
+
 /** Fans one step into one invocation per subscribed issuer, as the other per-ticker agents do. */
 export const TICKER_EXPANSION = "db:userTicker:tickerId?where.enabled=true";
 
@@ -298,9 +300,7 @@ export const seedKnowledgeExtractionSchedule = async (
     where: { pipelineId: pipeline.id, order: { gte: 1 } },
   });
 
-  const computeNextRunAt =
-    options.computeNextRunAtFn ??
-    (await import("@hermes/scheduler")).computeNextRunAt;
+  const computeNextRunAt = options.computeNextRunAtFn ?? computeCronNextRunAt;
   const nextRunAt = computeNextRunAt(
     {
       repeat: "repeating",
