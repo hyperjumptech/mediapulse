@@ -1173,15 +1173,15 @@ importers:
       '@hermes/orchestration-database':
         specifier: workspace:*
         version: link:../../../packages/hermes/orchestration-database
-      '@hermes/scheduler':
-        specifier: workspace:*
-        version: link:../../../packages/hermes/scheduler
       '@mediapulse/database':
         specifier: workspace:*
         version: link:../../../packages/mediapulse/database
       '@workspace/agent-runtime':
         specifier: workspace:*
         version: link:../../../packages/shared/agent-runtime
+      cron-parser:
+        specifier: ^5.5.0
+        version: 5.5.0
       dotenv:
         specifier: 'catalog:'
         version: 17.2.3

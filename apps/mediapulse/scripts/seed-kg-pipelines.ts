@@ -5,6 +5,8 @@ import type { Prisma } from "@hermes/orchestration-database";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import { computeNextRunAt as computeCronNextRunAt } from "./next-run-at.js";
+
 const TICKER_EXPANSION = "db:userTicker:tickerId?where.enabled=true";
 
 type PipelineStepDefinition = {
@@ -328,8 +330,7 @@ export const seedKgPipelines = async (
 ): Promise<SeedKgPipelinesResult> => {
   const targetDb =
     db ?? (await import("@hermes/orchestration-database")).prisma;
-  const resolvedComputeNextRunAt =
-    computeNextRunAtFn ?? (await import("@hermes/scheduler")).computeNextRunAt;
+  const resolvedComputeNextRunAt = computeNextRunAtFn ?? computeCronNextRunAt;
 
   await assertAgentsRegistered(targetDb, KG_PIPELINE_DEFINITIONS);
 
