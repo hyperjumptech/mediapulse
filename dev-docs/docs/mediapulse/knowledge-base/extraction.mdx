@@ -41,6 +41,38 @@ Extraction is open-vocabulary: the profile's parties are offered as preferred sp
 
 A curated profile calls a competitor by its registered name and the press rarely does: FORE's profile says "Mitra Adiperkasa" where 28 of its articles say "Starbucks". When a run finishes, each of the issuer's entities is relabelled to the spelling its own corpus uses most, so the label a reader sees is the one the reader has read. The issuer keeps its registered name, because its node anchors the graph.
 
+## The schedule
+
+Extraction runs per issuer, so the schedule fans one step into one invocation for every subscribed ticker, exactly as query-analysis and data-collection do:
+
+```
+tickerId = db:userTicker:tickerId?where.enabled=true
+limit    = 100
+```
+
+The agent's config carries the model credentials as placeholders Hermes substitutes at run time, which is why a config row exists at all: substitution reads the config stored in Hermes, so an agent invoked with no config row receives the placeholder strings verbatim.
+
+```
+model   = {{AI_MODEL}}
+apiKey  = {{AI_API_KEY}}
+baseUrl = {{AI_BASE_URL}}
+```
+
+`seed-knowledge-extraction-schedule.ts` writes all of that, and refuses to write when the registry holds no active entry for the agent version, or when any of those three variables is missing from Hermes. Both cases would otherwise produce a schedule that fails on its first run rather than at setup. It leaves the schedule disabled on creation, keeps an existing schedule's enabled state, and rewrites whatever schedule already invokes the agent instead of leaving a second one behind.
+
+```bash
+pnpm --filter @mediapulse/scripts run seed-knowledge-extraction-schedule            # dry run
+pnpm --filter @mediapulse/scripts run seed-knowledge-extraction-schedule -- --apply
+
+# against another Hermes, the URL from the shell wins over .env.local
+ORCHESTRATION_DATABASE_URL="postgresql://..." \
+  pnpm --filter @mediapulse/scripts run seed-knowledge-extraction-schedule -- --apply
+```
+
+`AI_API_KEY` has to be created in Hermes as a secret variable rather than by a script: secret values are encrypted with a master key the environment holds, so a row written directly would not decrypt.
+
+- Important: the agent version is part of the wiring. A pipeline step pins `agentId@agentVersion`, so bumping the agent means re-running this script; pointing a step at a version the registry no longer serves fails at invocation.
+
 ## Running it locally
 
 Local Hermes carries no `AI_MODEL` variable, so the agent cannot be invoked here without inventing one. `pnpm spike:fore-kb` does exactly what the agent does, over the same endpoints:
