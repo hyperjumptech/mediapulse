@@ -38,6 +38,7 @@ const ConfigSchema = z.object({
   model: z.string().default("gpt-test"),
   apiKey: z.string().default("test-key"),
   baseUrl: z.string().default("http://localhost/llm"),
+  readConcurrency: z.number().int().min(1).max(8).default(4),
   dryRun: z.boolean().optional(),
 });
 

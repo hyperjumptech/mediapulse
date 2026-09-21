@@ -5,6 +5,7 @@ import { env } from "@mediapulse/env/agents-knowledge-ingestion";
 
 import { Input, Config } from "./index.js";
 import { AGENT_VERSION } from "./agent-version.js";
+import { chunked } from "./lib/chunked.js";
 import { extractEntityRelations } from "./lib/extract-entity-relations.js";
 import { createKnowledgeStore } from "./lib/store.js";
 
@@ -65,35 +66,68 @@ export const run = async ({
       tally.relationsConfirmed += seeded.relationsConfirmed;
     }
 
-    for (const article of candidates.articles) {
-      tally.considered += 1;
+    // Articles are read in parallel and applied in order, a chunk at a time.
+    //
+    // Reading is the slow half: a production article takes around 34 seconds, so 100 read one at a
+    // time outlive the invoke-agent job timeout. Applying stays sequential, because resolving an
+    // entity is find-then-create and two articles naming the same new party at once would race for
+    // its unique key. Chunking keeps writes landing as the run proceeds, so a run cut short still
+    // keeps what it had read.
+    for (const chunk of chunked(candidates.articles, config.readConcurrency)) {
+      const readings = await Promise.all(
+        chunk.map(async (article) => {
+          try {
+            const outcome = await extractEntityRelations({
+              article: {
+                title: article.title,
+                description: article.description,
+                content: article.content,
+              },
+              issuer: {
+                symbol: candidates.issuer.symbol,
+                name: candidates.issuer.name,
+                aliases: candidates.issuer.aliases,
+                companyOverview: candidates.issuer.companyOverview,
+              },
+              candidates: candidates.parties.map((party) => ({
+                name: party.name,
+                aliases: party.aliases,
+                kind: party.kind === "regulator" ? "regulator" : "company",
+              })),
+              relationKindLabels: candidates.relationKindLabels,
+              llm: {
+                model: config.model,
+                apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
+              },
+            });
 
-      try {
-        const outcome = await extractEntityRelations({
-          article: {
-            title: article.title,
-            description: article.description,
-            content: article.content,
-          },
-          issuer: {
-            symbol: candidates.issuer.symbol,
-            name: candidates.issuer.name,
-            aliases: candidates.issuer.aliases,
-            companyOverview: candidates.issuer.companyOverview,
-          },
-          candidates: candidates.parties.map((party) => ({
-            name: party.name,
-            aliases: party.aliases,
-            kind: party.kind === "regulator" ? "regulator" : "company",
-          })),
-          relationKindLabels: candidates.relationKindLabels,
-          llm: {
-            model: config.model,
-            apiKey: config.apiKey,
-            baseUrl: config.baseUrl,
-          },
-        });
+            return { article, outcome, message: null as string | null };
+          } catch (error) {
+            return {
+              article,
+              outcome: null,
+              message: error instanceof Error ? error.message : String(error),
+            };
+          }
+        }),
+      );
 
+      for (const reading of readings) {
+        tally.considered += 1;
+
+        if (reading.message !== null) {
+          failures.push({
+            dataSourceId: reading.article.dataSourceId,
+            message: reading.message,
+          });
+
+          continue;
+        }
+        const outcome = reading.outcome;
+        if (outcome === null) {
+          continue;
+        }
         if (!outcome.modelCalled) {
           tally.skippedNoCandidates += 1;
 
@@ -111,35 +145,41 @@ export const run = async ({
           continue;
         }
 
-        const written = await store.apply({
-          tickerId: input.tickerId,
-          dataSourceId: article.dataSourceId,
-          extractionRunId,
-          entities: outcome.entities,
-          relations: outcome.relations.map((relation) => ({
-            subject: relation.subject,
-            kind: relation.kind,
-            object: relation.object,
-            evidenceSpan: relation.evidenceSpan,
-          })),
-        });
-        tally.entitiesCreated += written.entitiesCreated;
-        tally.mentionsWritten += written.mentionsWritten;
-        tally.relationsOpened += written.relationsOpened;
-        tally.relationsConfirmed += written.relationsConfirmed;
-        tally.kindsCreated += written.kindsCreated;
-        // The server re-runs every guard, so a claim it refused is counted here too.
-        for (const rejection of written.rejected) {
-          if (rejection.reason === "span-not-in-text") {
-            tally.rejectedSpanNotInText += 1;
+        try {
+          const written = await store.apply({
+            tickerId: input.tickerId,
+            dataSourceId: reading.article.dataSourceId,
+            extractionRunId,
+            entities: outcome.entities,
+            relations: outcome.relations.map((relation) => ({
+              subject: relation.subject,
+              kind: relation.kind,
+              object: relation.object,
+              evidenceSpan: relation.evidenceSpan,
+            })),
+          });
+          tally.entitiesCreated += written.entitiesCreated;
+          tally.mentionsWritten += written.mentionsWritten;
+          tally.relationsOpened += written.relationsOpened;
+          tally.relationsConfirmed += written.relationsConfirmed;
+          tally.kindsCreated += written.kindsCreated;
+          // The server re-runs every guard, so a claim it refused is counted here too.
+          for (const rejection of written.rejected) {
+            if (rejection.reason === "span-not-in-text") {
+              tally.rejectedSpanNotInText += 1;
+            }
+            if (rejection.reason === "name-not-in-text") {
+              tally.rejectedNameNotInText += 1;
+            }
           }
-          if (rejection.reason === "name-not-in-text") {
-            tally.rejectedNameNotInText += 1;
-          }
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          failures.push({
+            dataSourceId: reading.article.dataSourceId,
+            message,
+          });
         }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        failures.push({ dataSourceId: article.dataSourceId, message });
       }
     }
 
