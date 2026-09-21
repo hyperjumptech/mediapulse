@@ -16,6 +16,12 @@ const ConfigSchema = z.object({
   model: z.string().default("{{AI_MODEL}}"),
   apiKey: z.string().default("{{AI_API_KEY}}"),
   baseUrl: z.string().default("{{AI_BASE_URL}}"),
+  /**
+   * Articles read at once. Reading is a model call of roughly half a minute, so reading one at a
+   * time puts a full batch past the invoke-agent job timeout. Writes stay sequential whatever this
+   * is set to, because resolving an entity is find-then-create.
+   */
+  readConcurrency: z.number().int().min(1).max(8).default(4),
   dryRun: z.boolean().optional(),
 });
 
