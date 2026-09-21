@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "seed-kg-pipelines": "tsx seed-kg-pipelines.ts",
-    "seed-knowledge-extraction-schedule": "tsx seed-knowledge-extraction-schedule.ts"
+    "seed-knowledge-extraction-schedule": "tsx seed-knowledge-extraction-schedule.ts",
+    "extraction-once": "tsx run-extraction-once.ts"
   },
   "dependencies": {
     "@hermes/orchestration-database": "workspace:*",
