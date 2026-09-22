@@ -1365,6 +1365,7 @@ model KnowledgeExtractionRun {
   kindsCreated          Int @default(0) @map("kinds_created")
   rejectedSpanNotInText Int @default(0) @map("rejected_span_not_in_text")
   rejectedNameNotInText Int @default(0) @map("rejected_name_not_in_text")
+  rejectedPerson        Int @default(0) @map("rejected_person")
 
   stopReason String? @map("stop_reason")
   durationMs Int?    @map("duration_ms")

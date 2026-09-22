@@ -4,7 +4,9 @@ import { buildExtractionMessages } from "./build-extraction-messages.js";
 import { entityExtractionSchema } from "./entity-extraction-schema.js";
 import {
   buildLegacyExtractionMessages,
+  buildNoPersonKindMessages,
   legacyExtractionSchema,
+  noPersonKindExtractionSchema,
   PROMPT_VARIANTS,
 } from "./prompt-variants.js";
 
@@ -29,63 +31,95 @@ const input = {
 const personEntity = {
   entities: [
     {
-      name: "Billy Utama",
+      name: "Sheila Dara",
       kind: "person",
-      surfaceForm: "Billy Utama",
-      evidenceSpan: "Billy Utama is the director of the company.",
+      surfaceForm: "Sheila Dara",
+      evidenceSpan: "Sheila Dara menjadi brand ambassador.",
     },
   ],
   relations: [],
 };
 
 describe("the production schema", () => {
-  it("rejects a person entity outright", () => {
-    expect(entityExtractionSchema.safeParse(personEntity).success).toBe(false);
+  it("accepts a person, so the model never has to disguise one", () => {
+    expect(entityExtractionSchema.safeParse(personEntity).success).toBe(true);
   });
 
-  it("accepts a company entity", () => {
+  it("still refuses the issuer kind, which only the profile seed writes", () => {
     const parsed = entityExtractionSchema.safeParse({
       entities: [
         {
-          name: "Mitra Adiperkasa",
-          kind: "company",
-          surfaceForm: "MAPI",
-          evidenceSpan: "MAPI membuka gerai baru di Jakarta.",
+          name: "Fore Kopi Indonesia",
+          kind: "issuer",
+          surfaceForm: "Fore Coffee",
+          evidenceSpan: "Fore Coffee dan Kopi Kenangan bersaing.",
         },
       ],
       relations: [],
     });
 
-    expect(parsed.success).toBe(true);
+    expect(parsed.success).toBe(false);
   });
 });
 
-describe("the legacy baseline the benchmark compares against", () => {
-  it("still accepts a person, which is what it was measured doing", () => {
+describe("the production prompt", () => {
+  it("tells the model to label a person rather than forbidding the report", () => {
+    const [system] = buildExtractionMessages(input) as unknown as [
+      { content: string },
+    ];
+
+    expect(system!.content).toContain("you must set kind to `person`");
+    expect(system!.content).not.toContain("Never record a person.");
+  });
+
+  it("warns against the failure this replaced", () => {
+    const [system] = buildExtractionMessages(input) as unknown as [
+      { content: string },
+    ];
+
+    expect(system!.content).toContain("a person disguised as a company");
+  });
+});
+
+describe("the frozen baselines the benchmark compares against", () => {
+  it("keeps the prompt that forbade the person kind", () => {
+    const messages = buildNoPersonKindMessages(input) as { content: string }[];
+
+    expect(messages[0]!.content).toContain("Never record a person.");
+    expect(noPersonKindExtractionSchema.safeParse(personEntity).success).toBe(
+      false,
+    );
+  });
+
+  it("keeps the original prompt, which allowed a person and never warned", () => {
+    const messages = buildLegacyExtractionMessages(input) as {
+      content: string;
+    }[];
+
+    expect(messages[0]!.content).not.toContain("Never record a person.");
     expect(legacyExtractionSchema.safeParse(personEntity).success).toBe(true);
   });
 
   it("carries the article and the parties on file", () => {
-    const messages = buildLegacyExtractionMessages(input);
+    const messages = buildNoPersonKindMessages(input) as { content: string }[];
 
     expect(messages[1]!.content).toContain("membuka gerai baru");
     expect(messages[1]!.content).toContain("Mitra Adiperkasa");
   });
-
-  it("does not tell the model to skip people", () => {
-    const messages = buildLegacyExtractionMessages(input);
-
-    expect(messages[0]!.content).not.toContain("Never record a person");
-  });
 });
 
 describe("PROMPT_VARIANTS", () => {
-  it("points its focused variant at the production builder", () => {
-    expect(PROMPT_VARIANTS["v2-focused"].build).toBe(buildExtractionMessages);
-    expect(PROMPT_VARIANTS["v2-focused"].vocabulary).toBe("curated");
+  it("points its production variant at the live builder and schema", () => {
+    expect(PROMPT_VARIANTS["v3-production"].build).toBe(
+      buildExtractionMessages,
+    );
+    expect(PROMPT_VARIANTS["v3-production"].schema).toBe(
+      entityExtractionSchema,
+    );
   });
 
   it("keeps the legacy variant on the observed vocabulary", () => {
     expect(PROMPT_VARIANTS["v0-legacy"].vocabulary).toBe("observed");
+    expect(PROMPT_VARIANTS["v3-production"].vocabulary).toBe("curated");
   });
 });

@@ -284,7 +284,7 @@ const report = async () => {
   const personLexicon = new Set();
   const byNameModels = new Map();
   for (const row of rows) {
-    if (row.status !== "ok" || row.variant !== "v0-legacy") {
+    if (row.status !== "ok") {
       continue;
     }
     for (const entity of row.entities) {
@@ -297,7 +297,7 @@ const report = async () => {
     }
   }
   for (const [name, seen] of byNameModels) {
-    if (seen.size >= 3) {
+    if (seen.size >= 2) {
       personLexicon.add(name);
     }
   }

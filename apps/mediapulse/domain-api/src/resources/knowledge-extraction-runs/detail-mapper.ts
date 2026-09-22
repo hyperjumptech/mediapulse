@@ -127,6 +127,10 @@ export function mapRowToDetailItem(row: KnowledgeExtractionRunRow): DetailItem {
         label: "Refused, party not named",
         value: String(row.rejectedNameNotInText),
       },
+      {
+        label: "Dropped, a person not a party",
+        value: String(row.rejectedPerson),
+      },
     ],
   };
 }

@@ -123,6 +123,7 @@ export const knowledgeExtractionRejectionSchema = z.object({
     "name-not-in-text",
     "endpoint-unknown",
     "self-relation",
+    "person",
   ]),
   detail: z.string(),
 });
@@ -161,6 +162,7 @@ export const postKnowledgeExtractionRunsFinishBodySchema = z.object({
   kindsCreated: z.number().int().nonnegative(),
   rejectedSpanNotInText: z.number().int().nonnegative(),
   rejectedNameNotInText: z.number().int().nonnegative(),
+  rejectedPerson: z.number().int().nonnegative().default(0),
   stopReason: z.string().nullable(),
   durationMs: z.number().int().nonnegative().nullable(),
 });

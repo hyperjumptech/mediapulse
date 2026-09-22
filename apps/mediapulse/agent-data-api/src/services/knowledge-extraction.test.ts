@@ -155,6 +155,29 @@ describe("spanIsInArticle", () => {
 });
 
 describe("applyExtraction", () => {
+  it("refuses a person whatever the agent claims, and never writes a mention", async () => {
+    const { db, mentionsCreated } = buildDb();
+
+    const result = await applyExtraction(
+      db,
+      extraction({
+        entities: [
+          {
+            name: "Sheila Dara",
+            kind: "person",
+            surfaceForm: "Sheila Dara",
+            evidenceSpan: article.title,
+          },
+        ],
+      }),
+    );
+
+    expect(result.rejected).toEqual([
+      { reason: "person", detail: "Sheila Dara" },
+    ]);
+    expect(mentionsCreated).toHaveLength(0);
+  });
+
   it("refuses an entity whose span is not in the stored article, whoever sent it", async () => {
     const { db, mentionsCreated } = buildDb();
 

@@ -9,6 +9,8 @@
 
 import type { PrismaClient } from "@mediapulse/database";
 import { normalizeEntityName, textNamesEntity } from "@workspace/utils";
+
+const DISCARDED_ENTITY_KINDS = new Set<string>(["person"]);
 import type {
   KnowledgeExtractedEntity,
   KnowledgeExtractionRejection,
@@ -910,6 +912,11 @@ export async function applyExtraction(
   }
 
   for (const entity of input.entities) {
+    if (DISCARDED_ENTITY_KINDS.has(entity.kind)) {
+      result.rejected.push({ reason: "person", detail: entity.name });
+
+      continue;
+    }
     if (!spanIsInArticle(articleText, entity.evidenceSpan)) {
       result.rejected.push({
         reason: "span-not-in-text",
@@ -1074,6 +1081,7 @@ export async function finishExtractionRun(
     kindsCreated: number;
     rejectedSpanNotInText: number;
     rejectedNameNotInText: number;
+    rejectedPerson?: number;
     stopReason: string | null;
     durationMs: number | null;
   },
@@ -1094,6 +1102,7 @@ export async function finishExtractionRun(
       kindsCreated: body.kindsCreated,
       rejectedSpanNotInText: body.rejectedSpanNotInText,
       rejectedNameNotInText: body.rejectedNameNotInText,
+      rejectedPerson: body.rejectedPerson ?? 0,
       stopReason: body.stopReason,
       durationMs: body.durationMs,
     },
