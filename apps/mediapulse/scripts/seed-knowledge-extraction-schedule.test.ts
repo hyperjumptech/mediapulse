@@ -7,6 +7,7 @@ import {
   AGENT_VERSION,
   ARTICLES_PER_RUN,
   CRON_EXPRESSION,
+  EXTRACTION_MODEL,
   findMissingVariableKeys,
   knowledgeExtractionConfig,
   knowledgeExtractionInput,
@@ -95,22 +96,29 @@ describe("knowledgeExtractionInput", () => {
 });
 
 describe("knowledgeExtractionConfig", () => {
-  it("stores the placeholders Hermes substitutes rather than resolved credentials", () => {
+  it("pins the benchmarked model and leaves the credentials as placeholders", () => {
     expect(knowledgeExtractionConfig()).toStrictEqual({
-      model: "{{AI_MODEL}}",
+      model: EXTRACTION_MODEL,
       apiKey: "{{AI_API_KEY}}",
       baseUrl: "{{AI_BASE_URL}}",
     });
+  });
+
+  it("does not take its model from the shared AI_MODEL variable", () => {
+    expect(JSON.stringify(knowledgeExtractionConfig())).not.toContain(
+      "AI_MODEL",
+    );
+    expect(REQUIRED_VARIABLE_KEYS).not.toContain("AI_MODEL");
   });
 });
 
 describe("findMissingVariableKeys", () => {
   it("names the variables Hermes does not hold", async () => {
-    const db = buildDb({ variables: [{ key: "AI_MODEL" }] });
+    const db = buildDb({ variables: [{ key: "AI_BASE_URL" }] });
 
     const missing = await findMissingVariableKeys(db);
 
-    expect(missing).toStrictEqual(["AI_API_KEY", "AI_BASE_URL"]);
+    expect(missing).toStrictEqual(["AI_API_KEY"]);
   });
 
   it("reports nothing when every variable is present", async () => {
@@ -131,7 +139,7 @@ describe("seedKnowledgeExtractionSchedule", () => {
   });
 
   it("refuses to run when an AI variable is missing, before writing anything", async () => {
-    const db = buildDb({ variables: [{ key: "AI_MODEL" }] });
+    const db = buildDb({ variables: [] });
 
     await expect(
       seedKnowledgeExtractionSchedule({ apply: true, computeNextRunAtFn }, db),

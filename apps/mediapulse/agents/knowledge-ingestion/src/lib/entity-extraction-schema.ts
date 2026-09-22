@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { KNOWLEDGE_ENTITY_KINDS } from "./knowledge-kinds.js";
+import { EXTRACTED_ENTITY_KINDS } from "./knowledge-kinds.js";
 
 /** The longest span a guard can check against an article without the model paraphrasing it. */
 export const MAX_EVIDENCE_SPAN_CHARS = 400;
@@ -23,7 +23,7 @@ export const extractedEntitySchema = z.object({
     .min(2)
     .max(120)
     .describe("The party's fullest name as the article gives it."),
-  kind: z.enum(KNOWLEDGE_ENTITY_KINDS),
+  kind: z.enum(EXTRACTED_ENTITY_KINDS),
   surfaceForm: z
     .string()
     .min(2)
