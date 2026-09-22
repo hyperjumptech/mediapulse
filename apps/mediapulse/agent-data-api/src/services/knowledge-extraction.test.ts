@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   applyExtraction,
+  listExtractionCandidates,
   resolveRelationKind,
   seedRelationKinds,
   spanIsInArticle,
@@ -40,7 +41,10 @@ const buildDb = (overrides: Delegates = {}) => {
 
   const db = {
     ticker: { findUnique: vi.fn().mockResolvedValue(ticker) },
-    dataSource: { findUnique: vi.fn().mockResolvedValue(article) },
+    dataSource: {
+      findUnique: vi.fn().mockResolvedValue(article),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     knowledgeEntity: {
       findUnique: vi
         .fn()
@@ -125,6 +129,22 @@ const extraction = (
   entities: [],
   relations: [],
   ...overrides,
+});
+
+describe("listExtractionCandidates", () => {
+  it("offers only curated relation kinds, so invented ones do not feed themselves back", async () => {
+    const { db } = buildDb();
+
+    await listExtractionCandidates(db, {
+      tickerId: ticker.id,
+      fromStart: true,
+    });
+
+    const call = vi.mocked(db.knowledgeRelationKind.findMany).mock
+      .calls[0]?.[0];
+
+    expect(call?.where).toStrictEqual({ curated: true });
+  });
 });
 
 describe("spanIsInArticle", () => {

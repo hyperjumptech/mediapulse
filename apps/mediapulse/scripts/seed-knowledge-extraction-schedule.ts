@@ -47,11 +47,9 @@ export const ARTICLES_PER_RUN = 100;
  * The content-shaping agents already depend on these, so a production Hermes has them; a fresh
  * local one does not, and a run there would fail at its first model call.
  */
-export const REQUIRED_VARIABLE_KEYS = [
-  "AI_MODEL",
-  "AI_API_KEY",
-  "AI_BASE_URL",
-] as const;
+export const REQUIRED_VARIABLE_KEYS = ["AI_API_KEY", "AI_BASE_URL"] as const;
+
+export const EXTRACTION_MODEL = "google/gemini-2.5-flash-lite";
 
 /** Runs after the newsletter, because the knowledge base is not an input to it (ADR 0013). */
 export const CRON_EXPRESSION = "0 2 * * *";
@@ -127,7 +125,7 @@ const loadHermesScriptEnv = (): void => {
  * with no config row would receive the placeholder strings verbatim.
  */
 export const knowledgeExtractionConfig = (): Prisma.InputJsonValue => ({
-  model: "{{AI_MODEL}}",
+  model: EXTRACTION_MODEL,
   apiKey: "{{AI_API_KEY}}",
   baseUrl: "{{AI_BASE_URL}}",
 });

@@ -1,5 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { generateObject } from "ai";
+import { generateObject, type ModelMessage } from "ai";
+import type { ZodType } from "zod";
 import { normalizeEntityName, textNamesEntity } from "@workspace/utils";
 
 import {
@@ -40,6 +41,7 @@ export type ExtractionOutcome = {
   rejections: ExtractionRejection[];
   /** False when the article named nothing worth a model call and none was made. */
   modelCalled: boolean;
+  usage?: { inputTokens: number; outputTokens: number };
 };
 
 export type ExtractEntityRelationsInput = {
@@ -50,6 +52,8 @@ export type ExtractEntityRelationsInput = {
   llm: ExtractionLlmParams;
   /** Injected for tests; defaults to the AI SDK's `generateObject`. */
   generateObjectFn?: typeof generateObject;
+  buildMessagesFn?: (input: BuildExtractionMessagesInput) => ModelMessage[];
+  schema?: ZodType<EntityExtraction>;
 };
 
 /** Collapses whitespace so a span that differs only in line breaks still matches. */
@@ -187,7 +191,8 @@ export const extractEntityRelations = async (
     return { entities: [], relations: [], rejections: [], modelCalled: false };
   }
 
-  const messages = buildExtractionMessages({
+  const buildMessages = input.buildMessagesFn ?? buildExtractionMessages;
+  const messages = buildMessages({
     article: input.article,
     issuer: input.issuer,
     candidates: input.candidates,
@@ -201,7 +206,7 @@ export const extractEntityRelations = async (
   const generate = input.generateObjectFn ?? generateObject;
   const result = await generate({
     model: openai(input.llm.model),
-    schema: entityExtractionSchema,
+    schema: input.schema ?? entityExtractionSchema,
     temperature: input.llm.temperature ?? 0,
     messages,
   });
@@ -212,5 +217,12 @@ export const extractEntityRelations = async (
     input.issuer,
   );
 
-  return { ...guarded, modelCalled: true };
+  return {
+    ...guarded,
+    modelCalled: true,
+    usage: {
+      inputTokens: result.usage?.inputTokens ?? 0,
+      outputTokens: result.usage?.outputTokens ?? 0,
+    },
+  };
 };

@@ -1,4 +1,4 @@
-/** The kinds of thing a knowledge-base entity can be, as the extraction schema offers them. */
+/** The kinds of thing a knowledge-base entity can be. */
 export const KNOWLEDGE_ENTITY_KINDS = [
   "issuer",
   "company",
@@ -12,6 +12,16 @@ export const KNOWLEDGE_ENTITY_KINDS = [
 ] as const;
 
 export type KnowledgeEntityKindName = (typeof KNOWLEDGE_ENTITY_KINDS)[number];
+
+export const EXTRACTED_ENTITY_KINDS = [
+  "company",
+  "brand",
+  "regulator",
+  "government",
+  "other",
+] as const;
+
+export type ExtractedEntityKindName = (typeof EXTRACTED_ENTITY_KINDS)[number];
 
 /**
  * Turns a slug into the phrase an edge prints, for a kind with no registry row to read a label from.

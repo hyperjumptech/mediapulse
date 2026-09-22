@@ -118,7 +118,7 @@ describe("applyExtractionGuards", () => {
         entities: [
           {
             name: "Fore Kopi Indonesia",
-            kind: "issuer",
+            kind: "company",
             surfaceForm: "Fore Coffee",
             evidenceSpan: "Fore Coffee dan Kopi Kenangan",
           },

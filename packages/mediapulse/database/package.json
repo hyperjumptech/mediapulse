@@ -33,7 +33,8 @@
     "test:coverage": "vitest run --coverage",
     "type:check": "tsc --noEmit",
     "seed-tickers-local": "tsx scripts/seed-tickers-local.ts",
-    "pull-ticker-local": "tsx scripts/pull-ticker-local.ts"
+    "pull-ticker-local": "tsx scripts/pull-ticker-local.ts",
+    "sample-knowledge-articles": "tsx scripts/sample-knowledge-articles.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.2.0",

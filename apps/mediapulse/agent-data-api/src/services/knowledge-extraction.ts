@@ -613,12 +613,14 @@ export type ExtractionCandidates = {
 };
 
 /**
- * Lists what one issuer's extraction pass needs: its profile's parties, the registry's vocabulary,
- * and the articles a Section admitted for it that no extraction has read yet.
+ * Lists what one issuer's extraction pass needs: its profile's parties, the curated vocabulary, and
+ * the articles a Section admitted for it that no extraction has read yet.
  *
  * - Important: only articles with a Placement for this issuer are returned. An article this issuer's
  *   pipeline rejected says nothing about the issuer's market, and reading it would put entities in
  *   the graph that the newsletter itself declined to carry.
+ * - Important: only curated relation kinds are offered. Sending the observed ones back to the model
+ *   makes every kind it invents more likely the next night.
  *
  * @param db - Prisma delegates.
  * @param query - Issuer, optional lower bound, and how many articles to take.
@@ -668,8 +670,9 @@ export async function listExtractionCandidates(
   const competitors = asParties(ticker.profile?.competitors);
   const regulators = asParties(ticker.profile?.regulators);
   const kinds = await db.knowledgeRelationKind.findMany({
+    where: { curated: true },
     select: { label: true },
-    orderBy: [{ curated: "desc" }, { observations: "desc" }],
+    orderBy: [{ observations: "desc" }, { slug: "asc" }],
     take: 40,
   });
 
