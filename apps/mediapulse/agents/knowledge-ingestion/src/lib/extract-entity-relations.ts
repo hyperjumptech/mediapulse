@@ -15,6 +15,7 @@ import {
 } from "./build-extraction-messages.js";
 import {
   entityExtractionSchema,
+  MAX_EVIDENCE_SPAN_CHARS,
   type EntityExtraction,
   type ExtractedEntity,
   type ExtractedRelation,
@@ -91,6 +92,59 @@ export const entityIsNamedInText = (
   textNamesEntity(articleText, entity.surfaceForm) ||
   textNamesEntity(articleText, entity.name);
 
+const MIN_NAME_CHARS = 2;
+
+export const clipSpan = (
+  span: string,
+  anchors: readonly string[],
+  maxChars: number = MAX_EVIDENCE_SPAN_CHARS,
+): string => {
+  const trimmed = span.trim();
+  if (trimmed.length <= maxChars) {
+    return trimmed;
+  }
+
+  const lowered = trimmed.toLowerCase();
+  const hits = anchors
+    .map((anchor) => anchor.trim())
+    .filter((anchor) => anchor.length > 0)
+    .map((anchor) => {
+      const start = lowered.indexOf(anchor.toLowerCase());
+
+      return { start, end: start + anchor.length };
+    })
+    .filter((hit) => hit.start !== -1);
+  if (hits.length === 0) {
+    return trimmed.slice(0, maxChars).trim();
+  }
+
+  const firstStart = Math.min(...hits.map((hit) => hit.start));
+  const lastEnd = Math.max(...hits.map((hit) => hit.end));
+  if (lastEnd - firstStart > maxChars) {
+    return trimmed.slice(firstStart, firstStart + maxChars).trim();
+  }
+
+  const padding = Math.floor((maxChars - (lastEnd - firstStart)) / 2);
+  const paddedStart = Math.max(0, firstStart - padding);
+  const windowEnd = Math.min(trimmed.length, paddedStart + maxChars);
+  const windowStart = Math.max(0, windowEnd - maxChars);
+
+  return trimmed.slice(windowStart, windowEnd).trim();
+};
+
+const withNamesFilled = (entity: ExtractedEntity): ExtractedEntity => {
+  const name =
+    entity.name.trim().length < MIN_NAME_CHARS
+      ? entity.surfaceForm
+      : entity.name;
+  const surfaceForm =
+    entity.surfaceForm.trim().length < MIN_NAME_CHARS
+      ? name
+      : entity.surfaceForm;
+
+  return { ...entity, name, surfaceForm };
+};
+
 const isIssuerName = (name: string, issuer: ExtractionIssuer): boolean => {
   const normalized = normalizeEntityName(name);
   if (normalized.length === 0) {
@@ -120,7 +174,8 @@ export const applyExtractionGuards = (
 
   const discarded = new Set<string>(DISCARDED_ENTITY_KINDS);
 
-  for (const entity of extraction.entities) {
+  for (const reported of extraction.entities) {
+    const entity = withNamesFilled(reported);
     if (isIssuerName(entity.name, issuer)) {
       continue;
     }
@@ -139,7 +194,11 @@ export const applyExtractionGuards = (
 
       continue;
     }
-    entities.push(entity);
+    const evidenceSpan = clipSpan(entity.evidenceSpan, [
+      entity.surfaceForm,
+      entity.name,
+    ]);
+    entities.push({ ...entity, evidenceSpan });
   }
 
   const known = new Map<string, string>();
@@ -177,7 +236,11 @@ export const applyExtractionGuards = (
 
       continue;
     }
-    relations.push({ ...relation, subject, object });
+    const evidenceSpan = clipSpan(relation.evidenceSpan, [
+      relation.subject,
+      relation.object,
+    ]);
+    relations.push({ ...relation, subject, object, evidenceSpan });
   }
 
   return { entities, relations, rejections };
@@ -214,12 +277,14 @@ export const extractEntityRelations = async (
     baseURL: input.llm.baseUrl,
   });
   const generate = input.generateObjectFn ?? generateObject;
-  const result = await generate({
-    model: openai(input.llm.model),
-    schema: input.schema ?? entityExtractionSchema,
-    temperature: input.llm.temperature ?? 0,
-    messages,
-  });
+  const attempt = () =>
+    generate({
+      model: openai(input.llm.model),
+      schema: input.schema ?? entityExtractionSchema,
+      temperature: input.llm.temperature ?? 0,
+      messages,
+    });
+  const result = await attempt().catch(() => attempt());
 
   const guarded = applyExtractionGuards(
     result.object as EntityExtraction,
