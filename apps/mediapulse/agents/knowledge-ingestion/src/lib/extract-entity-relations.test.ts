@@ -3,11 +3,16 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   applyExtractionGuards,
+  clipSpan,
   entityIsNamedInText,
   extractEntityRelations,
   spanIsInText,
 } from "./extract-entity-relations.js";
-import type { EntityExtraction } from "./entity-extraction-schema.js";
+import {
+  entityExtractionSchema,
+  MAX_EVIDENCE_SPAN_CHARS,
+  type EntityExtraction,
+} from "./entity-extraction-schema.js";
 
 const issuer = {
   symbol: "FORE",
@@ -18,6 +23,10 @@ const issuer = {
 
 const articleText =
   "Fore Coffee dan Kopi Kenangan bersaing di pasar kopi. BPOM menerbitkan aturan baru.";
+
+const longSentence = `${"Pasar kopi tumbuh pesat di kota besar ".repeat(12)}dan Kopi Kenangan bersaing dengan Fore Coffee ${"di setiap sudut jalan ".repeat(10)}hari ini.`;
+
+const longArticleText = `${longSentence} BPOM menerbitkan aturan baru.`;
 
 const extraction = (
   overrides: Partial<EntityExtraction> = {},
@@ -42,6 +51,53 @@ describe("spanIsInText", () => {
 
   it("rejects an empty span", () => {
     expect(spanIsInText(articleText, "   ")).toBe(false);
+  });
+});
+
+describe("clipSpan", () => {
+  it("returns a span that fits as it is", () => {
+    expect(clipSpan("  Kopi Kenangan bersaing  ", ["Kopi Kenangan"])).toBe(
+      "Kopi Kenangan bersaing",
+    );
+  });
+
+  it("cuts a long span to the limit around the party it names", () => {
+    const clipped = clipSpan(longSentence, ["Kopi Kenangan"]);
+
+    expect(clipped.length).toBeLessThanOrEqual(MAX_EVIDENCE_SPAN_CHARS);
+    expect(clipped).toContain("Kopi Kenangan");
+    expect(longSentence).toContain(clipped);
+  });
+
+  it("keeps both parties of a relation when they fit in one window", () => {
+    const clipped = clipSpan(longSentence, ["Kopi Kenangan", "Fore Coffee"]);
+
+    expect(clipped).toContain("Kopi Kenangan");
+    expect(clipped).toContain("Fore Coffee");
+  });
+
+  it("starts at the first party when the two are too far apart", () => {
+    const span = `Kopi Kenangan ${"x ".repeat(300)}Fore Coffee`;
+
+    const clipped = clipSpan(span, ["Kopi Kenangan", "Fore Coffee"], 100);
+
+    expect(clipped.startsWith("Kopi Kenangan")).toBe(true);
+    expect(clipped.length).toBeLessThanOrEqual(100);
+  });
+
+  it("fills the whole limit when the party sits near the start", () => {
+    const span = `Kopi Kenangan ${"kata ".repeat(100)}`;
+
+    const clipped = clipSpan(span, ["Kopi Kenangan"], 100);
+
+    expect(clipped.startsWith("Kopi Kenangan")).toBe(true);
+    expect(clipped.length).toBeGreaterThanOrEqual(99);
+  });
+
+  it("keeps the opening of the span when no party is found in it", () => {
+    const clipped = clipSpan(longSentence, ["Tomoro"], 50);
+
+    expect(longSentence.startsWith(clipped)).toBe(true);
   });
 });
 
@@ -132,6 +188,126 @@ describe("applyExtractionGuards", () => {
     expect(guarded.rejections).toEqual([
       { reason: "person", detail: "Sheila Dara" },
     ]);
+  });
+
+  it("keeps an entity whose span runs past the limit, clipped to where it is named", () => {
+    const guarded = applyExtractionGuards(
+      extraction({
+        entities: [
+          {
+            name: "Kopi Kenangan",
+            kind: "company",
+            surfaceForm: "Kopi Kenangan",
+            evidenceSpan: longSentence,
+          },
+        ],
+      }),
+      longArticleText,
+      issuer,
+    );
+    const [kept] = guarded.entities;
+
+    expect(guarded.rejections).toStrictEqual([]);
+    expect(kept?.evidenceSpan.length).toBeLessThanOrEqual(
+      MAX_EVIDENCE_SPAN_CHARS,
+    );
+    expect(kept?.evidenceSpan).toContain("Kopi Kenangan");
+    expect(spanIsInText(longArticleText, kept?.evidenceSpan ?? "")).toBe(true);
+  });
+
+  it("still refuses a long span the article does not contain", () => {
+    const guarded = applyExtractionGuards(
+      extraction({
+        entities: [
+          {
+            name: "Kopi Kenangan",
+            kind: "company",
+            surfaceForm: "Kopi Kenangan",
+            evidenceSpan: `${longSentence} and an invented clause`,
+          },
+        ],
+      }),
+      longArticleText,
+      issuer,
+    );
+
+    expect(guarded.entities).toHaveLength(0);
+    expect(guarded.rejections).toStrictEqual([
+      { reason: "span-not-in-text", detail: "Kopi Kenangan" },
+    ]);
+  });
+
+  it("fills an empty surface form from the name, which the write boundary requires", () => {
+    const guarded = applyExtractionGuards(
+      extraction({
+        entities: [
+          {
+            name: "Kopi Kenangan",
+            kind: "company",
+            surfaceForm: "",
+            evidenceSpan: "Kopi Kenangan bersaing",
+          },
+        ],
+      }),
+      articleText,
+      issuer,
+    );
+
+    expect(guarded.entities[0]?.surfaceForm).toBe("Kopi Kenangan");
+  });
+
+  it("refuses an entity with no name at all, instead of failing the article", () => {
+    const guarded = applyExtractionGuards(
+      extraction({
+        entities: [
+          {
+            name: "",
+            kind: "company",
+            surfaceForm: "",
+            evidenceSpan: "Kopi Kenangan bersaing",
+          },
+        ],
+      }),
+      articleText,
+      issuer,
+    );
+
+    expect(guarded.entities).toHaveLength(0);
+    expect(guarded.rejections).toStrictEqual([
+      { reason: "name-not-in-text", detail: "" },
+    ]);
+  });
+
+  it("clips a long relation span around both of its parties", () => {
+    const guarded = applyExtractionGuards(
+      extraction({
+        entities: [
+          {
+            name: "Kopi Kenangan",
+            kind: "company",
+            surfaceForm: "Kopi Kenangan",
+            evidenceSpan: "Kopi Kenangan bersaing",
+          },
+        ],
+        relations: [
+          {
+            subject: "Kopi Kenangan",
+            kind: "competes with",
+            object: "Fore Coffee",
+            evidenceSpan: longSentence,
+          },
+        ],
+      }),
+      longArticleText,
+      issuer,
+    );
+    const [relation] = guarded.relations;
+
+    expect(relation?.evidenceSpan.length).toBeLessThanOrEqual(
+      MAX_EVIDENCE_SPAN_CHARS,
+    );
+    expect(relation?.evidenceSpan).toContain("Kopi Kenangan");
+    expect(relation?.evidenceSpan).toContain("Fore Coffee");
   });
 
   it("skips the issuer, which already has an entity", () => {
@@ -275,5 +451,81 @@ describe("extractEntityRelations", () => {
       "Kopi Kenangan",
     ]);
     expect(outcome.rejections).toHaveLength(1);
+  });
+
+  it("retries once when the model call fails, and keeps the second answer", async () => {
+    const generateObjectFn = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("No object generated"))
+      .mockResolvedValueOnce({
+        object: {
+          entities: [
+            {
+              name: "Kopi Kenangan",
+              kind: "company",
+              surfaceForm: "Kopi Kenangan",
+              evidenceSpan: "Kopi Kenangan bersaing",
+            },
+          ],
+          relations: [],
+        },
+      });
+
+    const outcome = await extractEntityRelations({
+      article: { title: articleText, description: null, content: null },
+      issuer,
+      candidates: [],
+      relationKindLabels: [],
+      llm: { model: "m", apiKey: "k", baseUrl: "http://localhost" },
+      generateObjectFn: generateObjectFn as never,
+    });
+
+    expect(generateObjectFn).toHaveBeenCalledTimes(2);
+    expect(outcome.entities.map((entity) => entity.name)).toStrictEqual([
+      "Kopi Kenangan",
+    ]);
+  });
+
+  it("gives up after the second failure, so the caller records the article", async () => {
+    const generateObjectFn = vi
+      .fn()
+      .mockRejectedValue(new Error("Invalid JSON response"));
+
+    const call = extractEntityRelations({
+      article: { title: articleText, description: null, content: null },
+      issuer,
+      candidates: [],
+      relationKindLabels: [],
+      llm: { model: "m", apiKey: "k", baseUrl: "http://localhost" },
+      generateObjectFn: generateObjectFn as never,
+    });
+
+    await expect(call).rejects.toThrow("Invalid JSON response");
+    expect(generateObjectFn).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("entityExtractionSchema", () => {
+  it("accepts one overlong span and one empty name, so neither sinks the article", () => {
+    const parsed = entityExtractionSchema.safeParse({
+      entities: [
+        {
+          name: "Kopi Kenangan",
+          kind: "company",
+          surfaceForm: "",
+          evidenceSpan: "a".repeat(900),
+        },
+      ],
+      relations: [
+        {
+          subject: "Kopi Kenangan",
+          kind: "competes with",
+          object: "",
+          evidenceSpan: "b".repeat(900),
+        },
+      ],
+    });
+
+    expect(parsed.success).toBe(true);
   });
 });
