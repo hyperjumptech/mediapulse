@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
   buildExtractionMessages,
   extractionArticleText,
@@ -10,7 +12,6 @@ import {
   MAX_EXTRACTED_RELATIONS,
 } from "./entity-extraction-schema.js";
 import { KNOWLEDGE_ENTITY_KINDS } from "./knowledge-kinds.js";
-import { z } from "zod";
 
 export const MARKET_PARTY_KINDS = [
   "company",
@@ -31,28 +32,71 @@ export const LEGACY_SYSTEM_PROMPT = [
   "6. Skip the issuer's own name in `entities`. It is already known.",
 ].join("\n");
 
-export const legacyExtractionSchema = z.object({
-  entities: z
-    .array(
-      z.object({
-        name: z.string().min(2).max(120),
-        kind: z.enum(KNOWLEDGE_ENTITY_KINDS),
-        surfaceForm: z.string().min(2).max(120),
-        evidenceSpan: z.string().min(10).max(MAX_EVIDENCE_SPAN_CHARS),
-      }),
-    )
-    .max(MAX_EXTRACTED_ENTITIES),
-  relations: z
-    .array(
-      z.object({
-        subject: z.string().min(2).max(120),
-        kind: z.string().min(3).max(60),
-        object: z.string().min(2).max(120),
-        evidenceSpan: z.string().min(10).max(MAX_EVIDENCE_SPAN_CHARS),
-      }),
-    )
-    .max(MAX_EXTRACTED_RELATIONS),
-});
+export const NO_PERSON_KIND_SYSTEM_PROMPT = [
+  "You read one news article about an Indonesian listed company and record the organisations that make up its market, and the commercial or regulatory links the article states between them.",
+  "",
+  "Record only these kinds of party:",
+  "- company: a business, listed or private, Indonesian or foreign",
+  "- brand: a trading name or store chain a company operates",
+  "- regulator: a supervisory body such as OJK, BPOM, BEI or Bank Indonesia",
+  "- government: a ministry, agency or state body",
+  "- other: an industry association, exchange, fund or similar body",
+  "",
+  "Never record a person. Executives, analysts, ministers, journalists, investors and public figures are not parties, whatever the article says about them. When a person is named, record the organisation they act for instead, and only when the article names that organisation.",
+  "Never record a product, a place, a market index, a currency, an amount or an abstract concept.",
+  "Record a party only when the article puts it in this issuer's market: it trades with, competes with, owns, supplies, regulates or is owned by the issuer or another party in the article. A company named only as a comparison, a data point or background colour is not.",
+  "",
+  "Relations:",
+  "- A relation is a standing commercial or regulatory link between two organisations you recorded: competition, ownership, supply, distribution, partnership, regulation.",
+  "- Somebody saying, leading, appointing, supporting, praising, visiting or commenting on something is not a relation. Neither is an organisation reporting a number.",
+  "- Two parties named in the same sentence or the same list is not a relation.",
+  "- Prefer the relation kinds listed below. Use a short phrase of your own only when the article states a link none of them covers.",
+  "- Write the relation in its natural direction: a regulator regulates a company, a parent owns a subsidiary.",
+  "",
+  "Evidence:",
+  "- Every evidenceSpan must be a sentence copied from the article character for character. A paraphrase is rejected.",
+  "- Report nothing the article does not name. Do not use what you know from elsewhere.",
+  "",
+  "An empty list is the right answer when the article names no party in this issuer's market. Most routine articles yield one or two parties, not twelve.",
+  "",
+  "Skip the issuer's own name in `entities`. It is already known.",
+].join("\n");
+
+const frozenEntitySchema = (kinds: readonly [string, ...string[]]) =>
+  z.object({
+    entities: z
+      .array(
+        z.object({
+          name: z.string().min(2).max(120),
+          kind: z.enum(kinds),
+          surfaceForm: z.string().min(2).max(120),
+          evidenceSpan: z.string().min(10).max(MAX_EVIDENCE_SPAN_CHARS),
+        }),
+      )
+      .max(MAX_EXTRACTED_ENTITIES),
+    relations: z
+      .array(
+        z.object({
+          subject: z.string().min(2).max(120),
+          kind: z.string().min(3).max(60),
+          object: z.string().min(2).max(120),
+          evidenceSpan: z.string().min(10).max(MAX_EVIDENCE_SPAN_CHARS),
+        }),
+      )
+      .max(MAX_EXTRACTED_RELATIONS),
+  });
+
+export const legacyExtractionSchema = frozenEntitySchema(
+  KNOWLEDGE_ENTITY_KINDS,
+);
+
+export const noPersonKindExtractionSchema = frozenEntitySchema([
+  "company",
+  "brand",
+  "regulator",
+  "government",
+  "other",
+]);
 
 const candidateBlock = (
   candidates: BuildExtractionMessagesInput["candidates"],
@@ -74,10 +118,8 @@ const candidateBlock = (
     .join("\n");
 };
 
-export const buildLegacyExtractionMessages = (
-  input: BuildExtractionMessagesInput,
-) => {
-  const user = [
+const buildUserMessage = (input: BuildExtractionMessagesInput): string =>
+  [
     `Issuer being read for: ${input.issuer.symbol} — ${input.issuer.name}`,
     input.issuer.aliases.length === 0
       ? ""
@@ -97,15 +139,22 @@ export const buildLegacyExtractionMessages = (
     .filter((line) => line !== "")
     .join("\n");
 
-  return [
-    { role: "system" as const, content: LEGACY_SYSTEM_PROMPT },
-    { role: "user" as const, content: user },
+const buildFrozenMessages =
+  (system: string) => (input: BuildExtractionMessagesInput) => [
+    { role: "system" as const, content: system },
+    { role: "user" as const, content: buildUserMessage(input) },
   ];
-};
+
+export const buildLegacyExtractionMessages =
+  buildFrozenMessages(LEGACY_SYSTEM_PROMPT);
+
+export const buildNoPersonKindMessages = buildFrozenMessages(
+  NO_PERSON_KIND_SYSTEM_PROMPT,
+);
 
 export const PROMPT_VARIANTS = {
   "v0-legacy": {
-    label: "prompt and vocabulary as they ran before this change",
+    label: "prompt and vocabulary as they ran before any of this",
     schema: legacyExtractionSchema,
     vocabulary: "observed",
     build: buildLegacyExtractionMessages,
@@ -116,8 +165,14 @@ export const PROMPT_VARIANTS = {
     vocabulary: "curated",
     build: buildLegacyExtractionMessages,
   },
-  "v2-focused": {
-    label: "current production prompt and schema",
+  "v2-no-person-kind": {
+    label: "market-party prompt that forbade the person kind outright",
+    schema: noPersonKindExtractionSchema,
+    vocabulary: "curated",
+    build: buildNoPersonKindMessages,
+  },
+  "v3-production": {
+    label: "current production prompt and schema, person labelled then dropped",
     schema: entityExtractionSchema,
     vocabulary: "curated",
     build: buildExtractionMessages,

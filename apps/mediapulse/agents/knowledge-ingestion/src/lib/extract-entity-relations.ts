@@ -3,6 +3,8 @@ import { generateObject, type ModelMessage } from "ai";
 import type { ZodType } from "zod";
 import { normalizeEntityName, textNamesEntity } from "@workspace/utils";
 
+import { DISCARDED_ENTITY_KINDS } from "./knowledge-kinds.js";
+
 import {
   buildExtractionMessages,
   extractionArticleText,
@@ -31,7 +33,8 @@ export type ExtractionRejection = {
     | "span-not-in-text"
     | "name-not-in-text"
     | "endpoint-unknown"
-    | "self-relation";
+    | "self-relation"
+    | "person";
   detail: string;
 };
 
@@ -115,8 +118,15 @@ export const applyExtractionGuards = (
   const rejections: ExtractionRejection[] = [];
   const entities: ExtractedEntity[] = [];
 
+  const discarded = new Set<string>(DISCARDED_ENTITY_KINDS);
+
   for (const entity of extraction.entities) {
     if (isIssuerName(entity.name, issuer)) {
+      continue;
+    }
+    if (discarded.has(entity.kind)) {
+      rejections.push({ reason: "person", detail: entity.name });
+
       continue;
     }
     if (!spanIsInText(articleText, entity.evidenceSpan)) {

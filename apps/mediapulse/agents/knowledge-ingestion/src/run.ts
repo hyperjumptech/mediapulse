@@ -52,6 +52,7 @@ export const run = async ({
     kindsCreated: 0,
     rejectedSpanNotInText: 0,
     rejectedNameNotInText: 0,
+    rejectedPerson: 0,
   };
   const failures: { dataSourceId: string; message: string }[] = [];
 
@@ -140,6 +141,9 @@ export const run = async ({
           if (rejection.reason === "name-not-in-text") {
             tally.rejectedNameNotInText += 1;
           }
+          if (rejection.reason === "person") {
+            tally.rejectedPerson += 1;
+          }
         }
         if (dryRun) {
           continue;
@@ -170,6 +174,9 @@ export const run = async ({
             }
             if (rejection.reason === "name-not-in-text") {
               tally.rejectedNameNotInText += 1;
+            }
+            if (rejection.reason === "person") {
+              tally.rejectedPerson += 1;
             }
           }
         } catch (error) {

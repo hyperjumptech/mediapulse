@@ -27,6 +27,7 @@ export type ListItem = {
   skippedNoCandidates: number;
   rejectedSpanNotInText: number;
   rejectedNameNotInText: number;
+  rejectedPerson: number;
   /** Refused claims as a share of everything the model proposed. The headline quality number. */
   rejectionRate: string;
   agentVersion: string;
@@ -108,6 +109,7 @@ export function mapRowToListItem(row: KnowledgeExtractionRunRow): ListItem {
     skippedNoCandidates: row.skippedNoCandidates,
     rejectedSpanNotInText: row.rejectedSpanNotInText,
     rejectedNameNotInText: row.rejectedNameNotInText,
+    rejectedPerson: row.rejectedPerson,
     rejectionRate: formatRejectionRate(
       row.mentionsWritten,
       row.rejectedSpanNotInText,

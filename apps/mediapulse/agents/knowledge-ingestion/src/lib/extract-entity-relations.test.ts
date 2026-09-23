@@ -112,6 +112,28 @@ describe("applyExtractionGuards", () => {
     expect(guarded.rejections[0]?.reason).toBe("name-not-in-text");
   });
 
+  it("drops a person and counts it, rather than letting the model disguise one", () => {
+    const guarded = applyExtractionGuards(
+      extraction({
+        entities: [
+          {
+            name: "Sheila Dara",
+            kind: "person",
+            surfaceForm: "Sheila Dara",
+            evidenceSpan: "Fore Coffee dan Kopi Kenangan",
+          },
+        ],
+      }),
+      articleText,
+      issuer,
+    );
+
+    expect(guarded.entities).toHaveLength(0);
+    expect(guarded.rejections).toEqual([
+      { reason: "person", detail: "Sheila Dara" },
+    ]);
+  });
+
   it("skips the issuer, which already has an entity", () => {
     const guarded = applyExtractionGuards(
       extraction({

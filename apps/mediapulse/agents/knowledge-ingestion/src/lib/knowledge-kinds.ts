@@ -19,7 +19,10 @@ export const EXTRACTED_ENTITY_KINDS = [
   "regulator",
   "government",
   "other",
+  "person",
 ] as const;
+
+export const DISCARDED_ENTITY_KINDS = ["person"] as const;
 
 export type ExtractedEntityKindName = (typeof EXTRACTED_ENTITY_KINDS)[number];
 
