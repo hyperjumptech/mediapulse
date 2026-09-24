@@ -57,11 +57,9 @@ vi.mock("@workspace/utils", () => ({
   withRetry: async <T>(fn: () => Promise<T>): Promise<T> => fn(),
   buildVCard: ({ name, email }: { name: string; email: string }) =>
     `BEGIN:VCARD\r\nFN:${name}\r\nEMAIL:${email}\r\nEND:VCARD`,
-  MEDIAPULSE_SENDER_NAME: "CEO (Chief Email Officer) - MediaPulse",
+  MEDIAPULSE_SENDER_NAME: "MediaPulse",
   formatResendSender: (address: string) =>
-    address.includes("<")
-      ? address
-      : `"CEO (Chief Email Officer) - MediaPulse" <${address}>`,
+    address.includes("<") ? address : `"MediaPulse" <${address}>`,
 }));
 
 const AUTH_HEADERS = {

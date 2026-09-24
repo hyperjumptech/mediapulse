@@ -18,8 +18,7 @@ describe("formatResendSender", () => {
   });
 
   it("returns the address unchanged when it already contains a display name", () => {
-    const already =
-      '"CEO (Chief Email Officer) - MediaPulse" <hello@example.com>';
+    const already = '"MediaPulse" <hello@example.com>';
     const result = formatResendSender(already);
 
     expect(result).toBe(already);

@@ -22,11 +22,9 @@ vi.mock("@workspace/utils", () => ({
   withRetry: async (fn: () => unknown) => fn(),
   buildVCard: ({ name, email }: { name: string; email: string }) =>
     `BEGIN:VCARD\r\nFN:${name}\r\nEMAIL:${email}\r\nEND:VCARD`,
-  MEDIAPULSE_SENDER_NAME: "CEO (Chief Email Officer) - MediaPulse",
+  MEDIAPULSE_SENDER_NAME: "MediaPulse",
   formatResendSender: (address: string) =>
-    address.includes("<")
-      ? address
-      : `"CEO (Chief Email Officer) - MediaPulse" <${address}>`,
+    address.includes("<") ? address : `"MediaPulse" <${address}>`,
 }));
 
 vi.mock("@workspace/logger", () => ({
@@ -189,7 +187,7 @@ describe("createRunHandler", () => {
     expect(result.details.results[0].status).toBe("confirmed_archived");
     expect(emailSend).toHaveBeenCalledWith(
       expect.objectContaining({
-        from: '"CEO (Chief Email Officer) - MediaPulse" <from@test.example>',
+        from: '"MediaPulse" <from@test.example>',
         subject: "Subscription Confirmed - MediaPulse",
       }),
     );
@@ -243,7 +241,7 @@ describe("createRunHandler", () => {
       "base64",
     ).toString("utf-8");
     expect(decoded).toContain("from@test.example");
-    expect(decoded).toContain("CEO (Chief Email Officer) - MediaPulse");
+    expect(decoded).toContain("MediaPulse");
   });
 
   it("does not confirm or archive when Resend returns an error envelope for a new subscription", async () => {
@@ -560,7 +558,7 @@ describe("createRunHandler", () => {
     expect(result.details.results[0].status).toBe("invalid_ticker_archived");
     expect(emailSend).toHaveBeenCalledWith(
       expect.objectContaining({
-        from: '"CEO (Chief Email Officer) - MediaPulse" <from@test.example>',
+        from: '"MediaPulse" <from@test.example>',
         subject: "Invalid Ticker Selection - MediaPulse",
       }),
     );
