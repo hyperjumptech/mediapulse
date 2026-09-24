@@ -17,7 +17,7 @@ import { buildVCard } from "@workspace/utils/build-vcard";
 import { SubscribeMailAppModal } from "@/components/subscribe-mail-app-modal";
 import { SendConfirmationEmailModal } from "@/components/send-confirmation-email-modal";
 
-const MEDIAPULSE_SENDER_NAME = "CEO (Chief Email Officer) - MediaPulse";
+const MEDIAPULSE_SENDER_NAME = "MediaPulse";
 
 /**
  * Downloads the MediaPulse vCard contact file in the browser.

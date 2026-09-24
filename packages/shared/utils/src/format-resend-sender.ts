@@ -1,11 +1,11 @@
-export const MEDIAPULSE_SENDER_NAME = "CEO (Chief Email Officer) - MediaPulse";
+export const MEDIAPULSE_SENDER_NAME = "MediaPulse";
 
 /**
  * Formats a Resend `from` value with a display name.
  *
  * Returns `address` unchanged when it already contains `<…>` (operator-supplied display name).
- * Otherwise returns `"name" <address>` — the name is double-quoted because it contains
- * parentheses, which RFC 5322 treats as comment delimiters in an unquoted display-name.
+ * Otherwise returns `"name" <address>`, double-quoted so RFC 5322 special characters
+ * such as parentheses stay part of the display-name.
  *
  * @param address - The sender email address (bare or already formatted).
  * @param name - Display name to prepend. Defaults to {@link MEDIAPULSE_SENDER_NAME}.
