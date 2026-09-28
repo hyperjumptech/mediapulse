@@ -1,9 +1,10 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
-import { useEffect } from "react";
 
 import { Button } from "@workspace/ui/components/button";
+
+import { useReportError } from "@/hooks/use-report-error";
 
 export default function DashboardError({
   error,
@@ -12,9 +13,7 @@ export default function DashboardError({
   error: Error & { digest?: string };
   unstable_retry: () => void;
 }) {
-  useEffect(() => {
-    console.error(error);
-  }, [error]);
+  useReportError(error);
 
   return (
     <div className="flex flex-col items-start gap-4 rounded-lg border border-destructive/30 bg-destructive/5 p-6">
