@@ -5,6 +5,7 @@ import {
 } from "@hermes/domain-contract";
 
 import { DetailBlockEmptyState } from "./detail-block-empty-state";
+import { DetailBlockGraphNodeLink } from "./detail-block-graph-node-link";
 import {
   buildEdgeGeometry,
   GRAPH_NODE_HEIGHT,
@@ -226,14 +227,13 @@ export const DetailBlockGraphView = ({
               }
 
               return (
-                <a
+                <DetailBlockGraphNodeLink
                   key={node.id}
                   href={node.href}
-                  target={node.external ? "_blank" : undefined}
-                  rel={node.external ? "noopener noreferrer" : undefined}
+                  external={node.external}
                 >
                   {body}
-                </a>
+                </DetailBlockGraphNodeLink>
               );
             })}
           </g>

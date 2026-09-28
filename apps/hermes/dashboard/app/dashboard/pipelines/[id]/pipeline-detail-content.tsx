@@ -1,7 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 import type {
   LoadExpansionsPageResult,
@@ -13,7 +19,6 @@ import { Button } from "@workspace/ui/components/button";
 import { formAction as defaultUpdateStepFormAction } from "@/app/dashboard/pipelines/actions/update-step/.generated/form.action";
 import type { AgentConfigSummary } from "@/lib/agent-configs";
 import type { AgentContractSummary } from "@/lib/agent-contracts";
-import type { PipelineExecutionRow } from "@/lib/pipeline-executions";
 import type {
   getAgentRegistryList,
   getPipelineWithSteps,
@@ -23,11 +28,9 @@ import { getPipelineStatus } from "@/lib/pipeline-status";
 import type { PipelineValidationResult } from "@/lib/validate-pipeline";
 
 import { PipelineAvailableAgents } from "./pipeline-available-agents";
-import { PipelineExecutionsTable } from "./pipeline-executions-table";
 import { PipelineStepEditorPanel } from "./pipeline-step-editor-panel";
 import { PipelineStepsColumn } from "./pipeline-steps-column";
 import { RunPipelineButton } from "./run-pipeline-button";
-import { ListPagination } from "@/components/list-pagination";
 import { PipelineFormModal } from "../pipeline-form-modal";
 import type { PipelineDomainIntegrationOption } from "../pipelines-with-modal";
 import { PipelineStatusBadge } from "../pipeline-status-badge";
@@ -46,10 +49,7 @@ export type PipelineDetailContentProps = {
   configsByAgentKey: Record<string, AgentConfigSummary[]>;
   allContracts: AgentContractSummary[];
   pipelineValidation: PipelineValidationResult;
-  executions: PipelineExecutionRow[];
-  totalExecutions: number;
-  currentPage: number;
-  pageSize: number;
+  executionsSection: ReactNode;
   /** Server action: paginated variable keys for the step editor picker. */
   loadVariablePickerPage: (
     args: LoadPageArgs,
@@ -207,10 +207,7 @@ export const PipelineDetailContent = ({
   configsByAgentKey,
   allContracts,
   pipelineValidation,
-  executions,
-  totalExecutions,
-  currentPage,
-  pageSize,
+  executionsSection,
   loadVariablePickerPage,
   loadExpansionPickerPage,
   updateStepFormAction = defaultUpdateStepFormAction,
@@ -374,19 +371,7 @@ export const PipelineDetailContent = ({
       </div>
       <section>
         <h2 className="mb-2 text-lg font-medium text-foreground">Executions</h2>
-        <PipelineExecutionsTable
-          pipelineId={pipeline.id}
-          executions={executions}
-        />
-        <div className="mt-4">
-          <ListPagination
-            basePath={`/dashboard/pipelines/${pipeline.id}`}
-            page={currentPage}
-            pageSize={pageSize}
-            total={totalExecutions}
-            ariaLabel="Pipeline executions pagination"
-          />
-        </div>
+        {executionsSection}
       </section>
     </div>
   );

@@ -21,6 +21,7 @@ import {
 import { formatInvocationOutcomeSummary } from "@/lib/format-invocation-outcome-summary";
 import { getHermesExecutionInvokeTransportBlurb } from "@/lib/hermes-execution-invoke-transport";
 import { maskScheduleExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
+import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 import { getScheduleExecutionDetail } from "@/lib/schedules";
 
 type PageProps = {
@@ -34,7 +35,9 @@ export default async function ScheduleExecutionDetailPage({
   params,
 }: PageProps) {
   const { id: scheduleId, executionId } = await params;
-  const rawDetail = await getScheduleExecutionDetail(scheduleId, executionId);
+  const rawDetail = await withDashboardAdmin(
+    getScheduleExecutionDetail(scheduleId, executionId),
+  );
   if (!rawDetail) {
     notFound();
   }

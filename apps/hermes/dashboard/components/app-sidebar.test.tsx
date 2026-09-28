@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppSidebar } from "./app-sidebar";
 import type { DashboardPage } from "@hermes/domain-contract";
@@ -148,24 +148,34 @@ const domainIntegrations = [
   },
 ];
 
+const renderSidebar = async (sidebar: React.ReactElement) => {
+  await act(async () => {
+    render(sidebar);
+  });
+};
+
 describe("AppSidebar", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     usePathnameMock.mockReset();
   });
 
-  it("renders the Hermes logo text", () => {
+  it("renders the Hermes logo text", async () => {
     usePathnameMock.mockReturnValue("/dashboard");
 
-    render(<AppSidebar domainIntegrations={domainIntegrations} />);
+    await renderSidebar(
+      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
+    );
 
     expect(screen.getByText("Hermes")).toBeInTheDocument();
   });
 
-  it("renders Hermes grouped main nav and integration-grouped domain links", () => {
+  it("renders Hermes grouped main nav and integration-grouped domain links", async () => {
     usePathnameMock.mockReturnValue("/dashboard");
 
-    render(<AppSidebar domainIntegrations={domainIntegrations} />);
+    await renderSidebar(
+      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
+    );
 
     const groupLabels = screen
       .getAllByTestId("sidebar-group-label")
@@ -193,10 +203,12 @@ describe("AppSidebar", () => {
     expect(screen.getByText("Relation Types")).toBeInTheDocument();
   });
 
-  it("marks Dashboard as active when on /dashboard", () => {
+  it("marks Dashboard as active when on /dashboard", async () => {
     usePathnameMock.mockReturnValue("/dashboard");
 
-    render(<AppSidebar domainIntegrations={domainIntegrations} />);
+    await renderSidebar(
+      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
+    );
 
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const dashboardButton = buttons.find((btn) =>
@@ -205,10 +217,12 @@ describe("AppSidebar", () => {
     expect(dashboardButton).toHaveAttribute("data-active", "true");
   });
 
-  it("marks Tickers as active when on keyed tickers path", () => {
+  it("marks Tickers as active when on keyed tickers path", async () => {
     usePathnameMock.mockReturnValue("/dashboard/mediapulse/tickers");
 
-    render(<AppSidebar domainIntegrations={domainIntegrations} />);
+    await renderSidebar(
+      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
+    );
 
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const tickersButton = buttons.find((btn) =>
@@ -217,10 +231,12 @@ describe("AppSidebar", () => {
     expect(tickersButton).toHaveAttribute("data-active", "true");
   });
 
-  it("marks Agents as active when on /dashboard/agents", () => {
+  it("marks Agents as active when on /dashboard/agents", async () => {
     usePathnameMock.mockReturnValue("/dashboard/agents");
 
-    render(<AppSidebar domainIntegrations={domainIntegrations} />);
+    await renderSidebar(
+      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
+    );
 
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const agentsButton = buttons.find((btn) =>
@@ -229,10 +245,12 @@ describe("AppSidebar", () => {
     expect(agentsButton).toHaveAttribute("data-active", "true");
   });
 
-  it("marks Domain integrations as active when on /dashboard/domain-integrations", () => {
+  it("marks Domain integrations as active when on /dashboard/domain-integrations", async () => {
     usePathnameMock.mockReturnValue("/dashboard/domain-integrations");
 
-    render(<AppSidebar domainIntegrations={domainIntegrations} />);
+    await renderSidebar(
+      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
+    );
 
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const domainIntegrationsButton = buttons.find((btn) =>
@@ -241,10 +259,12 @@ describe("AppSidebar", () => {
     expect(domainIntegrationsButton).toHaveAttribute("data-active", "true");
   });
 
-  it("marks Search Queries as active when on keyed search-queries path", () => {
+  it("marks Search Queries as active when on keyed search-queries path", async () => {
     usePathnameMock.mockReturnValue("/dashboard/mediapulse/search-queries");
 
-    render(<AppSidebar domainIntegrations={domainIntegrations} />);
+    await renderSidebar(
+      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
+    );
 
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const searchQueriesButton = buttons.find((btn) =>
@@ -253,10 +273,12 @@ describe("AppSidebar", () => {
     expect(searchQueriesButton).toHaveAttribute("data-active", "true");
   });
 
-  it("marks Schedules as active when on /dashboard/schedules", () => {
+  it("marks Schedules as active when on /dashboard/schedules", async () => {
     usePathnameMock.mockReturnValue("/dashboard/schedules");
 
-    render(<AppSidebar domainIntegrations={domainIntegrations} />);
+    await renderSidebar(
+      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
+    );
 
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const schedulesButton = buttons.find((btn) =>
@@ -265,10 +287,12 @@ describe("AppSidebar", () => {
     expect(schedulesButton).toHaveAttribute("data-active", "true");
   });
 
-  it("marks Entity Types as active when on keyed entity-types path", () => {
+  it("marks Entity Types as active when on keyed entity-types path", async () => {
     usePathnameMock.mockReturnValue("/dashboard/mediapulse/entity-types");
 
-    render(<AppSidebar domainIntegrations={domainIntegrations} />);
+    await renderSidebar(
+      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
+    );
 
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const entityTypesButton = buttons.find((btn) =>
@@ -277,10 +301,12 @@ describe("AppSidebar", () => {
     expect(entityTypesButton).toHaveAttribute("data-active", "true");
   });
 
-  it("marks Relation Types as active when on keyed relation-types path", () => {
+  it("marks Relation Types as active when on keyed relation-types path", async () => {
     usePathnameMock.mockReturnValue("/dashboard/mediapulse/relation-types");
 
-    render(<AppSidebar domainIntegrations={domainIntegrations} />);
+    await renderSidebar(
+      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
+    );
 
     const buttons = screen.getAllByTestId("sidebar-menu-button");
     const relationTypesButton = buttons.find((btn) =>
@@ -289,30 +315,42 @@ describe("AppSidebar", () => {
     expect(relationTypesButton).toHaveAttribute("data-active", "true");
   });
 
-  it("renders NavUser with name and email when user prop provided", () => {
+  it("renders NavUser with name and email when user prop provided", async () => {
     usePathnameMock.mockReturnValue("/dashboard");
     const user = { name: "John Doe", email: "john@example.com" };
 
-    render(<AppSidebar user={user} domainIntegrations={domainIntegrations} />);
+    await renderSidebar(
+      <AppSidebar
+        user={user}
+        domainIntegrations={Promise.resolve(domainIntegrations)}
+      />,
+    );
 
     expect(screen.getByTestId("nav-user")).toBeInTheDocument();
     expect(screen.getByText("John Doe")).toBeInTheDocument();
     expect(screen.getByText("john@example.com")).toBeInTheDocument();
   });
 
-  it("renders logout form (no NavUser) when no user provided", () => {
+  it("renders logout form (no NavUser) when no user provided", async () => {
     usePathnameMock.mockReturnValue("/dashboard");
 
-    render(<AppSidebar domainIntegrations={domainIntegrations} />);
+    await renderSidebar(
+      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
+    );
 
     expect(screen.getByTestId("logout-form")).toBeInTheDocument();
     expect(screen.queryByTestId("nav-user")).not.toBeInTheDocument();
   });
 
-  it("renders logout form (no NavUser) when user is null", () => {
+  it("renders logout form (no NavUser) when user is null", async () => {
     usePathnameMock.mockReturnValue("/dashboard");
 
-    render(<AppSidebar user={null} domainIntegrations={domainIntegrations} />);
+    await renderSidebar(
+      <AppSidebar
+        user={null}
+        domainIntegrations={Promise.resolve(domainIntegrations)}
+      />,
+    );
 
     expect(screen.getByTestId("logout-form")).toBeInTheDocument();
     expect(screen.queryByTestId("nav-user")).not.toBeInTheDocument();

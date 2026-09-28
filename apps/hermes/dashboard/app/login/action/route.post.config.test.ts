@@ -9,6 +9,7 @@ import {
   createSessionCookieOptions,
   handler,
 } from "./route.post.config";
+import { verifyDashboardSession } from "@/lib/dashboard-session-token";
 
 vi.mock("@hermes/orchestration-database/client", () => ({
   prismaClient: {
@@ -212,13 +213,48 @@ describe("createPersistAdminSession", () => {
     expect(setCookie).toHaveBeenCalledWith("auth-token", "session-token", opts);
     expect(setCookie).toHaveBeenCalledWith(
       "auth-user",
-      JSON.stringify({
-        name: "Admin User",
-        email: "admin@example.com",
-        id: "user_1",
-        credentialVersion: 0,
-      }),
+      expect.any(String),
       opts,
+    );
+
+    const signedUserCookie = setCookie.mock.calls.find(
+      ([cookieName]) => cookieName === "auth-user",
+    )?.[1];
+
+    expect(verifyDashboardSession(signedUserCookie)).toMatchObject({
+      name: "Admin User",
+      email: "admin@example.com",
+      id: "user_1",
+      credentialVersion: 0,
+    });
+  });
+
+  it("signs the auth-user cookie with the injected signer", async () => {
+    // Setup
+    const setCookie = vi.fn();
+    const signSession = vi.fn().mockReturnValue("signed-value");
+    const persistSession = createPersistAdminSession({
+      getCookieStore: async () => ({
+        set: setCookie,
+      }),
+      createSessionToken: () => "session-token",
+      signSession,
+    });
+
+    // Act
+    await persistSession(createAuthenticatedAdmin());
+
+    // Assert
+    expect(signSession).toHaveBeenCalledWith({
+      name: "Admin User",
+      email: "admin@example.com",
+      id: "user_1",
+      credentialVersion: 0,
+    });
+    expect(setCookie).toHaveBeenCalledWith(
+      "auth-user",
+      "signed-value",
+      createSessionCookieOptions(),
     );
   });
 });
@@ -362,15 +398,15 @@ describe("handler", () => {
       },
     });
     expect(setCookieMock).toHaveBeenCalledTimes(2);
-    expect(setCookieMock).toHaveBeenCalledWith(
-      "auth-user",
-      JSON.stringify({
-        name: "Admin User",
-        email: "admin@example.com",
-        id: "user_1",
-        credentialVersion: 0,
-      }),
-      expect.any(Object),
-    );
+    const signedUserCookie = setCookieMock.mock.calls.find(
+      ([cookieName]) => cookieName === "auth-user",
+    )?.[1];
+
+    expect(verifyDashboardSession(signedUserCookie)).toMatchObject({
+      name: "Admin User",
+      email: "admin@example.com",
+      id: "user_1",
+      credentialVersion: 0,
+    });
   });
 });

@@ -3,11 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getVariablePipelineUsage } from "./get-usage";
 
-const getSessionMock = vi.fn();
+const getDashboardAdminMock = vi.fn();
 const getUsageMock = vi.fn();
 
-vi.mock("@/lib/auth-dashboard", () => ({
-  getDashboardSession: (...args: unknown[]) => getSessionMock(...args),
+vi.mock("@/lib/require-dashboard-admin", () => ({
+  getDashboardAdmin: () => getDashboardAdminMock(),
 }));
 
 vi.mock("@/lib/pipeline-usage", () => ({
@@ -17,13 +17,13 @@ vi.mock("@/lib/pipeline-usage", () => ({
 describe("getVariablePipelineUsage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    getSessionMock.mockReset();
+    getDashboardAdminMock.mockReset();
     getUsageMock.mockReset();
   });
 
-  it("returns empty usage when user is not authenticated", async () => {
+  it("returns empty usage when the caller is not an active admin", async () => {
     // Setup
-    getSessionMock.mockResolvedValue(null);
+    getDashboardAdminMock.mockResolvedValue(null);
 
     // Act
     const result = await getVariablePipelineUsage("API_KEY");
@@ -33,12 +33,13 @@ describe("getVariablePipelineUsage", () => {
     expect(getUsageMock).not.toHaveBeenCalled();
   });
 
-  it("returns pipeline usage for authenticated users", async () => {
+  it("returns pipeline usage for active admins", async () => {
     // Setup
-    getSessionMock.mockResolvedValue({
+    getDashboardAdminMock.mockResolvedValue({
       id: "user-1",
       name: "A",
       email: "a@example.com",
+      credentialVersion: 0,
     });
     getUsageMock.mockResolvedValue([
       {

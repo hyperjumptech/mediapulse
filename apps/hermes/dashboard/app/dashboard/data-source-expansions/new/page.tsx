@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
-import { withAuthProtection } from "@/components/with-auth-protection";
+import { requireDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 /**
  * Legacy bookmark redirect: `/dashboard/data-source-expansions/new` → keyed full-page create URL.
  */
 const NewDataSourceExpansionPage = async () => {
+  await requireDashboardAdmin();
   const { getDefaultDomainIntegration } =
     await import("@/lib/domain-integrations");
   const integration = await getDefaultDomainIntegration();
@@ -13,4 +14,4 @@ const NewDataSourceExpansionPage = async () => {
   );
 };
 
-export default withAuthProtection(NewDataSourceExpansionPage);
+export default NewDataSourceExpansionPage;

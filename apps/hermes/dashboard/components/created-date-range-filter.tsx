@@ -1,5 +1,6 @@
 "use client";
 
+import Form from "next/form";
 import Link from "next/link";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
@@ -65,9 +66,8 @@ export const CreatedDateRangeFilter = ({
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-      <form
+      <Form
         action={basePath}
-        method="get"
         className="flex flex-wrap items-end gap-3"
         role="search"
         aria-label="Filter by created date"
@@ -104,7 +104,7 @@ export const CreatedDateRangeFilter = ({
             Filter
           </Button>
         ) : null}
-      </form>
+      </Form>
       {showActions && hasActiveFilters ? (
         <div className="flex h-9 shrink-0 items-center">
           <Link

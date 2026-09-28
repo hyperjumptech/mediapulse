@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { Suspense, use } from "react";
 import type { DashboardView } from "@hermes/domain-contract";
 
 import {
@@ -87,19 +88,10 @@ export type DomainIntegrationNav = {
   views: DashboardView[];
 };
 
-/**
- * Renders the dashboard shell: sidebar, header title, and main content.
- */
-export const DashboardShell = ({
-  children,
-  user,
-  domainIntegrations = [],
-}: {
-  children: React.ReactNode;
-  user?: DashboardUser | null;
-  domainIntegrations?: DomainIntegrationNav[];
-}) => {
-  const pathname = usePathname();
+const resolveHeaderLabel = (
+  pathname: string | null,
+  domainIntegrations: DomainIntegrationNav[],
+): string => {
   const segments = pathname?.split("/").filter(Boolean) ?? [];
   const first = segments[1];
   const second = segments[2];
@@ -126,8 +118,6 @@ export const DashboardShell = ({
     first === "agents" && second === "content-generation-runs"
       ? getAgentsContentGenerationRunsSubLabel(agentsThird)
       : null;
-  // Label for the CGA diagnostics list page (targeted check — avoids changing
-  // the general hermesSegmentLabel logic which affects all routes).
   const cgaDiagnosticsLabel =
     first === "agents" && second === "content-generation-runs" && !agentsThird
       ? "CGA diagnostics"
@@ -142,17 +132,52 @@ export const DashboardShell = ({
   const hermesSegmentLabel =
     first && !isDomainKeyedRoute ? SEGMENT_LABELS[first] : undefined;
 
-  const currentLabel = isDomainKeyedRoute
+  return isDomainKeyedRoute
     ? (domainViewLabel ?? second ?? "Dashboard")
     : (pipelinesSubLabel ??
-      contentGenerationRunsSubLabel ??
-      cgaDiagnosticsLabel ??
-      agentsSubLabel ??
-      schedulesSubLabel ??
-      domainIntegrationsSubLabel ??
-      hermesSegmentLabel ??
-      "Dashboard");
+        contentGenerationRunsSubLabel ??
+        cgaDiagnosticsLabel ??
+        agentsSubLabel ??
+        schedulesSubLabel ??
+        domainIntegrationsSubLabel ??
+        hermesSegmentLabel ??
+        "Dashboard");
+};
 
+const HeaderTitle = ({
+  domainIntegrations,
+}: {
+  domainIntegrations: Promise<DomainIntegrationNav[]>;
+}) => {
+  const pathname = usePathname();
+  const resolvedIntegrations = use(domainIntegrations);
+
+  return (
+    <h1 className="text-base font-medium">
+      {resolveHeaderLabel(pathname, resolvedIntegrations)}
+    </h1>
+  );
+};
+
+const HeaderTitleFallback = () => {
+  const pathname = usePathname();
+
+  return (
+    <h1 className="text-base font-medium">
+      {resolveHeaderLabel(pathname, [])}
+    </h1>
+  );
+};
+
+export const DashboardShell = ({
+  children,
+  user,
+  domainIntegrations,
+}: {
+  children: React.ReactNode;
+  user?: DashboardUser | null;
+  domainIntegrations: Promise<DomainIntegrationNav[]>;
+}) => {
   return (
     <SidebarProvider
       style={
@@ -175,7 +200,9 @@ export const DashboardShell = ({
               orientation="vertical"
               className="mx-2 data-[orientation=vertical]:h-4"
             />
-            <h1 className="text-base font-medium">{currentLabel}</h1>
+            <Suspense fallback={<HeaderTitleFallback />}>
+              <HeaderTitle domainIntegrations={domainIntegrations} />
+            </Suspense>
           </div>
         </header>
         <div className="flex flex-1 flex-col">

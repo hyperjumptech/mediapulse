@@ -17,6 +17,16 @@ vi.mock("@/lib/schedules", () => ({
     getScheduleExecutionDetailMock(...args),
 }));
 
+vi.mock("@/lib/require-dashboard-admin", () => ({
+  withDashboardAdmin: <Value,>(load: Promise<Value>) => load,
+  requireDashboardAdmin: async () => ({
+    id: "u1",
+    name: "U",
+    email: "u@example.com",
+    credentialVersion: 0,
+  }),
+}));
+
 vi.mock("@/lib/mask-json-secrets", () => ({
   maskScheduleExecutionDetailForDisplay: (detail: unknown) => detail,
   maskSecretsInJson: (value: unknown) => value,

@@ -1,5 +1,6 @@
 "use server";
 
+import { requireDashboardAdmin } from "@/lib/require-dashboard-admin";
 import { getScheduleById } from "@/lib/schedules";
 
 /**
@@ -31,6 +32,7 @@ export type ScheduleForEdit = {
 export const getScheduleForEdit = async (
   scheduleId: string,
 ): Promise<ScheduleForEdit | null> => {
+  await requireDashboardAdmin();
   const schedule = await getScheduleById(scheduleId);
   if (!schedule) return null;
 

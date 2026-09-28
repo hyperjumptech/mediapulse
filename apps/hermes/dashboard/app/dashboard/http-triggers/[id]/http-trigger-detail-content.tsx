@@ -1,21 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ChevronLeft, Copy, GitBranch } from "lucide-react";
 
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
-import { ListPagination } from "@/components/list-pagination";
 import { buildHttpTriggerInvokeCurlCommand } from "@/lib/http-trigger-invoke-curl";
 import { formatCreatedBy } from "@/lib/format-created-by";
-import type {
-  getHttpTriggerById,
-  HttpTriggerExecutionRow,
-} from "@/lib/http-triggers";
+import type { getHttpTriggerById } from "@/lib/http-triggers";
 import type { PipelineOption } from "../../schedules/schedule-form-fields";
 import { HttpTriggerFormModal } from "../http-trigger-form-modal";
-import { ExecutionsTable } from "./executions-table";
 
 type TriggerWithPipeline = NonNullable<
   Awaited<ReturnType<typeof getHttpTriggerById>>
@@ -35,17 +30,11 @@ const useHttpTriggerDetailState = () => {
  */
 export const HttpTriggerDetailContent = ({
   trigger,
-  executions,
-  totalExecutions,
-  currentPage,
-  pageSize,
+  executionsSection,
   pipelines,
 }: {
   trigger: TriggerWithPipeline;
-  executions: HttpTriggerExecutionRow[];
-  totalExecutions: number;
-  currentPage: number;
-  pageSize: number;
+  executionsSection: ReactNode;
   pipelines: PipelineOption[];
 }) => {
   const { editModalOpen, setEditModalOpen, siteOrigin } =
@@ -135,16 +124,7 @@ export const HttpTriggerDetailContent = ({
           <h2 className="mb-2 text-lg font-medium text-foreground">
             Executions
           </h2>
-          <ExecutionsTable triggerId={trigger.id} executions={executions} />
-          <div className="mt-4">
-            <ListPagination
-              basePath={`/dashboard/http-triggers/${trigger.id}`}
-              page={currentPage}
-              pageSize={pageSize}
-              total={totalExecutions}
-              ariaLabel="HTTP trigger executions pagination"
-            />
-          </div>
+          {executionsSection}
         </section>
       </div>
       <HttpTriggerFormModal

@@ -11,7 +11,12 @@ import {
 } from "@workspace/ui/components/table";
 import { Badge } from "@workspace/ui/components/badge";
 
-import { fetchProcessedUrlsForExecution } from "@/lib/domain-dashboard";
+import {
+  fetchProcessedUrlsForExecution,
+  type FetchProcessedUrlsParams,
+  type ProcessedUrlsListResponse,
+} from "@/lib/domain-dashboard";
+import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 type PageProps = {
   params: Promise<{ id: string; executionId: string }>;
@@ -29,6 +34,24 @@ const STATUS_BADGE: Record<string, "success" | "destructive" | "outline"> = {
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
+
+const loadProcessedUrls = async (
+  query: FetchProcessedUrlsParams,
+): Promise<{
+  data: ProcessedUrlsListResponse | null;
+  fetchError: string | null;
+}> => {
+  try {
+    const data = await fetchProcessedUrlsForExecution(query);
+
+    return { data, fetchError: null };
+  } catch (error) {
+    const fetchError =
+      error instanceof Error ? error.message : "Failed to load processed URLs";
+
+    return { data: null, fetchError };
+  }
+};
 
 /**
  * Processed-URLs sub-page for a schedule execution: shows every URL processed
@@ -50,12 +73,8 @@ export default async function ProcessedUrlsPage({
   const status = first(resolvedSearchParams.status);
   const gateStatus = first(resolvedSearchParams.gateStatus);
 
-  let data: Awaited<ReturnType<typeof fetchProcessedUrlsForExecution>> | null =
-    null;
-  let fetchError: string | null = null;
-
-  try {
-    data = await fetchProcessedUrlsForExecution({
+  const { data, fetchError } = await withDashboardAdmin(
+    loadProcessedUrls({
       scheduleExecutionId: executionId,
       page,
       pageSize: PAGE_SIZE,
@@ -63,11 +82,8 @@ export default async function ProcessedUrlsPage({
       agent,
       status,
       gateStatus,
-    });
-  } catch (error) {
-    fetchError =
-      error instanceof Error ? error.message : "Failed to load processed URLs";
-  }
+    }),
+  );
 
   const backHref = `/dashboard/schedules/${scheduleId}/executions/${executionId}`;
 

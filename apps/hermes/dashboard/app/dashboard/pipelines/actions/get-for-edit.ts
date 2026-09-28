@@ -1,6 +1,7 @@
 "use server";
 
 import { getPipelineWithSteps } from "@/lib/pipelines";
+import { requireDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 /**
  * Serializable pipeline shape for the create/edit form modal.
@@ -26,6 +27,7 @@ export type PipelineForEdit = {
 export const getPipelineForEdit = async (
   pipelineId: string,
 ): Promise<PipelineForEdit | null> => {
+  await requireDashboardAdmin();
   const pipeline = await getPipelineWithSteps(pipelineId);
   if (!pipeline) return null;
   return {

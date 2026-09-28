@@ -21,6 +21,7 @@ import { formatInvocationOutcomeSummary } from "@/lib/format-invocation-outcome-
 import { getHttpTriggerExecutionDetail } from "@/lib/http-triggers";
 import { getHermesExecutionInvokeTransportBlurb } from "@/lib/hermes-execution-invoke-transport";
 import { maskHttpTriggerExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
+import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 /**
  * HTTP trigger execution detail page.
@@ -31,7 +32,9 @@ export default async function HttpTriggerExecutionDetailPage({
   params: Promise<{ id: string; executionId: string }>;
 }) {
   const { id: triggerId, executionId } = await params;
-  const rawDetail = await getHttpTriggerExecutionDetail(triggerId, executionId);
+  const rawDetail = await withDashboardAdmin(
+    getHttpTriggerExecutionDetail(triggerId, executionId),
+  );
   if (!rawDetail) notFound();
 
   const pipelineElapsed = computePipelineWallElapsed(

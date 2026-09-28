@@ -1,56 +1,64 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
-import { withAuthProtection } from "@/components/with-auth-protection";
-import { getPipelinesWithSteps } from "@/lib/pipelines";
+import { SectionSkeleton } from "@/components/page-skeletons";
 import {
   getHttpTriggerById,
   getHttpTriggerExecutionsPage,
 } from "@/lib/http-triggers";
+import {
+  parseListPagination,
+  type ListPageSearchParams,
+} from "@/lib/list-page-params";
+import { getPipelinesWithSteps } from "@/lib/pipelines";
+import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
+
 import { HttpTriggerDetailContent } from "./http-trigger-detail-content";
+import { HttpTriggerExecutionsSection } from "./http-trigger-executions-section";
 
-const DEFAULT_PAGE_SIZE = 15;
+type HttpTriggerDetailSearchParams = Pick<
+  ListPageSearchParams,
+  "page" | "size"
+>;
 
-/**
- * HTTP trigger detail page with execution history.
- */
 const HttpTriggerDetailPage = async ({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
   searchParams:
-    | Promise<{ page?: string; size?: string }>
-    | { page?: string; size?: string };
+    | Promise<HttpTriggerDetailSearchParams>
+    | HttpTriggerDetailSearchParams;
 }) => {
   const { id } = await params;
   const resolved = await Promise.resolve(searchParams);
-  const page = Math.max(1, parseInt(resolved.page ?? "1", 10) || 1);
-  const pageSize = Math.min(
-    100,
-    Math.max(
-      1,
-      parseInt(resolved.size ?? String(DEFAULT_PAGE_SIZE), 10) ||
-        DEFAULT_PAGE_SIZE,
-    ),
+  const { page, pageSize } = parseListPagination(resolved);
+  const executionsPage = getHttpTriggerExecutionsPage(id, page, pageSize);
+  void executionsPage.catch(() => undefined);
+  const [trigger, pipelines] = await withDashboardAdmin(
+    Promise.all([getHttpTriggerById(id), getPipelinesWithSteps()]),
   );
 
-  const [trigger, executionsResult, pipelines] = await Promise.all([
-    getHttpTriggerById(id),
-    getHttpTriggerExecutionsPage(id, page, pageSize),
-    getPipelinesWithSteps(),
-  ]);
-  if (!trigger) notFound();
+  if (!trigger) {
+    notFound();
+  }
 
   return (
     <HttpTriggerDetailContent
       trigger={trigger}
-      executions={executionsResult.executions}
-      totalExecutions={executionsResult.total}
-      currentPage={executionsResult.page}
-      pageSize={executionsResult.pageSize}
+      executionsSection={
+        <Suspense key={`${page}:${pageSize}`} fallback={<SectionSkeleton />}>
+          <HttpTriggerExecutionsSection
+            triggerId={trigger.id}
+            page={page}
+            pageSize={pageSize}
+            executionsPage={executionsPage}
+          />
+        </Suspense>
+      }
       pipelines={pipelines}
     />
   );
 };
 
-export default withAuthProtection(HttpTriggerDetailPage);
+export default HttpTriggerDetailPage;

@@ -1,6 +1,5 @@
 /** @vitest-environment jsdom */
 
-import React from "react";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -19,10 +18,20 @@ vi.mock("@/lib/domain-integrations", () => ({
     getDomainIntegrationByIntegrationIdMock(...args),
 }));
 
-vi.mock("@/components/with-auth-protection", () => ({
-  withAuthProtection: <P extends Record<string, unknown>>(
-    Component: (props: P) => React.ReactNode,
-  ) => Component,
+vi.mock("@/lib/require-dashboard-admin", () => ({
+  withDashboardAdmin: <Value,>(load: Promise<Value>) => load,
+  requireDashboardAdmin: vi.fn().mockResolvedValue({
+    id: "u1",
+    name: "U",
+    email: "u@example.com",
+    credentialVersion: 0,
+  }),
+  getDashboardAdmin: vi.fn().mockResolvedValue({
+    id: "u1",
+    name: "U",
+    email: "u@example.com",
+    credentialVersion: 0,
+  }),
 }));
 
 import ViewDomainTableItemPage from "./page";

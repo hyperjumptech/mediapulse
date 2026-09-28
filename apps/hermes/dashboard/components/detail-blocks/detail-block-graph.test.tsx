@@ -1,7 +1,11 @@
 /** @vitest-environment jsdom */
 import { detailBlockGraphSchema } from "@hermes/domain-contract";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), prefetch: vi.fn() }),
+}));
 
 import { DetailBlockGraphView } from "./detail-block-graph";
 

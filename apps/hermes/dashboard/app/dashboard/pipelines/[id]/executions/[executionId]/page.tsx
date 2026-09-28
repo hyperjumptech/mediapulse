@@ -25,6 +25,7 @@ import {
 } from "@/lib/hermes-execution-invoke-transport";
 import { maskManualPipelineExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
 import { getManualPipelineExecutionDetail } from "@/lib/pipeline-executions";
+import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 /**
  * Manual pipeline execution detail page.
@@ -35,9 +36,8 @@ export default async function PipelineExecutionDetailPage({
   params: Promise<{ id: string; executionId: string }>;
 }) {
   const { id: pipelineId, executionId } = await params;
-  const rawDetail = await getManualPipelineExecutionDetail(
-    pipelineId,
-    executionId,
+  const rawDetail = await withDashboardAdmin(
+    getManualPipelineExecutionDetail(pipelineId, executionId),
   );
   if (!rawDetail) notFound();
 

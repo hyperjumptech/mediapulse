@@ -3,6 +3,18 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AgentsSearch } from "./agents-search";
 
+vi.mock("next/form", () => ({
+  default: ({
+    children,
+    action,
+    ...props
+  }: React.ComponentProps<"form"> & { action: string }) => (
+    <form data-action={action} {...props}>
+      {children}
+    </form>
+  ),
+}));
+
 vi.mock("next/link", () => ({
   default: ({
     children,
@@ -172,7 +184,7 @@ describe("AgentsSearch", () => {
     expect(form.querySelector('input[name="dir"]')).toHaveValue("asc");
   });
 
-  it("sets form action to agents path", () => {
+  it("submits through next/form to the agents path without a method override", () => {
     // Act
     render(
       <AgentsSearch
@@ -185,7 +197,7 @@ describe("AgentsSearch", () => {
 
     // Assert
     const form = screen.getByRole("search");
-    expect(form).toHaveAttribute("action", "/dashboard/agents");
-    expect(form).toHaveAttribute("method", "get");
+    expect(form).toHaveAttribute("data-action", "/dashboard/agents");
+    expect(form).not.toHaveAttribute("method");
   });
 });

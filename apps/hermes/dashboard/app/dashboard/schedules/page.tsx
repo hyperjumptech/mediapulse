@@ -1,17 +1,16 @@
+import { Suspense } from "react";
+
 import { PageHeader } from "@/components/page-header";
-import { withAuthProtection } from "@/components/with-auth-protection";
-import { getPipelinesWithSteps } from "@/lib/pipelines";
+import { ListBodySkeleton } from "@/components/page-skeletons";
 import {
-  getSchedulesPage,
-  type ScheduleSortDir,
-  type ScheduleSortField,
-} from "@/lib/schedules";
-import { getPipelinesValidationMap } from "@/lib/validate-pipeline";
-import { prisma } from "@hermes/orchestration-database";
+  parseListPagination,
+  parseListSearch,
+  parseListSort,
+  type ListPageSearchParams,
+} from "@/lib/list-page-params";
+import type { ScheduleSortField } from "@/lib/schedules";
 
-import { SchedulesWithModal } from "./schedules-with-modal";
-
-const DEFAULT_PAGE_SIZE = 15;
+import { SchedulesSection, type SchedulesQuery } from "./schedules-section";
 
 const SORT_FIELDS: ScheduleSortField[] = [
   "name",
@@ -19,66 +18,18 @@ const SORT_FIELDS: ScheduleSortField[] = [
   "created",
   "enabled",
 ];
-const SORT_DIRS: ScheduleSortDir[] = ["asc", "desc"];
 
-const parseSort = (
-  sort?: string,
-  dir?: string,
-): { sortBy: ScheduleSortField; sortDir: ScheduleSortDir } => {
-  const sortBy = SORT_FIELDS.includes(sort as ScheduleSortField)
-    ? (sort as ScheduleSortField)
-    : "name";
-  const sortDir = SORT_DIRS.includes(dir as ScheduleSortDir)
-    ? (dir as ScheduleSortDir)
-    : "asc";
-  return { sortBy, sortDir };
-};
-
-/**
- * Schedules list page. Fetches paginated schedules and renders table with edit/delete row actions.
- * Supports search by name or description and sort by name, nextRunAt, created, or enabled.
- */
 const SchedulesPage = async ({
   searchParams,
 }: {
-  searchParams:
-    | Promise<{
-        page?: string;
-        size?: string;
-        q?: string;
-        sort?: string;
-        dir?: string;
-      }>
-    | { page?: string; size?: string; q?: string; sort?: string; dir?: string };
+  searchParams: Promise<ListPageSearchParams> | ListPageSearchParams;
 }) => {
   const resolved = await Promise.resolve(searchParams);
-  const page = Math.max(1, parseInt(resolved.page ?? "1", 10) || 1);
-  const pageSize = Math.min(
-    100,
-    Math.max(
-      1,
-      parseInt(resolved.size ?? String(DEFAULT_PAGE_SIZE), 10) ||
-        DEFAULT_PAGE_SIZE,
-    ),
-  );
-  const search = resolved.q?.trim() ?? undefined;
-  const { sortBy, sortDir } = parseSort(resolved.sort, resolved.dir);
-
-  const [schedulesResult, pipelines] = await Promise.all([
-    getSchedulesPage(page, pageSize, { search, sortBy, sortDir }),
-    getPipelinesWithSteps(),
-  ]);
-  const pipelineValidationById = await getPipelinesValidationMap(
-    pipelines,
-    prisma,
-  );
-
-  const {
-    schedules,
-    total,
-    page: currentPage,
-    pageSize: size,
-  } = schedulesResult;
+  const query: SchedulesQuery = {
+    ...parseListPagination(resolved),
+    ...parseListSort(resolved, SORT_FIELDS, "name"),
+    search: parseListSearch(resolved),
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -86,19 +37,11 @@ const SchedulesPage = async ({
         title="Schedules"
         description="Schedule pipelines to run on a cron or interval."
       />
-      <SchedulesWithModal
-        schedules={schedules}
-        pipelines={pipelines}
-        pipelineValidationById={pipelineValidationById}
-        currentPage={currentPage}
-        pageSize={size}
-        total={total}
-        searchQuery={search}
-        sortBy={sortBy}
-        sortDir={sortDir}
-      />
+      <Suspense key={JSON.stringify(query)} fallback={<ListBodySkeleton />}>
+        <SchedulesSection {...query} />
+      </Suspense>
     </div>
   );
 };
 
-export default withAuthProtection(SchedulesPage);
+export default SchedulesPage;

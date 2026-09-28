@@ -15,6 +15,12 @@ import {
   resolveDashboardPrincipal,
   resolveHermesActiveAdminDashboardAccess,
 } from "./auth-dashboard";
+import { signDashboardSession } from "./dashboard-session-token";
+
+const signTestCookie = (payload: Record<string, unknown>) =>
+  signDashboardSession(
+    payload as unknown as Parameters<typeof signDashboardSession>[0],
+  );
 
 vi.mock("@/lib/mcp-api-keys", () => ({
   validateApiKey: vi.fn(),
@@ -41,13 +47,21 @@ describe("parseDashboardUserFromAuthCookie", () => {
   });
 
   it("returns null when id name email are not strings", () => {
-    expect(parseDashboardUserFromAuthCookie("{}")).toBeNull();
+    expect(parseDashboardUserFromAuthCookie(signTestCookie({}))).toBeNull();
+  });
+
+  it("returns null for a legacy unsigned JSON cookie", () => {
+    expect(
+      parseDashboardUserFromAuthCookie(
+        '{"id":"u1","name":"A","email":"a@b.com","credentialVersion":0}',
+      ),
+    ).toBeNull();
   });
 
   it("defaults credentialVersion to 0 when omitted", () => {
     expect(
       parseDashboardUserFromAuthCookie(
-        '{"id":"u1","name":"A","email":"a@b.com"}',
+        signTestCookie({ id: "u1", name: "A", email: "a@b.com" }),
       ),
     ).toEqual({
       id: "u1",
@@ -60,7 +74,12 @@ describe("parseDashboardUserFromAuthCookie", () => {
   it("reads integer credentialVersion when present", () => {
     expect(
       parseDashboardUserFromAuthCookie(
-        '{"id":"u1","name":"A","email":"a@b.com","credentialVersion":3}',
+        signTestCookie({
+          id: "u1",
+          name: "A",
+          email: "a@b.com",
+          credentialVersion: 3,
+        }),
       ),
     ).toEqual({
       id: "u1",
@@ -73,7 +92,12 @@ describe("parseDashboardUserFromAuthCookie", () => {
   it("ignores non-integer credentialVersion", () => {
     expect(
       parseDashboardUserFromAuthCookie(
-        '{"id":"u1","name":"A","email":"a@b.com","credentialVersion":1.5}',
+        signTestCookie({
+          id: "u1",
+          name: "A",
+          email: "a@b.com",
+          credentialVersion: 1.5,
+        }),
       ),
     ).toEqual({
       id: "u1",
@@ -93,7 +117,7 @@ describe("getDashboardSession", () => {
     const getCookieStore = vi.fn().mockResolvedValue({
       get: (name: string) =>
         name === "auth-user"
-          ? { value: '{"name":"A","email":"a@b.com"}' }
+          ? { value: signTestCookie({ name: "A", email: "a@b.com" }) }
           : undefined,
     });
 
@@ -134,7 +158,7 @@ describe("getDashboardSession", () => {
         name === "auth-token"
           ? { value: "t" }
           : name === "auth-user"
-            ? { value: '{"email":"a@b.com"}' }
+            ? { value: signTestCookie({ email: "a@b.com" }) }
             : undefined,
     });
 
@@ -150,8 +174,11 @@ describe("getDashboardSession", () => {
           ? { value: "token" }
           : name === "auth-user"
             ? {
-                value:
-                  '{"id":"user-1","name":"Admin","email":"admin@example.com"}',
+                value: signTestCookie({
+                  id: "user-1",
+                  name: "Admin",
+                  email: "admin@example.com",
+                }),
               }
             : undefined,
     });
@@ -173,7 +200,11 @@ describe("getDashboardSession", () => {
     const cookieHeader =
       "auth-token=session-123; auth-user=" +
       encodeURIComponent(
-        '{"id":"user-1","name":"Admin","email":"admin@example.com"}',
+        signTestCookie({
+          id: "user-1",
+          name: "Admin",
+          email: "admin@example.com",
+        }),
       );
     const getHeaders = vi
       .fn()
@@ -216,7 +247,7 @@ describe("requireDashboardSessionForRoute", () => {
           ? { value: "t" }
           : name === "auth-user"
             ? {
-                value: JSON.stringify({
+                value: signTestCookie({
                   id: "u1",
                   name: "A",
                   email: "a@b.com",
@@ -248,7 +279,7 @@ describe("requireDashboardSessionForRoute", () => {
         name === "auth-token"
           ? { value: "t" }
           : name === "auth-user"
-            ? { value: JSON.stringify(sessionPayload) }
+            ? { value: signTestCookie(sessionPayload) }
             : undefined,
     } as never);
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
@@ -410,7 +441,7 @@ describe("resolveHermesActiveAdminDashboardAccess", () => {
 
 describe("getDashboardSessionFromRequest", () => {
   it("parses auth cookies from request", () => {
-    const user = JSON.stringify({
+    const user = signTestCookie({
       id: "u1",
       name: "A",
       email: "a@b.com",
@@ -475,7 +506,7 @@ describe("resolveDashboardPrincipal", () => {
   it("returns session principal from cookies", async () => {
     const { validateApiKey } = await import("@/lib/mcp-api-keys");
     vi.mocked(validateApiKey).mockResolvedValue(null);
-    const user = JSON.stringify({
+    const user = signTestCookie({
       id: "u1",
       name: "A",
       email: "a@b.com",

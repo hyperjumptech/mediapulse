@@ -1,3 +1,4 @@
+import Form from "next/form";
 import Link from "next/link";
 import { Search } from "lucide-react";
 
@@ -48,9 +49,8 @@ export const DomainTableSearch = ({
 
   return (
     <>
-      <form
+      <Form
         action={basePath}
-        method="get"
         className="flex w-56 items-center"
         role="search"
         aria-label={ariaLabel}
@@ -79,7 +79,7 @@ export const DomainTableSearch = ({
             autoComplete="off"
           />
         </div>
-      </form>
+      </Form>
       {hasActiveSearch ? (
         <Link
           href={clearHref}

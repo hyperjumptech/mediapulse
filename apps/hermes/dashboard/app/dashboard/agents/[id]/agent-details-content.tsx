@@ -37,6 +37,7 @@ type AgentDetailsContentProps = {
   agent: AgentDetail;
   /** Domain manifest agent-tab views fetched from the integration API. */
   agentTabContents?: AgentTabContent[];
+  agentTabContentsError?: string;
 };
 
 /**
@@ -45,6 +46,7 @@ type AgentDetailsContentProps = {
 export const AgentDetailsContent = ({
   agent,
   agentTabContents = [],
+  agentTabContentsError,
 }: AgentDetailsContentProps) => {
   const domainTabs = agentTabContents.filter(
     (
@@ -71,6 +73,11 @@ export const AgentDetailsContent = ({
       <h1 className="text-xl font-semibold text-foreground">
         Agent details: {agent.agentId}@{agent.agentVersion}
       </h1>
+      {agentTabContentsError ? (
+        <p className="text-sm text-destructive" role="alert">
+          {agentTabContentsError}
+        </p>
+      ) : null}
       <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className={`grid w-full ${tabColsClass}`}>
           {domainTabs.map(({ view }) => (

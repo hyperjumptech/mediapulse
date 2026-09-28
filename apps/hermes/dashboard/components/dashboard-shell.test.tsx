@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DashboardPage } from "@hermes/domain-contract";
 
@@ -42,6 +42,8 @@ const mediapulsePagesWithSearchQueries: DashboardPage[] = [
 ];
 
 const usePathnameMock = vi.fn();
+
+const noIntegrations = Promise.resolve([]);
 
 vi.mock("next/navigation", () => ({
   usePathname: () => usePathnameMock(),
@@ -102,7 +104,7 @@ describe("DashboardShell", () => {
 
     // Act
     render(
-      <DashboardShell>
+      <DashboardShell domainIntegrations={noIntegrations}>
         <div data-testid="content">Dashboard Content</div>
       </DashboardShell>,
     );
@@ -118,7 +120,7 @@ describe("DashboardShell", () => {
 
     // Act
     render(
-      <DashboardShell>
+      <DashboardShell domainIntegrations={noIntegrations}>
         <div>Content</div>
       </DashboardShell>,
     );
@@ -133,7 +135,7 @@ describe("DashboardShell", () => {
 
     // Act
     render(
-      <DashboardShell>
+      <DashboardShell domainIntegrations={noIntegrations}>
         <div>Content</div>
       </DashboardShell>,
     );
@@ -149,7 +151,7 @@ describe("DashboardShell", () => {
 
     // Act
     render(
-      <DashboardShell user={user}>
+      <DashboardShell user={user} domainIntegrations={noIntegrations}>
         <div>Content</div>
       </DashboardShell>,
     );
@@ -167,7 +169,7 @@ describe("DashboardShell", () => {
 
     // Act
     render(
-      <DashboardShell>
+      <DashboardShell domainIntegrations={noIntegrations}>
         <div>Content</div>
       </DashboardShell>,
     );
@@ -184,7 +186,7 @@ describe("DashboardShell", () => {
 
     // Act
     render(
-      <DashboardShell>
+      <DashboardShell domainIntegrations={noIntegrations}>
         <div>Content</div>
       </DashboardShell>,
     );
@@ -195,47 +197,51 @@ describe("DashboardShell", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows Tickers title on keyed /dashboard/mediapulse/tickers", () => {
+  it("shows Tickers title on keyed /dashboard/mediapulse/tickers", async () => {
     usePathnameMock.mockReturnValue("/dashboard/mediapulse/tickers");
 
-    render(
-      <DashboardShell
-        domainIntegrations={[
-          {
-            integrationId: "mediapulse",
-            name: "Mediapulse",
-            views: mediapulsePages,
-          },
-        ]}
-      >
-        <div>Content</div>
-      </DashboardShell>,
-    );
+    await act(async () => {
+      render(
+        <DashboardShell
+          domainIntegrations={Promise.resolve([
+            {
+              integrationId: "mediapulse",
+              name: "Mediapulse",
+              views: mediapulsePages,
+            },
+          ])}
+        >
+          <div>Content</div>
+        </DashboardShell>,
+      );
+    });
 
     expect(
-      screen.getByRole("heading", { name: "Tickers" }),
+      await screen.findByRole("heading", { name: "Tickers" }),
     ).toBeInTheDocument();
   });
 
-  it("shows Search Queries title on keyed /dashboard/mediapulse/search-queries", () => {
+  it("shows Search Queries title on keyed /dashboard/mediapulse/search-queries", async () => {
     usePathnameMock.mockReturnValue("/dashboard/mediapulse/search-queries");
 
-    render(
-      <DashboardShell
-        domainIntegrations={[
-          {
-            integrationId: "mediapulse",
-            name: "Mediapulse",
-            views: mediapulsePagesWithSearchQueries,
-          },
-        ]}
-      >
-        <div>Content</div>
-      </DashboardShell>,
-    );
+    await act(async () => {
+      render(
+        <DashboardShell
+          domainIntegrations={Promise.resolve([
+            {
+              integrationId: "mediapulse",
+              name: "Mediapulse",
+              views: mediapulsePagesWithSearchQueries,
+            },
+          ])}
+        >
+          <div>Content</div>
+        </DashboardShell>,
+      );
+    });
 
     expect(
-      screen.getByRole("heading", { name: "Search Queries" }),
+      await screen.findByRole("heading", { name: "Search Queries" }),
     ).toBeInTheDocument();
   });
 
@@ -245,7 +251,7 @@ describe("DashboardShell", () => {
 
     // Act
     render(
-      <DashboardShell>
+      <DashboardShell domainIntegrations={noIntegrations}>
         <div>Content</div>
       </DashboardShell>,
     );
@@ -260,7 +266,7 @@ describe("DashboardShell", () => {
 
     // Act
     render(
-      <DashboardShell>
+      <DashboardShell domainIntegrations={noIntegrations}>
         <div>Content</div>
       </DashboardShell>,
     );
@@ -277,7 +283,7 @@ describe("DashboardShell", () => {
 
     // Act
     render(
-      <DashboardShell>
+      <DashboardShell domainIntegrations={noIntegrations}>
         <div>Content</div>
       </DashboardShell>,
     );
@@ -296,7 +302,7 @@ describe("DashboardShell", () => {
 
     // Act
     render(
-      <DashboardShell>
+      <DashboardShell domainIntegrations={noIntegrations}>
         <div>Content</div>
       </DashboardShell>,
     );
@@ -313,7 +319,7 @@ describe("DashboardShell", () => {
 
     // Act
     render(
-      <DashboardShell>
+      <DashboardShell domainIntegrations={noIntegrations}>
         <div>Content</div>
       </DashboardShell>,
     );
@@ -330,7 +336,7 @@ describe("DashboardShell", () => {
 
     // Act
     render(
-      <DashboardShell>
+      <DashboardShell domainIntegrations={noIntegrations}>
         <div>Content</div>
       </DashboardShell>,
     );
@@ -349,7 +355,7 @@ describe("DashboardShell", () => {
 
     // Act
     render(
-      <DashboardShell>
+      <DashboardShell domainIntegrations={noIntegrations}>
         <div>Content</div>
       </DashboardShell>,
     );
@@ -366,7 +372,7 @@ describe("DashboardShell", () => {
 
     // Act
     render(
-      <DashboardShell user={null}>
+      <DashboardShell user={null} domainIntegrations={noIntegrations}>
         <div>Content</div>
       </DashboardShell>,
     );

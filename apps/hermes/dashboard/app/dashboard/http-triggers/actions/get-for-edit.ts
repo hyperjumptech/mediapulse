@@ -1,6 +1,7 @@
 "use server";
 
 import { getHttpTriggerById } from "@/lib/http-triggers";
+import { requireDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 export type HttpTriggerForEdit = {
   id: string;
@@ -18,6 +19,7 @@ export type HttpTriggerForEdit = {
 export const getHttpTriggerForEdit = async (
   httpTriggerId: string,
 ): Promise<HttpTriggerForEdit | null> => {
+  await requireDashboardAdmin();
   const row = await getHttpTriggerById(httpTriggerId);
   if (!row) return null;
   return {

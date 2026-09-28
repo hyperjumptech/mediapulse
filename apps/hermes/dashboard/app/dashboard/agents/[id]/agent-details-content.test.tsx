@@ -231,6 +231,36 @@ describe("AgentDetailsContent", () => {
     expect(screen.getByText("No")).toBeInTheDocument();
   });
 
+  it("renders the tab contents error below the heading", () => {
+    // Setup
+    const agent = createMockAgent();
+
+    // Act
+    render(
+      <AgentDetailsContent
+        agent={agent}
+        agentTabContentsError="Could not load integration tabs for this agent."
+      />,
+    );
+
+    // Assert
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Could not load integration tabs for this agent.",
+    );
+    expect(screen.getByTestId("tab-trigger-schema")).toBeInTheDocument();
+  });
+
+  it("renders no error alert when the tab contents loaded", () => {
+    // Setup
+    const agent = createMockAgent();
+
+    // Act
+    render(<AgentDetailsContent agent={agent} agentTabContents={[]} />);
+
+    // Assert
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("domain tab is hidden when agentTabContents is empty", () => {
     const agent = createMockAgent();
 

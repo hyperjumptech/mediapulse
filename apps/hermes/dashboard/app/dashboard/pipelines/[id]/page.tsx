@@ -1,10 +1,16 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
-import { withAuthProtection } from "@/components/with-auth-protection";
+import { SectionSkeleton } from "@/components/page-skeletons";
 import { getAgentConfigsByAgentKeys } from "@/lib/agent-configs";
 import { getAllAgentContracts } from "@/lib/agent-contracts";
-import { getPipelineExecutionsPage } from "@/lib/pipeline-executions";
+import {
+  parseListPagination,
+  type ListPageSearchParams,
+} from "@/lib/list-page-params";
 import { getAgentRegistryList, getPipelineWithSteps } from "@/lib/pipelines";
+import { getPipelineExecutionsPage } from "@/lib/pipeline-executions";
+import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 import {
   loadExpansionPickerPage,
   loadVariablePickerPage,
@@ -13,60 +19,48 @@ import { validatePipeline } from "@/lib/validate-pipeline";
 import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
 
 import { PipelineDetailContent } from "./pipeline-detail-content";
+import { PipelineExecutionsSection } from "./pipeline-executions-section";
 
-const DEFAULT_PAGE_SIZE = 15;
+type PipelineDetailSearchParams = Pick<ListPageSearchParams, "page" | "size">;
 
-/**
- * Pipeline detail page. Loads pipeline with steps, agent registry, validation, and agent configs for step assignment and step input/config editing.
- */
 const PipelineDetailPage = async ({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
   searchParams:
-    | Promise<{ page?: string; size?: string }>
-    | { page?: string; size?: string };
+    | Promise<PipelineDetailSearchParams>
+    | PipelineDetailSearchParams;
 }) => {
   const { id } = await params;
   const resolved = await Promise.resolve(searchParams);
-  const page = Math.max(1, parseInt(resolved.page ?? "1", 10) || 1);
-  const pageSize = Math.min(
-    100,
-    Math.max(
-      1,
-      parseInt(resolved.size ?? String(DEFAULT_PAGE_SIZE), 10) ||
-        DEFAULT_PAGE_SIZE,
-    ),
+  const { page, pageSize } = parseListPagination(resolved);
+  const executionsPage = getPipelineExecutionsPage(id, page, pageSize);
+  void executionsPage.catch(() => undefined);
+  const [pipeline, allContracts, domainIntegrations] = await withDashboardAdmin(
+    Promise.all([
+      getPipelineWithSteps(id),
+      getAllAgentContracts(),
+      orchestrationPrisma.domainIntegration.findMany({
+        orderBy: [{ isDefault: "desc" }, { integrationId: "asc" }],
+        select: { id: true, integrationId: true, name: true },
+      }),
+    ]),
   );
-  const loaded = await getPipelineWithSteps(id);
 
-  if (!loaded) {
+  if (!pipeline) {
     notFound();
   }
 
-  const pipeline = loaded;
-
-  const [agents, domainIntegrations] = await Promise.all([
+  const [agents, validation] = await Promise.all([
     getAgentRegistryList(orchestrationPrisma, pipeline.domainIntegrationId),
-    orchestrationPrisma.domainIntegration.findMany({
-      orderBy: [{ isDefault: "desc" }, { integrationId: "asc" }],
-      select: { id: true, integrationId: true, name: true },
-    }),
+    validatePipeline(pipeline, orchestrationPrisma),
   ]);
-
-  const [configsByAgentKey, allContracts, validation, executions] =
-    await Promise.all([
-      getAgentConfigsByAgentKeys(
-        agents.map((a) => ({
-          agentId: a.agentId,
-          agentVersion: a.agentVersion,
-        })),
-      ),
-      getAllAgentContracts(),
-      validatePipeline(pipeline, orchestrationPrisma),
-      getPipelineExecutionsPage(id, page, pageSize),
-    ]);
+  const agentKeys = agents.map((agent) => ({
+    agentId: agent.agentId,
+    agentVersion: agent.agentVersion,
+  }));
+  const configsByAgentKey = await getAgentConfigsByAgentKeys(agentKeys);
 
   return (
     <PipelineDetailContent
@@ -76,14 +70,20 @@ const PipelineDetailPage = async ({
       configsByAgentKey={configsByAgentKey}
       allContracts={allContracts}
       pipelineValidation={validation}
-      executions={executions.executions}
-      totalExecutions={executions.total}
-      currentPage={executions.page}
-      pageSize={executions.pageSize}
+      executionsSection={
+        <Suspense key={`${page}:${pageSize}`} fallback={<SectionSkeleton />}>
+          <PipelineExecutionsSection
+            pipelineId={pipeline.id}
+            page={page}
+            pageSize={pageSize}
+            executionsPage={executionsPage}
+          />
+        </Suspense>
+      }
       loadVariablePickerPage={loadVariablePickerPage}
       loadExpansionPickerPage={loadExpansionPickerPage}
     />
   );
 };
 
-export default withAuthProtection(PipelineDetailPage);
+export default PipelineDetailPage;

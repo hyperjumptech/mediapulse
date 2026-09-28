@@ -2,7 +2,7 @@
 
 import type { ActivityRow } from "@/components/use-agent-activity-modal";
 import { getAgentActivities } from "@/lib/agent-activity";
-import { getDashboardSession } from "@/lib/auth-dashboard";
+import { getDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 /**
  * Loads agent activity rows for a job when the dashboard session is valid.
@@ -13,8 +13,8 @@ import { getDashboardSession } from "@/lib/auth-dashboard";
 export const fetchAgentActivitiesAction = async (
   jobId: string,
 ): Promise<ActivityRow[]> => {
-  const session = await getDashboardSession();
-  if (!session) {
+  const admin = await getDashboardAdmin();
+  if (!admin) {
     return [];
   }
 
