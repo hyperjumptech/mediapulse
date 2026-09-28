@@ -52,7 +52,7 @@ Replies are stored in the `newsletter_feedback` table (`NewsletterFeedback` mode
 
 - **Image:** built from `apps/mediapulse/agents/newsletter-feedback/Dockerfile` (Node builder → Bun runtime), listening on **port 4012**.
 - **CI build:** `agent-newsletter-feedback` is part of the change-detection matrix in `.github/workflows/docker-build.yml` and `.github/scripts/detect-changed-services.sh`; pushing changes under `apps/mediapulse/agents/newsletter-feedback/**` (or any shared package) triggers a build.
-- **CI deploy:** `.github/workflows/app-deploy.yml` builds and pushes `ghcr.io/<owner>/agent-newsletter-feedback` and triggers the Coolify webhook secret `COOLIFY_WEBHOOK_AGENT_NEWSLETTER_FEEDBACK`. Add that secret in the repo and point it at the deployed service.
+- **CI deploy:** `.github/workflows/production-deploy.yml` builds and pushes `ghcr.io/<owner>/agent-newsletter-feedback` and calls its deploy webhook (the `DEPLOY_WEBHOOK_AGENT_NEWSLETTER_FEEDBACK` entry in the `deploy` job's `env`). Add that webhook secret in the repo and point it at the deployed service.
 - **Local (compose):** the `agent-newsletter-feedback` service in `docker-compose-all.yml` runs the agent on `4012`, depending on `agent-auth-api` and `agent-data-api`.
 - **Env:** wired via `@mediapulse/env/agents-newsletter-feedback` from `packages/mediapulse/env/env.agents.newsletter-feedback.example` (`PORT`, `AGENT_AUTH_API_URL`, `AGENT_DATA_API_URL`, registry/auto-register vars). Outlook and model credentials come from Hermes **config**, not env.
 

@@ -14,7 +14,7 @@
  * @property {string} service
  * @property {string} dockerfile
  * @property {string} image
- * @property {string} webhook_secret
+ * @property {string} webhook_env
  */
 
 /** All deployable Docker services (apps + agents). */
@@ -69,103 +69,103 @@ export const SERVICE_DEPLOY_CONFIG = {
     service: "agent-auth-api",
     dockerfile: "apps/hermes/agent-auth-api/Dockerfile",
     image: "app-agent-auth-api",
-    webhook_secret: "COOLIFY_WEBHOOK_APP_AGENT_AUTH_API",
+    webhook_env: "DEPLOY_WEBHOOK_APP_AGENT_AUTH_API",
   },
   "agent-data-api": {
     service: "agent-data-api",
     dockerfile: "apps/mediapulse/agent-data-api/Dockerfile",
     image: "app-agent-data-api",
-    webhook_secret: "COOLIFY_WEBHOOK_APP_AGENT_DATA_API",
+    webhook_env: "DEPLOY_WEBHOOK_APP_AGENT_DATA_API",
   },
   "domain-api": {
     service: "domain-api",
     dockerfile: "apps/mediapulse/domain-api/Dockerfile",
     image: "app-domain-api",
-    webhook_secret: "COOLIFY_WEBHOOK_APP_DOMAIN_API",
+    webhook_env: "DEPLOY_WEBHOOK_APP_DOMAIN_API",
   },
   "agent-registry-api": {
     service: "agent-registry-api",
     dockerfile: "apps/hermes/agent-registry-api/Dockerfile",
     image: "app-agent-registry-api",
-    webhook_secret: "COOLIFY_WEBHOOK_APP_AGENT_REGISTRY_API",
+    webhook_env: "DEPLOY_WEBHOOK_APP_AGENT_REGISTRY_API",
   },
   "user-registration": {
     service: "user-registration",
     dockerfile: "apps/mediapulse/user-registration/Dockerfile",
     image: "app-user-registration",
-    webhook_secret: "COOLIFY_WEBHOOK_APP_USER_REGISTRATION",
+    webhook_env: "DEPLOY_WEBHOOK_APP_USER_REGISTRATION",
   },
   hermes: {
     service: "hermes",
     dockerfile: "apps/hermes/dashboard/Dockerfile",
     image: "app-hermes",
-    webhook_secret: "COOLIFY_WEBHOOK_APP_HERMES",
+    webhook_env: "DEPLOY_WEBHOOK_APP_HERMES",
   },
   "hermes-worker": {
     service: "hermes-worker",
     dockerfile: "apps/hermes/worker/Dockerfile",
     image: "app-hermes-worker",
-    webhook_secret: "COOLIFY_WEBHOOK_APP_HERMES_WORKER",
+    webhook_env: "DEPLOY_WEBHOOK_APP_HERMES_WORKER",
   },
   "data-collection": {
     service: "data-collection",
     dockerfile: "apps/mediapulse/agents/data-collection/Dockerfile",
     image: "agent-data-collection",
-    webhook_secret: "COOLIFY_WEBHOOK_AGENT_DATA_COLLECTION",
+    webhook_env: "DEPLOY_WEBHOOK_AGENT_DATA_COLLECTION",
   },
   "content-generation": {
     service: "content-generation",
     dockerfile: "apps/mediapulse/agents/content-generation/Dockerfile",
     image: "agent-content-generation",
-    webhook_secret: "COOLIFY_WEBHOOK_AGENT_CONTENT_GENERATION",
+    webhook_env: "DEPLOY_WEBHOOK_AGENT_CONTENT_GENERATION",
   },
   "article-analysis": {
     service: "article-analysis",
     dockerfile: "apps/mediapulse/agents/article-analysis/Dockerfile",
     image: "agent-article-analysis",
-    webhook_secret: "COOLIFY_WEBHOOK_AGENT_ARTICLE_ANALYSIS",
+    webhook_env: "DEPLOY_WEBHOOK_AGENT_ARTICLE_ANALYSIS",
   },
   "query-analysis": {
     service: "query-analysis",
     dockerfile: "apps/mediapulse/agents/query-analysis/Dockerfile",
     image: "agent-query-analysis",
-    webhook_secret: "COOLIFY_WEBHOOK_AGENT_QUERY_ANALYSIS",
+    webhook_env: "DEPLOY_WEBHOOK_AGENT_QUERY_ANALYSIS",
   },
   delivery: {
     service: "delivery",
     dockerfile: "apps/mediapulse/agents/delivery/Dockerfile",
     image: "agent-delivery",
-    webhook_secret: "COOLIFY_WEBHOOK_AGENT_DELIVERY",
+    webhook_env: "DEPLOY_WEBHOOK_AGENT_DELIVERY",
   },
   "ticker-echo": {
     service: "ticker-echo",
     dockerfile: "apps/mediapulse/agents/ticker-echo/Dockerfile",
     image: "agent-ticker-echo",
-    webhook_secret: "COOLIFY_WEBHOOK_AGENT_TICKER_ECHO",
+    webhook_env: "DEPLOY_WEBHOOK_AGENT_TICKER_ECHO",
   },
   "agent-user-registration": {
     service: "agent-user-registration",
     dockerfile: "apps/mediapulse/agents/user-registration/Dockerfile",
     image: "agent-user-registration",
-    webhook_secret: "COOLIFY_WEBHOOK_AGENT_USER_REGISTRATION",
+    webhook_env: "DEPLOY_WEBHOOK_AGENT_USER_REGISTRATION",
   },
   "agent-newsletter-feedback": {
     service: "agent-newsletter-feedback",
     dockerfile: "apps/mediapulse/agents/newsletter-feedback/Dockerfile",
     image: "agent-newsletter-feedback",
-    webhook_secret: "COOLIFY_WEBHOOK_AGENT_NEWSLETTER_FEEDBACK",
+    webhook_env: "DEPLOY_WEBHOOK_AGENT_NEWSLETTER_FEEDBACK",
   },
   "knowledge-ingestion": {
     service: "knowledge-ingestion",
     dockerfile: "apps/mediapulse/agents/knowledge-ingestion/Dockerfile",
     image: "agent-knowledge-ingestion",
-    webhook_secret: "COOLIFY_WEBHOOK_AGENT_KNOWLEDGE_INGESTION",
+    webhook_env: "DEPLOY_WEBHOOK_AGENT_KNOWLEDGE_INGESTION",
   },
   "page-collection": {
     service: "page-collection",
     dockerfile: "apps/mediapulse/agents/page-collection/Dockerfile",
     image: "agent-page-collection",
-    webhook_secret: "COOLIFY_WEBHOOK_AGENT_PAGE_COLLECTION",
+    webhook_env: "DEPLOY_WEBHOOK_AGENT_PAGE_COLLECTION",
   },
 };
 
@@ -301,6 +301,42 @@ export const detectDockerServices = (changedFiles, workflow = "all") => {
   return [...services]
     .filter((service) => allowed.has(service))
     .sort((a, b) => a.localeCompare(b));
+};
+
+/**
+ * Selects the services a production deploy should publish.
+ *
+ * Explicitly requested services win over the diff. Without a base commit every service in the
+ * workflow is selected.
+ *
+ * @param {{ changedFiles: string[], workflow: DeployWorkflow, baseSha: string, requestedServices?: string[] }} input
+ * @returns {string[]}
+ */
+export const selectDeployServices = ({
+  changedFiles,
+  workflow,
+  baseSha,
+  requestedServices = [],
+}) => {
+  const workflowServices = servicesForDeployWorkflow(workflow);
+  if (requestedServices.length > 0) {
+    const unknownServices = requestedServices.filter(
+      (service) => !workflowServices.includes(service),
+    );
+    if (unknownServices.length > 0) {
+      throw new Error(
+        `detect-pr-changes: unknown service(s): ${unknownServices.join(", ")}`,
+      );
+    }
+
+    return workflowServices.filter((service) =>
+      requestedServices.includes(service),
+    );
+  }
+
+  return baseSha
+    ? detectDockerServices(changedFiles, workflow)
+    : workflowServices;
 };
 
 /**

@@ -6,6 +6,7 @@ import {
   buildDeployMatrix,
   detectDockerServices,
   detectPrChanges,
+  selectDeployServices,
 } from "./lib/detect-pr-changes.mjs";
 
 /**
@@ -87,8 +88,18 @@ if (format === "json") {
   process.exit(0);
 }
 
+const requestedServices = (getArgValue("only", "") ?? "")
+  .split(",")
+  .map((service) => service.trim())
+  .filter(Boolean);
+
 if (format === "gha-deploy") {
-  const services = detectDockerServices(changedFiles, workflow);
+  const services = selectDeployServices({
+    changedFiles,
+    workflow,
+    baseSha,
+    requestedServices,
+  });
   const matrix = buildDeployMatrix(services);
   writeGithubOutput({
     any: services.length > 0 ? "true" : "false",

@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AGENT_DEPLOY_SERVICES,
+  ALL_DOCKER_SERVICES,
   APP_DEPLOY_SERVICES,
+  buildDeployMatrix,
   detectDockerServices,
   detectPrChanges,
   isPrismaDriftPath,
   mapFilePathToDockerService,
+  selectDeployServices,
 } from "./detect-pr-changes.mjs";
 
 describe("mapFilePathToDockerService", () => {
@@ -152,5 +156,74 @@ describe("detectPrChanges", () => {
     expect(result.runCodeQuality).toBe(true);
     expect(result.runPrismaDrift).toBe(true);
     expect(result.dockerAny).toBe(true);
+  });
+});
+
+describe("selectDeployServices", () => {
+  it("uses the diff when a base commit is given", () => {
+    // Act
+    const services = selectDeployServices({
+      changedFiles: ["apps/hermes/dashboard/app/page.tsx"],
+      workflow: "all",
+      baseSha: "base",
+    });
+
+    // Assert
+    expect(services).toEqual(["hermes"]);
+  });
+
+  it("selects every service without a base commit", () => {
+    // Act
+    const services = selectDeployServices({
+      changedFiles: [],
+      workflow: "all",
+      baseSha: "",
+    });
+
+    // Assert
+    expect(services).toEqual(ALL_DOCKER_SERVICES);
+  });
+
+  it("returns exactly the requested services and ignores the diff", () => {
+    // Act
+    const services = selectDeployServices({
+      changedFiles: ["packages/hermes/env/src/index.ts"],
+      workflow: "all",
+      baseSha: "base",
+      requestedServices: ["hermes", "ticker-echo"],
+    });
+
+    // Assert
+    expect([...services].sort()).toEqual(["hermes", "ticker-echo"]);
+  });
+
+  it("rejects services outside the workflow", () => {
+    // Act & Assert
+    expect(() =>
+      selectDeployServices({
+        changedFiles: [],
+        workflow: "agent",
+        baseSha: "",
+        requestedServices: ["hermes"],
+      }),
+    ).toThrow("unknown service(s): hermes");
+  });
+});
+
+describe("buildDeployMatrix", () => {
+  it("gives every deployable service a webhook env name", () => {
+    // Act
+    const matrix = buildDeployMatrix([
+      ...APP_DEPLOY_SERVICES,
+      ...AGENT_DEPLOY_SERVICES,
+    ]);
+
+    // Assert
+    for (const entry of matrix) {
+      expect(entry.webhook_env).toMatch(/^DEPLOY_WEBHOOK_(APP|AGENT)_[A-Z_]+$/);
+    }
+    expect(new Set(matrix.map((entry) => entry.webhook_env)).size).toBe(
+      matrix.length,
+    );
   });
 });
