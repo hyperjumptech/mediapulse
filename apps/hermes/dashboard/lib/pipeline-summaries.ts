@@ -61,6 +61,37 @@ export type PipelineSummariesPage = {
   pageSize: number;
 };
 
+const pipelineListItemSelect = {
+  id: true,
+  name: true,
+  description: true,
+  isActive: true,
+  updatedAt: true,
+  _count: { select: { steps: true } },
+} satisfies Prisma.PipelineSelect;
+
+type PipelineListItemRecord = Prisma.PipelineGetPayload<{
+  select: typeof pipelineListItemSelect;
+}>;
+
+export type PipelineListItem = Pick<
+  PipelineListItemRecord,
+  "id" | "name" | "description" | "isActive" | "updatedAt"
+> & {
+  stepCount: number;
+};
+
+export type PipelineListItemsPage = {
+  pipelines: PipelineListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type PipelineListItemsDb = {
+  pipeline: Pick<PrismaClient["pipeline"], "findMany" | "count">;
+};
+
 const MISSING_VALIDATION: PipelineValidationResult = {
   valid: false,
   warnings: [],
@@ -132,4 +163,41 @@ export const getPipelineSummariesPage = async (
   });
 
   return { pipelines: summaries, total, page, pageSize };
+};
+
+const toPipelineListItem = (
+  pipeline: PipelineListItemRecord,
+): PipelineListItem => ({
+  id: pipeline.id,
+  name: pipeline.name,
+  description: pipeline.description,
+  isActive: pipeline.isActive,
+  stepCount: pipeline._count.steps,
+  updatedAt: pipeline.updatedAt,
+});
+
+export const getPipelineListItemsPage = async (
+  { page, pageSize, search, sortBy, sortDir }: PipelineSummariesQuery,
+  db: PipelineListItemsDb = prisma,
+): Promise<PipelineListItemsPage> => {
+  const where = pipelineSearchWhere(search);
+  const findManyArgs = {
+    where,
+    orderBy: pipelineOrderBy(sortBy, sortDir),
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+    select: pipelineListItemSelect,
+  } satisfies Prisma.PipelineFindManyArgs;
+  const countArgs = { where } satisfies Prisma.PipelineCountArgs;
+  const [pipelines, total] = await Promise.all([
+    db.pipeline.findMany(findManyArgs),
+    db.pipeline.count(countArgs),
+  ]);
+
+  return {
+    pipelines: pipelines.map(toPipelineListItem),
+    total,
+    page,
+    pageSize,
+  };
 };

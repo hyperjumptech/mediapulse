@@ -2,7 +2,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  getPipelineListItemsPage,
   getPipelineSummariesPage,
+  type PipelineListItemsDb,
   type PipelineSummariesDb,
   type PipelineSummariesQuery,
 } from "./pipeline-summaries";
@@ -194,6 +196,65 @@ describe("getPipelineSummariesPage", () => {
     expect(result.pipelines[0]?.validation).toEqual({
       valid: false,
       warnings: [],
+    });
+  });
+});
+
+describe("getPipelineListItemsPage", () => {
+  it("selects summary columns only and maps step counts", async () => {
+    const db = createDb();
+    const updatedAt = new Date("2026-09-20T08:00:00Z");
+    db.pipeline.findMany.mockResolvedValue([
+      {
+        id: "p1",
+        name: "Daily",
+        description: null,
+        isActive: true,
+        updatedAt,
+        _count: { steps: 3 },
+      },
+    ]);
+    db.pipeline.count.mockResolvedValue(31);
+
+    const result = await getPipelineListItemsPage(
+      { page: 2, pageSize: 15, search: "dai", sortBy: "name", sortDir: "asc" },
+      db as unknown as PipelineListItemsDb,
+    );
+
+    expect(db.pipeline.findMany).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { name: { contains: "dai", mode: "insensitive" } },
+          { description: { contains: "dai", mode: "insensitive" } },
+        ],
+      },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+      skip: 15,
+      take: 15,
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        isActive: true,
+        updatedAt: true,
+        _count: { select: { steps: true } },
+      },
+    });
+    expect(getPipelinesValidationMapMock).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      pipelines: [
+        {
+          id: "p1",
+          name: "Daily",
+          description: null,
+          isActive: true,
+          stepCount: 3,
+          updatedAt,
+        },
+      ],
+      total: 31,
+      page: 2,
+      pageSize: 15,
     });
   });
 });

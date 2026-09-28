@@ -25,4 +25,4 @@ Hermes orchestrates pipelines, schedules, and domain integrations. **Product dom
 
 ## Review checklist
 
-Before merging Hermes changes: does the diff add domain vocabulary or product imports to Hermes? If yes, move it to the domain manifest or domain-api HTTP handlers.
+Before merging Hermes changes: does the diff add domain vocabulary or product imports to Hermes? If yes, move it to the domain manifest or domain-api HTTP handlers. `pnpm check:hermes-domain` (part of `pnpm code-quality` and CI) fails on product words such as "mediapulse" or "ticker" in Hermes production code; tests, test utilities and seed scripts are exempt.

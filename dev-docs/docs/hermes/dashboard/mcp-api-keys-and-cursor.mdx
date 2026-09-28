@@ -59,6 +59,8 @@ In Cursor, run the MCP tool **`hermes_ping`** (HTTP `GET /api/mcp/whoami`). A su
 
 Ask the model to list agents: tool **`hermes_list_agents`**. Then fetch detail with **`hermes_get_agent_schemas`** using an `agentId` and `agentVersion` from the list.
 
+List tools take `page`, `pageSize` (up to 100), `q`, `sort` and `dir`, and return `items`, `total`, `page`, `pageSize` and `hasMore`. Output is compact JSON capped at about 50,000 characters. When a result is truncated, narrow it with a smaller `pageSize`, a `q` search, or a `hermes_get_*` tool. Use **`hermes_search`** to turn a name into an id.
+
 ## Rollout (v1a → v1b)
 
 1. **v1a — reads only:** Issue a **read-only** API key. Enable MCP with read/list tools only. Confirm operators can triage without mutations.
@@ -71,7 +73,7 @@ Tools prefixed `hermes_mutate_*` call dashboard `POST` routes. **Delete, cancel,
 1. First call without `confirm: true` → tool error, **no HTTP**.
 2. Second call with `confirm: true` after explicit user approval.
 
-Read-only keys are rejected before HTTP (via whoami).
+Read-only keys are rejected before HTTP (via whoami). The whoami result is cached per profile for 5 minutes and cleared on any 401 or 403 and on a profile switch.
 
 ## Rollback
 
@@ -83,27 +85,32 @@ Read-only keys are rejected before HTTP (via whoami).
 
 ### Read tools
 
-| MCP tool                              | HTTP | Path                                                      |
-| ------------------------------------- | ---- | --------------------------------------------------------- |
-| `hermes_ping`                         | GET  | `/api/mcp/whoami`                                         |
-| `hermes_get_agent_schemas`            | GET  | `/api/agents/{agentId}/{agentVersion}/schemas`            |
-| `hermes_get_pipeline_schemas`         | GET  | `/api/pipelines/{pipelineId}/schemas`                     |
-| `hermes_get_schedule_execution`       | GET  | `/api/schedules/{scheduleId}/executions/{executionId}`    |
-| `hermes_get_http_trigger_execution`   | GET  | `/api/http-triggers/{triggerId}/executions/{executionId}` |
-| `hermes_get_pipeline_execution`       | GET  | `/api/pipelines/{pipelineId}/executions/{executionId}`    |
-| `hermes_get_variable`                 | POST | `/dashboard/variables/actions/get`                        |
-| `hermes_get_agent_config`             | POST | `/dashboard/agent-configs/actions/get`                    |
-| `hermes_list_agents`                  | GET  | `/api/agents`                                             |
-| `hermes_list_schedules`               | GET  | `/api/schedules`                                          |
-| `hermes_list_pipelines`               | GET  | `/api/pipelines`                                          |
-| `hermes_list_http_triggers`           | GET  | `/api/http-triggers`                                      |
-| `hermes_list_variables`               | GET  | `/api/variables`                                          |
-| `hermes_list_agent_configs`           | GET  | `/api/agent-configs`                                      |
-| `hermes_list_domain_integrations`     | GET  | `/api/domain-integrations`                                |
-| `hermes_list_content_generation_runs` | GET  | `/api/agents/content-generation-runs`                     |
-| `hermes_get_content_generation_run`   | GET  | `/api/agents/content-generation-runs/{id}`                |
-| `hermes_list_profiles`                | —    | In-process profile list                                   |
-| `hermes_set_active_profile`           | —    | In-process profile switch                                 |
+| MCP tool                            | HTTP | Path                                                           |
+| ----------------------------------- | ---- | -------------------------------------------------------------- |
+| `hermes_ping`                       | GET  | `/api/mcp/whoami`                                              |
+| `hermes_search`                     | GET  | `/api/dashboard-search?q=`                                     |
+| `hermes_list_agents`                | GET  | `/api/agents`                                                  |
+| `hermes_get_agent_schemas`          | GET  | `/api/agents/{agentId}/{agentVersion}/schemas`                 |
+| `hermes_list_agent_configs`         | GET  | `/api/agent-configs`                                           |
+| `hermes_get_agent_config`           | POST | `/dashboard/agent-configs/actions/get`                         |
+| `hermes_list_pipelines`             | GET  | `/api/pipelines`                                               |
+| `hermes_get_pipeline`               | GET  | `/api/pipelines/{pipelineId}`                                  |
+| `hermes_get_pipeline_schemas`       | GET  | `/api/pipelines/{pipelineId}/schemas`                          |
+| `hermes_get_pipeline_execution`     | GET  | `/api/pipelines/{pipelineId}/executions/{executionId}`         |
+| `hermes_list_schedules`             | GET  | `/api/schedules`                                               |
+| `hermes_get_schedule_execution`     | GET  | `/api/schedules/{scheduleId}/executions/{executionId}`         |
+| `hermes_list_http_triggers`         | GET  | `/api/http-triggers`                                           |
+| `hermes_get_http_trigger_execution` | GET  | `/api/http-triggers/{triggerId}/executions/{executionId}`      |
+| `hermes_list_variables`             | GET  | `/api/variables`                                               |
+| `hermes_get_variable`               | POST | `/dashboard/variables/actions/get`                             |
+| `hermes_list_domain_integrations`   | GET  | `/api/domain-integrations`                                     |
+| `hermes_list_domain_views`          | GET  | `/api/domain-integrations/{integrationId}/views`               |
+| `hermes_list_domain_rows`           | GET  | `/api/domain-integrations/{integrationId}/{resource}`          |
+| `hermes_get_domain_row`             | GET  | `/api/domain-integrations/{integrationId}/{resource}/{itemId}` |
+| `hermes_list_profiles`              | none | In-process profile list                                        |
+| `hermes_set_active_profile`         | none | In-process profile switch                                      |
+
+Domain data is read generically. `hermes_list_domain_views` lists an integration's resource-table views with their columns, searchable and sortable fields, and filter query keys. `hermes_list_domain_rows` pages through one view's rows, and `hermes_get_domain_row` fetches one row.
 
 ### Mutation tools
 

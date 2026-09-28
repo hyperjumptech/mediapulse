@@ -25,6 +25,7 @@ The monorepo holds two products and the code they share.
 | Format                  | `pnpm format` (Prettier)                               |
 | Diff-scoped rule checks | `pnpm cursor:review -- --base origin/main --head HEAD` |
 | Agent config links      | `pnpm check:agent-config`                              |
+| Hermes domain words     | `pnpm check:hermes-domain`                             |
 | Hermes dashboard        | `pnpm dev:hermes`                                      |
 | Dashboard screenshots   | `pnpm --filter @hermes/dashboard visual:capture`       |
 | Dashboard route timings | `pnpm --filter @hermes/dashboard measure:timings`      |

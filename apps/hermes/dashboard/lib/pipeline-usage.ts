@@ -253,7 +253,7 @@ export const getPipelinesUsingVariableKey = async (
  * data-source expansion string in step JSON or pipeline `executionConfig`.
  *
  * @param domainIntegrationId - Integration scope for pipelines.
- * @param expansionString - Exact expansion string to match (e.g. `db:ticker:id`).
+ * @param expansionString - Exact expansion string to match (e.g. `db:item:id`).
  * @param db - Injectable Prisma delegates for tests.
  * @returns Deduplicated pipeline usage summaries.
  */

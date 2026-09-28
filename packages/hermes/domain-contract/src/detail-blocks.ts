@@ -43,7 +43,7 @@ export const detailBlockKeyValueRowSchema = z.object({
   field: z.string().min(1),
   label: z.string().min(1),
   /**
-   * Optional URL template (e.g. `/dashboard/{integrationId}/tickers/{tickerId}`).
+   * Optional URL template (e.g. `/dashboard/{integrationId}/items/{itemId}`).
    * Missing template variables fall back to plain text.
    */
   linkTemplate: z.string().min(1).optional(),
@@ -144,7 +144,7 @@ export const detailBlockSubTableColumnSchema = z
      * Optional URL template. When set, the column renders as a link.
      * Variables come from the row (and from a `row` namespace), e.g.
      * `/dashboard/{integrationId}/data-sources/{id}` or
-     * `/dashboard/{integrationId}/search-queries?tickerId={tickerId}`.
+     * `/dashboard/{integrationId}/child-items?parentId={parentId}`.
      */
     linkTemplate: z.string().min(1).optional(),
     /** Open external links in a new tab with `rel="noopener noreferrer"`. */

@@ -5,25 +5,25 @@ import { z } from "zod";
 
 import { parsePagination } from "../../lib/list-pagination";
 import {
-  agentFilterSchema,
   buildProcessedUrlListWhere,
   gateStatusFilterSchema,
   statusFilterSchema,
 } from "./list-filters";
-import { listInclude, mapRowToListItem } from "./list-mapper";
+import {
+  listInclude,
+  mapRowToListItem,
+  PROCESSED_URL_SUBJECT_TITLE,
+} from "./list-mapper";
 
-/**
- * Hermes dashboard API for per-execution processed-URL outcomes (read-only paginated list).
- *
- * Optional query params: `scheduleExecutionId`, `tickerId`, `agent`, `status`,
- * `curatedSourceId`, `gateStatus`.
- */
 export const processedUrlsRoutes = new Hono();
+
+const readTrimmedQuery = (value: string | undefined): string =>
+  value?.trim() ?? "";
 
 processedUrlsRoutes.get("/", async (c) => {
   const scheduleExecutionIdResult = z
     .guid()
-    .safeParse(c.req.query("scheduleExecutionId")?.trim() ?? "");
+    .safeParse(readTrimmedQuery(c.req.query("scheduleExecutionId")));
 
   const { page, pageSize } = parsePagination(
     c.req.query("page"),
@@ -31,28 +31,27 @@ processedUrlsRoutes.get("/", async (c) => {
   );
   const skip = (page - 1) * pageSize;
 
-  const tickerFilter = z
-    .guid()
-    .safeParse(c.req.query("tickerId")?.trim() ?? "");
-  const agentFilter = agentFilterSchema.safeParse(
-    c.req.query("agent")?.trim() ?? "",
-  );
+  const subjectIdParam =
+    readTrimmedQuery(c.req.query("subjectId")) ||
+    readTrimmedQuery(c.req.query("tickerId"));
+  const subjectFilter = z.guid().safeParse(subjectIdParam);
+  const agentFilter = readTrimmedQuery(c.req.query("agent"));
   const statusFilter = statusFilterSchema.safeParse(
-    c.req.query("status")?.trim() ?? "",
+    readTrimmedQuery(c.req.query("status")),
   );
   const curatedSourceFilter = z
     .guid()
-    .safeParse(c.req.query("curatedSourceId")?.trim() ?? "");
+    .safeParse(readTrimmedQuery(c.req.query("curatedSourceId")));
   const gateStatusFilter = gateStatusFilterSchema.safeParse(
-    c.req.query("gateStatus")?.trim() ?? "",
+    readTrimmedQuery(c.req.query("gateStatus")),
   );
 
   const where = buildProcessedUrlListWhere({
     scheduleExecutionId: scheduleExecutionIdResult.success
       ? scheduleExecutionIdResult.data
       : undefined,
-    tickerId: tickerFilter.success ? tickerFilter.data : undefined,
-    agent: agentFilter.success ? agentFilter.data : undefined,
+    subjectId: subjectFilter.success ? subjectFilter.data : undefined,
+    agent: agentFilter || undefined,
     status: statusFilter.success ? statusFilter.data : undefined,
     curatedSourceId: curatedSourceFilter.success
       ? curatedSourceFilter.data
@@ -73,12 +72,12 @@ processedUrlsRoutes.get("/", async (c) => {
     prisma.collectionUrlOutcome.count({ where }),
   ]);
 
-  const payload = tableV1ListResponseSchema.parse({
+  const listPayload = tableV1ListResponseSchema.parse({
     items: rows.map(mapRowToListItem),
     total,
     page,
     pageSize,
   });
 
-  return c.json(payload);
+  return c.json({ ...listPayload, subjectTitle: PROCESSED_URL_SUBJECT_TITLE });
 });

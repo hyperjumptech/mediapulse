@@ -1,24 +1,33 @@
 import { NextResponse } from "next/server";
 
 import { paginatedListJsonResponse } from "@/lib/api-paginated-list-response";
-import { getAgentRegistryPage } from "@/lib/agents";
-import { parseApiPageParams } from "@/lib/parse-api-page-params";
+import { getAgentRegistryPage, type AgentSortField } from "@/lib/agents";
+import { parseApiListParams } from "@/lib/parse-api-page-params";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
-/**
- * GET /api/agents — paginated agent registry list for MCP discovery.
- *
- * Query: `page` (default 1), `pageSize` (default 20, max 100).
- * Response: `{ items, total, page, pageSize }` where each item includes `domainIntegration.integrationId`.
- */
+const SORT_FIELDS = [
+  "agentId",
+  "agentVersion",
+  "created",
+  "updated",
+] as const satisfies readonly AgentSortField[];
+
 export const GET = async (request: Request): Promise<NextResponse> => {
   const principal = await resolveDashboardPrincipalOrUnauthorized(request);
   if (principal instanceof NextResponse) {
     return principal;
   }
 
-  const { page, pageSize } = parseApiPageParams(request);
-  const result = await getAgentRegistryPage(page, pageSize);
+  const { page, pageSize, search, sortBy, sortDir } = parseApiListParams(
+    request,
+    { fields: SORT_FIELDS, defaultField: "agentId" },
+  );
+  const result = await getAgentRegistryPage(page, pageSize, {
+    search,
+    sortBy,
+    sortDir,
+  });
+
   return paginatedListJsonResponse(
     result.agents,
     result.total,

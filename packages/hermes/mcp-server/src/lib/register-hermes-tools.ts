@@ -1,8 +1,17 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type {
+  CallToolResult,
+  ToolAnnotations,
+} from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
+import {
+  formatHermesHttpAsToolResult,
+  formatHermesListAsToolResult,
+  formatJsonToolResult,
+  PAGINATED_LIST_OUTPUT_SHAPE,
+} from "./format-tool-result.js";
 import type { HermesHttpClient } from "./http-client.js";
-import { formatHermesHttpAsToolResult } from "./format-tool-result.js";
 import {
   getActiveProfile,
   listProfileSummary,
@@ -11,11 +20,25 @@ import {
 } from "./profiles.js";
 import {
   buildRequestBodyForSpec,
-  extractListSearchParams,
+  buildSearchParamsForSpec,
   HERMES_READ_TOOL_SPECS,
   resolvePathTemplate,
   type HermesReadToolSpec,
 } from "./tool-catalog.js";
+
+const READ_TOOL_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+};
+
+const PROFILE_SWITCH_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+};
 
 export type RegisterHermesToolsDependencies = {
   server: McpServer;
@@ -24,15 +47,27 @@ export type RegisterHermesToolsDependencies = {
   getActiveProfile?: typeof getActiveProfile;
   listProfileSummary?: typeof listProfileSummary;
   setActiveProfileOverride?: typeof setActiveProfileOverride;
+  onActiveProfileChange?: () => void;
 };
 
-/**
- * Registers read-only HTTP-backed tools on an MCP server.
- *
- * @param server - MCP server instance.
- * @param httpClient - Hermes dashboard HTTP client.
- * @param specs - Tool specifications to register.
- */
+export const handleHermesReadToolCall = async (
+  spec: HermesReadToolSpec,
+  args: Record<string, unknown>,
+  httpClient: HermesHttpClient,
+): Promise<CallToolResult> => {
+  const response = await httpClient.request({
+    method: spec.method,
+    path: resolvePathTemplate(spec.pathTemplate, args),
+    body: buildRequestBodyForSpec(spec, args),
+    searchParams:
+      spec.method === "GET" ? buildSearchParamsForSpec(spec, args) : undefined,
+  });
+
+  return spec.paginated
+    ? formatHermesListAsToolResult(response)
+    : formatHermesHttpAsToolResult(response);
+};
+
 export const registerHermesReadToolSpecs = (
   server: McpServer,
   httpClient: HermesHttpClient,
@@ -42,39 +77,18 @@ export const registerHermesReadToolSpecs = (
     server.registerTool(
       spec.name,
       {
+        title: spec.title,
         description: spec.description,
         inputSchema: spec.inputSchema,
-        annotations: { readOnlyHint: true },
+        outputSchema: spec.paginated ? PAGINATED_LIST_OUTPUT_SHAPE : undefined,
+        annotations: { title: spec.title, ...READ_TOOL_ANNOTATIONS },
       },
-      async (args: Record<string, unknown>) => {
-        const path = resolvePathTemplate(spec.pathTemplate, args);
-        const body = buildRequestBodyForSpec(spec, args);
-        const searchParams =
-          spec.method === "GET" && spec.pathTemplate.startsWith("/api/")
-            ? extractListSearchParams(args)
-            : undefined;
-
-        const response = await httpClient.request({
-          method: spec.method,
-          path,
-          body,
-          searchParams:
-            searchParams && Object.keys(searchParams).length > 0
-              ? searchParams
-              : undefined,
-        });
-
-        return formatHermesHttpAsToolResult(response);
-      },
+      async (args: Record<string, unknown>) =>
+        handleHermesReadToolCall(spec, args, httpClient),
     );
   }
 };
 
-/**
- * Registers Hermes read tools and profile management tools on an MCP server.
- *
- * @param dependencies - MCP server instance, HTTP client, and optional profile helpers.
- */
 export const registerHermesTools = ({
   server,
   httpClient,
@@ -83,6 +97,7 @@ export const registerHermesTools = ({
   listProfileSummary: listProfileSummaryFn = listProfileSummary,
   setActiveProfileOverride:
     setActiveProfileOverrideFn = setActiveProfileOverride,
+  onActiveProfileChange,
 }: RegisterHermesToolsDependencies): void => {
   registerHermesReadToolSpecs(server, httpClient, [
     ...HERMES_READ_TOOL_SPECS,
@@ -92,79 +107,61 @@ export const registerHermesTools = ({
   server.registerTool(
     "hermes_list_profiles",
     {
+      title: "List profiles",
       description:
-        "List configured Hermes MCP profile names and which profile is active (no secrets).",
+        "List configured Hermes profile names and the active one. Never returns API keys.",
       inputSchema: {},
-      annotations: { readOnlyHint: true },
+      annotations: { title: "List profiles", ...READ_TOOL_ANNOTATIONS },
     },
     async () => {
       const summary = listProfileSummaryFn();
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(summary, null, 2),
-          },
-        ],
-        ...(summary.error ? { isError: true } : {}),
-      };
+
+      return formatJsonToolResult(summary, { isError: Boolean(summary.error) });
     },
   );
 
   server.registerTool(
     "hermes_set_active_profile",
     {
+      title: "Switch profile",
       description:
-        "Switch the active Hermes MCP profile for subsequent tool calls (in-process; does not change env).",
+        "Switch the Hermes profile used by later tool calls in this session. Does not change the environment.",
       inputSchema: {
         profile: z
           .string()
           .describe("Profile name (matches HERMES_MCP_PROFILE_<NAME>_*)"),
       },
+      annotations: { title: "Switch profile", ...PROFILE_SWITCH_ANNOTATIONS },
     },
     async ({ profile }: { profile: string }) => {
       const summary = listProfileSummaryFn();
       const normalized = normalizeProfileName(profile);
 
       if (!summary.profiles.includes(normalized)) {
-        const payload = {
-          error: `Unknown profile "${profile}". Configured: ${summary.profiles.join(", ") || "(none)"}.`,
-        };
-        return {
-          content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-          isError: true,
-        };
+        const configuredProfiles = summary.profiles.join(", ") || "(none)";
+
+        return formatJsonToolResult(
+          {
+            error: `Unknown profile "${profile}". Configured: ${configuredProfiles}.`,
+          },
+          { isError: true },
+        );
       }
 
       setActiveProfileOverrideFn(normalized);
+      onActiveProfileChange?.();
       const activeCheck = getActiveProfileFn();
       if ("error" in activeCheck) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ error: activeCheck.error }, null, 2),
-            },
-          ],
-          isError: true,
-        };
+        return formatJsonToolResult(
+          { error: activeCheck.error },
+          { isError: true },
+        );
       }
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                active: activeCheck.profile.name,
-                baseUrl: activeCheck.profile.baseUrl,
-              },
-              null,
-              2,
-            ),
-          },
-        ],
-      };
+      return formatJsonToolResult({
+        active: activeCheck.profile.name,
+        baseUrl: activeCheck.profile.baseUrl,
+      });
     },
   );
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Link2, SearchX } from "lucide-react";
 
 import { Button } from "@workspace/ui/components/button";
@@ -44,73 +44,77 @@ const ProcessedUrlStatus = ({ status }: { status: string }) => {
   );
 };
 
+const DEFAULT_SUBJECT_TITLE = "Subject";
+
 const columnHelper = createDataTableColumnHelper<ProcessedUrlItem>();
 
-const columns = columnHelper.columns([
-  columnHelper.accessor("tickerSymbol", {
-    id: "ticker",
-    meta: {
-      label: "Ticker",
-      mobile: "subtitle",
-      cellClassName: "font-mono text-xs",
-    },
-    cell: ({ row }) => row.original.tickerSymbol,
-  }),
-  columnHelper.accessor("agent", {
-    id: "agent",
-    meta: {
-      label: "Agent",
-      cellClassName: "text-xs text-muted-foreground",
-    },
-    cell: ({ row }) => row.original.agent,
-  }),
-  columnHelper.accessor("status", {
-    id: "status",
-    meta: { label: "Status", mobile: "badge" },
-    cell: ({ row }) => <ProcessedUrlStatus status={row.original.status} />,
-  }),
-  columnHelper.accessor((item) => item.reasonDetail ?? item.reason, {
-    id: "reason",
-    meta: {
-      label: "Reason",
-      cellClassName: "max-w-xs text-xs whitespace-normal text-muted-foreground",
-    },
-    cell: ({ getValue }) => getValue() ?? "—",
-  }),
-  columnHelper.accessor("url", {
-    id: "url",
-    enableHiding: false,
-    meta: {
-      label: "URL",
-      mobile: "title",
-      cellClassName: "max-w-sm text-xs break-all whitespace-normal",
-    },
-    cell: ({ row }) => (
-      <a
-        href={row.original.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="underline-offset-4 hover:underline"
-      >
-        {truncateUrl(row.original.url)}
-      </a>
-    ),
-  }),
-  columnHelper.accessor("source", {
-    id: "source",
-    meta: {
-      label: "Source",
-      cellClassName:
-        "max-w-xs text-xs break-all whitespace-normal text-muted-foreground",
-    },
-    cell: ({ row }) => row.original.source ?? "—",
-  }),
-  columnHelper.accessor("createdAt", {
-    id: "time",
-    meta: { label: "Time", cellClassName: "text-xs text-muted-foreground" },
-    cell: ({ row }) => <DateTime value={row.original.createdAt} />,
-  }),
-]);
+const createProcessedUrlColumns = (subjectTitle: string) =>
+  columnHelper.columns([
+    columnHelper.accessor((item) => item.subject?.label, {
+      id: "subject",
+      meta: {
+        label: subjectTitle,
+        mobile: "subtitle",
+        cellClassName: "font-mono text-xs",
+      },
+      cell: ({ getValue }) => getValue() ?? "—",
+    }),
+    columnHelper.accessor("agent", {
+      id: "agent",
+      meta: {
+        label: "Agent",
+        cellClassName: "text-xs text-muted-foreground",
+      },
+      cell: ({ row }) => row.original.agent,
+    }),
+    columnHelper.accessor("status", {
+      id: "status",
+      meta: { label: "Status", mobile: "badge" },
+      cell: ({ row }) => <ProcessedUrlStatus status={row.original.status} />,
+    }),
+    columnHelper.accessor((item) => item.reasonDetail ?? item.reason, {
+      id: "reason",
+      meta: {
+        label: "Reason",
+        cellClassName:
+          "max-w-xs text-xs whitespace-normal text-muted-foreground",
+      },
+      cell: ({ getValue }) => getValue() ?? "—",
+    }),
+    columnHelper.accessor("url", {
+      id: "url",
+      enableHiding: false,
+      meta: {
+        label: "URL",
+        mobile: "title",
+        cellClassName: "max-w-sm text-xs break-all whitespace-normal",
+      },
+      cell: ({ row }) => (
+        <a
+          href={row.original.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline-offset-4 hover:underline"
+        >
+          {truncateUrl(row.original.url)}
+        </a>
+      ),
+    }),
+    columnHelper.accessor("source", {
+      id: "source",
+      meta: {
+        label: "Source",
+        cellClassName:
+          "max-w-xs text-xs break-all whitespace-normal text-muted-foreground",
+      },
+      cell: ({ row }) => row.original.source ?? "—",
+    }),
+    columnHelper.accessor("createdAt", {
+      id: "time",
+      meta: { label: "Time", cellClassName: "text-xs text-muted-foreground" },
+      cell: ({ row }) => <DateTime value={row.original.createdAt} />,
+    }),
+  ]);
 
 const emptyStateFor = (
   hasActiveFilters: boolean,
@@ -140,6 +144,7 @@ const emptyStateFor = (
 type ProcessedUrlsTableProps = {
   tableId: string;
   items: ProcessedUrlItem[];
+  subjectTitle?: string;
   urlState: ListUrlState;
   filters: ReactNode;
   hasActiveFilters: boolean;
@@ -150,21 +155,29 @@ type ProcessedUrlsTableProps = {
 export const ProcessedUrlsTable = ({
   tableId,
   items,
+  subjectTitle = DEFAULT_SUBJECT_TITLE,
   urlState,
   filters,
   hasActiveFilters,
   clearFiltersHref,
   initialColumnVisibility,
-}: ProcessedUrlsTableProps) => (
-  <DataTable
-    tableId={tableId}
-    columns={columns}
-    rows={items}
-    getRowId={(item) => item.id}
-    urlState={urlState}
-    paginationLabel="Processed URLs pagination"
-    toolbarFilters={filters}
-    emptyState={emptyStateFor(hasActiveFilters, clearFiltersHref)}
-    initialColumnVisibility={initialColumnVisibility}
-  />
-);
+}: ProcessedUrlsTableProps) => {
+  const columns = useMemo(
+    () => createProcessedUrlColumns(subjectTitle),
+    [subjectTitle],
+  );
+
+  return (
+    <DataTable
+      tableId={tableId}
+      columns={columns}
+      rows={items}
+      getRowId={(item) => item.id}
+      urlState={urlState}
+      paginationLabel="Processed URLs pagination"
+      toolbarFilters={filters}
+      emptyState={emptyStateFor(hasActiveFilters, clearFiltersHref)}
+      initialColumnVisibility={initialColumnVisibility}
+    />
+  );
+};

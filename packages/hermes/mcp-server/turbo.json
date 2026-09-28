@@ -1,0 +1,22 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/hermes/dashboard/app/api/**/route.ts",
+        "$TURBO_ROOT$/apps/hermes/dashboard/lib/parse-api-page-params.ts",
+        "$TURBO_ROOT$/apps/hermes/dashboard/lib/api-paginated-list-response.ts"
+      ]
+    },
+    "test:coverage": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/hermes/dashboard/app/api/**/route.ts",
+        "$TURBO_ROOT$/apps/hermes/dashboard/lib/parse-api-page-params.ts",
+        "$TURBO_ROOT$/apps/hermes/dashboard/lib/api-paginated-list-response.ts"
+      ]
+    }
+  }
+}

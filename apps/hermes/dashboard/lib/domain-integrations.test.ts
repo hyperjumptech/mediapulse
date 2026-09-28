@@ -156,13 +156,18 @@ describe("getDomainIntegrationsPage", () => {
     ]);
     const count = vi.fn().mockResolvedValue(1);
 
-    const result = await getDomainIntegrationsPage(1, 10, {
+    const result = await getDomainIntegrationsPage(1, 10, undefined, {
       findMany,
       count,
     });
 
     expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 0, take: 10 }),
+      expect.objectContaining({
+        skip: 0,
+        take: 10,
+        where: undefined,
+        orderBy: [{ isDefault: "desc" }, { integrationId: "asc" }],
+      }),
     );
     expect(result).toEqual({
       integrations: [
@@ -182,6 +187,52 @@ describe("getDomainIntegrationsPage", () => {
       page: 1,
       pageSize: 10,
     });
+  });
+});
+
+describe("getDomainIntegrationsPage search and sort", () => {
+  it("filters by integration id or name and sorts by the requested field", async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const count = vi.fn().mockResolvedValue(0);
+    const expectedWhere = {
+      OR: [
+        { integrationId: { contains: "news", mode: "insensitive" } },
+        { name: { contains: "news", mode: "insensitive" } },
+      ],
+    };
+
+    await getDomainIntegrationsPage(
+      2,
+      5,
+      { search: "news", sortBy: "name", sortDir: "asc" },
+      { findMany, count },
+    );
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expectedWhere,
+        orderBy: [{ name: "asc" }, { integrationId: "asc" }],
+        skip: 5,
+        take: 5,
+      }),
+    );
+    expect(count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+
+  it("sorts by integration id alone when requested", async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const count = vi.fn().mockResolvedValue(0);
+
+    await getDomainIntegrationsPage(
+      1,
+      5,
+      { sortBy: "integrationId", sortDir: "desc" },
+      { findMany, count },
+    );
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ integrationId: "desc" }] }),
+    );
   });
 });
 
@@ -216,17 +267,14 @@ describe("getActiveDomainIntegrationsCached", () => {
   });
 
   it("reuses the loaded list within 60 seconds", async () => {
-    // Setup
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-09-28T00:00:00.000Z"));
     prismaFindManyMock.mockResolvedValue([buildActiveRow("mediapulse")]);
 
-    // Act
     const firstList = await getActiveDomainIntegrationsCached();
     vi.setSystemTime(new Date("2026-09-28T00:00:59.999Z"));
     const secondList = await getActiveDomainIntegrationsCached();
 
-    // Assert
     expect(prismaFindManyMock).toHaveBeenCalledTimes(1);
     expect(secondList).toBe(firstList);
     expect(firstList[0]?.integrationId).toBe("mediapulse");
@@ -236,38 +284,31 @@ describe("getActiveDomainIntegrationsCached", () => {
   });
 
   it("reloads the list once 60 seconds have passed", async () => {
-    // Setup
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-09-28T00:00:00.000Z"));
     prismaFindManyMock.mockResolvedValue([buildActiveRow("mediapulse")]);
 
-    // Act
     await getActiveDomainIntegrationsCached();
     vi.setSystemTime(new Date("2026-09-28T00:01:00.000Z"));
     await getActiveDomainIntegrationsCached();
 
-    // Assert
     expect(prismaFindManyMock).toHaveBeenCalledTimes(2);
   });
 
   it("shares one in-flight load between concurrent callers", async () => {
-    // Setup
     const deferredRows = createDeferred<unknown[]>();
     prismaFindManyMock.mockReturnValue(deferredRows.promise);
 
-    // Act
     const firstRequest = getActiveDomainIntegrationsCached();
     const secondRequest = getActiveDomainIntegrationsCached();
     deferredRows.resolve([buildActiveRow("mediapulse")]);
     const lists = await Promise.all([firstRequest, secondRequest]);
 
-    // Assert
     expect(prismaFindManyMock).toHaveBeenCalledTimes(1);
     expect(lists[0]).toBe(lists[1]);
   });
 
   it("reloads the list after it is invalidated", async () => {
-    // Setup
     prismaFindManyMock
       .mockResolvedValueOnce([buildActiveRow("mediapulse")])
       .mockResolvedValueOnce([
@@ -275,48 +316,40 @@ describe("getActiveDomainIntegrationsCached", () => {
         buildActiveRow("acme"),
       ]);
 
-    // Act
     await getActiveDomainIntegrationsCached();
     invalidateDomainIntegrationsCache();
     const reloadedList = await getActiveDomainIntegrationsCached();
 
-    // Assert
     expect(prismaFindManyMock).toHaveBeenCalledTimes(2);
     expect(reloadedList).toHaveLength(2);
   });
 
   it("does not keep a load that finished after an invalidation", async () => {
-    // Setup
     const deferredRows = createDeferred<unknown[]>();
     prismaFindManyMock
       .mockReturnValueOnce(deferredRows.promise)
       .mockResolvedValueOnce([buildActiveRow("acme")]);
 
-    // Act
     const staleRequest = getActiveDomainIntegrationsCached();
     invalidateDomainIntegrationsCache();
     deferredRows.resolve([buildActiveRow("mediapulse")]);
     await staleRequest;
     const freshList = await getActiveDomainIntegrationsCached();
 
-    // Assert
     expect(prismaFindManyMock).toHaveBeenCalledTimes(2);
     expect(freshList[0]?.integrationId).toBe("acme");
   });
 
   it("does not cache a failed load", async () => {
-    // Setup
     prismaFindManyMock
       .mockRejectedValueOnce(new Error("db down"))
       .mockResolvedValueOnce([buildActiveRow("mediapulse")]);
 
-    // Act
     const failedError = await getActiveDomainIntegrationsCached().catch(
       (error: unknown) => error,
     );
     const recoveredList = await getActiveDomainIntegrationsCached();
 
-    // Assert
     expect((failedError as Error).message).toBe("db down");
     expect(recoveredList).toHaveLength(1);
     expect(prismaFindManyMock).toHaveBeenCalledTimes(2);
@@ -331,15 +364,12 @@ describe("getDomainIntegrationByIntegrationId without an injected db", () => {
   });
 
   it("resolves the integration from the cached active list", async () => {
-    // Setup
     prismaFindManyMock.mockResolvedValue([buildActiveRow("mediapulse")]);
 
-    // Act
     const firstLookup = await getDomainIntegrationByIntegrationId("mediapulse");
     const secondLookup =
       await getDomainIntegrationByIntegrationId("mediapulse");
 
-    // Assert
     expect(firstLookup?.id).toBe("id-mediapulse");
     expect(secondLookup).toBe(firstLookup);
     expect(prismaFindManyMock).toHaveBeenCalledTimes(1);
@@ -347,14 +377,11 @@ describe("getDomainIntegrationByIntegrationId without an injected db", () => {
   });
 
   it("falls back to a direct query when the cached list does not have it", async () => {
-    // Setup
     prismaFindManyMock.mockResolvedValue([buildActiveRow("mediapulse")]);
     prismaFindFirstMock.mockResolvedValue(buildActiveRow("acme"));
 
-    // Act
     const lookup = await getDomainIntegrationByIntegrationId("acme");
 
-    // Assert
     expect(lookup?.id).toBe("id-acme");
     expect(prismaFindFirstMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -364,14 +391,11 @@ describe("getDomainIntegrationByIntegrationId without an injected db", () => {
   });
 
   it("returns null when neither the cache nor the database has it", async () => {
-    // Setup
     prismaFindManyMock.mockResolvedValue([]);
     prismaFindFirstMock.mockResolvedValue(null);
 
-    // Act
     const lookup = await getDomainIntegrationByIntegrationId("missing");
 
-    // Assert
     expect(lookup).toBeNull();
   });
 });
@@ -385,7 +409,6 @@ describe("domain integration writers", () => {
   });
 
   it("invalidates the integration list when an integration registers", async () => {
-    // Setup
     prismaFindManyMock.mockResolvedValue([buildActiveRow("mediapulse")]);
     await getActiveDomainIntegrationsCached();
     prismaFindFirstMock.mockResolvedValue({ id: "id-mediapulse" });
@@ -395,7 +418,6 @@ describe("domain integration writers", () => {
       isDefault: true,
     });
 
-    // Act
     await registerDomainIntegration(
       {
         integrationId: "mediapulse",
@@ -409,12 +431,10 @@ describe("domain integration writers", () => {
     );
     await getActiveDomainIntegrationsCached();
 
-    // Assert
     expect(prismaFindManyMock).toHaveBeenCalledTimes(2);
   });
 
   it("invalidates the integration list when a pending integration is created", async () => {
-    // Setup
     prismaFindManyMock.mockResolvedValue([]);
     await getActiveDomainIntegrationsCached();
     const createMock = vi.fn().mockResolvedValue({
@@ -428,7 +448,6 @@ describe("domain integration writers", () => {
       ) => callback({ domainIntegration: { create: createMock } }),
     };
 
-    // Act
     const created = await createPendingDomainIntegration(
       { integrationId: "acme", name: "Acme", userId: "u1" },
       db as never,
@@ -436,7 +455,6 @@ describe("domain integration writers", () => {
     );
     await getActiveDomainIntegrationsCached();
 
-    // Assert
     expect(created.integrationId).toBe("acme");
     expect(prismaFindManyMock).toHaveBeenCalledTimes(2);
   });

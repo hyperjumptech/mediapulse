@@ -5,39 +5,48 @@ const agentFilterSchema = z.enum(["data-collection", "page-collection"]);
 const statusFilterSchema = z.enum(["collected", "dropped", "failed"]);
 const gateStatusFilterSchema = z.enum(["passed", "failed"]);
 
-/**
- * Parsed query filters for the processed-URLs list endpoint.
- */
+const COLLECTION_AGENT_BY_AGENT_FILTER = {
+  "data-collection": "data_collection",
+  "page-collection": "page_collection",
+} as const satisfies Record<
+  z.infer<typeof agentFilterSchema>,
+  Prisma.CollectionUrlOutcomeWhereInput["agent"]
+>;
+
+const MATCH_NO_OUTCOMES = {
+  id: { in: [] },
+} satisfies Prisma.CollectionUrlOutcomeWhereInput;
+
 export type ProcessedUrlListFilters = {
   scheduleExecutionId?: string;
-  tickerId?: string;
-  agent?: z.infer<typeof agentFilterSchema>;
+  subjectId?: string;
+  agent?: string;
   status?: z.infer<typeof statusFilterSchema>;
   curatedSourceId?: string;
   gateStatus?: z.infer<typeof gateStatusFilterSchema>;
 };
 
-/**
- * Maps a gate-status filter to collection URL outcome statuses.
- *
- * @param gateStatus - Passed maps to collected; failed maps to dropped or failed.
- * @returns Prisma status filter fragment.
- */
 export const buildProcessedUrlGateStatusWhere = (
   gateStatus: z.infer<typeof gateStatusFilterSchema>,
 ): Prisma.CollectionUrlOutcomeWhereInput => {
   if (gateStatus === "passed") {
     return { status: "collected" };
   }
+
   return { status: { in: ["dropped", "failed"] } };
 };
 
-/**
- * Builds a Prisma `where` for processed-URL list queries from parsed filters.
- *
- * @param filters - Parsed filter values from the request.
- * @returns A `Prisma.CollectionUrlOutcomeWhereInput` (always returned, possibly empty).
- */
+export const buildProcessedUrlAgentWhere = (
+  agent: string,
+): Prisma.CollectionUrlOutcomeWhereInput => {
+  const agentFilter = agentFilterSchema.safeParse(agent);
+  if (!agentFilter.success) {
+    return MATCH_NO_OUTCOMES;
+  }
+
+  return { agent: COLLECTION_AGENT_BY_AGENT_FILTER[agentFilter.data] };
+};
+
 export const buildProcessedUrlListWhere = (
   filters: ProcessedUrlListFilters,
 ): Prisma.CollectionUrlOutcomeWhereInput => {
@@ -47,17 +56,12 @@ export const buildProcessedUrlListWhere = (
     parts.push({ scheduleExecutionId: filters.scheduleExecutionId });
   }
 
-  if (filters.tickerId) {
-    parts.push({ tickerId: filters.tickerId });
+  if (filters.subjectId) {
+    parts.push({ tickerId: filters.subjectId });
   }
 
   if (filters.agent) {
-    parts.push({
-      agent:
-        filters.agent === "data-collection"
-          ? "data_collection"
-          : "page_collection",
-    });
+    parts.push(buildProcessedUrlAgentWhere(filters.agent));
   }
 
   if (filters.status) {
@@ -77,4 +81,4 @@ export const buildProcessedUrlListWhere = (
   return { AND: parts };
 };
 
-export { agentFilterSchema, gateStatusFilterSchema, statusFilterSchema };
+export { gateStatusFilterSchema, statusFilterSchema };

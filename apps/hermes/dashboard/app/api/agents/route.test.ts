@@ -28,26 +28,35 @@ const principal = {
   label: "Cursor",
 };
 
+const listPrincipal = {
+  authMethod: "api_key" as const,
+  user: {
+    id: "u1",
+    name: "Admin",
+    email: "admin@test.com",
+    credentialVersion: 0,
+  },
+  apiKeyId: "key-1",
+  readOnly: true,
+  label: "Agent",
+};
+
 describe("GET /api/agents", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
   it("returns 401 without principal", async () => {
-    // Setup
     vi.mocked(resolveDashboardPrincipalOrUnauthorized).mockResolvedValue(
       NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
     );
 
-    // Act
     const res = await GET(new Request("http://localhost/api/agents"));
 
-    // Assert
     expect(res.status).toBe(401);
   });
 
   it("returns empty list", async () => {
-    // Setup
     vi.mocked(resolveDashboardPrincipalOrUnauthorized).mockResolvedValue(
       principal,
     );
@@ -58,25 +67,23 @@ describe("GET /api/agents", () => {
       pageSize: 20,
     });
 
-    // Act
     const res = await GET(
       new Request("http://localhost/api/agents", {
         headers: { Authorization: "Bearer hmcp_ok" },
       }),
     );
 
-    // Assert
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({
       items: [],
       total: 0,
       page: 1,
       pageSize: 20,
+      hasMore: false,
     });
   });
 
   it("returns paginated agents for api key principal", async () => {
-    // Setup
     vi.mocked(resolveDashboardPrincipalOrUnauthorized).mockResolvedValue(
       principal,
     );
@@ -102,17 +109,70 @@ describe("GET /api/agents", () => {
       pageSize: 20,
     } satisfies AgentRegistryPageResult);
 
-    // Act
     const res = await GET(
       new Request("http://localhost/api/agents?page=1&pageSize=20", {
         headers: { Authorization: "Bearer hmcp_ok" },
       }),
     );
 
-    // Assert
-    expect(getAgentRegistryPage).toHaveBeenCalledWith(1, 20);
+    expect(getAgentRegistryPage).toHaveBeenCalledWith(1, 20, {
+      search: undefined,
+      sortBy: "agentId",
+      sortDir: "asc",
+    });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { items: unknown[] };
     expect(body.items).toHaveLength(1);
+  });
+
+  it("forwards q, sort, and dir and reports hasMore", async () => {
+    vi.mocked(resolveDashboardPrincipalOrUnauthorized).mockResolvedValue(
+      listPrincipal,
+    );
+    vi.mocked(getAgentRegistryPage).mockResolvedValue({
+      agents: [],
+      total: 25,
+      page: 2,
+      pageSize: 10,
+    });
+
+    const res = await GET(
+      new Request(
+        "http://localhost/api/agents?page=2&pageSize=10&q=summar&sort=updated&dir=desc",
+      ),
+    );
+
+    expect(getAgentRegistryPage).toHaveBeenCalledWith(2, 10, {
+      search: "summar",
+      sortBy: "updated",
+      sortDir: "desc",
+    });
+    await expect(res.json()).resolves.toEqual({
+      items: [],
+      total: 25,
+      page: 2,
+      pageSize: 10,
+      hasMore: true,
+    });
+  });
+
+  it("falls back to the default sort for unknown sort fields", async () => {
+    vi.mocked(resolveDashboardPrincipalOrUnauthorized).mockResolvedValue(
+      listPrincipal,
+    );
+    vi.mocked(getAgentRegistryPage).mockResolvedValue({
+      agents: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+    });
+
+    await GET(new Request("http://localhost/api/agents?sort=secret"));
+
+    expect(getAgentRegistryPage).toHaveBeenCalledWith(1, 20, {
+      search: undefined,
+      sortBy: "agentId",
+      sortDir: "asc",
+    });
   });
 });
