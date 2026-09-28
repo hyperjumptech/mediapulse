@@ -13,21 +13,18 @@ permissions:
   contents: read
 
 jobs:
-  # App Deployment and Agent Deployment each migrate before they publish, and all three migrate jobs
-  # take the same `prisma-migrate-production` group. GitHub keeps one job running and at most one
-  # queued per group, then cancels the older queued job when a third arrives. A commit touching both
-  # a database package and a service therefore lost a whole workflow: on 327120df the cancelled job
-  # was App Deployment's migrate step, and the seven app deploys behind it were skipped silently.
-  #
-  # Standing down when a deploy workflow will migrate keeps the contenders at two, which queue
-  # safely. Ordering is unchanged, because a deploy workflow already migrates before it ships.
+  # Production Deployment migrates before it publishes, and both migrate jobs take the same
+  # `prisma-migrate-production` group. GitHub keeps one job running and at most one queued per
+  # group, then cancels the older queued job when a third arrives. Standing down when the deploy
+  # will migrate keeps this workflow from adding a contender. Ordering is unchanged, because the
+  # deploy already migrates before it ships.
   #
   # Today every push that reaches this workflow stands down: a change under either database package
-  # marks all services changed, so a deploy workflow always migrates and the push path here is a
-  # guard rather than a route. It earns its keep if that mapping ever narrows, and it is what makes
+  # marks all services changed, so the deploy always migrates and the push path here is a guard
+  # rather than a route. It earns its keep if that mapping ever narrows, and it is what makes
   # dropping the push trigger the wrong simplification: that version would migrate nothing, quietly.
   changes:
-    name: Detect whether a deploy workflow will migrate
+    name: Detect whether Production Deployment will migrate
     runs-on: ubuntu-latest
     outputs:
       deploy_migrates: ${{ steps.detect.outputs.deploy_migrates }}
@@ -40,7 +37,7 @@ jobs:
         with:
           node-version: 24
 
-      - name: Detect whether a deploy workflow will migrate
+      - name: Detect whether Production Deployment will migrate
         id: detect
         env:
           BASE_SHA: ${{ github.event.before }}

@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Decide whether App Deployment or Agent Deployment will apply production migrations for this push.
+# Decide whether Production Deployment will apply production migrations for this push.
 #
-# Both deploy workflows migrate before they publish, but only when they have a service to publish.
-# When either of them does, Database Migrations must stand down: all three migrate jobs share one
-# concurrency group, and a third contender makes GitHub cancel a queued one outright.
+# Production Deployment migrates before it publishes, but only when it has a service to publish.
+# When it does, Database Migrations must stand down so the `prisma-migrate-production` group never
+# holds more than two contenders; a third makes GitHub cancel a queued job outright.
 #
-# The answer comes from `detect-changed-services.sh`, the same script the deploy workflows run, so
-# the two can never disagree about what counts as a changed service. When no deploy workflow will
-# migrate, this reports false and Database Migrations does the work itself.
+# The answer comes from `detect-changed-services.sh`, the same script the deploy workflow runs. The
+# deploy workflow diffs against its last successful run rather than this push's `before` SHA, so it
+# can find more services than this check does, never fewer: when this reports false, the deploy may
+# still migrate, which keeps the contenders at two.
 #
 # Usage:
 #   BASE_SHA=<sha> HEAD_SHA=<sha> ./detect-deploy-migrates.sh
@@ -27,20 +28,17 @@ cd "$root"
 detected="$(mktemp)"
 trap 'rm -f "$detected"' EXIT
 
-for workflow in app agent; do
-  : >"$detected"
-  WORKFLOW="$workflow" \
-    BASE_SHA="$base_sha" \
-    HEAD_SHA="$head_sha" \
-    GITHUB_OUTPUT="$detected" \
-    bash .github/scripts/detect-changed-services.sh >/dev/null
+WORKFLOW=all \
+  BASE_SHA="$base_sha" \
+  HEAD_SHA="$head_sha" \
+  GITHUB_OUTPUT="$detected" \
+  bash .github/scripts/detect-changed-services.sh >/dev/null
 
-  if grep -qx 'any=true' "$detected"; then
-    echo "$workflow deployment has services to publish, so it will migrate."
-    echo "deploy_migrates=true" >>"$output"
-    exit 0
-  fi
-done
+if grep -qx 'any=true' "$detected"; then
+  echo "Production Deployment has services to publish, so it will migrate."
+  echo "deploy_migrates=true" >>"$output"
+  exit 0
+fi
 
-echo "No deploy workflow will migrate for this push."
+echo "Production Deployment will not migrate for this push."
 echo "deploy_migrates=false" >>"$output"
