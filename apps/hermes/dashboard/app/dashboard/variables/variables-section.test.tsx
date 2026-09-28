@@ -12,31 +12,33 @@ vi.mock("@/lib/variables", () => ({
   getVariablesPage: (...args: unknown[]) => getVariablesPageMock(...args),
 }));
 
-vi.mock("./variables-table-with-edit", () => ({
-  VariablesTableWithEdit: ({
+vi.mock("@/lib/data-table/read-column-visibility", () => ({
+  readColumnVisibility: async () => ({ note: false }),
+}));
+
+vi.mock("./variables-table", () => ({
+  VariablesTable: ({
     variables,
+    urlState,
+    initialColumnVisibility,
   }: {
-    variables: Array<{ id: string; key: string }>;
+    variables: Array<{ id: string }>;
+    urlState: {
+      basePath: string;
+      page: number;
+      total: number;
+      search?: string;
+      sortBy?: string;
+      sortDir: string;
+    };
+    initialColumnVisibility: Record<string, boolean>;
   }) => (
-    <div data-testid="variables-table-with-edit" data-count={variables.length}>
-      Table
-    </div>
-  ),
-}));
-
-vi.mock("@/components/list-pagination", () => ({
-  ListPagination: ({ page, total }: { page: number; total: number }) => (
-    <nav data-testid="variables-pagination" data-page={page} data-total={total}>
-      Pagination
-    </nav>
-  ),
-}));
-
-vi.mock("./variables-search", () => ({
-  VariablesSearch: ({ initialQuery }: { initialQuery?: string }) => (
-    <div data-testid="variables-search" data-query={initialQuery ?? ""}>
-      Search
-    </div>
+    <div
+      data-testid="variables-table"
+      data-count={variables.length}
+      data-url-state={JSON.stringify(urlState)}
+      data-visibility={JSON.stringify(initialColumnVisibility)}
+    />
   ),
 }));
 
@@ -50,13 +52,17 @@ const baseQuery = {
   sortDir: "asc" as const,
 };
 
+const renderedTable = () => screen.getByTestId("variables-table");
+
+const renderedUrlState = () =>
+  JSON.parse(renderedTable().getAttribute("data-url-state") ?? "{}");
+
 describe("VariablesSection", () => {
   afterEach(() => {
     getVariablesPageMock.mockReset();
   });
 
-  it("renders the search, table, and pagination from the loader", async () => {
-    // Setup
+  it("hands the table its rows, URL state and saved column choices", async () => {
     getVariablesPageMock.mockResolvedValue({
       variables: [{ id: "1", key: "API_URL" }],
       total: 30,
@@ -64,27 +70,25 @@ describe("VariablesSection", () => {
       pageSize: 15,
     });
 
-    // Act
-    render(await VariablesSection({ ...baseQuery, page: 2 }));
+    render(await VariablesSection({ ...baseQuery, page: 2, search: "api" }));
 
-    // Assert
-    expect(screen.getByTestId("variables-table-with-edit")).toHaveAttribute(
-      "data-count",
-      "1",
+    expect(renderedTable()).toHaveAttribute("data-count", "1");
+    expect(renderedUrlState()).toEqual({
+      basePath: "/dashboard/variables",
+      page: 2,
+      pageSize: 15,
+      total: 30,
+      search: "api",
+      sortBy: "key",
+      sortDir: "asc",
+    });
+    expect(renderedTable()).toHaveAttribute(
+      "data-visibility",
+      JSON.stringify({ createdBy: false, note: false }),
     );
-    expect(screen.getByTestId("variables-pagination")).toHaveAttribute(
-      "data-page",
-      "2",
-    );
-    expect(screen.getByTestId("variables-pagination")).toHaveAttribute(
-      "data-total",
-      "30",
-    );
-    expect(screen.getByTestId("variables-search")).toBeInTheDocument();
   });
 
   it("forwards search and sort to getVariablesPage", async () => {
-    // Setup
     getVariablesPageMock.mockResolvedValue({
       variables: [],
       total: 0,
@@ -92,7 +96,6 @@ describe("VariablesSection", () => {
       pageSize: 15,
     });
 
-    // Act
     render(
       await VariablesSection({
         ...baseQuery,
@@ -102,15 +105,10 @@ describe("VariablesSection", () => {
       }),
     );
 
-    // Assert
     expect(getVariablesPageMock).toHaveBeenCalledWith(1, 15, {
       search: "api",
       sortBy: "created",
       sortDir: "desc",
     });
-    expect(screen.getByTestId("variables-search")).toHaveAttribute(
-      "data-query",
-      "api",
-    );
   });
 });

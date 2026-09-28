@@ -105,8 +105,8 @@ export const AppSidebar = ({
   const pathname = usePathname();
 
   return (
-    <Sidebar collapsible="offcanvas" variant="inset" {...props}>
-      <SidebarHeader>
+    <Sidebar collapsible="offcanvas" variant="sidebar" {...props}>
+      <SidebarHeader className="h-(--header-height) justify-center border-b">
         <SidebarBrand />
       </SidebarHeader>
 

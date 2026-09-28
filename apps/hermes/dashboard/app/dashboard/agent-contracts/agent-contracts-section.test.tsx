@@ -13,30 +13,37 @@ vi.mock("@/lib/agent-contracts", () => ({
     getAgentContractsPageMock(...args),
 }));
 
+vi.mock("@/lib/data-table/read-column-visibility", () => ({
+  readColumnVisibility: async () => ({ description: false }),
+}));
+
 vi.mock("./agent-contracts-content", () => ({
   AgentContractsContent: ({
     contracts,
-    total,
-    page,
-    pageSize,
-    sortBy,
-    sortDir,
+    urlState,
+    initialColumnVisibility,
   }: {
     contracts: Array<{ id: string }>;
-    total: number;
-    page: number;
-    pageSize: number;
-    sortBy: string;
-    sortDir: string;
+    urlState: {
+      basePath: string;
+      page: number;
+      pageSize: number;
+      total: number;
+      sortBy: string;
+      sortDir: string;
+    };
+    initialColumnVisibility: Record<string, boolean>;
   }) => (
     <div
       data-testid="agent-contracts-content"
       data-count={contracts.length}
-      data-total={total}
-      data-page={page}
-      data-page-size={pageSize}
-      data-sort-by={sortBy}
-      data-sort-dir={sortDir}
+      data-base-path={urlState.basePath}
+      data-total={urlState.total}
+      data-page={urlState.page}
+      data-page-size={urlState.pageSize}
+      data-sort-by={urlState.sortBy}
+      data-sort-dir={urlState.sortDir}
+      data-visibility={JSON.stringify(initialColumnVisibility)}
     />
   ),
 }));
@@ -48,7 +55,7 @@ describe("AgentContractsSection", () => {
     getAgentContractsPageMock.mockReset();
   });
 
-  it("renders contracts and pagination from the loader", async () => {
+  it("hands the content its rows, URL state and saved column choices", async () => {
     // Setup
     getAgentContractsPageMock.mockResolvedValue({
       contracts: [{ id: "contract-1" }, { id: "contract-2" }],
@@ -75,10 +82,18 @@ describe("AgentContractsSection", () => {
       sortDir: "desc",
     });
     expect(content).toHaveAttribute("data-count", "2");
+    expect(content).toHaveAttribute(
+      "data-base-path",
+      "/dashboard/agent-contracts",
+    );
     expect(content).toHaveAttribute("data-total", "32");
     expect(content).toHaveAttribute("data-page", "3");
     expect(content).toHaveAttribute("data-page-size", "10");
     expect(content).toHaveAttribute("data-sort-by", "createdAt");
     expect(content).toHaveAttribute("data-sort-dir", "desc");
+    expect(content).toHaveAttribute(
+      "data-visibility",
+      JSON.stringify({ createdBy: false, description: false }),
+    );
   });
 });

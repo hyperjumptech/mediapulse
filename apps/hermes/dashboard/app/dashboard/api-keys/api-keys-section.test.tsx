@@ -12,9 +12,23 @@ vi.mock("@/lib/mcp-api-keys", () => ({
   listActiveMcpApiKeys: () => listActiveMcpApiKeysMock(),
 }));
 
-vi.mock("./api-key-row-actions", () => ({
-  ApiKeyRowActions: ({ row }: { row: { id: string; label: string } }) => (
-    <div data-testid={`api-key-row-actions-${row.id}`} data-label={row.label} />
+vi.mock("@/lib/data-table/read-column-visibility", () => ({
+  readColumnVisibility: async () => ({ createdBy: false }),
+}));
+
+vi.mock("./api-keys-table", () => ({
+  ApiKeysTable: ({
+    apiKeys,
+    initialColumnVisibility,
+  }: {
+    apiKeys: Array<{ id: string }>;
+    initialColumnVisibility: Record<string, boolean>;
+  }) => (
+    <div
+      data-testid="api-keys-table"
+      data-ids={apiKeys.map((apiKey) => apiKey.id).join(",")}
+      data-visibility={JSON.stringify(initialColumnVisibility)}
+    />
   ),
 }));
 
@@ -25,63 +39,31 @@ describe("ApiKeysSection", () => {
     listActiveMcpApiKeysMock.mockReset();
   });
 
-  it("renders each key with its access level and creator", async () => {
-    // Setup
+  it("hands the table the active keys and saved column choices", async () => {
     listActiveMcpApiKeysMock.mockResolvedValue([
-      {
-        id: "key-1",
-        label: "Cursor",
-        readOnly: true,
-        createdAt: new Date("2026-01-02T00:00:00.000Z"),
-        lastUsedAt: null,
-        createdByUserId: "user-1",
-        createdBy: { id: "user-1", name: "Ada", email: "ada@example.com" },
-      },
-      {
-        id: "key-2",
-        label: "CI",
-        readOnly: false,
-        createdAt: new Date("2026-01-03T00:00:00.000Z"),
-        lastUsedAt: new Date("2026-01-04T00:00:00.000Z"),
-        createdByUserId: null,
-        createdBy: null,
-      },
+      { id: "key-1", label: "Cursor" },
+      { id: "key-2", label: "CI" },
     ]);
 
-    // Act
-    const { container } = render(await ApiKeysSection());
+    render(await ApiKeysSection());
 
-    // Assert
-    const lastUsedTime = container.querySelector(
-      'time[datetime="2026-01-04T00:00:00.000Z"]',
-    );
+    const table = screen.getByTestId("api-keys-table");
 
-    expect(screen.getByText("Cursor")).toBeInTheDocument();
-    expect(screen.getByText("Read-only")).toHaveAttribute(
-      "data-variant",
-      "muted",
-    );
-    expect(screen.getByText("Full")).toHaveAttribute("data-variant", "outline");
-    expect(screen.getByText("Ada")).toBeInTheDocument();
-    expect(screen.getByText("Never")).toBeInTheDocument();
-    expect(lastUsedTime).toHaveTextContent("Jan 4, 00:00");
-    expect(screen.getByText("Jan 3, 2026")).toBeInTheDocument();
-    expect(screen.getByTestId("api-key-row-actions-key-2")).toHaveAttribute(
-      "data-label",
-      "CI",
+    expect(table).toHaveAttribute("data-ids", "key-1,key-2");
+    expect(table).toHaveAttribute(
+      "data-visibility",
+      JSON.stringify({ createdBy: false }),
     );
   });
 
-  it("renders the empty state when there are no keys", async () => {
-    // Setup
+  it("hands the table an empty list when there are no keys", async () => {
     listActiveMcpApiKeysMock.mockResolvedValue([]);
 
-    // Act
     render(await ApiKeysSection());
 
-    // Assert
-    expect(screen.getByText("No API keys yet")).toBeInTheDocument();
-    expect(screen.getByText("Create one for MCP access.")).toBeInTheDocument();
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByTestId("api-keys-table")).toHaveAttribute(
+      "data-ids",
+      "",
+    );
   });
 });

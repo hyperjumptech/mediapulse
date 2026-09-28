@@ -290,7 +290,7 @@ describe("AppSidebar", () => {
     expect(screen.queryByRole("link", { name: "Tickers" })).toBeNull();
   });
 
-  it("slides off canvas with an inset variant when collapsed", async () => {
+  it("slides off canvas as a flat sidebar when collapsed", async () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard");
 
@@ -302,7 +302,7 @@ describe("AppSidebar", () => {
 
     expect(sidebarRoot).toHaveAttribute("data-state", "collapsed");
     expect(sidebarRoot).toHaveAttribute("data-collapsible", "offcanvas");
-    expect(sidebarRoot).toHaveAttribute("data-variant", "inset");
+    expect(sidebarRoot).toHaveAttribute("data-variant", "sidebar");
   });
 
   it("tucks integration views past the fourth under More", async () => {

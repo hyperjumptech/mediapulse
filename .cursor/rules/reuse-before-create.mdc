@@ -24,8 +24,8 @@ Paths are under `apps/hermes/dashboard/`. Primitives (Button, Card, Table, Sheet
 | Create from anywhere | `?create=1` on a list page opens its create modal (`hooks/use-entity-form-modal-state.ts`); add entries to `dashboardQuickCreateItems` |
 | Key facts on a detail page | `components/summary-grid.tsx` (`SummaryGrid`, `SummaryItem`) |
 | Any date or time | `components/date-time/date-time.tsx` (`DateTime`), formatted in the viewer's zone |
-| List table frame and sortable headers | `components/data-table/data-table-card.tsx`, `components/data-table/sortable-header.tsx` |
-| Pagination | `components/list-pagination.tsx` (`ListPagination`) |
+| List pages (search, sort, column menu, mobile cards, pagination) | `components/data-table/data-table.tsx` (`DataTable`). Columns come from `createDataTableColumnHelper` in `lib/data-table/features.ts`, with `meta` for label, `sortKey`, `hideBelow` and `mobile` role. Read saved columns on the server with `lib/data-table/read-column-visibility.ts`. Keep the table id and default visibility in a plain `*-table-defaults.ts`, because a server section cannot read constants exported from a `"use client"` file |
+| Pagination | Built into `DataTable` through `urlState`. Outside a table, `components/list-pagination.tsx` (`ListPagination`) |
 | Status pills | `components/status-badge.tsx` (`StatusBadge`) |
 | Confirm before a destructive action | `components/confirm-action-dialog.tsx` (`ConfirmActionDialog`) with `hooks/use-confirm-action-dialog.ts` |
 | Create/edit modal state | `components/entity-form-modal-provider.tsx` |
@@ -37,7 +37,7 @@ Paths are under `apps/hermes/dashboard/`. Primitives (Button, Card, Table, Sheet
 | Manifest-driven domain detail | `components/detail-blocks/` |
 
 - **Modals / forms:** if create and edit are almost the same, use one component with a mode or discriminated props (for example `variable={null}` for create and `variable={row}` for edit). Do not add separate `AddXModal` and `EditXModal` that duplicate the form and submit logic.
-- **Tables, search, row actions:** search for the existing pattern under `app/dashboard/` and reuse or generalize it before writing a new variant.
+- **Tables, search, row actions:** build lists on `DataTable` with a `*-table.tsx` column file. Search for the existing pattern under `app/dashboard/` and reuse or generalize it before writing a new variant.
 
 ```
 ❌ BAD — duplicate pattern

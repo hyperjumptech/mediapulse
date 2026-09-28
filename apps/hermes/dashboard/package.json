@@ -30,6 +30,7 @@
     "@hermes/step-input-syntax": "workspace:*",
     "@next/env": "catalog:",
     "@nicnocquee/dataqueue": "^1.40.1",
+    "@tanstack/react-table": "^9.2.4",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/agent-data-api-contract": "workspace:*",

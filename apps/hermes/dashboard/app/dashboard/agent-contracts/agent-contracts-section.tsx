@@ -3,9 +3,15 @@ import {
   type AgentContractSortDir,
   type AgentContractSortField,
 } from "@/lib/agent-contracts";
+import { mergeColumnVisibility } from "@/lib/data-table/column-visibility";
+import { readColumnVisibility } from "@/lib/data-table/read-column-visibility";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 import { AgentContractsContent } from "./agent-contracts-content";
+import {
+  AGENT_CONTRACTS_DEFAULT_COLUMN_VISIBILITY,
+  AGENT_CONTRACTS_TABLE_ID,
+} from "./agent-contracts-table-defaults";
 
 export type AgentContractsQuery = {
   page: number;
@@ -20,18 +26,28 @@ export const AgentContractsSection = async ({
   sortBy,
   sortDir,
 }: AgentContractsQuery) => {
-  const contractsResult = await withDashboardAdmin(
-    getAgentContractsPage(page, pageSize, { sortBy, sortDir }),
-  );
+  const [contractsResult, savedVisibility] = await Promise.all([
+    withDashboardAdmin(
+      getAgentContractsPage(page, pageSize, { sortBy, sortDir }),
+    ),
+    readColumnVisibility(AGENT_CONTRACTS_TABLE_ID),
+  ]);
 
   return (
     <AgentContractsContent
       contracts={contractsResult.contracts}
-      total={contractsResult.total}
-      page={contractsResult.page}
-      pageSize={contractsResult.pageSize}
-      sortBy={sortBy}
-      sortDir={sortDir}
+      urlState={{
+        basePath: "/dashboard/agent-contracts",
+        page: contractsResult.page,
+        pageSize: contractsResult.pageSize,
+        total: contractsResult.total,
+        sortBy,
+        sortDir,
+      }}
+      initialColumnVisibility={mergeColumnVisibility(
+        AGENT_CONTRACTS_DEFAULT_COLUMN_VISIBILITY,
+        savedVisibility,
+      )}
     />
   );
 };

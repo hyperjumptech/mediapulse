@@ -7,13 +7,15 @@ import {
   type AgentConfigSortField,
 } from "@/lib/agent-configs";
 import { configSchemaFingerprint } from "@/lib/config-schema-fingerprint";
+import { mergeColumnVisibility } from "@/lib/data-table/column-visibility";
+import { readColumnVisibility } from "@/lib/data-table/read-column-visibility";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
-import {
-  loadExpansionPickerPage,
-  loadVariablePickerPage,
-} from "@/lib/variable-expansion-picker-actions";
 
-import { AgentConfigsContent } from "./agent-configs-content";
+import { AgentConfigsTable } from "./agent-configs-table";
+import {
+  AGENT_CONFIGS_DEFAULT_COLUMN_VISIBILITY,
+  AGENT_CONFIGS_TABLE_ID,
+} from "./agent-configs-table-defaults";
 
 export type AgentConfigsQuery = {
   page: number;
@@ -67,16 +69,12 @@ export const AgentConfigsSection = async ({
   sortBy,
   sortDir,
 }: AgentConfigsQuery) => {
-  const [configsResult, agentsForDropdown] = await withDashboardAdmin(
-    Promise.all([
+  const [configsResult, savedVisibility] = await Promise.all([
+    withDashboardAdmin(
       getAgentConfigsPage(page, pageSize, { sortBy, sortDir }),
-      orchestrationPrisma.agentRegistry.findMany({
-        where: { isActive: true },
-        select: { id: true, agentId: true, agentVersion: true },
-        orderBy: [{ agentId: "asc" }, { agentVersion: "asc" }],
-      }),
-    ]),
-  );
+    ),
+    readColumnVisibility(AGENT_CONFIGS_TABLE_ID),
+  ]);
   const currentFingerprintByKey = await loadCurrentFingerprintByKey(
     configsResult.configs,
   );
@@ -93,18 +91,20 @@ export const AgentConfigsSection = async ({
   });
 
   return (
-    <AgentConfigsContent
+    <AgentConfigsTable
       configs={configsWithStatus}
-      agents={agentsForDropdown}
-      total={configsResult.total}
-      page={configsResult.page}
-      pageSize={configsResult.pageSize}
-      sortBy={sortBy}
-      sortDir={sortDir}
-      pickerLoaders={{
-        loadVariablesPage: loadVariablePickerPage,
-        loadExpansionsPage: loadExpansionPickerPage,
+      urlState={{
+        basePath: "/dashboard/agent-configs",
+        page: configsResult.page,
+        pageSize: configsResult.pageSize,
+        total: configsResult.total,
+        sortBy,
+        sortDir,
       }}
+      initialColumnVisibility={mergeColumnVisibility(
+        AGENT_CONFIGS_DEFAULT_COLUMN_VISIBILITY,
+        savedVisibility,
+      )}
     />
   );
 };

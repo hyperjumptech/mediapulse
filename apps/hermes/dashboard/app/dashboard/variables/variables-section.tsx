@@ -1,4 +1,5 @@
-import { ListPagination } from "@/components/list-pagination";
+import { mergeColumnVisibility } from "@/lib/data-table/column-visibility";
+import { readColumnVisibility } from "@/lib/data-table/read-column-visibility";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 import {
   getVariablesPage,
@@ -6,8 +7,11 @@ import {
   type VariableSortField,
 } from "@/lib/variables";
 
-import { VariablesSearch } from "./variables-search";
-import { VariablesTableWithEdit } from "./variables-table-with-edit";
+import { VariablesTable } from "./variables-table";
+import {
+  VARIABLES_DEFAULT_COLUMN_VISIBILITY,
+  VARIABLES_TABLE_ID,
+} from "./variables-table-defaults";
 
 export type VariablesQuery = {
   page: number;
@@ -24,37 +28,29 @@ export const VariablesSection = async ({
   sortBy,
   sortDir,
 }: VariablesQuery) => {
-  const variablesResult = await withDashboardAdmin(
-    getVariablesPage(page, pageSize, { search, sortBy, sortDir }),
-  );
+  const [variablesResult, savedVisibility] = await Promise.all([
+    withDashboardAdmin(
+      getVariablesPage(page, pageSize, { search, sortBy, sortDir }),
+    ),
+    readColumnVisibility(VARIABLES_TABLE_ID),
+  ]);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <VariablesSearch
-          initialQuery={search ?? ""}
-          pageSize={variablesResult.pageSize}
-          sortBy={sortBy}
-          sortDir={sortDir}
-        />
-      </div>
-      <VariablesTableWithEdit
-        variables={variablesResult.variables}
-        sortBy={sortBy}
-        sortDir={sortDir}
-        pageSize={variablesResult.pageSize}
-        searchQuery={search}
-      />
-      <ListPagination
-        basePath="/dashboard/variables"
-        page={variablesResult.page}
-        pageSize={variablesResult.pageSize}
-        total={variablesResult.total}
-        ariaLabel="Variables list pagination"
-        searchQuery={search}
-        sortBy={sortBy}
-        sortDir={sortDir}
-      />
-    </div>
+    <VariablesTable
+      variables={variablesResult.variables}
+      urlState={{
+        basePath: "/dashboard/variables",
+        page: variablesResult.page,
+        pageSize: variablesResult.pageSize,
+        total: variablesResult.total,
+        search,
+        sortBy,
+        sortDir,
+      }}
+      initialColumnVisibility={mergeColumnVisibility(
+        VARIABLES_DEFAULT_COLUMN_VISIBILITY,
+        savedVisibility,
+      )}
+    />
   );
 };

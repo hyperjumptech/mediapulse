@@ -12,31 +12,27 @@ vi.mock("@/lib/agents", () => ({
   getAgentsPage: (...args: unknown[]) => getAgentsPageMock(...args),
 }));
 
-vi.mock("./agents-table-with-edit", () => ({
-  AgentsTableWithEdit: ({
+vi.mock("@/lib/data-table/read-column-visibility", () => ({
+  readColumnVisibility: async () => ({ description: false }),
+}));
+
+vi.mock("./agents-table", () => ({
+  AgentsTable: ({
     agents,
+    urlState,
+    initialColumnVisibility,
   }: {
-    agents: Array<{ id: string; agentId: string }>;
+    agents: Array<{ id: string }>;
+    urlState: { total: number; search?: string };
+    initialColumnVisibility: Record<string, boolean>;
   }) => (
-    <div data-testid="agents-table-with-edit" data-count={agents.length}>
-      Table
-    </div>
-  ),
-}));
-
-vi.mock("@/components/list-pagination", () => ({
-  ListPagination: ({ page, total }: { page: number; total: number }) => (
-    <nav data-testid="agents-pagination" data-page={page} data-total={total}>
-      Pagination
-    </nav>
-  ),
-}));
-
-vi.mock("./agents-search", () => ({
-  AgentsSearch: ({ initialQuery }: { initialQuery?: string }) => (
-    <div data-testid="agents-search" data-query={initialQuery ?? ""}>
-      Search
-    </div>
+    <div
+      data-testid="agents-table"
+      data-count={agents.length}
+      data-total={urlState.total}
+      data-search={urlState.search ?? ""}
+      data-visibility={JSON.stringify(initialColumnVisibility)}
+    />
   ),
 }));
 
@@ -55,64 +51,27 @@ describe("AgentsSection", () => {
     getAgentsPageMock.mockReset();
   });
 
-  it("renders agents table with data", async () => {
+  it("hands the table its rows, URL state and saved column choices", async () => {
     // Setup
     getAgentsPageMock.mockResolvedValue({
       agents: [{ id: "1", agentId: "test-agent", agentVersion: "1.0" }],
-      total: 1,
-      page: 1,
-      pageSize: 15,
-    });
-
-    // Act
-    render(await AgentsSection(baseQuery));
-
-    // Assert
-    expect(screen.getByTestId("agents-table-with-edit")).toHaveAttribute(
-      "data-count",
-      "1",
-    );
-  });
-
-  it("renders pagination", async () => {
-    // Setup
-    getAgentsPageMock.mockResolvedValue({
-      agents: [],
       total: 30,
       page: 2,
       pageSize: 15,
     });
 
     // Act
-    render(await AgentsSection({ ...baseQuery, page: 2 }));
+    render(await AgentsSection({ ...baseQuery, page: 2, search: "test" }));
 
     // Assert
-    expect(screen.getByTestId("agents-pagination")).toHaveAttribute(
-      "data-page",
-      "2",
-    );
-    expect(screen.getByTestId("agents-pagination")).toHaveAttribute(
-      "data-total",
-      "30",
-    );
-  });
+    const table = screen.getByTestId("agents-table");
 
-  it("renders search with initial query", async () => {
-    // Setup
-    getAgentsPageMock.mockResolvedValue({
-      agents: [],
-      total: 0,
-      page: 1,
-      pageSize: 15,
-    });
-
-    // Act
-    render(await AgentsSection({ ...baseQuery, search: "summarizer" }));
-
-    // Assert
-    expect(screen.getByTestId("agents-search")).toHaveAttribute(
-      "data-query",
-      "summarizer",
+    expect(table).toHaveAttribute("data-count", "1");
+    expect(table).toHaveAttribute("data-total", "30");
+    expect(table).toHaveAttribute("data-search", "test");
+    expect(table).toHaveAttribute(
+      "data-visibility",
+      JSON.stringify({ created: false, description: false }),
     );
   });
 
