@@ -14,6 +14,7 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/tabs";
 
+import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
 import { DomainContentView } from "@/components/domain-content-view";
 import { EndpointDisplay } from "../endpoint-display";
 import { JsonPretty } from "../json-pretty";
@@ -67,9 +68,11 @@ export const AgentDetailsContent = ({
         ? "grid-cols-3"
         : "grid-cols-2";
   const defaultTab = domainTabs[0]?.view.id ?? "schema";
+  const agentLabel = `${agent.agentId}@${agent.agentVersion}`;
 
   return (
     <div className="flex flex-col gap-6">
+      <BreadcrumbEntityLabel segment={agent.id} label={agentLabel} />
       <h1 className="text-xl font-semibold text-foreground">
         Agent details: {agent.agentId}@{agent.agentVersion}
       </h1>

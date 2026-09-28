@@ -1,5 +1,5 @@
-import { PageHeaderSkeleton } from "@/components/page-skeletons";
+import { OverviewPageSkeleton } from "./overview/overview-skeletons";
 
 export default function Loading() {
-  return <PageHeaderSkeleton />;
+  return <OverviewPageSkeleton />;
 }

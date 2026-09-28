@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Button } from "@workspace/ui/components/button";
 
 import { DetailBlocksView } from "@/components/detail-blocks";
+import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
 import { PageHeader } from "@/components/page-header";
 import {
   formatDomainTableCellValue,
@@ -82,6 +83,7 @@ const ViewDomainTableItemPage = async ({
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <BreadcrumbEntityLabel segment={itemId} label={title} />
           <PageHeader title={title} description={meta.description ?? ""} />
           <Button variant="outline" asChild className="shrink-0">
             <Link href={basePath}>Back to list</Link>
@@ -95,6 +97,7 @@ const ViewDomainTableItemPage = async ({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <BreadcrumbEntityLabel segment={itemId} label={title} />
         <PageHeader title={title} description={meta.description ?? ""} />
         <Button variant="outline" asChild className="shrink-0">
           <Link href={basePath}>Back to list</Link>

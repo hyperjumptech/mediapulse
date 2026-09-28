@@ -6,6 +6,7 @@ import { ChevronLeft, Copy, GitBranch } from "lucide-react";
 
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
+import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
 import { buildHttpTriggerInvokeCurlCommand } from "@/lib/http-trigger-invoke-curl";
 import { formatCreatedBy } from "@/lib/format-created-by";
 import type { getHttpTriggerById } from "@/lib/http-triggers";
@@ -60,6 +61,7 @@ export const HttpTriggerDetailContent = ({
 
   return (
     <>
+      <BreadcrumbEntityLabel segment={trigger.id} label={trigger.name} />
       <div className="flex flex-col gap-6">
         <div>
           <Link

@@ -10,10 +10,23 @@ const redirectMock = vi.fn((path: string) => {
   throw new Error(`NEXT_REDIRECT:${path}`);
 });
 
+const cookieValues = new Map<string, string>();
+
 let capturedIntegrations: Promise<unknown> | undefined;
+let capturedDefaultOpen: boolean | undefined;
 
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => redirectMock(path),
+}));
+
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: (name: string) => {
+      const value = cookieValues.get(name);
+
+      return value === undefined ? undefined : { name, value };
+    },
+  }),
 }));
 
 vi.mock("@/lib/auth-dashboard", () => ({
@@ -39,12 +52,15 @@ vi.mock("@/components/dashboard-shell", () => ({
     children,
     user,
     domainIntegrations,
+    defaultOpen,
   }: {
     children: React.ReactNode;
     user?: { name: string; email: string } | null;
     domainIntegrations: Promise<unknown>;
+    defaultOpen?: boolean;
   }) => {
     capturedIntegrations = domainIntegrations;
+    capturedDefaultOpen = defaultOpen;
 
     return (
       <div data-testid="dashboard-shell" data-user={user?.name ?? "none"}>
@@ -74,6 +90,8 @@ const renderLayout = async () => {
 describe("DashboardLayout", () => {
   beforeEach(() => {
     capturedIntegrations = undefined;
+    capturedDefaultOpen = undefined;
+    cookieValues.clear();
     getDashboardSessionMock.mockResolvedValue(sessionUser);
     getDashboardAdminMock.mockResolvedValue(sessionUser);
     getActiveDomainIntegrationsMock.mockResolvedValue([]);
@@ -149,6 +167,36 @@ describe("DashboardLayout", () => {
 
     // Assert
     await expect(capturedIntegrations).resolves.toEqual([]);
+  });
+
+  it("opens the sidebar when no sidebar state cookie is set", async () => {
+    // Act
+    await renderLayout();
+
+    // Assert
+    expect(capturedDefaultOpen).toBe(true);
+  });
+
+  it("opens the sidebar when the sidebar state cookie is true", async () => {
+    // Setup
+    cookieValues.set("sidebar_state", "true");
+
+    // Act
+    await renderLayout();
+
+    // Assert
+    expect(capturedDefaultOpen).toBe(true);
+  });
+
+  it("collapses the sidebar when the sidebar state cookie is false", async () => {
+    // Setup
+    cookieValues.set("sidebar_state", "false");
+
+    // Act
+    await renderLayout();
+
+    // Assert
+    expect(capturedDefaultOpen).toBe(false);
   });
 
   it("redirects to the clear-session route without a valid session", async () => {

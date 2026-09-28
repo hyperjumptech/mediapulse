@@ -9,6 +9,7 @@ import { Button } from "@workspace/ui/components/button";
 import { format } from "date-fns";
 import { ChevronLeft, GitBranch } from "lucide-react";
 
+import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
 import type { getScheduleById } from "@/lib/schedules";
 import type { PipelineValidationResult } from "@/lib/validate-pipeline";
 import { formatCreatedBy } from "@/lib/format-created-by";
@@ -58,6 +59,7 @@ export const ScheduleDetailContent = ({
 
   return (
     <>
+      <BreadcrumbEntityLabel segment={schedule.id} label={schedule.name} />
       <div className="flex flex-col gap-6">
         <div>
           <Link

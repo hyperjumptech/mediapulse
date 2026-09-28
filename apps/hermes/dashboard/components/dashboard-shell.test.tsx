@@ -1,8 +1,9 @@
 import React from "react";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DashboardPage } from "@hermes/domain-contract";
 
+import { BreadcrumbEntityLabel } from "./breadcrumb-entity-label";
 import { DashboardShell } from "./dashboard-shell";
 
 const mediapulsePages: DashboardPage[] = [
@@ -22,28 +23,10 @@ const mediapulsePages: DashboardPage[] = [
     createNavigation: "modal",
   },
 ];
-const mediapulsePagesWithSearchQueries: DashboardPage[] = [
-  ...mediapulsePages,
-  {
-    id: "search-queries",
-    label: "Search Queries",
-    pathSegment: "search-queries",
-    kind: "resource-table",
-    placement: "sidebar",
-    apiPrefix: "/v1/hermes-dashboard/search-queries",
-    columns: [],
-    searchableFields: [],
-    sortableFields: [],
-    actions: { create: true, update: true, delete: true, view: false },
-    order: 1,
-    customActions: [],
-    createNavigation: "modal",
-  },
-];
+
+const PIPELINE_ID = "550e8400-e29b-41d4-a716-446655440000";
 
 const usePathnameMock = vi.fn();
-
-const noIntegrations = Promise.resolve([]);
 
 vi.mock("next/navigation", () => ({
   usePathname: () => usePathnameMock(),
@@ -63,8 +46,13 @@ vi.mock("./app-sidebar", () => ({
 }));
 
 vi.mock("@workspace/ui/components/sidebar", () => ({
-  SidebarProvider: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="sidebar-provider">{children}</div>
+  SidebarProvider: ({
+    children,
+    defaultOpen,
+  }: React.PropsWithChildren<{ defaultOpen?: boolean }>) => (
+    <div data-testid="sidebar-provider" data-default-open={String(defaultOpen)}>
+      {children}
+    </div>
   ),
   SidebarInset: ({ children }: React.PropsWithChildren) => (
     <main data-testid="sidebar-inset">{children}</main>
@@ -92,65 +80,83 @@ vi.mock("@workspace/ui/components/separator", () => ({
   ),
 }));
 
+const noIntegrations = Promise.resolve([]);
+
+const renderShell = async (element: React.ReactElement) => {
+  await act(async () => {
+    render(element);
+  });
+};
+
+const getBreadcrumbNavigation = () =>
+  screen.getByRole("navigation", { name: "breadcrumb" });
+
 describe("DashboardShell", () => {
   afterEach(() => {
-    vi.restoreAllMocks();
     usePathnameMock.mockReset();
   });
 
-  it("renders children content", () => {
+  it("renders children inside the max-width content container", async () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard");
 
     // Act
-    render(
+    await renderShell(
       <DashboardShell domainIntegrations={noIntegrations}>
         <div data-testid="content">Dashboard Content</div>
       </DashboardShell>,
     );
 
     // Assert
-    expect(screen.getByTestId("content")).toBeInTheDocument();
-    expect(screen.getByText("Dashboard Content")).toBeInTheDocument();
+    const content = screen.getByTestId("content");
+
+    expect(content).toHaveTextContent("Dashboard Content");
+    expect(content.parentElement).toHaveClass("mx-auto", "max-w-7xl");
   });
 
-  it("renders sidebar provider wrapper", () => {
+  it("opens the sidebar by default", async () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard");
 
     // Act
-    render(
+    await renderShell(
       <DashboardShell domainIntegrations={noIntegrations}>
         <div>Content</div>
       </DashboardShell>,
     );
 
     // Assert
-    expect(screen.getByTestId("sidebar-provider")).toBeInTheDocument();
+    expect(screen.getByTestId("sidebar-provider")).toHaveAttribute(
+      "data-default-open",
+      "true",
+    );
   });
 
-  it("renders app sidebar", () => {
+  it("passes a collapsed default state to the sidebar provider", async () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard");
 
     // Act
-    render(
-      <DashboardShell domainIntegrations={noIntegrations}>
+    await renderShell(
+      <DashboardShell domainIntegrations={noIntegrations} defaultOpen={false}>
         <div>Content</div>
       </DashboardShell>,
     );
 
     // Assert
-    expect(screen.getByTestId("app-sidebar")).toBeInTheDocument();
+    expect(screen.getByTestId("sidebar-provider")).toHaveAttribute(
+      "data-default-open",
+      "false",
+    );
   });
 
-  it("passes user to app sidebar", () => {
+  it("passes the user to the app sidebar", async () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard");
     const user = { name: "Test User", email: "test@example.com" };
 
     // Act
-    render(
+    await renderShell(
       <DashboardShell user={user} domainIntegrations={noIntegrations}>
         <div>Content</div>
       </DashboardShell>,
@@ -163,215 +169,12 @@ describe("DashboardShell", () => {
     );
   });
 
-  it("shows Dashboard title on /dashboard", () => {
+  it("handles a null user", async () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard");
 
     // Act
-    render(
-      <DashboardShell domainIntegrations={noIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(
-      screen.getByRole("heading", { name: "Dashboard" }),
-    ).toBeInTheDocument();
-  });
-
-  it("shows Pipelines title on /dashboard/pipelines", () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard/pipelines");
-
-    // Act
-    render(
-      <DashboardShell domainIntegrations={noIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(
-      screen.getByRole("heading", { name: "Pipelines" }),
-    ).toBeInTheDocument();
-  });
-
-  it("shows Tickers title on keyed /dashboard/mediapulse/tickers", async () => {
-    usePathnameMock.mockReturnValue("/dashboard/mediapulse/tickers");
-
-    await act(async () => {
-      render(
-        <DashboardShell
-          domainIntegrations={Promise.resolve([
-            {
-              integrationId: "mediapulse",
-              name: "Mediapulse",
-              views: mediapulsePages,
-            },
-          ])}
-        >
-          <div>Content</div>
-        </DashboardShell>,
-      );
-    });
-
-    expect(
-      await screen.findByRole("heading", { name: "Tickers" }),
-    ).toBeInTheDocument();
-  });
-
-  it("shows Search Queries title on keyed /dashboard/mediapulse/search-queries", async () => {
-    usePathnameMock.mockReturnValue("/dashboard/mediapulse/search-queries");
-
-    await act(async () => {
-      render(
-        <DashboardShell
-          domainIntegrations={Promise.resolve([
-            {
-              integrationId: "mediapulse",
-              name: "Mediapulse",
-              views: mediapulsePagesWithSearchQueries,
-            },
-          ])}
-        >
-          <div>Content</div>
-        </DashboardShell>,
-      );
-    });
-
-    expect(
-      await screen.findByRole("heading", { name: "Search Queries" }),
-    ).toBeInTheDocument();
-  });
-
-  it("shows Agents title on /dashboard/agents", () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard/agents");
-
-    // Act
-    render(
-      <DashboardShell domainIntegrations={noIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(screen.getByRole("heading", { name: "Agents" })).toBeInTheDocument();
-  });
-
-  it("shows Domain integrations title on /dashboard/domain-integrations", () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard/domain-integrations");
-
-    // Act
-    render(
-      <DashboardShell domainIntegrations={noIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(
-      screen.getByRole("heading", { name: "Domain integrations" }),
-    ).toBeInTheDocument();
-  });
-
-  it("shows Schedules title on /dashboard/schedules", () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard/schedules");
-
-    // Act
-    render(
-      <DashboardShell domainIntegrations={noIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(
-      screen.getByRole("heading", { name: "Schedules" }),
-    ).toBeInTheDocument();
-  });
-
-  it("shows Pipeline title for UUID sub-route", () => {
-    // Setup
-    usePathnameMock.mockReturnValue(
-      "/dashboard/pipelines/550e8400-e29b-41d4-a716-446655440000",
-    );
-
-    // Act
-    render(
-      <DashboardShell domainIntegrations={noIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(
-      screen.getByRole("heading", { name: "Pipeline" }),
-    ).toBeInTheDocument();
-  });
-
-  it("shows sidebar trigger button", () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard");
-
-    // Act
-    render(
-      <DashboardShell domainIntegrations={noIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(screen.getByTestId("sidebar-trigger")).toBeInTheDocument();
-  });
-
-  it("shows CGA diagnostics title on /dashboard/agents/content-generation-runs", () => {
-    // Setup
-    usePathnameMock.mockReturnValue(
-      "/dashboard/agents/content-generation-runs",
-    );
-
-    // Act
-    render(
-      <DashboardShell domainIntegrations={noIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(
-      screen.getByRole("heading", { name: "CGA diagnostics" }),
-    ).toBeInTheDocument();
-  });
-
-  it("shows Run detail title on /dashboard/agents/content-generation-runs/[id]", () => {
-    // Setup
-    usePathnameMock.mockReturnValue(
-      "/dashboard/agents/content-generation-runs/550e8400-e29b-41d4-a716-446655440000",
-    );
-
-    // Act
-    render(
-      <DashboardShell domainIntegrations={noIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(
-      screen.getByRole("heading", { name: "Run detail" }),
-    ).toBeInTheDocument();
-  });
-
-  it("handles null user gracefully", () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard");
-
-    // Act
-    render(
+    await renderShell(
       <DashboardShell user={null} domainIntegrations={noIntegrations}>
         <div>Content</div>
       </DashboardShell>,
@@ -382,5 +185,142 @@ describe("DashboardShell", () => {
       "data-user",
       "none",
     );
+  });
+
+  it("renders the sidebar trigger and a vertical separator in the header", async () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard");
+
+    // Act
+    await renderShell(
+      <DashboardShell domainIntegrations={noIntegrations}>
+        <div>Content</div>
+      </DashboardShell>,
+    );
+
+    // Assert
+    const header = screen.getByRole("banner");
+
+    expect(within(header).getByTestId("sidebar-trigger")).toBeInTheDocument();
+    expect(within(header).getByTestId("separator")).toHaveAttribute(
+      "data-orientation",
+      "vertical",
+    );
+  });
+
+  it("does not render a heading in the header", async () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard/pipelines");
+
+    // Act
+    await renderShell(
+      <DashboardShell domainIntegrations={noIntegrations}>
+        <div>Content</div>
+      </DashboardShell>,
+    );
+
+    // Assert
+    expect(
+      within(screen.getByRole("banner")).queryByRole("heading"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders breadcrumbs for the current path", async () => {
+    // Setup
+    usePathnameMock.mockReturnValue(`/dashboard/pipelines/${PIPELINE_ID}`);
+
+    // Act
+    await renderShell(
+      <DashboardShell domainIntegrations={noIntegrations}>
+        <div>Content</div>
+      </DashboardShell>,
+    );
+
+    // Assert
+    const breadcrumbNavigation = getBreadcrumbNavigation();
+
+    expect(
+      within(breadcrumbNavigation).getByRole("link", { name: "Pipelines" }),
+    ).toHaveAttribute("href", "/dashboard/pipelines");
+    expect(breadcrumbNavigation).toHaveTextContent("Pipeline");
+  });
+
+  it("shows an entity label published by the page content", async () => {
+    // Setup
+    usePathnameMock.mockReturnValue(`/dashboard/pipelines/${PIPELINE_ID}`);
+
+    // Act
+    await renderShell(
+      <DashboardShell domainIntegrations={noIntegrations}>
+        <BreadcrumbEntityLabel segment={PIPELINE_ID} label="Nightly ingest" />
+      </DashboardShell>,
+    );
+
+    // Assert
+    expect(getBreadcrumbNavigation()).toHaveTextContent("Nightly ingest");
+  });
+
+  it("uses integration nav data for integration breadcrumbs", async () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard/mediapulse/tickers");
+    const domainIntegrations = Promise.resolve([
+      {
+        integrationId: "mediapulse",
+        name: "MediaPulse",
+        views: mediapulsePages,
+      },
+    ]);
+
+    // Act
+    await renderShell(
+      <DashboardShell domainIntegrations={domainIntegrations}>
+        <div>Content</div>
+      </DashboardShell>,
+    );
+
+    // Assert
+    const breadcrumbNavigation = getBreadcrumbNavigation();
+
+    expect(breadcrumbNavigation).toHaveTextContent("MediaPulse");
+    expect(breadcrumbNavigation).toHaveTextContent("Tickers");
+  });
+
+  it("renders header actions when provided", async () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard");
+
+    // Act
+    await renderShell(
+      <DashboardShell
+        domainIntegrations={noIntegrations}
+        headerActions={<button type="button">Search</button>}
+      >
+        <div>Content</div>
+      </DashboardShell>,
+    );
+
+    // Assert
+    expect(
+      within(screen.getByRole("banner")).getByRole("button", {
+        name: "Search",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("omits the header actions slot without actions", async () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard");
+
+    // Act
+    await renderShell(
+      <DashboardShell domainIntegrations={noIntegrations}>
+        <div>Content</div>
+      </DashboardShell>,
+    );
+
+    // Assert
+    expect(
+      document.querySelector('[data-slot="dashboard-header-actions"]'),
+    ).not.toBeInTheDocument();
   });
 });

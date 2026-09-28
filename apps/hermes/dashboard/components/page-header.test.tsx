@@ -45,7 +45,53 @@ describe("PageHeader", () => {
 
     // Assert
     const heading = screen.getByRole("heading", { name: "Test Page" });
+
     expect(heading).toHaveClass("text-2xl");
     expect(heading).toHaveClass("font-semibold");
+  });
+
+  it.each([undefined, ""])(
+    "omits the description paragraph when description is %j",
+    (description) => {
+      // Act
+      const { container } = render(
+        <PageHeader title="Test Page" description={description} />,
+      );
+
+      // Assert
+      expect(container.querySelector("p")).toBeNull();
+    },
+  );
+
+  it("renders actions in a right-aligned slot that stacks on mobile", () => {
+    // Act
+    render(
+      <PageHeader
+        title="Test Page"
+        actions={<button type="button">Create pipeline</button>}
+      />,
+    );
+
+    // Assert
+    const action = screen.getByRole("button", { name: "Create pipeline" });
+    const actionsSlot = action.parentElement;
+    const headerRow = actionsSlot?.parentElement;
+
+    expect(actionsSlot).toHaveAttribute("data-slot", "page-header-actions");
+    expect(headerRow).toHaveClass(
+      "flex-col",
+      "md:flex-row",
+      "md:justify-between",
+    );
+  });
+
+  it("omits the actions slot without actions", () => {
+    // Act
+    const { container } = render(<PageHeader title="Test Page" />);
+
+    // Assert
+    expect(
+      container.querySelector('[data-slot="page-header-actions"]'),
+    ).toBeNull();
   });
 });

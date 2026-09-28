@@ -2,22 +2,8 @@
 
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, use } from "react";
-import type { DashboardView } from "@hermes/domain-contract";
-import {
-  Bot,
-  Calendar,
-  Database,
-  FileJson,
-  FileText,
-  GitBranch,
-  LayoutDashboard,
-  Plug,
-  Radio,
-  KeyRound,
-  Users,
-  Variable,
-} from "lucide-react";
+import { Suspense, use, useCallback, type ComponentProps } from "react";
+import { Database, Workflow, type LucideIcon } from "lucide-react";
 
 import {
   Sidebar,
@@ -30,67 +16,52 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSkeleton,
+  SidebarRail,
+  useSidebar,
 } from "@workspace/ui/components/sidebar";
 import { cn } from "@workspace/ui/lib/utils";
 
 import { LogoutForm } from "@/app/dashboard/logout-form";
-import { NavUser } from "./nav-user";
+import {
+  buildDomainIntegrationViewHref,
+  dashboardNavGroups,
+  DASHBOARD_ROOT_PATH,
+  isDashboardPathActive,
+  type DomainIntegrationNav,
+} from "@/lib/dashboard-routes";
+
 import type { DashboardUser } from "./dashboard-shell";
+import { NavUser } from "./nav-user";
 
-type DomainIntegrationNavItem = {
-  integrationId: string;
-  name: string;
-  views: DashboardView[];
-};
-
-type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
+type AppSidebarProps = ComponentProps<typeof Sidebar> & {
   user?: DashboardUser | null;
-  domainIntegrations: Promise<DomainIntegrationNavItem[]>;
+  domainIntegrations: Promise<DomainIntegrationNav[]>;
 };
 
-const mainNavGroups = [
-  {
-    label: "Overview",
-    items: [{ href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" }],
-  },
-  {
-    label: "Orchestration",
-    items: [
-      { href: "/dashboard/pipelines", icon: GitBranch, label: "Pipelines" },
-      { href: "/dashboard/schedules", icon: Calendar, label: "Schedules" },
-      { href: "/dashboard/http-triggers", icon: Radio, label: "HTTP triggers" },
-    ],
-  },
-  {
-    label: "Agents",
-    items: [
-      { href: "/dashboard/agents", icon: Bot, label: "Agents" },
-      {
-        href: "/dashboard/agent-configs",
-        icon: FileJson,
-        label: "Agent configs",
-      },
-      {
-        href: "/dashboard/agent-contracts",
-        icon: FileText,
-        label: "Agent contracts",
-      },
-      { href: "/dashboard/variables", icon: Variable, label: "Variables" },
-    ],
-  },
-  {
-    label: "Platform",
-    items: [
-      {
-        href: "/dashboard/domain-integrations",
-        icon: Plug,
-        label: "Domain integrations",
-      },
-      { href: "/dashboard/api-keys", icon: KeyRound, label: "API keys" },
-      { href: "/dashboard/admins", icon: Users, label: "Admins" },
-    ],
-  },
-] as const;
+type SidebarNavLinkProps = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  isActive: boolean;
+};
+
+type DomainIntegrationNavGroupsProps = {
+  domainIntegrations: Promise<DomainIntegrationNav[]>;
+  pathname: string | null;
+};
+
+const navSkeletonRowKeys = ["first", "second", "third"];
+
+const useCloseMobileSidebar = () => {
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  return useCallback(() => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  }, [isMobile, setOpenMobile]);
+};
 
 const NavLinkPendingIndicator = () => {
   const { pending } = useLinkStatus();
@@ -99,41 +70,83 @@ const NavLinkPendingIndicator = () => {
     <span
       aria-hidden
       className={cn(
-        "ml-auto size-1.5 shrink-0 rounded-full bg-sidebar-foreground/50 transition-opacity delay-100",
+        "ml-auto size-1.5 shrink-0 rounded-full bg-sidebar-foreground/50 transition-opacity delay-100 group-data-[collapsible=icon]:hidden",
         pending ? "animate-pulse opacity-100" : "opacity-0",
       )}
     />
   );
 };
 
+const SidebarNavLink = ({
+  href,
+  label,
+  icon: Icon,
+  isActive,
+}: SidebarNavLinkProps) => {
+  const closeMobileSidebar = useCloseMobileSidebar();
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
+        <Link
+          href={href}
+          aria-current={isActive ? "page" : undefined}
+          onClick={closeMobileSidebar}
+        >
+          <Icon />
+          <span className="truncate">{label}</span>
+          <NavLinkPendingIndicator />
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+};
+
+const HermesNavGroups = ({ pathname }: { pathname: string | null }) =>
+  dashboardNavGroups.map((group) => (
+    <SidebarGroup key={group.label}>
+      <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {group.items.map((item) => (
+            <SidebarNavLink
+              key={item.href}
+              href={item.href}
+              label={item.label}
+              icon={item.icon}
+              isActive={isDashboardPathActive(pathname, item.href)}
+            />
+          ))}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  ));
+
 const DomainIntegrationNavGroups = ({
   domainIntegrations,
-}: {
-  domainIntegrations: Promise<DomainIntegrationNavItem[]>;
-}) => {
-  const pathname = usePathname();
-  const resolvedIntegrations = use(domainIntegrations);
+  pathname,
+}: DomainIntegrationNavGroupsProps) => {
+  const resolvedDomainIntegrations = use(domainIntegrations);
 
-  return resolvedIntegrations.map((integration) => (
+  return resolvedDomainIntegrations.map((integration) => (
     <SidebarGroup key={integration.integrationId}>
       <SidebarGroupLabel>{integration.name}</SidebarGroupLabel>
-      <SidebarGroupContent className="flex flex-col gap-2">
+      <SidebarGroupContent>
         <SidebarMenu>
           {integration.views.map((view) => {
-            const href = `/dashboard/${integration.integrationId}/${view.pathSegment}`;
-            const isActive =
-              pathname === href || (pathname?.startsWith(`${href}/`) ?? false);
+            const href = buildDomainIntegrationViewHref(
+              integration.integrationId,
+              view,
+            );
 
             return (
-              <SidebarMenuItem key={`${integration.integrationId}-${view.id}`}>
-                <SidebarMenuButton asChild isActive={isActive}>
-                  <Link href={href}>
-                    <Database className="size-4" />
-                    <span>{view.label}</span>
-                    <NavLinkPendingIndicator />
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <SidebarNavLink
+                key={`${integration.integrationId}-${view.id}`}
+                href={href}
+                label={view.label}
+                icon={Database}
+                isActive={isDashboardPathActive(pathname, href)}
+              />
             );
           })}
         </SidebarMenu>
@@ -142,12 +155,38 @@ const DomainIntegrationNavGroups = ({
   ));
 };
 
-/**
- * Hermes app sidebar matching the Space app's design: SidebarHeader brand link, grouped nav
- * with SidebarGroupContent, domain integration pages, and a footer NavUser dropdown.
- *
- * @param props - Sidebar props, optional user, and domain integration pages.
- */
+const DomainIntegrationNavSkeleton = () => (
+  <SidebarGroup aria-hidden data-testid="domain-integration-nav-skeleton">
+    <SidebarMenu>
+      {navSkeletonRowKeys.map((rowKey) => (
+        <SidebarMenuItem key={rowKey}>
+          <SidebarMenuSkeleton showIcon />
+        </SidebarMenuItem>
+      ))}
+    </SidebarMenu>
+  </SidebarGroup>
+);
+
+const SidebarBrand = () => (
+  <SidebarMenu>
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild size="lg" tooltip="Hermes">
+        <Link href={DASHBOARD_ROOT_PATH}>
+          <span className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-foreground text-sidebar">
+            <Workflow className="size-4" />
+          </span>
+          <span className="grid flex-1 text-left leading-tight">
+            <span className="truncate text-sm font-semibold">Hermes</span>
+            <span className="truncate text-xs text-sidebar-foreground/60">
+              Orchestration
+            </span>
+          </span>
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  </SidebarMenu>
+);
+
 export const AppSidebar = ({
   user,
   domainIntegrations,
@@ -156,50 +195,18 @@ export const AppSidebar = ({
   const pathname = usePathname();
 
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
+    <Sidebar collapsible="icon" variant="inset" {...props}>
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild className="!p-1.5">
-              <Link href="/dashboard">
-                <LayoutDashboard className="size-5!" />
-                <span className="text-base font-semibold">Hermes</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <SidebarBrand />
       </SidebarHeader>
 
       <SidebarContent>
-        {mainNavGroups.map((group) => (
-          <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-            <SidebarGroupContent className="flex flex-col gap-2">
-              <SidebarMenu>
-                {group.items.map((item) => {
-                  const isActive =
-                    item.href === "/dashboard"
-                      ? pathname === "/dashboard"
-                      : (pathname?.startsWith(item.href) ?? false);
-                  return (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton asChild isActive={isActive}>
-                        <Link href={item.href}>
-                          <item.icon className="size-4" />
-                          <span>{item.label}</span>
-                          <NavLinkPendingIndicator />
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
-
-        <Suspense fallback={null}>
-          <DomainIntegrationNavGroups domainIntegrations={domainIntegrations} />
+        <HermesNavGroups pathname={pathname} />
+        <Suspense fallback={<DomainIntegrationNavSkeleton />}>
+          <DomainIntegrationNavGroups
+            domainIntegrations={domainIntegrations}
+            pathname={pathname}
+          />
         </Suspense>
       </SidebarContent>
 
@@ -210,7 +217,7 @@ export const AppSidebar = ({
           <SidebarMenu>
             <SidebarMenuItem>
               <LogoutForm
-                className="w-full"
+                className="w-full group-data-[collapsible=icon]:hidden"
                 variant="ghost"
                 buttonClassName="w-full justify-start gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               />
@@ -218,6 +225,8 @@ export const AppSidebar = ({
           </SidebarMenu>
         )}
       </SidebarFooter>
+
+      <SidebarRail />
     </Sidebar>
   );
 };
