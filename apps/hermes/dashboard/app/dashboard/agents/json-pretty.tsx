@@ -1,41 +1,61 @@
 "use client";
 
+import { Check, Copy } from "lucide-react";
+
+import { Button } from "@workspace/ui/components/button";
+
+import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
+
 type JsonPrettyProps = {
-  /** Value to render as pretty-printed JSON (e.g. inputSchema or configSchema). */
   value: unknown;
-  /** Optional title above the JSON block. */
   title?: string;
 };
 
-/**
- * Renders a value as pretty-printed JSON in a scrollable code block.
- * Shows "No schema" for null/undefined; otherwise uses JSON.stringify with 2-space indent.
- */
+const JsonPrettyTitle = ({ title }: { title?: string }) => {
+  if (!title) {
+    return <span />;
+  }
+
+  return <h3 className="text-sm font-medium text-foreground">{title}</h3>;
+};
+
 export const JsonPretty = ({ value, title }: JsonPrettyProps) => {
+  const { copied, copy } = useCopyToClipboard();
+
   if (value === null || value === undefined) {
     return (
-      <div data-testid="json-pretty-empty">
-        {title ? (
-          <p className="text-sm font-medium text-muted-foreground mb-1">
-            {title}
-          </p>
-        ) : null}
-        <p className="text-sm text-muted-foreground">No schema</p>
+      <div data-testid="json-pretty-empty" className="flex flex-col gap-2">
+        <JsonPrettyTitle title={title} />
+        <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+          No schema
+        </p>
       </div>
     );
   }
 
   const jsonString = JSON.stringify(value, null, 2);
+  const copyTarget = title?.toLowerCase() ?? "JSON";
+  const copyLabel = copied ? "Copied" : `Copy ${copyTarget}`;
+  const CopyIcon = copied ? Check : Copy;
 
   return (
-    <div data-testid="json-pretty" className="space-y-2">
-      {title ? (
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          {title}
-        </h3>
-      ) : null}
-      <div className="h-[400px] w-full overflow-auto rounded-lg border border-border/50 bg-muted/25">
-        <pre className="p-4 font-mono text-sm text-foreground whitespace-pre">
+    <div data-testid="json-pretty" className="flex min-w-0 flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <JsonPrettyTitle title={title} />
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground hover:text-foreground"
+          aria-label={copyLabel}
+          onClick={() => void copy(jsonString)}
+        >
+          <CopyIcon aria-hidden />
+          {copied ? "Copied" : "Copy"}
+        </Button>
+      </div>
+      <div className="max-h-[480px] overflow-auto rounded-lg border bg-muted/40">
+        <pre className="p-4 font-mono text-xs leading-relaxed whitespace-pre text-foreground">
           <code>{jsonString}</code>
         </pre>
       </div>

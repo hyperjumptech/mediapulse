@@ -2,15 +2,23 @@
 
 import { useMemo, useState } from "react";
 
-import { Button } from "@workspace/ui/components/button";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
-import { cn } from "@workspace/ui/lib/utils";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@workspace/ui/components/native-select";
 
 import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
 import type { PipelineOption } from "@/lib/pipeline-options";
 import {
   getPipelineStatus,
+  type PipelineStatus,
   type PipelineValidationResult,
 } from "@/lib/pipeline-status";
 
@@ -205,19 +213,76 @@ const getInitialRepeatingState = (
   return { repeatingType: "hourly", intervalMinutes: 60, cronExpression: "" };
 };
 
+type RepeatOption = "once" | "repeating";
+
+type PipelineSelectOption = {
+  id: string;
+  label: string;
+  selectable: boolean;
+  title: string | undefined;
+};
+
+const PIPELINE_STATUS_SUFFIX: Record<PipelineStatus, string> = {
+  enabled: "",
+  incomplete: " (incomplete)",
+  disabled: " (disabled)",
+};
+
+const PIPELINE_STATUS_TITLE: Record<PipelineStatus, string | undefined> = {
+  enabled: undefined,
+  incomplete: "Complete step input and config in pipeline editor to enable",
+  disabled: "Enable the pipeline in pipeline settings to use in a schedule",
+};
+
+const buildPipelineSelectOptions = (
+  pipelines: PipelineOption[],
+  pipelineValidationById: Record<string, PipelineValidationResult>,
+): PipelineSelectOption[] =>
+  pipelines.map((pipeline) => {
+    const validation = pipelineValidationById[pipeline.id] ?? {
+      valid: false,
+      warnings: [],
+    };
+    const status = getPipelineStatus(pipeline, validation);
+    const suffix = PIPELINE_STATUS_SUFFIX[status];
+
+    return {
+      id: pipeline.id,
+      label: `${pipeline.name}${suffix}`,
+      selectable: status === "enabled",
+      title: PIPELINE_STATUS_TITLE[status],
+    };
+  });
+
+const hasUnselectablePipelines = (
+  pipelines: PipelineOption[],
+  pipelineValidationById: Record<string, PipelineValidationResult>,
+): boolean => {
+  const validations = Object.values(pipelineValidationById);
+
+  if (validations.length === 0) {
+    return false;
+  }
+
+  const hasInvalidPipeline = validations.some(
+    (validation) => !validation.valid,
+  );
+  const hasInactivePipeline = pipelines.some((pipeline) => !pipeline.isActive);
+
+  return hasInvalidPipeline || hasInactivePipeline;
+};
+
 export type ScheduleFormFieldsProps = {
   /** Hidden input name prefix, e.g. "body" for body.name */
   namePrefix?: string;
   pending: boolean;
-  errorMessage: string | null;
-  submitLabel: string;
   pipelines: PipelineOption[];
   /** Pipeline validation by id; invalid pipelines are disabled in the dropdown. */
   pipelineValidationById?: Record<string, PipelineValidationResult>;
   /** Default/initial values for all fields */
   defaultName: string;
   defaultDescription: string;
-  defaultRepeat: "once" | "repeating";
+  defaultRepeat: RepeatOption;
   defaultTimezone: string;
   defaultPipelineId: string;
   defaultPriority: number;
@@ -236,7 +301,7 @@ export type ScheduleFormFieldsProps = {
  * Encapsulates schedule form field state: repeat, repeating type, interval, cron, pipeline id.
  */
 const useScheduleFormFieldsState = (
-  defaultRepeat: "once" | "repeating",
+  defaultRepeat: RepeatOption,
   defaultPipelineId: string,
   initialIntervalMs?: number | null,
   initialCronExpression?: string | null,
@@ -245,7 +310,7 @@ const useScheduleFormFieldsState = (
     initialIntervalMs,
     initialCronExpression,
   );
-  const [repeat, setRepeat] = useState<"once" | "repeating">(defaultRepeat);
+  const [repeat, setRepeat] = useState<RepeatOption>(defaultRepeat);
   const [repeatingType, setRepeatingType] = useState<RepeatingType>(
     initial.repeatingType,
   );
@@ -277,8 +342,6 @@ const useScheduleFormFieldsState = (
 export const ScheduleFormFields = ({
   namePrefix = "body",
   pending,
-  errorMessage,
-  submitLabel,
   pipelines,
   pipelineValidationById = {},
   defaultName,
@@ -316,11 +379,20 @@ export const ScheduleFormFields = ({
       buildTimezoneSelectOptions(defaultTimezone, getSupportedIanaTimeZones()),
     [defaultTimezone],
   );
+  const pipelineSelectOptions = buildPipelineSelectOptions(
+    pipelines,
+    pipelineValidationById,
+  );
+  const showPipelineSelectionHint = hasUnselectablePipelines(
+    pipelines,
+    pipelineValidationById,
+  );
+  const priorityLabelSuffix = scheduleId == null ? "(default 0)" : "";
 
   const pre = namePrefix ? `${namePrefix}.` : "";
 
   return (
-    <>
+    <FieldGroup>
       {scheduleId != null ? (
         <input
           type="hidden"
@@ -330,8 +402,8 @@ export const ScheduleFormFields = ({
         />
       ) : null}
       <input type="hidden" name={`${pre}repeat`} value={repeat} readOnly />
-      <div className="grid gap-2">
-        <Label htmlFor={`${pre}name`}>Name</Label>
+      <Field>
+        <FieldLabel htmlFor={`${pre}name`}>Name</FieldLabel>
         <Input
           id={`${pre}name`}
           name={`${pre}name`}
@@ -341,9 +413,11 @@ export const ScheduleFormFields = ({
           defaultValue={defaultName}
           disabled={pending}
         />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor={`${pre}description`}>Description (optional)</Label>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={`${pre}description`}>
+          Description (optional)
+        </FieldLabel>
         <Input
           id={`${pre}description`}
           name={`${pre}description`}
@@ -352,28 +426,25 @@ export const ScheduleFormFields = ({
           defaultValue={defaultDescription}
           disabled={pending}
         />
-      </div>
-      <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
-        <div className="grid gap-2">
-          <Label htmlFor={`${pre}repeat-select`}>Repeat</Label>
-          <select
+      </Field>
+      <div className="flex flex-col gap-5 rounded-lg border bg-muted/30 p-4">
+        <Field>
+          <FieldLabel htmlFor={`${pre}repeat-select`}>Repeat</FieldLabel>
+          <NativeSelect
             id={`${pre}repeat-select`}
             value={repeat}
-            onChange={(e) => setRepeat(e.target.value as "once" | "repeating")}
+            onChange={(event) => setRepeat(event.target.value as RepeatOption)}
             disabled={pending}
-            className={cn(
-              "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow]",
-              "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-              "disabled:pointer-events-none disabled:opacity-50",
-            )}
           >
-            <option value="once">Once</option>
-            <option value="repeating">Repeating</option>
-          </select>
-        </div>
+            <NativeSelectOption value="once">Once</NativeSelectOption>
+            <NativeSelectOption value="repeating">Repeating</NativeSelectOption>
+          </NativeSelect>
+        </Field>
         {repeat === "once" ? (
-          <div className="grid gap-2">
-            <Label htmlFor={`${pre}startAt`}>Start at (optional)</Label>
+          <Field>
+            <FieldLabel htmlFor={`${pre}startAt`}>
+              Start at (optional)
+            </FieldLabel>
             <Input
               id={`${pre}startAt`}
               name={`${pre}startAt`}
@@ -381,179 +452,147 @@ export const ScheduleFormFields = ({
               defaultValue={defaultStartAt}
               disabled={pending}
             />
-          </div>
+          </Field>
         ) : null}
         {repeat === "repeating" ? (
-          <div className="grid gap-2">
-            <Label htmlFor={`${pre}repeating-type`}>Schedule</Label>
-            <select
+          <Field>
+            <FieldLabel htmlFor={`${pre}repeating-type`}>Schedule</FieldLabel>
+            <NativeSelect
               id={`${pre}repeating-type`}
               value={repeatingType}
-              onChange={(e) =>
-                setRepeatingType(e.target.value as RepeatingType)
+              onChange={(event) =>
+                setRepeatingType(event.target.value as RepeatingType)
               }
               disabled={pending}
-              className={cn(
-                "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow]",
-                "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-                "disabled:pointer-events-none disabled:opacity-50",
-              )}
             >
-              <option value="hourly">Hourly</option>
-              <option value="daily-midnight">Daily at midnight</option>
-              <option value="interval">Interval (minutes)</option>
-              <option value="cron">Cron expression</option>
-            </select>
-            {repeatingType === "hourly" ? (
-              <input
-                type="hidden"
-                name={`${pre}interval`}
-                value={MS_PER_HOUR}
-                readOnly
-              />
-            ) : null}
-            {repeatingType === "daily-midnight" ? (
-              <input
-                type="hidden"
-                name={`${pre}cronExpression`}
-                value="0 0 * * *"
-                readOnly
-              />
-            ) : null}
-            {repeatingType === "interval" ? (
-              <>
-                <input
-                  type="hidden"
-                  name={`${pre}cronExpression`}
-                  value=""
-                  readOnly
-                />
-                <div className="grid gap-2">
-                  <Label htmlFor={`${pre}intervalMinutes`}>
-                    Interval (minutes)
-                  </Label>
-                  <Input
-                    id={`${pre}intervalMinutes`}
-                    type="number"
-                    min={1}
-                    value={intervalMinutes}
-                    onChange={(e) =>
-                      setIntervalMinutes(Number(e.target.value) || 1)
-                    }
-                    placeholder="e.g. 60"
-                    disabled={pending}
-                    required
-                  />
-                  <input
-                    type="hidden"
-                    name={`${pre}interval`}
-                    value={intervalMinutes * MS_PER_MINUTE}
-                    readOnly
-                  />
-                </div>
-              </>
-            ) : null}
-            {repeatingType === "cron" ? (
-              <div className="grid gap-2">
-                <Label htmlFor={`${pre}cronExpression`}>Cron expression</Label>
-                <Input
-                  id={`${pre}cronExpression`}
-                  name={`${pre}cronExpression`}
-                  type="text"
-                  value={cronExpression}
-                  onChange={(e) => setCronExpression(e.target.value)}
-                  placeholder="e.g. 0 6 * * * (daily at 06:00)"
-                  disabled={pending}
-                  required
-                />
-              </div>
-            ) : null}
-          </div>
+              <NativeSelectOption value="hourly">Hourly</NativeSelectOption>
+              <NativeSelectOption value="daily-midnight">
+                Daily at midnight
+              </NativeSelectOption>
+              <NativeSelectOption value="interval">
+                Interval (minutes)
+              </NativeSelectOption>
+              <NativeSelectOption value="cron">
+                Cron expression
+              </NativeSelectOption>
+            </NativeSelect>
+          </Field>
+        ) : null}
+        {repeat === "repeating" && repeatingType === "hourly" ? (
+          <input
+            type="hidden"
+            name={`${pre}interval`}
+            value={MS_PER_HOUR}
+            readOnly
+          />
+        ) : null}
+        {repeat === "repeating" && repeatingType === "daily-midnight" ? (
+          <input
+            type="hidden"
+            name={`${pre}cronExpression`}
+            value="0 0 * * *"
+            readOnly
+          />
+        ) : null}
+        {repeat === "repeating" && repeatingType === "interval" ? (
+          <Field>
+            <input
+              type="hidden"
+              name={`${pre}cronExpression`}
+              value=""
+              readOnly
+            />
+            <FieldLabel htmlFor={`${pre}intervalMinutes`}>
+              Interval (minutes)
+            </FieldLabel>
+            <Input
+              id={`${pre}intervalMinutes`}
+              type="number"
+              min={1}
+              value={intervalMinutes}
+              onChange={(event) =>
+                setIntervalMinutes(Number(event.target.value) || 1)
+              }
+              placeholder="e.g. 60"
+              disabled={pending}
+              required
+            />
+            <input
+              type="hidden"
+              name={`${pre}interval`}
+              value={intervalMinutes * MS_PER_MINUTE}
+              readOnly
+            />
+          </Field>
+        ) : null}
+        {repeat === "repeating" && repeatingType === "cron" ? (
+          <Field>
+            <FieldLabel htmlFor={`${pre}cronExpression`}>
+              Cron expression
+            </FieldLabel>
+            <Input
+              id={`${pre}cronExpression`}
+              name={`${pre}cronExpression`}
+              type="text"
+              value={cronExpression}
+              onChange={(event) => setCronExpression(event.target.value)}
+              placeholder="e.g. 0 6 * * * (daily at 06:00)"
+              disabled={pending}
+              required
+            />
+          </Field>
         ) : null}
       </div>
-      <div className="grid gap-2">
-        <Label htmlFor={`${pre}timezone`}>Timezone</Label>
-        <select
+      <Field>
+        <FieldLabel htmlFor={`${pre}timezone`}>Timezone</FieldLabel>
+        <NativeSelect
           id={`${pre}timezone`}
           name={`${pre}timezone`}
           required
           defaultValue={defaultTimezone}
           disabled={pending}
-          className={cn(
-            "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow]",
-            "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-            "disabled:pointer-events-none disabled:opacity-50",
-          )}
         >
-          {timezoneOptions.map((tz) => (
-            <option key={tz} value={tz}>
-              {formatTimezoneSelectLabel(tz)}
-            </option>
+          {timezoneOptions.map((timezone) => (
+            <NativeSelectOption key={timezone} value={timezone}>
+              {formatTimezoneSelectLabel(timezone)}
+            </NativeSelectOption>
           ))}
-        </select>
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor={`${pre}pipelineId`}>Pipeline</Label>
-        <select
+        </NativeSelect>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={`${pre}pipelineId`}>Pipeline</FieldLabel>
+        <NativeSelect
           id={`${pre}pipelineId`}
           name={`${pre}pipelineId`}
           required
           value={pipelineId}
-          onChange={(e) => setPipelineId(e.target.value)}
+          onChange={(event) => setPipelineId(event.target.value)}
           disabled={pending}
-          className={cn(
-            "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow]",
-            "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-            "disabled:pointer-events-none disabled:opacity-50",
-          )}
         >
-          <option value="">Select pipeline</option>
-          {pipelines.map((p) => {
-            const validation = pipelineValidationById[p.id] ?? {
-              valid: false,
-              warnings: [],
-            };
-            const status = getPipelineStatus(p, validation);
-            const selectable = status === "enabled";
-            const suffix =
-              status === "incomplete"
-                ? " (incomplete)"
-                : status === "disabled"
-                  ? " (disabled)"
-                  : "";
-            const title =
-              status === "incomplete"
-                ? "Complete step input and config in pipeline editor to enable"
-                : status === "disabled"
-                  ? "Enable the pipeline in pipeline settings to use in a schedule"
-                  : undefined;
-            return (
-              <option
-                key={p.id}
-                value={p.id}
-                disabled={!selectable}
-                title={title}
-              >
-                {p.name}
-                {suffix}
-              </option>
-            );
-          })}
-        </select>
-        {Object.keys(pipelineValidationById).length > 0 &&
-          (Object.values(pipelineValidationById).some((v) => !v.valid) ||
-            pipelines.some((p) => !p.isActive)) && (
-            <p className="text-xs text-muted-foreground">
-              Only enabled pipelines can be selected. Incomplete or disabled
-              pipelines are listed but not selectable. Edit the pipeline to fix
-              or enable it.
-            </p>
-          )}
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor={`${pre}priority`}>
-          Priority {scheduleId == null ? "(default 0)" : ""}
-        </Label>
+          <NativeSelectOption value="">Select pipeline</NativeSelectOption>
+          {pipelineSelectOptions.map((option) => (
+            <NativeSelectOption
+              key={option.id}
+              value={option.id}
+              disabled={!option.selectable}
+              title={option.title}
+            >
+              {option.label}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
+        {showPipelineSelectionHint ? (
+          <FieldDescription>
+            Only enabled pipelines can be selected. Incomplete or disabled
+            pipelines are listed but not selectable. Edit the pipeline to fix or
+            enable it.
+          </FieldDescription>
+        ) : null}
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={`${pre}priority`}>
+          Priority {priorityLabelSuffix}
+        </FieldLabel>
         <Input
           id={`${pre}priority`}
           name={`${pre}priority`}
@@ -561,7 +600,7 @@ export const ScheduleFormFields = ({
           defaultValue={defaultPriority}
           disabled={pending}
         />
-      </div>
+      </Field>
       <FormBooleanCheckboxField
         name={`${pre}enabled`}
         id={`${pre}enabled`}
@@ -569,16 +608,7 @@ export const ScheduleFormFields = ({
         checkedSubmitValue="on"
         disabled={pending}
         label="Enabled"
-        labelClassName="cursor-pointer"
       />
-      {errorMessage ? (
-        <p className="text-sm text-destructive" role="alert">
-          {errorMessage}
-        </p>
-      ) : null}
-      <Button type="submit" disabled={pending}>
-        {submitLabel}
-      </Button>
-    </>
+    </FieldGroup>
   );
 };

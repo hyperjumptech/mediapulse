@@ -8,11 +8,9 @@ const ENDPOINT_KEY_LABELS: Record<string, string> = {
 };
 
 const ROW_CLASS =
-  "flex items-center justify-between gap-8 py-4 px-6 sm:px-7 border-b border-border/60 last:border-b-0 first:pt-6 last:pb-6";
-const LABEL_CLASS =
-  "shrink-0 text-xs text-muted-foreground font-medium uppercase tracking-wide";
-const VALUE_CLASS =
-  "min-w-0 flex-1 text-sm font-mono text-foreground break-all font-normal text-right";
+  "grid gap-1 border-b px-4 py-3 last:border-b-0 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-4";
+const LABEL_CLASS = "text-xs text-muted-foreground sm:pt-0.5";
+const VALUE_CLASS = "min-w-0 font-mono text-sm break-all text-foreground";
 
 /**
  * Normalizes Prisma JsonValue to a plain record for display. Returns null if not a non-array object.
@@ -55,7 +53,7 @@ export const EndpointDisplay = ({ endpoint }: EndpointDisplayProps) => {
   if (!record) {
     return (
       <p
-        className="text-sm text-muted-foreground py-6 px-6 sm:px-7"
+        className="px-4 py-6 text-sm text-muted-foreground"
         data-testid="endpoint-empty"
       >
         No endpoint
@@ -67,7 +65,7 @@ export const EndpointDisplay = ({ endpoint }: EndpointDisplayProps) => {
   if (entries.length === 0) {
     return (
       <p
-        className="text-sm text-muted-foreground py-6 px-6 sm:px-7"
+        className="px-4 py-6 text-sm text-muted-foreground"
         data-testid="endpoint-empty"
       >
         No endpoint
@@ -76,13 +74,15 @@ export const EndpointDisplay = ({ endpoint }: EndpointDisplayProps) => {
   }
 
   return (
-    <dl className="contents" data-testid="endpoint-display">
-      {entries.map(([key, val]) => {
+    <dl data-testid="endpoint-display">
+      {entries.map(([key, entryValue]) => {
         const label = ENDPOINT_KEY_LABELS[key] ?? key;
+        const displayValue = formatEndpointValue(entryValue);
+
         return (
           <div key={key} className={ROW_CLASS}>
-            <span className={LABEL_CLASS}>{label}</span>
-            <span className={VALUE_CLASS}>{formatEndpointValue(val)}</span>
+            <dt className={LABEL_CLASS}>{label}</dt>
+            <dd className={VALUE_CLASS}>{displayValue}</dd>
           </div>
         );
       })}

@@ -37,6 +37,43 @@ describe("EnqueueDiagnosticsPanel", () => {
     expect(text.indexOf("First")).toBeLessThan(text.indexOf("Second"));
   });
 
+  it("describes a failed enqueue in a destructive card", () => {
+    // Act
+    render(
+      <EnqueueDiagnosticsPanel
+        enqueueStatus="failed"
+        errors={[{ message: "boom", timestamp: "2026-01-01T00:00:00.000Z" }]}
+      />,
+    );
+
+    // Assert
+    const region = screen.getByRole("region", { name: "Enqueue diagnostics" });
+
+    expect(region).toHaveAttribute("data-slot", "card");
+    expect(region).toHaveClass("border-destructive/40");
+    expect(
+      screen.getByText("Jobs could not be enqueued for this execution."),
+    ).toBeInTheDocument();
+  });
+
+  it("describes a partial enqueue in a warning card", () => {
+    // Act
+    render(
+      <EnqueueDiagnosticsPanel
+        enqueueStatus="partial"
+        errors={[{ message: "boom", timestamp: "2026-01-01T00:00:00.000Z" }]}
+      />,
+    );
+
+    // Assert
+    const region = screen.getByRole("region", { name: "Enqueue diagnostics" });
+
+    expect(region).toHaveClass("border-warning/40");
+    expect(
+      screen.getByText("Some jobs could not be enqueued for this execution."),
+    ).toBeInTheDocument();
+  });
+
   it("renders empty state for failed with null errors", () => {
     render(<EnqueueDiagnosticsPanel enqueueStatus="failed" errors={null} />);
     expect(

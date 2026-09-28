@@ -1,162 +1,133 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, type ReactNode } from "react";
+import { useEffect } from "react";
+import { CircleAlert, CircleCheck, Clock, Play } from "lucide-react";
 
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@workspace/ui/components/alert";
 import { Button } from "@workspace/ui/components/button";
-import { cn } from "@workspace/ui/lib/utils";
-import { Play } from "lucide-react";
 
 import { useFormAction } from "@/app/dashboard/pipelines/actions/run-pipeline/.generated/use-form-action";
 
-export type RunPipelineButtonProps = {
-  pipelineId: string;
-  /** When true, button is disabled (e.g. pipeline has validation errors). */
-  disabled?: boolean;
-  /** Renders after the Run control on the same row (e.g. Save). */
-  trailingActions?: ReactNode;
-  /** Merged into the outer wrapper (e.g. `lg:w-auto` for toolbar alignment). */
-  className?: string;
+const EXECUTION_LINK_CLASS_NAME =
+  "font-medium text-foreground underline underline-offset-4 hover:no-underline";
+
+const preventUnloadWhileRunning = (event: BeforeUnloadEvent) => {
+  event.preventDefault();
+  event.returnValue = "";
 };
 
-/**
- * Encapsulates run-pipeline form action and navigation guard while the action is pending.
- */
-const useRunPipelineButtonState = () => {
-  const { FormWithAction, state, pending } = useFormAction();
+export const useRunPipeline = () => {
+  const runPipelineAction = useFormAction();
+  const { pending } = runPipelineAction;
 
   useEffect(() => {
     if (!pending) {
       return;
     }
-    const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("beforeunload", preventUnloadWhileRunning);
+
+    return () =>
+      window.removeEventListener("beforeunload", preventUnloadWhileRunning);
   }, [pending]);
 
-  return { FormWithAction, state, pending };
+  return runPipelineAction;
 };
 
-/**
- * Button that runs the pipeline and shows manual execution result metadata.
- * Disabled when pipeline is invalid so admin must complete step input/config first.
- *
- * @param pipelineId - Pipeline id posted as `body.pipelineId`.
- * @param disabled - When true, disables the Run control.
- * @param trailingActions - Renders after the Run button on the same row (e.g. Save, Edit).
- * @param className - Optional extra classes for the outer wrapper.
- */
+export type RunPipelineAction = ReturnType<typeof useRunPipeline>;
+
+type RunPipelineState = RunPipelineAction["state"];
+
+const describeInvocationCount = (invocationCount: number) =>
+  invocationCount === 1 ? "1 invocation" : `${invocationCount} invocations`;
+
 export const RunPipelineButton = ({
   pipelineId,
   disabled = false,
-  trailingActions = null,
-  className,
-}: RunPipelineButtonProps) => {
-  const { FormWithAction, state, pending } = useRunPipelineButtonState();
-
-  const errorMessage = state && state.status === false ? state.message : null;
-  const successInvocations =
-    state && state.status === true && state.data
-      ? (state.data as { invocationsRun?: number }).invocationsRun
-      : null;
-  const executionId =
-    state && state.status === true && state.data
-      ? (state.data as { executionId?: string }).executionId
-      : null;
-  const runStatus =
-    state && state.status === true && state.data
-      ? (
-          state.data as {
-            runStatus?:
-              | "running"
-              | "succeeded"
-              | "partial"
-              | "failed"
-              | "cancelled";
-          }
-        ).runStatus
-      : null;
-  const failedInvocationCount =
-    state && state.status === true && state.data
-      ? (state.data as { failedInvocationCount?: number }).failedInvocationCount
-      : null;
+  runPipelineAction,
+}: {
+  pipelineId: string;
+  disabled?: boolean;
+  runPipelineAction: RunPipelineAction;
+}) => {
+  const { FormWithAction, pending } = runPipelineAction;
   const isDisabled = disabled || pending;
+  const buttonLabel = pending ? "Running…" : "Run pipeline";
 
   return (
-    <div className={cn("flex w-full min-w-0 flex-col gap-3", className)}>
-      <div className="flex flex-wrap items-center gap-2">
-        <FormWithAction>
-          <input
-            type="hidden"
-            name="body.pipelineId"
-            value={pipelineId}
-            readOnly
-          />
-          <Button
-            type="submit"
-            variant="default"
-            disabled={isDisabled}
-            title={
-              disabled
-                ? "Complete all step input and config to run the pipeline"
-                : undefined
-            }
-          >
-            <Play className="mr-2 size-4" />
-            {pending ? "Running…" : "Run pipeline"}
-          </Button>
-        </FormWithAction>
-        {trailingActions}
-      </div>
-      {errorMessage ? (
-        <p className="text-sm text-destructive">{errorMessage}</p>
-      ) : null}
-      {successInvocations !== null && successInvocations !== undefined ? (
-        <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
-          {runStatus === "running" ? (
-            <p className="text-sm text-muted-foreground">
-              Queued {successInvocations} invocation
-              {successInvocations !== 1 ? "s" : ""} on the worker queue. Agents
-              run in the background; you can refresh this page safely.{" "}
-              {executionId ? (
-                <>
-                  <Link
-                    href={`/dashboard/pipelines/${pipelineId}/executions/${executionId}`}
-                    className="font-medium text-primary underline-offset-4 hover:underline"
-                  >
-                    Open execution
-                  </Link>{" "}
-                  for live status.
-                </>
-              ) : null}
-            </p>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Ran {successInvocations} invocation
-              {successInvocations !== 1 ? "s" : ""}.{" "}
-              <span className="text-foreground">
-                Status {runStatus ?? "unknown"}, {failedInvocationCount ?? 0}{" "}
-                failed.
-              </span>
-              {executionId ? (
-                <>
-                  {" "}
-                  <Link
-                    href={`/dashboard/pipelines/${pipelineId}/executions/${executionId}`}
-                    className="font-medium text-primary underline-offset-4 hover:underline"
-                  >
-                    Open execution
-                  </Link>
-                  .
-                </>
-              ) : null}
-            </p>
-          )}
-        </div>
-      ) : null}
-    </div>
+    <FormWithAction>
+      <input type="hidden" name="body.pipelineId" value={pipelineId} readOnly />
+      <Button type="submit" disabled={isDisabled}>
+        <Play aria-hidden />
+        {buttonLabel}
+      </Button>
+    </FormWithAction>
+  );
+};
+
+export const RunPipelineResult = ({
+  pipelineId,
+  state,
+}: {
+  pipelineId: string;
+  state: RunPipelineState;
+}) => {
+  if (!state) {
+    return null;
+  }
+  if (state.status === false) {
+    return (
+      <Alert variant="destructive">
+        <CircleAlert aria-hidden />
+        <AlertTitle>Couldn&apos;t run the pipeline</AlertTitle>
+        <AlertDescription>{state.message}</AlertDescription>
+      </Alert>
+    );
+  }
+  const { invocationsRun, executionId, runStatus, failedInvocationCount } =
+    state.data;
+  const executionHref = `/dashboard/pipelines/${pipelineId}/executions/${executionId}`;
+  const invocationsLabel = describeInvocationCount(invocationsRun);
+
+  if (runStatus === "running") {
+    return (
+      <Alert className="border-info/25 bg-info/5 [&>svg]:text-info">
+        <Clock aria-hidden />
+        <AlertTitle>Pipeline queued</AlertTitle>
+        <AlertDescription>
+          <p>
+            Queued {invocationsLabel} on the worker queue. Agents run in the
+            background, so you can refresh this page safely.{" "}
+            <Link href={executionHref} className={EXECUTION_LINK_CLASS_NAME}>
+              Open execution
+            </Link>{" "}
+            for live status.
+          </p>
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <Alert>
+      <CircleCheck aria-hidden />
+      <AlertTitle>Pipeline run finished</AlertTitle>
+      <AlertDescription>
+        <p>
+          Ran {invocationsLabel}.{" "}
+          <span className="text-foreground">
+            Status {runStatus}, {failedInvocationCount} failed.
+          </span>{" "}
+          <Link href={executionHref} className={EXECUTION_LINK_CLASS_NAME}>
+            Open execution
+          </Link>
+          .
+        </p>
+      </AlertDescription>
+    </Alert>
   );
 };

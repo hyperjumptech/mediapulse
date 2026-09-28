@@ -1,18 +1,18 @@
 "use client";
 
-import { Button } from "@workspace/ui/components/button";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
 
 import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
 
 type VariableFormFieldsBase = {
   /** Whether the form is submitting. */
   pending: boolean;
-  /** Error message to show when submit failed. */
-  errorMessage: string | null;
-  /** Label for the submit button. */
-  submitLabel: string;
 };
 
 type VariableFormFieldsCreate = VariableFormFieldsBase & {
@@ -38,48 +38,51 @@ export type VariableFormFieldsProps =
  * Renders inputs only; parent must wrap in a form (e.g. FormWithAction).
  */
 export const VariableFormFields = (props: VariableFormFieldsProps) => {
-  const { pending, errorMessage, submitLabel, mode } = props;
+  const { pending, mode } = props;
   const isEdit = mode === "edit";
   const isSecretEdit = isEdit && props.initialIsSecret;
   const valuePlaceholder = isSecretEdit
     ? "Leave blank to keep current value"
     : undefined;
+  const valueAutoComplete = isSecretEdit ? "new-password" : "off";
 
   return (
-    <>
+    <FieldGroup>
       {isEdit && (
         <input type="hidden" name="body.id" value={props.id} readOnly />
       )}
-      <div className="grid gap-2">
-        <Label htmlFor="body.key">Key</Label>
+      <Field>
+        <FieldLabel htmlFor="body.key">Key</FieldLabel>
         <Input
           id="body.key"
           name="body.key"
           type="text"
           required
           placeholder="e.g. OPENAI_API_KEY"
+          className="font-mono"
           disabled={pending}
           {...(isEdit && { defaultValue: props.initialKey })}
         />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="body.value">Value</Label>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="body.value">Value</FieldLabel>
         <Input
           id="body.value"
           name="body.value"
           type={isSecretEdit ? "password" : "text"}
           placeholder={valuePlaceholder}
+          autoComplete={valueAutoComplete}
           disabled={pending}
           {...(isEdit && !isSecretEdit && { defaultValue: props.initialValue })}
         />
         {isSecretEdit && (
-          <p className="text-muted-foreground text-xs">
+          <FieldDescription>
             Secret values cannot be shown. Enter a new value only to change it.
-          </p>
+          </FieldDescription>
         )}
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="body.note">Note (optional)</Label>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="body.note">Note (optional)</FieldLabel>
         <Input
           id="body.note"
           name="body.note"
@@ -90,23 +93,15 @@ export const VariableFormFields = (props: VariableFormFieldsProps) => {
             defaultValue: props.initialNote ?? "",
           })}
         />
-      </div>
+      </Field>
       <FormBooleanCheckboxField
         name="body.isSecret"
         id="body.isSecret"
         defaultChecked={isEdit ? props.initialIsSecret : false}
         disabled={pending}
-        label="Secret (value will not be shown after save)"
-        labelClassName="cursor-pointer text-sm font-normal"
+        label="Secret"
+        description="The value will not be shown after save."
       />
-      {errorMessage ? (
-        <p className="text-sm text-destructive" role="alert">
-          {errorMessage}
-        </p>
-      ) : null}
-      <Button type="submit" disabled={pending}>
-        {submitLabel}
-      </Button>
-    </>
+    </FieldGroup>
   );
 };

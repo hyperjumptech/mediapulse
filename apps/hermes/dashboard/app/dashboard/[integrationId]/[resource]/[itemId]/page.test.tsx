@@ -136,3 +136,159 @@ describe("ViewDomainTableItemPage", () => {
     );
   });
 });
+
+describe("ViewDomainTableItemPage header", () => {
+  const givenIntegration = () => {
+    getDomainIntegrationByIntegrationIdMock.mockResolvedValue({
+      id: "int-1",
+      integrationId: "mediapulse",
+    });
+  };
+
+  const renderItemPage = async () => {
+    const ui = await ViewDomainTableItemPage({
+      params: Promise.resolve({
+        integrationId: "mediapulse",
+        resource: "data-sources",
+        itemId: "row 1",
+      }),
+    });
+
+    return render(ui);
+  };
+
+  afterEach(() => {
+    getDomainTableMetaMock.mockReset();
+    getDomainTableItemByIdMock.mockReset();
+    getDomainIntegrationByIntegrationIdMock.mockReset();
+  });
+
+  it("links to the full-page editor when the manifest allows updates", async () => {
+    // Setup
+    givenIntegration();
+    getDomainTableMetaMock.mockResolvedValue({
+      title: "Data sources",
+      description: "Collected pages",
+      columns: [{ key: "title", label: "Title", type: "text" }],
+      createNavigation: "full-page",
+      updateSchema: {
+        type: "object",
+        properties: { title: { type: "string", title: "Title" } },
+      },
+      actions: { create: false, update: true, delete: false, view: true },
+    });
+    getDomainTableItemByIdMock.mockResolvedValue({
+      id: "row 1",
+      title: "Example headline",
+    });
+
+    // Act
+    await renderItemPage();
+
+    // Assert
+    expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute(
+      "href",
+      "/dashboard/mediapulse/data-sources/row%201/edit",
+    );
+    expect(
+      screen.queryByRole("link", { name: "Back to list" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["the editor is a modal", { createNavigation: "modal" }],
+    ["updates are not allowed", { actions: { update: false, view: true } }],
+    ["the update schema has no fields", { updateSchema: {} }],
+  ])("hides Edit when %s", async (_reason, metaOverrides) => {
+    // Setup
+    givenIntegration();
+    getDomainTableMetaMock.mockResolvedValue({
+      title: "Data sources",
+      columns: [{ key: "title", label: "Title", type: "text" }],
+      createNavigation: "full-page",
+      updateSchema: {
+        type: "object",
+        properties: { title: { type: "string", title: "Title" } },
+      },
+      actions: { create: false, update: true, delete: false, view: true },
+      ...metaOverrides,
+    });
+    getDomainTableItemByIdMock.mockResolvedValue({
+      id: "row 1",
+      title: "Example headline",
+    });
+
+    // Act
+    const { container } = await renderItemPage();
+
+    // Assert
+    expect(
+      screen.queryByRole("link", { name: "Edit" }),
+    ).not.toBeInTheDocument();
+    expect(
+      container.querySelector('[data-slot="page-header-actions"]'),
+    ).toBeNull();
+  });
+
+  it("renders column values in a summary grid and spans long values", async () => {
+    // Setup
+    givenIntegration();
+    getDomainTableMetaMock.mockResolvedValue({
+      title: "Data sources",
+      columns: [
+        { key: "title", label: "Title", type: "text" },
+        { key: "ticker", label: "Ticker", type: "text" },
+        { key: "content", label: "Content", type: "text" },
+        { key: "empty", label: "Empty", type: "text" },
+      ],
+      actions: { create: false, update: false, delete: false, view: true },
+    });
+    getDomainTableItemByIdMock.mockResolvedValue({
+      id: "row 1",
+      title: "Example headline",
+      ticker: "ACME",
+      content: "Line one\nLine two",
+      empty: "",
+    });
+
+    // Act
+    const { container } = await renderItemPage();
+
+    // Assert
+    const grid = container.querySelector('[data-slot="summary-grid"]');
+    const contentItem = screen.getByText("Content", { selector: "dt" })
+      .parentElement as HTMLElement;
+    const tickerItem = screen.getByText("Ticker", { selector: "dt" })
+      .parentElement as HTMLElement;
+
+    expect(grid).not.toBeNull();
+    expect(contentItem).toHaveClass("col-span-full");
+    expect(tickerItem).not.toHaveClass("col-span-full");
+    expect(screen.queryByText("Empty", { selector: "dt" })).toBeNull();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Example headline",
+    );
+  });
+
+  it("explains when the item has no values to show", async () => {
+    // Setup
+    givenIntegration();
+    getDomainTableMetaMock.mockResolvedValue({
+      title: "Data sources",
+      columns: [{ key: "title", label: "Title", type: "text" }],
+      actions: { create: false, update: false, delete: false, view: true },
+    });
+    getDomainTableItemByIdMock.mockResolvedValue({ id: "row 1", title: "" });
+
+    // Act
+    await renderItemPage();
+
+    // Assert
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Detail",
+    );
+    expect(
+      screen.getByText("This item has no values to show."),
+    ).toBeInTheDocument();
+  });
+});

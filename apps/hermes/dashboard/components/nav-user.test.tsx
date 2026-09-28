@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { DropdownMenuItem } from "@workspace/ui/components/dropdown-menu";
 import { SidebarProvider } from "@workspace/ui/components/sidebar";
 
 import { NavUser, getInitials, useThemePreference } from "./nav-user";
@@ -21,10 +22,8 @@ vi.mock("next-themes", () => ({
 }));
 
 vi.mock("@/app/dashboard/logout-form", () => ({
-  LogoutForm: ({ className }: { className?: string }) => (
-    <button data-testid="logout-form-default" className={className}>
-      Sign out
-    </button>
+  LogoutMenuItem: () => (
+    <div data-testid="logout-menu-item-default">Log out</div>
   ),
 }));
 
@@ -53,16 +52,16 @@ const stubMatchMedia = () => {
 
 const user = { name: "John Doe", email: "john@example.com" };
 
-const FakeLogoutForm = () => (
-  <button type="submit" data-testid="logout-form">
-    Sign out
-  </button>
+const logoutSelectMock = vi.fn();
+
+const FakeLogoutMenuItem = () => (
+  <DropdownMenuItem onSelect={logoutSelectMock}>Log out</DropdownMenuItem>
 );
 
 const renderNavUser = () =>
   render(
     <SidebarProvider>
-      <NavUser user={user} LogoutFormComponent={FakeLogoutForm as never} />
+      <NavUser user={user} LogoutMenuItemComponent={FakeLogoutMenuItem} />
     </SidebarProvider>,
   );
 
@@ -168,6 +167,7 @@ describe("NavUser", () => {
     vi.unstubAllGlobals();
     useThemeMock.mockReset();
     setThemeMock.mockReset();
+    logoutSelectMock.mockReset();
   });
 
   it("shows the avatar initials, name, and email in the trigger", () => {
@@ -181,7 +181,7 @@ describe("NavUser", () => {
     expect(trigger).toHaveTextContent("john@example.com");
   });
 
-  it("shows the user, theme menu, and logout form when opened", async () => {
+  it("shows the user, theme menu, and log out item when opened", async () => {
     // Setup
     renderNavUser();
 
@@ -194,7 +194,27 @@ describe("NavUser", () => {
     expect(
       within(userMenu).getByRole("menuitem", { name: "Theme" }),
     ).toBeInTheDocument();
-    expect(within(userMenu).getByTestId("logout-form")).toBeInTheDocument();
+    expect(
+      within(userMenu).getByRole("menuitem", { name: "Log out" }),
+    ).toBeInTheDocument();
+  });
+
+  it("selects the log out item from the keyboard", async () => {
+    // Setup
+    renderNavUser();
+    const userMenu = await openUserMenu();
+    const logoutItem = within(userMenu).getByRole("menuitem", {
+      name: "Log out",
+    });
+
+    // Act
+    await act(async () => {
+      logoutItem.focus();
+      fireEvent.keyDown(logoutItem, { key: "Enter" });
+    });
+
+    // Assert
+    expect(logoutSelectMock).toHaveBeenCalledTimes(1);
   });
 
   it("checks the current theme in the theme menu", async () => {
@@ -233,7 +253,7 @@ describe("NavUser", () => {
     expect(setThemeMock).toHaveBeenCalledWith("light");
   });
 
-  it("uses the real logout form by default", async () => {
+  it("uses the real log out menu item by default", async () => {
     // Setup
     render(
       <SidebarProvider>
@@ -246,7 +266,7 @@ describe("NavUser", () => {
 
     // Assert
     expect(
-      within(userMenu).getByTestId("logout-form-default"),
+      within(userMenu).getByTestId("logout-menu-item-default"),
     ).toBeInTheDocument();
   });
 });

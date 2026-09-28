@@ -9,7 +9,12 @@ import type {
   LoadPageArgs,
   LoadVariablesPageResult,
 } from "@workspace/variable-expansion-picker";
-import { Label } from "@workspace/ui/components/label";
+import { Field, FieldLabel } from "@workspace/ui/components/field";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@workspace/ui/components/native-select";
+import { Spinner } from "@workspace/ui/components/spinner";
 import {
   Tabs,
   TabsContent,
@@ -23,6 +28,9 @@ import type { AgentContractSummary } from "@/lib/agent-contracts";
 
 import { useStepEditorPanelState } from "./use-step-editor-panel-state";
 
+const withDescriptionSuffix = (label: string, description: string | null) =>
+  description ? `${label} — ${description}` : label;
+
 type Step = {
   id: string;
   order: number;
@@ -33,6 +41,17 @@ type Step = {
   input?: unknown;
   config?: unknown;
 };
+
+const StepIdentity = ({ step }: { step: Step }) => (
+  <p className="flex min-w-0 items-center gap-2 text-sm">
+    <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
+      Step {step.order + 1}
+    </span>
+    <span className="truncate font-mono font-medium text-foreground">
+      {step.agentId}@{step.agentVersion}
+    </span>
+  </p>
+);
 
 export type PipelineStepEditorPanelProps = {
   selectedStep: Step | null;
@@ -90,36 +109,30 @@ export const PipelineStepEditorPanel = ({
 
   if (!selectedStep) {
     return (
-      <div className="flex flex-col gap-4">
-        <h3 className="text-sm font-medium text-foreground">
-          Agent input & config
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Select a step in the pipeline to edit its input and config.
-        </p>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        Select a step in the pipeline to edit its input and config.
+      </p>
     );
   }
 
   if (schemaLoading) {
     return (
       <div className="flex flex-col gap-4">
-        <h3 className="text-sm font-medium text-foreground">
-          Agent input & config
-        </h3>
-        <p className="text-sm text-muted-foreground">Loading schemas…</p>
+        <StepIdentity step={selectedStep} />
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner aria-hidden="true" />
+          Loading schemas…
+        </p>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <h3 className="text-sm font-medium text-foreground">
-        Agent input & config
-      </h3>
+      <StepIdentity step={selectedStep} />
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v as TabValue)}
+        onValueChange={(value) => setActiveTab(value as TabValue)}
         className="w-full"
       >
         <TabsList className="grid w-full grid-cols-3">
@@ -157,67 +170,68 @@ export const PipelineStepEditorPanel = ({
               </Link>
             </div>
           ) : (
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="step-agent-config-picker">Agent config *</Label>
-                <select
-                  id="step-agent-config-picker"
-                  className="flex h-9 w-full max-w-md rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={stepAgentConfigId}
-                  onChange={(e) => onStepAgentConfigIdChange(e.target.value)}
-                  disabled={disabled}
-                  aria-label="Choose a saved agent config"
-                >
-                  <option value="">None</option>
-                  {configsForAgent.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                      {c.description ? ` — ${c.description}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <Field className="max-w-md">
+              <FieldLabel htmlFor="step-agent-config-picker">
+                Agent config *
+              </FieldLabel>
+              <NativeSelect
+                id="step-agent-config-picker"
+                value={stepAgentConfigId}
+                onChange={(event) =>
+                  onStepAgentConfigIdChange(event.target.value)
+                }
+                disabled={disabled}
+                aria-label="Choose a saved agent config"
+              >
+                <NativeSelectOption value="">None</NativeSelectOption>
+                {configsForAgent.map((config) => (
+                  <NativeSelectOption key={config.id} value={config.id}>
+                    {withDescriptionSuffix(config.name, config.description)}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </Field>
           )}
         </TabsContent>
         <TabsContent value="contract" className="mt-4">
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="step-agent-contract-picker">
-                Agent contract *
-              </Label>
-              {allContracts.length === 0 ? (
-                <div className="flex flex-col gap-2">
-                  <p className="text-sm text-muted-foreground">
-                    No agent contracts yet. Create one first.
-                  </p>
-                  <Link
-                    href="/dashboard/agent-contracts"
-                    className="text-sm font-medium text-primary underline underline-offset-4 hover:no-underline"
-                  >
-                    Go to Agent contracts
-                  </Link>
-                </div>
-              ) : (
-                <select
-                  id="step-agent-contract-picker"
-                  className="flex h-9 w-full max-w-md rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={stepAgentContractId}
-                  onChange={(e) => onStepAgentContractIdChange(e.target.value)}
-                  disabled={disabled}
-                  aria-label="Choose an agent contract"
+          <Field className="max-w-md">
+            <FieldLabel htmlFor="step-agent-contract-picker">
+              Agent contract *
+            </FieldLabel>
+            {allContracts.length === 0 ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-muted-foreground">
+                  No agent contracts yet. Create one first.
+                </p>
+                <Link
+                  href="/dashboard/agent-contracts"
+                  className="text-sm font-medium text-primary underline underline-offset-4 hover:no-underline"
                 >
-                  <option value="">None</option>
-                  {allContracts.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} v{c.version}
-                      {c.description ? ` — ${c.description}` : ""}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          </div>
+                  Go to Agent contracts
+                </Link>
+              </div>
+            ) : (
+              <NativeSelect
+                id="step-agent-contract-picker"
+                value={stepAgentContractId}
+                onChange={(event) =>
+                  onStepAgentContractIdChange(event.target.value)
+                }
+                disabled={disabled}
+                aria-label="Choose an agent contract"
+              >
+                <NativeSelectOption value="">None</NativeSelectOption>
+                {allContracts.map((contract) => (
+                  <NativeSelectOption key={contract.id} value={contract.id}>
+                    {withDescriptionSuffix(
+                      `${contract.name} v${contract.version}`,
+                      contract.description,
+                    )}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            )}
+          </Field>
         </TabsContent>
       </Tabs>
     </div>

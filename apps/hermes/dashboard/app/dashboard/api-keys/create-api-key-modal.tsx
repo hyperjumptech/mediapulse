@@ -3,17 +3,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
-import { Button } from "@workspace/ui/components/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@workspace/ui/components/dialog";
+  FormDialogBody,
+  FormDialogCancelButton,
+  FormDialogContent,
+  FormDialogFooter,
+  FormDialogHeader,
+  formDialogFormClassName,
+} from "@/components/form-dialog";
+import { OneTimeSecretReveal } from "@/components/one-time-secret-reveal";
+import { SubmitButton } from "@/components/submit-button";
+import { Button } from "@workspace/ui/components/button";
+import { Dialog, DialogTrigger } from "@workspace/ui/components/dialog";
+import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
 
 import { useFormAction } from "@/app/dashboard/api-keys/actions/create/.generated/use-form-action";
 
@@ -81,77 +84,14 @@ const useCreateApiKeyModalState = () => {
   };
 };
 
-/**
- * Copy-to-clipboard state for the one-time key reveal panel.
- */
-const useApiKeyCopyState = (apiKeyPlaintext: string) => {
-  const [copied, setCopied] = useState(false);
-
-  const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(apiKeyPlaintext);
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
-  };
-
-  return { copied, copyToClipboard };
-};
-
-type ApiKeyRevealPanelProps = {
-  apiKeyPlaintext: string;
-};
-
-/** Shows the one-time MCP API key with a copy button. */
-const ApiKeyRevealPanel = ({ apiKeyPlaintext }: ApiKeyRevealPanelProps) => {
-  const { copied, copyToClipboard } = useApiKeyCopyState(apiKeyPlaintext);
-
-  return (
-    <ApiKeyRevealContent
-      apiKeyPlaintext={apiKeyPlaintext}
-      copied={copied}
-      onCopy={copyToClipboard}
-    />
-  );
-};
-
-const ApiKeyRevealContent = ({
-  apiKeyPlaintext,
-  copied,
-  onCopy,
-}: {
-  apiKeyPlaintext: string;
-  copied: boolean;
-  onCopy: () => void;
-}) => (
-  <div className="space-y-3">
-    <p className="text-sm text-muted-foreground">
-      Copy this key now. It is not shown again. Paste it into Cursor MCP
-      secrets, not git.
-    </p>
-    <pre className="whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-sm">
-      {apiKeyPlaintext}
-    </pre>
-    <Button type="button" variant="secondary" onClick={onCopy}>
-      {copied ? "Copied" : "Copy to clipboard"}
-    </Button>
-  </div>
-);
-
 type CreateApiKeyFormFieldsProps = {
-  errorMessage: string | null;
   pending: boolean;
 };
 
-/** Fields for the create API key form. */
-const CreateApiKeyFormFields = ({
-  errorMessage,
-  pending,
-}: CreateApiKeyFormFieldsProps) => (
-  <>
-    <div className="flex flex-col gap-2">
-      <Label htmlFor="mcp-key-label">Label</Label>
+const CreateApiKeyFormFields = ({ pending }: CreateApiKeyFormFieldsProps) => (
+  <FieldGroup>
+    <Field>
+      <FieldLabel htmlFor="mcp-key-label">Label</FieldLabel>
       <Input
         id="mcp-key-label"
         name="body.label"
@@ -160,25 +100,17 @@ const CreateApiKeyFormFields = ({
         placeholder="e.g. Cursor prod read-only"
         autoComplete="off"
       />
-    </div>
+    </Field>
     <FormBooleanCheckboxField
       id="mcp-key-read-only"
       name="body.readOnly"
       defaultChecked={false}
       checkedSubmitValue="true"
       disabled={pending}
-      label="Read-only (no dashboard mutations via MCP)"
-      labelClassName="font-normal"
+      label="Read-only"
+      description="No dashboard mutations via MCP."
     />
-    {errorMessage ? (
-      <p className="text-sm text-destructive" role="alert">
-        {errorMessage}
-      </p>
-    ) : null}
-    <Button type="submit" disabled={pending}>
-      {pending ? "Creating…" : "Create key"}
-    </Button>
-  </>
+  </FieldGroup>
 );
 
 /**
@@ -193,34 +125,48 @@ export const CreateApiKeyModal = ({ trigger }: CreateApiKeyModalProps) => {
     errorMessage,
     createdKey,
   } = useCreateApiKeyModalState();
+  const closeModal = () => handleOpenChange(false);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>
-            {createdKey ? "Copy your API key" : "Create API key"}
-          </DialogTitle>
-        </DialogHeader>
+      <FormDialogContent>
+        <FormDialogHeader
+          title={createdKey ? "Copy your API key" : "Create API key"}
+        />
         {createdKey ? (
-          <ApiKeyRevealPanel apiKeyPlaintext={createdKey.apiKeyPlaintext} />
+          <>
+            <FormDialogBody>
+              <OneTimeSecretReveal
+                secret={createdKey.apiKeyPlaintext}
+                secretLabel="API key"
+              >
+                Paste it into Cursor MCP secrets, not git.
+              </OneTimeSecretReveal>
+            </FormDialogBody>
+            <FormDialogFooter>
+              <Button type="button" onClick={closeModal}>
+                Done
+              </Button>
+            </FormDialogFooter>
+          </>
         ) : (
-          <FormWithAction className="flex flex-col gap-4">
-            <CreateApiKeyFormFields
-              errorMessage={errorMessage}
-              pending={pending}
-            />
+          <FormWithAction className={formDialogFormClassName}>
+            <FormDialogBody>
+              <CreateApiKeyFormFields pending={pending} />
+            </FormDialogBody>
+            <FormDialogFooter errorMessage={errorMessage}>
+              <FormDialogCancelButton
+                onCancel={closeModal}
+                disabled={pending}
+              />
+              <SubmitButton pending={pending} pendingLabel="Creating…">
+                Create key
+              </SubmitButton>
+            </FormDialogFooter>
           </FormWithAction>
         )}
-        <DialogFooter>
-          {createdKey ? (
-            <Button type="button" onClick={() => handleOpenChange(false)}>
-              Done
-            </Button>
-          ) : null}
-        </DialogFooter>
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   );
 };

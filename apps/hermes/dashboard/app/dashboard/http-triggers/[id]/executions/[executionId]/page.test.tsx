@@ -1,6 +1,8 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { TooltipProvider } from "@workspace/ui/components/tooltip";
 
 import type { ScheduleExecutionInvocationsTableProps } from "@/components/schedule-execution-invocations-table";
 import type { HttpTriggerExecutionSummary } from "@/lib/http-triggers";
@@ -81,6 +83,17 @@ const minimalFailedSummary = (): HttpTriggerExecutionSummary => ({
   invocations: [],
 });
 
+const renderPage = async () => {
+  const ui = await HttpTriggerExecutionDetailPage({
+    params: Promise.resolve({
+      id: "trig-1",
+      executionId: "exec-http-1",
+    }),
+  });
+
+  return render(ui, { wrapper: TooltipProvider });
+};
+
 describe("HttpTriggerExecutionDetailPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -90,28 +103,69 @@ describe("HttpTriggerExecutionDetailPage", () => {
   });
 
   it("renders enqueue diagnostics region with persisted errors for failed enqueue", async () => {
+    // Setup
     getHttpTriggerExecutionSummaryMock.mockResolvedValue(
       minimalFailedSummary(),
     );
 
-    const ui = await HttpTriggerExecutionDetailPage({
-      params: Promise.resolve({
-        id: "trig-1",
-        executionId: "exec-http-1",
-      }),
-    });
-    render(ui as React.ReactElement);
+    // Act
+    await renderPage();
 
+    // Assert
+    const region = await screen.findByRole("region", {
+      name: /enqueue diagnostics/i,
+    });
+    const enqueueStatusCard = screen
+      .getByText("Enqueue status", { selector: "dt span" })
+      .closest("[data-slot='card']");
+
+    expect(within(region).getByText(ROUTE_ENQUEUE_ERROR_MESSAGE)).toBeVisible();
+    expect(enqueueStatusCard).toHaveTextContent("failed");
+    expect(screen.getByText("Invocation transport")).toBeInTheDocument();
+    expect(screen.getByText("Hermes worker + DataQueue")).toBeInTheDocument();
+  });
+
+  it("renders the trigger name, pipeline link and no processed URLs action", async () => {
+    // Setup
+    getHttpTriggerExecutionSummaryMock.mockResolvedValue(
+      minimalFailedSummary(),
+    );
+
+    // Act
+    await renderPage();
+
+    // Assert
     expect(
-      await screen.findByRole("region", { name: /enqueue diagnostics/i }),
+      screen.getByRole("heading", { level: 1, name: "Execution" }),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Test trigger/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "P" })).toHaveAttribute(
+      "href",
+      "/dashboard/pipelines/pipe-1",
+    );
+    expect(screen.getByRole("button", { name: "Cancel run" })).toBeVisible();
     expect(
-      await screen.findByText(ROUTE_ENQUEUE_ERROR_MESSAGE),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Enqueue status:/)).toBeInTheDocument();
-    expect(screen.getByText("failed")).toBeInTheDocument();
-    expect(screen.getByText(/Invocation transport:/)).toBeInTheDocument();
-    expect(screen.getByText(/Hermes worker \+ DataQueue/)).toBeInTheDocument();
+      screen.queryByRole("link", { name: "Processed URLs" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Back to HTTP trigger/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Request snapshot" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders the stored request snapshot when metadata exists", async () => {
+    // Setup
+    const summary = minimalFailedSummary();
+    summary.execution.metadata = { method: "POST", path: "/hooks/run" };
+    getHttpTriggerExecutionSummaryMock.mockResolvedValue(summary);
+
+    // Act
+    await renderPage();
+
+    // Assert
+    const snapshot = screen.getByRole("region", { name: "Request snapshot" });
+
+    expect(within(snapshot).getByText(/"path": "\/hooks\/run"/)).toBeVisible();
   });
 
   it("passes scalar invocation rows and the httpTrigger payload scope to the table", async () => {
@@ -135,13 +189,7 @@ describe("HttpTriggerExecutionDetailPage", () => {
     } satisfies HttpTriggerExecutionSummary);
 
     // Act
-    const ui = await HttpTriggerExecutionDetailPage({
-      params: Promise.resolve({
-        id: "trig-1",
-        executionId: "exec-http-1",
-      }),
-    });
-    render(ui as React.ReactElement);
+    await renderPage();
 
     // Assert
     expect(getHttpTriggerExecutionSummaryMock).toHaveBeenCalledWith(

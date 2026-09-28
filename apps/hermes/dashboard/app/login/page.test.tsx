@@ -16,15 +16,19 @@ describe("LoginPage", () => {
     expect(screen.getByTestId("login-form")).toBeInTheDocument();
   });
 
-  it("renders split layout with two columns on large screens", () => {
+  it("renders a centered card with the login heading", () => {
     // Act
     const { container } = render(<Page />);
 
     // Assert
     const wrapper = container.firstChild as HTMLElement;
-    expect(wrapper).toHaveClass("grid");
+
     expect(wrapper).toHaveClass("min-h-svh");
-    expect(wrapper).toHaveClass("lg:grid-cols-2");
+    expect(wrapper).toHaveClass("items-center");
+    expect(wrapper).toHaveClass("justify-center");
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Welcome back" }),
+    ).toBeInTheDocument();
   });
 
   it("renders Hermes branding copy", () => {

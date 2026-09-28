@@ -43,7 +43,7 @@ const useCreateFormActionMock = vi.fn(() => ({
 
 type MockFormActionResult = {
   FormWithAction: ReturnType<typeof createMockFormWithAction>;
-  state: { status: boolean; data?: unknown } | null;
+  state: { status: boolean; data?: unknown; message?: string } | null;
   pending: boolean;
 };
 
@@ -95,16 +95,9 @@ vi.mock("@workspace/ui/components/button", () => ({
 }));
 
 vi.mock("./variable-form-fields", () => ({
-  VariableFormFields: ({
-    mode,
-    submitLabel,
-  }: {
-    mode: "create" | "edit";
-    submitLabel: string;
-  }) => (
+  VariableFormFields: ({ mode }: { mode: "create" | "edit" }) => (
     <div>
       <p>{mode === "create" ? "Create form" : "Edit form"}</p>
-      <button type="submit">{submitLabel}</button>
     </div>
   ),
 }));
@@ -188,6 +181,7 @@ const createDeferred = <T,>() => {
 describe("VariableModal", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    useUpdateFormActionMock.mockReset();
     usageMock.mockReset();
     refreshMock.mockReset();
   });
@@ -292,5 +286,55 @@ describe("VariableModal", () => {
       ).toHaveAttribute("href", "/dashboard/pipelines/pipeline-1");
     });
     expect(screen.getByText("2 matches")).toBeInTheDocument();
+  });
+
+  it("renders the create footer with a submit button", () => {
+    // Act
+    render(<VariableModal variable={null} trigger={<button>Add</button>} />);
+
+    // Assert
+    expect(
+      screen.getByRole("button", { name: "Create variable" }),
+    ).toHaveAttribute("type", "submit");
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
+  });
+
+  it("closes the edit modal when Cancel is clicked", () => {
+    // Setup
+    const onOpenChange = vi.fn();
+    render(
+      <VariableModal
+        variable={buildVariable()}
+        open={true}
+        onOpenChange={onOpenChange}
+      />,
+    );
+
+    // Act
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    // Assert
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("shows the update error as an alert", () => {
+    // Setup
+    useUpdateFormActionMock.mockReturnValue({
+      FormWithAction: createMockFormWithAction(),
+      state: { status: false, message: "Key already exists" },
+      pending: false,
+    });
+
+    // Act
+    render(
+      <VariableModal
+        variable={buildVariable()}
+        open={true}
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByRole("alert")).toHaveTextContent("Key already exists");
   });
 });

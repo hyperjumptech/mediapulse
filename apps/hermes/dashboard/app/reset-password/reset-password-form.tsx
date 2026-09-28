@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useEffect, useMemo } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormAction } from "./action/.generated/use-form-action";
-import { Button } from "@workspace/ui/components/button";
+import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
+
+import { AuthFooterLink } from "@/components/auth-page-shell";
+import { FormErrorAlert } from "@/components/form-error-alert";
+import { SubmitButton } from "@/components/submit-button";
 
 type ResetPasswordFormProps = {
   token: string;
@@ -51,22 +53,12 @@ export const ResetPasswordForm = ({ token }: ResetPasswordFormProps) => {
   const { FormWithAction, pending, errorMessage } = useResetPasswordFormState();
 
   return (
-    <FormWithAction className="flex flex-col gap-6">
+    <FormWithAction>
       <input type="hidden" name="body.token" value={token} />
-      <div className="flex flex-col gap-2 text-center">
-        <h1 className="text-2xl font-bold">Set a new password</h1>
-        <p className="text-sm text-muted-foreground text-balance">
-          Choose a new password for your Hermes admin account.
-        </p>
-      </div>
-      <div className="flex flex-col gap-4">
-        {errorMessage ? (
-          <p className="text-sm text-destructive" role="alert">
-            {errorMessage}
-          </p>
-        ) : null}
-        <div className="grid gap-2">
-          <Label htmlFor="body.newPassword">New password</Label>
+      <FieldGroup className="gap-6">
+        {errorMessage ? <FormErrorAlert message={errorMessage} /> : null}
+        <Field>
+          <FieldLabel htmlFor="body.newPassword">New password</FieldLabel>
           <Input
             id="body.newPassword"
             name="body.newPassword"
@@ -76,9 +68,11 @@ export const ResetPasswordForm = ({ token }: ResetPasswordFormProps) => {
             minLength={4}
             autoComplete="new-password"
           />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="body.confirmPassword">Confirm password</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="body.confirmPassword">
+            Confirm password
+          </FieldLabel>
           <Input
             id="body.confirmPassword"
             name="body.confirmPassword"
@@ -88,19 +82,18 @@ export const ResetPasswordForm = ({ token }: ResetPasswordFormProps) => {
             minLength={4}
             autoComplete="new-password"
           />
-        </div>
-        <Button type="submit" disabled={pending} className="w-full">
-          {pending ? "Saving…" : "Update password"}
-        </Button>
-        <p className="text-center text-sm">
-          <Link
-            href="/login/forgot-password"
-            className="text-primary underline-offset-4 hover:underline"
-          >
-            Request a new link
-          </Link>
-        </p>
-      </div>
+        </Field>
+        <SubmitButton
+          pending={pending}
+          pendingLabel="Saving…"
+          className="w-full"
+        >
+          Update password
+        </SubmitButton>
+        <AuthFooterLink href="/login/forgot-password">
+          Request a new link
+        </AuthFooterLink>
+      </FieldGroup>
     </FormWithAction>
   );
 };

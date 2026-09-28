@@ -3,18 +3,6 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AgentFormFields } from "./agent-form-fields";
 
-vi.mock("@workspace/ui/components/button", () => ({
-  Button: ({
-    children,
-    type,
-    disabled,
-  }: React.PropsWithChildren<{ type?: string; disabled?: boolean }>) => (
-    <button type={type as "submit"} disabled={disabled}>
-      {children}
-    </button>
-  ),
-}));
-
 vi.mock("@workspace/ui/components/input", () => ({
   Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => (
     <input {...props} />
@@ -38,14 +26,7 @@ describe("AgentFormFields", () => {
   describe("create mode", () => {
     it("renders Agent ID input", () => {
       // Act
-      render(
-        <AgentFormFields
-          mode="create"
-          pending={false}
-          errorMessage={null}
-          submitLabel="Create agent"
-        />,
-      );
+      render(<AgentFormFields mode="create" pending={false} />);
 
       // Assert
       expect(screen.getByLabelText("Agent ID")).toBeInTheDocument();
@@ -53,14 +34,7 @@ describe("AgentFormFields", () => {
 
     it("renders Agent version input", () => {
       // Act
-      render(
-        <AgentFormFields
-          mode="create"
-          pending={false}
-          errorMessage={null}
-          submitLabel="Create agent"
-        />,
-      );
+      render(<AgentFormFields mode="create" pending={false} />);
 
       // Assert
       expect(screen.getByLabelText("Agent version")).toBeInTheDocument();
@@ -68,14 +42,7 @@ describe("AgentFormFields", () => {
 
     it("renders Description input", () => {
       // Act
-      render(
-        <AgentFormFields
-          mode="create"
-          pending={false}
-          errorMessage={null}
-          submitLabel="Create agent"
-        />,
-      );
+      render(<AgentFormFields mode="create" pending={false} />);
 
       // Assert
       expect(
@@ -85,14 +52,7 @@ describe("AgentFormFields", () => {
 
     it("renders Endpoint textarea", () => {
       // Act
-      render(
-        <AgentFormFields
-          mode="create"
-          pending={false}
-          errorMessage={null}
-          submitLabel="Create agent"
-        />,
-      );
+      render(<AgentFormFields mode="create" pending={false} />);
 
       // Assert
       expect(
@@ -102,95 +62,24 @@ describe("AgentFormFields", () => {
 
     it("renders Active checkbox", () => {
       // Act
-      render(
-        <AgentFormFields
-          mode="create"
-          pending={false}
-          errorMessage={null}
-          submitLabel="Create agent"
-        />,
-      );
+      render(<AgentFormFields mode="create" pending={false} />);
 
       // Assert
       expect(screen.getByLabelText("Active")).toBeInTheDocument();
     });
 
-    it("renders submit button with provided label", () => {
+    it("leaves the submit action and errors to the parent modal", () => {
       // Act
-      render(
-        <AgentFormFields
-          mode="create"
-          pending={false}
-          errorMessage={null}
-          submitLabel="Create agent"
-        />,
-      );
+      render(<AgentFormFields mode="create" pending={false} />);
 
       // Assert
-      expect(
-        screen.getByRole("button", { name: "Create agent" }),
-      ).toBeInTheDocument();
-    });
-
-    it("disables submit button when pending", () => {
-      // Act
-      render(
-        <AgentFormFields
-          mode="create"
-          pending={true}
-          errorMessage={null}
-          submitLabel="Creating..."
-        />,
-      );
-
-      // Assert
-      expect(
-        screen.getByRole("button", { name: "Creating..." }),
-      ).toBeDisabled();
-    });
-
-    it("displays error message when provided", () => {
-      // Act
-      render(
-        <AgentFormFields
-          mode="create"
-          pending={false}
-          errorMessage="Invalid JSON format"
-          submitLabel="Create agent"
-        />,
-      );
-
-      // Assert
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        "Invalid JSON format",
-      );
-    });
-
-    it("does not display error when errorMessage is null", () => {
-      // Act
-      render(
-        <AgentFormFields
-          mode="create"
-          pending={false}
-          errorMessage={null}
-          submitLabel="Create agent"
-        />,
-      );
-
-      // Assert
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
 
     it("disables inputs when pending", () => {
       // Act
-      render(
-        <AgentFormFields
-          mode="create"
-          pending={true}
-          errorMessage={null}
-          submitLabel="Creating..."
-        />,
-      );
+      render(<AgentFormFields mode="create" pending={true} />);
 
       // Assert
       expect(screen.getByLabelText("Agent ID")).toBeDisabled();
@@ -208,8 +97,6 @@ describe("AgentFormFields", () => {
       initialEndpointJson: '{"url": "https://example.com"}',
       initialIsActive: true,
       pending: false,
-      errorMessage: null,
-      submitLabel: "Save changes",
     };
 
     it("renders hidden input with agent id", () => {

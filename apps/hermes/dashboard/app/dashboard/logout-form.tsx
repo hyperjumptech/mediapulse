@@ -2,7 +2,10 @@
 
 import React, { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
+import { DropdownMenuItem } from "@workspace/ui/components/dropdown-menu";
+import { Spinner } from "@workspace/ui/components/spinner";
 import { useFormAction } from "../logout/action/.generated/use-form-action";
 
 type LogoutActionData = {
@@ -86,6 +89,39 @@ export const LogoutForm = ({
       >
         {pending ? "Signing out..." : "Sign out"}
       </Button>
+    </FormWithAction>
+  );
+};
+
+const keepMenuOpenWhileLoggingOut = (event: Event) => {
+  event.preventDefault();
+};
+
+export const LogoutMenuItem = () => {
+  const { FormWithAction, pending, errorMessage } = useLogoutFormState();
+  const label = pending ? "Logging out…" : "Log out";
+
+  return (
+    <FormWithAction>
+      <DropdownMenuItem
+        asChild
+        disabled={pending}
+        onSelect={keepMenuOpenWhileLoggingOut}
+      >
+        <button type="submit" className="w-full">
+          {pending ? (
+            <Spinner aria-hidden="true" />
+          ) : (
+            <LogOut aria-hidden="true" />
+          )}
+          {label}
+        </button>
+      </DropdownMenuItem>
+      {errorMessage ? (
+        <p className="px-2 py-1.5 text-xs text-destructive" role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
     </FormWithAction>
   );
 };

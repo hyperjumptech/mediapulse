@@ -13,18 +13,6 @@ vi.mock("@workspace/ui/lib/utils", () => ({
   cn: (...classes: string[]) => classes.filter(Boolean).join(" "),
 }));
 
-vi.mock("@workspace/ui/components/button", () => ({
-  Button: ({
-    children,
-    type,
-    disabled,
-  }: React.PropsWithChildren<{ type?: string; disabled?: boolean }>) => (
-    <button type={type as "submit"} disabled={disabled}>
-      {children}
-    </button>
-  ),
-}));
-
 vi.mock("@workspace/ui/components/input", () => ({
   Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => (
     <input {...props} />
@@ -46,8 +34,6 @@ const defaultDomainIntegrations = [
 
 const baseProps = {
   pending: false,
-  errorMessage: null as string | null,
-  submitLabel: "Create",
   defaultName: "",
   defaultDescription: "",
   defaultIsActive: true,
@@ -66,7 +52,7 @@ describe("PipelineFormFields", () => {
     expect(
       screen.getByRole("link", { name: /Add one under Domain integrations/i }),
     ).toHaveAttribute("href", "/dashboard/domain-integrations");
-    expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 
   it("renders Name input", () => {
@@ -97,36 +83,17 @@ describe("PipelineFormFields", () => {
     expect(activeInputs[1]).toHaveAttribute("value", "true");
   });
 
-  it("renders submit button with provided label", () => {
-    render(<PipelineFormFields {...baseProps} submitLabel="Create pipeline" />);
-    expect(
-      screen.getByRole("button", { name: "Create pipeline" }),
-    ).toBeInTheDocument();
-  });
-
-  it("disables submit button when pending", () => {
-    render(
-      <PipelineFormFields
-        {...baseProps}
-        pending={true}
-        submitLabel="Creating..."
-      />,
-    );
-    expect(screen.getByRole("button", { name: "Creating..." })).toBeDisabled();
-  });
-
-  it("displays error message when provided", () => {
-    render(
-      <PipelineFormFields {...baseProps} errorMessage="Name is required" />,
-    );
-    expect(screen.getByRole("alert")).toHaveTextContent("Name is required");
+  it("disables the inputs when pending", () => {
+    render(<PipelineFormFields {...baseProps} pending={true} />);
+    expect(screen.getByRole("combobox")).toBeDisabled();
+    expect(screen.getByLabelText("Name")).toBeDisabled();
+    expect(screen.getByLabelText("Active")).toBeDisabled();
   });
 
   it("populates inputs with default values", () => {
     render(
       <PipelineFormFields
         {...baseProps}
-        submitLabel="Save"
         defaultName="My Pipeline"
         defaultDescription="A test pipeline"
         defaultIsActive={false}
@@ -139,11 +106,7 @@ describe("PipelineFormFields", () => {
 
   it("renders hidden pipelineId when provided", () => {
     const { container } = render(
-      <PipelineFormFields
-        {...baseProps}
-        submitLabel="Save"
-        pipelineId="pipeline-123"
-      />,
+      <PipelineFormFields {...baseProps} pipelineId="pipeline-123" />,
     );
     const hiddenInput = container.querySelector(
       'input[name="body.pipelineId"]',
@@ -153,11 +116,7 @@ describe("PipelineFormFields", () => {
 
   it("uses custom namePrefix for field names", () => {
     const { container } = render(
-      <PipelineFormFields
-        {...baseProps}
-        namePrefix="custom"
-        submitLabel="Save"
-      />,
+      <PipelineFormFields {...baseProps} namePrefix="custom" />,
     );
     expect(
       container.querySelector('input[name="custom.name"]'),
@@ -176,11 +135,7 @@ describe("PipelineFormFields", () => {
 
   it("sets timeout defaultValue when defaultTimeoutMs is provided", () => {
     const { container } = render(
-      <PipelineFormFields
-        {...baseProps}
-        submitLabel="Save"
-        defaultTimeoutMs={900_000}
-      />,
+      <PipelineFormFields {...baseProps} defaultTimeoutMs={900_000} />,
     );
     const timeoutInput = container.querySelector('input[name="body.timeout"]');
     expect(timeoutInput).toHaveValue(900000);

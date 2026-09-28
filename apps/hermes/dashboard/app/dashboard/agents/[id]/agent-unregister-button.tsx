@@ -48,7 +48,8 @@ export const AgentUnregisterButton = ({
     <>
       <Button
         type="button"
-        variant="destructive"
+        variant="outline"
+        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
         disabled={pending}
         onClick={requestConfirmation}
       >

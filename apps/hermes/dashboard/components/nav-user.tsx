@@ -30,7 +30,7 @@ import {
   useSidebar,
 } from "@workspace/ui/components/sidebar";
 
-import { LogoutForm } from "@/app/dashboard/logout-form";
+import { LogoutMenuItem } from "@/app/dashboard/logout-form";
 
 import type { DashboardUser } from "./dashboard-shell";
 
@@ -44,7 +44,7 @@ type ThemeOption = {
 
 type NavUserProps = {
   user: DashboardUser;
-  LogoutFormComponent?: typeof LogoutForm;
+  LogoutMenuItemComponent?: typeof LogoutMenuItem;
 };
 
 type UserSummaryProps = {
@@ -132,7 +132,7 @@ const ThemeMenu = () => {
 
 export const NavUser = ({
   user,
-  LogoutFormComponent = LogoutForm,
+  LogoutMenuItemComponent = LogoutMenuItem,
 }: NavUserProps) => {
   const { isMobile } = useSidebar();
   const initials = getInitials(user.name, user.email);
@@ -164,11 +164,7 @@ export const NavUser = ({
             <DropdownMenuSeparator />
             <ThemeMenu />
             <DropdownMenuSeparator />
-            <LogoutFormComponent
-              className="w-full"
-              variant="ghost"
-              buttonClassName="h-auto w-full justify-start gap-2 rounded-sm px-2 py-1.5 text-sm font-normal text-foreground hover:bg-accent hover:text-accent-foreground"
-            />
+            <LogoutMenuItemComponent />
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

@@ -66,11 +66,16 @@ export const SectionSkeleton = ({ rows = 6 }: { rows?: number }) => {
 export const DetailPageSkeleton = () => {
   return (
     <div className="flex flex-col gap-6" role="status" aria-label="Loading">
-      <Skeleton className="h-4 w-32" />
       <PageHeaderSkeleton />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {range(4).map((card) => (
-          <Skeleton key={card} className="h-20" />
+      <div
+        data-slot="summary-grid-skeleton"
+        className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border px-4 py-4 sm:px-5 md:grid-cols-3 lg:grid-cols-4"
+      >
+        {range(4).map((item) => (
+          <div key={item} className="flex flex-col gap-1.5">
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-4 w-28" />
+          </div>
         ))}
       </div>
       <TableSkeleton rows={6} />

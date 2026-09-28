@@ -1,11 +1,15 @@
 "use client";
 
 import React, { useMemo } from "react";
-import Link from "next/link";
+import { CircleCheck } from "lucide-react";
 import { useFormAction } from "./action/.generated/use-form-action";
-import { Button } from "@workspace/ui/components/button";
+import { Alert, AlertDescription } from "@workspace/ui/components/alert";
+import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
+
+import { AuthFooterLink } from "@/components/auth-page-shell";
+import { FormErrorAlert } from "@/components/form-error-alert";
+import { SubmitButton } from "@/components/submit-button";
 
 /**
  * Derives forgot-password form state from the generated form action hook.
@@ -43,27 +47,19 @@ export const ForgotPasswordForm = () => {
     useForgotPasswordFormState();
 
   return (
-    <FormWithAction className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2 text-center">
-        <h1 className="text-2xl font-bold">Forgot password</h1>
-        <p className="text-sm text-muted-foreground text-balance">
-          Enter your admin email. If an account exists, you will receive a reset
-          link.
-        </p>
-      </div>
-      <div className="flex flex-col gap-4">
+    <FormWithAction>
+      <FieldGroup className="gap-6">
         {successMessage ? (
-          <p className="text-sm text-muted-foreground" role="status">
-            {successMessage}
-          </p>
+          <Alert role="status" className="border-success/40 bg-success/10">
+            <CircleCheck className="text-success" aria-hidden="true" />
+            <AlertDescription className="text-foreground">
+              {successMessage}
+            </AlertDescription>
+          </Alert>
         ) : null}
-        {errorMessage ? (
-          <p className="text-sm text-destructive" role="alert">
-            {errorMessage}
-          </p>
-        ) : null}
-        <div className="grid gap-2">
-          <Label htmlFor="body.email">Email</Label>
+        {errorMessage ? <FormErrorAlert message={errorMessage} /> : null}
+        <Field>
+          <FieldLabel htmlFor="body.email">Email</FieldLabel>
           <Input
             id="body.email"
             name="body.email"
@@ -72,19 +68,16 @@ export const ForgotPasswordForm = () => {
             required
             autoComplete="email"
           />
-        </div>
-        <Button type="submit" disabled={pending} className="w-full">
-          {pending ? "Sending…" : "Send reset link"}
-        </Button>
-        <p className="text-center text-sm">
-          <Link
-            href="/login"
-            className="text-primary underline-offset-4 hover:underline"
-          >
-            Back to login
-          </Link>
-        </p>
-      </div>
+        </Field>
+        <SubmitButton
+          pending={pending}
+          pendingLabel="Sending…"
+          className="w-full"
+        >
+          Send reset link
+        </SubmitButton>
+        <AuthFooterLink href="/login">Back to login</AuthFooterLink>
+      </FieldGroup>
     </FormWithAction>
   );
 };

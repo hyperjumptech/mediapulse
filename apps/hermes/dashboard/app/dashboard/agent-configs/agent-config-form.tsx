@@ -6,6 +6,9 @@ import type React from "react";
 import { Button } from "@workspace/ui/components/button";
 import type { VariableExpansionStringFieldLoaders } from "@workspace/variable-expansion-picker";
 
+import { FormErrorAlert } from "@/components/form-error-alert";
+import { SubmitButton } from "@/components/submit-button";
+
 import { AgentConfigFormFields } from "./agent-config-form-fields";
 
 type AgentForDropdown = {
@@ -55,9 +58,10 @@ export const AgentConfigForm = ({
   const [agentId, agentVersion] = formState.agentKey
     ? formState.agentKey.split("@")
     : ["", ""];
+  const isIncomplete = !formState.name || !formState.agentKey;
 
   return (
-    <FormWithAction className="flex flex-col gap-4">
+    <FormWithAction className="flex max-w-3xl flex-col gap-6">
       {configId ? (
         <input type="hidden" name="body.id" value={configId} readOnly />
       ) : null}
@@ -87,30 +91,33 @@ export const AgentConfigForm = ({
         agentKey={formState.agentKey}
         config={formState.config}
         agents={agents}
-        onNameChange={(v) => setFormState((s) => ({ ...s, name: v }))}
-        onDescriptionChange={(v) =>
-          setFormState((s) => ({ ...s, description: v }))
+        onNameChange={(value) =>
+          setFormState((previous) => ({ ...previous, name: value }))
         }
-        onAgentChange={(v) => setFormState((s) => ({ ...s, agentKey: v }))}
-        onConfigChange={(v) => setFormState((s) => ({ ...s, config: v }))}
+        onDescriptionChange={(value) =>
+          setFormState((previous) => ({ ...previous, description: value }))
+        }
+        onAgentChange={(value) =>
+          setFormState((previous) => ({ ...previous, agentKey: value }))
+        }
+        onConfigChange={(value) =>
+          setFormState((previous) => ({ ...previous, config: value }))
+        }
         pickerLoaders={pickerLoaders}
         disabled={pending}
       />
-      {errorMessage ? (
-        <p className="text-destructive text-sm" role="alert">
-          {errorMessage}
-        </p>
-      ) : null}
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" asChild>
+      {errorMessage ? <FormErrorAlert message={errorMessage} /> : null}
+      <div className="flex flex-col-reverse gap-2 border-t pt-6 sm:flex-row sm:justify-end">
+        <Button type="button" variant="ghost" asChild>
           <Link href="/dashboard/agent-configs">Cancel</Link>
         </Button>
-        <Button
-          type="submit"
-          disabled={pending || !formState.name || !formState.agentKey}
+        <SubmitButton
+          pending={pending}
+          pendingLabel={pendingLabel}
+          disabled={isIncomplete}
         >
-          {pending ? pendingLabel : submitLabel}
-        </Button>
+          {submitLabel}
+        </SubmitButton>
       </div>
     </FormWithAction>
   );

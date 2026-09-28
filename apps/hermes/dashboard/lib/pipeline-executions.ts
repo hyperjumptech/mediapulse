@@ -28,6 +28,7 @@ export type PipelineExecutionRow = {
   id: string;
   source: PipelineExecutionSource;
   sourceId: string;
+  sourceName: string | null;
   executionTime: Date;
   enqueueStatus: string;
   runStatus: string;
@@ -51,7 +52,7 @@ type PipelineExecutionListRow = Omit<PipelineExecutionRow, "elapsedLabel">;
 
 type ExecutionListFields = Omit<
   PipelineExecutionListRow,
-  "source" | "sourceId"
+  "source" | "sourceId" | "sourceName"
 >;
 
 type PipelineExecutionSourcePage = {
@@ -75,10 +76,12 @@ const toPipelineExecutionListRow = (
   execution: ExecutionListFields,
   source: PipelineExecutionSource,
   sourceId: string,
+  sourceName: string | null,
 ): PipelineExecutionListRow => ({
   id: execution.id,
   source,
   sourceId,
+  sourceName,
   executionTime: execution.executionTime,
   enqueueStatus: execution.enqueueStatus,
   runStatus: execution.runStatus,
@@ -128,10 +131,13 @@ const loadScheduleExecutionsForPipeline = async (
 ): Promise<PipelineExecutionSourcePage> => {
   const schedulesQuery = {
     where: { pipelineId },
-    select: { id: true },
+    select: { id: true, name: true },
   } satisfies Prisma.ScheduleFindManyArgs;
   const schedules = await db.schedule.findMany(schedulesQuery);
   const scheduleIds = schedules.map((schedule) => schedule.id);
+  const scheduleNameById = new Map(
+    schedules.map((schedule) => [schedule.id, schedule.name]),
+  );
   const { executions, total } = await loadNewestExecutionsPerParent(
     scheduleIds,
     (scheduleId) => {
@@ -152,9 +158,16 @@ const loadScheduleExecutionsForPipeline = async (
       return db.scheduleExecution.count(countQuery);
     },
   );
-  const rows = executions.map((execution) =>
-    toPipelineExecutionListRow(execution, "schedule", execution.scheduleId),
-  );
+  const rows = executions.map((execution) => {
+    const scheduleName = scheduleNameById.get(execution.scheduleId) ?? null;
+
+    return toPipelineExecutionListRow(
+      execution,
+      "schedule",
+      execution.scheduleId,
+      scheduleName,
+    );
+  });
 
   return { rows, total };
 };
@@ -166,10 +179,13 @@ const loadHttpTriggerExecutionsForPipeline = async (
 ): Promise<PipelineExecutionSourcePage> => {
   const httpTriggersQuery = {
     where: { pipelineId },
-    select: { id: true },
+    select: { id: true, name: true },
   } satisfies Prisma.HttpTriggerFindManyArgs;
   const httpTriggers = await db.httpTrigger.findMany(httpTriggersQuery);
   const httpTriggerIds = httpTriggers.map((httpTrigger) => httpTrigger.id);
+  const httpTriggerNameById = new Map(
+    httpTriggers.map((httpTrigger) => [httpTrigger.id, httpTrigger.name]),
+  );
   const { executions, total } = await loadNewestExecutionsPerParent(
     httpTriggerIds,
     (httpTriggerId) => {
@@ -190,13 +206,17 @@ const loadHttpTriggerExecutionsForPipeline = async (
       return db.httpTriggerExecution.count(countQuery);
     },
   );
-  const rows = executions.map((execution) =>
-    toPipelineExecutionListRow(
+  const rows = executions.map((execution) => {
+    const httpTriggerName =
+      httpTriggerNameById.get(execution.httpTriggerId) ?? null;
+
+    return toPipelineExecutionListRow(
       execution,
       "http-trigger",
       execution.httpTriggerId,
-    ),
-  );
+      httpTriggerName,
+    );
+  });
 
   return { rows, total };
 };
@@ -220,7 +240,7 @@ const loadManualExecutionsForPipeline = async (
     db.manualPipelineExecution.count(countQuery),
   ]);
   const rows = executions.map((execution) =>
-    toPipelineExecutionListRow(execution, "manual", pipelineId),
+    toPipelineExecutionListRow(execution, "manual", pipelineId, null),
   );
 
   return { rows, total };

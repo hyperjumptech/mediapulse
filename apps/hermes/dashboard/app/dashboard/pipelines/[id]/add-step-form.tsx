@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Button } from "@workspace/ui/components/button";
-import { Label } from "@workspace/ui/components/label";
+import { Field, FieldLabel } from "@workspace/ui/components/field";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@workspace/ui/components/native-select";
+import { Textarea } from "@workspace/ui/components/textarea";
 
 import { useFormAction } from "@/app/dashboard/pipelines/actions/add-step/.generated/use-form-action";
-import { cn } from "@workspace/ui/lib/utils";
+import { FormErrorAlert } from "@/components/form-error-alert";
+import { SubmitButton } from "@/components/submit-button";
 import type { AgentConfigSummary } from "@/lib/agent-configs";
 
 type Agent = {
@@ -15,6 +20,9 @@ type Agent = {
   agentVersion: string;
   description: string | null;
 };
+
+const withDescriptionSuffix = (label: string, description: string | null) =>
+  description ? `${label} — ${description}` : label;
 
 /**
  * Encapsulates add-step form state: selection, config, form action, and reset-on-success.
@@ -35,8 +43,10 @@ const useAddStepFormState = (
   const availableAgents = useMemo(
     () =>
       agents.filter(
-        (a) =>
-          !existingStepAgentKeys.includes(`${a.agentId}@${a.agentVersion}`),
+        (agent) =>
+          !existingStepAgentKeys.includes(
+            `${agent.agentId}@${agent.agentVersion}`,
+          ),
       ),
     [agents, existingStepAgentKeys],
   );
@@ -64,12 +74,24 @@ const useAddStepFormState = (
     setSavedConfigId("");
   }, [agentKey]);
 
+  const selectAgentKey = useCallback((value: string) => {
+    if (!value) {
+      setSelected(null);
+
+      return;
+    }
+    const [agentId, agentVersion] = value.split("@");
+    if (agentId && agentVersion) {
+      setSelected({ agentId, agentVersion });
+    }
+  }, []);
+
   return {
     FormWithAction,
     pending,
     errorMessage,
     selected,
-    setSelected,
+    selectAgentKey,
     savedConfigId,
     setSavedConfigId,
     customConfigJson,
@@ -100,7 +122,7 @@ export const AddStepForm = ({
     pending,
     errorMessage,
     selected,
-    setSelected,
+    selectAgentKey,
     savedConfigId,
     setSavedConfigId,
     customConfigJson,
@@ -112,7 +134,7 @@ export const AddStepForm = ({
   } = useAddStepFormState(agents, existingStepAgentKeys, configsByAgentKey);
 
   return (
-    <FormWithAction className="flex flex-col gap-2 mt-4">
+    <FormWithAction className="mt-4 flex flex-col gap-4">
       <input type="hidden" name="body.pipelineId" value={pipelineId} readOnly />
       <input
         type="hidden"
@@ -139,102 +161,81 @@ export const AddStepForm = ({
         readOnly
       />
       <div className="flex flex-wrap items-end gap-2">
-        <div className="grid gap-1.5">
-          <Label htmlFor="add-step-agent">Add agent</Label>
-          <select
+        <Field className="w-full max-w-sm">
+          <FieldLabel htmlFor="add-step-agent">Add agent</FieldLabel>
+          <NativeSelect
             id="add-step-agent"
-            className={cn(
-              "flex h-9 w-[280px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-            )}
             value={agentKey}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (!v) {
-                setSelected(null);
-                return;
-              }
-              const [agentId, agentVersion] = v.split("@");
-              if (agentId && agentVersion) {
-                setSelected({ agentId, agentVersion });
-              }
-            }}
+            onChange={(event) => selectAgentKey(event.target.value)}
             disabled={pending}
           >
-            <option value="">Select an agent…</option>
-            {availableAgents.map((a) => (
-              <option key={a.id} value={`${a.agentId}@${a.agentVersion}`}>
-                {a.agentId}@{a.agentVersion}
-                {a.description ? ` — ${a.description}` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-        <Button
-          type="submit"
-          variant="secondary"
-          size="sm"
-          disabled={pending || !selected}
-        >
-          {pending ? "Adding…" : "Add step"}
-        </Button>
-      </div>
-      {selected ? (
-        <>
-          {savedConfigs.length > 0 ? (
-            <div className="grid gap-1.5">
-              <Label htmlFor="add-step-saved-config">
-                Saved config (optional)
-              </Label>
-              <select
-                id="add-step-saved-config"
-                className={cn(
-                  "flex h-9 w-full max-w-md rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm",
-                  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                )}
-                value={savedConfigId}
-                onChange={(e) => setSavedConfigId(e.target.value)}
-                disabled={pending}
+            <NativeSelectOption value="">Select an agent…</NativeSelectOption>
+            {availableAgents.map((agent) => (
+              <NativeSelectOption
+                key={agent.id}
+                value={`${agent.agentId}@${agent.agentVersion}`}
               >
-                <option value="">None (use custom below)</option>
-                {savedConfigs.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.description ? ` — ${c.description}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-          {!useSavedConfig ? (
-            <div className="grid gap-1.5">
-              <Label htmlFor="add-step-config">Config (JSON, optional)</Label>
-              <textarea
-                id="add-step-config"
-                value={customConfigJson}
-                onChange={(e) => setCustomConfigJson(e.target.value)}
-                rows={3}
-                disabled={pending}
-                className={cn(
-                  "w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-xs outline-none transition-[color,box-shadow]",
-                  "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+                {withDescriptionSuffix(
+                  `${agent.agentId}@${agent.agentVersion}`,
+                  agent.description,
                 )}
-                placeholder="{}"
-              />
-            </div>
-          ) : null}
-        </>
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </Field>
+        <SubmitButton
+          variant="secondary"
+          pending={pending}
+          pendingLabel="Adding…"
+          disabled={!selected}
+        >
+          Add step
+        </SubmitButton>
+      </div>
+      {selected && savedConfigs.length > 0 ? (
+        <Field className="max-w-md">
+          <FieldLabel htmlFor="add-step-saved-config">
+            Saved config (optional)
+          </FieldLabel>
+          <NativeSelect
+            id="add-step-saved-config"
+            value={savedConfigId}
+            onChange={(event) => setSavedConfigId(event.target.value)}
+            disabled={pending}
+          >
+            <NativeSelectOption value="">
+              None (use custom below)
+            </NativeSelectOption>
+            {savedConfigs.map((config) => (
+              <NativeSelectOption key={config.id} value={config.id}>
+                {withDescriptionSuffix(config.name, config.description)}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </Field>
+      ) : null}
+      {selected && !useSavedConfig ? (
+        <Field>
+          <FieldLabel htmlFor="add-step-config">
+            Config (JSON, optional)
+          </FieldLabel>
+          <Textarea
+            id="add-step-config"
+            value={customConfigJson}
+            onChange={(event) => setCustomConfigJson(event.target.value)}
+            rows={3}
+            disabled={pending}
+            className="font-mono"
+            placeholder="{}"
+          />
+        </Field>
       ) : null}
       {availableAgents.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           All registered agents are already in this pipeline.
         </p>
       ) : null}
-      {errorMessage ? (
-        <p className="text-sm text-destructive" role="alert">
-          {errorMessage}
-        </p>
-      ) : null}
+      {errorMessage ? <FormErrorAlert message={errorMessage} /> : null}
     </FormWithAction>
   );
 };

@@ -3,10 +3,20 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
-import { Label } from "@workspace/ui/components/label";
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+} from "@workspace/ui/components/field";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@workspace/ui/components/native-select";
 
 import { useFormAction as useRemoveStepFormAction } from "@/app/dashboard/pipelines/actions/remove-step/.generated/use-form-action";
 import { useFormAction as useUpdateStepFormAction } from "@/app/dashboard/pipelines/actions/update-step/.generated/use-form-action";
+import { FormErrorAlert } from "@/components/form-error-alert";
+import { SubmitButton } from "@/components/submit-button";
 
 import type { AgentConfigSummary } from "@/lib/agent-configs";
 
@@ -27,6 +37,16 @@ type Agent = {
   description: string | null;
 };
 
+const withDescriptionSuffix = (label: string, description: string | null) =>
+  description ? `${label} — ${description}` : label;
+
+const toStepInputJson = (input: unknown): string => {
+  const isPlainObject =
+    input != null && typeof input === "object" && !Array.isArray(input);
+
+  return JSON.stringify(isPlainObject ? input : {});
+};
+
 /**
  * Renders the list of pipeline steps with Remove button per step.
  */
@@ -42,11 +62,12 @@ export const StepList = ({
   configsByAgentKey: Record<string, AgentConfigSummary[]>;
 }) => {
   const agentByKey = useMemo(() => {
-    const m = new Map<string, Agent>();
-    for (const a of agentDescriptions) {
-      m.set(`${a.agentId}@${a.agentVersion}`, a);
+    const agentsByKey = new Map<string, Agent>();
+    for (const agent of agentDescriptions) {
+      agentsByKey.set(`${agent.agentId}@${agent.agentVersion}`, agent);
     }
-    return m;
+
+    return agentsByKey;
   }, [agentDescriptions]);
 
   if (steps.length === 0) {
@@ -162,12 +183,14 @@ const StepRow = ({
 
   if (isEditing) {
     const [agentId, agentVersion] = editAgentKey.split("@");
+    const stepInputJson = toStepInputJson(step.input);
+
     return (
-      <li className="flex flex-wrap items-center gap-2 rounded-md border p-3">
-        <span className="text-muted-foreground font-mono text-sm w-6">
+      <li className="flex gap-3 rounded-md border p-3">
+        <span className="w-6 pt-0.5 font-mono text-sm text-muted-foreground">
           {step.order + 1}.
         </span>
-        <UpdateForm className="flex flex-wrap items-center gap-2 flex-1 w-full">
+        <UpdateForm className="flex min-w-0 flex-1 flex-col gap-4">
           <input
             type="hidden"
             name="body.pipelineId"
@@ -196,95 +219,96 @@ const StepRow = ({
           <input
             type="hidden"
             name="body.input"
-            value={JSON.stringify(
-              step.input != null &&
-                typeof step.input === "object" &&
-                !Array.isArray(step.input)
-                ? step.input
-                : {},
-            )}
+            value={stepInputJson}
             readOnly
           />
           <input type="hidden" name="body.config" value="{}" readOnly />
-          <select
-            className="flex h-9 w-[280px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            value={editAgentKey}
-            onChange={(e) => {
-              setEditAgentKey(e.target.value);
-              setEditSavedConfigId("");
-            }}
-            disabled={updatePending}
-          >
-            {agents.map((a) => (
-              <option key={a.id} value={`${a.agentId}@${a.agentVersion}`}>
-                {a.agentId}@{a.agentVersion}
-                {a.description ? ` — ${a.description}` : ""}
-              </option>
-            ))}
-          </select>
-          <div className="w-full grid gap-1.5">
-            <Label htmlFor={`step-saved-config-${step.id}`}>Agent config</Label>
-            <select
+          <Field className="max-w-md">
+            <FieldLabel htmlFor={`step-agent-${step.id}`}>Agent</FieldLabel>
+            <NativeSelect
+              id={`step-agent-${step.id}`}
+              value={editAgentKey}
+              onChange={(event) => {
+                setEditAgentKey(event.target.value);
+                setEditSavedConfigId("");
+              }}
+              disabled={updatePending}
+            >
+              {agents.map((agent) => (
+                <NativeSelectOption
+                  key={agent.id}
+                  value={`${agent.agentId}@${agent.agentVersion}`}
+                >
+                  {withDescriptionSuffix(
+                    `${agent.agentId}@${agent.agentVersion}`,
+                    agent.description,
+                  )}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </Field>
+          <Field className="max-w-md">
+            <FieldLabel htmlFor={`step-saved-config-${step.id}`}>
+              Agent config
+            </FieldLabel>
+            <NativeSelect
               id={`step-saved-config-${step.id}`}
-              className="flex h-9 w-full max-w-md rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               value={editSavedConfigId}
-              onChange={(e) => setEditSavedConfigId(e.target.value)}
+              onChange={(event) => setEditSavedConfigId(event.target.value)}
               disabled={updatePending}
               aria-label="Choose a saved agent config"
             >
-              <option value="">None</option>
-              {savedConfigs.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                  {c.description ? ` — ${c.description}` : ""}
-                </option>
+              <NativeSelectOption value="">None</NativeSelectOption>
+              {savedConfigs.map((config) => (
+                <NativeSelectOption key={config.id} value={config.id}>
+                  {withDescriptionSuffix(config.name, config.description)}
+                </NativeSelectOption>
               ))}
-            </select>
+            </NativeSelect>
             {savedConfigs.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
+              <FieldDescription>
                 No agent configs for this agent. Create one in Agent configs
                 first.
-              </p>
+              </FieldDescription>
             ) : null}
+          </Field>
+          {updateErrorMessage ? (
+            <FormErrorAlert message={updateErrorMessage} />
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={updatePending}
+              onClick={() => setIsEditing(false)}
+            >
+              Cancel
+            </Button>
+            <SubmitButton
+              size="sm"
+              pending={updatePending}
+              pendingLabel="Saving…"
+            >
+              Save
+            </SubmitButton>
           </div>
-          <Button
-            type="submit"
-            variant="secondary"
-            size="sm"
-            disabled={updatePending}
-          >
-            {updatePending ? "Saving…" : "Save"}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={updatePending}
-            onClick={() => setIsEditing(false)}
-          >
-            Cancel
-          </Button>
         </UpdateForm>
-        {updateErrorMessage ? (
-          <p className="text-sm text-destructive w-full" role="alert">
-            {updateErrorMessage}
-          </p>
-        ) : null}
       </li>
     );
   }
 
   return (
     <li className="flex items-center gap-4 rounded-md border p-3">
-      <span className="text-muted-foreground font-mono text-sm w-6">
+      <span className="w-6 font-mono text-sm text-muted-foreground">
         {step.order + 1}.
       </span>
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <span className="font-medium">
           {step.agentId}@{step.agentVersion}
         </span>
         {description ? (
-          <span className="text-muted-foreground text-sm ml-2">
+          <span className="ml-2 text-sm text-muted-foreground">
             {description}
           </span>
         ) : null}
@@ -307,15 +331,15 @@ const StepRow = ({
             readOnly
           />
           <input type="hidden" name="body.stepId" value={step.id} readOnly />
-          <Button
-            type="submit"
+          <SubmitButton
             variant="destructive"
             size="sm"
-            disabled={removePending}
+            pending={removePending}
+            pendingLabel="Removing…"
             aria-label={`Remove step ${step.agentId}@${step.agentVersion}`}
           >
-            {removePending ? "Removing…" : "Remove"}
-          </Button>
+            Remove
+          </SubmitButton>
         </RemoveForm>
       </div>
     </li>

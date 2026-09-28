@@ -2,14 +2,25 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { ChevronLeft, Copy, GitBranch } from "lucide-react";
+import { Copy, Pencil } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
+
 import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
-import { buildHttpTriggerInvokeCurlCommand } from "@/lib/http-trigger-invoke-curl";
+import { CopyableId } from "@/components/copyable-id";
+import { PageHeader } from "@/components/page-header";
+import { RelativeTime } from "@/components/relative-time";
+import { StatusBadge } from "@/components/status-badge";
+import { SummaryGrid, SummaryItem } from "@/components/summary-grid";
 import { formatCreatedBy } from "@/lib/format-created-by";
+import {
+  buildHttpTriggerInvokeCurlCommand,
+  type HttpTriggerInvokeMethod,
+} from "@/lib/http-trigger-invoke-curl";
 import type { getHttpTriggerById } from "@/lib/http-triggers";
+
 import type { PipelineOption } from "../../schedules/schedule-form-fields";
 import { HttpTriggerFormModal } from "../http-trigger-form-modal";
 
@@ -17,18 +28,49 @@ type TriggerWithPipeline = NonNullable<
   Awaited<ReturnType<typeof getHttpTriggerById>>
 >;
 
-const useHttpTriggerDetailState = () => {
+const AUTH_TYPE_LABELS: Record<string, string> = {
+  BEARER_TOKEN: "Bearer token",
+};
+
+const describeAuthType = (authType: string) =>
+  AUTH_TYPE_LABELS[authType] ?? authType.toLowerCase().replaceAll("_", " ");
+
+const useHttpTriggerDetailState = (
+  triggerId: string,
+  method: HttpTriggerInvokeMethod,
+) => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [siteOrigin, setSiteOrigin] = useState("");
+
   useEffect(() => {
     setSiteOrigin(window.location.origin);
   }, []);
-  return { editModalOpen, setEditModalOpen, siteOrigin };
+
+  const openEditModal = () => setEditModalOpen(true);
+
+  const copyCurlCommand = useCallback(async () => {
+    const command = buildHttpTriggerInvokeCurlCommand({
+      method,
+      triggerId,
+      origin: window.location.origin,
+    });
+    try {
+      await navigator.clipboard.writeText(command);
+      toast.success("cURL command copied");
+    } catch {
+      toast.error("Couldn't copy the cURL command");
+    }
+  }, [triggerId, method]);
+
+  return {
+    editModalOpen,
+    setEditModalOpen,
+    openEditModal,
+    siteOrigin,
+    copyCurlCommand,
+  };
 };
 
-/**
- * Detail page content for one HTTP trigger.
- */
 export const HttpTriggerDetailContent = ({
   trigger,
   executionsSection,
@@ -38,92 +80,85 @@ export const HttpTriggerDetailContent = ({
   executionsSection: ReactNode;
   pipelines: PipelineOption[];
 }) => {
-  const { editModalOpen, setEditModalOpen, siteOrigin } =
-    useHttpTriggerDetailState();
+  const {
+    editModalOpen,
+    setEditModalOpen,
+    openEditModal,
+    siteOrigin,
+    copyCurlCommand,
+  } = useHttpTriggerDetailState(trigger.id, trigger.method);
   const invokePath = `/api/http-triggers/${trigger.id}/invoke`;
-  const invokeDisplayUrl = siteOrigin
-    ? `${siteOrigin}${invokePath}`
-    : invokePath;
-
-  const onCopyInvokeCurl = useCallback(async () => {
-    const command = buildHttpTriggerInvokeCurlCommand({
-      method: trigger.method,
-      triggerId: trigger.id,
-      origin: window.location.origin,
-    });
-    try {
-      await navigator.clipboard.writeText(command);
-      window.alert("cURL command copied to clipboard.");
-    } catch {
-      window.alert("Failed to copy cURL command.");
-    }
-  }, [trigger.id, trigger.method]);
+  const invokeUrl = `${siteOrigin}${invokePath}`;
+  const enabledStatus = trigger.enabled ? "enabled" : "disabled";
+  const pipelineHref = `/dashboard/pipelines/${trigger.pipeline.id}`;
+  const createdBy = formatCreatedBy(trigger.createdBy, trigger.createdById);
+  const authTypeLabel = describeAuthType(trigger.authType);
+  const description = trigger.description ?? undefined;
 
   return (
     <>
       <BreadcrumbEntityLabel segment={trigger.id} label={trigger.name} />
       <div className="flex flex-col gap-6">
-        <div>
-          <Link
-            href="/dashboard/http-triggers"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ChevronLeft className="size-4" />
-            Back to HTTP triggers
-          </Link>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold text-foreground">
-                {trigger.name}
-              </h1>
-              <Badge variant={trigger.enabled ? "success" : "secondary"}>
-                {trigger.enabled ? "Enabled" : "Disabled"}
-              </Badge>
-              <Badge variant="outline">{trigger.method}</Badge>
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-muted-foreground">
-              <Link
-                href={`/dashboard/pipelines/${trigger.pipeline.id}`}
-                className="inline-flex items-center gap-1 underline-offset-4 hover:text-foreground hover:underline"
-              >
-                <GitBranch className="size-4 shrink-0" aria-hidden />
-                {trigger.pipeline.name}
-              </Link>
-              <span className="text-muted-foreground/60" aria-hidden>
-                ·
-              </span>
-              <code className="max-w-full break-all rounded-md bg-muted px-2 py-1 font-mono text-xs text-foreground">
-                {invokeDisplayUrl}
-              </code>
+        <PageHeader
+          title={trigger.name}
+          badges={<StatusBadge status={enabledStatus} />}
+          description={description}
+          actions={
+            <>
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
-                className="shrink-0"
-                onClick={() => void onCopyInvokeCurl()}
+                onClick={() => void copyCurlCommand()}
               >
-                <Copy className="mr-2 size-4" aria-hidden />
+                <Copy aria-hidden />
                 Copy cURL
               </Button>
-            </div>
-            <p className="text-muted-foreground">
-              {trigger.description ??
-                "View executions and edit HTTP trigger settings."}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Created by: </span>
-              {formatCreatedBy(trigger.createdBy, trigger.createdById)}
-            </p>
-          </div>
-          <Button variant="outline" onClick={() => setEditModalOpen(true)}>
-            Edit HTTP trigger
-          </Button>
-        </div>
-
-        <section>
-          <h2 className="mb-2 text-lg font-medium text-foreground">
+              <Button type="button" variant="outline" onClick={openEditModal}>
+                <Pencil aria-hidden />
+                Edit HTTP trigger
+              </Button>
+            </>
+          }
+        />
+        <SummaryGrid>
+          <SummaryItem label="Pipeline">
+            <Link
+              href={pipelineHref}
+              className="font-medium underline-offset-4 hover:underline"
+            >
+              {trigger.pipeline.name}
+            </Link>
+          </SummaryItem>
+          <SummaryItem label="Method">
+            <Badge variant="outline" className="font-mono">
+              {trigger.method}
+            </Badge>
+          </SummaryItem>
+          <SummaryItem label="Auth">{authTypeLabel}</SummaryItem>
+          <SummaryItem label="Token hint">
+            {trigger.tokenHint ? (
+              <code className="font-mono text-xs">{trigger.tokenHint}</code>
+            ) : (
+              <span className="text-muted-foreground">Not recorded</span>
+            )}
+          </SummaryItem>
+          <SummaryItem label="Invoke URL" wide>
+            <CopyableId value={invokeUrl} label="Copy invoke URL" />
+          </SummaryItem>
+          <SummaryItem label="Last triggered">
+            {trigger.lastTriggeredAt ? (
+              <RelativeTime value={trigger.lastTriggeredAt} />
+            ) : (
+              <span className="text-muted-foreground">Never</span>
+            )}
+          </SummaryItem>
+          <SummaryItem label="Created">
+            <RelativeTime value={trigger.createdAt} />
+          </SummaryItem>
+          <SummaryItem label="Created by">{createdBy}</SummaryItem>
+        </SummaryGrid>
+        <section className="flex flex-col gap-3">
+          <h2 className="text-base font-semibold text-foreground">
             Executions
           </h2>
           {executionsSection}

@@ -2,16 +2,22 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog";
+import { Dialog } from "@workspace/ui/components/dialog";
 
 import { getPipelineForEdit } from "@/app/dashboard/pipelines/actions/get-for-edit";
 import { useFormAction as useCreateFormAction } from "@/app/dashboard/pipelines/actions/create/.generated/use-form-action";
 import { useFormAction as useUpdateFormAction } from "@/app/dashboard/pipelines/actions/update/.generated/use-form-action";
+
+import {
+  FormDialogBody,
+  FormDialogCancelButton,
+  FormDialogContent,
+  FormDialogFooter,
+  FormDialogHeader,
+  FormDialogMessage,
+  formDialogFormClassName,
+} from "@/components/form-dialog";
+import { SubmitButton } from "@/components/submit-button";
 
 import { PipelineFormFields } from "./pipeline-form-fields";
 import type { PipelineForEdit } from "@/app/dashboard/pipelines/actions/get-for-edit";
@@ -86,13 +92,10 @@ const usePipelineFormModalState = ({
 
   const Form = isEdit ? UpdateForm : CreateForm;
   const title = isEdit ? "Edit pipeline" : "Create pipeline";
-  const submitLabel = pending
-    ? isEdit
-      ? "Saving…"
-      : "Creating…"
-    : isEdit
-      ? "Save changes"
-      : "Create pipeline";
+  const submitLabel = isEdit ? "Save changes" : "Create pipeline";
+  const pendingLabel = isEdit ? "Saving…" : "Creating…";
+  const hasNoDomainIntegrations = domainIntegrations.length === 0;
+  const closeModal = useCallback(() => onOpenChange(false), [onOpenChange]);
 
   const formFieldsProps = isEdit
     ? pipeline && pipeline !== "loading"
@@ -132,6 +135,9 @@ const usePipelineFormModalState = ({
     pending,
     errorMessage,
     submitLabel,
+    pendingLabel,
+    hasNoDomainIntegrations,
+    closeModal,
     formFieldsProps,
     domainIntegrations,
     isLoadingEdit,
@@ -152,6 +158,9 @@ export const PipelineFormModal = (props: PipelineFormModalProps) => {
     pending,
     errorMessage,
     submitLabel,
+    pendingLabel,
+    hasNoDomainIntegrations,
+    closeModal,
     formFieldsProps,
     domainIntegrations,
     isLoadingEdit,
@@ -161,31 +170,38 @@ export const PipelineFormModal = (props: PipelineFormModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] w-full max-w-lg overflow-y-hidden p-0">
-        <div className="flex max-h-[85vh] min-h-80 flex-col overflow-y-hidden px-6 pt-10 pb-6">
-          <DialogHeader className="shrink-0 pb-4">
-            <DialogTitle>{title}</DialogTitle>
-          </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto py-4 px-1">
-            {isLoadingEdit ? (
-              <p className="text-muted-foreground">Loading pipeline…</p>
-            ) : notFound ? (
-              <p className="text-muted-foreground">Pipeline not found.</p>
-            ) : canShowForm ? (
-              <Form className="flex flex-col gap-4">
-                <PipelineFormFields
-                  namePrefix="body"
-                  pending={pending}
-                  errorMessage={errorMessage}
-                  submitLabel={submitLabel}
-                  domainIntegrations={domainIntegrations}
-                  {...formFieldsProps}
-                />
-              </Form>
-            ) : null}
-          </div>
-        </div>
-      </DialogContent>
+      <FormDialogContent>
+        <FormDialogHeader title={title} />
+        {isLoadingEdit ? (
+          <FormDialogMessage loading>Loading pipeline…</FormDialogMessage>
+        ) : notFound ? (
+          <FormDialogMessage>Pipeline not found.</FormDialogMessage>
+        ) : canShowForm ? (
+          <Form className={formDialogFormClassName}>
+            <FormDialogBody>
+              <PipelineFormFields
+                namePrefix="body"
+                pending={pending}
+                domainIntegrations={domainIntegrations}
+                {...formFieldsProps}
+              />
+            </FormDialogBody>
+            <FormDialogFooter errorMessage={errorMessage}>
+              <FormDialogCancelButton
+                onCancel={closeModal}
+                disabled={pending}
+              />
+              <SubmitButton
+                pending={pending}
+                pendingLabel={pendingLabel}
+                disabled={hasNoDomainIntegrations}
+              >
+                {submitLabel}
+              </SubmitButton>
+            </FormDialogFooter>
+          </Form>
+        ) : null}
+      </FormDialogContent>
     </Dialog>
   );
 };

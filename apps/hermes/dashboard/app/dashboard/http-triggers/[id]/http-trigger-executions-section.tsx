@@ -22,20 +22,18 @@ export const HttpTriggerExecutionsSection = async ({
   );
 
   return (
-    <>
+    <div className="flex flex-col gap-3">
       <ExecutionsTable
         triggerId={triggerId}
         executions={executionsResult.executions}
       />
-      <div className="mt-4">
-        <ListPagination
-          basePath={`/dashboard/http-triggers/${triggerId}`}
-          page={executionsResult.page}
-          pageSize={executionsResult.pageSize}
-          total={executionsResult.total}
-          ariaLabel="HTTP trigger executions pagination"
-        />
-      </div>
-    </>
+      <ListPagination
+        basePath={`/dashboard/http-triggers/${triggerId}`}
+        page={executionsResult.page}
+        pageSize={executionsResult.pageSize}
+        total={executionsResult.total}
+        ariaLabel="HTTP trigger executions pagination"
+      />
+    </div>
   );
 };

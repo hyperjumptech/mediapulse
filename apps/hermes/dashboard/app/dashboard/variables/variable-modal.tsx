@@ -2,13 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@workspace/ui/components/dialog";
+import { Dialog, DialogTrigger } from "@workspace/ui/components/dialog";
 import {
   Tabs,
   TabsContent,
@@ -23,6 +17,16 @@ import { getVariablePipelineUsage } from "@/app/dashboard/variables/actions/get-
 import { VariableFormFields } from "./variable-form-fields";
 import type { VariablesPageResult } from "@/lib/variables";
 import { PipelineUsageList } from "@/components/pipeline-usage-list";
+import {
+  FormDialogBody,
+  FormDialogCancelButton,
+  FormDialogContent,
+  FormDialogFooter,
+  FormDialogHeader,
+  formDialogFormClassName,
+} from "@/components/form-dialog";
+import { FormErrorAlert } from "@/components/form-error-alert";
+import { SubmitButton } from "@/components/submit-button";
 import type { PipelineUsageSummary } from "@/lib/pipeline-usage";
 
 type VariableRow = VariablesPageResult["variables"][number];
@@ -279,46 +283,63 @@ export const VariableModal = (props: VariableModalProps) => {
     variable,
   });
 
+  const closeModal = () => setOpenRef.current(false);
+  const cancelButton = (
+    <FormDialogCancelButton onCancel={closeModal} disabled={pending} />
+  );
+
   const dialogContent = (
-    <DialogContent className="sm:max-w-lg">
-      <DialogHeader>
-        <DialogTitle>{title}</DialogTitle>
-      </DialogHeader>
+    <FormDialogContent>
+      <FormDialogHeader title={title} />
       {isCreate ? (
-        <FormWithAction className="flex flex-col gap-4">
-          <VariableFormFields
-            mode="create"
-            pending={pending}
-            errorMessage={errorMessage}
-            submitLabel={pending ? "Creating…" : "Create variable"}
-          />
+        <FormWithAction className={formDialogFormClassName}>
+          <FormDialogBody>
+            <VariableFormFields mode="create" pending={pending} />
+          </FormDialogBody>
+          <FormDialogFooter errorMessage={errorMessage}>
+            {cancelButton}
+            <SubmitButton pending={pending} pendingLabel="Creating…">
+              Create variable
+            </SubmitButton>
+          </FormDialogFooter>
         </FormWithAction>
       ) : variable ? (
         <Tabs
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as VariableModalTab)}
-          className="w-full"
+          className="min-h-0 flex-1 gap-0"
         >
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="form">Form</TabsTrigger>
-            <TabsTrigger value="usage">Used in pipelines</TabsTrigger>
-          </TabsList>
-          <TabsContent value="form" className="mt-4">
-            <FormWithAction className="flex flex-col gap-4">
-              <VariableFormFields
-                mode="edit"
-                id={variable.id}
-                initialKey={variable.key}
-                initialValue={variable.value}
-                initialNote={variable.note}
-                initialIsSecret={variable.isSecret}
-                pending={pending}
-                errorMessage={errorMessage}
-                submitLabel={pending ? "Saving…" : "Save changes"}
-              />
+          <div className="shrink-0 px-6 pt-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="form">Form</TabsTrigger>
+              <TabsTrigger value="usage">Used in pipelines</TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="form" className="flex min-h-0 flex-col">
+            <FormWithAction className={formDialogFormClassName}>
+              <FormDialogBody>
+                <VariableFormFields
+                  mode="edit"
+                  id={variable.id}
+                  initialKey={variable.key}
+                  initialValue={variable.value}
+                  initialNote={variable.note}
+                  initialIsSecret={variable.isSecret}
+                  pending={pending}
+                />
+              </FormDialogBody>
+              <FormDialogFooter errorMessage={errorMessage}>
+                {cancelButton}
+                <SubmitButton pending={pending} pendingLabel="Saving…">
+                  Save changes
+                </SubmitButton>
+              </FormDialogFooter>
             </FormWithAction>
           </TabsContent>
-          <TabsContent value="usage" className="mt-4 space-y-3">
+          <TabsContent
+            value="usage"
+            className="min-h-0 space-y-3 overflow-y-auto px-6 py-5"
+          >
             {usageState.status === "loading" ? (
               <p className="text-sm text-muted-foreground">
                 Loading pipeline usage…
@@ -326,9 +347,7 @@ export const VariableModal = (props: VariableModalProps) => {
             ) : null}
             {usageState.status === "error" ? (
               <div className="space-y-3">
-                <p className="text-sm text-destructive" role="alert">
-                  {usageState.errorMessage}
-                </p>
+                <FormErrorAlert message={usageState.errorMessage} />
                 <Button
                   type="button"
                   variant="outline"
@@ -354,7 +373,7 @@ export const VariableModal = (props: VariableModalProps) => {
           </TabsContent>
         </Tabs>
       ) : null}
-    </DialogContent>
+    </FormDialogContent>
   );
 
   if (trigger != null) {

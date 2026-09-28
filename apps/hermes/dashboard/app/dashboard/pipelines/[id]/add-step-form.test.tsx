@@ -296,4 +296,50 @@ describe("AddStepForm", () => {
     expect(screen.getByLabelText("Add agent")).toHaveValue("");
     expect(routerRefreshMock).not.toHaveBeenCalled();
   });
+
+  it("offers saved configs and hides the custom JSON once one is chosen", async () => {
+    // Setup
+    const mock = await getUseFormActionMock();
+    mock.mockReturnValue(createMockUseFormAction());
+    const { container } = render(
+      <AddStepForm
+        pipelineId="pipeline-123"
+        agents={createMockAgents()}
+        existingStepAgentKeys={[]}
+        configsByAgentKey={{
+          "summarizer@1.0": [
+            {
+              id: "config-1",
+              name: "Short",
+              description: "Two sentences",
+              configSchemaFingerprint: null,
+            },
+          ],
+        }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Add agent"), {
+      target: { value: "summarizer@1.0" },
+    });
+
+    expect(screen.getByLabelText("Config (JSON, optional)")).toHaveValue("{}");
+
+    // Act
+    fireEvent.change(screen.getByLabelText("Saved config (optional)"), {
+      target: { value: "config-1" },
+    });
+
+    // Assert
+    const agentConfigInput = container.querySelector(
+      'input[name="body.agentConfigId"]',
+    );
+
+    expect(
+      screen.getByRole("option", { name: "Short — Two sentences" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Config (JSON, optional)"),
+    ).not.toBeInTheDocument();
+    expect(agentConfigInput).toHaveValue("config-1");
+  });
 });

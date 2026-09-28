@@ -10,25 +10,19 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card";
 import { Checkbox } from "@workspace/ui/components/checkbox";
+import { Field, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
-import { cn } from "@workspace/ui/lib/utils";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@workspace/ui/components/native-select";
+import { Textarea } from "@workspace/ui/components/textarea";
 
 import {
   getDomainTableFieldEditDefault,
   parseJsonObjectRow,
   type DomainTableFormField,
 } from "@/lib/domain-table-form-schema";
-
-const TEXTAREA_CLASS = cn(
-  "w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow]",
-  "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-);
-
-const SELECT_CLASS = cn(
-  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm",
-  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-);
 
 type DomainTableFormFieldsProps = {
   /** Parsed JSON Schema fields for this form. */
@@ -75,7 +69,7 @@ export const DomainTableFormFields = ({
                   .
                 </CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-4 px-4 py-4">
+              <CardContent className="flex flex-col gap-6 px-4 py-4">
                 <DomainTableFormFields
                   fields={field.properties}
                   defaultRow={childRow}
@@ -94,20 +88,20 @@ export const DomainTableFormFields = ({
           const checked =
             defaultRow !== undefined ? (editDefault as boolean) : false;
           return (
-            <div key={path} className="flex items-center gap-2">
+            <Field key={path} orientation="horizontal">
               <Checkbox
                 id={fieldId}
                 name={path}
                 value="true"
                 defaultChecked={checked}
               />
-              <Label
+              <FieldLabel
                 htmlFor={fieldId}
-                className="cursor-pointer text-sm font-normal"
+                className="cursor-pointer font-normal"
               >
                 {field.label}
-              </Label>
-            </div>
+              </FieldLabel>
+            </Field>
           );
         }
 
@@ -117,8 +111,8 @@ export const DomainTableFormFields = ({
               ? editDefault
               : undefined;
           return (
-            <div key={path} className="grid gap-1 text-sm">
-              <Label htmlFor={fieldId}>{field.label}</Label>
+            <Field key={path}>
+              <FieldLabel htmlFor={fieldId}>{field.label}</FieldLabel>
               <Input
                 id={fieldId}
                 name={path}
@@ -127,7 +121,7 @@ export const DomainTableFormFields = ({
                 required={field.required}
                 defaultValue={defaultValue}
               />
-            </div>
+            </Field>
           );
         }
 
@@ -138,23 +132,24 @@ export const DomainTableFormFields = ({
               : "";
           const showEmptyOption = field.nullable && !field.required;
           return (
-            <div key={path} className="grid gap-1 text-sm">
-              <Label htmlFor={fieldId}>{field.label}</Label>
-              <select
+            <Field key={path}>
+              <FieldLabel htmlFor={fieldId}>{field.label}</FieldLabel>
+              <NativeSelect
                 id={fieldId}
                 name={path}
                 required={field.required}
                 defaultValue={defaultValue}
-                className={SELECT_CLASS}
               >
-                {showEmptyOption ? <option value="">—</option> : null}
-                {field.options.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
+                {showEmptyOption ? (
+                  <NativeSelectOption value="">—</NativeSelectOption>
+                ) : null}
+                {field.options.map((option) => (
+                  <NativeSelectOption key={option} value={option}>
+                    {option}
+                  </NativeSelectOption>
                 ))}
-              </select>
-            </div>
+              </NativeSelect>
+            </Field>
           );
         }
 
@@ -166,24 +161,24 @@ export const DomainTableFormFields = ({
 
           if (field.format === "textarea") {
             return (
-              <div key={path} className="grid gap-1 text-sm">
-                <Label htmlFor={fieldId}>{field.label}</Label>
-                <textarea
+              <Field key={path}>
+                <FieldLabel htmlFor={fieldId}>{field.label}</FieldLabel>
+                <Textarea
                   id={fieldId}
                   name={path}
                   rows={4}
                   required={field.required}
                   defaultValue={defaultValue}
-                  className={TEXTAREA_CLASS}
+                  className="min-h-24"
                 />
-              </div>
+              </Field>
             );
           }
 
           if (field.format === "date-time") {
             return (
-              <div key={path} className="grid gap-1 text-sm">
-                <Label htmlFor={fieldId}>{field.label}</Label>
+              <Field key={path}>
+                <FieldLabel htmlFor={fieldId}>{field.label}</FieldLabel>
                 <Input
                   id={fieldId}
                   name={path}
@@ -191,13 +186,13 @@ export const DomainTableFormFields = ({
                   required={field.required}
                   defaultValue={defaultValue}
                 />
-              </div>
+              </Field>
             );
           }
 
           return (
-            <div key={path} className="grid gap-1 text-sm">
-              <Label htmlFor={fieldId}>{field.label}</Label>
+            <Field key={path}>
+              <FieldLabel htmlFor={fieldId}>{field.label}</FieldLabel>
               <Input
                 id={fieldId}
                 name={path}
@@ -205,7 +200,7 @@ export const DomainTableFormFields = ({
                 required={field.required}
                 defaultValue={defaultValue}
               />
-            </div>
+            </Field>
           );
         }
 

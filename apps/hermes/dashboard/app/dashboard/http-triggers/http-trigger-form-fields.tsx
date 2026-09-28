@@ -1,8 +1,17 @@
 "use client";
 
-import { Button } from "@workspace/ui/components/button";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@workspace/ui/components/native-select";
+
 import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
 import type { PipelineOption } from "../schedules/schedule-form-fields";
 
@@ -11,8 +20,6 @@ type HttpMethodOption = (typeof HTTP_METHOD_OPTIONS)[number];
 
 export type HttpTriggerFormFieldsProps = {
   pending: boolean;
-  errorMessage: string | null;
-  submitLabel: string;
   pipelines: PipelineOption[];
   defaultName: string;
   defaultDescription: string;
@@ -29,8 +36,6 @@ export type HttpTriggerFormFieldsProps = {
  */
 export const HttpTriggerFormFields = ({
   pending,
-  errorMessage,
-  submitLabel,
   pipelines,
   defaultName,
   defaultDescription,
@@ -41,14 +46,20 @@ export const HttpTriggerFormFields = ({
   httpTriggerId,
   isEdit = false,
 }: HttpTriggerFormFieldsProps) => {
+  const tokenLabel = isEdit
+    ? "Bearer token (leave blank to keep current)"
+    : "Bearer token";
+  const tokenPlaceholder = defaultTokenHint
+    ? `Current token ends with ${defaultTokenHint}`
+    : "";
+
   return (
-    <>
+    <FieldGroup>
       {httpTriggerId ? (
         <input type="hidden" name="body.httpTriggerId" value={httpTriggerId} />
       ) : null}
-
-      <div className="grid gap-2">
-        <Label htmlFor="http-trigger-name">Name</Label>
+      <Field>
+        <FieldLabel htmlFor="http-trigger-name">Name</FieldLabel>
         <Input
           id="http-trigger-name"
           name="body.name"
@@ -56,57 +67,68 @@ export const HttpTriggerFormFields = ({
           required
           disabled={pending}
         />
-      </div>
-
-      <div className="grid gap-2">
-        <Label htmlFor="http-trigger-description">Description</Label>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="http-trigger-description">Description</FieldLabel>
         <Input
           id="http-trigger-description"
           name="body.description"
           defaultValue={defaultDescription}
           disabled={pending}
         />
+      </Field>
+      <div className="grid gap-7 sm:grid-cols-[minmax(0,1fr)_8rem] sm:gap-4">
+        <Field>
+          <FieldLabel htmlFor="http-trigger-pipeline">Pipeline</FieldLabel>
+          <NativeSelect
+            id="http-trigger-pipeline"
+            name="body.pipelineId"
+            defaultValue={defaultPipelineId}
+            required
+            disabled={pending}
+          >
+            <NativeSelectOption value="" disabled>
+              Select a pipeline
+            </NativeSelectOption>
+            {pipelines.map((pipeline) => (
+              <NativeSelectOption key={pipeline.id} value={pipeline.id}>
+                {pipeline.name}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="http-trigger-method">Method</FieldLabel>
+          <NativeSelect
+            id="http-trigger-method"
+            name="body.method"
+            defaultValue={defaultMethod}
+            required
+            disabled={pending}
+          >
+            {HTTP_METHOD_OPTIONS.map((option) => (
+              <NativeSelectOption key={option} value={option}>
+                {option}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </Field>
       </div>
-
-      <div className="grid gap-2">
-        <Label htmlFor="http-trigger-pipeline">Pipeline</Label>
-        <select
-          id="http-trigger-pipeline"
-          name="body.pipelineId"
-          defaultValue={defaultPipelineId}
-          className="h-9 rounded-md border bg-background px-3 text-sm"
-          required
+      <Field>
+        <FieldLabel htmlFor="http-trigger-token">{tokenLabel}</FieldLabel>
+        <Input
+          id="http-trigger-token"
+          name="body.bearerToken"
+          type="password"
+          required={!isEdit}
+          placeholder={tokenPlaceholder}
+          autoComplete="new-password"
           disabled={pending}
-        >
-          <option value="" disabled>
-            Select a pipeline
-          </option>
-          {pipelines.map((pipeline) => (
-            <option key={pipeline.id} value={pipeline.id}>
-              {pipeline.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="grid gap-2">
-        <Label htmlFor="http-trigger-method">Method</Label>
-        <select
-          id="http-trigger-method"
-          name="body.method"
-          defaultValue={defaultMethod}
-          className="h-9 rounded-md border bg-background px-3 text-sm"
-          required
-          disabled={pending}
-        >
-          {HTTP_METHOD_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </div>
-
+        />
+        <FieldDescription>
+          Callers send this token in the Authorization header.
+        </FieldDescription>
+      </Field>
       <FormBooleanCheckboxField
         name="body.enabled"
         id="http-trigger-enabled"
@@ -114,40 +136,7 @@ export const HttpTriggerFormFields = ({
         checkedSubmitValue="on"
         disabled={pending}
         label="Enabled"
-        labelClassName="cursor-pointer"
       />
-
-      <div className="grid gap-2">
-        <Label htmlFor="http-trigger-token">
-          {isEdit
-            ? "Bearer token (leave blank to keep current)"
-            : "Bearer token"}
-        </Label>
-        <Input
-          id="http-trigger-token"
-          name="body.bearerToken"
-          type="password"
-          required={!isEdit}
-          placeholder={
-            defaultTokenHint
-              ? `Current token ends with ${defaultTokenHint}`
-              : ""
-          }
-          disabled={pending}
-        />
-      </div>
-
-      {errorMessage ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {errorMessage}
-        </p>
-      ) : null}
-
-      <div className="flex justify-end">
-        <Button type="submit" disabled={pending}>
-          {submitLabel}
-        </Button>
-      </div>
-    </>
+    </FieldGroup>
   );
 };

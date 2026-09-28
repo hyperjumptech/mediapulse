@@ -5,7 +5,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useFormAction } from "@/app/dashboard/agent-contracts/actions/create/.generated/use-form-action";
 import { useCloseOnSuccessfulSubmit } from "@/app/dashboard/hooks/use-close-on-successful-submit";
 
-const emptyForm = {
+import type { AgentContractFormState } from "./agent-contract-form-fields";
+
+type OpenChangeHandler = (open: boolean) => void;
+
+const emptyForm: AgentContractFormState = {
   name: "",
   description: "",
   brief: "",
@@ -14,10 +18,10 @@ const emptyForm = {
 
 export const useAddContractModalState = (
   controlledOpen?: boolean,
-  onOpenChange?: (open: boolean) => void,
+  onOpenChange?: OpenChangeHandler,
 ) => {
   const [internalOpen, setInternalOpen] = useState(false);
-  const [formState, setFormState] = useState(emptyForm);
+  const [formState, setFormState] = useState<AgentContractFormState>(emptyForm);
   const { FormWithAction, state, pending } = useFormAction();
 
   const isControlled = controlledOpen !== undefined;

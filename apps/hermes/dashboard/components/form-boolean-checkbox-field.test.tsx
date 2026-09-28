@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { FormBooleanCheckboxField } from "./form-boolean-checkbox-field";
@@ -62,5 +62,27 @@ describe("FormBooleanCheckboxField", () => {
     const checkbox = container.querySelector('input[type="checkbox"]');
     expect(hidden).not.toBeDisabled();
     expect(checkbox).toBeDisabled();
+  });
+
+  it("renders an optional description under the label", () => {
+    // Act
+    render(
+      <FormBooleanCheckboxField
+        name="body.readOnly"
+        id="read-only"
+        defaultChecked={false}
+        label="Read-only"
+        description="No dashboard mutations via MCP."
+      />,
+    );
+
+    // Assert
+    expect(screen.getByLabelText("Read-only")).toHaveAttribute(
+      "type",
+      "checkbox",
+    );
+    expect(
+      screen.getByText("No dashboard mutations via MCP."),
+    ).toBeInTheDocument();
   });
 });

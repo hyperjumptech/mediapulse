@@ -1,8 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { format } from "date-fns";
-
 import {
   Table,
   TableBody,
@@ -11,15 +8,22 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
+
+import { DataTableCard } from "@/components/data-table/data-table-card";
+import {
+  ExecutionInvocationCounts,
+  ExecutionJobCounts,
+  ExecutionTimeLink,
+  ExecutionsEmptyState,
+  ViewExecutionLink,
+} from "@/components/execution-history-cells";
 import { HermesExecutionCancelButton } from "@/components/hermes-execution-cancel-button";
+import { StatusBadge } from "@/components/status-badge";
 import type { HttpTriggerExecutionRow } from "@/lib/http-triggers";
 
 const executionDetailHref = (triggerId: string, executionId: string) =>
   `/dashboard/http-triggers/${triggerId}/executions/${executionId}`;
 
-/**
- * Execution history table for one HTTP trigger.
- */
 export const ExecutionsTable = ({
   triggerId,
   executions,
@@ -27,86 +31,82 @@ export const ExecutionsTable = ({
   triggerId: string;
   executions: HttpTriggerExecutionRow[];
 }) => {
+  if (executions.length === 0) {
+    return (
+      <DataTableCard>
+        <ExecutionsEmptyState description="Each call to this trigger's invoke URL starts a run that shows up here." />
+      </DataTableCard>
+    );
+  }
+
   return (
-    <div className="rounded-md border">
+    <DataTableCard>
       <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow className="border-muted hover:bg-transparent">
-            <TableHead className="w-[180px]">Execution time</TableHead>
-            <TableHead className="w-[100px]">Enqueue</TableHead>
-            <TableHead className="w-[100px]">Run</TableHead>
-            <TableHead className="w-[90px]">Jobs</TableHead>
-            <TableHead className="min-w-[140px] whitespace-normal">
-              Invocations (success / fail)
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="pl-4">Started</TableHead>
+            <TableHead>Run</TableHead>
+            <TableHead className="hidden sm:table-cell">Enqueue</TableHead>
+            <TableHead className="hidden text-right md:table-cell">
+              Jobs
             </TableHead>
-            <TableHead className="w-[90px]">Detail</TableHead>
-            <TableHead className="w-[120px]">Actions</TableHead>
+            <TableHead className="text-right">Invocations</TableHead>
+            <TableHead className="pr-2">
+              <span className="sr-only">Actions</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {executions.length === 0 ? (
-            <TableRow>
-              <TableCell
-                colSpan={7}
-                className="text-center text-muted-foreground"
-              >
-                No executions yet.
-              </TableCell>
-            </TableRow>
-          ) : (
-            executions.map((execution) => {
-              const href = executionDetailHref(triggerId, execution.id);
-              const timeLabel = format(
-                execution.executionTime,
-                "LLL d, yyyy HH:mm:ss",
-              );
-              return (
-                <TableRow key={execution.id}>
-                  <TableCell className="text-sm">
-                    <Link
-                      href={href}
-                      className="text-primary underline-offset-4 hover:underline"
-                    >
-                      {timeLabel}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-sm capitalize">
-                    {execution.enqueueStatus}
-                  </TableCell>
-                  <TableCell className="text-sm capitalize">
-                    {execution.runStatus}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {execution.jobsCreated} / {execution.jobsEnqueued}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {execution.succeededInvocationCount} /{" "}
-                    {execution.failedInvocationCount}
-                  </TableCell>
-                  <TableCell>
-                    <Link
-                      href={href}
-                      className="text-sm text-primary underline-offset-4 hover:underline"
-                    >
-                      View
-                    </Link>
-                  </TableCell>
-                  <TableCell>
+          {executions.map((execution) => {
+            const detailHref = executionDetailHref(triggerId, execution.id);
+            const cancelTarget = {
+              kind: "httpTrigger" as const,
+              httpTriggerId: triggerId,
+              httpTriggerExecutionId: execution.id,
+            };
+
+            return (
+              <TableRow key={execution.id}>
+                <TableCell className="pl-4">
+                  <ExecutionTimeLink
+                    href={detailHref}
+                    executionTime={execution.executionTime}
+                  />
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={execution.runStatus} />
+                </TableCell>
+                <TableCell className="hidden sm:table-cell">
+                  <StatusBadge status={execution.enqueueStatus} />
+                </TableCell>
+                <TableCell className="hidden text-right md:table-cell">
+                  <ExecutionJobCounts
+                    jobsCreated={execution.jobsCreated}
+                    jobsEnqueued={execution.jobsEnqueued}
+                  />
+                </TableCell>
+                <TableCell className="text-right">
+                  <ExecutionInvocationCounts
+                    succeededInvocationCount={
+                      execution.succeededInvocationCount
+                    }
+                    failedInvocationCount={execution.failedInvocationCount}
+                  />
+                </TableCell>
+                <TableCell className="pr-2">
+                  <div className="flex items-center justify-end gap-1">
                     <HermesExecutionCancelButton
-                      target={{
-                        kind: "httpTrigger",
-                        httpTriggerId: triggerId,
-                        httpTriggerExecutionId: execution.id,
-                      }}
+                      target={cancelTarget}
                       runStatus={execution.runStatus}
                     />
-                  </TableCell>
-                </TableRow>
-              );
-            })
-          )}
+                    <ViewExecutionLink href={detailHref} />
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
-    </div>
+    </DataTableCard>
   );
 };

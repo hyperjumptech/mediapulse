@@ -1,114 +1,148 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import { ExecutionsTable } from "./executions-table";
+import { render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import type { ScheduleExecutionRow } from "@/lib/schedules";
+
+import { ExecutionsTable } from "./executions-table";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
-}));
-
-vi.mock("next/link", () => ({
-  default: ({
-    children,
-    href,
-    ...rest
-  }: React.PropsWithChildren<
-    { href: string } & React.AnchorHTMLAttributes<HTMLAnchorElement>
-  >) => (
-    <a href={href} {...rest}>
-      {children}
-    </a>
-  ),
-}));
-
-vi.mock("@workspace/ui/components/table", () => ({
-  Table: ({ children }: React.PropsWithChildren) => (
-    <table data-testid="table">{children}</table>
-  ),
-  TableHeader: ({ children }: React.PropsWithChildren) => (
-    <thead>{children}</thead>
-  ),
-  TableBody: ({ children }: React.PropsWithChildren) => (
-    <tbody>{children}</tbody>
-  ),
-  TableRow: ({ children }: React.PropsWithChildren) => <tr>{children}</tr>,
-  TableHead: ({ children }: React.PropsWithChildren) => <th>{children}</th>,
-  TableCell: ({
-    children,
-    colSpan,
-  }: React.PropsWithChildren<{ colSpan?: number }>) => (
-    <td colSpan={colSpan}>{children}</td>
-  ),
-}));
-
-vi.mock("date-fns", () => ({
-  format: (d: Date) => d.toISOString(),
 }));
 
 const createMockExecution = (
   overrides?: Partial<ScheduleExecutionRow>,
 ): ScheduleExecutionRow => ({
   id: "ex-1",
-  executionTime: new Date("2025-01-15T10:00:00Z"),
+  executionTime: new Date("2026-09-28T11:55:00Z"),
   enqueueStatus: "success",
   runStatus: "succeeded",
   jobsCreated: 2,
   jobsEnqueued: 2,
   succeededInvocationCount: 2,
   failedInvocationCount: 0,
-  createdAt: new Date(),
+  createdAt: new Date("2026-09-28T11:55:00Z"),
   ...overrides,
 });
 
 describe("ExecutionsTable", () => {
-  it("renders table headers", () => {
-    render(<ExecutionsTable scheduleId="sched-1" executions={[]} />);
-    expect(screen.getByText("Execution time")).toBeInTheDocument();
-    expect(screen.getByText("Enqueue")).toBeInTheDocument();
-    expect(screen.getByText("Run")).toBeInTheDocument();
-    expect(screen.getByText("Jobs")).toBeInTheDocument();
-    expect(
-      screen.getByText("Invocations (success / fail)"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Detail")).toBeInTheDocument();
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-28T12:00:00Z"));
   });
 
-  it("renders empty state when no executions", () => {
-    render(<ExecutionsTable scheduleId="sched-1" executions={[]} />);
-    expect(screen.getByText("No executions yet.")).toBeInTheDocument();
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
-  it("renders execution rows", () => {
+  it("renders column headers", () => {
+    // Act
+    render(
+      <ExecutionsTable
+        scheduleId="sched-1"
+        executions={[createMockExecution()]}
+      />,
+    );
+
+    // Assert
+    const headers = screen
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+
+    expect(headers).toEqual([
+      "Started",
+      "Run",
+      "Enqueue",
+      "Jobs",
+      "Invocations",
+      "Actions",
+    ]);
+  });
+
+  it("renders an empty state when there are no executions", () => {
+    // Act
+    render(<ExecutionsTable scheduleId="sched-1" executions={[]} />);
+
+    // Assert
+    expect(screen.getByText("No executions yet")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("renders run and enqueue statuses as badges with counts", () => {
+    // Setup
     const executions = [
       createMockExecution({
-        id: "ex-1",
-        enqueueStatus: "success",
+        enqueueStatus: "partial",
         runStatus: "running",
         jobsCreated: 3,
-        jobsEnqueued: 3,
+        jobsEnqueued: 2,
+        succeededInvocationCount: 1,
+        failedInvocationCount: 1,
       }),
     ];
+
+    // Act
     render(<ExecutionsTable scheduleId="sched-1" executions={executions} />);
-    expect(screen.getByText("success")).toBeInTheDocument();
-    expect(screen.getByText("running")).toBeInTheDocument();
+
+    // Assert
+    const runBadge = screen.getByText("running");
+    const enqueueBadge = screen.getByText("partial");
+
+    expect(runBadge).toHaveAttribute("data-variant", "info");
+    expect(enqueueBadge).toHaveAttribute("data-variant", "warning");
+    expect(screen.getByTitle("3 created, 2 enqueued")).toHaveTextContent(
+      "3 / 2",
+    );
+    expect(screen.getByTitle("1 succeeded, 1 failed")).toHaveTextContent(
+      "1 / 1",
+    );
   });
 
-  it("links execution time and detail to the execution page", () => {
+  it("links the execution time and View to the execution page", () => {
+    // Setup
     const executions = [createMockExecution({ id: "ex-99" })];
+
+    // Act
     render(<ExecutionsTable scheduleId="sched-1" executions={executions} />);
-    const links = screen.getAllByRole("link", {
-      name: /open execution detail/i,
+
+    // Assert
+    const timeLink = screen.getByRole("link", {
+      name: "Open execution from 5m ago",
     });
-    expect(links).toHaveLength(1);
-    expect(links[0]).toHaveAttribute(
+    const viewLink = screen.getByRole("link", { name: "View" });
+
+    expect(timeLink).toHaveAttribute(
       "href",
       "/dashboard/schedules/sched-1/executions/ex-99",
     );
-    const viewLink = screen.getByRole("link", { name: "View" });
     expect(viewLink).toHaveAttribute(
       "href",
       "/dashboard/schedules/sched-1/executions/ex-99",
     );
+  });
+
+  it("offers cancel only for executions that are still running", () => {
+    // Setup
+    const executions = [
+      createMockExecution({ id: "ex-running", runStatus: "running" }),
+      createMockExecution({ id: "ex-done", runStatus: "succeeded" }),
+    ];
+
+    // Act
+    render(<ExecutionsTable scheduleId="sched-1" executions={executions} />);
+
+    // Assert
+    const [, runningRow, finishedRow] = screen.getAllByRole("row");
+
+    expect(
+      within(runningRow as HTMLElement).getByRole("button", {
+        name: "Cancel run",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(finishedRow as HTMLElement).queryByRole("button", {
+        name: "Cancel run",
+      }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -2,12 +2,13 @@
 
 import { useMemo } from "react";
 
-import { Button } from "@workspace/ui/components/button";
+import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
 
 import { useFormAction } from "@/app/dashboard/pipelines/actions/update/.generated/use-form-action";
 import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
+import { FormErrorAlert } from "@/components/form-error-alert";
+import { SubmitButton } from "@/components/submit-button";
 
 /**
  * Encapsulates pipeline edit form action state.
@@ -40,44 +41,44 @@ export const PipelineEditForm = ({
   const { FormWithAction, pending, errorMessage } = usePipelineEditFormState();
 
   return (
-    <FormWithAction className="flex flex-col gap-4 max-w-md">
+    <FormWithAction className="flex max-w-md flex-col gap-6">
       <input type="hidden" name="body.pipelineId" value={pipelineId} readOnly />
-      <div className="grid gap-2">
-        <Label htmlFor="body.name">Name</Label>
-        <Input
-          id="body.name"
-          name="body.name"
-          type="text"
-          defaultValue={initialName}
-          required
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor="body.name">Name</FieldLabel>
+          <Input
+            id="body.name"
+            name="body.name"
+            type="text"
+            defaultValue={initialName}
+            required
+            disabled={pending}
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="body.description">Description</FieldLabel>
+          <Input
+            id="body.description"
+            name="body.description"
+            type="text"
+            defaultValue={initialDescription}
+            disabled={pending}
+          />
+        </Field>
+        <FormBooleanCheckboxField
+          name="body.isActive"
+          id="body.isActive"
+          defaultChecked={initialIsActive}
           disabled={pending}
+          label="Active"
         />
+      </FieldGroup>
+      {errorMessage ? <FormErrorAlert message={errorMessage} /> : null}
+      <div className="flex justify-end">
+        <SubmitButton pending={pending} pendingLabel="Saving…">
+          Save changes
+        </SubmitButton>
       </div>
-      <div className="grid gap-2">
-        <Label htmlFor="body.description">Description</Label>
-        <Input
-          id="body.description"
-          name="body.description"
-          type="text"
-          defaultValue={initialDescription}
-          disabled={pending}
-        />
-      </div>
-      <FormBooleanCheckboxField
-        name="body.isActive"
-        id="body.isActive"
-        defaultChecked={initialIsActive}
-        disabled={pending}
-        label="Active"
-      />
-      {errorMessage ? (
-        <p className="text-sm text-destructive" role="alert">
-          {errorMessage}
-        </p>
-      ) : null}
-      <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Save changes"}
-      </Button>
     </FormWithAction>
   );
 };

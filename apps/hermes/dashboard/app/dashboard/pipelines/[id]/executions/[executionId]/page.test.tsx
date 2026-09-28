@@ -1,6 +1,8 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { TooltipProvider } from "@workspace/ui/components/tooltip";
 
 import type { ScheduleExecutionInvocationsTableProps } from "@/components/schedule-execution-invocations-table";
 import type { ManualPipelineExecutionSummary } from "@/lib/pipeline-executions";
@@ -55,9 +57,11 @@ import PipelineExecutionDetailPage from "./page";
 
 const ROUTE_ENQUEUE_ERROR_MESSAGE = "MANUAL_PIPELINE_ROUTE_ENQUEUE_FAIL";
 
+const EXECUTION_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
 const minimalFailedSummary = (): ManualPipelineExecutionSummary => ({
   execution: {
-    id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    id: EXECUTION_ID,
     executionTime: new Date("2026-04-21T12:00:00.000Z"),
     enqueueStatus: "failed",
     runStatus: "pending",
@@ -80,6 +84,17 @@ const minimalFailedSummary = (): ManualPipelineExecutionSummary => ({
   invocations: [],
 });
 
+const renderPage = async () => {
+  const ui = await PipelineExecutionDetailPage({
+    params: Promise.resolve({
+      id: "pipe-1",
+      executionId: EXECUTION_ID,
+    }),
+  });
+
+  return render(ui, { wrapper: TooltipProvider });
+};
+
 describe("PipelineExecutionDetailPage (manual execution)", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -89,28 +104,57 @@ describe("PipelineExecutionDetailPage (manual execution)", () => {
   });
 
   it("renders enqueue diagnostics region with persisted errors for failed enqueue", async () => {
+    // Setup
     getManualPipelineExecutionSummaryMock.mockResolvedValue(
       minimalFailedSummary(),
     );
 
-    const ui = await PipelineExecutionDetailPage({
-      params: Promise.resolve({
-        id: "pipe-1",
-        executionId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-      }),
-    });
-    render(ui as React.ReactElement);
+    // Act
+    await renderPage();
 
+    // Assert
+    const region = await screen.findByRole("region", {
+      name: /enqueue diagnostics/i,
+    });
+    const enqueueStatusCard = screen
+      .getByText("Enqueue status", { selector: "dt span" })
+      .closest("[data-slot='card']");
+
+    expect(within(region).getByText(ROUTE_ENQUEUE_ERROR_MESSAGE)).toBeVisible();
+    expect(enqueueStatusCard).toHaveTextContent("failed");
+    expect(screen.getByText("Invocation transport")).toBeInTheDocument();
     expect(
-      await screen.findByRole("region", { name: /enqueue diagnostics/i }),
+      screen.getByText("Dashboard HTTP (no DataQueue)"),
     ).toBeInTheDocument();
+  });
+
+  it("describes a manual run with its full execution id and metadata hints", async () => {
+    // Setup
+    const summary = minimalFailedSummary();
+    summary.execution.metadata = { source: "dashboard" };
+    getManualPipelineExecutionSummaryMock.mockResolvedValue(summary);
+
+    // Act
+    await renderPage();
+
+    // Assert
     expect(
-      await screen.findByText(ROUTE_ENQUEUE_ERROR_MESSAGE),
+      screen.getByRole("heading", { level: 1, name: "Execution" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Enqueue status:/)).toBeInTheDocument();
-    expect(screen.getByText("failed")).toBeInTheDocument();
-    expect(screen.getByText(/Invocation transport:/)).toBeInTheDocument();
-    expect(screen.getByText(/Dashboard HTTP/)).toBeInTheDocument();
+    expect(screen.getByText(/Manual run/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Test pipeline" })).toHaveAttribute(
+      "href",
+      "/dashboard/pipelines/pipe-1",
+    );
+    expect(screen.getByText(EXECUTION_ID)).toBeInTheDocument();
+    expect(
+      screen.getByText("Started from: Dashboard (Run pipeline)"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel run" })).toBeVisible();
+    expect(
+      screen.queryByRole("link", { name: "Processed URLs" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Back to pipeline/)).not.toBeInTheDocument();
   });
 
   it("passes scalar invocation rows and the manual payload scope to the table", async () => {
@@ -134,18 +178,12 @@ describe("PipelineExecutionDetailPage (manual execution)", () => {
     } satisfies ManualPipelineExecutionSummary);
 
     // Act
-    const ui = await PipelineExecutionDetailPage({
-      params: Promise.resolve({
-        id: "pipe-1",
-        executionId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-      }),
-    });
-    render(ui as React.ReactElement);
+    await renderPage();
 
     // Assert
     expect(getManualPipelineExecutionSummaryMock).toHaveBeenCalledWith(
       "pipe-1",
-      "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      EXECUTION_ID,
     );
     expect(invocationsTablePropsMock).toHaveBeenCalledWith({
       invocations: [
@@ -164,7 +202,7 @@ describe("PipelineExecutionDetailPage (manual execution)", () => {
       payloadSource: {
         kind: "manual",
         parentId: "pipe-1",
-        executionId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        executionId: EXECUTION_ID,
       },
     });
   });

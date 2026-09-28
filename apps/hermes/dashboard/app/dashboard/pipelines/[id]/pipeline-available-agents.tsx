@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 
 import { Button } from "@workspace/ui/components/button";
 
 import { formAction as defaultAddStepFormAction } from "@/app/dashboard/pipelines/actions/add-step/.generated/form.action";
+
+import { PipelineColumnCard } from "./pipeline-column-card";
 
 type Agent = {
   id: string;
@@ -13,17 +16,15 @@ type Agent = {
   description: string | null;
 };
 
+type AddStepFormAction = typeof defaultAddStepFormAction;
+
 export type PipelineAvailableAgentsProps = {
   pipelineId: string;
   agents: Agent[];
   existingStepAgentKeys: string[];
-  /** Optional DI: override for tests. Defaults to the generated add-step form action. */
-  addStepFormAction?: typeof defaultAddStepFormAction;
+  addStepFormAction?: AddStepFormAction;
 };
 
-/**
- * Builds FormData for the add-step action (body.pipelineId, body.agentId, etc.).
- */
 const buildAddStepFormData = (
   pipelineId: string,
   agentId: string,
@@ -36,27 +37,37 @@ const buildAddStepFormData = (
   formData.set("body.agentConfigId", "");
   formData.set("body.input", "{}");
   formData.set("body.config", "{}");
+
   return formData;
 };
 
-/**
- * Encapsulates add-step action state and available agents filter for the pipeline available agents list.
- */
+const readErrorMessage = (state: unknown): string | null => {
+  const isFailedState =
+    state != null &&
+    typeof state === "object" &&
+    "status" in state &&
+    state.status === false &&
+    "message" in state;
+
+  return isFailedState ? String(state.message) : null;
+};
+
 const usePipelineAvailableAgentsState = (
   pipelineId: string,
   agents: Agent[],
   existingStepAgentKeys: string[],
-  addStepFormAction: typeof defaultAddStepFormAction,
+  addStepFormAction: AddStepFormAction,
 ) => {
   const [state, setState] = useState<unknown>(null);
   const [pending, setPending] = useState(false);
 
   const availableAgents = useMemo(
     () =>
-      agents.filter(
-        (a) =>
-          !existingStepAgentKeys.includes(`${a.agentId}@${a.agentVersion}`),
-      ),
+      agents.filter((agent) => {
+        const agentKey = `${agent.agentId}@${agent.agentVersion}`;
+
+        return !existingStepAgentKeys.includes(agentKey);
+      }),
     [agents, existingStepAgentKeys],
   );
 
@@ -79,21 +90,16 @@ const usePipelineAvailableAgentsState = (
     [pipelineId, addStepFormAction],
   );
 
-  const errorMessage =
-    state &&
-    typeof state === "object" &&
-    "status" in state &&
-    (state as { status: boolean }).status === false &&
-    "message" in state
-      ? String((state as { message: string }).message)
-      : null;
+  const errorMessage = readErrorMessage(state);
 
   return { availableAgents, pending, handleAddAgent, errorMessage };
 };
 
-/**
- * Renders a list of agents not yet in the pipeline. Each agent can be added via a one-click button that invokes the add-step action.
- */
+const describeEmptyAgents = (registeredAgentCount: number) =>
+  registeredAgentCount === 0
+    ? "No active agents are registered for this pipeline's integration."
+    : "All registered agents are already in this pipeline.";
+
 export const PipelineAvailableAgents = ({
   pipelineId,
   agents,
@@ -107,49 +113,57 @@ export const PipelineAvailableAgents = ({
       existingStepAgentKeys,
       addStepFormAction,
     );
-
-  if (availableAgents.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        All registered agents are already in this pipeline.
-      </p>
-    );
-  }
+  const hasAvailableAgents = availableAgents.length > 0;
 
   return (
-    <div className="space-y-2">
-      <h3 className="text-sm font-medium text-foreground">Available agents</h3>
-      <p className="text-xs text-muted-foreground">
-        Click an agent to add it to the pipeline.
-      </p>
+    <PipelineColumnCard
+      title="Available agents"
+      description="Click an agent to add it as the last step."
+    >
       {errorMessage ? (
         <p className="text-sm text-destructive" role="alert">
           {errorMessage}
         </p>
       ) : null}
-      <ul className="space-y-1.5">
-        {availableAgents.map((agent) => (
-          <li key={agent.id}>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-full justify-start text-left font-normal"
-              disabled={pending}
-              onClick={() => handleAddAgent(agent)}
-            >
-              <span className="font-mono text-sm">
-                {agent.agentId}@{agent.agentVersion}
-              </span>
-              {agent.description ? (
-                <span className="ml-2 text-muted-foreground truncate">
-                  — {agent.description}
-                </span>
-              ) : null}
-            </Button>
-          </li>
-        ))}
-      </ul>
-    </div>
+      {hasAvailableAgents ? (
+        <ul className="flex flex-col gap-1.5">
+          {availableAgents.map((agent) => {
+            const agentLabel = `${agent.agentId}@${agent.agentVersion}`;
+
+            return (
+              <li key={agent.id}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="group h-auto w-full justify-between gap-3 px-3 py-2 text-left font-normal whitespace-normal"
+                  disabled={pending}
+                  aria-label={`Add ${agentLabel} to the pipeline`}
+                  onClick={() => handleAddAgent(agent)}
+                >
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="truncate font-mono text-sm">
+                      {agentLabel}
+                    </span>
+                    {agent.description ? (
+                      <span className="line-clamp-2 text-xs text-muted-foreground">
+                        {agent.description}
+                      </span>
+                    ) : null}
+                  </span>
+                  <Plus
+                    aria-hidden
+                    className="text-muted-foreground group-hover:text-foreground"
+                  />
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {describeEmptyAgents(agents.length)}
+        </p>
+      )}
+    </PipelineColumnCard>
   );
 };

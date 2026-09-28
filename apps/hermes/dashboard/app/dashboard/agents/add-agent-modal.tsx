@@ -2,15 +2,18 @@
 
 import { useMemo, useState } from "react";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@workspace/ui/components/dialog";
+import { Dialog, DialogTrigger } from "@workspace/ui/components/dialog";
 import { Button } from "@workspace/ui/components/button";
 import { useFormAction } from "@/app/dashboard/agents/actions/create/.generated/use-form-action";
+import {
+  FormDialogBody,
+  FormDialogCancelButton,
+  FormDialogContent,
+  FormDialogFooter,
+  FormDialogHeader,
+  formDialogFormClassName,
+} from "@/components/form-dialog";
+import { SubmitButton } from "@/components/submit-button";
 
 import { AgentFormFields } from "./agent-form-fields";
 import { useCloseOnSuccessfulSubmit } from "@/app/dashboard/hooks/use-close-on-successful-submit";
@@ -57,19 +60,23 @@ export const AddAgentModal = () => {
       <DialogTrigger asChild>
         <Button>Add agent</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Add agent</DialogTitle>
-        </DialogHeader>
-        <FormWithAction className="flex flex-col gap-4">
-          <AgentFormFields
-            mode="create"
-            pending={pending}
-            errorMessage={errorMessage}
-            submitLabel={pending ? "Creating…" : "Create agent"}
-          />
+      <FormDialogContent>
+        <FormDialogHeader title="Add agent" />
+        <FormWithAction className={formDialogFormClassName}>
+          <FormDialogBody>
+            <AgentFormFields mode="create" pending={pending} />
+          </FormDialogBody>
+          <FormDialogFooter errorMessage={errorMessage}>
+            <FormDialogCancelButton
+              onCancel={() => setOpen(false)}
+              disabled={pending}
+            />
+            <SubmitButton pending={pending} pendingLabel="Creating…">
+              Create agent
+            </SubmitButton>
+          </FormDialogFooter>
         </FormWithAction>
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   );
 };

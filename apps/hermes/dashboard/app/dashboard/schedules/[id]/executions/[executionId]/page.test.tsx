@@ -1,6 +1,8 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { TooltipProvider } from "@workspace/ui/components/tooltip";
 
 import type { ScheduleExecutionInvocationsTableProps } from "@/components/schedule-execution-invocations-table";
 import type { ScheduleExecutionSummary } from "@/lib/schedules";
@@ -81,6 +83,17 @@ const minimalFailedSummary = (): ScheduleExecutionSummary => ({
   invocations: [],
 });
 
+const renderPage = async () => {
+  const ui = await ScheduleExecutionDetailPage({
+    params: Promise.resolve({
+      id: "sched-1",
+      executionId: "exec-schedule-1",
+    }),
+  });
+
+  return render(ui, { wrapper: TooltipProvider });
+};
+
 describe("ScheduleExecutionDetailPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -90,27 +103,54 @@ describe("ScheduleExecutionDetailPage", () => {
   });
 
   it("renders enqueue diagnostics region with persisted errors for failed enqueue", async () => {
+    // Setup
     getScheduleExecutionSummaryMock.mockResolvedValue(minimalFailedSummary());
 
-    const ui = await ScheduleExecutionDetailPage({
-      params: Promise.resolve({
-        id: "sched-1",
-        executionId: "exec-schedule-1",
-      }),
-    });
-    render(ui as React.ReactElement);
+    // Act
+    await renderPage();
 
+    // Assert
     const region = await screen.findByRole("region", {
       name: /enqueue diagnostics/i,
     });
-    expect(region).toBeInTheDocument();
+    const enqueueStatusCard = screen
+      .getByText("Enqueue status", { selector: "dt span" })
+      .closest("[data-slot='card']");
+
+    expect(within(region).getByText(ROUTE_ENQUEUE_ERROR_MESSAGE)).toBeVisible();
+    expect(enqueueStatusCard).toHaveTextContent("failed");
+    expect(screen.getByText("Invocation transport")).toBeInTheDocument();
+    expect(screen.getByText("Hermes worker + DataQueue")).toBeInTheDocument();
+  });
+
+  it("renders the shared header with the schedule name and schedule actions", async () => {
+    // Setup
+    getScheduleExecutionSummaryMock.mockResolvedValue({
+      ...minimalFailedSummary(),
+      pipeline: { id: "pipe-1", name: "Daily digest" },
+    } satisfies ScheduleExecutionSummary);
+
+    // Act
+    await renderPage();
+
+    // Assert
     expect(
-      await screen.findByText(ROUTE_ENQUEUE_ERROR_MESSAGE),
+      screen.getByRole("heading", { level: 1, name: "Execution" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Enqueue status:/)).toBeInTheDocument();
-    expect(screen.getByText("failed")).toBeInTheDocument();
-    expect(screen.getByText(/Invocation transport:/)).toBeInTheDocument();
-    expect(screen.getByText(/Hermes worker \+ DataQueue/)).toBeInTheDocument();
+    expect(screen.getByText(/Test schedule/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Daily digest" })).toHaveAttribute(
+      "href",
+      "/dashboard/pipelines/pipe-1",
+    );
+    expect(screen.getByText("exec-schedule-1")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Processed URLs" }),
+    ).toHaveAttribute(
+      "href",
+      "/dashboard/schedules/sched-1/executions/exec-schedule-1/processed-urls",
+    );
+    expect(screen.getByRole("button", { name: "Cancel run" })).toBeVisible();
+    expect(screen.queryByText(/Back to schedule/)).not.toBeInTheDocument();
   });
 
   it("passes scalar invocation rows and the schedule payload scope to the table", async () => {
@@ -134,13 +174,7 @@ describe("ScheduleExecutionDetailPage", () => {
     } satisfies ScheduleExecutionSummary);
 
     // Act
-    const ui = await ScheduleExecutionDetailPage({
-      params: Promise.resolve({
-        id: "sched-1",
-        executionId: "exec-schedule-1",
-      }),
-    });
-    render(ui as React.ReactElement);
+    await renderPage();
 
     // Assert
     expect(getScheduleExecutionSummaryMock).toHaveBeenCalledWith(

@@ -1,8 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { format } from "date-fns";
+import {
+  CalendarClock,
+  MousePointerClick,
+  Webhook,
+  type LucideIcon,
+} from "lucide-react";
 
+import { Badge } from "@workspace/ui/components/badge";
 import {
   Table,
   TableBody,
@@ -12,20 +18,34 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 
-import type { PipelineExecutionRow } from "@/lib/pipeline-executions";
+import { DataTableCard } from "@/components/data-table/data-table-card";
+import {
+  ExecutionInvocationCounts,
+  ExecutionJobCounts,
+  ExecutionTimeLink,
+  ExecutionsEmptyState,
+  ViewExecutionLink,
+} from "@/components/execution-history-cells";
+import { StatusBadge } from "@/components/status-badge";
+import type {
+  PipelineExecutionRow,
+  PipelineExecutionSource,
+} from "@/lib/pipeline-executions";
 
 type PipelineExecutionsTableProps = {
   pipelineId: string;
   executions: PipelineExecutionRow[];
 };
 
-/**
- * Resolves execution detail links by source.
- *
- * @param pipelineId - Pipeline id for manual execution details.
- * @param execution - Row from the merged pipeline execution history.
- * @returns App route to the execution detail page.
- */
+const SOURCE_PRESENTATION: Record<
+  PipelineExecutionSource,
+  { label: string; icon: LucideIcon }
+> = {
+  schedule: { label: "Schedule", icon: CalendarClock },
+  "http-trigger": { label: "Trigger", icon: Webhook },
+  manual: { label: "Manual", icon: MousePointerClick },
+};
+
 const executionDetailHref = (
   pipelineId: string,
   execution: PipelineExecutionRow,
@@ -36,91 +56,130 @@ const executionDetailHref = (
   if (execution.source === "http-trigger") {
     return `/dashboard/http-triggers/${execution.sourceId}/executions/${execution.id}`;
   }
+
   return `/dashboard/pipelines/${pipelineId}/executions/${execution.id}`;
 };
 
-/**
- * Renders unified executions table for one pipeline.
- */
+const executionSourceHref = (execution: PipelineExecutionRow) => {
+  if (execution.source === "schedule") {
+    return `/dashboard/schedules/${execution.sourceId}`;
+  }
+  if (execution.source === "http-trigger") {
+    return `/dashboard/http-triggers/${execution.sourceId}`;
+  }
+
+  return null;
+};
+
+const ExecutionSource = ({
+  execution,
+}: {
+  execution: PipelineExecutionRow;
+}) => {
+  const { label, icon: SourceIcon } = SOURCE_PRESENTATION[execution.source];
+  const sourceHref = executionSourceHref(execution);
+  const sourceLink =
+    sourceHref !== null && execution.sourceName !== null
+      ? { href: sourceHref, name: execution.sourceName }
+      : null;
+
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <Badge variant="outline" className="text-muted-foreground">
+        <SourceIcon aria-hidden />
+        {label}
+      </Badge>
+      {sourceLink ? (
+        <Link
+          href={sourceLink.href}
+          className="max-w-48 truncate text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          {sourceLink.name}
+        </Link>
+      ) : null}
+    </span>
+  );
+};
+
 export const PipelineExecutionsTable = ({
   pipelineId,
   executions,
 }: PipelineExecutionsTableProps) => {
+  if (executions.length === 0) {
+    return (
+      <DataTableCard>
+        <ExecutionsEmptyState description="Runs from this pipeline's schedules, HTTP triggers and manual runs show up here." />
+      </DataTableCard>
+    );
+  }
+
   return (
-    <div className="rounded-md border">
+    <DataTableCard>
       <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow className="border-muted hover:bg-transparent">
-            <TableHead className="w-[180px]">Execution time</TableHead>
-            <TableHead className="w-[120px]">Source</TableHead>
-            <TableHead className="w-[100px]">Enqueue</TableHead>
-            <TableHead className="w-[100px]">Run</TableHead>
-            <TableHead className="w-[90px]">Jobs</TableHead>
-            <TableHead className="min-w-[140px] whitespace-normal">
-              Invocations (success / fail)
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="pl-4">Started</TableHead>
+            <TableHead>Source</TableHead>
+            <TableHead>Run</TableHead>
+            <TableHead className="hidden sm:table-cell">Enqueue</TableHead>
+            <TableHead className="hidden text-right md:table-cell">
+              Jobs
             </TableHead>
-            <TableHead className="w-[120px]">Elapsed</TableHead>
-            <TableHead className="w-[90px]">Detail</TableHead>
+            <TableHead className="text-right">Invocations</TableHead>
+            <TableHead className="hidden text-right md:table-cell">
+              Elapsed
+            </TableHead>
+            <TableHead className="pr-2">
+              <span className="sr-only">Actions</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {executions.length === 0 ? (
-            <TableRow>
-              <TableCell
-                colSpan={8}
-                className="text-center text-muted-foreground"
-              >
-                No executions yet.
-              </TableCell>
-            </TableRow>
-          ) : (
-            executions.map((execution) => {
-              const href = executionDetailHref(pipelineId, execution);
-              const timeLabel = format(
-                execution.executionTime,
-                "LLL d, yyyy HH:mm:ss",
-              );
-              return (
-                <TableRow key={`${execution.source}:${execution.id}`}>
-                  <TableCell className="text-sm">
-                    <Link
-                      href={href}
-                      className="text-primary underline-offset-4 hover:underline"
-                    >
-                      {timeLabel}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-sm">{execution.source}</TableCell>
-                  <TableCell className="text-sm capitalize">
-                    {execution.enqueueStatus}
-                  </TableCell>
-                  <TableCell className="text-sm capitalize">
-                    {execution.runStatus}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {execution.jobsCreated} / {execution.jobsEnqueued}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {execution.succeededInvocationCount} /{" "}
-                    {execution.failedInvocationCount}
-                  </TableCell>
-                  <TableCell className="text-sm tabular-nums text-muted-foreground">
-                    {execution.elapsedLabel}
-                  </TableCell>
-                  <TableCell>
-                    <Link
-                      href={href}
-                      className="text-sm text-primary underline-offset-4 hover:underline"
-                    >
-                      View
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              );
-            })
-          )}
+          {executions.map((execution) => {
+            const detailHref = executionDetailHref(pipelineId, execution);
+
+            return (
+              <TableRow key={`${execution.source}:${execution.id}`}>
+                <TableCell className="pl-4">
+                  <ExecutionTimeLink
+                    href={detailHref}
+                    executionTime={execution.executionTime}
+                  />
+                </TableCell>
+                <TableCell>
+                  <ExecutionSource execution={execution} />
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={execution.runStatus} />
+                </TableCell>
+                <TableCell className="hidden sm:table-cell">
+                  <StatusBadge status={execution.enqueueStatus} />
+                </TableCell>
+                <TableCell className="hidden text-right md:table-cell">
+                  <ExecutionJobCounts
+                    jobsCreated={execution.jobsCreated}
+                    jobsEnqueued={execution.jobsEnqueued}
+                  />
+                </TableCell>
+                <TableCell className="text-right">
+                  <ExecutionInvocationCounts
+                    succeededInvocationCount={
+                      execution.succeededInvocationCount
+                    }
+                    failedInvocationCount={execution.failedInvocationCount}
+                  />
+                </TableCell>
+                <TableCell className="hidden text-right text-muted-foreground tabular-nums md:table-cell">
+                  {execution.elapsedLabel}
+                </TableCell>
+                <TableCell className="pr-2 text-right">
+                  <ViewExecutionLink href={detailHref} />
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
-    </div>
+    </DataTableCard>
   );
 };
