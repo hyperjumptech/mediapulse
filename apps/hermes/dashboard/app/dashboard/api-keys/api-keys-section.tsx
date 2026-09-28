@@ -1,9 +1,19 @@
 import { format } from "date-fns";
+import { KeyRound } from "lucide-react";
 
+import { DataTableCard } from "@/components/data-table/data-table-card";
+import { RelativeTime } from "@/components/relative-time";
 import { formatCreatedBy } from "@/lib/format-created-by";
 import { listActiveMcpApiKeys } from "@/lib/mcp-api-keys";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 import { Badge } from "@workspace/ui/components/badge";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@workspace/ui/components/empty";
 import {
   Table,
   TableBody,
@@ -15,66 +25,89 @@ import {
 
 import { ApiKeyRowActions } from "./api-key-row-actions";
 
+const ApiKeyAccessBadge = ({ readOnly }: { readOnly: boolean }) => {
+  if (readOnly) {
+    return <Badge variant="muted">Read-only</Badge>;
+  }
+
+  return <Badge variant="outline">Full</Badge>;
+};
+
+const ApiKeysEmptyState = () => {
+  return (
+    <Empty className="gap-4 py-12 md:py-16">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <KeyRound aria-hidden className="size-5 text-muted-foreground" />
+        </EmptyMedia>
+        <EmptyTitle className="text-base">No API keys yet</EmptyTitle>
+        <EmptyDescription>Create one for MCP access.</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  );
+};
+
 export const ApiKeysSection = async () => {
   const keys = await withDashboardAdmin(listActiveMcpApiKeys());
 
+  if (keys.length === 0) {
+    return (
+      <DataTableCard>
+        <ApiKeysEmptyState />
+      </DataTableCard>
+    );
+  }
+
   return (
-    <div className="rounded-md border">
+    <DataTableCard>
       <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow className="border-muted hover:bg-transparent">
-            <TableHead className="min-w-[140px]">Label</TableHead>
-            <TableHead className="w-[100px]">Access</TableHead>
-            <TableHead>Created by</TableHead>
-            <TableHead className="w-[140px]">Created</TableHead>
-            <TableHead className="w-[140px]">Last used</TableHead>
-            <TableHead className="w-12" />
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="pl-4">Label</TableHead>
+            <TableHead>Access</TableHead>
+            <TableHead className="hidden md:table-cell">Created by</TableHead>
+            <TableHead className="hidden sm:table-cell">Created</TableHead>
+            <TableHead>Last used</TableHead>
+            <TableHead className="w-12 pr-2">
+              <span className="sr-only">Actions</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {keys.length === 0 ? (
-            <TableRow>
-              <TableCell
-                colSpan={6}
-                className="text-center text-muted-foreground"
-              >
-                No API keys yet. Create one for MCP access.
-              </TableCell>
-            </TableRow>
-          ) : (
-            keys.map((key) => (
+          {keys.map((key) => {
+            const createdByLabel = formatCreatedBy(
+              key.createdBy,
+              key.createdByUserId,
+            );
+            const createdLabel = format(key.createdAt, "LLL d, yyyy");
+
+            return (
               <TableRow key={key.id}>
-                <TableCell className="font-medium">{key.label}</TableCell>
+                <TableCell className="pl-4 font-medium">{key.label}</TableCell>
                 <TableCell>
-                  {key.readOnly ? (
-                    <Badge variant="outline" className="font-normal">
-                      Read-only
-                    </Badge>
+                  <ApiKeyAccessBadge readOnly={key.readOnly} />
+                </TableCell>
+                <TableCell className="hidden text-muted-foreground md:table-cell">
+                  {createdByLabel}
+                </TableCell>
+                <TableCell className="hidden text-muted-foreground tabular-nums sm:table-cell">
+                  {createdLabel}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {key.lastUsedAt ? (
+                    <RelativeTime value={key.lastUsedAt} />
                   ) : (
-                    <Badge variant="secondary" className="font-normal">
-                      Full
-                    </Badge>
+                    "Never"
                   )}
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {formatCreatedBy(key.createdBy, key.createdByUserId)}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {format(key.createdAt, "LLL d, yyyy")}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {key.lastUsedAt
-                    ? format(key.lastUsedAt, "LLL d, yyyy HH:mm")
-                    : "—"}
-                </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="pr-2 text-right">
                   <ApiKeyRowActions row={{ id: key.id, label: key.label }} />
                 </TableCell>
               </TableRow>
-            ))
-          )}
+            );
+          })}
         </TableBody>
       </Table>
-    </div>
+    </DataTableCard>
   );
 };

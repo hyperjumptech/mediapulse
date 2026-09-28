@@ -201,7 +201,7 @@ describe("DomainTableRowsSection", () => {
     );
   });
 
-  it("renders the empty state across every column when there are no rows", async () => {
+  it("renders the empty state instead of the table when there are no rows", async () => {
     // Setup
     getDomainTableListMock.mockResolvedValue({
       items: [],
@@ -214,17 +214,42 @@ describe("DomainTableRowsSection", () => {
     await renderSection();
 
     // Assert
-    const emptyCell = screen.getByText("No tickers yet.");
-
-    expect(emptyCell).toHaveAttribute("colspan", "3");
+    expect(screen.getByText("No tickers yet")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(rowActionsMock).not.toHaveBeenCalled();
   });
+
+  it.each([
+    { name: "a search query", params: { ...baseParams, query: "acme" } },
+    {
+      name: "an active filter",
+      params: { ...baseParams, filters: { sector: "energy" } },
+    },
+  ])(
+    "renders the no results state when $name matches nothing",
+    async ({ params }) => {
+      // Setup
+      getDomainTableListMock.mockResolvedValue({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 15,
+      });
+
+      // Act
+      await renderSection(buildMeta(), params);
+
+      // Assert
+      expect(screen.getByText("No matching tickers")).toBeInTheDocument();
+      expect(screen.queryByText("No tickers yet")).not.toBeInTheDocument();
+    },
+  );
 
   it("omits the row actions column when the manifest has no row actions", async () => {
     // Setup
     getDomainTableListMock.mockResolvedValue({
-      items: [],
-      total: 0,
+      items: [{ id: "t-1", symbol: "ACME", active: true }],
+      total: 1,
       page: 1,
       pageSize: 15,
     });
@@ -233,6 +258,33 @@ describe("DomainTableRowsSection", () => {
     await renderSection(buildMeta({ actions: {} }));
 
     // Assert
-    expect(screen.getByText("No tickers yet.")).toHaveAttribute("colspan", "2");
+    expect(screen.getAllByRole("columnheader")).toHaveLength(2);
+    expect(screen.getByText("ACME")).not.toHaveAttribute("href");
+    expect(rowActionsMock).not.toHaveBeenCalled();
+  });
+
+  it("links the first column to the detail view and truncates long values", async () => {
+    // Setup
+    const longValue = "A very long value that should be truncated in the table";
+    getDomainTableListMock.mockResolvedValue({
+      items: [{ id: "t 1", symbol: "ACME", active: longValue }],
+      total: 1,
+      page: 1,
+      pageSize: 15,
+    });
+
+    // Act
+    await renderSection();
+
+    // Assert
+    const primaryLink = screen.getByRole("link", { name: "ACME" });
+    const longCell = screen.getByText(longValue);
+
+    expect(primaryLink).toHaveAttribute(
+      "href",
+      "/dashboard/mediapulse/tickers/t%201",
+    );
+    expect(longCell).toHaveClass("truncate");
+    expect(longCell).toHaveAttribute("title", longValue);
   });
 });

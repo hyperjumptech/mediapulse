@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { CalendarOff } from "lucide-react";
 
-import { Badge } from "@workspace/ui/components/badge";
-
+import { RelativeTime } from "@/components/relative-time";
+import { StatusBadge } from "@/components/status-badge";
 import {
   getUpcomingSchedules,
   type UpcomingSchedule,
@@ -11,15 +11,8 @@ import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 import { OverviewEmptyState } from "./overview-empty-state";
 import { OVERVIEW_ROW_CLASS_NAME } from "./overview-panel";
-import { RelativeTime } from "./relative-time";
 
-const UpcomingScheduleItem = ({
-  schedule,
-  now,
-}: {
-  schedule: UpcomingSchedule;
-  now: Date;
-}) => {
+const UpcomingScheduleItem = ({ schedule }: { schedule: UpcomingSchedule }) => {
   const scheduleHref = `/dashboard/schedules/${schedule.id}`;
 
   return (
@@ -30,11 +23,18 @@ const UpcomingScheduleItem = ({
           <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
             <span className="truncate">{schedule.pipeline.name}</span>
             {schedule.pipeline.isActive ? null : (
-              <Badge variant="muted">Pipeline disabled</Badge>
+              <StatusBadge
+                status="disabled"
+                label="Pipeline disabled"
+                className="normal-case"
+              />
             )}
           </span>
         </span>
-        <RelativeTime date={schedule.nextRunAt} now={now} />
+        <RelativeTime
+          value={schedule.nextRunAt}
+          className="shrink-0 text-xs text-muted-foreground"
+        />
       </Link>
     </li>
   );
@@ -51,12 +51,11 @@ export const UpcomingSchedulesSection = async () => {
       />
     );
   }
-  const now = new Date();
 
   return (
     <ul className="flex flex-col">
       {schedules.map((schedule) => (
-        <UpcomingScheduleItem key={schedule.id} schedule={schedule} now={now} />
+        <UpcomingScheduleItem key={schedule.id} schedule={schedule} />
       ))}
     </ul>
   );

@@ -40,12 +40,6 @@ vi.mock("./variables-search", () => ({
   ),
 }));
 
-vi.mock("./variable-modal", () => ({
-  VariableModal: ({ trigger }: { trigger: React.ReactNode }) => (
-    <div data-testid="variable-modal">{trigger}</div>
-  ),
-}));
-
 import { VariablesSection } from "./variables-section";
 
 const baseQuery = {
@@ -61,7 +55,7 @@ describe("VariablesSection", () => {
     getVariablesPageMock.mockReset();
   });
 
-  it("renders the toolbar, table, and pagination from the loader", async () => {
+  it("renders the search, table, and pagination from the loader", async () => {
     // Setup
     getVariablesPageMock.mockResolvedValue({
       variables: [{ id: "1", key: "API_URL" }],
@@ -86,9 +80,7 @@ describe("VariablesSection", () => {
       "data-total",
       "30",
     );
-    expect(
-      screen.getByRole("button", { name: "Add variable" }),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("variables-search")).toBeInTheDocument();
   });
 
   it("forwards search and sort to getVariablesPage", async () => {

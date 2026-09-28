@@ -1,7 +1,7 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 
-import { formatRelativeTime, formatUtcTimestamp } from "./format-relative-time";
+import { formatRelativeTime } from "./format-relative-time";
 
 const now = new Date("2026-09-28T12:00:00.000Z");
 
@@ -34,15 +34,5 @@ describe("formatRelativeTime", () => {
 
     // Assert
     expect(label).toBe(expected);
-  });
-});
-
-describe("formatUtcTimestamp", () => {
-  it("formats the absolute time in UTC with a zone suffix", () => {
-    // Act
-    const label = formatUtcTimestamp(new Date("2026-09-28T15:04:00.000Z"));
-
-    // Assert
-    expect(label).toMatch(/^Sep 28, 2026, 3:04\sPM UTC$/);
   });
 });

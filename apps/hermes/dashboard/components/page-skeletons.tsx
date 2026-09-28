@@ -40,10 +40,7 @@ export const TableSkeleton = ({
 export const ListBodySkeleton = ({ columns = 5 }: { columns?: number }) => {
   return (
     <div className="flex flex-col gap-4" role="status" aria-label="Loading">
-      <div className="flex items-center justify-between gap-4">
-        <Skeleton className="h-9 w-full max-w-sm" />
-        <Skeleton className="h-9 w-28" />
-      </div>
+      <Skeleton className="h-9 w-full max-w-sm" />
       <TableSkeleton columns={columns} />
     </div>
   );

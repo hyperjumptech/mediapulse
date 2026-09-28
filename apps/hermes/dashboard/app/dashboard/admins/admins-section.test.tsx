@@ -69,8 +69,19 @@ describe("AdminsSection", () => {
     // Assert
     expect(screen.getByText("ada@example.com")).toBeInTheDocument();
     expect(screen.getByText("grace@example.com")).toBeInTheDocument();
-    expect(screen.getByText("Active")).toBeInTheDocument();
-    expect(screen.getByText("Disabled")).toBeInTheDocument();
+    const youBadges = screen.getAllByText("You");
+    const currentUserRow = screen.getByText("Ada").closest("tr");
+
+    expect(screen.getByText("Active")).toHaveAttribute(
+      "data-variant",
+      "success",
+    );
+    expect(screen.getByText("Disabled")).toHaveAttribute(
+      "data-variant",
+      "muted",
+    );
+    expect(youBadges).toHaveLength(1);
+    expect(currentUserRow).toContainElement(youBadges[0] ?? null);
     expect(screen.getByTestId("admin-row-actions-user-2")).toHaveAttribute(
       "data-current-user-id",
       "user-1",
@@ -86,10 +97,10 @@ describe("AdminsSection", () => {
     render(await AdminsSection());
 
     // Assert
+    expect(screen.getByText("No admins yet")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(
-      screen.getByText(
-        "No admins yet. Use the CLI or “Add admin” to create one.",
-      ),
+      screen.getByText("Use the CLI or “Add admin” to create one."),
     ).toBeInTheDocument();
   });
 });

@@ -9,13 +9,16 @@ vi.mock("./pipelines-section", () => ({
 import PipelinesPage from "./page";
 
 describe("PipelinesPage", () => {
-  it("renders the page header and the pipelines section", () => {
+  it("renders the page header with the new pipeline action and the section", () => {
     // Act
     render(<PipelinesPage />);
 
     // Assert
     expect(
       screen.getByRole("heading", { name: "Pipelines" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "New pipeline" }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("pipelines-section")).toBeInTheDocument();
   });

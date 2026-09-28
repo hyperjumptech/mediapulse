@@ -25,8 +25,18 @@ vi.mock("@workspace/ui/components/dropdown-menu", () => ({
   DropdownMenuItem: ({
     children,
     onSelect,
-  }: React.PropsWithChildren<{ onSelect?: (event: Event) => void }>) => (
-    <div onClick={() => onSelect?.(new Event("select"))}>{children}</div>
+    disabled,
+  }: React.PropsWithChildren<{
+    onSelect?: (event: Event) => void;
+    disabled?: boolean;
+  }>) => (
+    <div
+      role="menuitem"
+      aria-disabled={disabled}
+      onClick={() => onSelect?.(new Event("select"))}
+    >
+      {children}
+    </div>
   ),
   DropdownMenuSeparator: () => <hr />,
 }));
@@ -121,5 +131,109 @@ describe("DomainTableRowActions edit modal", () => {
         screen.queryByRole("button", { name: /Sav(e|ing)/ }),
       ).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("DomainTableRowActions delete confirmation", () => {
+  const renderDeleteActions = (
+    deleteAction: (formData: FormData) => Promise<void>,
+  ) =>
+    render(
+      <DomainTableRowActions
+        rowId="row-1"
+        row={{ id: "row-1", name: "Ada" }}
+        updateFields={[]}
+        updateAction={vi.fn()}
+        deleteAction={deleteAction}
+        showEdit={false}
+        showDelete
+      />,
+    );
+
+  it("asks for confirmation before deleting the row", () => {
+    // Setup
+    const deleteAction = vi.fn(async () => undefined);
+    renderDeleteActions(deleteAction);
+
+    // Act
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+
+    // Assert
+    const dialog = screen.getByRole("alertdialog");
+
+    expect(dialog).toHaveTextContent('Delete "Ada"?');
+    expect(dialog).toHaveTextContent("This cannot be undone.");
+    expect(deleteAction).not.toHaveBeenCalled();
+  });
+
+  it("does not delete when the user cancels", () => {
+    // Setup
+    const deleteAction = vi.fn(async () => undefined);
+    renderDeleteActions(deleteAction);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+
+    // Act
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    // Assert
+    expect(deleteAction).not.toHaveBeenCalled();
+  });
+
+  it("submits the row id to the delete action once confirmed", async () => {
+    // Setup
+    const deleteAction = vi.fn<(formData: FormData) => Promise<void>>(
+      async () => undefined,
+    );
+    renderDeleteActions(deleteAction);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+
+    // Act
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    // Assert
+    await waitFor(() => {
+      expect(deleteAction).toHaveBeenCalledTimes(1);
+    });
+
+    const submittedFormData = deleteAction.mock.calls[0]?.[0];
+
+    expect(submittedFormData?.get("__id")).toBe("row-1");
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+  });
+});
+
+describe("DomainTableRowActions navigation items", () => {
+  it("links view and edit when hrefs are provided", () => {
+    // Act
+    render(
+      <DomainTableRowActions
+        rowId="row-1"
+        row={{ id: "row-1" }}
+        updateFields={[nameField]}
+        updateAction={vi.fn()}
+        deleteAction={vi.fn()}
+        showEdit
+        showDelete={false}
+        editHref="/dashboard/acme/items/row-1/edit"
+        showView
+        viewHref="/dashboard/acme/items/row-1"
+      />,
+    );
+
+    // Assert
+    expect(screen.getByRole("link", { name: "View" })).toHaveAttribute(
+      "href",
+      "/dashboard/acme/items/row-1",
+    );
+    expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute(
+      "href",
+      "/dashboard/acme/items/row-1/edit",
+    );
+    expect(
+      screen.getByRole("button", { name: "Actions for row-1" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 });

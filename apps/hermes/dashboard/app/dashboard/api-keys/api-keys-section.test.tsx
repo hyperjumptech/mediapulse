@@ -49,13 +49,23 @@ describe("ApiKeysSection", () => {
     ]);
 
     // Act
-    render(await ApiKeysSection());
+    const { container } = render(await ApiKeysSection());
 
     // Assert
+    const lastUsedTime = container.querySelector("time");
+
     expect(screen.getByText("Cursor")).toBeInTheDocument();
-    expect(screen.getByText("Read-only")).toBeInTheDocument();
-    expect(screen.getByText("Full")).toBeInTheDocument();
+    expect(screen.getByText("Read-only")).toHaveAttribute(
+      "data-variant",
+      "muted",
+    );
+    expect(screen.getByText("Full")).toHaveAttribute("data-variant", "outline");
     expect(screen.getByText("Ada")).toBeInTheDocument();
+    expect(screen.getByText("Never")).toBeInTheDocument();
+    expect(lastUsedTime).toHaveAttribute(
+      "datetime",
+      "2026-01-04T00:00:00.000Z",
+    );
     expect(screen.getByTestId("api-key-row-actions-key-2")).toHaveAttribute(
       "data-label",
       "CI",
@@ -70,8 +80,8 @@ describe("ApiKeysSection", () => {
     render(await ApiKeysSection());
 
     // Assert
-    expect(
-      screen.getByText("No API keys yet. Create one for MCP access."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("No API keys yet")).toBeInTheDocument();
+    expect(screen.getByText("Create one for MCP access.")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 });

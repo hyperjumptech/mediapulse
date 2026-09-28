@@ -8,8 +8,7 @@ import { OverviewEmptyState } from "./overview-empty-state";
 import { OverviewExecutionList } from "./overview-execution-list";
 
 export const RecentFailuresSection = async () => {
-  const now = new Date();
-  const since = subDays(now, 7);
+  const since = subDays(new Date(), 7);
   const executions = await withDashboardAdmin(getRecentFailures(since));
   if (executions.length === 0) {
     return (
@@ -21,5 +20,5 @@ export const RecentFailuresSection = async () => {
     );
   }
 
-  return <OverviewExecutionList executions={executions} now={now} />;
+  return <OverviewExecutionList executions={executions} />;
 };

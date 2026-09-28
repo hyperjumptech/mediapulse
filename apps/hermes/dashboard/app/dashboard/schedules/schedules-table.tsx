@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-import { format } from "date-fns";
+import { CalendarClock, Plus, SearchX } from "lucide-react";
 
+import { Button } from "@workspace/ui/components/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@workspace/ui/components/empty";
 import {
   Table,
   TableBody,
@@ -13,35 +21,28 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 
-import { ScheduleRowActions } from "./schedule-row-actions";
+import { DataTableCard } from "@/components/data-table/data-table-card";
+import { SortableHeader } from "@/components/data-table/sortable-header";
+import { RelativeTime } from "@/components/relative-time";
+import { StatusBadge } from "@/components/status-badge";
+import { formatCreatedBy } from "@/lib/format-created-by";
+import { buildListHref, nextSortDirection } from "@/lib/list-page-params";
 import type {
   ScheduleSortDir,
   ScheduleSortField,
   SchedulesPageResult,
 } from "@/lib/schedules";
-import { formatCreatedBy } from "@/lib/format-created-by";
+
+import { describeScheduleCadence } from "./describe-schedule-cadence";
+import { ScheduleRowActions } from "./schedule-row-actions";
 
 type ScheduleRow = SchedulesPageResult["schedules"][number];
 
-const BASE_PATH = "/dashboard/schedules";
+type EditScheduleHandler = (scheduleId: string) => void;
 
-/**
- * Builds schedules list URL with sort (resets to page 1 when sort changes).
- */
-const buildSortHref = (
-  sortBy: ScheduleSortField,
-  sortDir: ScheduleSortDir,
-  pageSize: number,
-  searchQuery?: string,
-): string => {
-  const params = new URLSearchParams();
-  params.set("page", "1");
-  params.set("size", String(pageSize));
-  if (searchQuery) params.set("q", searchQuery);
-  params.set("sort", sortBy);
-  params.set("dir", sortDir);
-  return `${BASE_PATH}?${params.toString()}`;
-};
+type CreateScheduleHandler = () => void;
+
+const BASE_PATH = "/dashboard/schedules";
 
 type SchedulesTableProps = {
   schedules: ScheduleRow[];
@@ -49,12 +50,81 @@ type SchedulesTableProps = {
   sortDir: ScheduleSortDir;
   pageSize: number;
   searchQuery?: string;
-  onEdit: (scheduleId: string) => void;
+  onEdit: EditScheduleHandler;
+  onCreate: CreateScheduleHandler;
 };
 
-/**
- * Renders the schedules list as a table with sortable columns and row actions (Edit, Delete).
- */
+const SchedulesEmptyState = ({
+  searchQuery,
+  clearSearchHref,
+  onCreate,
+}: {
+  searchQuery?: string;
+  clearSearchHref: string;
+  onCreate: CreateScheduleHandler;
+}) => {
+  if (searchQuery) {
+    return (
+      <Empty className="gap-4 py-12 md:py-16">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <SearchX aria-hidden className="size-5 text-muted-foreground" />
+          </EmptyMedia>
+          <EmptyTitle className="text-base">
+            No schedules match “{searchQuery}”
+          </EmptyTitle>
+          <EmptyDescription>
+            Try a different schedule name or description.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={clearSearchHref}>Clear search</Link>
+          </Button>
+        </EmptyContent>
+      </Empty>
+    );
+  }
+
+  return (
+    <Empty className="gap-4 py-12 md:py-16">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <CalendarClock aria-hidden className="size-5 text-muted-foreground" />
+        </EmptyMedia>
+        <EmptyTitle className="text-base">No schedules yet</EmptyTitle>
+        <EmptyDescription>
+          Schedules run a pipeline automatically on a cron expression or a fixed
+          interval.
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button type="button" size="sm" onClick={onCreate}>
+          <Plus aria-hidden />
+          New schedule
+        </Button>
+      </EmptyContent>
+    </Empty>
+  );
+};
+
+const ScheduleCadenceLabel = ({ schedule }: { schedule: ScheduleRow }) => {
+  const cadence = describeScheduleCadence(schedule);
+
+  if (cadence.isCronExpression) {
+    return (
+      <code
+        className="font-mono text-xs"
+        title={`Cron in ${schedule.timezone}`}
+      >
+        {cadence.label}
+      </code>
+    );
+  }
+
+  return <span>{cadence.label}</span>;
+};
+
 export const SchedulesTable = ({
   schedules,
   sortBy,
@@ -62,104 +132,112 @@ export const SchedulesTable = ({
   pageSize,
   searchQuery,
   onEdit,
+  onCreate,
 }: SchedulesTableProps) => {
-  const sortLink = (field: ScheduleSortField, label: string) => {
-    const isActive = sortBy === field;
-    const nextDir: ScheduleSortDir =
-      isActive && sortDir === "asc" ? "desc" : "asc";
-    const href = buildSortHref(
-      field,
-      isActive ? nextDir : "asc",
+  const clearSearchHref = buildListHref(BASE_PATH, {
+    pageSize,
+    sortBy,
+    sortDir,
+  });
+
+  const sortHeader = (field: ScheduleSortField, label: string) => {
+    const direction = nextSortDirection(field, sortBy, sortDir);
+    const href = buildListHref(BASE_PATH, {
       pageSize,
-      searchQuery,
-    );
-    const Icon = isActive
-      ? sortDir === "asc"
-        ? ArrowUp
-        : ArrowDown
-      : ArrowUpDown;
+      search: searchQuery,
+      sortBy: field,
+      sortDir: direction,
+    });
 
     return (
-      <Link
+      <SortableHeader
+        label={label}
         href={href}
-        className="inline-flex items-center gap-1 font-medium hover:text-foreground"
-        aria-sort={
-          isActive
-            ? sortDir === "asc"
-              ? "ascending"
-              : "descending"
-            : undefined
-        }
-      >
-        {label}
-        <Icon className="size-4 shrink-0 opacity-70" aria-hidden />
-      </Link>
+        isActive={sortBy === field}
+        direction={sortDir}
+      />
     );
   };
 
+  if (schedules.length === 0) {
+    return (
+      <DataTableCard>
+        <SchedulesEmptyState
+          searchQuery={searchQuery}
+          clearSearchHref={clearSearchHref}
+          onCreate={onCreate}
+        />
+      </DataTableCard>
+    );
+  }
+
   return (
-    <div className="rounded-md border">
+    <DataTableCard>
       <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow className="border-muted hover:bg-transparent">
-            <TableHead className="w-[180px]">
-              {sortLink("name", "Name")}
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="pl-4">{sortHeader("name", "Name")}</TableHead>
+            <TableHead>Pipeline</TableHead>
+            <TableHead>Repeats</TableHead>
+            <TableHead>{sortHeader("nextRunAt", "Next run")}</TableHead>
+            <TableHead>{sortHeader("enabled", "Status")}</TableHead>
+            <TableHead className="hidden sm:table-cell">
+              {sortHeader("created", "Created")}
             </TableHead>
-            <TableHead className="w-[140px]">Pipeline</TableHead>
-            <TableHead className="w-[100px]">Repeat</TableHead>
-            <TableHead>{sortLink("nextRunAt", "Next run")}</TableHead>
-            <TableHead className="w-[80px]">
-              {sortLink("enabled", "Enabled")}
+            <TableHead className="hidden md:table-cell">Created by</TableHead>
+            <TableHead className="w-12 pr-2">
+              <span className="sr-only">Actions</span>
             </TableHead>
-            <TableHead className="w-[120px]">
-              {sortLink("created", "Created")}
-            </TableHead>
-            <TableHead className="w-[180px]">Created by</TableHead>
-            <TableHead className="w-12" />
           </TableRow>
         </TableHeader>
         <TableBody>
-          {schedules.length === 0 ? (
-            <TableRow>
-              <TableCell
-                colSpan={8}
-                className="text-center text-muted-foreground"
-              >
-                No schedules yet.
-              </TableCell>
-            </TableRow>
-          ) : (
-            schedules.map((schedule) => (
+          {schedules.map((schedule) => {
+            const scheduleHref = `${BASE_PATH}/${schedule.id}`;
+            const pipelineHref = `/dashboard/pipelines/${schedule.pipeline.id}`;
+            const enabledStatus = schedule.enabled ? "enabled" : "disabled";
+            const createdBy = formatCreatedBy(
+              schedule.createdBy,
+              schedule.createdById,
+            );
+
+            return (
               <TableRow key={schedule.id}>
-                <TableCell className="font-medium">
+                <TableCell className="pl-4">
                   <Link
-                    href={`/dashboard/schedules/${schedule.id}`}
-                    className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground"
+                    href={scheduleHref}
+                    className="font-medium text-foreground underline-offset-4 hover:underline"
                   >
                     {schedule.name}
                   </Link>
                 </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {schedule.pipeline.name}
+                <TableCell className="text-muted-foreground">
+                  <Link
+                    href={pipelineHref}
+                    className="underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    {schedule.pipeline.name}
+                  </Link>
                 </TableCell>
-                <TableCell className="text-sm capitalize">
-                  {schedule.repeat}
+                <TableCell className="text-muted-foreground">
+                  <ScheduleCadenceLabel schedule={schedule} />
                 </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {schedule.nextRunAt
-                    ? format(schedule.nextRunAt, "LLL d, yyyy HH:mm")
-                    : "—"}
+                <TableCell>
+                  {schedule.nextRunAt ? (
+                    <RelativeTime value={schedule.nextRunAt} />
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
                 </TableCell>
-                <TableCell className="text-sm">
-                  {schedule.enabled ? "Yes" : "No"}
+                <TableCell>
+                  <StatusBadge status={enabledStatus} />
                 </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {format(schedule.createdAt, "LLL d, yyyy")}
+                <TableCell className="hidden text-muted-foreground sm:table-cell">
+                  <RelativeTime value={schedule.createdAt} />
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {formatCreatedBy(schedule.createdBy, schedule.createdById)}
+                <TableCell className="hidden text-muted-foreground md:table-cell">
+                  {createdBy}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="pr-2 text-right">
                   <ScheduleRowActions
                     scheduleId={schedule.id}
                     scheduleName={schedule.name}
@@ -167,10 +245,10 @@ export const SchedulesTable = ({
                   />
                 </TableCell>
               </TableRow>
-            ))
-          )}
+            );
+          })}
         </TableBody>
       </Table>
-    </div>
+    </DataTableCard>
   );
 };

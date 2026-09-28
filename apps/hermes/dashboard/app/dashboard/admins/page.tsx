@@ -1,3 +1,4 @@
+import { Plus } from "lucide-react";
 import { Suspense } from "react";
 
 import { PageHeader } from "@/components/page-header";
@@ -9,14 +10,21 @@ import { AdminsSection } from "./admins-section";
 
 const AdminsPage = () => {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Admins"
         description="Manage who can sign in to the Hermes dashboard. Disabled admins cannot log in."
+        actions={
+          <AddAdminModal
+            trigger={
+              <Button>
+                <Plus aria-hidden />
+                Add admin
+              </Button>
+            }
+          />
+        }
       />
-      <div className="flex justify-end">
-        <AddAdminModal trigger={<Button>Add admin</Button>} />
-      </div>
       <Suspense fallback={<SectionSkeleton />}>
         <AdminsSection />
       </Suspense>

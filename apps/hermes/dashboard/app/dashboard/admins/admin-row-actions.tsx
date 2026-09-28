@@ -1,7 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import {
+  KeyRound,
+  MoreHorizontal,
+  Power,
+  PowerOff,
+  Trash2,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
+import { Button } from "@workspace/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,18 +18,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
-import { Button } from "@workspace/ui/components/button";
-import { KeyRound, MoreHorizontal, Power, PowerOff } from "lucide-react";
 
-import { DeleteConfirmForm } from "@/components/delete-confirm-form";
 import { useFormAction as useDeleteFormAction } from "@/app/dashboard/admins/actions/delete/.generated/use-form-action";
 import { useFormAction as useSetActiveFormAction } from "@/app/dashboard/admins/actions/set-active/.generated/use-form-action";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
+import { useConfirmActionDialog } from "@/hooks/use-confirm-action-dialog";
 import type { HermesAdminListRow } from "@/lib/hermes-admins-page";
 
 import { ResetAdminPasswordDialog } from "./reset-admin-password-dialog";
 
-const DROPDOWN_FORM_CLASS =
-  "flex w-full cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent [&_button]:flex [&_button]:w-full [&_button]:cursor-default [&_button]:items-center [&_button]:text-left";
+const MENU_FORM_BUTTON_CLASS =
+  "flex w-full cursor-default items-center gap-2 text-left";
 
 type AdminRowActionsProps = {
   admin: HermesAdminListRow;
@@ -33,24 +41,34 @@ const useResetPasswordDialogState = () => {
   return { resetOpen, setResetOpen };
 };
 
-/**
- * Row actions: reset password, enable/disable, delete.
- */
+const useAdminDeleteAction = () => {
+  const { FormWithAction, state, pending } = useDeleteFormAction();
+  const confirmDialog = useConfirmActionDialog(state);
+
+  useEffect(() => {
+    if (state && state.status === false && state.message) {
+      toast.error(String(state.message));
+    }
+  }, [state]);
+
+  return { FormWithAction, pending, ...confirmDialog };
+};
+
 export const AdminRowActions = ({
   admin,
   currentUserId,
 }: AdminRowActionsProps) => {
   const { resetOpen, setResetOpen } = useResetPasswordDialogState();
-  const deleteAction = useDeleteFormAction();
+  const deleteAction = useAdminDeleteAction();
   const setActiveAction = useSetActiveFormAction();
 
-  const { FormWithAction: DeleteForm, pending: deletePending } = deleteAction;
   const { FormWithAction: SetActiveForm, pending: setActivePending } =
     setActiveAction;
 
   const isSelf = admin.id === currentUserId;
-  const disableDelete = isSelf || deletePending || setActivePending;
-  const disableMutation = setActivePending || deletePending;
+  const disableDelete = isSelf || deleteAction.pending || setActivePending;
+  const disableMutation = setActivePending || deleteAction.pending;
+  const deleteHiddenFields = [{ name: "body.id", value: admin.id }];
 
   return (
     <>
@@ -58,22 +76,21 @@ export const AdminRowActions = ({
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            size="icon"
-            className="size-8"
-            aria-label="Open admin row menu"
+            size="icon-sm"
+            className="text-muted-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
+            aria-label={`Actions for admin ${admin.email}`}
           >
-            <MoreHorizontal className="size-4" />
+            <MoreHorizontal />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuItem onSelect={() => setResetOpen(true)}>
-            <KeyRound className="mr-2 size-4" />
+            <KeyRound />
             Reset password
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
           {admin.isActive ? (
             <DropdownMenuItem disabled={disableMutation || isSelf} asChild>
-              <SetActiveForm className={DROPDOWN_FORM_CLASS}>
+              <SetActiveForm>
                 <input type="hidden" name="body.id" value={admin.id} readOnly />
                 <input
                   type="hidden"
@@ -81,19 +98,19 @@ export const AdminRowActions = ({
                   value="false"
                   readOnly
                 />
-                <button type="submit" className="flex items-center gap-2">
-                  <PowerOff className="size-4" />
+                <button type="submit" className={MENU_FORM_BUTTON_CLASS}>
+                  <PowerOff />
                   {setActivePending ? "Updating…" : "Disable"}
                 </button>
               </SetActiveForm>
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem disabled={disableMutation} asChild>
-              <SetActiveForm className={DROPDOWN_FORM_CLASS}>
+              <SetActiveForm>
                 <input type="hidden" name="body.id" value={admin.id} readOnly />
                 <input type="hidden" name="body.active" value="true" readOnly />
-                <button type="submit" className="flex items-center gap-2">
-                  <Power className="size-4" />
+                <button type="submit" className={MENU_FORM_BUTTON_CLASS}>
+                  <Power />
                   {setActivePending ? "Updating…" : "Enable"}
                 </button>
               </SetActiveForm>
@@ -103,17 +120,29 @@ export const AdminRowActions = ({
           <DropdownMenuItem
             variant="destructive"
             disabled={disableDelete}
-            asChild
+            onSelect={deleteAction.requestConfirmation}
           >
-            <DeleteConfirmForm
-              FormWithAction={DeleteForm}
-              confirmMessage={`Delete admin "${admin.email}"? This cannot be undone.`}
-              bodyField={{ name: "body.id", value: admin.id }}
-              pending={deletePending}
-            />
+            <Trash2 />
+            Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <ConfirmActionDialog
+        open={deleteAction.open}
+        onOpenChange={deleteAction.setOpen}
+        title="Delete admin?"
+        description={
+          <>
+            <span className="font-medium text-foreground">{admin.email}</span>{" "}
+            will lose access to the dashboard. This cannot be undone.
+          </>
+        }
+        confirmLabel="Delete"
+        pendingLabel="Deleting…"
+        pending={deleteAction.pending}
+        FormWithAction={deleteAction.FormWithAction}
+        hiddenFields={deleteHiddenFields}
+      />
       <ResetAdminPasswordDialog
         admin={admin}
         open={resetOpen}

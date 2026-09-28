@@ -1,24 +1,18 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
 import { CursorPagination } from "./cursor-pagination";
 
 vi.mock("next/link", () => ({
   default: ({
     children,
     href,
-  }: {
-    children: React.ReactNode;
-    href: string;
-  }) => <a href={href}>{children}</a>,
-}));
-
-vi.mock("@workspace/ui/components/button", () => ({
-  Button: ({
-    children,
-    disabled,
-  }: React.PropsWithChildren<{ disabled?: boolean; asChild?: boolean }>) => (
-    <button disabled={disabled}>{children}</button>
+    ...props
+  }: React.ComponentProps<"a"> & { href: string }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 
@@ -49,12 +43,13 @@ describe("CursorPagination", () => {
     );
 
     // Assert
-    const nextLink = screen.getByRole("link", { name: /Next/ });
-    expect(nextLink).toBeInTheDocument();
+    const nextLink = screen.getByRole("link", { name: "Next page" });
+
     expect(nextLink).toHaveAttribute(
       "href",
       expect.stringContaining("cursor=next-123"),
     );
+    expect(nextLink).toHaveAttribute("rel", "next");
   });
 
   it("renders previous link when currentCursor is present", () => {
@@ -70,7 +65,10 @@ describe("CursorPagination", () => {
     );
 
     // Assert
-    expect(screen.getByText(/Previous/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Previous page" })).toHaveAttribute(
+      "rel",
+      "prev",
+    );
   });
 
   it("disables previous button on first page (no currentCursor)", () => {
@@ -85,8 +83,9 @@ describe("CursorPagination", () => {
     );
 
     // Assert
-    const prevButton = screen.getByText(/Previous/).closest("button");
-    expect(prevButton).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Previous page" }),
+    ).toBeDisabled();
   });
 
   it("disables next button when no nextCursor", () => {
@@ -101,8 +100,7 @@ describe("CursorPagination", () => {
     );
 
     // Assert
-    const nextButton = screen.getByText(/Next/).closest("button");
-    expect(nextButton).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
   });
 
   it("preserves extraParams in next link", () => {
@@ -118,7 +116,8 @@ describe("CursorPagination", () => {
     );
 
     // Assert
-    const nextLink = screen.getByRole("link", { name: /Next/ });
+    const nextLink = screen.getByRole("link", { name: "Next page" });
+
     expect(nextLink).toHaveAttribute(
       "href",
       expect.stringContaining("outcome=failed"),
@@ -141,8 +140,7 @@ describe("CursorPagination", () => {
     );
 
     // Assert
-    const nextLink = screen.getByRole("link", { name: /Next/ });
-    expect(nextLink).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
       "href",
       expect.stringContaining("limit=50"),
     );
@@ -178,7 +176,8 @@ describe("CursorPagination", () => {
     );
 
     // Assert
-    const nextLink = screen.getByRole("link", { name: /Next/ });
+    const nextLink = screen.getByRole("link", { name: "Next page" });
+
     expect(nextLink).toHaveAttribute(
       "href",
       expect.stringContaining("cursor=cursor-B"),
@@ -203,19 +202,20 @@ describe("CursorPagination", () => {
     );
 
     // Assert
-    const prevLink = screen.getByRole("link", { name: /Previous/ });
-    expect(prevLink).toHaveAttribute(
+    const previousLink = screen.getByRole("link", { name: "Previous page" });
+
+    expect(previousLink).toHaveAttribute(
       "href",
       expect.stringContaining("cursor=cursor-A"),
     );
-    expect(prevLink).toHaveAttribute(
+    expect(previousLink).toHaveAttribute(
       "href",
       expect.not.stringContaining("prevCursor="),
     );
   });
 
   it("previous link goes to page 1 (no cursor) when on page 2 without prevCursor", () => {
-    // Act — page 2: currentCursor set but no prevCursor (back to page 1)
+    // Act
     render(
       <CursorPagination
         basePath="/dashboard/agents/content-generation-runs"
@@ -226,15 +226,12 @@ describe("CursorPagination", () => {
       />,
     );
 
-    // Assert — previous link navigates to page 1 (no cursor param)
-    const prevLink = screen.getByRole("link", { name: /Previous/ });
-    expect(prevLink).toHaveAttribute(
+    // Assert
+    const previousLink = screen.getByRole("link", { name: "Previous page" });
+
+    expect(previousLink).toHaveAttribute(
       "href",
-      expect.stringContaining("limit=20"),
-    );
-    expect(prevLink).not.toHaveAttribute(
-      "href",
-      expect.stringContaining("cursor="),
+      "/dashboard/agents/content-generation-runs?limit=20",
     );
   });
 });

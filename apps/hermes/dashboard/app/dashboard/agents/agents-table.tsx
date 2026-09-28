@@ -1,8 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { Bot, SearchX } from "lucide-react";
 
+import { Button } from "@workspace/ui/components/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@workspace/ui/components/empty";
 import {
   Table,
   TableBody,
@@ -11,37 +20,28 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
-import { Badge } from "@workspace/ui/components/badge";
 
-import { AgentRowActions } from "./agent-row-actions";
-import { format } from "date-fns";
+import { DataTableCard } from "@/components/data-table/data-table-card";
+import { SortableHeader } from "@/components/data-table/sortable-header";
+import { RelativeTime } from "@/components/relative-time";
+import { StatusBadge } from "@/components/status-badge";
 import type {
   AgentsPageResult,
   AgentSortDir,
   AgentSortField,
 } from "@/lib/agents";
+import { buildListHref, nextSortDirection } from "@/lib/list-page-params";
+
+import { AgentRowActions } from "./agent-row-actions";
 
 type AgentRow = AgentsPageResult["agents"][number];
 
+type ViewAgentHandler = (agent: AgentRow) => void;
+
 const BASE_PATH = "/dashboard/agents";
 
-/**
- * Builds agents list URL with sort (resets to page 1 when sort changes).
- */
-const buildSortHref = (
-  sortBy: AgentSortField,
-  sortDir: AgentSortDir,
-  pageSize: number,
-  searchQuery?: string,
-): string => {
-  const params = new URLSearchParams();
-  params.set("page", "1");
-  params.set("size", String(pageSize));
-  if (searchQuery) params.set("q", searchQuery);
-  params.set("sort", sortBy);
-  params.set("dir", sortDir);
-  return `${BASE_PATH}?${params.toString()}`;
-};
+const NAME_CLASS =
+  "text-left font-medium text-foreground underline-offset-4 hover:underline";
 
 type AgentsTableProps = {
   agents: AgentRow[];
@@ -49,13 +49,80 @@ type AgentsTableProps = {
   sortDir: AgentSortDir;
   pageSize: number;
   searchQuery?: string;
-  /** When provided, View opens the details modal via this callback instead of navigating. */
-  onView?: (agent: AgentRow) => void;
+  onView?: ViewAgentHandler;
 };
 
-/**
- * Renders the agents list as a table with sortable Agent ID, Version, Created, and Updated; a Domain integration id column; Description and Active; and row actions.
- */
+const AgentsEmptyState = ({
+  searchQuery,
+  clearSearchHref,
+}: {
+  searchQuery?: string;
+  clearSearchHref: string;
+}) => {
+  if (searchQuery) {
+    return (
+      <Empty className="gap-4 py-12 md:py-16">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <SearchX aria-hidden className="size-5 text-muted-foreground" />
+          </EmptyMedia>
+          <EmptyTitle className="text-base">
+            No agents match “{searchQuery}”
+          </EmptyTitle>
+          <EmptyDescription>
+            Try a different agent ID or description.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={clearSearchHref}>Clear search</Link>
+          </Button>
+        </EmptyContent>
+      </Empty>
+    );
+  }
+
+  return (
+    <Empty className="gap-4 py-12 md:py-16">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Bot aria-hidden className="size-5 text-muted-foreground" />
+        </EmptyMedia>
+        <EmptyTitle className="text-base">No agents registered</EmptyTitle>
+        <EmptyDescription>
+          Agents appear here after they register with Hermes.
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  );
+};
+
+const AgentName = ({
+  agent,
+  onView,
+}: {
+  agent: AgentRow;
+  onView?: ViewAgentHandler;
+}) => {
+  if (onView) {
+    return (
+      <button
+        type="button"
+        onClick={() => onView(agent)}
+        className={NAME_CLASS}
+      >
+        {agent.agentId}
+      </button>
+    );
+  }
+
+  return (
+    <Link href={`${BASE_PATH}/${agent.id}`} className={NAME_CLASS}>
+      {agent.agentId}
+    </Link>
+  );
+};
+
 export const AgentsTable = ({
   agents,
   sortBy,
@@ -64,131 +131,110 @@ export const AgentsTable = ({
   searchQuery,
   onView,
 }: AgentsTableProps) => {
-  const sortLink = (field: AgentSortField, label: string) => {
-    const isActive = sortBy === field;
-    const nextDir: AgentSortDir =
-      isActive && sortDir === "asc" ? "desc" : "asc";
-    const href = buildSortHref(
-      field,
-      isActive ? nextDir : "asc",
+  const clearSearchHref = buildListHref(BASE_PATH, {
+    pageSize,
+    sortBy,
+    sortDir,
+  });
+
+  const sortHeader = (field: AgentSortField, label: string) => {
+    const direction = nextSortDirection(field, sortBy, sortDir);
+    const href = buildListHref(BASE_PATH, {
       pageSize,
-      searchQuery,
-    );
-    const Icon = isActive
-      ? sortDir === "asc"
-        ? ArrowUp
-        : ArrowDown
-      : ArrowUpDown;
+      search: searchQuery,
+      sortBy: field,
+      sortDir: direction,
+    });
 
     return (
-      <Link
+      <SortableHeader
+        label={label}
         href={href}
-        className="inline-flex items-center gap-1 font-medium hover:text-foreground"
-        aria-sort={
-          isActive
-            ? sortDir === "asc"
-              ? "ascending"
-              : "descending"
-            : undefined
-        }
-      >
-        {label}
-        <Icon className="size-4 shrink-0 opacity-70" aria-hidden />
-      </Link>
+        isActive={sortBy === field}
+        direction={sortDir}
+      />
     );
   };
 
+  if (agents.length === 0) {
+    return (
+      <DataTableCard>
+        <AgentsEmptyState
+          searchQuery={searchQuery}
+          clearSearchHref={clearSearchHref}
+        />
+      </DataTableCard>
+    );
+  }
+
   return (
-    <div className="rounded-md border">
+    <DataTableCard>
       <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow className="border-muted hover:bg-transparent">
-            <TableHead className="w-[280px]">
-              {sortLink("agentId", "Agent ID")}
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="pl-4">
+              {sortHeader("agentId", "Agent ID")}
             </TableHead>
-            <TableHead className="w-[100px]">
-              {sortLink("agentVersion", "Version")}
+            <TableHead>{sortHeader("agentVersion", "Version")}</TableHead>
+            <TableHead className="hidden lg:table-cell">Integration</TableHead>
+            <TableHead className="hidden md:table-cell">Description</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>{sortHeader("created", "Created")}</TableHead>
+            <TableHead className="hidden sm:table-cell">
+              {sortHeader("updated", "Updated")}
             </TableHead>
-            <TableHead className="min-w-[140px] max-w-[220px]">
-              Domain integration id
+            <TableHead className="w-12 pr-2">
+              <span className="sr-only">Actions</span>
             </TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead className="w-[80px]">Active</TableHead>
-            <TableHead className="w-[120px]">
-              {sortLink("created", "Created")}
-            </TableHead>
-            <TableHead className="w-[120px]">
-              {sortLink("updated", "Updated")}
-            </TableHead>
-            <TableHead className="w-12" />
           </TableRow>
         </TableHeader>
         <TableBody>
-          {agents.length === 0 ? (
-            <TableRow>
-              <TableCell
-                colSpan={8}
-                className="text-center text-muted-foreground"
-              >
-                No agents yet.
-              </TableCell>
-            </TableRow>
-          ) : (
-            agents.map((agent) => (
+          {agents.map((agent) => {
+            const agentLabel = `${agent.agentId}@${agent.agentVersion}`;
+            const description = agent.description ?? "—";
+
+            return (
               <TableRow key={agent.id}>
-                <TableCell className="font-medium">
-                  {onView ? (
-                    <button
-                      type="button"
-                      onClick={() => onView(agent)}
-                      className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground text-left"
-                    >
-                      {agent.agentId}
-                    </button>
-                  ) : (
-                    <Link
-                      href={`/dashboard/agents/${agent.id}`}
-                      className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground"
-                    >
-                      {agent.agentId}
-                    </Link>
-                  )}
+                <TableCell className="pl-4">
+                  <AgentName agent={agent} onView={onView} />
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="font-mono text-xs text-muted-foreground tabular-nums">
                   {agent.agentVersion}
                 </TableCell>
-                <TableCell className="font-mono text-sm text-muted-foreground max-w-[220px] truncate">
+                <TableCell className="hidden font-mono text-xs text-muted-foreground lg:table-cell">
                   {agent.domainIntegration.integrationId}
                 </TableCell>
-                <TableCell className="max-w-[200px] truncate text-muted-foreground">
-                  {agent.description ?? "—"}
+                <TableCell className="hidden text-muted-foreground md:table-cell">
+                  <div
+                    className="max-w-xs truncate"
+                    title={agent.description ?? undefined}
+                  >
+                    {description}
+                  </div>
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    variant={agent.isActive ? "default" : "secondary"}
-                    className="font-normal"
-                  >
-                    {agent.isActive ? "Yes" : "No"}
-                  </Badge>
+                  <StatusBadge
+                    status={agent.isActive ? "active" : "inactive"}
+                  />
                 </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {format(agent.createdAt, "LLL d, yyyy")}
+                <TableCell className="text-muted-foreground">
+                  <RelativeTime value={agent.createdAt} />
                 </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {format(agent.updatedAt, "LLL d, yyyy")}
+                <TableCell className="hidden text-muted-foreground sm:table-cell">
+                  <RelativeTime value={agent.updatedAt} />
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="pr-2 text-right">
                   <AgentRowActions
                     agent={agent}
-                    agentLabel={`${agent.agentId}@${agent.agentVersion}`}
+                    agentLabel={agentLabel}
                     onView={onView}
                   />
                 </TableCell>
               </TableRow>
-            ))
-          )}
+            );
+          })}
         </TableBody>
       </Table>
-    </div>
+    </DataTableCard>
   );
 };

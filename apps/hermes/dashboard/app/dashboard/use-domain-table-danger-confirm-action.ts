@@ -1,14 +1,10 @@
 "use client";
 
-import {
-  startTransition,
-  useActionState,
-  useCallback,
-  type FormEvent,
-} from "react";
+import { useActionState, useEffect, useMemo } from "react";
+import { createFormWithAction } from "route-action-gen/lib/react";
+import { toast } from "sonner";
 
-import type { DashboardPageCustomAction } from "@hermes/domain-contract";
-
+import { useConfirmActionDialog } from "@/hooks/use-confirm-action-dialog";
 import type { DomainTableDangerConfirmState } from "@/lib/domain-dashboard";
 
 type DangerConfirmAction = (
@@ -17,40 +13,49 @@ type DangerConfirmAction = (
 ) => Promise<DomainTableDangerConfirmState>;
 
 type UseDomainTableDangerConfirmActionParams = {
-  action: DashboardPageCustomAction;
   serverAction: DangerConfirmAction;
 };
 
-/**
- * Encapsulates confirm-gated submit and server action state for one danger-confirm action.
- *
- * @param params - Action metadata and server action.
- * @returns State and handlers for danger-confirm UI controls.
- */
+const INITIAL_STATE: DomainTableDangerConfirmState = { status: "idle" };
+
+const formatDeletedRowsMessage = (deleted: number) => {
+  const noun = deleted === 1 ? "row" : "rows";
+
+  return `Deleted ${deleted} ${noun}.`;
+};
+
 export const useDomainTableDangerConfirmAction = ({
-  action,
   serverAction,
 }: UseDomainTableDangerConfirmActionParams) => {
-  const [state, formAction, isPending] = useActionState(serverAction, {
-    status: "idle",
-  } satisfies DomainTableDangerConfirmState);
-
-  const handleSubmit = useCallback(
-    (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      const message =
-        action.confirmMessage ?? "Are you sure? This action cannot be undone.";
-      if (!confirm(message)) {
-        return;
-      }
-      const formData = new FormData();
-      formData.set("__actionId", action.id);
-      startTransition(() => {
-        formAction(formData);
-      });
-    },
-    [action.confirmMessage, action.id, formAction],
+  const [state, formAction, isPending] = useActionState(
+    serverAction,
+    INITIAL_STATE,
   );
+  const FormWithAction = useMemo(
+    () => createFormWithAction(formAction),
+    [formAction],
+  );
+  const confirmationState = useMemo(
+    () => ({ status: state.status === "success" }),
+    [state],
+  );
+  const { open, setOpen, requestConfirmation } =
+    useConfirmActionDialog(confirmationState);
 
-  return { state, handleSubmit, isPending };
+  useEffect(() => {
+    if (state.status === "success") {
+      toast.success(formatDeletedRowsMessage(state.deleted));
+    }
+  }, [state]);
+
+  const errorMessage = state.status === "error" ? state.message : null;
+
+  return {
+    FormWithAction,
+    isPending,
+    open,
+    setOpen,
+    requestConfirmation,
+    errorMessage,
+  };
 };

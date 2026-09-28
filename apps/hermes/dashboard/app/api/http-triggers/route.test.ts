@@ -80,7 +80,6 @@ describe("GET /api/http-triggers", () => {
           enabled: true,
           method: "POST",
           authType: "BEARER_TOKEN",
-          tokenHash: "hash",
           tokenHint: null,
           createdAt: new Date("2026-01-01T00:00:00.000Z"),
           updatedAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -96,5 +95,9 @@ describe("GET /api/http-triggers", () => {
     } satisfies HttpTriggersPageResult);
     const res = await GET(new Request("http://localhost/api/http-triggers"));
     expect(res.status).toBe(200);
+
+    const body = await res.json();
+
+    expect(JSON.stringify(body)).not.toContain("tokenHash");
   });
 });

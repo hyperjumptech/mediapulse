@@ -35,7 +35,7 @@ const OverviewListRowsSkeleton = ({
       {range(rows).map((row) => (
         <div key={row} className="flex items-center gap-3 py-2">
           {withBadge ? (
-            <Skeleton className="h-5 w-16 shrink-0 rounded-full" />
+            <Skeleton className="h-5 w-24 shrink-0 rounded-full" />
           ) : null}
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <div className="flex h-5 items-center">

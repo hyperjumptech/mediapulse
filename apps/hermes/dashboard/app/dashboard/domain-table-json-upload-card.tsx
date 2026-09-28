@@ -9,6 +9,8 @@ import {
   type FormEvent,
 } from "react";
 
+import { FileJson, Upload } from "lucide-react";
+
 import type { DashboardPageCustomAction } from "@hermes/domain-contract";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
@@ -106,24 +108,43 @@ export const DomainTableJsonUploadCard = ({
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex max-w-lg flex-col gap-3 rounded-md border p-4"
+      className="flex flex-col gap-3 rounded-lg border bg-card p-4"
       aria-labelledby={`custom-action-${action.id}`}
     >
-      <div className="grid gap-1">
-        <h3 className="text-sm font-medium" id={`custom-action-${action.id}`}>
-          {action.label}
-        </h3>
-        {action.description ? (
-          <p className="text-xs text-muted-foreground">{action.description}</p>
-        ) : null}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+            <FileJson aria-hidden className="size-4" />
+          </div>
+          <div className="grid min-w-0 gap-0.5">
+            <h3
+              className="text-sm font-medium"
+              id={`custom-action-${action.id}`}
+            >
+              {action.label}
+            </h3>
+            {action.description ? (
+              <p className="text-xs text-muted-foreground">
+                {action.description}
+              </p>
+            ) : null}
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Input
+            type="file"
+            accept={action.accept ?? ".json,application/json"}
+            onChange={handleFileChange}
+            disabled={isPending}
+            aria-label={`${action.label} file`}
+            className="bg-background text-muted-foreground sm:w-64"
+          />
+          <Button type="submit" variant="outline" disabled={!file || isPending}>
+            <Upload aria-hidden />
+            {isPending ? "Importing…" : "Import"}
+          </Button>
+        </div>
       </div>
-      <Input
-        type="file"
-        accept={action.accept ?? ".json,application/json"}
-        onChange={handleFileChange}
-        disabled={isPending}
-        className="max-w-md"
-      />
       {clientError ? (
         <p className="text-sm text-destructive" role="alert">
           {clientError}
@@ -139,9 +160,6 @@ export const DomainTableJsonUploadCard = ({
           {state.added} added, {state.updated} updated.
         </p>
       ) : null}
-      <Button type="submit" disabled={!file || isPending}>
-        {isPending ? "Importing…" : "Import"}
-      </Button>
     </form>
   );
 };

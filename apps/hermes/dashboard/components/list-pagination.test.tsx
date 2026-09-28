@@ -1,32 +1,49 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { ListPagination } from "./list-pagination";
+
+import { ListPagination, describeVisibleRange } from "./list-pagination";
 
 vi.mock("next/link", () => ({
   default: ({
     children,
     href,
-  }: {
-    children: React.ReactNode;
-    href: string;
-  }) => <a href={href}>{children}</a>,
-}));
-
-vi.mock("@workspace/ui/components/button", () => ({
-  Button: ({
-    children,
-    disabled,
-    asChild,
-  }: React.PropsWithChildren<{ disabled?: boolean; asChild?: boolean }>) => (
-    <button disabled={disabled} data-as-child={asChild}>
+    ...props
+  }: React.ComponentProps<"a"> & { href: string }) => (
+    <a href={href} {...props}>
       {children}
-    </button>
+    </a>
   ),
 }));
 
+describe("describeVisibleRange", () => {
+  it.each([
+    [1, 15, 230, "Showing 1–15 of 230"],
+    [2, 15, 30, "Showing 16–30 of 30"],
+    [3, 15, 40, "Showing 31–40 of 40"],
+    [70, 15, 1_234, "Showing 1,036–1,050 of 1,234"],
+  ])(
+    "describes page %d of size %d with %d items",
+    (page, pageSize, total, expected) => {
+      // Act
+      const label = describeVisibleRange(page, pageSize, total);
+
+      // Assert
+      expect(label).toBe(expected);
+    },
+  );
+
+  it("falls back to the total when the page is past the last item", () => {
+    // Act
+    const label = describeVisibleRange(5, 15, 20);
+
+    // Assert
+    expect(label).toBe("20 total");
+  });
+});
+
 describe("ListPagination", () => {
-  it("renders page info text", () => {
+  it("renders the visible range", () => {
     // Act
     render(
       <ListPagination
@@ -41,10 +58,10 @@ describe("ListPagination", () => {
     );
 
     // Assert
-    expect(screen.getByText("Page 1 of 2 (30 total)")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–15 of 30")).toBeInTheDocument();
   });
 
-  it("renders Previous and Next buttons", () => {
+  it("renders previous and next links in the middle of the list", () => {
     // Act
     render(
       <ListPagination
@@ -59,8 +76,14 @@ describe("ListPagination", () => {
     );
 
     // Assert
-    expect(screen.getByText(/Previous/)).toBeInTheDocument();
-    expect(screen.getByText(/Next/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Previous page" })).toHaveAttribute(
+      "rel",
+      "prev",
+    );
+    expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
+      "rel",
+      "next",
+    );
   });
 
   it("disables Previous on first page", () => {
@@ -78,27 +101,12 @@ describe("ListPagination", () => {
     );
 
     // Assert
-    const prevButton = screen.getByText(/Previous/).closest("button");
-    expect(prevButton).toBeDisabled();
-  });
-
-  it("enables Previous on page 2", () => {
-    // Act
-    render(
-      <ListPagination
-        basePath="/dashboard/mediapulse/tickers"
-        page={2}
-        pageSize={15}
-        total={30}
-        ariaLabel="Tickers list pagination"
-        sortBy="symbol"
-        sortDir="asc"
-      />,
-    );
-
-    // Assert
-    const prevLink = screen.getByRole("link", { name: /Previous/ });
-    expect(prevLink).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Previous page" }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole("link", { name: "Previous page" }),
+    ).not.toBeInTheDocument();
   });
 
   it("disables Next on last page", () => {
@@ -116,27 +124,10 @@ describe("ListPagination", () => {
     );
 
     // Assert
-    const nextButton = screen.getByText(/Next/).closest("button");
-    expect(nextButton).toBeDisabled();
-  });
-
-  it("enables Next when not on last page", () => {
-    // Act
-    render(
-      <ListPagination
-        basePath="/dashboard/mediapulse/tickers"
-        page={1}
-        pageSize={15}
-        total={30}
-        ariaLabel="Tickers list pagination"
-        sortBy="symbol"
-        sortDir="asc"
-      />,
-    );
-
-    // Assert
-    const nextLink = screen.getByRole("link", { name: /Next/ });
-    expect(nextLink).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+    expect(
+      screen.queryByRole("link", { name: "Next page" }),
+    ).not.toBeInTheDocument();
   });
 
   it("constructs correct Previous href with sort params", () => {
@@ -154,8 +145,7 @@ describe("ListPagination", () => {
     );
 
     // Assert
-    const prevLink = screen.getByRole("link", { name: /Previous/ });
-    expect(prevLink).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Previous page" })).toHaveAttribute(
       "href",
       "/dashboard/mediapulse/tickers?page=2&size=15&sort=symbol&dir=asc",
     );
@@ -176,8 +166,7 @@ describe("ListPagination", () => {
     );
 
     // Assert
-    const nextLink = screen.getByRole("link", { name: /Next/ });
-    expect(nextLink).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
       "href",
       "/dashboard/mediapulse/tickers?page=2&size=15&sort=symbol&dir=asc",
     );
@@ -199,8 +188,7 @@ describe("ListPagination", () => {
     );
 
     // Assert
-    const nextLink = screen.getByRole("link", { name: /Next/ });
-    expect(nextLink).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
       "href",
       "/dashboard/mediapulse/tickers?page=2&size=15&q=AAPL&sort=symbol&dir=asc",
     );
@@ -257,8 +245,7 @@ describe("ListPagination", () => {
     );
 
     // Assert
-    const nextLink = screen.getByRole("link", { name: /Next/ });
-    expect(nextLink).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
       "href",
       "/dashboard/schedules/sched-1?page=2&size=10",
     );
@@ -278,8 +265,7 @@ describe("ListPagination", () => {
     );
 
     // Assert
-    const nextLink = screen.getByRole("link", { name: /Next/ });
-    expect(nextLink).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
       "href",
       "/dashboard/mediapulse/search-queries?page=2&size=15&ticker=Apple",
     );

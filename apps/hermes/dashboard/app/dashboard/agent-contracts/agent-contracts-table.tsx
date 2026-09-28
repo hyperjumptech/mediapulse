@@ -1,9 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-import { format } from "date-fns";
+import { FileText, Plus } from "lucide-react";
 
+import { Button } from "@workspace/ui/components/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@workspace/ui/components/empty";
 import {
   Table,
   TableBody,
@@ -13,37 +20,58 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 
-import {
-  AgentContractRowActions,
-  type AgentContractRow,
-} from "./agent-contract-row-actions";
+import { DataTableCard } from "@/components/data-table/data-table-card";
+import { SortableHeader } from "@/components/data-table/sortable-header";
+import { RelativeTime } from "@/components/relative-time";
 import type {
   AgentContractSortDir,
   AgentContractSortField,
 } from "@/lib/agent-contracts";
 import { formatCreatedBy } from "@/lib/format-created-by";
+import { buildListHref, nextSortDirection } from "@/lib/list-page-params";
+
+import { AddContractModal } from "./add-contract-modal";
+import {
+  AgentContractRowActions,
+  type AgentContractRow,
+} from "./agent-contract-row-actions";
 
 const BASE_PATH = "/dashboard/agent-contracts";
 
-const buildSortHref = (
-  sortBy: AgentContractSortField,
-  sortDir: AgentContractSortDir,
-  pageSize: number,
-): string => {
-  const params = new URLSearchParams();
-  params.set("page", "1");
-  params.set("size", String(pageSize));
-  params.set("sort", sortBy);
-  params.set("dir", sortDir);
-  return `${BASE_PATH}?${params.toString()}`;
-};
+type EditContractHandler = (contract: AgentContractRow) => void;
 
 type AgentContractsTableProps = {
   contracts: AgentContractRow[];
   sortBy: AgentContractSortField;
   sortDir: AgentContractSortDir;
   pageSize: number;
-  onEdit: (contract: AgentContractRow) => void;
+  onEdit: EditContractHandler;
+};
+
+const AgentContractsEmptyState = () => {
+  return (
+    <Empty className="gap-4 py-12 md:py-16">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <FileText aria-hidden className="size-5 text-muted-foreground" />
+        </EmptyMedia>
+        <EmptyTitle className="text-base">No agent contracts yet</EmptyTitle>
+        <EmptyDescription>
+          Write a product brief once and reuse it across agents.
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <AddContractModal
+          trigger={
+            <Button variant="outline" size="sm">
+              <Plus aria-hidden />
+              Add contract
+            </Button>
+          }
+        />
+      </EmptyContent>
+    </Empty>
+  );
 };
 
 export const AgentContractsTable = ({
@@ -53,86 +81,91 @@ export const AgentContractsTable = ({
   pageSize,
   onEdit,
 }: AgentContractsTableProps) => {
-  const sortLink = (field: AgentContractSortField, label: string) => {
-    const isActive = sortBy === field;
-    const nextDir: AgentContractSortDir =
-      isActive && sortDir === "asc" ? "desc" : "asc";
-    const href = buildSortHref(field, isActive ? nextDir : "asc", pageSize);
-    const Icon = isActive
-      ? sortDir === "asc"
-        ? ArrowUp
-        : ArrowDown
-      : ArrowUpDown;
+  const sortHeader = (field: AgentContractSortField, label: string) => {
+    const direction = nextSortDirection(field, sortBy, sortDir);
+    const href = buildListHref(BASE_PATH, {
+      pageSize,
+      sortBy: field,
+      sortDir: direction,
+    });
+
     return (
-      <Link
+      <SortableHeader
+        label={label}
         href={href}
-        className="inline-flex items-center gap-1 hover:underline"
-      >
-        {label}
-        <Icon className="size-4" />
-      </Link>
+        isActive={sortBy === field}
+        direction={sortDir}
+      />
     );
   };
 
+  if (contracts.length === 0) {
+    return (
+      <DataTableCard>
+        <AgentContractsEmptyState />
+      </DataTableCard>
+    );
+  }
+
   return (
-    <div className="rounded-md border">
+    <DataTableCard>
       <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow className="border-muted hover:bg-transparent">
-            <TableHead>{sortLink("name", "Name")}</TableHead>
-            <TableHead>Description</TableHead>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="pl-4">{sortHeader("name", "Name")}</TableHead>
             <TableHead>Version</TableHead>
-            <TableHead>{sortLink("createdAt", "Created")}</TableHead>
-            <TableHead>Created by</TableHead>
-            <TableHead className="w-[60px]" />
+            <TableHead className="hidden md:table-cell">Description</TableHead>
+            <TableHead>{sortHeader("createdAt", "Created")}</TableHead>
+            <TableHead className="hidden md:table-cell">Created by</TableHead>
+            <TableHead className="w-12 pr-2">
+              <span className="sr-only">Actions</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {contracts.length === 0 ? (
-            <TableRow>
-              <TableCell
-                colSpan={6}
-                className="text-center text-muted-foreground"
-              >
-                No agent contracts yet.
-              </TableCell>
-            </TableRow>
-          ) : (
-            contracts.map((contract) => (
+          {contracts.map((contract) => {
+            const description = contract.description ?? "—";
+
+            return (
               <TableRow key={contract.id}>
-                <TableCell className="font-medium">
+                <TableCell className="pl-4">
                   <button
                     type="button"
                     onClick={() => onEdit(contract)}
-                    className="text-left underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground"
+                    className="text-left font-medium text-foreground underline-offset-4 hover:underline"
                     aria-label={`Edit contract ${contract.name}`}
                   >
                     {contract.name}
                   </button>
                 </TableCell>
-                <TableCell className="max-w-[200px] truncate text-muted-foreground">
-                  {contract.description ?? "—"}
-                </TableCell>
-                <TableCell className="font-mono text-sm">
+                <TableCell className="font-mono text-xs text-muted-foreground tabular-nums">
                   {contract.version}
                 </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {format(contract.createdAt, "MMM d, yyyy")}
+                <TableCell className="hidden text-muted-foreground md:table-cell">
+                  <div
+                    className="max-w-xs truncate"
+                    title={contract.description ?? undefined}
+                  >
+                    {description}
+                  </div>
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
+                <TableCell className="text-muted-foreground">
+                  <RelativeTime value={contract.createdAt} />
+                </TableCell>
+                <TableCell className="hidden text-muted-foreground md:table-cell">
                   {formatCreatedBy(contract.createdBy)}
                 </TableCell>
-                <TableCell>
+                <TableCell className="pr-2 text-right">
                   <AgentContractRowActions
                     contract={contract}
                     onEdit={onEdit}
                   />
                 </TableCell>
               </TableRow>
-            ))
-          )}
+            );
+          })}
         </TableBody>
       </Table>
-    </div>
+    </DataTableCard>
   );
 };

@@ -1,5 +1,7 @@
 "use client";
 
+import { Plus } from "lucide-react";
+
 import { Button } from "@workspace/ui/components/button";
 import {
   Dialog,
@@ -34,7 +36,10 @@ export const DomainCreateModal = ({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button type="button">{triggerLabel}</Button>
+        <Button type="button">
+          <Plus aria-hidden />
+          {triggerLabel}
+        </Button>
       </DialogTrigger>
       <DialogContent
         className="grid max-h-[min(90vh,880px)] w-full max-w-2xl grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-2xl"

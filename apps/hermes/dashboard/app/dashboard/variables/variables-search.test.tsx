@@ -1,7 +1,6 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { VariablesSearch } from "./variables-search";
 
 vi.mock("next/form", () => ({
   default: ({
@@ -19,35 +18,18 @@ vi.mock("next/link", () => ({
   default: ({
     children,
     href,
-  }: {
-    children: React.ReactNode;
-    href: string;
-  }) => <a href={href}>{children}</a>,
-}));
-
-vi.mock("@workspace/ui/components/button", () => ({
-  Button: ({ children, type }: React.PropsWithChildren<{ type?: string }>) => (
-    <button type={type as "submit" | "button" | "reset"}>{children}</button>
+    ...props
+  }: React.ComponentProps<"a"> & { href: string }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 
-vi.mock("@workspace/ui/components/input", () => ({
-  Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => (
-    <input {...props} />
-  ),
-}));
-
-vi.mock("@workspace/ui/components/label", () => ({
-  Label: ({
-    children,
-    htmlFor,
-  }: React.PropsWithChildren<{ htmlFor?: string }>) => (
-    <label htmlFor={htmlFor}>{children}</label>
-  ),
-}));
+import { VariablesSearch } from "./variables-search";
 
 describe("VariablesSearch", () => {
-  it("renders search form with role", () => {
+  it("renders a labelled search form", () => {
     // Act
     render(
       <VariablesSearch
@@ -62,9 +44,12 @@ describe("VariablesSearch", () => {
     expect(
       screen.getByRole("search", { name: "Search variables by key" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("searchbox", { name: "Search by key" }),
+    ).toHaveAttribute("placeholder", "Search by key…");
   });
 
-  it("populates search input with initial query", () => {
+  it("populates the search input with the initial query", () => {
     // Act
     render(
       <VariablesSearch
@@ -76,7 +61,7 @@ describe("VariablesSearch", () => {
     );
 
     // Assert
-    expect(screen.getByPlaceholderText("Search by key…")).toHaveValue("API_");
+    expect(screen.getByRole("searchbox")).toHaveValue("API_");
   });
 
   it("includes hidden inputs for preserving state", () => {
@@ -92,6 +77,7 @@ describe("VariablesSearch", () => {
 
     // Assert
     const form = screen.getByRole("search");
+
     expect(form.querySelector('input[name="size"]')).toHaveValue("25");
     expect(form.querySelector('input[name="sort"]')).toHaveValue("created");
     expect(form.querySelector('input[name="dir"]')).toHaveValue("desc");
@@ -111,11 +97,12 @@ describe("VariablesSearch", () => {
 
     // Assert
     const form = screen.getByRole("search");
+
     expect(form).toHaveAttribute("data-action", "/dashboard/variables");
     expect(form).not.toHaveAttribute("method");
   });
 
-  it("constructs clear href with sort params when query is active", () => {
+  it("shows a clear search link that keeps page size and sort", () => {
     // Act
     render(
       <VariablesSearch
@@ -127,14 +114,13 @@ describe("VariablesSearch", () => {
     );
 
     // Assert
-    const clearLink = screen.getByRole("link", { name: /Clear search/i });
-    expect(clearLink).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Clear search" })).toHaveAttribute(
       "href",
-      "/dashboard/variables?size=20&sort=created&dir=desc",
+      "/dashboard/variables?page=1&size=20&sort=created&dir=desc",
     );
   });
 
-  it("hides clear search link when no active query", () => {
+  it("hides the clear search link without an active query", () => {
     // Act
     render(
       <VariablesSearch
@@ -146,6 +132,8 @@ describe("VariablesSearch", () => {
     );
 
     // Assert
-    expect(screen.queryByText("Clear search")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Clear search" }),
+    ).not.toBeInTheDocument();
   });
 });

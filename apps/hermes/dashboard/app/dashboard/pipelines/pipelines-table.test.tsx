@@ -1,46 +1,22 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+
+import { TooltipProvider } from "@workspace/ui/components/tooltip";
+
+import type { PipelineSummary } from "@/lib/pipeline-summaries";
+
 import { PipelinesTable } from "./pipelines-table";
 
 vi.mock("next/link", () => ({
   default: ({
     children,
     href,
-  }: {
-    children: React.ReactNode;
-    href: string;
-  }) => <a href={href}>{children}</a>,
-}));
-
-vi.mock("@workspace/ui/components/badge", () => ({
-  Badge: ({
-    children,
-    variant,
-  }: React.PropsWithChildren<{ variant?: string }>) => (
-    <span data-testid="badge" data-variant={variant}>
+    ...props
+  }: React.ComponentProps<"a"> & { href: string }) => (
+    <a href={href} {...props}>
       {children}
-    </span>
-  ),
-}));
-
-vi.mock("@workspace/ui/components/table", () => ({
-  Table: ({ children }: React.PropsWithChildren) => (
-    <table data-testid="table">{children}</table>
-  ),
-  TableHeader: ({ children }: React.PropsWithChildren) => (
-    <thead>{children}</thead>
-  ),
-  TableBody: ({ children }: React.PropsWithChildren) => (
-    <tbody>{children}</tbody>
-  ),
-  TableRow: ({ children }: React.PropsWithChildren) => <tr>{children}</tr>,
-  TableHead: ({ children }: React.PropsWithChildren) => <th>{children}</th>,
-  TableCell: ({
-    children,
-    colSpan,
-  }: React.PropsWithChildren<{ colSpan?: number }>) => (
-    <td colSpan={colSpan}>{children}</td>
+    </a>
   ),
 }));
 
@@ -52,192 +28,164 @@ vi.mock("./pipeline-row-actions", () => ({
     pipelineId: string;
     pipelineName: string;
   }) => (
-    <button data-testid={`row-actions-${pipelineId}`} data-name={pipelineName}>
+    <button
+      type="button"
+      data-testid={`row-actions-${pipelineId}`}
+      data-name={pipelineName}
+    >
       Actions
     </button>
   ),
 }));
 
 const createMockPipeline = (
-  overrides?: Partial<{
-    id: string;
-    name: string;
-    description: string | null;
-    isActive: boolean;
-  }>,
-) => ({
+  overrides: Partial<PipelineSummary> = {},
+): PipelineSummary => ({
   id: "pipeline-1",
   name: "Test Pipeline",
   description: "Test description",
   isActive: true,
   createdById: null,
-  createdBy: null,
+  createdBy: { id: "user-1", name: "Ada Lovelace", email: "ada@example.com" },
   ...overrides,
 });
 
+const renderTable = (
+  props: Partial<React.ComponentProps<typeof PipelinesTable>> = {},
+) =>
+  render(
+    <TooltipProvider>
+      <PipelinesTable pipelines={[]} {...props} />
+    </TooltipProvider>,
+  );
+
 describe("PipelinesTable", () => {
-  it("renders table headers", () => {
+  it("renders the column headers", () => {
     // Act
-    render(<PipelinesTable pipelines={[]} />);
+    renderTable({
+      pipelines: [createMockPipeline()],
+      pipelineValidationById: { "pipeline-1": { valid: true, warnings: [] } },
+    });
 
     // Assert
-    expect(screen.getByText("Name")).toBeInTheDocument();
-    expect(screen.getByText("Description")).toBeInTheDocument();
-    expect(screen.getByText("Status")).toBeInTheDocument();
-    expect(screen.getByText("Created by")).toBeInTheDocument();
+    const headers = screen
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+
+    expect(headers).toEqual([
+      "Name",
+      "Description",
+      "Status",
+      "Created by",
+      "Actions",
+    ]);
   });
 
-  it("renders empty state when no pipelines", () => {
+  it("renders a row with a detail link, description, status, and creator", () => {
     // Act
-    render(<PipelinesTable pipelines={[]} />);
+    renderTable({
+      pipelines: [createMockPipeline({ id: "pipeline-123" })],
+      pipelineValidationById: {
+        "pipeline-123": { valid: true, warnings: [] },
+      },
+    });
 
     // Assert
+    const row = screen.getByRole("row", { name: /Test Pipeline/ });
+
     expect(
-      screen.getByText("No pipelines yet. Create one to get started."),
-    ).toBeInTheDocument();
-  });
-
-  it("renders pipeline rows when pipelines provided", () => {
-    // Setup
-    const pipelines = [createMockPipeline({ id: "p1" })];
-    const pipelineValidationById = { p1: { valid: true, warnings: [] } };
-
-    // Act
-    render(
-      <PipelinesTable
-        pipelines={pipelines}
-        pipelineValidationById={pipelineValidationById}
-      />,
+      within(row).getByRole("link", { name: "Test Pipeline" }),
+    ).toHaveAttribute("href", "/dashboard/pipelines/pipeline-123");
+    expect(within(row).getByText("Test description")).toHaveAttribute(
+      "title",
+      "Test description",
     );
-
-    // Assert
-    expect(screen.getByText("Test Pipeline")).toBeInTheDocument();
-    expect(screen.getByText("Test description")).toBeInTheDocument();
-  });
-
-  it("displays Enabled badge for enabled pipelines (valid and active)", () => {
-    // Setup
-    const pipelines = [createMockPipeline({ id: "p1", isActive: true })];
-    const pipelineValidationById = { p1: { valid: true, warnings: [] } };
-
-    // Act
-    render(
-      <PipelinesTable
-        pipelines={pipelines}
-        pipelineValidationById={pipelineValidationById}
-      />,
-    );
-
-    // Assert
-    expect(screen.getByText("Enabled")).toBeInTheDocument();
-    expect(screen.getByTestId("badge")).toHaveAttribute(
+    expect(within(row).getByText("Enabled")).toHaveAttribute(
       "data-variant",
       "success",
     );
+    expect(within(row).getByText("Ada Lovelace")).toBeInTheDocument();
+    expect(screen.getByTestId("row-actions-pipeline-123")).toHaveAttribute(
+      "data-name",
+      "Test Pipeline",
+    );
   });
 
-  it("displays Disabled badge for inactive pipelines (valid but isActive false)", () => {
-    // Setup
-    const pipelines = [createMockPipeline({ id: "p1", isActive: false })];
-    const pipelineValidationById = { p1: { valid: true, warnings: [] } };
-
+  it("shows inactive pipelines as disabled", () => {
     // Act
-    render(
-      <PipelinesTable
-        pipelines={pipelines}
-        pipelineValidationById={pipelineValidationById}
-      />,
-    );
+    renderTable({
+      pipelines: [createMockPipeline({ isActive: false })],
+      pipelineValidationById: { "pipeline-1": { valid: true, warnings: [] } },
+    });
 
     // Assert
-    expect(screen.getByText("Disabled")).toBeInTheDocument();
-    expect(screen.getByTestId("badge")).toHaveAttribute(
+    expect(screen.getByText("Disabled")).toHaveAttribute(
       "data-variant",
-      "secondary",
+      "muted",
     );
   });
 
-  it("displays Incomplete badge for invalid pipelines", () => {
-    // Setup
-    const pipelines = [createMockPipeline({ id: "p1", isActive: true })];
-    const pipelineValidationById = {
-      p1: { valid: false, warnings: ["Step 1: missing input"] },
-    };
-
+  it("shows invalid pipelines as incomplete with their warnings", () => {
     // Act
-    render(
-      <PipelinesTable
-        pipelines={pipelines}
-        pipelineValidationById={pipelineValidationById}
-      />,
+    renderTable({
+      pipelines: [createMockPipeline()],
+      pipelineValidationById: {
+        "pipeline-1": { valid: false, warnings: ["Step 1: missing input"] },
+      },
+    });
+
+    // Assert
+    expect(screen.getByRole("button", { name: "Incomplete" })).toBeVisible();
+    expect(screen.getByText("Incomplete")).toHaveAttribute(
+      "data-variant",
+      "warning",
     );
+  });
+
+  it("treats pipelines without a validation result as incomplete", () => {
+    // Act
+    renderTable({ pipelines: [createMockPipeline()] });
 
     // Assert
     expect(screen.getByText("Incomplete")).toBeInTheDocument();
-    expect(screen.getByTestId("badge")).toHaveAttribute(
-      "data-variant",
-      "destructive",
-    );
+    expect(
+      screen.queryByRole("button", { name: "Incomplete" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("displays dash for null description", () => {
-    // Setup
-    const pipelines = [createMockPipeline({ id: "p1", description: null })];
-    const pipelineValidationById = { p1: { valid: true, warnings: [] } };
-
+  it("displays a dash for a missing description", () => {
     // Act
-    render(
-      <PipelinesTable
-        pipelines={pipelines}
-        pipelineValidationById={pipelineValidationById}
-      />,
-    );
+    renderTable({
+      pipelines: [createMockPipeline({ description: null })],
+      pipelineValidationById: { "pipeline-1": { valid: true, warnings: [] } },
+    });
 
     // Assert
-    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+    expect(screen.getByText("—")).toBeInTheDocument();
   });
 
-  it("renders row actions for each pipeline", () => {
+  it("invites creating the first pipeline when there are none", () => {
     // Setup
-    const pipelines = [
-      createMockPipeline({ id: "pipeline-1", name: "Pipeline A" }),
-      createMockPipeline({ id: "pipeline-2", name: "Pipeline B" }),
-    ];
-    const pipelineValidationById = {
-      "pipeline-1": { valid: true, warnings: [] },
-      "pipeline-2": { valid: true, warnings: [] },
-    };
+    const onCreate = vi.fn();
+    renderTable({ onCreate });
 
     // Act
-    render(
-      <PipelinesTable
-        pipelines={pipelines}
-        pipelineValidationById={pipelineValidationById}
-      />,
-    );
+    fireEvent.click(screen.getByRole("button", { name: "New pipeline" }));
 
     // Assert
-    expect(screen.getByTestId("row-actions-pipeline-1")).toBeInTheDocument();
-    expect(screen.getByTestId("row-actions-pipeline-2")).toBeInTheDocument();
+    expect(screen.getByText("No pipelines yet")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
-  it("renders pipeline name as link", () => {
-    // Setup
-    const pipelines = [createMockPipeline({ id: "pipeline-123" })];
-    const pipelineValidationById = {
-      "pipeline-123": { valid: true, warnings: [] },
-    };
-
+  it("omits the create action from the empty state without a handler", () => {
     // Act
-    render(
-      <PipelinesTable
-        pipelines={pipelines}
-        pipelineValidationById={pipelineValidationById}
-      />,
-    );
+    renderTable();
 
     // Assert
-    const link = screen.getByRole("link", { name: "Test Pipeline" });
-    expect(link).toHaveAttribute("href", "/dashboard/pipelines/pipeline-123");
+    expect(screen.getByText("No pipelines yet")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "New pipeline" }),
+    ).not.toBeInTheDocument();
   });
 });

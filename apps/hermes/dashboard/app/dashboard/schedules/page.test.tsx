@@ -16,13 +16,16 @@ const renderedQuery = () =>
   );
 
 describe("SchedulesPage", () => {
-  it("renders the page header and the schedules section", async () => {
+  it("renders the page header with the new schedule action and the section", async () => {
     // Act
     render(await SchedulesPage({ searchParams: {} }));
 
     // Assert
     expect(
       screen.getByRole("heading", { name: "Schedules" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "New schedule" }),
     ).toBeInTheDocument();
     expect(renderedQuery()).toEqual({
       page: 1,

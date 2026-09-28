@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildListHref,
   DEFAULT_LIST_PAGE_SIZE,
+  nextSortDirection,
   parseListPagination,
   parseListSearch,
   parseListSort,
@@ -74,4 +76,37 @@ describe("parseListSearch", () => {
       expect(parseListSearch(searchParams)).toBeUndefined();
     },
   );
+});
+
+describe("buildListHref", () => {
+  it("builds a list URL and skips empty values", () => {
+    expect(
+      buildListHref("/dashboard/schedules", {
+        page: 2,
+        pageSize: 15,
+        search: "daily",
+        sortBy: "name",
+        sortDir: "desc",
+        extra: { from: "2026-09-01", to: undefined, status: "" },
+      }),
+    ).toBe(
+      "/dashboard/schedules?page=2&size=15&q=daily&sort=name&dir=desc&from=2026-09-01",
+    );
+  });
+
+  it("defaults to the first page", () => {
+    expect(buildListHref("/dashboard/agents", {})).toBe(
+      "/dashboard/agents?page=1",
+    );
+  });
+});
+
+describe("nextSortDirection", () => {
+  it("flips the active ascending column to descending", () => {
+    expect(nextSortDirection("name", "name", "asc")).toBe("desc");
+  });
+
+  it("starts other columns ascending", () => {
+    expect(nextSortDirection("created", "name", "desc")).toBe("asc");
+  });
 });

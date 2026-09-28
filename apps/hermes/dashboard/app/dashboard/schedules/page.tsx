@@ -1,5 +1,9 @@
 import { Suspense } from "react";
 
+import {
+  EntityFormModalCreateButton,
+  EntityFormModalProvider,
+} from "@/components/entity-form-modal-provider";
 import { PageHeader } from "@/components/page-header";
 import { ListBodySkeleton } from "@/components/page-skeletons";
 import {
@@ -32,15 +36,18 @@ const SchedulesPage = async ({
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <PageHeader
-        title="Schedules"
-        description="Schedule pipelines to run on a cron or interval."
-      />
-      <Suspense key={JSON.stringify(query)} fallback={<ListBodySkeleton />}>
-        <SchedulesSection {...query} />
-      </Suspense>
-    </div>
+    <EntityFormModalProvider>
+      <div className="flex flex-col gap-6">
+        <PageHeader
+          title="Schedules"
+          description="Run pipelines automatically on a cron expression or a fixed interval."
+          actions={<EntityFormModalCreateButton label="New schedule" />}
+        />
+        <Suspense key={JSON.stringify(query)} fallback={<ListBodySkeleton />}>
+          <SchedulesSection {...query} />
+        </Suspense>
+      </div>
+    </EntityFormModalProvider>
   );
 };
 

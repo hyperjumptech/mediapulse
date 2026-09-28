@@ -17,7 +17,6 @@ export const ActiveExecutionsSection = async () => {
       />
     );
   }
-  const now = new Date();
 
-  return <OverviewExecutionList executions={executions} now={now} />;
+  return <OverviewExecutionList executions={executions} />;
 };

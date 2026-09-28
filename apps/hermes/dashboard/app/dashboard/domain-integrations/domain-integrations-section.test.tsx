@@ -18,6 +18,14 @@ vi.mock("@hermes/orchestration-database", () => ({
   },
 }));
 
+vi.mock("@/components/copyable-id", () => ({
+  CopyableId: ({ value, label }: { value: string; label?: string }) => (
+    <span data-testid="copyable-id" aria-label={label}>
+      {value}
+    </span>
+  ),
+}));
+
 vi.mock("./domain-integration-row-actions", () => ({
   DomainIntegrationRowActions: ({
     row,
@@ -65,12 +73,25 @@ describe("DomainIntegrationsSection", () => {
     render(await DomainIntegrationsSection());
 
     // Assert
-    expect(screen.getByText("mediapulse")).toBeInTheDocument();
-    expect(screen.getByText("active")).toBeInTheDocument();
-    expect(screen.getByText("pending")).toBeInTheDocument();
+    const baseUrlCell = screen.getByText("https://mediapulse.example.com");
+
+    expect(screen.getByText("Mediapulse")).toBeInTheDocument();
     expect(
-      screen.getByText("https://mediapulse.example.com"),
-    ).toBeInTheDocument();
+      screen.getByLabelText("Copy integration id mediapulse"),
+    ).toHaveTextContent("mediapulse");
+    expect(screen.getByText("active")).toHaveAttribute(
+      "data-variant",
+      "success",
+    );
+    expect(screen.getByText("pending")).toHaveAttribute(
+      "data-variant",
+      "muted",
+    );
+    expect(baseUrlCell).toHaveAttribute(
+      "title",
+      "https://mediapulse.example.com",
+    );
+    expect(baseUrlCell).toHaveClass("truncate");
     expect(screen.getByText("Ada")).toBeInTheDocument();
     expect(
       screen.getByTestId("domain-integration-row-actions-integration-2"),
@@ -90,8 +111,13 @@ describe("DomainIntegrationsSection", () => {
     render(await DomainIntegrationsSection());
 
     // Assert
+    expect(screen.getByText("No integrations yet")).toBeInTheDocument();
     expect(
-      screen.getByText("No integrations yet. Create one to get an API key."),
+      screen.getByText("Create one to get an API key."),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "New integration" }),
+    ).toHaveAttribute("href", "/dashboard/domain-integrations/create");
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 });

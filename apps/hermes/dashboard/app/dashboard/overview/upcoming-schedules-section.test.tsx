@@ -20,6 +20,11 @@ import { UpcomingSchedulesSection } from "./upcoming-schedules-section";
 
 const now = new Date("2026-09-28T12:00:00.000Z");
 
+const viewerTimestampFormatter = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
 const activeSchedule: UpcomingSchedule = {
   id: "schedule-1",
   name: "Morning digest",
@@ -66,8 +71,9 @@ describe("UpcomingSchedulesSection", () => {
     expect(links[1]).toHaveAttribute("href", "/dashboard/schedules/schedule-2");
     expect(links[1]).toHaveTextContent("in 5h");
     expect(nextRun).toHaveAttribute("dateTime", "2026-09-28T12:12:00.000Z");
-    expect(nextRun.getAttribute("title")).toMatch(
-      /^Sep 28, 2026, 12:12\sPM UTC$/,
+    expect(nextRun).toHaveAttribute(
+      "title",
+      viewerTimestampFormatter.format(activeSchedule.nextRunAt),
     );
   });
 
@@ -87,6 +93,7 @@ describe("UpcomingSchedulesSection", () => {
 
     expect(disabledBadges).toHaveLength(1);
     expect(disabledBadges[0]).toHaveAttribute("data-variant", "muted");
+    expect(disabledBadges[0]).toHaveClass("normal-case");
     expect(links[1]).toContainElement(disabledBadges[0] ?? null);
   });
 

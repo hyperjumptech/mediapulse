@@ -1,46 +1,20 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { AgentsTable } from "./agents-table";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/link", () => ({
   default: ({
     children,
     href,
+    className,
   }: {
     children: React.ReactNode;
     href: string;
-  }) => <a href={href}>{children}</a>,
-}));
-
-vi.mock("@workspace/ui/components/table", () => ({
-  Table: ({ children }: React.PropsWithChildren) => (
-    <table data-testid="table">{children}</table>
-  ),
-  TableHeader: ({ children }: React.PropsWithChildren) => (
-    <thead>{children}</thead>
-  ),
-  TableBody: ({ children }: React.PropsWithChildren) => (
-    <tbody>{children}</tbody>
-  ),
-  TableRow: ({ children }: React.PropsWithChildren) => <tr>{children}</tr>,
-  TableHead: ({ children }: React.PropsWithChildren) => <th>{children}</th>,
-  TableCell: ({
-    children,
-    colSpan,
-  }: React.PropsWithChildren<{ colSpan?: number }>) => (
-    <td colSpan={colSpan}>{children}</td>
-  ),
-}));
-
-vi.mock("@workspace/ui/components/badge", () => ({
-  Badge: ({
-    children,
-    variant,
-  }: React.PropsWithChildren<{ variant?: string }>) => (
-    <span data-testid="badge" data-variant={variant}>
+    className?: string;
+  }) => (
+    <a href={href} className={className}>
       {children}
-    </span>
+    </a>
   ),
 }));
 
@@ -58,6 +32,8 @@ vi.mock("./agent-row-actions", () => ({
   ),
 }));
 
+import { AgentsTable } from "./agents-table";
+
 const createMockAgent = (
   overrides?: Partial<{
     id: string;
@@ -67,7 +43,6 @@ const createMockAgent = (
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
-    domainIntegration: { integrationId: string };
   }>,
 ) => ({
   id: "agent-1",
@@ -77,51 +52,80 @@ const createMockAgent = (
   isActive: true,
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),
+  domainIntegration: { integrationId: "mediapulse-local" },
   ...overrides,
-  domainIntegration: overrides?.domainIntegration ?? {
-    integrationId: "mediapulse-local",
-  },
 });
 
 describe("AgentsTable", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("renders table headers", () => {
-    // Act
-    render(
-      <AgentsTable agents={[]} sortBy="agentId" sortDir="asc" pageSize={15} />,
-    );
-
-    // Assert
-    expect(screen.getByText("Agent ID")).toBeInTheDocument();
-    expect(screen.getByText("Version")).toBeInTheDocument();
-    expect(screen.getByText("Domain integration id")).toBeInTheDocument();
-    expect(screen.getByText("Description")).toBeInTheDocument();
-    expect(screen.getByText("Active")).toBeInTheDocument();
-    expect(screen.getByText("Created")).toBeInTheDocument();
-    expect(screen.getByText("Updated")).toBeInTheDocument();
-  });
-
-  it("renders empty state when no agents", () => {
-    // Act
-    render(
-      <AgentsTable agents={[]} sortBy="agentId" sortDir="asc" pageSize={15} />,
-    );
-
-    // Assert
-    expect(screen.getByText("No agents yet.")).toBeInTheDocument();
-  });
-
-  it("renders agent rows when agents provided", () => {
-    // Setup
-    const agents = [createMockAgent()];
-
+  it("renders the column headers", () => {
     // Act
     render(
       <AgentsTable
-        agents={agents}
+        agents={[createMockAgent()]}
+        sortBy="agentId"
+        sortDir="asc"
+        pageSize={15}
+      />,
+    );
+
+    // Assert
+    const headers = screen
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+
+    expect(headers).toEqual([
+      "Agent ID",
+      "Version",
+      "Integration",
+      "Description",
+      "Status",
+      "Created",
+      "Updated",
+      "Actions",
+    ]);
+  });
+
+  it("renders a registration hint when there are no agents", () => {
+    // Act
+    render(
+      <AgentsTable agents={[]} sortBy="agentId" sortDir="asc" pageSize={15} />,
+    );
+
+    // Assert
+    expect(screen.getByText("No agents registered")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Clear search" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers to clear the search when nothing matches", () => {
+    // Act
+    render(
+      <AgentsTable
+        agents={[]}
+        sortBy="created"
+        sortDir="desc"
+        pageSize={20}
+        searchQuery="summarizer"
+      />,
+    );
+
+    // Assert
+    expect(
+      screen.getByText("No agents match “summarizer”"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Clear search" })).toHaveAttribute(
+      "href",
+      "/dashboard/agents?page=1&size=20&sort=created&dir=desc",
+    );
+  });
+
+  it("renders the agent row fields", () => {
+    // Act
+    render(
+      <AgentsTable
+        agents={[createMockAgent()]}
         sortBy="agentId"
         sortDir="asc"
         pageSize={15}
@@ -133,17 +137,18 @@ describe("AgentsTable", () => {
     expect(screen.getByText("1.0")).toBeInTheDocument();
     expect(screen.getByText("mediapulse-local")).toBeInTheDocument();
     expect(screen.getByText("Test description")).toBeInTheDocument();
-    // Created and Updated columns both show formatted dates; header "Updated" confirms the column is present
+    expect(screen.getAllByRole("time")).toHaveLength(2);
+    expect(screen.getByTestId("row-actions-agent-1")).toHaveAttribute(
+      "data-label",
+      "test-agent@1.0",
+    );
   });
 
-  it("displays Yes badge for active agents", () => {
-    // Setup
-    const agents = [createMockAgent({ isActive: true })];
-
+  it("shows an active status badge for active agents", () => {
     // Act
     render(
       <AgentsTable
-        agents={agents}
+        agents={[createMockAgent({ isActive: true })]}
         sortBy="agentId"
         sortDir="asc"
         pageSize={15}
@@ -151,21 +156,17 @@ describe("AgentsTable", () => {
     );
 
     // Assert
-    expect(screen.getByText("Yes")).toBeInTheDocument();
-    expect(screen.getByTestId("badge")).toHaveAttribute(
+    expect(screen.getByText("active")).toHaveAttribute(
       "data-variant",
-      "default",
+      "success",
     );
   });
 
-  it("displays No badge for inactive agents", () => {
-    // Setup
-    const agents = [createMockAgent({ isActive: false })];
-
+  it("shows an inactive status badge for inactive agents", () => {
     // Act
     render(
       <AgentsTable
-        agents={agents}
+        agents={[createMockAgent({ isActive: false })]}
         sortBy="agentId"
         sortDir="asc"
         pageSize={15}
@@ -173,21 +174,17 @@ describe("AgentsTable", () => {
     );
 
     // Assert
-    expect(screen.getByText("No")).toBeInTheDocument();
-    expect(screen.getByTestId("badge")).toHaveAttribute(
+    expect(screen.getByText("inactive")).toHaveAttribute(
       "data-variant",
-      "secondary",
+      "muted",
     );
   });
 
-  it("displays dash for null description", () => {
-    // Setup
-    const agents = [createMockAgent({ description: null })];
-
+  it("displays a dash for a missing description", () => {
     // Act
     render(
       <AgentsTable
-        agents={agents}
+        agents={[createMockAgent({ description: null })]}
         sortBy="agentId"
         sortDir="asc"
         pageSize={15}
@@ -198,46 +195,13 @@ describe("AgentsTable", () => {
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
-  it("renders row actions for each agent", () => {
-    // Setup
-    const agents = [
-      createMockAgent({
-        id: "agent-1",
-        agentId: "agent-a",
-        agentVersion: "1.0",
-      }),
-      createMockAgent({
-        id: "agent-2",
-        agentId: "agent-b",
-        agentVersion: "2.0",
-      }),
-    ];
-
-    // Act
-    render(
-      <AgentsTable
-        agents={agents}
-        sortBy="agentId"
-        sortDir="asc"
-        pageSize={15}
-      />,
-    );
-
-    // Assert
-    expect(screen.getByTestId("row-actions-agent-1")).toBeInTheDocument();
-    expect(screen.getByTestId("row-actions-agent-2")).toBeInTheDocument();
-  });
-
-  it("calls onView callback when clicking agent ID with onView prop", () => {
+  it("calls onView when the agent ID is clicked", () => {
     // Setup
     const onView = vi.fn();
     const agent = createMockAgent();
-    const agents = [agent];
-
-    // Act
     render(
       <AgentsTable
-        agents={agents}
+        agents={[agent]}
         sortBy="agentId"
         sortDir="asc"
         pageSize={15}
@@ -245,21 +209,18 @@ describe("AgentsTable", () => {
       />,
     );
 
-    const agentIdButton = screen.getByRole("button", { name: "test-agent" });
-    fireEvent.click(agentIdButton);
+    // Act
+    fireEvent.click(screen.getByRole("button", { name: "test-agent" }));
 
     // Assert
     expect(onView).toHaveBeenCalledWith(agent);
   });
 
-  it("renders link when onView not provided", () => {
-    // Setup
-    const agents = [createMockAgent({ id: "agent-123" })];
-
+  it("links the agent ID to the detail page without onView", () => {
     // Act
     render(
       <AgentsTable
-        agents={agents}
+        agents={[createMockAgent({ id: "agent-123" })]}
         sortBy="agentId"
         sortDir="asc"
         pageSize={15}
@@ -267,18 +228,32 @@ describe("AgentsTable", () => {
     );
 
     // Assert
-    const link = screen.getByRole("link", { name: "test-agent" });
-    expect(link).toHaveAttribute("href", "/dashboard/agents/agent-123");
+    expect(screen.getByRole("link", { name: "test-agent" })).toHaveAttribute(
+      "href",
+      "/dashboard/agents/agent-123",
+    );
   });
 
-  it("renders sortable column headers as links", () => {
+  it("builds sort links that toggle the active column and keep the search", () => {
     // Act
     render(
-      <AgentsTable agents={[]} sortBy="agentId" sortDir="asc" pageSize={15} />,
+      <AgentsTable
+        agents={[createMockAgent()]}
+        sortBy="agentId"
+        sortDir="asc"
+        pageSize={15}
+        searchQuery="test"
+      />,
     );
 
     // Assert
-    const agentIdLink = screen.getByRole("link", { name: /Agent ID/i });
-    expect(agentIdLink).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Agent ID/ })).toHaveAttribute(
+      "href",
+      "/dashboard/agents?page=1&size=15&q=test&sort=agentId&dir=desc",
+    );
+    expect(screen.getByRole("link", { name: /Updated/ })).toHaveAttribute(
+      "href",
+      "/dashboard/agents?page=1&size=15&q=test&sort=updated&dir=asc",
+    );
   });
 });

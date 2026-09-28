@@ -1,8 +1,18 @@
 import { format } from "date-fns";
+import { Users } from "lucide-react";
 
+import { DataTableCard } from "@/components/data-table/data-table-card";
+import { StatusBadge } from "@/components/status-badge";
 import { loadHermesAdminsForPage } from "@/lib/hermes-admins-page";
 import { requireDashboardAdmin } from "@/lib/require-dashboard-admin";
 import { Badge } from "@workspace/ui/components/badge";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@workspace/ui/components/empty";
 import {
   Table,
   TableBody,
@@ -14,66 +24,87 @@ import {
 
 import { AdminRowActions } from "./admin-row-actions";
 
+const AdminsEmptyState = () => {
+  return (
+    <Empty className="gap-4 py-12 md:py-16">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Users aria-hidden className="size-5 text-muted-foreground" />
+        </EmptyMedia>
+        <EmptyTitle className="text-base">No admins yet</EmptyTitle>
+        <EmptyDescription>
+          Use the CLI or “Add admin” to create one.
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  );
+};
+
 export const AdminsSection = async () => {
   const [admins, currentUser] = await Promise.all([
     loadHermesAdminsForPage(),
     requireDashboardAdmin(),
   ]);
 
+  if (admins.length === 0) {
+    return (
+      <DataTableCard>
+        <AdminsEmptyState />
+      </DataTableCard>
+    );
+  }
+
   return (
-    <div className="rounded-md border">
+    <DataTableCard>
       <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow className="border-muted hover:bg-transparent">
-            <TableHead className="w-[160px]">Name</TableHead>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="pl-4">Name</TableHead>
             <TableHead>Email</TableHead>
-            <TableHead className="w-[100px]">Status</TableHead>
-            <TableHead className="w-[120px]">Created</TableHead>
-            <TableHead className="w-12" />
+            <TableHead>Status</TableHead>
+            <TableHead className="hidden sm:table-cell">Created</TableHead>
+            <TableHead className="w-12 pr-2">
+              <span className="sr-only">Actions</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {admins.length === 0 ? (
-            <TableRow>
-              <TableCell
-                colSpan={5}
-                className="text-center text-muted-foreground"
-              >
-                No admins yet. Use the CLI or “Add admin” to create one.
-              </TableCell>
-            </TableRow>
-          ) : (
-            admins.map((admin) => (
+          {admins.map((admin) => {
+            const isCurrentUser = admin.id === currentUser.id;
+            const createdLabel = format(admin.createdAt, "LLL d, yyyy");
+
+            return (
               <TableRow key={admin.id}>
-                <TableCell className="font-medium">{admin.name}</TableCell>
-                <TableCell className="text-muted-foreground text-sm">
+                <TableCell className="pl-4">
+                  <span className="flex items-center gap-2">
+                    <span className="font-medium">{admin.name}</span>
+                    {isCurrentUser ? <Badge variant="muted">You</Badge> : null}
+                  </span>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
                   {admin.email}
                 </TableCell>
                 <TableCell>
                   {admin.isActive ? (
-                    <Badge variant="secondary" className="font-normal">
-                      Active
-                    </Badge>
+                    <StatusBadge status="active" label="Active" />
                   ) : (
-                    <Badge variant="outline" className="font-normal">
-                      Disabled
-                    </Badge>
+                    <StatusBadge status="disabled" label="Disabled" />
                   )}
                 </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {format(admin.createdAt, "LLL d, yyyy")}
+                <TableCell className="hidden text-muted-foreground tabular-nums sm:table-cell">
+                  {createdLabel}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="pr-2 text-right">
                   <AdminRowActions
                     admin={admin}
                     currentUserId={currentUser.id}
                   />
                 </TableCell>
               </TableRow>
-            ))
-          )}
+            );
+          })}
         </TableBody>
       </Table>
-    </div>
+    </DataTableCard>
   );
 };

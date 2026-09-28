@@ -49,3 +49,51 @@ export const parseListSearch = (
 
   return trimmed ? trimmed : undefined;
 };
+
+export const buildListHref = (
+  basePath: string,
+  {
+    page = 1,
+    pageSize,
+    search,
+    sortBy,
+    sortDir,
+    extra = {},
+  }: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    sortBy?: string;
+    sortDir?: SortDirection;
+    extra?: Record<string, string | undefined>;
+  },
+): string => {
+  const params = new URLSearchParams();
+  params.set("page", String(page));
+  if (pageSize !== undefined) {
+    params.set("size", String(pageSize));
+  }
+  if (search) {
+    params.set("q", search);
+  }
+  if (sortBy) {
+    params.set("sort", sortBy);
+  }
+  if (sortDir) {
+    params.set("dir", sortDir);
+  }
+  for (const [key, value] of Object.entries(extra)) {
+    if (value !== undefined && value !== "") {
+      params.set(key, value);
+    }
+  }
+
+  return `${basePath}?${params.toString()}`;
+};
+
+export const nextSortDirection = (
+  field: string,
+  activeField: string,
+  activeDirection: SortDirection,
+): SortDirection =>
+  field === activeField && activeDirection === "asc" ? "desc" : "asc";
