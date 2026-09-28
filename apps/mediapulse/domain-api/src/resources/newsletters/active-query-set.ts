@@ -6,7 +6,6 @@ export type ActiveQuerySetPayload = {
   generatedAt: string;
   generationSource: string;
   agentLabel: string;
-  generatedAtLabel: string;
   model: string;
   tokensTotalLabel: string;
   tokensBreakdownLabel: string;
@@ -25,8 +24,6 @@ type QuerySetRow = Prisma.SearchQuerySetGetPayload<{
   include: { searchQueries: true };
 }>;
 
-const STAGE_TIMEZONE = "Asia/Jakarta";
-
 const toFiniteNumber = (value: unknown): number =>
   typeof value === "number" && Number.isFinite(value) ? value : 0;
 
@@ -35,23 +32,6 @@ const compactNumber = (value: number): string =>
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(value);
-
-const formatGeneratedAt = (date: Date): string => {
-  const datePart = new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: STAGE_TIMEZONE,
-  }).format(date);
-  const timePart = new Intl.DateTimeFormat("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: STAGE_TIMEZONE,
-  }).format(date);
-
-  return `${datePart} at ${timePart}`;
-};
 
 const toQuerySetPayload = (
   set: QuerySetRow,
@@ -85,7 +65,6 @@ const toQuerySetPayload = (
     generatedAt: set.generatedAt.toISOString(),
     generationSource: set.generationSource,
     agentLabel,
-    generatedAtLabel: formatGeneratedAt(set.generatedAt),
     model,
     tokensTotalLabel: compactNumber(totalTokens),
     tokensBreakdownLabel: `Input ${promptTokens.toLocaleString("en-US")} · Output ${completionTokens.toLocaleString("en-US")} · Reasoning ${reasoningTokens.toLocaleString("en-US")}`,

@@ -31,7 +31,7 @@ describe("ExecutionTimeLink", () => {
     vi.useRealTimers();
   });
 
-  it("links the relative execution time to the execution", () => {
+  it("links the execution time to the execution", () => {
     // Act
     render(
       <ExecutionTimeLink
@@ -42,7 +42,7 @@ describe("ExecutionTimeLink", () => {
 
     // Assert
     const link = screen.getByRole("link", {
-      name: "Open execution from 5m ago",
+      name: "Open execution from Sep 28, 11:55 5m ago",
     });
 
     expect(link).toHaveAttribute(

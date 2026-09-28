@@ -97,4 +97,47 @@ describe("DetailBlockStatCardsView", () => {
 
     expect(screen.getByText("Success").className).toContain("text-green-600");
   });
+
+  it("formats a date-time card in the viewer time zone", () => {
+    renderWithTooltip(
+      <DetailBlockStatCardsView
+        block={{
+          type: "statCards",
+          cards: [
+            {
+              label: "Delivered Date",
+              field: "delivery.deliveredAt",
+              format: "date-time",
+            },
+          ],
+        }}
+        data={{ delivery: { deliveredAt: "2026-07-13T06:00:00.000Z" } }}
+      />,
+    );
+
+    expect(screen.getByText("Jul 13, 2026, 06:00")).toHaveAttribute(
+      "datetime",
+      "2026-07-13T06:00:00.000Z",
+    );
+  });
+
+  it("shows a dash when a date-time card has no value", () => {
+    renderWithTooltip(
+      <DetailBlockStatCardsView
+        block={{
+          type: "statCards",
+          cards: [
+            {
+              label: "Delivered Date",
+              field: "delivery.deliveredAt",
+              format: "date-time",
+            },
+          ],
+        }}
+        data={{ delivery: { deliveredAt: null } }}
+      />,
+    );
+
+    expect(screen.getByText("—")).toBeInTheDocument();
+  });
 });

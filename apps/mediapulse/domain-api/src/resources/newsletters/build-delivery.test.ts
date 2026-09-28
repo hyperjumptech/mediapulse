@@ -22,7 +22,7 @@ describe("buildDelivery", () => {
     });
     expect(result).toStrictEqual({
       agentLabel: "delivery - 1.2.0",
-      deliveredAtLabel: "July 13, 2026 at 13:00",
+      deliveredAt: "2026-07-13T06:00:00.000Z",
       outcomeLabel: "Partial",
       outcomeVariant: "warning",
       deliveredLabel: "12 / 15",
@@ -59,7 +59,7 @@ describe("buildDelivery", () => {
 
     expect(result).toStrictEqual({
       agentLabel: "delivery",
-      deliveredAtLabel: "—",
+      deliveredAt: null,
       outcomeLabel: "—",
       outcomeVariant: "muted",
       deliveredLabel: "0 / 0",

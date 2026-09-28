@@ -5,8 +5,6 @@ import {
   COLLECTION_SOURCE_LABEL,
 } from "../data-sources/collection-source";
 
-const STAGE_TIMEZONE = "Asia/Jakarta";
-
 /** Label shown in the Query column for sources that did not come from a search query. */
 export const CURATED_SOURCE_LABEL = "Curated source" as const;
 
@@ -30,7 +28,7 @@ export type SourceCollectionDroppedPayload = {
 
 /** Shape of the source-collection stage payload exposed by the detail handler. */
 export type SourceCollectionPayload = {
-  generatedAtLabel: string;
+  generatedAt: string | null;
   creditsTotalLabel: string;
   creditsBreakdownLabel: string;
   collectedTotalLabel: string;
@@ -103,23 +101,6 @@ const outcomeAgentLabel = (agent: string): string =>
   agent === "page_collection"
     ? COLLECTION_SOURCE_LABEL["page-collection"]
     : COLLECTION_SOURCE_LABEL["data-collection"];
-
-const formatGeneratedAt = (date: Date): string => {
-  const datePart = new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: STAGE_TIMEZONE,
-  }).format(date);
-  const timePart = new Intl.DateTimeFormat("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: STAGE_TIMEZONE,
-  }).format(date);
-
-  return `${datePart} at ${timePart}`;
-};
 
 /**
  * Assembles the source-collection stage for a newsletter from its exact citation join: the distinct
@@ -279,7 +260,7 @@ export const buildSourceCollection = async (
       : "No cost recorded";
 
   return {
-    generatedAtLabel: latestRunAt ? formatGeneratedAt(latestRunAt) : "—",
+    generatedAt: latestRunAt ? latestRunAt.toISOString() : null,
     creditsTotalLabel: totalCredits.toLocaleString("en-US"),
     creditsBreakdownLabel,
     collectedTotalLabel: sources.length.toLocaleString("en-US"),

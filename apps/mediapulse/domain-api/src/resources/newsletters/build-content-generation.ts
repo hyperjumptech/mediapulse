@@ -4,8 +4,6 @@ import {
 } from "@workspace/agent-data-api-contract";
 import type { Prisma, prisma } from "@mediapulse/database";
 
-const STAGE_TIMEZONE = "Asia/Jakarta";
-
 /** Agent id shown in the stage's Agent KPI card (a single agent produces this stage). */
 const CONTENT_GENERATION_AGENT_ID = "content-generation" as const;
 
@@ -31,7 +29,7 @@ export type ContentGenerationRowPayload = {
 /** Shape of the content-generation stage payload exposed by the detail handler. */
 export type ContentGenerationPayload = {
   agentLabel: string;
-  generatedAtLabel: string;
+  generatedAt: string;
   model: string;
   tokensTotalLabel: string;
   tokensBreakdownLabel: string;
@@ -93,23 +91,6 @@ const compactNumber = (value: number): string =>
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(value);
-
-const formatGeneratedAt = (date: Date): string => {
-  const datePart = new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: STAGE_TIMEZONE,
-  }).format(date);
-  const timePart = new Intl.DateTimeFormat("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: STAGE_TIMEZONE,
-  }).format(date);
-
-  return `${datePart} at ${timePart}`;
-};
 
 /**
  * Assembles the content-generation stage for a newsletter from its own generation columns (the writing
@@ -186,7 +167,7 @@ export const buildContentGeneration = async (
 
   return {
     agentLabel,
-    generatedAtLabel: formatGeneratedAt(newsletter.createdAt),
+    generatedAt: newsletter.createdAt.toISOString(),
     model: newsletter.model ?? "—",
     tokensTotalLabel: compactNumber(totalTokens),
     tokensBreakdownLabel: `Input ${promptTokens.toLocaleString("en-US")} · Output ${completionTokens.toLocaleString("en-US")}`,

@@ -36,7 +36,11 @@ const newslettersDeliveryStageBlock = {
       type: "statCards",
       cards: [
         { label: "Agent", field: "delivery.agentLabel" },
-        { label: "Delivered Date", field: "delivery.deliveredAtLabel" },
+        {
+          label: "Delivered Date",
+          field: "delivery.deliveredAt",
+          format: "date-time",
+        },
         {
           label: "Outcome",
           field: "delivery.outcomeLabel",
@@ -108,7 +112,11 @@ const newslettersQueryStageBlock = {
       type: "statCards",
       cards: [
         { label: "Agent", field: "activeQuerySet.agentLabel" },
-        { label: "Generated Date", field: "activeQuerySet.generatedAtLabel" },
+        {
+          label: "Generated Date",
+          field: "activeQuerySet.generatedAt",
+          format: "date-time",
+        },
         { label: "LLM Model", field: "activeQuerySet.model" },
         {
           label: "LLM Tokens",
@@ -159,7 +167,8 @@ const newslettersSourceStageBlock = {
       cards: [
         {
           label: "Generated Date",
-          field: "sourceCollection.generatedAtLabel",
+          field: "sourceCollection.generatedAt",
+          format: "date-time",
         },
         {
           label: "Search Credits",
@@ -258,7 +267,8 @@ const newslettersSourceAnalysisStageBlock = {
         { label: "Agent", field: "sourceAnalysis.agentLabel" },
         {
           label: "Generated Date",
-          field: "sourceAnalysis.generatedAtLabel",
+          field: "sourceAnalysis.generatedAt",
+          format: "date-time",
         },
         { label: "LLM Model", field: "sourceAnalysis.modelLabel" },
         {
@@ -356,7 +366,8 @@ const newslettersContentGenerationStageBlock = {
         { label: "Agent", field: "contentGeneration.agentLabel" },
         {
           label: "Generated Date",
-          field: "contentGeneration.generatedAtLabel",
+          field: "contentGeneration.generatedAt",
+          format: "date-time",
         },
         { label: "LLM Model", field: "contentGeneration.model" },
         {

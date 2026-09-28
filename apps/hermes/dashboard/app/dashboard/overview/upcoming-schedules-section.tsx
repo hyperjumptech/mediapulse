@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CalendarOff } from "lucide-react";
 
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 import { StatusBadge } from "@/components/status-badge";
 import {
   getUpcomingSchedules,
@@ -31,8 +31,9 @@ const UpcomingScheduleItem = ({ schedule }: { schedule: UpcomingSchedule }) => {
             )}
           </span>
         </span>
-        <RelativeTime
+        <DateTime
           value={schedule.nextRunAt}
+          variant="both"
           className="shrink-0 text-xs text-muted-foreground"
         />
       </Link>

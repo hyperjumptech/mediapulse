@@ -9,6 +9,10 @@ import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
 import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
+import {
+  INVALID_SCHEDULE_START_AT_MESSAGE,
+  resolveScheduleStartAt,
+} from "@/lib/schedule-start-at";
 import { getPipelineWithSteps } from "@/lib/pipelines";
 import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";
 import { computeNextRunAt, ExecutionConfigSchema } from "@hermes/scheduler";
@@ -44,7 +48,7 @@ const bodyValidator = z
     cronExpression: z.string().optional().nullable(),
     interval: z.coerce.number().int().positive().optional().nullable(),
     timezone: z.string().min(1).optional(),
-    startAt: z.coerce.date().optional().nullable(),
+    startAt: z.union([z.date(), z.string()]).optional().nullable(),
     pipelineId: z.string().uuid().optional(),
     retryConfig: retryConfigSchema,
     executionConfig: retryConfigSchema,
@@ -158,8 +162,13 @@ export const createUpdateScheduleHandler = ({
 
     const repeat = body.repeat ?? existing.repeat;
     const timezone = body.timezone ?? existing.timezone;
+    const startAtResolution = resolveScheduleStartAt(body.startAt, timezone);
+    if (!startAtResolution.ok) {
+      return errorResponse(INVALID_SCHEDULE_START_AT_MESSAGE);
+    }
+    const requestedStartAt = startAtResolution.startAt;
     const startAt =
-      body.startAt !== undefined ? body.startAt : existing.startAt;
+      requestedStartAt !== undefined ? requestedStartAt : existing.startAt;
     const cronExpression =
       body.cronExpression !== undefined
         ? body.cronExpression
@@ -210,7 +219,7 @@ export const createUpdateScheduleHandler = ({
       }),
       ...(body.interval !== undefined && { interval: body.interval }),
       ...(body.timezone !== undefined && { timezone: body.timezone }),
-      ...(body.startAt !== undefined && { startAt: body.startAt }),
+      ...(requestedStartAt !== undefined && { startAt: requestedStartAt }),
       ...(body.pipelineId !== undefined && { pipelineId: body.pipelineId }),
       ...(body.retryConfig !== undefined && {
         retryConfig:

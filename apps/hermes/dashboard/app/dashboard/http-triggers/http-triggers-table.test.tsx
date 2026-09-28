@@ -154,7 +154,7 @@ describe("HttpTriggersTable", () => {
       "success",
     );
     expect(within(row).getByText("5m ago")).toBeInTheDocument();
-    expect(within(row).getByText("7d ago")).toBeInTheDocument();
+    expect(within(row).getByText("Jan 8, 09:00")).toBeInTheDocument();
     expect(within(row).getByText("user-1")).toBeInTheDocument();
     expect(screen.getByTestId("row-actions-trigger-1")).toHaveAttribute(
       "data-method",

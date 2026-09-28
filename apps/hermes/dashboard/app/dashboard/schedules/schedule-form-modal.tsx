@@ -8,6 +8,8 @@ import { getScheduleForEdit } from "@/app/dashboard/schedules/actions/get-for-ed
 import { useFormAction as useCreateFormAction } from "@/app/dashboard/schedules/actions/create/.generated/use-form-action";
 import { useFormAction as useUpdateFormAction } from "@/app/dashboard/schedules/actions/update/.generated/use-form-action";
 
+import { useDateTime } from "@/hooks/use-date-time";
+import { utcToWallTime } from "@/lib/date-time/zoned-wall-time";
 import type { PipelineValidationResult } from "@/lib/validate-pipeline";
 
 import {
@@ -37,16 +39,6 @@ export type ScheduleFormModalProps = {
 };
 
 /**
- * Converts ISO startAt to datetime-local string for the form.
- */
-const toDatetimeLocal = (iso: string | null): string => {
-  if (!iso) return "";
-  const d = new Date(iso);
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
-};
-
-/**
  * Encapsulates schedule form modal state: fetch for edit, create/update form actions, success close.
  */
 const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
@@ -73,6 +65,7 @@ const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
     pending: updatePending,
   } = useUpdateFormAction();
 
+  const { timeZone: viewerTimeZone } = useDateTime();
   const isEdit = mode === "edit";
   const pending = isEdit ? updatePending : createPending;
   const state = isEdit ? updateState : createState;
@@ -126,7 +119,9 @@ const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
   const closeModal = useCallback(() => onOpenChange(false), [onOpenChange]);
 
   const defaultStartAt =
-    schedule && schedule !== "loading" ? toDatetimeLocal(schedule.startAt) : "";
+    schedule && schedule !== "loading" && schedule.startAt
+      ? utcToWallTime(schedule.startAt, schedule.timezone)
+      : "";
   const defaultRetryConfig =
     schedule && schedule !== "loading" && schedule.retryConfig != null
       ? JSON.stringify(schedule.retryConfig, null, 2)
@@ -157,7 +152,7 @@ const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
         defaultName: "",
         defaultDescription: "",
         defaultRepeat: "repeating" as const,
-        defaultTimezone: "America/New_York",
+        defaultTimezone: viewerTimeZone,
         defaultPipelineId: "",
         defaultPriority: 0,
         defaultEnabled: true,

@@ -58,7 +58,6 @@ describe("findQuerySetForNewsletter", () => {
       generatedAt: new Date("2026-07-13T06:00:00.000Z").toISOString(),
       generationSource: "self_driving_v1",
       agentLabel: "query-analysis - 3.0.0",
-      generatedAtLabel: "July 13, 2026 at 13:00",
       model: "openai/gpt-4.1-mini",
       tokensTotalLabel: "1.8K",
       tokensBreakdownLabel: "Input 1,234 · Output 567 · Reasoning 8",

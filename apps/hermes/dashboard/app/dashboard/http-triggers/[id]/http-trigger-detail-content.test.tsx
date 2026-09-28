@@ -194,8 +194,10 @@ describe("HttpTriggerDetailContent", () => {
     renderTriggerDetail(createMockTrigger());
 
     // Assert
-    expect(summaryValue("Last triggered")).toHaveTextContent("30m ago");
-    expect(summaryValue("Created")).toHaveTextContent("3d ago");
+    expect(summaryValue("Last triggered")).toHaveTextContent(
+      "Sep 28, 2026, 11:30 30m ago",
+    );
+    expect(summaryValue("Created")).toHaveTextContent("Sep 25, 2026, 12:00");
     expect(summaryValue("Created by")).toHaveTextContent("Kevin");
   });
 

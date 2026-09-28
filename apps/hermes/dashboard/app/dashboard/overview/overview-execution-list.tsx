@@ -6,7 +6,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 import { StatusBadge } from "@/components/status-badge";
 import type {
   OverviewExecution,
@@ -71,8 +71,9 @@ const OverviewExecutionItem = ({
           <span className="truncate font-medium">{execution.pipelineName}</span>
           <ExecutionSource execution={execution} />
         </span>
-        <RelativeTime
+        <DateTime
           value={execution.executionTime}
+          variant="both"
           className="shrink-0 text-xs text-muted-foreground"
         />
       </Link>

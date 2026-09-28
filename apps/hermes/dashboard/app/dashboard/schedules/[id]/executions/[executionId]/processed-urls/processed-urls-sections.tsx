@@ -21,7 +21,7 @@ import {
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
 
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 import type { ProcessedUrlItem } from "@/lib/domain-dashboard";
 
 export type ProcessedUrlFilterOption = {
@@ -188,7 +188,7 @@ const ProcessedUrlRow = ({ item }: { item: ProcessedUrlItem }) => {
         {item.source ?? "—"}
       </TableCell>
       <TableCell className="pr-4 text-xs text-muted-foreground">
-        <RelativeTime value={item.createdAt} />
+        <DateTime value={item.createdAt} />
       </TableCell>
     </TableRow>
   );

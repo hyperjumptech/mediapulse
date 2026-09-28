@@ -75,7 +75,9 @@ describe("HTTP trigger ExecutionsTable", () => {
     expect(screen.getByTitle("4 created, 4 enqueued")).toBeInTheDocument();
     expect(screen.getByTitle("3 succeeded, 1 failed")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Open execution from 1h ago" }),
+      screen.getByRole("link", {
+        name: "Open execution from Sep 28, 11:00 1h ago",
+      }),
     ).toHaveAttribute("href", expectedHref);
     expect(screen.getByRole("link", { name: "View" })).toHaveAttribute(
       "href",

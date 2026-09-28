@@ -7,6 +7,13 @@ const getDomainTableMetaMock = vi.fn();
 const getDomainTableItemByIdMock = vi.fn();
 const getDomainIntegrationByIntegrationIdMock = vi.fn();
 
+vi.mock("@/lib/date-time/viewer-date-time", () => ({
+  getViewerDateTimeContext: async () => ({
+    timeZone: "UTC",
+    renderedAt: Date.parse("2026-09-28T12:00:00.000Z"),
+  }),
+}));
+
 vi.mock("@/lib/domain-dashboard", () => ({
   getDomainTableMeta: (...args: unknown[]) => getDomainTableMetaMock(...args),
   getDomainTableItemById: (...args: unknown[]) =>

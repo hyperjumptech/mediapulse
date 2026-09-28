@@ -20,11 +20,6 @@ import { ActiveExecutionsSection } from "./active-executions-section";
 
 const now = new Date("2026-09-28T12:00:00.000Z");
 
-const viewerTimestampFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
 const scheduleExecution: OverviewExecution = {
   kind: "schedule",
   executionId: "schedule-execution-1",
@@ -93,22 +88,19 @@ describe("ActiveExecutionsSection", () => {
     expect(pendingBadge).toHaveAttribute("data-variant", "muted");
   });
 
-  it("shows the absolute start time in the viewer's time zone as a tooltip", async () => {
+  it("shows the absolute and relative start time", async () => {
     // Setup
     getActiveExecutionsMock.mockResolvedValue([scheduleExecution]);
-    const expectedTitle = viewerTimestampFormatter.format(
-      scheduleExecution.executionTime,
-    );
 
     // Act
     render(await ActiveExecutionsSection());
 
     // Assert
-    const startTime = screen.getByText("3m ago");
+    const startTime = screen.getByText("3m ago").closest("time");
 
-    expect(startTime.tagName).toBe("TIME");
+    expect(startTime).toHaveTextContent("Sep 28, 11:57 3m ago");
     expect(startTime).toHaveAttribute("dateTime", "2026-09-28T11:57:00.000Z");
-    expect(startTime).toHaveAttribute("title", expectedTitle);
+    expect(startTime).toHaveAttribute("title", "Sep 28, 2026, 11:57 UTC");
   });
 
   it("renders an empty state when nothing is running", async () => {

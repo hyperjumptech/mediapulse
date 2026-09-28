@@ -107,7 +107,7 @@ describe("ExecutionsTable", () => {
 
     // Assert
     const timeLink = screen.getByRole("link", {
-      name: "Open execution from 5m ago",
+      name: "Open execution from Sep 28, 11:55 5m ago",
     });
     const viewLink = screen.getByRole("link", { name: "View" });
 

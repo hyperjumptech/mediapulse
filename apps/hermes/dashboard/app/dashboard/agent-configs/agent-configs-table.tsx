@@ -28,7 +28,7 @@ import {
 
 import { DataTableCard } from "@/components/data-table/data-table-card";
 import { SortableHeader } from "@/components/data-table/sortable-header";
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 import { StatusBadge } from "@/components/status-badge";
 import type {
   AgentConfigSortDir,
@@ -179,7 +179,7 @@ export const AgentConfigsTable = ({
                   <SchemaStatus schemaValid={config.schemaValid} />
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  <RelativeTime value={config.createdAt} />
+                  <DateTime value={config.createdAt} />
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground md:table-cell">
                   {formatCreatedBy(config.createdBy)}

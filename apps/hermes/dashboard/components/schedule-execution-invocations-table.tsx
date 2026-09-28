@@ -23,7 +23,7 @@ import {
 import { DataTableCard } from "@/components/data-table/data-table-card";
 import { InvocationActivityDialog } from "@/components/execution-detail/invocation-activity-dialog";
 import { InvocationDetailDialog } from "@/components/execution-detail/invocation-detail-dialog";
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 import { StatusBadge } from "@/components/status-badge";
 import {
   computeJobElapsedDisplay,
@@ -119,14 +119,6 @@ const InvocationSortButton = ({
   );
 };
 
-const OptionalRelativeTime = ({ iso }: { iso: string | null }) => {
-  if (iso == null) {
-    return <span className="text-muted-foreground">—</span>;
-  }
-
-  return <RelativeTime value={iso} />;
-};
-
 const InvocationRow = ({
   invocation,
   onOpenDetail,
@@ -194,10 +186,10 @@ const InvocationRow = ({
         {attemptsLabel}
       </TableCell>
       <TableCell className="text-muted-foreground">
-        <OptionalRelativeTime iso={invocation.startedAtIso} />
+        <DateTime value={invocation.startedAtIso} />
       </TableCell>
       <TableCell className="hidden text-muted-foreground md:table-cell">
-        <OptionalRelativeTime iso={invocation.completedAtIso} />
+        <DateTime value={invocation.completedAtIso} />
       </TableCell>
       <TableCell
         className="text-muted-foreground tabular-nums"

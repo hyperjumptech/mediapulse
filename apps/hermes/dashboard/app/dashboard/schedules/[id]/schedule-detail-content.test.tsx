@@ -178,7 +178,7 @@ describe("ScheduleDetailContent", () => {
     expect(summaryValue("Repeats")).toHaveTextContent("Hourly");
   });
 
-  it("shows the next run relative and in the schedule timezone", () => {
+  it("shows the next run in the viewer zone and in the schedule timezone", () => {
     // Act
     renderScheduleDetail(
       createMockSchedule({
@@ -190,14 +190,15 @@ describe("ScheduleDetailContent", () => {
     // Assert
     const nextRun = summaryValue("Next run");
 
-    expect(within(nextRun).getByText("in 18h")).toHaveAttribute(
+    expect(within(nextRun).getByText("in 18h").closest("time")).toHaveAttribute(
       "datetime",
       "2026-09-29T06:00:00.000Z",
     );
-    expect(nextRun).toHaveTextContent("Sep 29, 2026, 1:00 PM");
+    expect(nextRun).toHaveTextContent("Sep 29, 2026, 06:00 in 18h");
+    expect(nextRun).toHaveTextContent("Sep 29, 2026, 13:00 in Asia/Jakarta");
   });
 
-  it("falls back to UTC when the schedule timezone is not recognised", () => {
+  it("shows only the viewer zone when the schedule timezone is not recognised", () => {
     // Act
     renderScheduleDetail(
       createMockSchedule({
@@ -207,7 +208,10 @@ describe("ScheduleDetailContent", () => {
     );
 
     // Assert
-    expect(summaryValue("Next run")).toHaveTextContent("Sep 29, 2026, 6:00 AM");
+    expect(summaryValue("Next run")).toHaveTextContent(
+      "Sep 29, 2026, 06:00 in 18h",
+    );
+    expect(summaryValue("Next run")).not.toHaveTextContent("Not/AZone");
   });
 
   it("shows none scheduled when enabled without a next run", () => {
@@ -231,7 +235,7 @@ describe("ScheduleDetailContent", () => {
     renderScheduleDetail(createMockSchedule());
 
     // Assert
-    expect(summaryValue("Created")).toHaveTextContent("3d ago");
+    expect(summaryValue("Created")).toHaveTextContent("Sep 25, 2026, 12:00");
     expect(summaryValue("Created by")).toHaveTextContent("Kevin");
   });
 

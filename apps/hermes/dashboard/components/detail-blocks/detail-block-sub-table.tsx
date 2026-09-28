@@ -22,6 +22,9 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 
+import { DateTime } from "@/components/date-time/date-time";
+import { toValidDate } from "@/lib/date-time/format-date-time";
+
 import { DetailBlockCopyButton } from "./detail-block-copy-button";
 import { DetailBlockEmptyState } from "./detail-block-empty-state";
 import { DetailBlockSectionHeader } from "./detail-block-section-header";
@@ -45,11 +48,9 @@ const formatCellValue = (
 ): string => {
   if (value === null || value === undefined || value === "") return "—";
   if (column.type === "date-time") {
-    if (typeof value === "string" || value instanceof Date) {
-      const date = value instanceof Date ? value : new Date(value);
-      if (!Number.isNaN(date.getTime())) return date.toISOString();
-    }
-    return String(value);
+    const date = toValidDate(value);
+
+    return date ? date.toISOString() : String(value);
   }
   if (column.type === "number") {
     if (typeof value === "number" && Number.isFinite(value)) {
@@ -59,6 +60,16 @@ const formatCellValue = (
   }
   if (typeof value === "string") return value;
   return JSON.stringify(value);
+};
+
+const renderCellText = (
+  column: DetailBlockSubTableColumn,
+  value: unknown,
+  text: string,
+): ReactNode => {
+  const date = column.type === "date-time" ? toValidDate(value) : null;
+
+  return date ? <DateTime value={date} /> : text;
 };
 
 const listItemColumn = (
@@ -174,10 +185,10 @@ const renderCellHeading = (
           external={column.linkExternal === true}
           className="underline-offset-4 hover:underline"
         >
-          {headingText}
+          {renderCellText(column, headingValue, headingText)}
         </DetailBlockSubTableLink>
       ) : (
-        headingText
+        renderCellText(column, headingValue, headingText)
       )}
     </div>
   );
@@ -307,6 +318,7 @@ const DetailBlockSubTableCellBody = ({
   const text = formatCellValue(column, value);
   const truncated =
     column.truncate && text !== "—" ? truncate(text, column.truncate) : text;
+  const cellText = renderCellText(column, value, truncated);
 
   if (column.type === "badge") {
     const variant = column.badgeVariantField
@@ -366,7 +378,7 @@ const DetailBlockSubTableCellBody = ({
           .join(" ")}
         title={text.length > truncated.length ? text : undefined}
       >
-        {truncated}
+        {cellText}
       </DetailBlockSubTableLink>
     ) : (
       <span
@@ -376,7 +388,7 @@ const DetailBlockSubTableCellBody = ({
         }
         title={text.length > truncated.length ? text : undefined}
       >
-        {truncated}
+        {cellText}
       </span>
     );
   const primary = (

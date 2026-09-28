@@ -1,8 +1,7 @@
-import { format } from "date-fns";
 import { KeyRound } from "lucide-react";
 
 import { DataTableCard } from "@/components/data-table/data-table-card";
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 import { formatCreatedBy } from "@/lib/format-created-by";
 import { listActiveMcpApiKeys } from "@/lib/mcp-api-keys";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
@@ -79,7 +78,6 @@ export const ApiKeysSection = async () => {
               key.createdBy,
               key.createdByUserId,
             );
-            const createdLabel = format(key.createdAt, "LLL d, yyyy");
 
             return (
               <TableRow key={key.id}>
@@ -91,11 +89,11 @@ export const ApiKeysSection = async () => {
                   {createdByLabel}
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground tabular-nums sm:table-cell">
-                  {createdLabel}
+                  <DateTime value={key.createdAt} style="date" />
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {key.lastUsedAt ? (
-                    <RelativeTime value={key.lastUsedAt} />
+                    <DateTime value={key.lastUsedAt} variant="both" />
                   ) : (
                     "Never"
                   )}

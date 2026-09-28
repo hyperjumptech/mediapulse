@@ -9,7 +9,7 @@ import {
 } from "@workspace/ui/components/tooltip";
 import { cn } from "@workspace/ui/lib/utils";
 
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 import { StatusBadge } from "@/components/status-badge";
 
 import type { ExecutionDetailViewModel } from "./execution-detail-view-model";
@@ -118,8 +118,9 @@ export const ExecutionDetailStats = ({
         <StatusBadge status={enqueueStatus} />
       </ExecutionStatCard>
       <ExecutionStatCard label="Started">
-        <RelativeTime
+        <DateTime
           value={executionTimeIso}
+          style="datetime"
           className={cn(STAT_VALUE_CLASS_NAME, "text-foreground")}
         />
         <StatCaption>Elapsed {elapsedLabel}</StatCaption>

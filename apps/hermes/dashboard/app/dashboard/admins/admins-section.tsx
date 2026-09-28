@@ -1,7 +1,7 @@
-import { format } from "date-fns";
 import { Users } from "lucide-react";
 
 import { DataTableCard } from "@/components/data-table/data-table-card";
+import { DateTime } from "@/components/date-time/date-time";
 import { StatusBadge } from "@/components/status-badge";
 import { loadHermesAdminsForPage } from "@/lib/hermes-admins-page";
 import { requireDashboardAdmin } from "@/lib/require-dashboard-admin";
@@ -71,7 +71,6 @@ export const AdminsSection = async () => {
         <TableBody>
           {admins.map((admin) => {
             const isCurrentUser = admin.id === currentUser.id;
-            const createdLabel = format(admin.createdAt, "LLL d, yyyy");
 
             return (
               <TableRow key={admin.id}>
@@ -92,7 +91,7 @@ export const AdminsSection = async () => {
                   )}
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground tabular-nums sm:table-cell">
-                  {createdLabel}
+                  <DateTime value={admin.createdAt} style="date" />
                 </TableCell>
                 <TableCell className="pr-2 text-right">
                   <AdminRowActions

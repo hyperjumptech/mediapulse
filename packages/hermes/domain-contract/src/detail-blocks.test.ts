@@ -306,6 +306,32 @@ describe("detailBlockSchema", () => {
     expect(parsed.blocks[1]?.type).toBe("graph");
   });
 
+  it("parses a stat card date-time format", () => {
+    const parsed = detailBlockSchema.parse({
+      type: "statCards",
+      cards: [
+        { label: "Delivered", field: "deliveredAt", format: "date-time" },
+      ],
+    });
+
+    expect(parsed).toMatchObject({
+      cards: [{ label: "Delivered", format: "date-time" }],
+    });
+  });
+
+  it("drops an unknown stat card format instead of rejecting the block", () => {
+    const parsed = detailBlockSchema.parse({
+      type: "statCards",
+      cards: [
+        { label: "Delivered", field: "deliveredAt", format: "sparkline" },
+      ],
+    });
+
+    expect(parsed).toMatchObject({
+      cards: [{ label: "Delivered", format: undefined }],
+    });
+  });
+
   it("rejects unknown block type", () => {
     expect(() =>
       detailBlockSchema.parse({ type: "unknown", field: "foo" }),

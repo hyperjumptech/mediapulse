@@ -8,6 +8,10 @@ vi.mock("next-themes", () => ({
   ),
 }));
 
+vi.mock("@/components/date-time/time-zone-cookie-sync", () => ({
+  TimeZoneCookieSync: () => null,
+}));
+
 import { Providers } from "./providers";
 
 describe("Providers", () => {

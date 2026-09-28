@@ -452,6 +452,9 @@ export const ScheduleFormFields = ({
               defaultValue={defaultStartAt}
               disabled={pending}
             />
+            <FieldDescription>
+              Read in the schedule timezone selected below.
+            </FieldDescription>
           </Field>
         ) : null}
         {repeat === "repeating" ? (

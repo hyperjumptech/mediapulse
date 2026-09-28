@@ -19,6 +19,31 @@ vi.mock("next/link", () => ({
 }));
 
 describe("DetailBlockSubTableView", () => {
+  it("formats date-time columns instead of printing ISO strings", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "entities",
+          columns: [
+            { field: "name", label: "Name", type: "text" },
+            { field: "lastSeenAt", label: "Last seen", type: "date-time" },
+          ],
+        }}
+        data={{
+          entities: [
+            { name: "Bank Indonesia", lastSeenAt: "2025-12-31T23:30:00.000Z" },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Dec 31, 2025, 23:30")).toHaveAttribute(
+      "datetime",
+      "2025-12-31T23:30:00.000Z",
+    );
+  });
+
   it("renders rows and a linkColumn", () => {
     render(
       <DetailBlockSubTableView

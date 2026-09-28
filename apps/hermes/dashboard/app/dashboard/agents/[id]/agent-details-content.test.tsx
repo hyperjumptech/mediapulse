@@ -153,8 +153,8 @@ describe("AgentDetailsContent", () => {
     expect(
       within(endpoint).getByRole("button", { name: "Copy endpoint URL" }),
     ).toBeInTheDocument();
-    expect(summaryValue("Created")).toHaveTextContent("3d ago");
-    expect(summaryValue("Updated")).toHaveTextContent("1h ago");
+    expect(summaryValue("Created")).toHaveTextContent("Sep 25, 2026, 12:00");
+    expect(summaryValue("Updated")).toHaveTextContent("Sep 28, 2026, 11:00");
   });
 
   it("shows No endpoint when the endpoint has no URL", () => {

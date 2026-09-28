@@ -22,7 +22,7 @@ import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
 import { CopyableId } from "@/components/copyable-id";
 import { DomainContentView } from "@/components/domain-content-view";
 import { PageHeader } from "@/components/page-header";
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 import { StatusBadge } from "@/components/status-badge";
 import { SummaryGrid, SummaryItem } from "@/components/summary-grid";
 import type { AgentDetail } from "@/lib/agents";
@@ -100,10 +100,10 @@ export const AgentDetailsContent = ({
           )}
         </SummaryItem>
         <SummaryItem label="Created">
-          <RelativeTime value={agent.createdAt} />
+          <DateTime value={agent.createdAt} style="datetime" />
         </SummaryItem>
         <SummaryItem label="Updated">
-          <RelativeTime value={agent.updatedAt} />
+          <DateTime value={agent.updatedAt} style="datetime" />
         </SummaryItem>
       </SummaryGrid>
       {agentTabContentsError ? (

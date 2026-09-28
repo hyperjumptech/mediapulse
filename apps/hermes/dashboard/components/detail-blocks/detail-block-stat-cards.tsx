@@ -2,6 +2,7 @@
 
 import {
   resolvePath,
+  type DetailBlockStatCard,
   type DetailBlockStatCards,
 } from "@hermes/domain-contract";
 import { CircleHelp } from "lucide-react";
@@ -13,10 +14,31 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
 
+import { DateTime } from "@/components/date-time/date-time";
+import { toValidDate } from "@/lib/date-time/format-date-time";
+
 import { DetailBlockSectionHeader } from "./detail-block-section-header";
 
 const asText = (value: unknown): string =>
   value === null || value === undefined || value === "" ? "—" : String(value);
+
+const StatCardValue = ({
+  card,
+  value,
+}: {
+  card: DetailBlockStatCard;
+  value: unknown;
+}) => {
+  const date = card.format === "date-time" ? toValidDate(value) : null;
+  if (date) {
+    return <DateTime value={date} style="datetime" />;
+  }
+  if (card.format === "number" && typeof value === "number") {
+    return <>{value.toLocaleString("en-US")}</>;
+  }
+
+  return <>{asText(value)}</>;
+};
 
 const asOptionalText = (value: unknown): string | undefined =>
   typeof value === "string" && value.length > 0 ? value : undefined;
@@ -83,7 +105,10 @@ export const DetailBlockStatCardsView = ({
             <span
               className={`text-lg font-semibold ${colorClass ?? "text-foreground"}`}
             >
-              {asText(resolvePath(data, card.field))}
+              <StatCardValue
+                card={card}
+                value={resolvePath(data, card.field)}
+              />
             </span>
           </Card>
         );

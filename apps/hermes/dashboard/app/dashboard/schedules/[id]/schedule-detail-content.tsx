@@ -8,8 +8,10 @@ import { Button } from "@workspace/ui/components/button";
 
 import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
 import { PageHeader } from "@/components/page-header";
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 import { StatusBadge } from "@/components/status-badge";
+import { useDateTime } from "@/hooks/use-date-time";
+import { isValidTimeZone } from "@/lib/date-time/time-zone";
 import { SummaryGrid, SummaryItem } from "@/components/summary-grid";
 import { formatCreatedBy } from "@/lib/format-created-by";
 import type { getScheduleById } from "@/lib/schedules";
@@ -30,30 +32,11 @@ export type ScheduleDetailContentProps = {
   pipelineValidationById: Record<string, PipelineValidationResult>;
 };
 
-const SCHEDULE_TIMESTAMP_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
-  dateStyle: "medium",
-  timeStyle: "short",
-};
-
 const useScheduleDetailContentState = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const openEditModal = () => setEditModalOpen(true);
 
   return { editModalOpen, setEditModalOpen, openEditModal };
-};
-
-const formatInScheduleTimezone = (date: Date, timezone: string): string => {
-  try {
-    return new Intl.DateTimeFormat("en-US", {
-      ...SCHEDULE_TIMESTAMP_FORMAT_OPTIONS,
-      timeZone: timezone,
-    }).format(date);
-  } catch {
-    return new Intl.DateTimeFormat("en-US", {
-      ...SCHEDULE_TIMESTAMP_FORMAT_OPTIONS,
-      timeZone: "UTC",
-    }).format(date);
-  }
 };
 
 const describeMissedRuns = (missedRunCount: number) =>
@@ -76,23 +59,33 @@ const ScheduleCadenceValue = ({
 };
 
 const NextRunValue = ({ schedule }: { schedule: ScheduleWithPipeline }) => {
+  const { timeZone: viewerTimeZone } = useDateTime();
   if (!schedule.enabled) {
     return <span className="text-muted-foreground">Not while disabled</span>;
   }
   if (!schedule.nextRunAt) {
     return <span className="text-muted-foreground">None scheduled</span>;
   }
-  const absoluteLabel = formatInScheduleTimezone(
-    schedule.nextRunAt,
-    schedule.timezone,
-  );
 
   return (
     <span className="flex flex-col">
-      <RelativeTime value={schedule.nextRunAt} className="font-medium" />
-      <span className="text-xs text-muted-foreground tabular-nums">
-        {absoluteLabel}
-      </span>
+      <DateTime
+        value={schedule.nextRunAt}
+        variant="both"
+        style="datetime"
+        className="font-medium"
+      />
+      {isValidTimeZone(schedule.timezone) &&
+      schedule.timezone !== viewerTimeZone ? (
+        <span className="text-xs text-muted-foreground">
+          <DateTime
+            value={schedule.nextRunAt}
+            timeZone={schedule.timezone}
+            style="datetime"
+          />{" "}
+          in {schedule.timezone}
+        </span>
+      ) : null}
     </span>
   );
 };
@@ -109,7 +102,7 @@ const LastRecoveredValue = ({
 
   return (
     <span className="flex flex-col">
-      <RelativeTime value={lastRecoveredAt} />
+      <DateTime value={lastRecoveredAt} variant="both" style="datetime" />
       {missedRunsLabel ? (
         <span className="text-xs text-muted-foreground">{missedRunsLabel}</span>
       ) : null}
@@ -162,7 +155,7 @@ export const ScheduleDetailContent = ({
             <NextRunValue schedule={schedule} />
           </SummaryItem>
           <SummaryItem label="Created">
-            <RelativeTime value={schedule.createdAt} />
+            <DateTime value={schedule.createdAt} style="datetime" />
           </SummaryItem>
           <SummaryItem label="Created by">{createdBy}</SummaryItem>
           {schedule.lastRecoveredAt ? (

@@ -99,7 +99,7 @@ describe("newslettersDashboardPage source-collection stage", () => {
       "Total Dropped",
     ]);
     expect(statCards.cards.map((card) => card.field)).toEqual([
-      "sourceCollection.generatedAtLabel",
+      "sourceCollection.generatedAt",
       "sourceCollection.creditsTotalLabel",
       "sourceCollection.collectedTotalLabel",
       "sourceCollection.droppedTotalLabel",
@@ -166,7 +166,7 @@ describe("newslettersDashboardPage source-analysis stage", () => {
     ]);
     expect(statCards.cards.map((card) => card.field)).toEqual([
       "sourceAnalysis.agentLabel",
-      "sourceAnalysis.generatedAtLabel",
+      "sourceAnalysis.generatedAt",
       "sourceAnalysis.modelLabel",
       "sourceAnalysis.tokensTotalLabel",
     ]);
@@ -248,7 +248,7 @@ describe("newslettersDashboardPage content-generation stage", () => {
     ]);
     expect(statCards.cards.map((card) => card.field)).toEqual([
       "contentGeneration.agentLabel",
-      "contentGeneration.generatedAtLabel",
+      "contentGeneration.generatedAt",
       "contentGeneration.model",
       "contentGeneration.tokensTotalLabel",
     ]);
@@ -287,7 +287,7 @@ describe("newslettersDashboardPage delivery stage", () => {
     ]);
     expect(statCards.cards.map((card) => card.field)).toEqual([
       "delivery.agentLabel",
-      "delivery.deliveredAtLabel",
+      "delivery.deliveredAt",
       "delivery.outcomeLabel",
       "delivery.deliveredLabel",
     ]);

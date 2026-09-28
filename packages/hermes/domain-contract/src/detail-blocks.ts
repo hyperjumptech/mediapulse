@@ -285,6 +285,7 @@ export const detailBlockStatCardSchema = z.object({
    * `muted`), used to color the card's value — e.g. a delivery outcome.
    */
   colorField: z.string().min(1).optional(),
+  format: z.enum(["text", "date-time", "number"]).optional().catch(undefined),
 });
 
 /**
