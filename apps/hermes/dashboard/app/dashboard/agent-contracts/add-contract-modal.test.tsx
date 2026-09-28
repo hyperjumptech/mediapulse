@@ -4,6 +4,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AddContractModal } from "./add-contract-modal";
 
+const { searchParams } = vi.hoisted(() => ({
+  searchParams: { current: "" },
+}));
+
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useSearchParams: () => new URLSearchParams(searchParams.current),
+}));
+
 type MockFormActionState = {
   status: boolean;
   message?: string;
@@ -43,14 +52,25 @@ vi.mock(
 describe("AddContractModal", () => {
   afterEach(() => {
     useFormActionMock.mockReset();
+    searchParams.current = "";
+    vi.restoreAllMocks();
   });
 
-  it("opens from the default trigger with a disabled submit until required fields are filled", () => {
-    // Setup
+  it("stays closed and renders no trigger of its own without a create request", () => {
+    // Act
     render(<AddContractModal />);
 
+    // Assert
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("opens from the create URL flag with a disabled submit until required fields are filled", () => {
+    // Setup
+    searchParams.current = "create=1";
+
     // Act
-    fireEvent.click(screen.getByRole("button", { name: "Add contract" }));
+    render(<AddContractModal />);
 
     // Assert
     expect(
@@ -64,8 +84,8 @@ describe("AddContractModal", () => {
 
   it("enables the submit once name and brief are filled", () => {
     // Setup
+    searchParams.current = "create=1";
     render(<AddContractModal />);
-    fireEvent.click(screen.getByRole("button", { name: "Add contract" }));
 
     // Act
     fireEvent.change(screen.getByLabelText("Name"), {
@@ -91,7 +111,7 @@ describe("AddContractModal", () => {
     );
 
     // Act
-    render(<AddContractModal open onOpenChange={vi.fn()} trigger={null} />);
+    render(<AddContractModal open onOpenChange={vi.fn()} />);
 
     // Assert
     expect(screen.getByRole("alert")).toHaveTextContent("Name already used");
@@ -101,14 +121,34 @@ describe("AddContractModal", () => {
   it("closes a controlled modal when Cancel is clicked", () => {
     // Setup
     const onOpenChange = vi.fn();
-    render(
-      <AddContractModal open onOpenChange={onOpenChange} trigger={null} />,
-    );
+    render(<AddContractModal open onOpenChange={onOpenChange} />);
 
     // Act
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     // Assert
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("closes and drops the create flag from the URL when Cancel is clicked", () => {
+    // Setup
+    searchParams.current = "create=1";
+    window.history.replaceState(
+      null,
+      "",
+      "/dashboard/agent-contracts?create=1&page=2",
+    );
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    render(<AddContractModal />);
+
+    // Act
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    // Assert
+    const nextUrl = String(replaceStateSpy.mock.calls.at(-1)?.[2]);
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(nextUrl).toContain("/dashboard/agent-contracts?page=2");
+    expect(nextUrl).not.toContain("create=1");
   });
 });

@@ -1,6 +1,5 @@
 import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
 
-import { PageHeader } from "@/components/page-header";
 import { getAgentConfigById } from "@/lib/agent-configs";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 import {
@@ -43,7 +42,6 @@ const AddConfigPage = async ({
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader description="Create a new agent configuration preset." />
       <AddConfigPageClient
         agents={agentsForDropdown}
         pickerLoaders={{

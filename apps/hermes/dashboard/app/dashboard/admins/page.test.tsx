@@ -7,26 +7,32 @@ vi.mock("./admins-section", () => ({
 }));
 
 vi.mock("./add-admin-modal", () => ({
-  AddAdminModal: ({ trigger }: { trigger: React.ReactNode }) => (
-    <div data-testid="add-admin-modal">{trigger}</div>
+  AddAdminModal: (props: Record<string, unknown>) => (
+    <div
+      data-testid="add-admin-modal"
+      data-prop-names={Object.keys(props).join(",")}
+    />
   ),
 }));
 
 import AdminsPage from "./page";
 
 describe("AdminsPage", () => {
-  it("puts the add admin trigger in the page header", () => {
+  it("mounts one URL-driven add admin modal next to the section", () => {
     // Act
     render(<AdminsPage />);
 
     // Assert
-    const headerActions = document.querySelector(
-      '[data-slot="page-header-actions"]',
-    );
-
-    expect(headerActions).toContainElement(
-      screen.getByRole("button", { name: "Add admin" }),
+    expect(screen.getByTestId("add-admin-modal")).toHaveAttribute(
+      "data-prop-names",
+      "",
     );
     expect(screen.getByTestId("admins-section")).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="page-header-actions"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add admin" }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -5,6 +5,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { Button } from "@workspace/ui/components/button";
 import {
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog";
@@ -17,18 +18,23 @@ export const formDialogFormClassName = "flex min-h-0 flex-1 flex-col";
 
 type FormDialogContentProps = ComponentProps<typeof DialogContent> & {
   size?: "default" | "wide";
+  hasDescription?: boolean;
 };
+
+const withoutDescriptionProps = { "aria-describedby": undefined };
 
 export const FormDialogContent = ({
   size = "default",
+  hasDescription = false,
   className,
   ...contentProps
 }: FormDialogContentProps) => {
   const widthClassName = size === "wide" ? "sm:max-w-2xl" : "sm:max-w-lg";
+  const describedByProps = hasDescription ? {} : withoutDescriptionProps;
 
   return (
     <DialogContent
-      aria-describedby={undefined}
+      {...describedByProps}
       className={cn(
         "flex max-h-[min(90vh,56rem)] flex-col gap-0 overflow-hidden p-0",
         widthClassName,
@@ -41,11 +47,16 @@ export const FormDialogContent = ({
 
 type FormDialogHeaderProps = {
   title: ReactNode;
+  description?: ReactNode;
 };
 
-export const FormDialogHeader = ({ title }: FormDialogHeaderProps) => (
+export const FormDialogHeader = ({
+  title,
+  description,
+}: FormDialogHeaderProps) => (
   <DialogHeader className="shrink-0 border-b px-6 py-4 pr-12">
     <DialogTitle>{title}</DialogTitle>
+    {description ? <DialogDescription>{description}</DialogDescription> : null}
   </DialogHeader>
 );
 

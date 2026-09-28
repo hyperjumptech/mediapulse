@@ -16,14 +16,14 @@ const renderedQuery = () =>
   );
 
 describe("SchedulesPage", () => {
-  it("renders the page header with the new schedule action and the section", async () => {
+  it("renders the section and leaves the new schedule action to the site header", async () => {
     // Act
     render(await SchedulesPage({ searchParams: {} }));
 
     // Assert
     expect(
-      screen.getByRole("button", { name: "New schedule" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "New schedule" }),
+    ).not.toBeInTheDocument();
     expect(renderedQuery()).toEqual({
       page: 1,
       pageSize: 15,

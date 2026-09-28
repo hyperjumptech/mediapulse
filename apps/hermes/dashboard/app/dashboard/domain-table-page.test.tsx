@@ -76,8 +76,8 @@ vi.mock("@/app/dashboard/domain-table-danger-confirm-button", () => ({
   },
 }));
 
-vi.mock("@/app/dashboard/domain-table-search", () => ({
-  DomainTableSearch: () => <div data-testid="domain-table-search" />,
+vi.mock("@/components/data-table/data-table-search", () => ({
+  DataTableSearch: () => <div data-testid="domain-table-search" />,
 }));
 
 vi.mock("@/app/dashboard/domain-table-list-filters", () => ({

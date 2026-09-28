@@ -30,7 +30,9 @@ const columns = columnHelper.columns([
       <span className="flex items-center gap-2">
         <span className="truncate font-medium">{row.original.name}</span>
         {row.original.id === row.original.currentUserId ? (
-          <Badge variant="muted">You</Badge>
+          <Badge variant="outline" className="px-1.5 text-muted-foreground">
+            You
+          </Badge>
         ) : null}
       </span>
     ),

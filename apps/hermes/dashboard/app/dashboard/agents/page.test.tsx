@@ -16,11 +16,14 @@ const renderedQuery = () =>
   );
 
 describe("AgentsPage", () => {
-  it("renders the page header and the agents section", async () => {
+  it("renders the agents section without a boilerplate description", async () => {
     // Act
     render(await AgentsPage({ searchParams: {} }));
 
     // Assert
+    expect(
+      screen.queryByText("View and manage registered agents."),
+    ).not.toBeInTheDocument();
     expect(renderedQuery()).toEqual({
       page: 1,
       pageSize: 15,

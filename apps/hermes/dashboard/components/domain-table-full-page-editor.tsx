@@ -12,7 +12,6 @@ import {
 } from "@workspace/ui/components/card";
 import { FieldGroup } from "@workspace/ui/components/field";
 import { Spinner } from "@workspace/ui/components/spinner";
-import { PageHeader } from "@/components/page-header";
 import { PipelineUsageList } from "@/components/pipeline-usage-list";
 import { DomainTableFormFields } from "@/components/domain-table-form-fields";
 import { FormErrorAlert } from "@/components/form-error-alert";
@@ -23,38 +22,19 @@ import type { DomainTableFormField } from "@/lib/domain-table-form-schema";
 import type { PipelineUsageSummary } from "@/lib/pipeline-usage";
 
 export type DomainTableFullPageEditorProps = {
-  /** Page description under the title. */
-  description: string;
-  /** List URL for back navigation. */
   basePath: string;
-  /** Parsed form fields from JSON Schema. */
   fields: DomainTableFormField[];
-  /** Create vs edit flow. */
   mode: "create" | "edit";
-  /** Row id for edit (hidden field). */
   rowId?: string;
-  /** Initial values in edit mode. */
   defaultRow?: Record<string, unknown>;
-  /** Server action for the form. */
   formAction: (formData: FormData) => Promise<void>;
-  /** Registered integration id (preview). */
   integrationId: string;
-  /** Whether to show preview (manifest + capability). */
   showPreview: boolean;
-  /** Manifest `preview.fieldKey` when preview is enabled. */
   previewFieldKey?: string;
-  /** Optional reverse lookup rows for "Used in pipelines". */
   usedInPipelines?: PipelineUsageSummary[];
 };
 
-/**
- * Full-page create/edit form for table-v1 resources with optional expansion preview.
- *
- * @param props - Form config, server action, and preview flags.
- * @returns Full-page layout with form and optional preview card.
- */
 export const DomainTableFullPageEditor = ({
-  description,
   basePath,
   fields,
   mode,
@@ -81,12 +61,9 @@ export const DomainTableFullPageEditor = ({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <PageHeader description={description} />
-        <Button variant="outline" asChild className="shrink-0 self-start">
-          <Link href={basePath}>Back to list</Link>
-        </Button>
-      </div>
+      <Button variant="outline" asChild className="shrink-0 self-start">
+        <Link href={basePath}>Back to list</Link>
+      </Button>
 
       <form
         ref={formRef}

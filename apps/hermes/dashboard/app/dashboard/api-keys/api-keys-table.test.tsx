@@ -71,7 +71,7 @@ describe("ApiKeysTable", () => {
     expect(cursorRow).toHaveTextContent("Cursor");
     expect(within(cursorRow).getByText("Read-only")).toHaveAttribute(
       "data-variant",
-      "muted",
+      "outline",
     );
     expect(cursorRow).toHaveTextContent("Ada");
     expect(cursorRow).toHaveTextContent("Never");

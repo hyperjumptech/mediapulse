@@ -7,10 +7,15 @@ import type { VariablesPageResult } from "@/lib/variables";
 
 const refreshMock = vi.fn();
 
+const { searchParams } = vi.hoisted(() => ({
+  searchParams: { current: "" },
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     refresh: refreshMock,
   }),
+  useSearchParams: () => new URLSearchParams(searchParams.current),
 }));
 
 const usageMock = vi.fn();
@@ -70,7 +75,8 @@ vi.mock(
 );
 
 vi.mock("@workspace/ui/components/dialog", () => ({
-  Dialog: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  Dialog: ({ children, open }: React.PropsWithChildren<{ open: boolean }>) =>
+    open ? <div>{children}</div> : null,
   DialogContent: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),
@@ -78,9 +84,6 @@ vi.mock("@workspace/ui/components/dialog", () => ({
     <div>{children}</div>
   ),
   DialogTitle: ({ children }: React.PropsWithChildren) => <h2>{children}</h2>,
-  DialogTrigger: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
 }));
 
 vi.mock("@workspace/ui/components/button", () => ({
@@ -184,11 +187,24 @@ describe("VariableModal", () => {
     useUpdateFormActionMock.mockReset();
     usageMock.mockReset();
     refreshMock.mockReset();
+    searchParams.current = "";
   });
 
-  it("renders create form without usage tab", () => {
+  it("keeps the create modal closed without a create request", () => {
     // Act
-    render(<VariableModal variable={null} trigger={<button>Add</button>} />);
+    render(<VariableModal variable={null} />);
+
+    // Assert
+    expect(screen.queryByText("Add variable")).not.toBeInTheDocument();
+    expect(screen.queryByText("Create form")).not.toBeInTheDocument();
+  });
+
+  it("opens the create form without a usage tab when the URL asks for it", () => {
+    // Setup
+    searchParams.current = "create=1";
+
+    // Act
+    render(<VariableModal variable={null} />);
 
     // Assert
     expect(screen.getByText("Create form")).toBeInTheDocument();
@@ -289,14 +305,39 @@ describe("VariableModal", () => {
   });
 
   it("renders the create footer with a submit button", () => {
+    // Setup
+    searchParams.current = "create=1";
+
     // Act
-    render(<VariableModal variable={null} trigger={<button>Add</button>} />);
+    render(<VariableModal variable={null} />);
 
     // Assert
     expect(
       screen.getByRole("button", { name: "Create variable" }),
     ).toHaveAttribute("type", "submit");
     expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
+  });
+
+  it("closes the create modal and drops the create flag from the URL on Cancel", () => {
+    // Setup
+    searchParams.current = "create=1";
+    window.history.replaceState(
+      null,
+      "",
+      "/dashboard/variables?create=1&q=API",
+    );
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    render(<VariableModal variable={null} />);
+
+    // Act
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    // Assert
+    const nextUrl = String(replaceStateSpy.mock.calls.at(-1)?.[2]);
+
+    expect(screen.queryByText("Create form")).not.toBeInTheDocument();
+    expect(nextUrl).toContain("/dashboard/variables?q=API");
+    expect(nextUrl).not.toContain("create=1");
   });
 
   it("closes the edit modal when Cancel is clicked", () => {

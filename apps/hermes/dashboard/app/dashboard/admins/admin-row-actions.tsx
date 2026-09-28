@@ -1,34 +1,24 @@
 "use client";
 
-import {
-  KeyRound,
-  MoreHorizontal,
-  Power,
-  PowerOff,
-  Trash2,
-} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@workspace/ui/components/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
 
 import { useFormAction as useDeleteFormAction } from "@/app/dashboard/admins/actions/delete/.generated/use-form-action";
 import { useFormAction as useSetActiveFormAction } from "@/app/dashboard/admins/actions/set-active/.generated/use-form-action";
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
+import { RowActionsMenu } from "@/components/data-table/row-actions-menu";
 import { useConfirmActionDialog } from "@/hooks/use-confirm-action-dialog";
 import type { HermesAdminListRow } from "@/lib/hermes-admins-page";
 
 import { ResetAdminPasswordDialog } from "./reset-admin-password-dialog";
 
 const MENU_FORM_BUTTON_CLASS =
-  "flex w-full cursor-default items-center gap-2 text-left";
+  "flex w-full cursor-default items-center text-left";
 
 type AdminRowActionsProps = {
   admin: HermesAdminListRow;
@@ -72,61 +62,40 @@ export const AdminRowActions = ({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
-            aria-label={`Actions for admin ${admin.email}`}
-          >
-            <MoreHorizontal />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem onSelect={() => setResetOpen(true)}>
-            <KeyRound />
-            Reset password
+      <RowActionsMenu label={`Actions for admin ${admin.email}`}>
+        <DropdownMenuItem onSelect={() => setResetOpen(true)}>
+          Reset password
+        </DropdownMenuItem>
+        {admin.isActive ? (
+          <DropdownMenuItem disabled={disableMutation || isSelf} asChild>
+            <SetActiveForm>
+              <input type="hidden" name="body.id" value={admin.id} readOnly />
+              <input type="hidden" name="body.active" value="false" readOnly />
+              <button type="submit" className={MENU_FORM_BUTTON_CLASS}>
+                {setActivePending ? "Updating…" : "Disable"}
+              </button>
+            </SetActiveForm>
           </DropdownMenuItem>
-          {admin.isActive ? (
-            <DropdownMenuItem disabled={disableMutation || isSelf} asChild>
-              <SetActiveForm>
-                <input type="hidden" name="body.id" value={admin.id} readOnly />
-                <input
-                  type="hidden"
-                  name="body.active"
-                  value="false"
-                  readOnly
-                />
-                <button type="submit" className={MENU_FORM_BUTTON_CLASS}>
-                  <PowerOff />
-                  {setActivePending ? "Updating…" : "Disable"}
-                </button>
-              </SetActiveForm>
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem disabled={disableMutation} asChild>
-              <SetActiveForm>
-                <input type="hidden" name="body.id" value={admin.id} readOnly />
-                <input type="hidden" name="body.active" value="true" readOnly />
-                <button type="submit" className={MENU_FORM_BUTTON_CLASS}>
-                  <Power />
-                  {setActivePending ? "Updating…" : "Enable"}
-                </button>
-              </SetActiveForm>
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            disabled={disableDelete}
-            onSelect={deleteAction.requestConfirmation}
-          >
-            <Trash2 />
-            Delete
+        ) : (
+          <DropdownMenuItem disabled={disableMutation} asChild>
+            <SetActiveForm>
+              <input type="hidden" name="body.id" value={admin.id} readOnly />
+              <input type="hidden" name="body.active" value="true" readOnly />
+              <button type="submit" className={MENU_FORM_BUTTON_CLASS}>
+                {setActivePending ? "Updating…" : "Enable"}
+              </button>
+            </SetActiveForm>
           </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          disabled={disableDelete}
+          onSelect={deleteAction.requestConfirmation}
+        >
+          Delete
+        </DropdownMenuItem>
+      </RowActionsMenu>
       <ConfirmActionDialog
         open={deleteAction.open}
         onOpenChange={deleteAction.setOpen}

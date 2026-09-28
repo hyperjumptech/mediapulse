@@ -1,22 +1,6 @@
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-
-vi.mock("next/link", () => ({
-  default: ({
-    children,
-    href,
-    className,
-  }: {
-    children: React.ReactNode;
-    href: string;
-    className?: string;
-  }) => (
-    <a href={href} className={className}>
-      {children}
-    </a>
-  ),
-}));
 
 vi.mock("./agent-row-actions", () => ({
   AgentRowActions: ({
@@ -75,6 +59,12 @@ const renderAgents = (
 
 const table = () => screen.getByRole("table");
 
+const openMenu = async (trigger: HTMLElement) => {
+  await act(async () => {
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+  });
+};
+
 describe("AgentsTable", () => {
   it("shows the useful columns and keeps Created in the column menu", () => {
     renderAgents();
@@ -120,14 +110,29 @@ describe("AgentsTable", () => {
     );
   });
 
-  it("builds sort links from the URL state", () => {
+  it("marks the sorted column from the URL state", () => {
     renderAgents();
 
     expect(
-      within(table()).getByRole("link", { name: "Version" }),
-    ).toHaveAttribute(
+      within(table()).getByRole("columnheader", { name: "Agent ID" }),
+    ).toHaveAttribute("aria-sort", "ascending");
+    expect(
+      within(table()).getByRole("columnheader", { name: "Version" }),
+    ).not.toHaveAttribute("aria-sort");
+  });
+
+  it("offers both sort directions from a column header", async () => {
+    renderAgents();
+
+    await openMenu(within(table()).getByRole("button", { name: "Version" }));
+
+    expect(screen.getByRole("menuitem", { name: "Asc" })).toHaveAttribute(
       "href",
       "/dashboard/agents?page=1&size=15&sort=agentVersion&dir=asc",
+    );
+    expect(screen.getByRole("menuitem", { name: "Desc" })).toHaveAttribute(
+      "href",
+      "/dashboard/agents?page=1&size=15&sort=agentVersion&dir=desc",
     );
   });
 

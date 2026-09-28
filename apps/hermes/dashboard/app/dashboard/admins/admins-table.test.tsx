@@ -60,11 +60,11 @@ describe("AdminsTable", () => {
     expect(within(table()).getByText("ada@example.com")).toBeInTheDocument();
     expect(within(table()).getByText("grace@example.com")).toBeInTheDocument();
     expect(within(table()).getByText("Active")).toHaveAttribute(
-      "data-variant",
+      "data-tone",
       "success",
     );
     expect(within(table()).getByText("Disabled")).toHaveAttribute(
-      "data-variant",
+      "data-tone",
       "muted",
     );
   });

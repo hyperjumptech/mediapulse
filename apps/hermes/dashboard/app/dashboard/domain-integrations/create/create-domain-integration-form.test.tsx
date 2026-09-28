@@ -66,6 +66,18 @@ describe("CreateDomainIntegrationForm", () => {
     ).toHaveAttribute("type", "submit");
   });
 
+  it("tells the admin that creating the integration generates an API key", () => {
+    // Act
+    render(<CreateDomainIntegrationForm />);
+
+    // Assert
+    expect(
+      screen.getByText(
+        "Creating an integration generates an API key that your system uses to register with Hermes.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("shows the action error and the pending label", () => {
     // Setup
     useActionStateMock.mockReturnValue([

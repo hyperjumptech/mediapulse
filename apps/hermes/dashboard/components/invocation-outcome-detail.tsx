@@ -1,7 +1,6 @@
 "use client";
 
-import { Badge } from "@workspace/ui/components/badge";
-
+import { StatusBadge } from "@/components/status-badge";
 import { formatInvocationErrorSummary } from "@/lib/format-invocation-error";
 
 import {
@@ -9,11 +8,6 @@ import {
   type InvocationOutcomeDetailModel,
 } from "./use-invocation-outcome-detail";
 
-/**
- * Pretty-prints JSON for read-only display.
- *
- * @param value - Arbitrary JSON-serializable value.
- */
 const formatJsonBlock = (value: unknown): string => {
   try {
     return JSON.stringify(value ?? null, null, 2);
@@ -28,9 +22,6 @@ type JsonBlockProps = {
   maxHeightClass?: string;
 };
 
-/**
- * Renders a titled preformatted JSON block.
- */
 const JsonBlock = ({
   title,
   value,
@@ -50,9 +41,6 @@ type RunSummaryCountersProps = {
   summary: Record<string, unknown>;
 };
 
-/**
- * Renders collection run counters from `details.summary`.
- */
 const RunSummaryCounters = ({ summary }: RunSummaryCountersProps) => {
   const rows: Array<{ label: string; value: string }> = [];
 
@@ -112,9 +100,6 @@ export type InvocationOutcomeDetailProps = {
   agentResponse: unknown | null;
 };
 
-/**
- * Renders transport errors, agent envelope, logs, and run warnings for one invocation.
- */
 export const InvocationOutcomeDetail = ({
   transportError,
   agentResponse,
@@ -134,9 +119,6 @@ type InvocationOutcomeDetailViewProps = {
   transportError: unknown | null;
 };
 
-/**
- * Presentational outcome sections (testable without the hook).
- */
 export const InvocationOutcomeDetailView = ({
   model,
   transportError,
@@ -166,11 +148,7 @@ export const InvocationOutcomeDetailView = ({
             <h3 className="text-sm font-medium text-foreground">
               Agent response
             </h3>
-            {envelope.status ? (
-              <Badge variant="outline" className="capitalize">
-                {envelope.status}
-              </Badge>
-            ) : null}
+            {envelope.status ? <StatusBadge status={envelope.status} /> : null}
           </div>
           {envelope.message ? (
             <p className="text-sm text-muted-foreground">{envelope.message}</p>

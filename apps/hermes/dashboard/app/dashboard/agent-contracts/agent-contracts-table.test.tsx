@@ -1,28 +1,6 @@
 import React from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-
-vi.mock("next/link", () => ({
-  default: ({
-    children,
-    href,
-    className,
-  }: {
-    children: React.ReactNode;
-    href: string;
-    className?: string;
-  }) => (
-    <a href={href} className={className}>
-      {children}
-    </a>
-  ),
-}));
-
-vi.mock("./add-contract-modal", () => ({
-  AddContractModal: ({ trigger }: { trigger: React.ReactNode }) => (
-    <div data-testid="add-contract-modal">{trigger}</div>
-  ),
-}));
 
 vi.mock("./agent-contract-row-actions", () => ({
   AgentContractRowActions: ({ contract }: { contract: { id: string } }) => (
@@ -70,6 +48,12 @@ const renderTable = (
 
 const table = () => screen.getByRole("table");
 
+const openMenu = async (trigger: HTMLElement) => {
+  await act(async () => {
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+  });
+};
+
 const headerLabels = () =>
   within(table())
     .getAllByRole("columnheader")
@@ -83,11 +67,10 @@ describe("AgentContractsTable", () => {
     // Assert
     expect(screen.getByText("No agent contracts yet")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    expect(
-      within(screen.getByTestId("add-contract-modal")).getByRole("button", {
-        name: "Add contract",
-      }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Add contract" })).toHaveAttribute(
+      "href",
+      "/dashboard/agent-contracts?create=1",
+    );
   });
 
   it("shows the useful columns and keeps Created by in the column menu", () => {
@@ -148,25 +131,47 @@ describe("AgentContractsTable", () => {
     expect(onEdit).toHaveBeenCalledWith(contract);
   });
 
-  it("builds sort links that toggle the active column", () => {
+  it("marks the sorted column and leaves Version unsortable", () => {
     // Act
     renderTable([createContract()]);
 
     // Assert
     const desktop = within(table());
 
-    expect(desktop.getByRole("link", { name: "Name" })).toHaveAttribute(
-      "href",
-      "/dashboard/agent-contracts?page=1&size=10&sort=name&dir=asc",
-    );
-    expect(desktop.getByRole("link", { name: "Created" })).toHaveAttribute(
-      "href",
-      "/dashboard/agent-contracts?page=1&size=10&sort=createdAt&dir=desc",
-    );
     expect(
-      desktop.queryByRole("link", { name: "Version" }),
+      desktop.getByRole("columnheader", { name: "Created" }),
+    ).toHaveAttribute("aria-sort", "ascending");
+    expect(
+      desktop.getByRole("columnheader", { name: "Name" }),
+    ).not.toHaveAttribute("aria-sort");
+    expect(
+      desktop.queryByRole("button", { name: "Version" }),
     ).not.toBeInTheDocument();
   });
+
+  it.each([
+    ["Name", "name"],
+    ["Created", "createdAt"],
+  ])(
+    "offers both sort directions from the %s header",
+    async (label, sortKey) => {
+      // Setup
+      renderTable([createContract()]);
+
+      // Act
+      await openMenu(within(table()).getByRole("button", { name: label }));
+
+      // Assert
+      expect(screen.getByRole("menuitem", { name: "Asc" })).toHaveAttribute(
+        "href",
+        `/dashboard/agent-contracts?page=1&size=10&sort=${sortKey}&dir=asc`,
+      );
+      expect(screen.getByRole("menuitem", { name: "Desc" })).toHaveAttribute(
+        "href",
+        `/dashboard/agent-contracts?page=1&size=10&sort=${sortKey}&dir=desc`,
+      );
+    },
+  );
 
   it("paginates from the URL state when there is more than one page", () => {
     // Act

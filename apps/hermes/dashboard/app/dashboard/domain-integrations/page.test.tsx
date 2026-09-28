@@ -11,23 +11,14 @@ vi.mock("./domain-integrations-section", () => ({
 import DomainIntegrationsPage from "./page";
 
 describe("DomainIntegrationsPage", () => {
-  it("puts the new integration action in the page header", () => {
+  it("renders the section and leaves the new integration link to the site header", () => {
     // Act
     render(<DomainIntegrationsPage />);
 
     // Assert
-    const headerActions = document.querySelector(
-      '[data-slot="page-header-actions"]',
-    );
-    const newIntegrationLink = screen.getByRole("link", {
-      name: "New integration",
-    });
-
-    expect(headerActions).toContainElement(newIntegrationLink);
-    expect(newIntegrationLink).toHaveAttribute(
-      "href",
-      "/dashboard/domain-integrations/create",
-    );
+    expect(
+      screen.queryByRole("link", { name: "New integration" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByTestId("domain-integrations-section"),
     ).toBeInTheDocument();

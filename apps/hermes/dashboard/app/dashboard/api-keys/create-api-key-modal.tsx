@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-
 import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
 import {
   FormDialogBody,
@@ -14,75 +12,13 @@ import {
 import { OneTimeSecretReveal } from "@/components/one-time-secret-reveal";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@workspace/ui/components/button";
-import { Dialog, DialogTrigger } from "@workspace/ui/components/dialog";
+import { Dialog } from "@workspace/ui/components/dialog";
 import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
 
-import { useFormAction } from "@/app/dashboard/api-keys/actions/create/.generated/use-form-action";
+import { useCreateApiKeyModalState } from "./use-create-api-key-modal-state";
 
-type CreateApiKeyModalProps = {
-  trigger?: React.ReactNode;
-};
-
-type CreateSuccessPayload = {
-  id: string;
-  label: string;
-  readOnly: boolean;
-  apiKeyPlaintext: string;
-};
-
-/**
- * Owns create-key dialog state and one-time secret display.
- */
-const useCreateApiKeyModalState = () => {
-  const [open, setOpen] = useState(false);
-  const [createdKey, setCreatedKey] = useState<CreateSuccessPayload | null>(
-    null,
-  );
-  const { FormWithAction, state, pending } = useFormAction();
-
-  const errorMessage = useMemo(
-    () => (state && state.status === false ? String(state.message) : null),
-    [state],
-  );
-
-  const successPayload = useMemo((): CreateSuccessPayload | null => {
-    if (state?.status !== true || !state.data) {
-      return null;
-    }
-    const data = state.data as CreateSuccessPayload;
-    if (!data.apiKeyPlaintext) {
-      return null;
-    }
-    return data;
-  }, [state]);
-
-  const handledSuccessRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (successPayload && handledSuccessRef.current !== successPayload.id) {
-      handledSuccessRef.current = successPayload.id;
-      setCreatedKey(successPayload);
-    }
-  }, [successPayload]);
-
-  const handleOpenChange = (next: boolean) => {
-    setOpen(next);
-    if (!next) {
-      setCreatedKey(null);
-      handledSuccessRef.current = null;
-    }
-  };
-
-  return {
-    open,
-    handleOpenChange,
-    FormWithAction,
-    pending,
-    errorMessage,
-    createdKey,
-  };
-};
+const CREATE_API_KEY_DESCRIPTION = "Each key acts as the admin who created it.";
 
 type CreateApiKeyFormFieldsProps = {
   pending: boolean;
@@ -113,10 +49,7 @@ const CreateApiKeyFormFields = ({ pending }: CreateApiKeyFormFieldsProps) => (
   </FieldGroup>
 );
 
-/**
- * Modal to create an MCP API key; shows the secret exactly once after success.
- */
-export const CreateApiKeyModal = ({ trigger }: CreateApiKeyModalProps) => {
+export const CreateApiKeyModal = () => {
   const {
     open,
     handleOpenChange,
@@ -129,10 +62,10 @@ export const CreateApiKeyModal = ({ trigger }: CreateApiKeyModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
-      <FormDialogContent>
+      <FormDialogContent hasDescription>
         <FormDialogHeader
           title={createdKey ? "Copy your API key" : "Create API key"}
+          description={CREATE_API_KEY_DESCRIPTION}
         />
         {createdKey ? (
           <>

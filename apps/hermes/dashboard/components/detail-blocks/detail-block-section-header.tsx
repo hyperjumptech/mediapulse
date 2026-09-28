@@ -4,18 +4,10 @@ import {
   type DetailBlockSectionRule,
 } from "@hermes/domain-contract";
 
-import { Badge } from "@workspace/ui/components/badge";
+import { ToneBadge } from "@/components/status-badge";
 
-import { mapBadgeVariant } from "./map-badge-variant";
+import { mapBadgeTone } from "./map-badge-variant";
 
-/**
- * Renders the heading row of a detail block: a label plus an optional
- * data-driven badge. Returns `null` when neither label nor badge applies.
- *
- * @param props.label - Static caption from the manifest.
- * @param props.sectionRule - Optional rule that drives the badge.
- * @param props.data - Detail response, used to evaluate the rule.
- */
 export const DetailBlockSectionHeader = ({
   label,
   sectionRule,
@@ -36,9 +28,9 @@ export const DetailBlockSectionHeader = ({
         <h2 className="text-base font-semibold text-foreground">{label}</h2>
       ) : null}
       {matches && sectionRule ? (
-        <Badge variant={mapBadgeVariant(sectionRule.badge)}>
+        <ToneBadge tone={mapBadgeTone(sectionRule.badge)}>
           {sectionRule.label}
-        </Badge>
+        </ToneBadge>
       ) : null}
     </div>
   );

@@ -13,9 +13,6 @@ import {
   withDashboardAdmin,
 } from "@/lib/require-dashboard-admin";
 
-/**
- * Full-page create flow for table-v1 resources that set `createNavigation: "full-page"` in the manifest.
- */
 const NewDomainTablePage = async ({
   params,
 }: {
@@ -55,7 +52,6 @@ const NewDomainTablePage = async ({
 
   return (
     <DomainTableFullPageEditor
-      description={meta.description ?? ""}
       basePath={basePath}
       fields={createFields}
       mode="create"

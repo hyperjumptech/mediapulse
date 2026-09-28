@@ -4,7 +4,7 @@ import { SidebarTrigger } from "@workspace/ui/components/sidebar";
 import type { DomainIntegrationNav } from "@/lib/dashboard-routes";
 
 import { DashboardPageTitle } from "./dashboard-page-title";
-import { QuickCreateMenu } from "./quick-create-menu";
+import { SiteHeaderAction } from "./site-header-action";
 
 type SiteHeaderProps = {
   domainIntegrations: Promise<DomainIntegrationNav[]>;
@@ -20,7 +20,7 @@ export const SiteHeader = ({ domainIntegrations }: SiteHeaderProps) => (
       />
       <DashboardPageTitle domainIntegrations={domainIntegrations} />
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <QuickCreateMenu />
+        <SiteHeaderAction />
       </div>
     </div>
   </header>

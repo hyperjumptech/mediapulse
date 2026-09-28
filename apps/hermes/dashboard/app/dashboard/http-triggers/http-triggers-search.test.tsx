@@ -52,6 +52,9 @@ describe("HttpTriggersSearch", () => {
     expect(
       screen.getByRole("searchbox", { name: "Search by name or description" }),
     ).toHaveAttribute("name", "q");
+    expect(
+      screen.getByRole("searchbox", { name: "Search by name or description" }),
+    ).toHaveAttribute("placeholder", "Filter HTTP triggers…");
   });
 
   it("prefills the query and links the clear button to the unfiltered list", () => {

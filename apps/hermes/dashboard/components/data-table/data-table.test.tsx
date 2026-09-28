@@ -1,12 +1,29 @@
 import React from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { Inbox } from "lucide-react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { LIST_SEARCH_DEBOUNCE_MS } from "@/hooks/use-list-search";
 import { createDataTableColumnHelper } from "@/lib/data-table/features";
 import type { ListUrlState } from "@/lib/data-table/list-url-state";
 
 import { DataTable } from "./data-table";
+
+const { router } = vi.hoisted(() => ({
+  router: {
+    push: vi.fn(),
+    replace: vi.fn(),
+    refresh: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    prefetch: vi.fn(),
+  },
+}));
+
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => router,
+}));
 
 type Fruit = { id: string; name: string; colour: string; stock: number };
 
@@ -73,12 +90,20 @@ const desktopTable = () => screen.getByRole("table");
 const mobileList = () =>
   document.querySelector<HTMLElement>('[data-slot="data-table-mobile-list"]');
 
+const openMenu = async (trigger: HTMLElement) => {
+  await act(async () => {
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+  });
+};
+
 afterEach(() => {
   document.cookie = "hermes_dt_fruits=; path=/; max-age=0";
+  vi.useRealTimers();
+  router.replace.mockReset();
 });
 
 describe("DataTable", () => {
-  it("renders sortable headers that toggle the active column", () => {
+  it("marks the sorted column and offers both directions from its header", async () => {
     renderTable();
 
     const headers = within(desktopTable())
@@ -87,17 +112,39 @@ describe("DataTable", () => {
 
     expect(headers).toEqual(["Name", "Colour", "Stock", "Actions"]);
     expect(
-      within(desktopTable()).getByRole("link", { name: "Name" }),
-    ).toHaveAttribute(
-      "href",
-      "/dashboard/fruits?page=1&size=15&sort=name&dir=desc",
+      within(desktopTable()).getByRole("columnheader", { name: "Name" }),
+    ).toHaveAttribute("aria-sort", "ascending");
+
+    await openMenu(
+      within(desktopTable()).getByRole("button", { name: "Stock" }),
     );
-    expect(
-      within(desktopTable()).getByRole("link", { name: "Stock" }),
-    ).toHaveAttribute(
+
+    expect(screen.getByRole("menuitem", { name: "Asc" })).toHaveAttribute(
       "href",
       "/dashboard/fruits?page=1&size=15&sort=stock&dir=asc",
     );
+    expect(screen.getByRole("menuitem", { name: "Desc" })).toHaveAttribute(
+      "href",
+      "/dashboard/fruits?page=1&size=15&sort=stock&dir=desc",
+    );
+  });
+
+  it("hides a column from its header menu", async () => {
+    renderTable();
+
+    await openMenu(
+      within(desktopTable()).getByRole("button", { name: "Stock" }),
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("menuitem", { name: "Hide" }));
+    });
+
+    expect(
+      within(screen.getByRole("table", { hidden: true })).queryByRole(
+        "columnheader",
+        { name: "Stock", hidden: true },
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it("hides columns below their breakpoint", () => {
@@ -134,12 +181,7 @@ describe("DataTable", () => {
   it("lets people hide a column and remembers it in a cookie", async () => {
     renderTable();
 
-    await act(async () => {
-      fireEvent.pointerDown(screen.getByRole("button", { name: "Columns" }), {
-        button: 0,
-        ctrlKey: false,
-      });
-    });
+    await openMenu(screen.getByRole("button", { name: "Customize columns" }));
     await act(async () => {
       fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Stock" }));
     });
@@ -163,32 +205,36 @@ describe("DataTable", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("keeps sort and page size in the search form", () => {
+  it("filters as people type, keeping sort and page size", async () => {
+    vi.useFakeTimers();
     renderTable();
 
-    const form = screen.getByRole("search", { name: "Search fruit" });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search fruit" }), {
+      target: { value: "pe" },
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(LIST_SEARCH_DEBOUNCE_MS);
+    });
 
-    expect(form).toHaveAttribute("action", "/dashboard/fruits");
-    expect(form.querySelector('input[name="sort"]')).toHaveValue("name");
-    expect(form.querySelector('input[name="size"]')).toHaveValue("15");
+    expect(router.replace).toHaveBeenCalledWith(
+      "/dashboard/fruits?page=1&size=15&q=pe&sort=name&dir=asc",
+      { scroll: false },
+    );
   });
 
-  it("keeps the column menu on desktop when there is no search or action", () => {
+  it("keeps the column menu when there is no search or action", () => {
     renderTable({ urlState: undefined, search: undefined });
 
-    const columnsButton = screen.getByRole("button", { name: "Columns" });
-
-    expect(columnsButton.parentElement?.parentElement).toHaveClass(
-      "hidden",
-      "md:flex",
-    );
+    expect(
+      screen.getByRole("button", { name: "Customize columns" }),
+    ).toBeInTheDocument();
   });
 
   it("drops the column menu when there are no rows to show", () => {
     renderTable({ rows: [], urlState: undefined, search: undefined });
 
     expect(
-      screen.queryByRole("button", { name: "Columns" }),
+      screen.queryByRole("button", { name: "Customize columns" }),
     ).not.toBeInTheDocument();
   });
 
@@ -203,12 +249,10 @@ describe("DataTable", () => {
     renderTable({ rows: [], urlState: { ...urlState, search: "kiwi" } });
 
     expect(screen.getByText("Nothing matches “kiwi”")).toBeInTheDocument();
-    const clearLinks = screen.getAllByRole("link", { name: "Clear search" });
-
-    expect(clearLinks.map((link) => link.getAttribute("href"))).toEqual([
+    expect(screen.getByRole("link", { name: "Clear search" })).toHaveAttribute(
+      "href",
       "/dashboard/fruits?page=1&size=15&sort=name&dir=asc",
-      "/dashboard/fruits?page=1&size=15&sort=name&dir=asc",
-    ]);
+    );
   });
 
   it("renders pagination when a label is given and there is more than one page", () => {

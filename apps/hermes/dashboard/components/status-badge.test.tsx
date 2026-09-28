@@ -2,43 +2,41 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { StatusBadge, statusBadgeVariant } from "./status-badge";
+import { StatusBadge, statusTone } from "./status-badge";
 
-describe("statusBadgeVariant", () => {
+describe("statusTone", () => {
   it.each([
-    ["running", "info"],
+    ["running", "progress"],
+    ["pending", "progress"],
     ["succeeded", "success"],
     ["completed", "success"],
-    ["partial", "warning"],
-    ["failed", "destructive"],
-    ["pending", "muted"],
-    ["cancelled", "muted"],
     ["Enabled", "success"],
-    ["something-else", "outline"],
-  ])("maps %s to %s", (status, variant) => {
-    expect(statusBadgeVariant(status)).toBe(variant);
+    ["partial", "warning"],
+    ["failed", "failed"],
+    ["cancelled", "muted"],
+    ["skipped", "muted"],
+    ["something-else", "neutral"],
+  ])("maps %s to %s", (status, tone) => {
+    expect(statusTone(status)).toBe(tone);
   });
 });
 
 describe("StatusBadge", () => {
-  it("renders the humanized status with its variant", () => {
-    // Act
+  it("renders an outline badge with the humanized status", () => {
     render(<StatusBadge status="needs_review" />);
 
-    // Assert
     const badge = screen.getByText("needs review");
 
     expect(badge).toHaveAttribute("data-variant", "outline");
+    expect(badge).toHaveAttribute("data-tone", "neutral");
   });
 
-  it("prefers an explicit label", () => {
-    // Act
+  it("prefers an explicit label and keeps the status tone", () => {
     render(<StatusBadge status="failed" label="Failed twice" />);
 
-    // Assert
     expect(screen.getByText("Failed twice")).toHaveAttribute(
-      "data-variant",
-      "destructive",
+      "data-tone",
+      "failed",
     );
   });
 });

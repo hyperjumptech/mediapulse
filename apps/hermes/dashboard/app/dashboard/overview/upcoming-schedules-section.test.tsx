@@ -84,8 +84,8 @@ describe("UpcomingSchedulesSection", () => {
     const links = screen.getAllByRole("link");
 
     expect(disabledBadges).toHaveLength(1);
-    expect(disabledBadges[0]).toHaveAttribute("data-variant", "muted");
-    expect(disabledBadges[0]).toHaveClass("normal-case");
+    expect(disabledBadges[0]).toHaveAttribute("data-tone", "muted");
+    expect(disabledBadges[0]).not.toHaveClass("capitalize");
     expect(links[1]).toContainElement(disabledBadges[0] ?? null);
   });
 

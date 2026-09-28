@@ -88,12 +88,12 @@ describe("DomainIntegrationsTable", () => {
     renderIntegrations();
 
     expect(within(table()).getByText("active")).toHaveAttribute(
-      "data-variant",
+      "data-tone",
       "success",
     );
     expect(within(table()).getByText("pending")).toHaveAttribute(
-      "data-variant",
-      "muted",
+      "data-tone",
+      "progress",
     );
   });
 

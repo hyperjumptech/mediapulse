@@ -1,7 +1,6 @@
-import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { CREATE_QUERY_PARAM } from "@/lib/dashboard-routes";
+import { useCreateRequestedFromUrl } from "@/hooks/use-create-request";
 
 export type EntityFormModalMode = "create" | "edit";
 
@@ -12,22 +11,6 @@ export type EntityFormModalController = {
   setOpen: (open: boolean) => void;
   openCreate: () => void;
   openEdit: (entityId: string) => void;
-};
-
-const useCreateRequestedFromUrl = () => {
-  const searchParams = useSearchParams();
-  const createRequested = searchParams?.get(CREATE_QUERY_PARAM) === "1";
-
-  const clearCreateRequest = useCallback(() => {
-    if (!createRequested) {
-      return;
-    }
-    const url = new URL(window.location.href);
-    url.searchParams.delete(CREATE_QUERY_PARAM);
-    window.history.replaceState(window.history.state, "", url);
-  }, [createRequested]);
-
-  return { createRequested, clearCreateRequest };
 };
 
 export const useEntityFormModalState = (): EntityFormModalController => {

@@ -99,7 +99,7 @@ const SchedulesEmptyState = ({
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
-        <Button type="button" size="sm" onClick={onCreate}>
+        <Button type="button" variant="outline" size="sm" onClick={onCreate}>
           <Plus aria-hidden />
           New schedule
         </Button>

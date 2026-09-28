@@ -18,21 +18,6 @@ vi.mock("@/lib/domain-table-full-page-actions", () => ({
   runDomainTablePreviewExpansion: vi.fn(),
 }));
 
-vi.mock("@/components/page-header", () => ({
-  PageHeader: ({
-    title,
-    description,
-  }: {
-    title: string;
-    description: string;
-  }) => (
-    <div>
-      <h1>{title}</h1>
-      <p>{description}</p>
-    </div>
-  ),
-}));
-
 vi.mock("@/components/domain-table-form-fields", () => ({
   DomainTableFormFields: () => <div>Fields</div>,
 }));
@@ -57,8 +42,6 @@ vi.mock("@workspace/ui/components/card", () => ({
 }));
 
 const baseProps = {
-  title: "Edit data source expansions",
-  description: "desc",
   basePath: "/dashboard/mediapulse/data-source-expansions",
   fields: [],
   mode: "edit" as const,

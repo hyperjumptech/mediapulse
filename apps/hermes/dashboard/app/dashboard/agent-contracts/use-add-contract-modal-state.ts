@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useFormAction } from "@/app/dashboard/agent-contracts/actions/create/.generated/use-form-action";
 import { useCloseOnSuccessfulSubmit } from "@/app/dashboard/hooks/use-close-on-successful-submit";
+import { useCreateRequestOpenState } from "@/hooks/use-create-request";
 
 import type { AgentContractFormState } from "./agent-contract-form-fields";
 
@@ -20,15 +21,15 @@ export const useAddContractModalState = (
   controlledOpen?: boolean,
   onOpenChange?: OpenChangeHandler,
 ) => {
-  const [internalOpen, setInternalOpen] = useState(false);
+  const createRequest = useCreateRequestOpenState();
   const [formState, setFormState] = useState<AgentContractFormState>(emptyForm);
   const { FormWithAction, state, pending } = useFormAction();
 
   const isControlled = controlledOpen !== undefined;
-  const open = isControlled ? controlledOpen : internalOpen;
+  const open = isControlled ? controlledOpen : createRequest.open;
   const setOpen = useMemo(
-    () => (isControlled ? (onOpenChange ?? (() => {})) : setInternalOpen),
-    [isControlled, onOpenChange],
+    () => (isControlled ? (onOpenChange ?? (() => {})) : createRequest.setOpen),
+    [isControlled, onOpenChange, createRequest.setOpen],
   );
 
   const errorMessage = useMemo(() => {

@@ -1,20 +1,16 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
-import { Copy, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@workspace/ui/components/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
 
 import { useFormAction } from "@/app/dashboard/http-triggers/actions/delete/.generated/use-form-action";
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
+import { RowActionsMenu } from "@/components/data-table/row-actions-menu";
 import { useConfirmActionDialog } from "@/hooks/use-confirm-action-dialog";
 import {
   buildHttpTriggerInvokeCurlCommand,
@@ -86,37 +82,22 @@ export const HttpTriggerRowActions = ({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
-            aria-label={`Actions for HTTP trigger ${httpTriggerName}`}
-          >
-            <MoreHorizontal />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44">
-          <DropdownMenuItem onSelect={() => onEdit(httpTriggerId)}>
-            <Pencil />
-            Edit
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void copyCurlCommand()}>
-            <Copy />
-            Copy cURL
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            disabled={pending}
-            onSelect={requestConfirmation}
-          >
-            <Trash2 />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <RowActionsMenu label={`Actions for HTTP trigger ${httpTriggerName}`}>
+        <DropdownMenuItem onSelect={() => onEdit(httpTriggerId)}>
+          Edit
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void copyCurlCommand()}>
+          Copy cURL
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          disabled={pending}
+          onSelect={requestConfirmation}
+        >
+          Delete
+        </DropdownMenuItem>
+      </RowActionsMenu>
       <ConfirmActionDialog
         open={open}
         onOpenChange={setOpen}

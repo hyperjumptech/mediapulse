@@ -1,17 +1,27 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  EntityFormModalCreateButton,
-  EntityFormModalProvider,
-} from "@/components/entity-form-modal-provider";
+import { EntityFormModalProvider } from "@/components/entity-form-modal-provider";
 import type { PipelineSummary } from "@/lib/pipeline-summaries";
 
 import {
   PipelinesWithModal,
   type PipelinesWithModalProps,
 } from "./pipelines-with-modal";
+
+const { searchParams } = vi.hoisted(() => ({
+  searchParams: { current: "" },
+}));
+
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useSearchParams: () => new URLSearchParams(searchParams.current),
+}));
+
+afterEach(() => {
+  searchParams.current = "";
+});
 
 vi.mock("./pipeline-form-modal", () => ({
   PipelineFormModal: ({
@@ -82,7 +92,6 @@ const baseProps: PipelinesWithModalProps = {
 const renderWithProvider = (props: Partial<PipelinesWithModalProps> = {}) =>
   render(
     <EntityFormModalProvider>
-      <EntityFormModalCreateButton label="New pipeline" />
       <PipelinesWithModal {...baseProps} {...props} />
     </EntityFormModalProvider>,
   );
@@ -103,12 +112,12 @@ describe("PipelinesWithModal", () => {
     expect(modal).toHaveAttribute("data-domain-count", "1");
   });
 
-  it("opens the create modal from the page header button", () => {
+  it("opens the create modal when the header link asks for it", () => {
     // Setup
-    renderWithProvider();
+    searchParams.current = "create=1";
 
     // Act
-    fireEvent.click(screen.getByRole("button", { name: "New pipeline" }));
+    renderWithProvider();
 
     // Assert
     const modal = screen.getByTestId("pipeline-form-modal");

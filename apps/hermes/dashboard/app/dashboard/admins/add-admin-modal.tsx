@@ -1,12 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-
-import { Dialog, DialogTrigger } from "@workspace/ui/components/dialog";
+import { Dialog } from "@workspace/ui/components/dialog";
 import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
 
-import { useFormAction } from "@/app/dashboard/admins/actions/create/.generated/use-form-action";
 import {
   FormDialogBody,
   FormDialogCancelButton,
@@ -17,58 +14,14 @@ import {
 } from "@/components/form-dialog";
 import { SubmitButton } from "@/components/submit-button";
 
-type AddAdminModalProps = {
-  trigger?: React.ReactNode;
-};
+import { useAddAdminModalState } from "./use-add-admin-modal-state";
 
-/**
- * Owns add-admin dialog open state, form action wiring, and close after success.
- */
-const useAddAdminModalState = () => {
-  const [open, setOpen] = useState(false);
-  const { FormWithAction, state, pending } = useFormAction();
-
-  const errorMessage = useMemo(
-    () => (state && state.status === false ? String(state.message) : null),
-    [state],
-  );
-
-  const successId = useMemo(
-    () =>
-      state && state.status === true && state.data && "id" in state.data
-        ? String((state.data as { id: string }).id)
-        : null,
-    [state],
-  );
-
-  const handledSuccessRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (successId != null && handledSuccessRef.current !== successId) {
-      handledSuccessRef.current = successId;
-      setOpen(false);
-    }
-  }, [successId]);
-
-  return {
-    open,
-    setOpen,
-    FormWithAction,
-    pending,
-    errorMessage,
-  };
-};
-
-/**
- * Modal to create a new Hermes dashboard admin (email, name, initial password).
- */
-export const AddAdminModal = ({ trigger }: AddAdminModalProps) => {
+export const AddAdminModal = () => {
   const { open, setOpen, FormWithAction, pending, errorMessage } =
     useAddAdminModalState();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
       <FormDialogContent>
         <FormDialogHeader title="Add admin" />
         <FormWithAction className={formDialogFormClassName}>

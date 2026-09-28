@@ -1,6 +1,6 @@
 "use client";
 
-import { Columns3 } from "lucide-react";
+import { ChevronDown, Columns3 } from "lucide-react";
 import type { ReactTable, RowData } from "@tanstack/react-table";
 
 import { Button } from "@workspace/ui/components/button";
@@ -8,8 +8,6 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
 
@@ -30,14 +28,14 @@ export const DataTableViewOptions = <Row extends RowData>({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="hidden md:inline-flex">
-          <Columns3 />
-          Columns
+        <Button variant="outline" size="sm" aria-label="Customize columns">
+          <Columns3 aria-hidden />
+          <span className="hidden lg:inline">Customize Columns</span>
+          <span className="lg:hidden">Columns</span>
+          <ChevronDown aria-hidden />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuLabel>Show columns</DropdownMenuLabel>
-        <DropdownMenuSeparator />
+      <DropdownMenuContent align="end" className="w-56">
         {hideableColumns.map((column) => (
           <DropdownMenuCheckboxItem
             key={column.id}

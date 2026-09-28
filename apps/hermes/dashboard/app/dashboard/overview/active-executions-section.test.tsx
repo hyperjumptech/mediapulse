@@ -78,14 +78,14 @@ describe("ActiveExecutionsSection", () => {
     expect(links[0]).toHaveTextContent("Newsletter");
     expect(links[0]).toHaveTextContent("Schedule: Morning digest");
     expect(links[0]).toHaveTextContent("3m ago");
-    expect(runningBadge).toHaveAttribute("data-variant", "info");
+    expect(runningBadge).toHaveAttribute("data-tone", "progress");
     expect(links[1]).toHaveAttribute(
       "href",
       "/dashboard/pipelines/pipeline-2/executions/manual-execution-1",
     );
     expect(links[1]).toHaveTextContent("Manual run");
     expect(links[1]).toHaveTextContent("2h ago");
-    expect(pendingBadge).toHaveAttribute("data-variant", "muted");
+    expect(pendingBadge).toHaveAttribute("data-tone", "progress");
   });
 
   it("shows the absolute and relative start time", async () => {

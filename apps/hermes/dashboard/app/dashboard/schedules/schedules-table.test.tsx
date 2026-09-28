@@ -150,7 +150,7 @@ describe("SchedulesTable", () => {
     );
     expect(within(row).getByText("Jan 12, 09:00")).toBeInTheDocument();
     expect(within(row).getByText("enabled")).toHaveAttribute(
-      "data-variant",
+      "data-tone",
       "success",
     );
     expect(within(row).getByText("Ada Lovelace")).toBeInTheDocument();
@@ -165,10 +165,7 @@ describe("SchedulesTable", () => {
     renderTable({ schedules: [createMockSchedule({ enabled: false })] });
 
     // Assert
-    expect(screen.getByText("disabled")).toHaveAttribute(
-      "data-variant",
-      "muted",
-    );
+    expect(screen.getByText("disabled")).toHaveAttribute("data-tone", "muted");
   });
 
   it("shows custom cron expressions in monospace with the schedule timezone", () => {

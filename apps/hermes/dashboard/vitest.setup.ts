@@ -16,6 +16,18 @@ vi.mock("next/cache", () => ({
   ),
 }));
 
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    refresh: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    prefetch: vi.fn(),
+  }),
+}));
+
 config({ path: path.resolve(__dirname, ".env.local") });
 config({ path: path.resolve(__dirname, "../.env.local") });
 config({ path: path.resolve(__dirname, "../../../.env") });

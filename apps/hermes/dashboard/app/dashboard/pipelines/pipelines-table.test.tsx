@@ -101,7 +101,7 @@ describe("PipelinesTable", () => {
       "Test description",
     );
     expect(within(row).getByText("Enabled")).toHaveAttribute(
-      "data-variant",
+      "data-tone",
       "success",
     );
     expect(within(row).getByText("Ada Lovelace")).toBeInTheDocument();
@@ -119,10 +119,7 @@ describe("PipelinesTable", () => {
     });
 
     // Assert
-    expect(screen.getByText("Disabled")).toHaveAttribute(
-      "data-variant",
-      "muted",
-    );
+    expect(screen.getByText("Disabled")).toHaveAttribute("data-tone", "muted");
   });
 
   it("shows invalid pipelines as incomplete with their warnings", () => {
@@ -137,7 +134,7 @@ describe("PipelinesTable", () => {
     // Assert
     expect(screen.getByRole("button", { name: "Incomplete" })).toBeVisible();
     expect(screen.getByText("Incomplete")).toHaveAttribute(
-      "data-variant",
+      "data-tone",
       "warning",
     );
   });

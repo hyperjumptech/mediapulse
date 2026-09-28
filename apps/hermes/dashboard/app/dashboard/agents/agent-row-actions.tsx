@@ -2,20 +2,16 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
-import { Eye, MoreHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@workspace/ui/components/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
 
 import { useFormAction } from "@/app/dashboard/agents/actions/delete/.generated/use-form-action";
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
+import { RowActionsMenu } from "@/components/data-table/row-actions-menu";
 import { useConfirmActionDialog } from "@/hooks/use-confirm-action-dialog";
 import type { AgentsPageResult } from "@/lib/agents";
 
@@ -54,42 +50,25 @@ export const AgentRowActions = ({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
-            aria-label={`Actions for agent ${agentLabel}`}
-          >
-            <MoreHorizontal />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44">
-          {onView ? (
-            <DropdownMenuItem onSelect={() => onView(agent)}>
-              <Eye />
-              View details
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem asChild>
-              <Link href={`/dashboard/agents/${agent.id}`}>
-                <Eye />
-                View details
-              </Link>
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            disabled={pending}
-            onSelect={requestConfirmation}
-          >
-            <Trash2 />
-            Delete
+      <RowActionsMenu label={`Actions for agent ${agentLabel}`}>
+        {onView ? (
+          <DropdownMenuItem onSelect={() => onView(agent)}>
+            View details
           </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        ) : (
+          <DropdownMenuItem asChild>
+            <Link href={`/dashboard/agents/${agent.id}`}>View details</Link>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          disabled={pending}
+          onSelect={requestConfirmation}
+        >
+          Delete
+        </DropdownMenuItem>
+      </RowActionsMenu>
       <ConfirmActionDialog
         open={open}
         onOpenChange={setOpen}

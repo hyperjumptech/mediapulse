@@ -10,8 +10,6 @@ import {
 } from "./domain-table-row-actions";
 import type { DomainTableFormField } from "@/lib/domain-table-form-schema";
 
-// Render the dropdown inline and fire `onSelect` on click so the edit modal can
-// be opened without Radix's portal/pointer machinery.
 vi.mock("@workspace/ui/components/dropdown-menu", () => ({
   DropdownMenu: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
@@ -41,7 +39,6 @@ vi.mock("@workspace/ui/components/dropdown-menu", () => ({
   DropdownMenuSeparator: () => <hr />,
 }));
 
-// Render dialog content only while `open`, so closing the modal unmounts the form.
 vi.mock("@workspace/ui/components/dialog", () => ({
   Dialog: ({ open, children }: React.PropsWithChildren<{ open?: boolean }>) =>
     open ? <div>{children}</div> : null,
@@ -77,28 +74,22 @@ const renderEditModal = (updateAction: (formData: FormData) => Promise<void>) =>
 
 describe("getDomainTableRowDeleteLabel", () => {
   it("uses trimmed name when present", () => {
-    // Act
     const label = getDomainTableRowDeleteLabel({ name: "  PERSON  " }, "id-1");
 
-    // Assert
     expect(label).toBe("PERSON");
   });
 
   it("falls back to row id when name is missing or blank", () => {
-    // Act
     const missing = getDomainTableRowDeleteLabel({}, "row-2");
     const blank = getDomainTableRowDeleteLabel({ name: "   " }, "row-3");
 
-    // Assert
     expect(missing).toBe("row-2");
     expect(blank).toBe("row-3");
   });
 
   it("falls back to row id when name is not a string", () => {
-    // Act
     const label = getDomainTableRowDeleteLabel({ name: 42 }, "row-4");
 
-    // Assert
     expect(label).toBe("row-4");
   });
 });
@@ -151,14 +142,11 @@ describe("DomainTableRowActions delete confirmation", () => {
     );
 
   it("asks for confirmation before deleting the row", () => {
-    // Setup
     const deleteAction = vi.fn(async () => undefined);
     renderDeleteActions(deleteAction);
 
-    // Act
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
 
-    // Assert
     const dialog = screen.getByRole("alertdialog");
 
     expect(dialog).toHaveTextContent('Delete "Ada"?');
@@ -167,30 +155,24 @@ describe("DomainTableRowActions delete confirmation", () => {
   });
 
   it("does not delete when the user cancels", () => {
-    // Setup
     const deleteAction = vi.fn(async () => undefined);
     renderDeleteActions(deleteAction);
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-    // Assert
     expect(deleteAction).not.toHaveBeenCalled();
   });
 
   it("submits the row id to the delete action once confirmed", async () => {
-    // Setup
     const deleteAction = vi.fn<(formData: FormData) => Promise<void>>(
       async () => undefined,
     );
     renderDeleteActions(deleteAction);
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
-    // Assert
     await waitFor(() => {
       expect(deleteAction).toHaveBeenCalledTimes(1);
     });
@@ -206,7 +188,6 @@ describe("DomainTableRowActions delete confirmation", () => {
 
 describe("DomainTableRowActions navigation items", () => {
   it("links view and edit when hrefs are provided", () => {
-    // Act
     render(
       <DomainTableRowActions
         rowId="row-1"
@@ -222,7 +203,6 @@ describe("DomainTableRowActions navigation items", () => {
       />,
     );
 
-    // Assert
     expect(screen.getByRole("link", { name: "View" })).toHaveAttribute(
       "href",
       "/dashboard/acme/items/row-1",

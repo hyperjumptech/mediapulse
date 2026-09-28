@@ -23,7 +23,7 @@ describe("DetailBlockSectionHeader", () => {
         data={{ delivered: 1, enabled: 5 }}
       />,
     );
-    expect(screen.getByText("partial")).toBeInTheDocument();
+    expect(screen.getByText("partial")).toHaveAttribute("data-tone", "warning");
   });
 
   it("omits the badge when the rule evaluates to false", () => {

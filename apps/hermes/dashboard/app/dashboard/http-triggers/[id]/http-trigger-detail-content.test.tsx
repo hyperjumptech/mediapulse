@@ -111,10 +111,7 @@ describe("HttpTriggerDetailContent", () => {
     renderTriggerDetail(createMockTrigger());
 
     // Assert
-    expect(screen.getByText("enabled")).toHaveAttribute(
-      "data-variant",
-      "success",
-    );
+    expect(screen.getByText("enabled")).toHaveAttribute("data-tone", "success");
     expect(
       screen.getByText("Called by the CMS on publish"),
     ).toBeInTheDocument();
@@ -130,10 +127,7 @@ describe("HttpTriggerDetailContent", () => {
     );
 
     // Assert
-    expect(screen.getByText("disabled")).toHaveAttribute(
-      "data-variant",
-      "muted",
-    );
+    expect(screen.getByText("disabled")).toHaveAttribute("data-tone", "muted");
     expect(
       screen.queryByText("Called by the CMS on publish"),
     ).not.toBeInTheDocument();

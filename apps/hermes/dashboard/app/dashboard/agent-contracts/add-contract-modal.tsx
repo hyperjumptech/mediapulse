@@ -1,7 +1,6 @@
 "use client";
 
-import { Dialog, DialogTrigger } from "@workspace/ui/components/dialog";
-import { Button } from "@workspace/ui/components/button";
+import { Dialog } from "@workspace/ui/components/dialog";
 
 import {
   FormDialogBody,
@@ -22,13 +21,11 @@ import { useAddContractModalState } from "./use-add-contract-modal-state";
 type AddContractModalProps = {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  trigger?: React.ReactNode;
 };
 
 export const AddContractModal = ({
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
-  trigger = <Button>Add contract</Button>,
 }: AddContractModalProps) => {
   const {
     open,
@@ -43,9 +40,6 @@ export const AddContractModal = ({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      {trigger != null ? (
-        <DialogTrigger asChild>{trigger}</DialogTrigger>
-      ) : null}
       <FormDialogContent size="wide">
         <FormDialogHeader title="Add contract" />
         <FormWithAction className={formDialogFormClassName}>

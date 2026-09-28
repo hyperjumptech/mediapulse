@@ -1,19 +1,13 @@
 "use client";
 
-import { Ban, MoreHorizontal } from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@workspace/ui/components/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu";
+import { DropdownMenuItem } from "@workspace/ui/components/dropdown-menu";
 
 import { useFormAction } from "@/app/dashboard/api-keys/actions/revoke/.generated/use-form-action";
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
+import { RowActionsMenu } from "@/components/data-table/row-actions-menu";
 import { useConfirmActionDialog } from "@/hooks/use-confirm-action-dialog";
 
 export type ApiKeyRow = {
@@ -45,28 +39,15 @@ export const ApiKeyRowActions = ({ row }: ApiKeyRowActionsProps) => {
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
-            aria-label={`Actions for API key ${row.label}`}
-          >
-            <MoreHorizontal />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44">
-          <DropdownMenuItem
-            variant="destructive"
-            disabled={pending}
-            onSelect={requestConfirmation}
-          >
-            <Ban />
-            Revoke
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <RowActionsMenu label={`Actions for API key ${row.label}`}>
+        <DropdownMenuItem
+          variant="destructive"
+          disabled={pending}
+          onSelect={requestConfirmation}
+        >
+          Revoke
+        </DropdownMenuItem>
+      </RowActionsMenu>
       <ConfirmActionDialog
         open={open}
         onOpenChange={setOpen}

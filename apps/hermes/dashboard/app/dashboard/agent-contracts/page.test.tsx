@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./agent-contracts-section", () => ({
@@ -12,8 +12,11 @@ vi.mock("./agent-contracts-section", () => ({
 }));
 
 vi.mock("./add-contract-modal", () => ({
-  AddContractModal: ({ trigger }: { trigger: React.ReactNode }) => (
-    <div data-testid="add-contract-modal">{trigger}</div>
+  AddContractModal: (props: Record<string, unknown>) => (
+    <div
+      data-testid="add-contract-modal"
+      data-prop-names={Object.keys(props).join(",")}
+    />
   ),
 }));
 
@@ -26,16 +29,18 @@ const renderedQuery = () =>
   );
 
 describe("AgentContractsPage", () => {
-  it("renders the header with an add contract action", async () => {
+  it("mounts one URL-driven add contract modal without its own trigger", async () => {
     // Act
     render(await AgentContractsPage({ searchParams: {} }));
 
     // Assert
+    expect(screen.getByTestId("add-contract-modal")).toHaveAttribute(
+      "data-prop-names",
+      "",
+    );
     expect(
-      within(screen.getByTestId("add-contract-modal")).getByRole("button", {
-        name: "Add contract",
-      }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Add contract" }),
+    ).not.toBeInTheDocument();
     expect(renderedQuery()).toEqual({
       page: 1,
       pageSize: 15,

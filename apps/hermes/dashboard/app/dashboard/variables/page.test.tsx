@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./variables-section", () => ({
@@ -9,16 +9,12 @@ vi.mock("./variables-section", () => ({
 }));
 
 vi.mock("./variable-modal", () => ({
-  VariableModal: ({
-    variable,
-    trigger,
-  }: {
-    variable: null;
-    trigger: React.ReactNode;
-  }) => (
-    <div data-testid="variable-modal" data-variable={String(variable)}>
-      {trigger}
-    </div>
+  VariableModal: (props: Record<string, unknown>) => (
+    <div
+      data-testid="variable-modal"
+      data-variable={String(props.variable)}
+      data-prop-names={Object.keys(props).join(",")}
+    />
   ),
 }));
 
@@ -30,7 +26,7 @@ const renderedQuery = () =>
   );
 
 describe("VariablesPage", () => {
-  it("renders the header with an add variable action", async () => {
+  it("mounts one URL-driven create variable modal without its own trigger", async () => {
     // Act
     render(await VariablesPage({ searchParams: {} }));
 
@@ -38,9 +34,10 @@ describe("VariablesPage", () => {
     const modal = screen.getByTestId("variable-modal");
 
     expect(modal).toHaveAttribute("data-variable", "null");
+    expect(modal).toHaveAttribute("data-prop-names", "variable");
     expect(
-      within(modal).getByRole("button", { name: "Add variable" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Add variable" }),
+    ).not.toBeInTheDocument();
     expect(renderedQuery()).toEqual({
       page: 1,
       pageSize: 15,

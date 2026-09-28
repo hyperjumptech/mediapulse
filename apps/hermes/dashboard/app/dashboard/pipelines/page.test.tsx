@@ -9,14 +9,14 @@ vi.mock("./pipelines-section", () => ({
 import PipelinesPage from "./page";
 
 describe("PipelinesPage", () => {
-  it("renders the page header with the new pipeline action and the section", () => {
+  it("renders the section and leaves the new pipeline action to the site header", () => {
     // Act
     render(<PipelinesPage />);
 
     // Assert
     expect(
-      screen.getByRole("button", { name: "New pipeline" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "New pipeline" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("pipelines-section")).toBeInTheDocument();
   });
 });
