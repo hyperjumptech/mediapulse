@@ -5,7 +5,6 @@ import { mapRowToDetailItem } from "./detail-mapper";
 
 describe("mapRowToDetailItem", () => {
   it("includes queries array and JSON textarea fields", () => {
-    // Setup
     const row = {
       id: "set-1",
       tickerId: "ticker-1",
@@ -33,11 +32,9 @@ describe("mapRowToDetailItem", () => {
       ],
     };
 
-    // Act
     const detail = mapRowToDetailItem(row);
 
-    // Assert
-    expect(detail.isActive).toBe("No");
+    expect(detail.isActive).toBe(false);
     expect(detail.queries).toHaveLength(1);
     expect(detail.queriesJson).toContain("AAPL news");
     expect(detail.strategySnapshotMarkdown).toContain("queryCount");

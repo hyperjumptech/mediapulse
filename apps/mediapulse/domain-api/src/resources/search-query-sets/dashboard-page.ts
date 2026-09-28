@@ -1,7 +1,3 @@
-/**
- * Hermes `table-v1` manifest for search query sets (full CRUD + detail blocks).
- */
-
 import type { DashboardViewInput, DetailBlock } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
@@ -15,7 +11,6 @@ import {
   searchQuerySetUpdateFormJsonSchema,
 } from "./write-body-schemas";
 
-/** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const searchQuerySetsHermesPathSegment = "search-query-sets" as const;
 
 const searchQuerySetsMetadataBlock = {
@@ -59,7 +54,6 @@ const searchQuerySetsQueriesBlock = {
   ],
 } satisfies DetailBlock;
 
-/** Hermes `table-v1` manifest page for search query sets. */
 export const searchQuerySetsDashboardPage = {
   id: searchQuerySetsHermesPathSegment,
   label: "Search Query Sets",
@@ -72,13 +66,28 @@ export const searchQuerySetsDashboardPage = {
   order: 38,
   columns: columnsFor<ListItem>()([
     { key: "tickerSymbol", label: "Ticker", type: "text" },
-    { key: "tickerName", label: "Ticker name", type: "text" },
-    { key: "isActive", label: "Active", type: "text" },
-    { key: "generatedAt", label: "Generated", type: "date-time" },
+    {
+      key: "tickerName",
+      label: "Ticker name",
+      type: "text",
+      hideBelow: "md",
+      mobile: "subtitle",
+    },
+    {
+      key: "isActive",
+      label: "Active",
+      type: "text",
+      format: "boolean",
+      mobile: "badge",
+    },
+    {
+      key: "generatedAt",
+      label: "Generated",
+      type: "date-time",
+      format: "date-time",
+    },
     { key: "generationSource", label: "Source", type: "text" },
-    { key: "queryCount", label: "Queries", type: "text" },
-    { key: "agentJobId", label: "Hermes job id", type: "text" },
-    { key: "createdAt", label: "Created", type: "date-time" },
+    { key: "queryCount", label: "Queries", type: "text", format: "number" },
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()([
     "tickerSymbol",

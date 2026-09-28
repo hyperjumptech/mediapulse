@@ -1,17 +1,12 @@
 import { revalidatePath } from "next/cache";
-import { Plus } from "lucide-react";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { Button } from "@workspace/ui/components/button";
-import { DataTableSearch } from "@/components/data-table/data-table-search";
-import { PageHeader } from "@/components/page-header";
-import { SectionSkeleton } from "@/components/page-skeletons";
+import { ListBodySkeleton } from "@/components/page-skeletons";
 import { DomainCreateModal } from "@/app/dashboard/domain-create-modal";
-import { DomainTableListFilters } from "@/app/dashboard/domain-table-list-filters";
 import { DomainTableDangerConfirmButton } from "@/app/dashboard/domain-table-danger-confirm-button";
-import { DomainTableJsonUploadCard } from "@/app/dashboard/domain-table-json-upload-card";
-import { DomainTableRowsSection } from "@/app/dashboard/domain-table-rows-section";
+import { DomainTableJsonImportDialog } from "@/app/dashboard/domain-table-json-import-dialog";
+import { DomainTableListFilters } from "@/app/dashboard/domain-table-list-filters";
+import { DomainTableSection } from "@/app/dashboard/domain-table-section";
 import {
   createDomainTableItem,
   deleteDomainTableItem,
@@ -27,7 +22,6 @@ import {
   parseDomainTableFormFieldsFromJsonSchema,
 } from "@/lib/domain-table-form-schema";
 import {
-  buildDomainTableFilterExtraParams,
   buildDomainTableFilterFormPreserveParams,
   buildDomainTableListParams,
   type DomainTableSearchParams,
@@ -36,12 +30,6 @@ import {
   requireDashboardAdmin,
   withDashboardAdmin,
 } from "@/lib/require-dashboard-admin";
-
-export {
-  formatDomainTableCellValue,
-  type DomainTableCellFormatOptions,
-  type DomainTableColumnForDisplay,
-} from "@/app/dashboard/domain-table-rows-section";
 
 type DomainTablePageProps = {
   integrationId: string;
@@ -60,11 +48,7 @@ export const DomainTablePage = async ({
     getDomainTableMeta(integrationId, resource),
   );
   const params = buildDomainTableListParams(resolved, meta);
-  const filterFormPreserveParams =
-    buildDomainTableFilterFormPreserveParams(params);
-  const filterExtraParams = buildDomainTableFilterExtraParams(params.filters);
   const listFilters = meta.listFilters ?? [];
-  const showListFilters = listFilters.length > 0;
   const createFields = parseDomainTableFormFieldsFromJsonSchema(
     meta.createSchema,
   );
@@ -81,7 +65,6 @@ export const DomainTablePage = async ({
       formDataToDomainPayload(formData, createFields),
     );
     revalidatePath(basePath);
-    redirect(basePath);
   };
 
   const updateAction = async (formData: FormData) => {
@@ -138,10 +121,6 @@ export const DomainTablePage = async ({
     return { status: "success", added, updated };
   };
 
-  const jsonImportActions = meta.customActions.filter(
-    (entry) => entry.ui === "json-file-upload",
-  );
-
   const dangerConfirmServerAction = async (
     _prevState: DomainTableDangerConfirmState,
     formData: FormData,
@@ -166,99 +145,73 @@ export const DomainTablePage = async ({
     return { status: "success", deleted };
   };
 
+  const jsonImportActions = meta.customActions.filter(
+    (entry) => entry.ui === "json-file-upload",
+  );
   const dangerConfirmActions = meta.customActions.filter(
     (entry) => entry.ui === "danger-confirm",
   );
+  const hasToolbarActions =
+    jsonImportActions.length > 0 || dangerConfirmActions.length > 0;
+  const canCreateInModal =
+    Boolean(meta.actions.create) &&
+    createFields.length > 0 &&
+    meta.createNavigation !== "full-page";
 
-  const fullPage = meta.createNavigation === "full-page";
-  const canCreate = Boolean(meta.actions.create) && createFields.length > 0;
-  const createLabel = `Add ${meta.title}`;
-  const hasHeaderActions = dangerConfirmActions.length > 0 || canCreate;
+  const toolbarActions = hasToolbarActions
+    ? [
+        ...jsonImportActions.map((action) => (
+          <DomainTableJsonImportDialog
+            key={`import-${action.id}`}
+            action={action}
+            serverAction={jsonImportServerAction}
+          />
+        )),
+        ...dangerConfirmActions.map((action) => (
+          <DomainTableDangerConfirmButton
+            key={`danger-${action.id}`}
+            action={action}
+            serverAction={dangerConfirmServerAction}
+          />
+        )),
+      ]
+    : undefined;
 
-  const headerActions = hasHeaderActions ? (
-    <>
-      {dangerConfirmActions.map((action) => (
-        <DomainTableDangerConfirmButton
-          key={action.id}
-          action={action}
-          serverAction={dangerConfirmServerAction}
-        />
-      ))}
-      {canCreate && fullPage ? (
-        <Button size="sm" asChild>
-          <Link href={`${basePath}/new`}>
-            <Plus aria-hidden />
-            {createLabel}
-          </Link>
-        </Button>
-      ) : null}
-      {canCreate && !fullPage ? (
-        <DomainCreateModal
-          fields={createFields}
-          createAction={createAction}
-          triggerLabel={createLabel}
-        />
-      ) : null}
-    </>
-  ) : null;
+  const toolbarFilters =
+    listFilters.length > 0 ? (
+      <DomainTableListFilters
+        key="list-filters"
+        basePath={basePath}
+        listFilters={listFilters}
+        filterOptions={meta.filterOptions}
+        filterValues={params.filters}
+        preserveParams={buildDomainTableFilterFormPreserveParams(params)}
+      />
+    ) : undefined;
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader actions={headerActions} />
-
-      {jsonImportActions.length > 0 ? (
-        <div className="grid gap-3 lg:grid-cols-2">
-          {jsonImportActions.map((action) => (
-            <DomainTableJsonUploadCard
-              key={action.id}
-              action={action}
-              serverAction={jsonImportServerAction}
-            />
-          ))}
-        </div>
+      <Suspense fallback={<ListBodySkeleton />}>
+        <DomainTableSection
+          integrationId={integrationId}
+          resource={resource}
+          basePath={basePath}
+          meta={meta}
+          params={params}
+          updateFields={updateFields}
+          updateAction={updateAction}
+          deleteAction={deleteAction}
+          toolbarFilters={toolbarFilters}
+          toolbarActions={toolbarActions}
+        />
+      </Suspense>
+      {canCreateInModal ? (
+        <DomainCreateModal
+          fields={createFields}
+          createAction={createAction}
+          title={`Add ${meta.title}`}
+        />
       ) : null}
-
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <DataTableSearch
-            tableId={`${integrationId}-${resource}`}
-            urlState={{
-              basePath,
-              page: params.page,
-              pageSize: params.pageSize,
-              total: 0,
-              search: params.query,
-              sortBy: params.sortBy,
-              sortDir: params.sortDir,
-              extra: filterExtraParams,
-            }}
-            label={`Search ${meta.title}`}
-            placeholder={`Filter ${meta.title.toLowerCase()}…`}
-          />
-          {showListFilters ? (
-            <DomainTableListFilters
-              basePath={basePath}
-              listFilters={listFilters}
-              filterOptions={meta.filterOptions}
-              filterValues={params.filters}
-              preserveParams={filterFormPreserveParams}
-            />
-          ) : null}
-        </div>
-
-        <Suspense fallback={<SectionSkeleton />}>
-          <DomainTableRowsSection
-            integrationId={integrationId}
-            resource={resource}
-            basePath={basePath}
-            meta={meta}
-            params={params}
-            updateFields={updateFields}
-            updateAction={updateAction}
-            deleteAction={deleteAction}
-          />
-        </Suspense>
-      </div>
     </div>
   );
 };

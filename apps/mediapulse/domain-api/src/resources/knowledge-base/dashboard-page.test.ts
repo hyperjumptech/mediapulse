@@ -1,4 +1,3 @@
-/** @vitest-environment node */
 import { dashboardViewSchema } from "@hermes/domain-contract";
 import { describe, expect, it } from "vitest";
 
@@ -10,6 +9,29 @@ describe("knowledgeBaseDashboardPage", () => {
     const parsed = dashboardViewSchema.safeParse(knowledgeBaseDashboardPage);
 
     expect(parsed.success).toBe(true);
+  });
+
+  it("lists each issuer with its graph counts and freshness", () => {
+    const keys = knowledgeBaseDashboardPage.columns.map((column) => column.key);
+
+    expect(keys).toEqual([
+      "symbol",
+      "name",
+      "entityCount",
+      "relationCount",
+      "articleCount",
+      "lastSeenAt",
+    ]);
+  });
+
+  it("formats the graph counts as numbers", () => {
+    const formats = knowledgeBaseDashboardPage.columns
+      .filter((column) =>
+        ["entityCount", "relationCount", "articleCount"].includes(column.key),
+      )
+      .map((column) => column.format);
+
+    expect(formats).toEqual(["number", "number", "number"]);
   });
 
   it("is read-only with a detail page", () => {

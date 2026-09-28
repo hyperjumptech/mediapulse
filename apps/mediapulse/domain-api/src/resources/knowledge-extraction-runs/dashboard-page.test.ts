@@ -1,4 +1,3 @@
-/** @vitest-environment node */
 import { dashboardViewSchema } from "@hermes/domain-contract";
 import { describe, expect, it } from "vitest";
 
@@ -29,6 +28,37 @@ describe("knowledgeExtractionRunsDashboardPage", () => {
 
     expect(keys).toContain("rejectionRate");
     expect(keys).toContain("kindsCreated");
+  });
+
+  it("renders the run status as a toned badge on every screen", () => {
+    const status = knowledgeExtractionRunsDashboardPage.columns.find(
+      (column) => column.key === "status",
+    );
+
+    expect(status).toMatchObject({
+      format: "badge",
+      mobile: "badge",
+      badgeTones: {
+        running: "progress",
+        success: "success",
+        partial_success: "warning",
+        failed: "failed",
+      },
+    });
+  });
+
+  it("formats the run counters as numbers", () => {
+    const counterKeys = [
+      "considered",
+      "entitiesCreated",
+      "mentionsWritten",
+      "kindsCreated",
+    ];
+    const formats = knowledgeExtractionRunsDashboardPage.columns
+      .filter((column) => counterKeys.includes(column.key))
+      .map((column) => column.format);
+
+    expect(formats).toEqual(["number", "number", "number", "number"]);
   });
 
   it("colours the refused stat card from the payload", () => {

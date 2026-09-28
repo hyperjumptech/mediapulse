@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Suspense, use } from "react";
 import { Plus } from "lucide-react";
 
 import { Button } from "@workspace/ui/components/button";
@@ -9,16 +10,27 @@ import { Button } from "@workspace/ui/components/button";
 import {
   DASHBOARD_ROOT_PATH,
   resolveDashboardPrimaryAction,
+  type DomainIntegrationNav,
 } from "@/lib/dashboard-routes";
 
 import { QuickCreateMenu } from "./quick-create-menu";
 
-export const SiteHeaderAction = () => {
+type SiteHeaderActionProps = {
+  domainIntegrations: Promise<DomainIntegrationNav[]>;
+};
+
+const noDomainIntegrations: readonly DomainIntegrationNav[] = [];
+
+const PrimaryAction = ({
+  domainIntegrations,
+}: {
+  domainIntegrations: readonly DomainIntegrationNav[];
+}) => {
   const pathname = usePathname();
   if (pathname === DASHBOARD_ROOT_PATH) {
     return <QuickCreateMenu />;
   }
-  const action = resolveDashboardPrimaryAction(pathname);
+  const action = resolveDashboardPrimaryAction(pathname, domainIntegrations);
   if (!action) {
     return null;
   }
@@ -32,3 +44,21 @@ export const SiteHeaderAction = () => {
     </Button>
   );
 };
+
+const ResolvedPrimaryAction = ({
+  domainIntegrations,
+}: SiteHeaderActionProps) => {
+  const resolvedDomainIntegrations = use(domainIntegrations);
+
+  return <PrimaryAction domainIntegrations={resolvedDomainIntegrations} />;
+};
+
+export const SiteHeaderAction = ({
+  domainIntegrations,
+}: SiteHeaderActionProps) => (
+  <Suspense
+    fallback={<PrimaryAction domainIntegrations={noDomainIntegrations} />}
+  >
+    <ResolvedPrimaryAction domainIntegrations={domainIntegrations} />
+  </Suspense>
+);

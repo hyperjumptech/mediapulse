@@ -1,4 +1,5 @@
 import {
+  dashboardViewSchema,
   evaluateDetailBlockRule,
   parseDetailBlockRule,
   type DetailBlock,
@@ -26,6 +27,37 @@ const findBlock = (label: string): DetailBlock => {
   if (!block) throw new Error(`block not found: ${label}`);
   return block;
 };
+
+describe("newslettersDashboardPage list", () => {
+  it("satisfies the Hermes dashboard view contract", () => {
+    const parsed = dashboardViewSchema.safeParse(newslettersDashboardPage);
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("lists the ticker, the subject, how many recipients got it and when", () => {
+    const keys = newslettersDashboardPage.columns.map((column) => column.key);
+
+    expect(keys).toEqual([
+      "tickerSymbol",
+      "subject",
+      "deliveryDelivered",
+      "createdAt",
+    ]);
+  });
+
+  it("formats the delivered count as a number and shows the subject on phones", () => {
+    const delivered = newslettersDashboardPage.columns.find(
+      (column) => column.key === "deliveryDelivered",
+    );
+    const subject = newslettersDashboardPage.columns.find(
+      (column) => column.key === "subject",
+    );
+
+    expect(delivered).toMatchObject({ label: "Delivered", format: "number" });
+    expect(subject?.mobile).toBe("subtitle");
+  });
+});
 
 describe("newslettersDashboardPage section rules", () => {
   it("declares a search-queries rule that uses hoursBetween > 24", () => {

@@ -1,7 +1,3 @@
-/**
- * Hermes `table-v1` manifest for tickers (custom actions, metadata form) and exported path segment.
- */
-
 import { type DashboardViewInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
@@ -15,10 +11,8 @@ import {
   tickerUpdateFormJsonSchema,
 } from "./write-body-schemas";
 
-/** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const tickersHermesPathSegment = "tickers" as const;
 
-/** Hermes `table-v1` manifest page for the tickers resource. */
 export const tickersDashboardPage = {
   id: tickersHermesPathSegment,
   label: "Tickers",
@@ -31,8 +25,13 @@ export const tickersDashboardPage = {
   order: 10,
   columns: columnsFor<ListItem>()([
     { key: "symbol", label: "Symbol", type: "text" },
-    { key: "name", label: "Name", type: "text" },
-    { key: "createdAt", label: "Created", type: "date-time" },
+    { key: "name", label: "Name", type: "text", mobile: "subtitle" },
+    {
+      key: "createdAt",
+      label: "Created",
+      type: "date-time",
+      format: "date-time",
+    },
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()(["symbol", "name"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["symbol", "name", "createdAt"]),

@@ -8,11 +8,6 @@ import { DetailBlocksView } from "@/components/detail-blocks";
 import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
 import { PageHeader } from "@/components/page-header";
 import { SummaryGrid, SummaryItem } from "@/components/summary-grid";
-import {
-  formatDomainTableCellValue,
-  type DomainTableCellFormatOptions,
-  type DomainTableColumnForDisplay,
-} from "@/app/dashboard/domain-table-page";
 import { getDomainIntegrationByIntegrationId } from "@/lib/domain-integrations";
 import {
   getDomainTableItemById,
@@ -20,6 +15,11 @@ import {
 } from "@/lib/domain-dashboard";
 import { DATA_SOURCE_EXPANSIONS_PATH_SEGMENT } from "@/lib/data-source-expansion-template-meta";
 import { getViewerDateTimeContext } from "@/lib/date-time/viewer-date-time";
+import {
+  formatDomainTableCellValue,
+  type DomainTableCellFormatOptions,
+  type DomainTableColumn,
+} from "@/lib/domain-table-columns";
 import { parseDomainTableFormFieldsFromJsonSchema } from "@/lib/domain-table-form-schema";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
@@ -35,7 +35,7 @@ type DetailField = {
 const LONG_VALUE_CHARACTER_COUNT = 120;
 
 const resolveDomainTableDetailTitle = (
-  columns: DomainTableColumnForDisplay[] | undefined,
+  columns: DomainTableColumn[] | undefined,
   row: Record<string, unknown>,
   formatOptions: DomainTableCellFormatOptions,
   detailTitleField?: string,
@@ -73,7 +73,7 @@ const resolveEditHref = (
 };
 
 const collectDetailFields = (
-  columns: DomainTableColumnForDisplay[],
+  columns: DomainTableColumn[],
   row: Record<string, unknown>,
   formatOptions: DomainTableCellFormatOptions,
 ): DetailField[] =>

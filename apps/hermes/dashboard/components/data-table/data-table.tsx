@@ -208,8 +208,8 @@ export const DataTable = <Row extends RowData>({
   return (
     <div className="flex flex-col gap-4">
       {hasToolbar ? (
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-1 flex-wrap items-center gap-2">
             {search && urlState ? (
               <DataTableSearch
                 tableId={tableId}
@@ -220,7 +220,7 @@ export const DataTable = <Row extends RowData>({
             ) : null}
             {toolbarFilters}
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
             {showViewOptions ? <DataTableViewOptions table={table} /> : null}
             {toolbarActions}
           </div>

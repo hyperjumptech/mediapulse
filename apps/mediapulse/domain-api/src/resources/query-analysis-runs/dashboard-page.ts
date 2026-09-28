@@ -6,11 +6,9 @@ import {
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
 
-/** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const queryAnalysisRunsHermesPathSegment =
   "query-analysis-runs" as const;
 
-/** Hermes `table-v1` manifest for the query-analysis per-query decision chronicle. */
 export const queryAnalysisRunsDashboardPage = {
   id: queryAnalysisRunsHermesPathSegment,
   label: "Query Analysis Runs",
@@ -25,11 +23,16 @@ export const queryAnalysisRunsDashboardPage = {
   order: 56,
   columns: columnsFor<ListItem>()([
     { key: "tickerSymbol", label: "Ticker", type: "text" },
-    { key: "generated", label: "Generated", type: "text" },
-    { key: "included", label: "Included", type: "text" },
-    { key: "rejected", label: "Rejected", type: "text" },
-    { key: "executionId", label: "Execution id", type: "text" },
-    { key: "createdAt", label: "Created", type: "date-time" },
+    { key: "generated", label: "Generated", type: "text", format: "number" },
+    { key: "included", label: "Included", type: "text", format: "number" },
+    { key: "rejected", label: "Rejected", type: "text", format: "number" },
+    {
+      key: "createdAt",
+      label: "Created",
+      type: "date-time",
+      format: "date-time",
+      mobile: "subtitle",
+    },
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()([
     "tickerSymbol",

@@ -194,11 +194,6 @@ const dashboardPrimaryActions = new Map<string, DashboardPrimaryAction>([
   ],
 ]);
 
-export const resolveDashboardPrimaryAction = (
-  pathname: string | null,
-): DashboardPrimaryAction | null =>
-  pathname ? (dashboardPrimaryActions.get(pathname) ?? null) : null;
-
 const hermesSectionLabels = new Map<string, string>(
   dashboardNavItems
     .filter((item) => item.href.startsWith(DASHBOARD_SECTION_PREFIX))
@@ -266,6 +261,70 @@ const decodePathSegment = (segment: string): string => {
   } catch {
     return segment;
   }
+};
+
+const hasCreateSchemaProperties = (
+  createSchema: Record<string, unknown> | undefined,
+): boolean => {
+  const properties = createSchema?.properties;
+  if (typeof properties !== "object" || properties === null) {
+    return false;
+  }
+
+  return Object.keys(properties).length > 0;
+};
+
+export const resolveDomainViewPrimaryAction = (
+  pathname: string | null,
+  domainIntegrations: readonly DomainIntegrationNav[],
+): DashboardPrimaryAction | null => {
+  const segments = (pathname ?? "").split("/").filter(Boolean);
+  const [rootSegment, integrationSegment, resourceSegment, ...rest] = segments;
+  if (
+    rootSegment !== DASHBOARD_ROOT_SEGMENT ||
+    !integrationSegment ||
+    !resourceSegment ||
+    rest.length > 0 ||
+    hermesSectionLabels.has(integrationSegment)
+  ) {
+    return null;
+  }
+  const integrationId = decodePathSegment(integrationSegment);
+  const resource = decodePathSegment(resourceSegment);
+  const integration = domainIntegrations.find(
+    (candidate) => candidate.integrationId === integrationId,
+  );
+  const view = integration?.views.find(
+    (candidate) => candidate.pathSegment === resource,
+  );
+  if (
+    view?.kind !== "resource-table" ||
+    !view.actions.create ||
+    !hasCreateSchemaProperties(view.createSchema)
+  ) {
+    return null;
+  }
+  const basePath = `${DASHBOARD_ROOT_PATH}/${integrationSegment}/${resourceSegment}`;
+  const href =
+    view.createNavigation === "full-page"
+      ? `${basePath}/${DOMAIN_ITEM_NEW_SEGMENT}`
+      : createOnPage(basePath);
+
+  return { href, label: `Add ${view.label}` };
+};
+
+export const resolveDashboardPrimaryAction = (
+  pathname: string | null,
+  domainIntegrations: readonly DomainIntegrationNav[] = [],
+): DashboardPrimaryAction | null => {
+  if (!pathname) {
+    return null;
+  }
+
+  return (
+    dashboardPrimaryActions.get(pathname) ??
+    resolveDomainViewPrimaryAction(pathname, domainIntegrations)
+  );
 };
 
 const humanizePathSegment = (segment: string): string => {

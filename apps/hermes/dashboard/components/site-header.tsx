@@ -20,7 +20,7 @@ export const SiteHeader = ({ domainIntegrations }: SiteHeaderProps) => (
       />
       <DashboardPageTitle domainIntegrations={domainIntegrations} />
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <SiteHeaderAction />
+        <SiteHeaderAction domainIntegrations={domainIntegrations} />
       </div>
     </div>
   </header>

@@ -12,10 +12,11 @@ const invokeDomainTableCustomActionMock = vi.fn();
 const invokeDomainTableDangerConfirmActionMock = vi.fn();
 const revalidatePathMock = vi.fn();
 const redirectMock = vi.fn();
-const rowsSectionMock = vi.fn();
+const tableSectionMock = vi.fn();
 const createModalMock = vi.fn();
-const jsonUploadCardMock = vi.fn();
+const jsonImportDialogMock = vi.fn();
 const dangerConfirmButtonMock = vi.fn();
+const listFiltersMock = vi.fn();
 
 vi.mock("next/cache", () => ({
   revalidatePath: (...args: unknown[]) => revalidatePathMock(...args),
@@ -44,11 +45,19 @@ vi.mock("@/lib/domain-dashboard", () => ({
     invokeDomainTableDangerConfirmActionMock(...args),
 }));
 
-vi.mock("@/app/dashboard/domain-table-rows-section", () => ({
-  DomainTableRowsSection: (props: unknown) => {
-    rowsSectionMock(props);
+vi.mock("@/app/dashboard/domain-table-section", () => ({
+  DomainTableSection: (props: {
+    toolbarFilters?: React.ReactNode;
+    toolbarActions?: React.ReactNode;
+  }) => {
+    tableSectionMock(props);
 
-    return <div data-testid="domain-table-rows-section" />;
+    return (
+      <div data-testid="domain-table-section">
+        <div data-testid="toolbar-filters">{props.toolbarFilters}</div>
+        <div data-testid="toolbar-actions">{props.toolbarActions}</div>
+      </div>
+    );
   },
 }));
 
@@ -60,11 +69,11 @@ vi.mock("@/app/dashboard/domain-create-modal", () => ({
   },
 }));
 
-vi.mock("@/app/dashboard/domain-table-json-upload-card", () => ({
-  DomainTableJsonUploadCard: (props: unknown) => {
-    jsonUploadCardMock(props);
+vi.mock("@/app/dashboard/domain-table-json-import-dialog", () => ({
+  DomainTableJsonImportDialog: (props: unknown) => {
+    jsonImportDialogMock(props);
 
-    return <div data-testid="domain-table-json-upload-card" />;
+    return <div data-testid="domain-table-json-import-dialog" />;
   },
 }));
 
@@ -76,12 +85,12 @@ vi.mock("@/app/dashboard/domain-table-danger-confirm-button", () => ({
   },
 }));
 
-vi.mock("@/components/data-table/data-table-search", () => ({
-  DataTableSearch: () => <div data-testid="domain-table-search" />,
-}));
-
 vi.mock("@/app/dashboard/domain-table-list-filters", () => ({
-  DomainTableListFilters: () => <div data-testid="domain-table-list-filters" />,
+  DomainTableListFilters: (props: unknown) => {
+    listFiltersMock(props);
+
+    return <div data-testid="domain-table-list-filters" />;
+  },
 }));
 
 import { DomainTablePage } from "./domain-table-page";
@@ -109,6 +118,15 @@ const meta = tableV1MetaResponseSchema.parse({
     type: "object",
     properties: { symbol: { type: "string" } },
   },
+  sortableFields: ["symbol"],
+  listFilters: [
+    {
+      key: "sector",
+      label: "Sector",
+      ui: "select",
+      staticOptions: [{ value: "energy", label: "Energy" }],
+    },
+  ],
   customActions: [
     {
       id: "import",
@@ -139,14 +157,18 @@ const buildFormData = (entries: Record<string, string>) => {
   return formData;
 };
 
-const renderPage = async () => {
-  render(
+const renderPage = async (
+  searchParams: Record<string, string> = { q: "acme", page: "2" },
+) => {
+  const { container } = render(
     await DomainTablePage({
       integrationId: "mediapulse",
       resource: "tickers",
-      searchParams: { q: "acme", page: "2" },
+      searchParams,
     }),
   );
+
+  return container;
 };
 
 describe("DomainTablePage", () => {
@@ -161,102 +183,136 @@ describe("DomainTablePage", () => {
     getDomainTableMetaMock.mockReset();
   });
 
-  it("renders the header and hands the rows section the parsed list params", async () => {
-    // Act
+  it("hands the table section the parsed list params and row actions", async () => {
     await renderPage();
 
-    // Assert
-    const rowsSectionProps =
-      lastProps<Record<string, unknown>>(rowsSectionMock);
+    const sectionProps = lastProps<Record<string, unknown>>(tableSectionMock);
 
     expect(getDomainTableMetaMock).toHaveBeenCalledWith(
       "mediapulse",
       "tickers",
     );
-    expect(screen.getByTestId("domain-table-rows-section")).toBeInTheDocument();
-    expect(rowsSectionProps).toMatchObject({
+    expect(sectionProps).toMatchObject({
       integrationId: "mediapulse",
       resource: "tickers",
       basePath: "/dashboard/mediapulse/tickers",
       meta,
       params: { page: 2, pageSize: 15, query: "acme", filters: {} },
     });
-    expect(rowsSectionProps.updateAction).toBeTypeOf("function");
-    expect(rowsSectionProps.deleteAction).toBeTypeOf("function");
+    expect(sectionProps.updateAction).toBeTypeOf("function");
+    expect(sectionProps.deleteAction).toBeTypeOf("function");
   });
 
-  it("places custom danger actions and create in the page header", async () => {
-    // Act
+  it("renders no page header above the table", async () => {
+    const container = await renderPage();
+
+    const page = container.firstElementChild as HTMLElement;
+
+    expect(
+      container.querySelector('[data-slot="page-header-actions"]'),
+    ).toBeNull();
+    expect(page.firstElementChild).toBe(
+      screen.getByTestId("domain-table-section"),
+    );
+  });
+
+  it("puts the JSON import and danger actions in the table toolbar", async () => {
     await renderPage();
 
-    // Assert
-    const headerActions = document.querySelector(
-      '[data-slot="page-header-actions"]',
-    );
+    const toolbarActions = screen.getByTestId("toolbar-actions");
 
-    expect(headerActions).toContainElement(
+    expect(toolbarActions).toContainElement(
+      screen.getByTestId("domain-table-json-import-dialog"),
+    );
+    expect(toolbarActions).toContainElement(
       screen.getByTestId("domain-table-danger-confirm-button"),
     );
-    expect(headerActions).toContainElement(
-      screen.getByTestId("domain-create-modal"),
-    );
-    expect(lastProps<{ triggerLabel: string }>(createModalMock)).toMatchObject({
-      triggerLabel: "Add Tickers",
+    expect(
+      lastProps<{ action: { id: string } }>(jsonImportDialogMock),
+    ).toMatchObject({ action: { id: "import" } });
+    expect(
+      lastProps<{ action: { id: string } }>(dangerConfirmButtonMock),
+    ).toMatchObject({ action: { id: "reset" } });
+  });
+
+  it("puts the manifest filters in the table toolbar with the other list params preserved", async () => {
+    await renderPage({
+      q: "acme",
+      sort: "symbol",
+      dir: "asc",
+      sector: "energy",
     });
-    expect(headerActions).not.toContainElement(
-      screen.getByTestId("domain-table-search"),
+
+    expect(screen.getByTestId("toolbar-filters")).toContainElement(
+      screen.getByTestId("domain-table-list-filters"),
+    );
+    expect(listFiltersMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        basePath: "/dashboard/mediapulse/tickers",
+        filterValues: { sector: "energy" },
+        preserveParams: { sort: "symbol", dir: "asc", q: "acme" },
+      }),
     );
   });
 
-  it("links create to the full-page editor when the manifest asks for it", async () => {
-    // Setup
+  it("leaves the toolbar slots empty without filters or custom actions", async () => {
+    getDomainTableMetaMock.mockResolvedValue({
+      ...meta,
+      listFilters: [],
+      customActions: [],
+    });
+
+    await renderPage();
+
+    const sectionProps = lastProps<Record<string, unknown>>(tableSectionMock);
+
+    expect(sectionProps.toolbarFilters).toBeUndefined();
+    expect(sectionProps.toolbarActions).toBeUndefined();
+  });
+
+  it("mounts the create dialog without a trigger of its own", async () => {
+    await renderPage();
+
+    expect(screen.getByTestId("domain-create-modal")).toBeInTheDocument();
+    expect(createModalMock).toHaveBeenCalledWith(
+      expect.not.objectContaining({ triggerLabel: expect.anything() }),
+    );
+    expect(lastProps<{ title: string }>(createModalMock)).toMatchObject({
+      title: "Add Tickers",
+    });
+    expect(screen.queryByRole("link", { name: /Add/ })).not.toBeInTheDocument();
+  });
+
+  it("skips the create dialog when the manifest creates on a full page", async () => {
     getDomainTableMetaMock.mockResolvedValue({
       ...meta,
       createNavigation: "full-page",
-      customActions: [],
     });
 
-    // Act
     await renderPage();
 
-    // Assert
-    expect(screen.getByRole("link", { name: "Add Tickers" })).toHaveAttribute(
-      "href",
-      "/dashboard/mediapulse/tickers/new",
-    );
     expect(createModalMock).not.toHaveBeenCalled();
-    expect(dangerConfirmButtonMock).not.toHaveBeenCalled();
   });
 
-  it("omits header actions when the manifest allows no create or danger actions", async () => {
-    // Setup
+  it("skips the create dialog when the manifest cannot create", async () => {
     getDomainTableMetaMock.mockResolvedValue({
       ...meta,
-      actions: { create: false, update: false, delete: false },
-      customActions: [],
+      actions: { create: false, update: true, delete: true, view: false },
     });
 
-    // Act
     await renderPage();
 
-    // Assert
-    expect(
-      document.querySelector('[data-slot="page-header-actions"]'),
-    ).toBeNull();
-    expect(screen.getByTestId("domain-table-search")).toBeInTheDocument();
+    expect(createModalMock).not.toHaveBeenCalled();
   });
 
-  it("creates an item for an admin and returns to the list", async () => {
-    // Setup
+  it("creates an item for an admin and refreshes the list", async () => {
     await renderPage();
     const { createAction } = lastProps<{ createAction: FormAction }>(
       createModalMock,
     );
 
-    // Act
     await createAction(buildFormData({ symbol: "ACME" }));
 
-    // Assert
     expect(createDomainTableItemMock).toHaveBeenCalledWith(
       "mediapulse",
       "tickers",
@@ -265,20 +321,17 @@ describe("DomainTablePage", () => {
     expect(revalidatePathMock).toHaveBeenCalledWith(
       "/dashboard/mediapulse/tickers",
     );
-    expect(redirectMock).toHaveBeenCalledWith("/dashboard/mediapulse/tickers");
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 
   it("updates an item for an admin without redirecting", async () => {
-    // Setup
     await renderPage();
     const { updateAction } = lastProps<{ updateAction: FormAction }>(
-      rowsSectionMock,
+      tableSectionMock,
     );
 
-    // Act
     await updateAction(buildFormData({ __id: "t-1", symbol: "ACME" }));
 
-    // Assert
     expect(updateDomainTableItemMock).toHaveBeenCalledWith(
       "mediapulse",
       "tickers",
@@ -286,6 +339,46 @@ describe("DomainTablePage", () => {
       { symbol: "ACME" },
     );
     expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("deletes an item for an admin and returns to the list", async () => {
+    await renderPage();
+    const { deleteAction } = lastProps<{ deleteAction: FormAction }>(
+      tableSectionMock,
+    );
+
+    await deleteAction(buildFormData({ __id: "t-1" }));
+
+    expect(deleteDomainTableItemMock).toHaveBeenCalledWith(
+      "mediapulse",
+      "tickers",
+      "t-1",
+    );
+    expect(redirectMock).toHaveBeenCalledWith("/dashboard/mediapulse/tickers");
+  });
+
+  it("reports how many rows a JSON import added and updated", async () => {
+    await renderPage();
+    invokeDomainTableCustomActionMock.mockResolvedValue({
+      success: true,
+      data: { added: 2, updated: 1 },
+    });
+    const { serverAction } = lastProps<{ serverAction: StateAction }>(
+      jsonImportDialogMock,
+    );
+
+    const state = await serverAction(
+      { status: "idle" },
+      buildFormData({ __actionId: "import", payloadJson: "[]" }),
+    );
+
+    expect(state).toEqual({ status: "success", added: 2, updated: 1 });
+    expect(invokeDomainTableCustomActionMock).toHaveBeenCalledWith(
+      "mediapulse",
+      "tickers",
+      "import",
+      "[]",
+    );
   });
 
   const unauthorizedCases = [
@@ -300,7 +393,7 @@ describe("DomainTablePage", () => {
     {
       name: "updateAction",
       invoke: () =>
-        lastProps<{ updateAction: FormAction }>(rowsSectionMock).updateAction(
+        lastProps<{ updateAction: FormAction }>(tableSectionMock).updateAction(
           buildFormData({ __id: "t-1", symbol: "ACME" }),
         ),
       mutation: updateDomainTableItemMock,
@@ -308,7 +401,7 @@ describe("DomainTablePage", () => {
     {
       name: "deleteAction",
       invoke: () =>
-        lastProps<{ deleteAction: FormAction }>(rowsSectionMock).deleteAction(
+        lastProps<{ deleteAction: FormAction }>(tableSectionMock).deleteAction(
           buildFormData({ __id: "t-1" }),
         ),
       mutation: deleteDomainTableItemMock,
@@ -317,7 +410,7 @@ describe("DomainTablePage", () => {
       name: "jsonImportServerAction",
       invoke: () =>
         lastProps<{ serverAction: StateAction }>(
-          jsonUploadCardMock,
+          jsonImportDialogMock,
         ).serverAction(
           { status: "idle" },
           buildFormData({ __actionId: "import", payloadJson: "[]" }),
@@ -340,14 +433,11 @@ describe("DomainTablePage", () => {
   it.each(unauthorizedCases)(
     "$name rejects callers who are not active admins",
     async ({ invoke, mutation }) => {
-      // Setup
       await renderPage();
       requireDashboardAdminMock.mockRejectedValue(new Error("NEXT_REDIRECT"));
 
-      // Act
       const pending = invoke();
 
-      // Assert
       await expect(pending).rejects.toThrow("NEXT_REDIRECT");
       expect(mutation).not.toHaveBeenCalled();
       expect(revalidatePathMock).not.toHaveBeenCalled();

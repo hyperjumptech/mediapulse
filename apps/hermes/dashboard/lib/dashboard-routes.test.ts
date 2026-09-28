@@ -9,6 +9,8 @@ import {
   dashboardQuickCreateItems,
   dashboardSecondaryNavItems,
   resolveDashboardPageTitle,
+  resolveDashboardPrimaryAction,
+  resolveDomainViewPrimaryAction,
   isDashboardPathActive,
   type DomainIntegrationNav,
 } from "./dashboard-routes";
@@ -65,13 +67,11 @@ const build = (pathname: string | null, entityLabels?: Map<string, string>) =>
 
 describe("dashboardNavGroups", () => {
   it("lists the Hermes sections in sidebar order", () => {
-    // Act
     const groupSummaries = dashboardNavGroups.map((group) => ({
       label: group.label,
       items: group.items.map((item) => item.label),
     }));
 
-    // Assert
     expect(groupSummaries).toEqual([
       {
         label: "Home",
@@ -90,10 +90,8 @@ describe("dashboardNavGroups", () => {
   });
 
   it("gives every item a dashboard href and an icon", () => {
-    // Act
     const items = dashboardNavItems;
 
-    // Assert
     for (const item of items) {
       expect(item.href.startsWith("/dashboard")).toBe(true);
       expect(item.icon).toBeTruthy();
@@ -103,7 +101,6 @@ describe("dashboardNavGroups", () => {
 
 describe("isDashboardPathActive", () => {
   it("matches the dashboard root only on an exact path", () => {
-    // Assert
     expect(isDashboardPathActive("/dashboard", "/dashboard")).toBe(true);
     expect(isDashboardPathActive("/dashboard/pipelines", "/dashboard")).toBe(
       false,
@@ -111,7 +108,6 @@ describe("isDashboardPathActive", () => {
   });
 
   it("matches a section and its nested routes", () => {
-    // Assert
     expect(
       isDashboardPathActive("/dashboard/pipelines", "/dashboard/pipelines"),
     ).toBe(true);
@@ -124,7 +120,6 @@ describe("isDashboardPathActive", () => {
   });
 
   it("does not match a sibling section that shares a prefix", () => {
-    // Assert
     expect(
       isDashboardPathActive("/dashboard/agent-configs", "/dashboard/agent"),
     ).toBe(false);
@@ -134,31 +129,26 @@ describe("isDashboardPathActive", () => {
   });
 
   it("returns false without a pathname", () => {
-    // Assert
     expect(isDashboardPathActive(null, "/dashboard")).toBe(false);
   });
 });
 
 describe("buildDomainIntegrationViewHref", () => {
   it("uses the view path segment", () => {
-    // Act
     const href = buildDomainIntegrationViewHref("mediapulse", {
       id: "tickers-view",
       pathSegment: "tickers",
     });
 
-    // Assert
     expect(href).toBe("/dashboard/mediapulse/tickers");
   });
 
   it("falls back to the view id when the path segment is missing", () => {
-    // Act
     const href = buildDomainIntegrationViewHref("mediapulse", {
       id: "tickers",
       pathSegment: undefined,
     });
 
-    // Assert
     expect(href).toBe("/dashboard/mediapulse/tickers");
   });
 });
@@ -166,24 +156,20 @@ describe("buildDomainIntegrationViewHref", () => {
 describe("buildDashboardBreadcrumbs", () => {
   describe("dashboard root", () => {
     it("returns Overview for /dashboard", () => {
-      // Assert
       expect(build("/dashboard")).toEqual([{ label: "Overview" }]);
     });
 
     it("returns Overview for a missing pathname", () => {
-      // Assert
       expect(build(null)).toEqual([{ label: "Overview" }]);
     });
 
     it("returns Overview for a path outside the dashboard", () => {
-      // Assert
       expect(build("/login")).toEqual([{ label: "Overview" }]);
     });
   });
 
   describe("Hermes sections", () => {
     it("returns the section label for a section index", () => {
-      // Assert
       expect(build("/dashboard/pipelines")).toEqual([{ label: "Pipelines" }]);
       expect(build("/dashboard/http-triggers")).toEqual([
         { label: "HTTP triggers" },
@@ -192,23 +178,19 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("ignores a trailing slash", () => {
-      // Assert
       expect(build("/dashboard/schedules/")).toEqual([{ label: "Schedules" }]);
     });
 
     it("never gives the current page an href", () => {
-      // Act
       const breadcrumbs = build(`/dashboard/pipelines/${PIPELINE_ID}`);
       const currentPage = breadcrumbs.at(-1);
 
-      // Assert
       expect(currentPage).not.toHaveProperty("href");
     });
   });
 
   describe("entity detail pages", () => {
     it("falls back to the entity noun without a registered label", () => {
-      // Assert
       expect(build(`/dashboard/pipelines/${PIPELINE_ID}`)).toEqual([
         { label: "Pipelines", href: "/dashboard/pipelines" },
         { label: "Pipeline" },
@@ -228,16 +210,13 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("uses the registered entity label", () => {
-      // Setup
       const entityLabels = new Map([[PIPELINE_ID, "Nightly ingest"]]);
 
-      // Act
       const breadcrumbs = build(
         `/dashboard/pipelines/${PIPELINE_ID}`,
         entityLabels,
       );
 
-      // Assert
       expect(breadcrumbs).toEqual([
         { label: "Pipelines", href: "/dashboard/pipelines" },
         { label: "Nightly ingest" },
@@ -245,7 +224,6 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("labels unknown trailing segments by humanizing them", () => {
-      // Assert
       expect(build(`/dashboard/schedules/${SCHEDULE_ID}/executions`)).toEqual([
         { label: "Schedules", href: "/dashboard/schedules" },
         { label: "Schedule", href: `/dashboard/schedules/${SCHEDULE_ID}` },
@@ -256,16 +234,13 @@ describe("buildDashboardBreadcrumbs", () => {
 
   describe("execution pages", () => {
     it("links the schedule and ends on the execution", () => {
-      // Setup
       const entityLabels = new Map([[SCHEDULE_ID, "Morning run"]]);
 
-      // Act
       const breadcrumbs = build(
         `/dashboard/schedules/${SCHEDULE_ID}/executions/${EXECUTION_ID}`,
         entityLabels,
       );
 
-      // Assert
       expect(breadcrumbs).toEqual([
         { label: "Schedules", href: "/dashboard/schedules" },
         { label: "Morning run", href: `/dashboard/schedules/${SCHEDULE_ID}` },
@@ -274,12 +249,10 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("falls back to the schedule noun without a registered label", () => {
-      // Act
       const breadcrumbs = build(
         `/dashboard/schedules/${SCHEDULE_ID}/executions/${EXECUTION_ID}`,
       );
 
-      // Assert
       expect(breadcrumbs).toEqual([
         { label: "Schedules", href: "/dashboard/schedules" },
         { label: "Schedule", href: `/dashboard/schedules/${SCHEDULE_ID}` },
@@ -288,12 +261,10 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("adds Processed URLs after a linked execution", () => {
-      // Act
       const breadcrumbs = build(
         `/dashboard/schedules/${SCHEDULE_ID}/executions/${EXECUTION_ID}/processed-urls`,
       );
 
-      // Assert
       expect(breadcrumbs).toEqual([
         { label: "Schedules", href: "/dashboard/schedules" },
         { label: "Schedule", href: `/dashboard/schedules/${SCHEDULE_ID}` },
@@ -306,7 +277,6 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("handles pipeline and HTTP trigger executions", () => {
-      // Assert
       expect(
         build(`/dashboard/pipelines/${PIPELINE_ID}/executions/${EXECUTION_ID}`),
       ).toEqual([
@@ -324,23 +294,19 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("uses a registered execution label", () => {
-      // Setup
       const entityLabels = new Map([[EXECUTION_ID, "Run #42"]]);
 
-      // Act
       const breadcrumbs = build(
         `/dashboard/pipelines/${PIPELINE_ID}/executions/${EXECUTION_ID}`,
         entityLabels,
       );
 
-      // Assert
       expect(breadcrumbs.at(-1)).toEqual({ label: "Run #42" });
     });
   });
 
   describe("create and edit pages", () => {
     it("labels agent config creation as New", () => {
-      // Assert
       expect(build("/dashboard/agent-configs/new")).toEqual([
         { label: "Agent configs", href: "/dashboard/agent-configs" },
         { label: "New" },
@@ -348,7 +314,6 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("does not link an agent config that has no detail page", () => {
-      // Assert
       expect(build("/dashboard/agent-configs/config-1/edit")).toEqual([
         { label: "Agent configs", href: "/dashboard/agent-configs" },
         { label: "Agent config" },
@@ -357,16 +322,13 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("uses the registered agent config label on the edit page", () => {
-      // Setup
       const entityLabels = new Map([["config-1", "Default summarizer"]]);
 
-      // Act
       const breadcrumbs = build(
         "/dashboard/agent-configs/config-1/edit",
         entityLabels,
       );
 
-      // Assert
       expect(breadcrumbs).toEqual([
         { label: "Agent configs", href: "/dashboard/agent-configs" },
         { label: "Default summarizer" },
@@ -375,7 +337,6 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("labels domain integration creation as New", () => {
-      // Assert
       expect(build("/dashboard/domain-integrations/create")).toEqual([
         {
           label: "Domain integrations",
@@ -388,7 +349,6 @@ describe("buildDashboardBreadcrumbs", () => {
 
   describe("domain integration pages", () => {
     it("shows the integration name and view label", () => {
-      // Assert
       expect(build("/dashboard/mediapulse/tickers")).toEqual([
         { label: "Mediapulse" },
         { label: "Tickers" },
@@ -396,12 +356,10 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("shows only the integration name at the integration root", () => {
-      // Assert
       expect(build("/dashboard/mediapulse")).toEqual([{ label: "Mediapulse" }]);
     });
 
     it("labels item creation as New", () => {
-      // Assert
       expect(build("/dashboard/mediapulse/tickers/new")).toEqual([
         { label: "Mediapulse" },
         { label: "Tickers", href: "/dashboard/mediapulse/tickers" },
@@ -410,7 +368,6 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("falls back to Detail for an item without a registered label", () => {
-      // Assert
       expect(build(`/dashboard/mediapulse/articles/${ITEM_ID}`)).toEqual([
         { label: "Mediapulse" },
         { label: "Articles", href: "/dashboard/mediapulse/articles" },
@@ -419,16 +376,13 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("links the item on its edit page when the view has a detail page", () => {
-      // Setup
       const entityLabels = new Map([[ITEM_ID, "Rate cut coverage"]]);
 
-      // Act
       const breadcrumbs = build(
         `/dashboard/mediapulse/articles/${ITEM_ID}/edit`,
         entityLabels,
       );
 
-      // Assert
       expect(breadcrumbs).toEqual([
         { label: "Mediapulse" },
         { label: "Articles", href: "/dashboard/mediapulse/articles" },
@@ -441,12 +395,10 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("does not link the item when the view has no detail page", () => {
-      // Act
       const breadcrumbs = build(
         `/dashboard/mediapulse/tickers/${ITEM_ID}/edit`,
       );
 
-      // Assert
       expect(breadcrumbs).toEqual([
         { label: "Mediapulse" },
         { label: "Tickers", href: "/dashboard/mediapulse/tickers" },
@@ -456,20 +408,16 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("does not link items of content views", () => {
-      // Act
       const breadcrumbs = build(`/dashboard/mediapulse/report/${ITEM_ID}/edit`);
 
-      // Assert
       expect(breadcrumbs[2]).toEqual({ label: "Detail" });
     });
 
     it("humanizes unknown item sub pages and trailing segments", () => {
-      // Act
       const breadcrumbs = build(
         `/dashboard/mediapulse/articles/${ITEM_ID}/raw-json/latest`,
       );
 
-      // Assert
       expect(breadcrumbs.slice(-2)).toEqual([
         { label: "Raw json" },
         { label: "Latest" },
@@ -477,13 +425,11 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("humanizes segments while integrations are still loading", () => {
-      // Act
       const breadcrumbs = buildDashboardBreadcrumbs({
         pathname: "/dashboard/mediapulse/search-queries",
         domainIntegrations: [],
       });
 
-      // Assert
       expect(breadcrumbs).toEqual([
         { label: "Mediapulse" },
         { label: "Search queries" },
@@ -491,7 +437,6 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("humanizes a view the integration does not declare", () => {
-      // Assert
       expect(build("/dashboard/mediapulse/entity_types")).toEqual([
         { label: "Mediapulse" },
         { label: "Entity types" },
@@ -499,16 +444,13 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("looks up entity labels by the decoded segment and keeps the encoded href", () => {
-      // Setup
       const entityLabels = new Map([["BBCA JK", "Bank Central Asia"]]);
 
-      // Act
       const breadcrumbs = build(
         "/dashboard/mediapulse/articles/BBCA%20JK/edit",
         entityLabels,
       );
 
-      // Assert
       expect(breadcrumbs[2]).toEqual({
         label: "Bank Central Asia",
         href: "/dashboard/mediapulse/articles/BBCA%20JK",
@@ -516,15 +458,12 @@ describe("buildDashboardBreadcrumbs", () => {
     });
 
     it("tolerates malformed percent encoding", () => {
-      // Act
       const breadcrumbs = build("/dashboard/mediapulse/bad%E0%A4%A");
 
-      // Assert
       expect(breadcrumbs.at(-1)).toEqual({ label: "Bad%E0%A4%A" });
     });
 
     it("treats object prototype keys as ordinary segments", () => {
-      // Assert
       expect(build("/dashboard/constructor/toString")).toEqual([
         { label: "Constructor" },
         { label: "ToString" },
@@ -569,5 +508,161 @@ describe("resolveDashboardPageTitle", () => {
       title: "Overview",
       parent: null,
     });
+  });
+});
+
+describe("resolveDomainViewPrimaryAction", () => {
+  const createSchema = {
+    type: "object",
+    properties: { symbol: { type: "string" } },
+  };
+
+  const integrationWith = (
+    overrides: Partial<ResourceTableView>,
+  ): DomainIntegrationNav[] => [
+    {
+      integrationId: "acme",
+      name: "Acme",
+      views: [
+        {
+          ...createResourceTableView("items", "Items", true),
+          createSchema,
+          ...overrides,
+        },
+        reportView,
+      ],
+    },
+  ];
+
+  it("opens the create dialog on the list page for a modal view", () => {
+    const action = resolveDomainViewPrimaryAction(
+      "/dashboard/acme/items",
+      integrationWith({}),
+    );
+
+    expect(action).toEqual({
+      href: "/dashboard/acme/items?create=1",
+      label: "Add Items",
+    });
+  });
+
+  it("links to the new page for a full-page view", () => {
+    const action = resolveDomainViewPrimaryAction(
+      "/dashboard/acme/items/",
+      integrationWith({ createNavigation: "full-page" }),
+    );
+
+    expect(action).toEqual({
+      href: "/dashboard/acme/items/new",
+      label: "Add Items",
+    });
+  });
+
+  it("keeps the encoded path segments in the href", () => {
+    const integrations: DomainIntegrationNav[] = [
+      {
+        integrationId: "acme corp",
+        name: "Acme",
+        views: [
+          {
+            ...createResourceTableView("price lists", "Price lists", false),
+            createSchema,
+          },
+        ],
+      },
+    ];
+
+    const action = resolveDomainViewPrimaryAction(
+      "/dashboard/acme%20corp/price%20lists",
+      integrations,
+    );
+
+    expect(action?.href).toBe("/dashboard/acme%20corp/price%20lists?create=1");
+  });
+
+  it.each([
+    {
+      name: "cannot create",
+      overrides: {
+        actions: { create: false, update: true, delete: true, view: true },
+      },
+    },
+    { name: "has no create schema", overrides: { createSchema: undefined } },
+    {
+      name: "has an empty create schema",
+      overrides: { createSchema: { type: "object", properties: {} } },
+    },
+    {
+      name: "has create schema properties that are not an object",
+      overrides: { createSchema: { type: "object", properties: "symbol" } },
+    },
+  ])("returns null when the view $name", ({ overrides }) => {
+    const action = resolveDomainViewPrimaryAction(
+      "/dashboard/acme/items",
+      integrationWith(overrides),
+    );
+
+    expect(action).toBeNull();
+  });
+
+  it.each([
+    { name: "a content view", pathname: "/dashboard/acme/report" },
+    { name: "an unknown view", pathname: "/dashboard/acme/missing" },
+    { name: "an unknown integration", pathname: "/dashboard/other/items" },
+    { name: "an item page", pathname: "/dashboard/acme/items/item-1" },
+    { name: "the new item page", pathname: "/dashboard/acme/items/new" },
+    { name: "the integration root", pathname: "/dashboard/acme" },
+    { name: "a Hermes detail page", pathname: "/dashboard/pipelines/items" },
+    { name: "a path outside the dashboard", pathname: "/acme/items/x" },
+  ])("returns null on $name", ({ pathname }) => {
+    const action = resolveDomainViewPrimaryAction(
+      pathname,
+      integrationWith({}),
+    );
+
+    expect(action).toBeNull();
+  });
+
+  it("returns null while integrations are still loading", () => {
+    const action = resolveDomainViewPrimaryAction("/dashboard/acme/items", []);
+
+    expect(action).toBeNull();
+  });
+});
+
+describe("resolveDashboardPrimaryAction", () => {
+  it("prefers the Hermes page action", () => {
+    const action = resolveDashboardPrimaryAction("/dashboard/variables", []);
+
+    expect(action).toEqual({
+      href: "/dashboard/variables?create=1",
+      label: "Add variable",
+    });
+  });
+
+  it("falls back to the domain view action", () => {
+    const integrations: DomainIntegrationNav[] = [
+      {
+        integrationId: "acme",
+        name: "Acme",
+        views: [
+          {
+            ...createResourceTableView("items", "Items", false),
+            createSchema: { properties: { name: { type: "string" } } },
+          },
+        ],
+      },
+    ];
+
+    const action = resolveDashboardPrimaryAction(
+      "/dashboard/acme/items",
+      integrations,
+    );
+
+    expect(action?.label).toBe("Add Items");
+  });
+
+  it("returns null without a pathname", () => {
+    expect(resolveDashboardPrimaryAction(null)).toBeNull();
   });
 });

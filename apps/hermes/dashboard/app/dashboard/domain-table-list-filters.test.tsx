@@ -20,18 +20,11 @@ vi.mock("next/link", () => ({
   default: ({
     children,
     href,
-  }: {
-    children: React.ReactNode;
-    href: string;
-  }) => <a href={href}>{children}</a>,
-}));
-
-vi.mock("@workspace/ui/components/button", () => ({
-  Button: ({
-    children,
-    type,
-  }: React.PropsWithChildren<{ type?: "submit" | "button" }>) => (
-    <button type={type}>{children}</button>
+    ...props
+  }: React.ComponentProps<"a"> & { href: string }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 
@@ -66,7 +59,6 @@ describe("DomainTableListFilters", () => {
   });
 
   it("submits through next/form to the base path with preserved params as hidden inputs", () => {
-    // Act
     render(
       <DomainTableListFilters
         basePath="/dashboard/mediapulse/entities"
@@ -86,7 +78,6 @@ describe("DomainTableListFilters", () => {
       />,
     );
 
-    // Assert
     const form = screen.getByRole("search", { name: "Filter list" });
     expect(form).toHaveAttribute(
       "data-action",
@@ -98,8 +89,36 @@ describe("DomainTableListFilters", () => {
     expect(form.querySelector('input[name="q"]')).toHaveValue("acme");
   });
 
+  it("names a bare All option after its filter so compact selects stay readable", () => {
+    render(
+      <DomainTableListFilters
+        basePath="/dashboard/acme/items"
+        listFilters={[
+          {
+            key: "source",
+            label: "Collected by",
+            ui: "select",
+            placeholderAll: "All",
+          },
+          {
+            key: "owner",
+            label: "Owner",
+            ui: "select",
+            placeholderAll: "All owners",
+          },
+        ]}
+        filterValues={{}}
+        preserveParams={{}}
+      />,
+    );
+
+    expect(screen.getByLabelText("Collected by")).toHaveDisplayValue(
+      "Collected by: All",
+    );
+    expect(screen.getByLabelText("Owner")).toHaveDisplayValue("All owners");
+  });
+
   it("renders date ranges as date inputs beside an apply button", () => {
-    // Act
     render(
       <DomainTableListFilters
         basePath="/dashboard/acme/items"
@@ -116,10 +135,12 @@ describe("DomainTableListFilters", () => {
       />,
     );
 
-    // Assert
-    expect(screen.getByLabelText("From date")).toHaveAttribute("type", "date");
-    expect(screen.getByLabelText("From date")).toHaveValue("2026-07-01");
-    expect(screen.getByLabelText("To date")).toHaveAttribute(
+    expect(screen.getByLabelText("Created from")).toHaveAttribute(
+      "type",
+      "date",
+    );
+    expect(screen.getByLabelText("Created from")).toHaveValue("2026-07-01");
+    expect(screen.getByLabelText("Created to")).toHaveAttribute(
       "name",
       "createdTo",
     );
@@ -129,8 +150,36 @@ describe("DomainTableListFilters", () => {
     );
   });
 
+  it("uses the compact toolbar control height", () => {
+    render(
+      <DomainTableListFilters
+        basePath="/dashboard/acme/items"
+        listFilters={[
+          { key: "isActive", label: "Active", ui: "boolean-select" },
+          {
+            key: "createdAt",
+            label: "Created",
+            ui: "date-range",
+            rangeParams: { from: "from", to: "to" },
+          },
+        ]}
+        filterValues={{ isActive: "true" }}
+        preserveParams={{}}
+      />,
+    );
+
+    expect(screen.getByLabelText("Active")).toHaveAttribute("data-size", "sm");
+    expect(screen.getByLabelText("Created from")).toHaveClass("h-8");
+    expect(screen.getByRole("button", { name: "Apply" })).toHaveAttribute(
+      "data-size",
+      "sm",
+    );
+    expect(
+      screen.getByRole("link", { name: /Clear filters/i }),
+    ).toHaveAttribute("data-size", "sm");
+  });
+
   it("hides the clear link when no filter is active", () => {
-    // Act
     render(
       <DomainTableListFilters
         basePath="/dashboard/acme/items"
@@ -142,7 +191,6 @@ describe("DomainTableListFilters", () => {
       />,
     );
 
-    // Assert
     expect(
       screen.queryByRole("link", { name: /Clear filters/i }),
     ).not.toBeInTheDocument();
@@ -238,7 +286,6 @@ describe("DomainTableListFilters", () => {
   });
 
   it("does not emit duplicate filter names when preserving sort and search", () => {
-    // Setup
     const { container } = render(
       <DomainTableListFilters
         basePath="/dashboard/mediapulse/data-sources"
@@ -283,7 +330,6 @@ describe("DomainTableListFilters", () => {
       />,
     );
 
-    // Act
     const namedControls = Array.from(
       container.querySelectorAll<HTMLInputElement | HTMLSelectElement>(
         "input[name], select[name]",
@@ -294,7 +340,6 @@ describe("DomainTableListFilters", () => {
       .getByRole("link", { name: /Clear filters/i })
       .getAttribute("href");
 
-    // Assert
     expect(names.filter((name) => name === "tickerId")).toHaveLength(1);
     expect(names.filter((name) => name === "collectionSource")).toHaveLength(1);
     expect(names.filter((name) => name === "from")).toHaveLength(1);

@@ -1,14 +1,8 @@
-/**
- * Unit tests for search-queries list mapping and `listInclude`.
- */
-
-/** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 import { mapRowToListItem, type ListRow } from "./list-mapper";
 
 describe("mapRowToListItem", () => {
   it("flattens ticker symbol and name", () => {
-    // Setup
     const createdAt = new Date("2024-07-01T00:00:00.000Z");
     const updatedAt = new Date("2024-07-02T00:00:00.000Z");
     const row = {
@@ -24,10 +18,8 @@ describe("mapRowToListItem", () => {
       set: null,
     } satisfies ListRow;
 
-    // Act
     const item = mapRowToListItem(row);
 
-    // Assert
     expect(item).toEqual({
       id: "sq-1",
       text: "earnings",
@@ -35,7 +27,7 @@ describe("mapRowToListItem", () => {
       tickerName: "Acme Inc",
       activeSet: "No",
       intent: "industryPulse",
-      rank: "1",
+      rank: 1,
       setGeneratedAt: createdAt.toISOString(),
       generationPipeline: "",
       querySetId: "",

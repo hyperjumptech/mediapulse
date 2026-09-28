@@ -481,6 +481,35 @@ describe("parseJsonObjectRow", () => {
   });
 });
 
+describe("getDomainTableFieldEditDefault for yes/no strings", () => {
+  const flagField = {
+    kind: "boolean" as const,
+    key: "flag",
+    label: "Flag",
+    required: false,
+    nullable: false,
+  };
+
+  it.each([
+    [false, false],
+    ["No", false],
+    ["false", false],
+    ["0", false],
+    ["", false],
+    [null, false],
+    [true, true],
+    ["Yes", true],
+    ["true", true],
+  ])(
+    "reads %j as %s so a disabled row is not re-enabled on save",
+    (value, expected) => {
+      expect(getDomainTableFieldEditDefault(flagField, { flag: value })).toBe(
+        expected,
+      );
+    },
+  );
+});
+
 describe("getDomainTableFieldEditDefault", () => {
   const row = {
     str: "hello",

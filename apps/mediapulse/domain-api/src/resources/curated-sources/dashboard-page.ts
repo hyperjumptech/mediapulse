@@ -1,7 +1,3 @@
-/**
- * Hermes `table-v1` manifest slice for curated sources: labels, columns, filters, and create/update JSON Schema metadata.
- */
-
 import type { DashboardViewInput, DetailBlock } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
@@ -18,7 +14,6 @@ import {
   curatedSourceUpdateFormJsonSchema,
 } from "./write-body-schemas";
 
-/** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const curatedSourcesHermesPathSegment = "curated-sources" as const;
 
 const curatedSourcesMetadataBlock = {
@@ -41,7 +36,6 @@ const curatedSourcesMetadataBlock = {
   ],
 } satisfies DetailBlock;
 
-/** Hermes `table-v1` manifest page for curated sources. */
 export const curatedSourcesDashboardPage = {
   id: curatedSourcesHermesPathSegment,
   label: "Curated Sources",
@@ -54,11 +48,34 @@ export const curatedSourcesDashboardPage = {
   order: 15,
   columns: columnsFor<ListItem>()([
     { key: "name", label: "Name", type: "text" },
-    { key: "listingUrl", label: "Listing URL", type: "text" },
+    {
+      key: "listingUrl",
+      label: "Listing URL",
+      type: "text",
+      hideBelow: "md",
+      mobile: "subtitle",
+    },
     { key: "linkType", label: "Link type", type: "text" },
-    { key: "enabled", label: "Enabled", type: "text" },
-    { key: "maxItems", label: "Max items", type: "text" },
-    { key: "createdAt", label: "Created", type: "date-time" },
+    {
+      key: "enabled",
+      label: "Enabled",
+      type: "text",
+      format: "boolean",
+      mobile: "badge",
+    },
+    {
+      key: "maxItems",
+      label: "Max items",
+      type: "text",
+      format: "number",
+      mobile: "hidden",
+    },
+    {
+      key: "createdAt",
+      label: "Created",
+      type: "date-time",
+      format: "date-time",
+    },
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()(["name", "listingUrl"]),
   sortableFields: rowFieldKeysFor<ListItem>()([

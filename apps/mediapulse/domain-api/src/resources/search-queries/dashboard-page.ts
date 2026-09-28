@@ -1,7 +1,3 @@
-/**
- * Hermes `table-v1` manifest for search queries (delete-only actions) and exported path segment.
- */
-
 import type { DashboardViewInput } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
@@ -13,14 +9,13 @@ import {
 import {
   columnsFor,
   rowFieldKeysFor,
+  yesNoBadgeTones,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
 import { searchQueriesCustomActionsForManifest } from "./custom-actions";
 
-/** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const searchQueriesHermesPathSegment = "search-queries" as const;
 
-/** Hermes `table-v1` manifest page for search queries. */
 export const searchQueriesDashboardPage = {
   id: searchQueriesHermesPathSegment,
   label: "Search Queries",
@@ -33,12 +28,23 @@ export const searchQueriesDashboardPage = {
   order: 40,
   columns: columnsFor<ListItem>()([
     { key: "tickerSymbol", label: "Ticker", type: "text" },
-    { key: "text", label: "Search Query", type: "text" },
-    { key: "activeSet", label: "Active set", type: "text" },
+    { key: "text", label: "Search query", type: "text", mobile: "subtitle" },
+    {
+      key: "activeSet",
+      label: "Active set",
+      type: "text",
+      format: "badge",
+      badgeTones: yesNoBadgeTones,
+      mobile: "badge",
+    },
     { key: "intent", label: "Intent", type: "text" },
-    { key: "rank", label: "Rank", type: "text" },
-    { key: "generationPipeline", label: "Generation pipeline", type: "text" },
-    { key: "createdAt", label: "Created", type: "date-time" },
+    { key: "rank", label: "Rank", type: "text", format: "number" },
+    {
+      key: "createdAt",
+      label: "Created",
+      type: "date-time",
+      format: "date-time",
+    },
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()([
     "tickerSymbol",
