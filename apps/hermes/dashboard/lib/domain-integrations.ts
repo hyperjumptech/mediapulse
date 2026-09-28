@@ -16,8 +16,6 @@ import { cache } from "react";
 
 import { env } from "@hermes/env";
 
-import { invalidateDomainIntegrationToken } from "./domain-integration-auth-token";
-
 const defaultCapabilities = [
   "expand-step-inputs",
   "preview-expansion",
@@ -130,7 +128,6 @@ export const registerDomainIntegration = async (
     },
   });
   invalidateDomainIntegrationsCache();
-  invalidateDomainIntegrationToken(integration.id);
 
   return {
     id: integration.id,

@@ -54,9 +54,9 @@ const reorderedStepIds = (
 /**
  * Encapsulates remove/reorder form actions and clears the selection after a step is removed.
  */
-const usePipelineStepsColumnState = (
-  onSelectStep: (stepId: string | null) => void,
-) => {
+type SelectStepHandler = (stepId: string | null) => void;
+
+const usePipelineStepsColumnState = (onSelectStep: SelectStepHandler) => {
   const {
     FormWithAction: RemoveForm,
     state: removeState,

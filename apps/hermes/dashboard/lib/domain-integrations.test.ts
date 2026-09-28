@@ -13,7 +13,6 @@ import {
 const prismaFindManyMock = vi.hoisted(() => vi.fn());
 const prismaFindFirstMock = vi.hoisted(() => vi.fn());
 const prismaUpsertMock = vi.hoisted(() => vi.fn());
-const invalidateDomainIntegrationTokenMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@hermes/orchestration-database", () => ({
   DomainIntegrationStatus: { active: "active", pending: "pending" },
@@ -24,11 +23,6 @@ vi.mock("@hermes/orchestration-database", () => ({
       upsert: (...args: unknown[]) => prismaUpsertMock(...args),
     },
   },
-}));
-
-vi.mock("./domain-integration-auth-token", () => ({
-  invalidateDomainIntegrationToken: (...args: unknown[]) =>
-    invalidateDomainIntegrationTokenMock(...args),
 }));
 
 const emptyManifest = {
@@ -388,10 +382,9 @@ describe("domain integration writers", () => {
     prismaFindManyMock.mockReset();
     prismaFindFirstMock.mockReset();
     prismaUpsertMock.mockReset();
-    invalidateDomainIntegrationTokenMock.mockReset();
   });
 
-  it("invalidates the integration list and token when an integration registers", async () => {
+  it("invalidates the integration list when an integration registers", async () => {
     // Setup
     prismaFindManyMock.mockResolvedValue([buildActiveRow("mediapulse")]);
     await getActiveDomainIntegrationsCached();
@@ -417,9 +410,6 @@ describe("domain integration writers", () => {
     await getActiveDomainIntegrationsCached();
 
     // Assert
-    expect(invalidateDomainIntegrationTokenMock).toHaveBeenCalledWith(
-      "id-mediapulse",
-    );
     expect(prismaFindManyMock).toHaveBeenCalledTimes(2);
   });
 
