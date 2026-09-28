@@ -1,7 +1,18 @@
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+let currentSearch = "";
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(currentSearch),
+}));
 
 import { useEntityFormModalState } from "./use-entity-form-modal-state";
+
+afterEach(() => {
+  currentSearch = "";
+  vi.restoreAllMocks();
+});
 
 describe("useEntityFormModalState", () => {
   it("starts closed in create mode without an edit target", () => {
@@ -51,5 +62,42 @@ describe("useEntityFormModalState", () => {
 
     // Assert
     expect(result.current.open).toBe(false);
+  });
+
+  it("opens the create form when the URL asks for it", () => {
+    currentSearch = "create=1&q=daily";
+
+    const { result } = renderHook(() => useEntityFormModalState());
+
+    expect(result.current.open).toBe(true);
+    expect(result.current.mode).toBe("create");
+  });
+
+  it("drops the create flag from the URL when the form closes", () => {
+    currentSearch = "create=1&q=daily";
+    window.history.replaceState(
+      null,
+      "",
+      "/dashboard/pipelines?create=1&q=daily",
+    );
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    const { result } = renderHook(() => useEntityFormModalState());
+
+    act(() => result.current.setOpen(false));
+
+    const nextUrl = String(replaceStateSpy.mock.calls.at(-1)?.[2]);
+
+    expect(nextUrl).toContain("/dashboard/pipelines?q=daily");
+    expect(nextUrl).not.toContain("create=1");
+  });
+
+  it("leaves the URL alone when no create flag was set", () => {
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    const { result } = renderHook(() => useEntityFormModalState());
+
+    act(() => result.current.openCreate());
+    act(() => result.current.setOpen(false));
+
+    expect(replaceStateSpy).not.toHaveBeenCalled();
   });
 });

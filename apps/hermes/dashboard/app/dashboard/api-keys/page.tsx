@@ -12,7 +12,6 @@ const ApiKeysPage = () => {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="API keys"
         description="Create keys for Cursor MCP and other programmatic access. Each key acts as the admin who created it."
         actions={
           <CreateApiKeyModal

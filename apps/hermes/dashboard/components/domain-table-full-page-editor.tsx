@@ -23,8 +23,6 @@ import type { DomainTableFormField } from "@/lib/domain-table-form-schema";
 import type { PipelineUsageSummary } from "@/lib/pipeline-usage";
 
 export type DomainTableFullPageEditorProps = {
-  /** Page title. */
-  title: string;
   /** Page description under the title. */
   description: string;
   /** List URL for back navigation. */
@@ -56,7 +54,6 @@ export type DomainTableFullPageEditorProps = {
  * @returns Full-page layout with form and optional preview card.
  */
 export const DomainTableFullPageEditor = ({
-  title,
   description,
   basePath,
   fields,
@@ -85,7 +82,7 @@ export const DomainTableFullPageEditor = ({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <PageHeader title={title} description={description} />
+        <PageHeader description={description} />
         <Button variant="outline" asChild className="shrink-0 self-start">
           <Link href={basePath}>Back to list</Link>
         </Button>

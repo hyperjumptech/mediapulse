@@ -100,7 +100,6 @@ export const HttpTriggerDetailContent = ({
       <BreadcrumbEntityLabel segment={trigger.id} label={trigger.name} />
       <div className="flex flex-col gap-6">
         <PageHeader
-          title={trigger.name}
           badges={<StatusBadge status={enabledStatus} />}
           description={description}
           actions={

@@ -51,7 +51,7 @@ type HermesSectionEntity = {
 
 export const DASHBOARD_ROOT_PATH = "/dashboard";
 
-const DASHBOARD_ROOT_LABEL = "Dashboard";
+const OVERVIEW_LABEL = "Overview";
 const DASHBOARD_ROOT_SEGMENT = "dashboard";
 const DASHBOARD_SECTION_PREFIX = `${DASHBOARD_ROOT_PATH}/`;
 const NEW_LABEL = "New";
@@ -59,28 +59,19 @@ const EDIT_LABEL = "Edit";
 const EDIT_SEGMENT = "edit";
 const EXECUTIONS_SEGMENT = "executions";
 const EXECUTION_LABEL = "Execution";
-const AGENTS_SECTION = "agents";
-const CONTENT_GENERATION_RUNS_SEGMENT = "content-generation-runs";
-const CONTENT_GENERATION_RUNS_LABEL = "CGA diagnostics";
-const CONTENT_GENERATION_RUN_LABEL = "Run detail";
 const DOMAIN_ITEM_LABEL = "Detail";
 const DOMAIN_ITEM_NEW_SEGMENT = "new";
 const HERMES_CREATE_SEGMENTS = new Set(["new", "create"]);
 
 export const dashboardNavGroups: DashboardNavGroup[] = [
   {
-    label: "Overview",
+    label: "Home",
     items: [
       {
         href: DASHBOARD_ROOT_PATH,
-        label: DASHBOARD_ROOT_LABEL,
+        label: OVERVIEW_LABEL,
         icon: LayoutDashboard,
       },
-    ],
-  },
-  {
-    label: "Orchestration",
-    items: [
       { href: "/dashboard/pipelines", label: "Pipelines", icon: GitBranch },
       { href: "/dashboard/schedules", label: "Schedules", icon: Calendar },
       { href: "/dashboard/http-triggers", label: "HTTP triggers", icon: Radio },
@@ -103,23 +94,56 @@ export const dashboardNavGroups: DashboardNavGroup[] = [
       { href: "/dashboard/variables", label: "Variables", icon: Variable },
     ],
   },
+];
+
+export const dashboardSecondaryNavItems: DashboardNavItem[] = [
   {
-    label: "Platform",
-    items: [
-      {
-        href: "/dashboard/domain-integrations",
-        label: "Domain integrations",
-        icon: Plug,
-      },
-      { href: "/dashboard/api-keys", label: "API keys", icon: KeyRound },
-      { href: "/dashboard/admins", label: "Admins", icon: Users },
-    ],
+    href: "/dashboard/domain-integrations",
+    label: "Domain integrations",
+    icon: Plug,
+  },
+  { href: "/dashboard/api-keys", label: "API keys", icon: KeyRound },
+  { href: "/dashboard/admins", label: "Admins", icon: Users },
+];
+
+export const dashboardNavItems: DashboardNavItem[] = [
+  ...dashboardNavGroups.flatMap((group) => group.items),
+  ...dashboardSecondaryNavItems,
+];
+
+export type DashboardQuickCreateItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+};
+
+export const CREATE_QUERY_PARAM = "create";
+
+export const dashboardQuickCreateItems: DashboardQuickCreateItem[] = [
+  {
+    href: `/dashboard/pipelines?${CREATE_QUERY_PARAM}=1`,
+    label: "Pipeline",
+    icon: GitBranch,
+  },
+  {
+    href: `/dashboard/schedules?${CREATE_QUERY_PARAM}=1`,
+    label: "Schedule",
+    icon: Calendar,
+  },
+  {
+    href: `/dashboard/http-triggers?${CREATE_QUERY_PARAM}=1`,
+    label: "HTTP trigger",
+    icon: Radio,
+  },
+  {
+    href: "/dashboard/agent-configs/new",
+    label: "Agent config",
+    icon: FileJson,
   },
 ];
 
 const hermesSectionLabels = new Map<string, string>(
-  dashboardNavGroups
-    .flatMap((group) => group.items)
+  dashboardNavItems
     .filter((item) => item.href.startsWith(DASHBOARD_SECTION_PREFIX))
     .map((item): [string, string] => {
       const section = item.href.slice(DASHBOARD_SECTION_PREFIX.length);
@@ -281,31 +305,6 @@ const buildHermesEntityTrail = (
   return [entityBreadcrumb, ...humanizeTrailingSegments(entityRest)];
 };
 
-const buildContentGenerationRunsTrail = (
-  runsRest: readonly string[],
-  entityLabels: DashboardEntityLabels,
-): DashboardBreadcrumb[] => {
-  const runsPath = `${DASHBOARD_ROOT_PATH}/${AGENTS_SECTION}/${CONTENT_GENERATION_RUNS_SEGMENT}`;
-  const runsBreadcrumb = createBreadcrumb(
-    CONTENT_GENERATION_RUNS_LABEL,
-    runsPath,
-  );
-  const [runId, ...runRest] = runsRest;
-
-  if (!runId) {
-    return [runsBreadcrumb];
-  }
-
-  const runLabel = resolveEntityLabel(
-    entityLabels,
-    runId,
-    CONTENT_GENERATION_RUN_LABEL,
-  );
-  const runBreadcrumb = createBreadcrumb(runLabel, `${runsPath}/${runId}`);
-
-  return [runsBreadcrumb, runBreadcrumb, ...humanizeTrailingSegments(runRest)];
-};
-
 const buildHermesSectionTrail = (
   section: string,
   sectionLabel: string,
@@ -324,15 +323,6 @@ const buildHermesSectionTrail = (
 
   if (HERMES_CREATE_SEGMENTS.has(subSegment)) {
     return [sectionBreadcrumb, createBreadcrumb(NEW_LABEL)];
-  }
-
-  if (
-    section === AGENTS_SECTION &&
-    subSegment === CONTENT_GENERATION_RUNS_SEGMENT
-  ) {
-    const runsTrail = buildContentGenerationRunsTrail(subRest, entityLabels);
-
-    return [sectionBreadcrumb, ...runsTrail];
   }
 
   const entityTrail = buildHermesEntityTrail(
@@ -420,7 +410,7 @@ export const buildDashboardBreadcrumbs = ({
   const [rootSegment, section, ...sectionRest] = segments;
 
   if (rootSegment !== DASHBOARD_ROOT_SEGMENT || !section) {
-    return [createBreadcrumb(DASHBOARD_ROOT_LABEL)];
+    return [createBreadcrumb(OVERVIEW_LABEL)];
   }
 
   const sectionLabel = hermesSectionLabels.get(section);
@@ -434,4 +424,18 @@ export const buildDashboardBreadcrumbs = ({
       );
 
   return toCurrentPageTrail(trail);
+};
+
+export type DashboardPageTitle = {
+  title: string;
+  parent: DashboardBreadcrumb | null;
+};
+
+export const resolveDashboardPageTitle = (
+  breadcrumbs: readonly DashboardBreadcrumb[],
+): DashboardPageTitle => {
+  const current = breadcrumbs.at(-1);
+  const parent = breadcrumbs.at(-2) ?? null;
+
+  return { title: current?.label ?? OVERVIEW_LABEL, parent };
 };

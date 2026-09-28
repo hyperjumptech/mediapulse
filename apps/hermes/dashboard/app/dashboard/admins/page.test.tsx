@@ -24,7 +24,6 @@ describe("AdminsPage", () => {
       '[data-slot="page-header-actions"]',
     );
 
-    expect(screen.getByRole("heading", { name: "Admins" })).toBeInTheDocument();
     expect(headerActions).toContainElement(
       screen.getByRole("button", { name: "Add admin" }),
     );

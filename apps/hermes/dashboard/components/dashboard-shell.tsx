@@ -1,17 +1,17 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
-import { Separator } from "@workspace/ui/components/separator";
 import {
   SidebarInset,
   SidebarProvider,
-  SidebarTrigger,
 } from "@workspace/ui/components/sidebar";
 
 import type { DomainIntegrationNav } from "@/lib/dashboard-routes";
 
 import { AppSidebar } from "./app-sidebar";
 import { BreadcrumbEntityLabelsProvider } from "./breadcrumb-entity-label";
-import { DashboardBreadcrumbs } from "./dashboard-breadcrumbs";
+import { CommandPalette } from "./command-palette";
+import { CommandPaletteProvider } from "./command-palette-provider";
+import { SiteHeader } from "./site-header";
 
 export type DashboardUser = { name: string; email: string };
 
@@ -22,45 +22,34 @@ type DashboardShellProps = {
   user?: DashboardUser | null;
   domainIntegrations: Promise<DomainIntegrationNav[]>;
   defaultOpen?: boolean;
-  headerActions?: ReactNode;
 };
+
+const shellStyle = {
+  "--sidebar-width": "calc(var(--spacing) * 72)",
+  "--header-height": "calc(var(--spacing) * 12)",
+} as CSSProperties;
 
 export const DashboardShell = ({
   children,
   user,
   domainIntegrations,
   defaultOpen = true,
-  headerActions,
-}: DashboardShellProps) => {
-  return (
-    <SidebarProvider defaultOpen={defaultOpen}>
+}: DashboardShellProps) => (
+  <SidebarProvider defaultOpen={defaultOpen} style={shellStyle}>
+    <CommandPaletteProvider>
       <BreadcrumbEntityLabelsProvider>
         <AppSidebar
           user={user ?? null}
           domainIntegrations={domainIntegrations}
         />
         <SidebarInset>
-          <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-            <SidebarTrigger className="-ml-1 text-muted-foreground hover:text-foreground" />
-            <Separator
-              orientation="vertical"
-              className="mr-1 data-[orientation=vertical]:h-4"
-            />
-            <DashboardBreadcrumbs domainIntegrations={domainIntegrations} />
-            {headerActions ? (
-              <div
-                data-slot="dashboard-header-actions"
-                className="flex shrink-0 items-center gap-2"
-              >
-                {headerActions}
-              </div>
-            ) : null}
-          </header>
-          <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6">
+          <SiteHeader domainIntegrations={domainIntegrations} />
+          <div className="@container/main flex min-w-0 flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
             {children}
           </div>
         </SidebarInset>
+        <CommandPalette domainIntegrations={domainIntegrations} />
       </BreadcrumbEntityLabelsProvider>
-    </SidebarProvider>
-  );
-};
+    </CommandPaletteProvider>
+  </SidebarProvider>
+);

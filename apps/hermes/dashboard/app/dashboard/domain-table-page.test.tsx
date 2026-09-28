@@ -173,9 +173,6 @@ describe("DomainTablePage", () => {
       "mediapulse",
       "tickers",
     );
-    expect(
-      screen.getByRole("heading", { name: "Tickers" }),
-    ).toBeInTheDocument();
     expect(screen.getByTestId("domain-table-rows-section")).toBeInTheDocument();
     expect(rowsSectionProps).toMatchObject({
       integrationId: "mediapulse",

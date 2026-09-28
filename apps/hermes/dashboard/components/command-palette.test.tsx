@@ -16,6 +16,10 @@ import {
   CommandPalette,
   type CommandPaletteDomainIntegration,
 } from "./command-palette";
+import {
+  CommandPaletteProvider,
+  useCommandPaletteContext,
+} from "./command-palette-provider";
 
 const pushMock = vi.fn();
 
@@ -25,20 +29,10 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/dashboard-routes", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/dashboard-routes")>()),
-  dashboardNavGroups: [
-    {
-      label: "Overview",
-      items: [
-        { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      ],
-    },
-    {
-      label: "Orchestration",
-      items: [
-        { href: "/dashboard/pipelines", label: "Pipelines", icon: GitBranch },
-        { href: "/dashboard/schedules", label: "Schedules", icon: Calendar },
-      ],
-    },
+  dashboardNavItems: [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/dashboard/pipelines", label: "Pipelines", icon: GitBranch },
+    { href: "/dashboard/schedules", label: "Schedules", icon: Calendar },
   ],
 }));
 
@@ -90,13 +84,28 @@ const createSearchResponse = (results: DashboardSearchResult[]): Response =>
     headers: { "Content-Type": "application/json" },
   });
 
+const OpenPaletteButton = () => {
+  const { setOpen } = useCommandPaletteContext();
+
+  return (
+    <button type="button" onClick={() => setOpen(true)}>
+      Search…
+    </button>
+  );
+};
+
 const renderPalette = async (
   integrations: Promise<CommandPaletteDomainIntegration[]> = Promise.resolve(
     domainIntegrations,
   ),
 ) => {
   await act(async () => {
-    render(<CommandPalette domainIntegrations={integrations} />);
+    render(
+      <CommandPaletteProvider>
+        <OpenPaletteButton />
+        <CommandPalette domainIntegrations={integrations} />
+      </CommandPaletteProvider>,
+    );
   });
 };
 
@@ -140,23 +149,17 @@ describe("CommandPalette", () => {
     pushMock.mockReset();
   });
 
-  it("renders a desktop search trigger with the shortcut hint and a mobile icon trigger", async () => {
+  it("stays closed until something opens it", async () => {
     // Act
     await renderPalette();
 
     // Assert
-    const desktopTrigger = screen.getByRole("button", { name: /Search…/ });
-    const mobileTrigger = screen.getByRole("button", { name: "Search" });
-
-    expect(within(desktopTrigger).getByText("⌘K")).toBeInTheDocument();
-    expect(desktopTrigger).toHaveClass("hidden", "sm:inline-flex", "w-56");
-    expect(mobileTrigger).toHaveClass("sm:hidden");
     expect(
       screen.queryByPlaceholderText(SEARCH_PLACEHOLDER),
     ).not.toBeInTheDocument();
   });
 
-  it("opens from either trigger and lists static pages with domain integration views", async () => {
+  it("opens from the shared state and lists static pages with domain integration views", async () => {
     // Setup
     await renderPalette();
 
@@ -187,9 +190,7 @@ describe("CommandPalette", () => {
     ).not.toBeInTheDocument();
 
     // Act
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Search" }));
-    });
+    await openPaletteWithTrigger();
 
     // Assert
     expect(screen.getByPlaceholderText(SEARCH_PLACEHOLDER)).toHaveValue("");

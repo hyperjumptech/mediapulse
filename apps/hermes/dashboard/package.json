@@ -48,6 +48,7 @@
     "next-themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "recharts": "3.8.0",
     "resend": "^6.9.1",
     "route-action-gen": "catalog:",
     "sonner": "catalog:",

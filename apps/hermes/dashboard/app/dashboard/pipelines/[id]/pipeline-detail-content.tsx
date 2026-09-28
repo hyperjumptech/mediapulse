@@ -344,7 +344,6 @@ export const PipelineDetailContent = ({
     <div className="flex flex-col gap-6">
       <BreadcrumbEntityLabel segment={pipeline.id} label={pipeline.name} />
       <PageHeader
-        title={pipeline.name}
         badges={<PipelineStatusBadge status={pipelineStatus} />}
         description={description}
         actions={

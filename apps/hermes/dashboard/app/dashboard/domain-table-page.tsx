@@ -214,11 +214,7 @@ export const DomainTablePage = async ({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title={meta.title}
-        description={meta.description}
-        actions={headerActions}
-      />
+      <PageHeader description={meta.description} actions={headerActions} />
 
       {jsonImportActions.length > 0 ? (
         <div className="grid gap-3 lg:grid-cols-2">

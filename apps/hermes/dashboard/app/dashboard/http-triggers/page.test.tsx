@@ -26,9 +26,6 @@ describe("HttpTriggersPage", () => {
 
     // Assert
     expect(
-      screen.getByRole("heading", { name: "HTTP Triggers" }),
-    ).toBeInTheDocument();
-    expect(
       screen.getByRole("button", { name: "New HTTP trigger" }),
     ).toBeInTheDocument();
     expect(renderedQuery()).toEqual({

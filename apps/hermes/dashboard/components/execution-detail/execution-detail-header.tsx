@@ -97,7 +97,6 @@ export const ExecutionDetailHeader = ({
   return (
     <div className="flex flex-col gap-2">
       <PageHeader
-        title="Execution"
         badges={<StatusBadge status={runStatus} />}
         description={
           <ExecutionSourceDescription

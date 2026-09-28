@@ -17,7 +17,11 @@ Paths are under `apps/hermes/dashboard/`. Primitives (Button, Card, Table, Sheet
 
 | Need | Use |
 | --- | --- |
-| Page title, description and actions | `components/page-header.tsx` (`PageHeader`) |
+| Page title | Set by the site header from the route. Detail pages publish their entity name with `components/breadcrumb-entity-label.tsx` (`BreadcrumbEntityLabel`) |
+| Page description, badges and actions | `components/page-header.tsx` (`PageHeader`, no heading of its own) |
+| KPI cards | `components/stat-card.tsx` (`StatCard`, `StatCardGrid`) |
+| Charts | `@workspace/ui/components/chart`, see `components/execution-activity-chart.tsx` |
+| Create from anywhere | `?create=1` on a list page opens its create modal (`hooks/use-entity-form-modal-state.ts`); add entries to `dashboardQuickCreateItems` |
 | Key facts on a detail page | `components/summary-grid.tsx` (`SummaryGrid`, `SummaryItem`) |
 | Any date or time | `components/date-time/date-time.tsx` (`DateTime`), formatted in the viewer's zone |
 | List table frame and sortable headers | `components/data-table/data-table-card.tsx`, `components/data-table/sortable-header.tsx` |

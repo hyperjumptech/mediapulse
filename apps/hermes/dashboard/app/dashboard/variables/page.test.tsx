@@ -37,9 +37,6 @@ describe("VariablesPage", () => {
     // Assert
     const modal = screen.getByTestId("variable-modal");
 
-    expect(
-      screen.getByRole("heading", { name: "Variables" }),
-    ).toBeInTheDocument();
     expect(modal).toHaveAttribute("data-variable", "null");
     expect(
       within(modal).getByRole("button", { name: "Add variable" }),

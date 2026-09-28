@@ -35,10 +35,10 @@ vi.mock("@/lib/domain-table-full-page-actions", () => ({
 }));
 
 vi.mock("@/components/domain-table-full-page-editor", () => ({
-  DomainTableFullPageEditor: (props: { title: string }) => {
+  DomainTableFullPageEditor: (props: object) => {
     editorMock(props);
 
-    return <div data-testid="full-page-editor">{props.title}</div>;
+    return <div data-testid="full-page-editor" />;
   },
 }));
 
@@ -105,9 +105,7 @@ describe("NewDomainTablePage", () => {
     await renderPage();
 
     // Assert
-    expect(screen.getByTestId("full-page-editor")).toHaveTextContent(
-      "Add Tickers",
-    );
+    expect(screen.getByTestId("full-page-editor")).toBeInTheDocument();
     expect(editorMock).toHaveBeenCalledWith(
       expect.objectContaining({
         mode: "create",

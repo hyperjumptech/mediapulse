@@ -32,6 +32,10 @@ vi.mock("next/navigation", () => ({
   usePathname: () => usePathnameMock(),
 }));
 
+vi.mock("./command-palette", () => ({
+  CommandPalette: () => null,
+}));
+
 vi.mock("./app-sidebar", () => ({
   AppSidebar: ({
     user,
@@ -49,8 +53,16 @@ vi.mock("@workspace/ui/components/sidebar", () => ({
   SidebarProvider: ({
     children,
     defaultOpen,
-  }: React.PropsWithChildren<{ defaultOpen?: boolean }>) => (
-    <div data-testid="sidebar-provider" data-default-open={String(defaultOpen)}>
+    style,
+  }: React.PropsWithChildren<{
+    defaultOpen?: boolean;
+    style?: React.CSSProperties;
+  }>) => (
+    <div
+      data-testid="sidebar-provider"
+      data-default-open={String(defaultOpen)}
+      style={style}
+    >
       {children}
     </div>
   ),
@@ -88,239 +100,133 @@ const renderShell = async (element: React.ReactElement) => {
   });
 };
 
-const getBreadcrumbNavigation = () =>
-  screen.getByRole("navigation", { name: "breadcrumb" });
+const renderAt = async (
+  pathname: string,
+  children: React.ReactNode = <div>Content</div>,
+  domainIntegrations: Promise<
+    { integrationId: string; name: string; views: DashboardPage[] }[]
+  > = noIntegrations,
+) => {
+  usePathnameMock.mockReturnValue(pathname);
+  await renderShell(
+    <DashboardShell domainIntegrations={domainIntegrations}>
+      {children}
+    </DashboardShell>,
+  );
+};
 
 describe("DashboardShell", () => {
   afterEach(() => {
     usePathnameMock.mockReset();
   });
 
-  it("renders children inside the max-width content container", async () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard");
+  it("renders children in a full-width container-query content area", async () => {
+    await renderAt("/dashboard");
 
-    // Act
-    await renderShell(
-      <DashboardShell domainIntegrations={noIntegrations}>
-        <div data-testid="content">Dashboard Content</div>
-      </DashboardShell>,
-    );
+    const content = screen.getByText("Content").parentElement;
 
-    // Assert
-    const content = screen.getByTestId("content");
-
-    expect(content).toHaveTextContent("Dashboard Content");
-    expect(content.parentElement).toHaveClass("mx-auto", "max-w-7xl");
+    expect(content).toHaveClass("@container/main", "flex-1");
+    expect(content).not.toHaveClass("max-w-7xl");
   });
 
-  it("opens the sidebar by default", async () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard");
+  it("sizes the sidebar and header the way dashboard-01 does", async () => {
+    await renderAt("/dashboard");
 
-    // Act
-    await renderShell(
-      <DashboardShell domainIntegrations={noIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
+    const provider = screen.getByTestId("sidebar-provider");
+
+    expect(provider.style.getPropertyValue("--sidebar-width")).toBe(
+      "calc(var(--spacing) * 72)",
     );
+    expect(provider.style.getPropertyValue("--header-height")).toBe(
+      "calc(var(--spacing) * 12)",
+    );
+  });
 
-    // Assert
+  it("opens the sidebar by default and honours a collapsed default", async () => {
+    await renderAt("/dashboard");
+
     expect(screen.getByTestId("sidebar-provider")).toHaveAttribute(
       "data-default-open",
       "true",
     );
   });
 
-  it("passes a collapsed default state to the sidebar provider", async () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard");
-
-    // Act
-    await renderShell(
-      <DashboardShell domainIntegrations={noIntegrations} defaultOpen={false}>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(screen.getByTestId("sidebar-provider")).toHaveAttribute(
-      "data-default-open",
-      "false",
-    );
-  });
-
   it("passes the user to the app sidebar", async () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard");
-    const user = { name: "Test User", email: "test@example.com" };
-
-    // Act
-    await renderShell(
-      <DashboardShell user={user} domainIntegrations={noIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(screen.getByTestId("app-sidebar")).toHaveAttribute(
-      "data-user",
-      "Test User",
-    );
-  });
-
-  it("handles a null user", async () => {
-    // Setup
     usePathnameMock.mockReturnValue("/dashboard");
 
-    // Act
-    await renderShell(
-      <DashboardShell user={null} domainIntegrations={noIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(screen.getByTestId("app-sidebar")).toHaveAttribute(
-      "data-user",
-      "none",
-    );
-  });
-
-  it("renders the sidebar trigger and a vertical separator in the header", async () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard");
-
-    // Act
-    await renderShell(
-      <DashboardShell domainIntegrations={noIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    const header = screen.getByRole("banner");
-
-    expect(within(header).getByTestId("sidebar-trigger")).toBeInTheDocument();
-    expect(within(header).getByTestId("separator")).toHaveAttribute(
-      "data-orientation",
-      "vertical",
-    );
-  });
-
-  it("does not render a heading in the header", async () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard/pipelines");
-
-    // Act
-    await renderShell(
-      <DashboardShell domainIntegrations={noIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(
-      within(screen.getByRole("banner")).queryByRole("heading"),
-    ).not.toBeInTheDocument();
-  });
-
-  it("renders breadcrumbs for the current path", async () => {
-    // Setup
-    usePathnameMock.mockReturnValue(`/dashboard/pipelines/${PIPELINE_ID}`);
-
-    // Act
-    await renderShell(
-      <DashboardShell domainIntegrations={noIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    const breadcrumbNavigation = getBreadcrumbNavigation();
-
-    expect(
-      within(breadcrumbNavigation).getByRole("link", { name: "Pipelines" }),
-    ).toHaveAttribute("href", "/dashboard/pipelines");
-    expect(breadcrumbNavigation).toHaveTextContent("Pipeline");
-  });
-
-  it("shows an entity label published by the page content", async () => {
-    // Setup
-    usePathnameMock.mockReturnValue(`/dashboard/pipelines/${PIPELINE_ID}`);
-
-    // Act
-    await renderShell(
-      <DashboardShell domainIntegrations={noIntegrations}>
-        <BreadcrumbEntityLabel segment={PIPELINE_ID} label="Nightly ingest" />
-      </DashboardShell>,
-    );
-
-    // Assert
-    expect(getBreadcrumbNavigation()).toHaveTextContent("Nightly ingest");
-  });
-
-  it("uses integration nav data for integration breadcrumbs", async () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard/mediapulse/tickers");
-    const domainIntegrations = Promise.resolve([
-      {
-        integrationId: "mediapulse",
-        name: "MediaPulse",
-        views: mediapulsePages,
-      },
-    ]);
-
-    // Act
-    await renderShell(
-      <DashboardShell domainIntegrations={domainIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
-    );
-
-    // Assert
-    const breadcrumbNavigation = getBreadcrumbNavigation();
-
-    expect(breadcrumbNavigation).toHaveTextContent("MediaPulse");
-    expect(breadcrumbNavigation).toHaveTextContent("Tickers");
-  });
-
-  it("renders header actions when provided", async () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard");
-
-    // Act
     await renderShell(
       <DashboardShell
         domainIntegrations={noIntegrations}
-        headerActions={<button type="button">Search</button>}
+        user={{ name: "Ada", email: "ada@example.com" }}
       >
         <div>Content</div>
       </DashboardShell>,
     );
 
-    // Assert
-    expect(
-      within(screen.getByRole("banner")).getByRole("button", {
-        name: "Search",
-      }),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("app-sidebar")).toHaveAttribute(
+      "data-user",
+      "Ada",
+    );
   });
 
-  it("omits the header actions slot without actions", async () => {
-    // Setup
-    usePathnameMock.mockReturnValue("/dashboard");
+  it("shows the sidebar trigger and the page title in the header", async () => {
+    await renderAt("/dashboard/schedules");
 
-    // Act
-    await renderShell(
-      <DashboardShell domainIntegrations={noIntegrations}>
-        <div>Content</div>
-      </DashboardShell>,
+    expect(screen.getByTestId("sidebar-trigger")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Schedules",
+    );
+  });
+
+  it("shows the parent section as a link before a detail title", async () => {
+    await renderAt(`/dashboard/pipelines/${PIPELINE_ID}`);
+
+    expect(screen.getByRole("link", { name: "Pipelines" })).toHaveAttribute(
+      "href",
+      "/dashboard/pipelines",
+    );
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Pipeline",
+    );
+  });
+
+  it("uses the entity label published by the page content", async () => {
+    await renderAt(
+      `/dashboard/pipelines/${PIPELINE_ID}`,
+      <BreadcrumbEntityLabel segment={PIPELINE_ID} label="Nightly ingest" />,
     );
 
-    // Assert
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Nightly ingest",
+    );
+  });
+
+  it("names integration pages from the integration nav", async () => {
+    await renderAt(
+      "/dashboard/mediapulse/tickers",
+      <div>Content</div>,
+      Promise.resolve([
+        {
+          integrationId: "mediapulse",
+          name: "MediaPulse",
+          views: mediapulsePages,
+        },
+      ]),
+    );
+
+    const header = screen.getByRole("banner");
+
+    expect(header).toHaveTextContent("MediaPulse");
+    expect(within(header).getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Tickers",
+    );
+  });
+
+  it("offers Quick Create in the header", async () => {
+    await renderAt("/dashboard");
+
     expect(
-      document.querySelector('[data-slot="dashboard-header-actions"]'),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Quick create" }),
+    ).toBeInTheDocument();
   });
 });

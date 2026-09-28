@@ -22,9 +22,6 @@ describe("SchedulesPage", () => {
 
     // Assert
     expect(
-      screen.getByRole("heading", { name: "Schedules" }),
-    ).toBeInTheDocument();
-    expect(
       screen.getByRole("button", { name: "New schedule" }),
     ).toBeInTheDocument();
     expect(renderedQuery()).toEqual({

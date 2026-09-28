@@ -4,6 +4,8 @@ import {
   ScheduleRunStatus,
 } from "@hermes/orchestration-database";
 
+import { buildTrailingDayKeys, toDayKey } from "@/lib/date-time/day-key";
+
 export type ExecutionStatusCounts = {
   total: number;
   running: number;
@@ -245,13 +247,24 @@ const findOverviewExecutions = async (
   return executions.sort(byExecutionTimeDescending).slice(0, limit);
 };
 
+export type ExecutionWindow = {
+  since: Date;
+  until?: Date;
+};
+
 export const getExecutionStatusCounts = async (
   since: Date,
+  db: ExecutionStatusCountsDb = prisma,
+): Promise<ExecutionStatusCounts> =>
+  getExecutionStatusCountsInWindow({ since }, db);
+
+export const getExecutionStatusCountsInWindow = async (
+  { since, until }: ExecutionWindow,
   db: ExecutionStatusCountsDb = prisma,
 ): Promise<ExecutionStatusCounts> => {
   const where = {
     runStatus: { in: ALL_RUN_STATUSES },
-    executionTime: { gte: since },
+    executionTime: until ? { gte: since, lt: until } : { gte: since },
   };
   const scheduleArgs = {
     by: ["runStatus"],
@@ -328,4 +341,82 @@ export const getUpcomingSchedules = async (
   return rows.flatMap((row) =>
     row.nextRunAt ? [{ ...row, nextRunAt: row.nextRunAt }] : [],
   );
+};
+
+export type ExecutionDailyPoint = {
+  date: string;
+  total: number;
+  failed: number;
+};
+
+export type ExecutionDailySeriesDb = {
+  scheduleExecution: Pick<typeof prisma.scheduleExecution, "findMany">;
+  httpTriggerExecution: Pick<typeof prisma.httpTriggerExecution, "findMany">;
+  manualPipelineExecution: Pick<
+    typeof prisma.manualPipelineExecution,
+    "findMany"
+  >;
+};
+
+export type ExecutionDailySeriesInput = {
+  days: number;
+  timeZone: string;
+  now?: Date;
+};
+
+const DAY_MILLISECONDS = 86_400_000;
+
+const DAILY_SERIES_ROW_LIMIT = 20_000;
+
+const executionActivitySelect = {
+  executionTime: true,
+  runStatus: true,
+} as const;
+
+export const getExecutionDailySeries = async (
+  { days, timeZone, now = new Date() }: ExecutionDailySeriesInput,
+  db: ExecutionDailySeriesDb = prisma,
+): Promise<ExecutionDailyPoint[]> => {
+  const since = new Date(now.getTime() - (days + 1) * DAY_MILLISECONDS);
+  const where = {
+    runStatus: { in: ALL_RUN_STATUSES },
+    executionTime: { gte: since },
+  };
+  const scheduleArgs = {
+    where,
+    select: executionActivitySelect,
+    take: DAILY_SERIES_ROW_LIMIT,
+  } satisfies Prisma.ScheduleExecutionFindManyArgs;
+  const httpTriggerArgs = {
+    where,
+    select: executionActivitySelect,
+    take: DAILY_SERIES_ROW_LIMIT,
+  } satisfies Prisma.HttpTriggerExecutionFindManyArgs;
+  const manualArgs = {
+    where,
+    select: executionActivitySelect,
+    take: DAILY_SERIES_ROW_LIMIT,
+  } satisfies Prisma.ManualPipelineExecutionFindManyArgs;
+  const [scheduleRows, httpTriggerRows, manualRows] = await Promise.all([
+    db.scheduleExecution.findMany(scheduleArgs),
+    db.httpTriggerExecution.findMany(httpTriggerArgs),
+    db.manualPipelineExecution.findMany(manualArgs),
+  ]);
+  const dayKeys = buildTrailingDayKeys(toDayKey(now, timeZone), days);
+  const pointsByDay = new Map<string, ExecutionDailyPoint>(
+    dayKeys.map((dayKey) => [dayKey, { date: dayKey, total: 0, failed: 0 }]),
+  );
+
+  for (const row of [...scheduleRows, ...httpTriggerRows, ...manualRows]) {
+    const point = pointsByDay.get(toDayKey(row.executionTime, timeZone));
+    if (!point) {
+      continue;
+    }
+    point.total += 1;
+    if (FAILED_RUN_STATUSES.includes(row.runStatus)) {
+      point.failed += 1;
+    }
+  }
+
+  return [...pointsByDay.values()];
 };

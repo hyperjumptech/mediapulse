@@ -10,7 +10,7 @@ import {
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 import { OverviewEmptyState } from "./overview-empty-state";
-import { OVERVIEW_ROW_CLASS_NAME } from "./overview-panel";
+import { OVERVIEW_ROW_CLASS_NAME } from "./overview-row";
 
 const UpcomingScheduleItem = ({ schedule }: { schedule: UpcomingSchedule }) => {
   const scheduleHref = `/dashboard/schedules/${schedule.id}`;

@@ -89,7 +89,6 @@ const EditDomainTablePage = async ({
 
   return (
     <DomainTableFullPageEditor
-      title={`Edit ${meta.title}`}
       description={meta.description ?? ""}
       basePath={basePath}
       fields={updateFields}

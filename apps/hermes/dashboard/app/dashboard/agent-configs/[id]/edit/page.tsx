@@ -36,10 +36,7 @@ const EditConfigPage = async ({
   return (
     <div className="flex flex-col gap-4">
       <BreadcrumbEntityLabel segment={id} label={config.name} />
-      <PageHeader
-        title={`Edit config: ${config.name}`}
-        description="Update this agent configuration preset."
-      />
+      <PageHeader description="Update this agent configuration preset." />
       <EditConfigPageClient
         config={config}
         agents={agentsForDropdown}

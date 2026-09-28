@@ -4,9 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildExecutionHref,
   getActiveExecutions,
+  getExecutionDailySeries,
   getExecutionStatusCounts,
+  getExecutionStatusCountsInWindow,
   getRecentFailures,
   getUpcomingSchedules,
+  type ExecutionDailySeriesDb,
   type ExecutionStatusCountsDb,
   type HttpTriggerExecutionOverviewRow,
   type ManualPipelineExecutionOverviewRow,
@@ -486,6 +489,88 @@ describe("getUpcomingSchedules", () => {
         nextRunAt,
         pipeline: { id: "pipeline-1", name: "Newsletter", isActive: false },
       },
+    ]);
+  });
+});
+
+describe("getExecutionStatusCountsInWindow", () => {
+  it("bounds the window on both sides when an end is given", async () => {
+    const { db, scheduleGroupBy } = createStatusCountsDb({});
+    const since = new Date("2026-09-26T12:00:00.000Z");
+    const until = new Date("2026-09-27T12:00:00.000Z");
+
+    await getExecutionStatusCountsInWindow({ since, until }, db);
+
+    expect(scheduleGroupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          runStatus: { in: ALL_RUN_STATUSES },
+          executionTime: { gte: since, lt: until },
+        },
+      }),
+    );
+  });
+});
+
+describe("getExecutionDailySeries", () => {
+  type ActivityRow = { executionTime: Date; runStatus: string };
+
+  const createSeriesDb = (rows: {
+    schedule?: ActivityRow[];
+    httpTrigger?: ActivityRow[];
+    manual?: ActivityRow[];
+  }) =>
+    ({
+      scheduleExecution: {
+        findMany: vi.fn().mockResolvedValue(rows.schedule ?? []),
+      },
+      httpTriggerExecution: {
+        findMany: vi.fn().mockResolvedValue(rows.httpTrigger ?? []),
+      },
+      manualPipelineExecution: {
+        findMany: vi.fn().mockResolvedValue(rows.manual ?? []),
+      },
+    }) as unknown as ExecutionDailySeriesDb;
+
+  it("counts runs and failures per calendar day in the viewer zone", async () => {
+    const db = createSeriesDb({
+      schedule: [
+        {
+          executionTime: new Date("2026-09-27T18:00:00.000Z"),
+          runStatus: "succeeded",
+        },
+        {
+          executionTime: new Date("2026-09-28T02:00:00.000Z"),
+          runStatus: "failed",
+        },
+      ],
+      httpTrigger: [
+        {
+          executionTime: new Date("2026-09-26T03:00:00.000Z"),
+          runStatus: "partial",
+        },
+      ],
+      manual: [
+        {
+          executionTime: new Date("2026-01-01T00:00:00.000Z"),
+          runStatus: "failed",
+        },
+      ],
+    });
+
+    const series = await getExecutionDailySeries(
+      {
+        days: 3,
+        timeZone: "Asia/Jakarta",
+        now: new Date("2026-09-28T05:00:00.000Z"),
+      },
+      db,
+    );
+
+    expect(series).toEqual([
+      { date: "2026-09-26", total: 1, failed: 1 },
+      { date: "2026-09-27", total: 0, failed: 0 },
+      { date: "2026-09-28", total: 2, failed: 1 },
     ]);
   });
 });

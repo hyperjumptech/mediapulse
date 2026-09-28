@@ -21,7 +21,6 @@ describe("AgentsPage", () => {
     render(await AgentsPage({ searchParams: {} }));
 
     // Assert
-    expect(screen.getByRole("heading", { name: "Agents" })).toBeInTheDocument();
     expect(renderedQuery()).toEqual({
       page: 1,
       pageSize: 15,

@@ -116,9 +116,6 @@ describe("ScheduleDetailContent", () => {
     renderScheduleDetail(createMockSchedule());
 
     // Assert
-    const heading = screen.getByRole("heading", { level: 1 });
-
-    expect(heading).toHaveTextContent("Daily Run");
     expect(screen.getByText("enabled")).toHaveAttribute(
       "data-variant",
       "success",

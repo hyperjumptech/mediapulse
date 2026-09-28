@@ -1,143 +1,42 @@
+import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { PageHeader } from "./page-header";
 
 describe("PageHeader", () => {
-  it("renders title as h1", () => {
-    // Act
-    render(
-      <PageHeader
-        title="Test Page"
-        description="A short description for the page."
-      />,
-    );
+  it("renders the description without its own heading", () => {
+    render(<PageHeader description="What runs and when." />);
 
-    // Assert
-    expect(
-      screen.getByRole("heading", { name: "Test Page", level: 1 }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("What runs and when.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
   });
 
-  it("renders description text", () => {
-    // Act
-    render(
-      <PageHeader
-        title="Test Page"
-        description="A short description for the page."
-      />,
+  it("renders actions in their own slot", () => {
+    const { container } = render(
+      <PageHeader actions={<button type="button">New</button>} />,
     );
 
-    // Assert
-    expect(
-      screen.getByText("A short description for the page."),
-    ).toBeInTheDocument();
-  });
-
-  it("applies expected heading classes", () => {
-    // Act
-    render(
-      <PageHeader
-        title="Test Page"
-        description="A short description for the page."
-      />,
+    const actions = container.querySelector(
+      '[data-slot="page-header-actions"]',
     );
 
-    // Assert
-    const heading = screen.getByRole("heading", { name: "Test Page" });
-
-    expect(heading).toHaveClass("text-2xl");
-    expect(heading).toHaveClass("font-semibold");
-  });
-
-  it.each([undefined, ""])(
-    "omits the description paragraph when description is %j",
-    (description) => {
-      // Act
-      const { container } = render(
-        <PageHeader title="Test Page" description={description} />,
-      );
-
-      // Assert
-      expect(container.querySelector("p")).toBeNull();
-    },
-  );
-
-  it("renders actions in a right-aligned slot that stacks on mobile", () => {
-    // Act
-    render(
-      <PageHeader
-        title="Test Page"
-        actions={<button type="button">Create pipeline</button>}
-      />,
-    );
-
-    // Assert
-    const action = screen.getByRole("button", { name: "Create pipeline" });
-    const actionsSlot = action.parentElement;
-    const headerRow = actionsSlot?.parentElement;
-
-    expect(actionsSlot).toHaveAttribute("data-slot", "page-header-actions");
-    expect(headerRow).toHaveClass(
-      "flex-col",
-      "md:flex-row",
-      "md:justify-between",
+    expect(actions).toContainElement(
+      screen.getByRole("button", { name: "New" }),
     );
   });
 
-  it("omits the actions slot without actions", () => {
-    // Act
-    const { container } = render(<PageHeader title="Test Page" />);
+  it("renders badges in their own slot", () => {
+    const { container } = render(<PageHeader badges={<span>Enabled</span>} />);
 
-    // Assert
-    expect(
-      container.querySelector('[data-slot="page-header-actions"]'),
-    ).toBeNull();
-  });
-
-  it("renders badges beside the title outside the heading", () => {
-    // Act
-    render(
-      <PageHeader
-        title="Daily digest"
-        badges={<span data-testid="status-badge">Enabled</span>}
-      />,
-    );
-
-    // Assert
-    const heading = screen.getByRole("heading", { level: 1 });
-    const badge = screen.getByTestId("status-badge");
-
-    expect(heading).toHaveTextContent("Daily digest");
-    expect(heading).not.toContainElement(badge);
-    expect(badge.parentElement).toHaveAttribute(
-      "data-slot",
-      "page-header-badges",
-    );
-  });
-
-  it("omits the badges slot without badges", () => {
-    // Act
-    const { container } = render(<PageHeader title="Test Page" />);
-
-    // Assert
     expect(
       container.querySelector('[data-slot="page-header-badges"]'),
-    ).toBeNull();
+    ).toHaveTextContent("Enabled");
   });
 
-  it("renders a rich title node inside the heading", () => {
-    // Act
-    render(
-      <PageHeader title={<span className="font-mono">summarizer@1.0</span>} />,
-    );
+  it("renders nothing when it has nothing to show", () => {
+    const { container } = render(<PageHeader />);
 
-    // Assert
-    const heading = screen.getByRole("heading", {
-      level: 1,
-      name: "summarizer@1.0",
-    });
-
-    expect(heading.querySelector(".font-mono")).not.toBeNull();
+    expect(container).toBeEmptyDOMElement();
   });
 });

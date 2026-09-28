@@ -233,9 +233,6 @@ describe("PipelineDetailContent", () => {
     renderPipelineDetail();
 
     // Assert
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      "Test Pipeline",
-    );
     expect(screen.getByText("Test description")).toBeInTheDocument();
     expect(screen.getByText("Enabled")).toHaveAttribute(
       "data-variant",

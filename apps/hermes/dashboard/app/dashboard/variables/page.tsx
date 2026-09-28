@@ -33,7 +33,6 @@ const VariablesPage = async ({
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Variables"
         description="Manage key-value variables for pipelines (secrets are masked)."
         actions={
           <VariableModal

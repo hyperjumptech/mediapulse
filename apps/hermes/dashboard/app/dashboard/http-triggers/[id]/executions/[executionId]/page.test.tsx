@@ -135,9 +135,6 @@ describe("HttpTriggerExecutionDetailPage", () => {
     await renderPage();
 
     // Assert
-    expect(
-      screen.getByRole("heading", { level: 1, name: "Execution" }),
-    ).toBeInTheDocument();
     expect(screen.getByText(/Test trigger/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "P" })).toHaveAttribute(
       "href",

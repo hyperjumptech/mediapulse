@@ -32,9 +32,6 @@ describe("AgentContractsPage", () => {
 
     // Assert
     expect(
-      screen.getByRole("heading", { name: "Agent contracts" }),
-    ).toBeInTheDocument();
-    expect(
       within(screen.getByTestId("add-contract-modal")).getByRole("button", {
         name: "Add contract",
       }),
