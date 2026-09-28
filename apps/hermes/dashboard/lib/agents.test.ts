@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   agentDomainIntegrationIdInclude,
   getAgentById,
+  getAgentRegistryPage,
   getAgentsPage,
 } from "./agents";
 import type { PrismaClientWithSchema } from "@hermes/orchestration-database/client";
@@ -27,6 +28,17 @@ const createMockDb = (): MockDb => ({
 const asDb = (db: MockDb): PrismaClientWithSchema =>
   db as unknown as PrismaClientWithSchema;
 
+const agentListSelect = {
+  id: true,
+  agentId: true,
+  agentVersion: true,
+  description: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+  domainIntegration: { select: { integrationId: true } },
+};
+
 describe("getAgentsPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -44,7 +56,7 @@ describe("getAgentsPage", () => {
       skip: 0,
       take: 10,
       orderBy: { agentId: "asc" },
-      include: agentDomainIntegrationIdInclude,
+      select: agentListSelect,
     });
     expect(db.agentRegistry.count).toHaveBeenCalledWith({ where: undefined });
   });
@@ -66,7 +78,7 @@ describe("getAgentsPage", () => {
       skip: 0,
       take: 5,
       orderBy: { agentId: "asc" },
-      include: agentDomainIntegrationIdInclude,
+      select: agentListSelect,
     });
     expect(db.agentRegistry.count).toHaveBeenCalledWith({
       where: {
@@ -98,7 +110,7 @@ describe("getAgentsPage", () => {
       skip: 15,
       take: 15,
       orderBy: { agentVersion: "desc" },
-      include: agentDomainIntegrationIdInclude,
+      select: agentListSelect,
     });
   });
 
@@ -119,7 +131,7 @@ describe("getAgentsPage", () => {
       skip: 0,
       take: 10,
       orderBy: { createdAt: "desc" },
-      include: agentDomainIntegrationIdInclude,
+      select: agentListSelect,
     });
   });
 
@@ -140,7 +152,7 @@ describe("getAgentsPage", () => {
       skip: 0,
       take: 10,
       orderBy: { updatedAt: "desc" },
-      include: agentDomainIntegrationIdInclude,
+      select: agentListSelect,
     });
   });
 
@@ -149,13 +161,9 @@ describe("getAgentsPage", () => {
     const agents = [
       {
         id: "a1",
-        domainIntegrationId: "di-1",
         agentId: "summarizer",
         agentVersion: "1.0",
         description: null,
-        endpoint: {},
-        inputSchema: null,
-        configSchema: null,
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -175,6 +183,49 @@ describe("getAgentsPage", () => {
       page: 1,
       pageSize: 10,
     });
+  });
+});
+
+describe("getAgentRegistryPage", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("loads full registry rows with the default sort for the API", async () => {
+    // Setup
+    const db = createMockDb();
+    const agents = [
+      {
+        id: "a1",
+        domainIntegrationId: "di-1",
+        agentId: "summarizer",
+        agentVersion: "1.0",
+        description: null,
+        endpoint: { url: "https://example.com" },
+        inputSchema: { type: "object" },
+        configSchema: null,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        domainIntegration: { integrationId: "mediapulse-local" },
+      },
+    ];
+    db.agentRegistry.findMany.mockResolvedValue(agents);
+    db.agentRegistry.count.mockResolvedValue(21);
+
+    // Act
+    const result = await getAgentRegistryPage(2, 20, asDb(db));
+
+    // Assert
+    expect(db.agentRegistry.findMany).toHaveBeenCalledWith({
+      where: undefined,
+      skip: 20,
+      take: 20,
+      orderBy: { agentId: "asc" },
+      include: agentDomainIntegrationIdInclude,
+    });
+    expect(db.agentRegistry.count).toHaveBeenCalledWith({ where: undefined });
+    expect(result).toEqual({ agents, total: 21, page: 2, pageSize: 20 });
   });
 });
 

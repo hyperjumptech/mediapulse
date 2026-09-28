@@ -1,8 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,17 +24,10 @@ type VariableRowActionsProps = {
 };
 
 /**
- * Encapsulates delete form action and refresh-on-success for variable row actions.
+ * Encapsulates delete form action for variable row actions.
  */
 const useVariableRowActions = () => {
-  const router = useRouter();
-  const { FormWithAction, state, pending } = useFormAction();
-
-  useEffect(() => {
-    if (state && state.status === true) {
-      router.refresh();
-    }
-  }, [state, router]);
+  const { FormWithAction, pending } = useFormAction();
 
   return { FormWithAction, pending };
 };

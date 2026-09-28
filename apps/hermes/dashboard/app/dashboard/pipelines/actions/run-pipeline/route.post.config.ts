@@ -30,6 +30,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { createExpandStepInputsForManualPipelineRun } from "@/lib/expand-step-inputs-for-manual-pipeline";
 import { getHermesJobQueue } from "@/lib/hermes-job-queue";
 import { validatePipeline } from "@/lib/validate-pipeline";
@@ -634,4 +635,6 @@ export const createRunPipelineHandler = ({
 /**
  * Handles manual run-pipeline requests.
  */
-export const handler: RunPipelineHandler = createRunPipelineHandler();
+export const handler: RunPipelineHandler = withDashboardRevalidation(
+  createRunPipelineHandler(),
+);

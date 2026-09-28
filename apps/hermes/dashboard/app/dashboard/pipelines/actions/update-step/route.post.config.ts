@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { collectEmptyRequiredStringErrors } from "@/lib/validate-required-fields";
 import { validateDataSourceExpressions } from "@/lib/step-input-expansion";
 import { validateWithJsonSchema } from "@/lib/validate-json-schema";
@@ -197,4 +198,6 @@ export const createUpdateStepHandler = ({
 /**
  * Handles update pipeline step: validates session, step, and agent; persists changes to DB.
  */
-export const handler: UpdateStepHandler = createUpdateStepHandler();
+export const handler: UpdateStepHandler = withDashboardRevalidation(
+  createUpdateStepHandler(),
+);

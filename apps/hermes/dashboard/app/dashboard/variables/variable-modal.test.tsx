@@ -41,11 +41,19 @@ const useCreateFormActionMock = vi.fn(() => ({
   pending: false,
 }));
 
-const useUpdateFormActionMock = vi.fn(() => ({
-  FormWithAction: createMockFormWithAction(),
-  state: null,
-  pending: false,
-}));
+type MockFormActionResult = {
+  FormWithAction: ReturnType<typeof createMockFormWithAction>;
+  state: { status: boolean; data?: unknown } | null;
+  pending: boolean;
+};
+
+const useUpdateFormActionMock = vi.fn(
+  (): MockFormActionResult => ({
+    FormWithAction: createMockFormWithAction(),
+    state: null,
+    pending: false,
+  }),
+);
 
 vi.mock(
   "@/app/dashboard/variables/actions/create/.generated/use-form-action",
@@ -193,6 +201,29 @@ describe("VariableModal", () => {
     expect(
       screen.queryByRole("button", { name: "Used in pipelines" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("closes the edit modal on a successful update without calling router.refresh", () => {
+    // Setup
+    const onOpenChange = vi.fn();
+    useUpdateFormActionMock.mockReturnValueOnce({
+      FormWithAction: createMockFormWithAction(),
+      state: { status: true, data: { id: buildVariable().id } },
+      pending: false,
+    });
+
+    // Act
+    render(
+      <VariableModal
+        variable={buildVariable()}
+        open={true}
+        onOpenChange={onOpenChange}
+      />,
+    );
+
+    // Assert
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(refreshMock).not.toHaveBeenCalled();
   });
 
   it("shows loading then empty usage state in edit mode", async () => {

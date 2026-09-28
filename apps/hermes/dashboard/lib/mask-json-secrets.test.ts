@@ -6,9 +6,12 @@ import type { ScheduleExecutionDetail } from "@/lib/schedules";
 
 import {
   isSensitiveJsonKey,
+  maskExecutionSummaryForDisplay,
+  maskInvocationPayloadForDisplay,
   maskManualPipelineExecutionDetailForDisplay,
   maskScheduleExecutionDetailForDisplay,
   maskSecretsInJson,
+  SECRET_MASK,
 } from "./mask-json-secrets";
 
 describe("isSensitiveJsonKey", () => {
@@ -216,5 +219,82 @@ describe("maskManualPipelineExecutionDetailForDisplay", () => {
     expect(
       (masked.invocations[0]?.params as Record<string, unknown>).token,
     ).toBe("••••••••");
+  });
+});
+
+describe("maskInvocationPayloadForDisplay", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("masks params and config while leaving the error and agent response untouched", () => {
+    // Setup
+    const invocation = {
+      params: { ticker: "ABC", password: "hunter2" },
+      invocationConfig: { apiKey: "secret" },
+      error: { message: "boom" },
+      agentResponse: { status: "failure" },
+    };
+
+    // Act
+    const masked = maskInvocationPayloadForDisplay(invocation);
+
+    // Assert
+    expect(masked).toEqual({
+      params: { ticker: "ABC", password: SECRET_MASK },
+      invocationConfig: { apiKey: SECRET_MASK },
+      error: { message: "boom" },
+      agentResponse: { status: "failure" },
+    });
+  });
+
+  it("keeps a missing config as null", () => {
+    // Act
+    const masked = maskInvocationPayloadForDisplay({
+      params: {},
+      invocationConfig: null,
+    });
+
+    // Assert
+    expect(masked.invocationConfig).toBeNull();
+  });
+});
+
+describe("maskExecutionSummaryForDisplay", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("masks execution errors and metadata and keeps everything else", () => {
+    // Setup
+    const summary = {
+      execution: {
+        id: "exec-1",
+        errors: [{ message: "failed", token: "abc" }],
+        metadata: { headers: { authorization: "Bearer x" } },
+      },
+      invocations: [{ jobId: "job-1", outcomeSummary: null }],
+    };
+
+    // Act
+    const masked = maskExecutionSummaryForDisplay(summary);
+
+    // Assert
+    expect(masked.execution).toEqual({
+      id: "exec-1",
+      errors: [{ message: "failed", token: SECRET_MASK }],
+      metadata: { headers: { authorization: SECRET_MASK } },
+    });
+    expect(masked.invocations).toBe(summary.invocations);
+  });
+
+  it("keeps missing metadata as null", () => {
+    // Act
+    const masked = maskExecutionSummaryForDisplay({
+      execution: { errors: null, metadata: null },
+    });
+
+    // Assert
+    expect(masked.execution.metadata).toBeNull();
   });
 });

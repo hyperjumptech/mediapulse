@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
 import { Button } from "@workspace/ui/components/button";
@@ -30,10 +29,9 @@ type CreateSuccessPayload = {
 };
 
 /**
- * Owns create-key dialog state, one-time secret display, and refresh after dismiss.
+ * Owns create-key dialog state and one-time secret display.
  */
 const useCreateApiKeyModalState = () => {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [createdKey, setCreatedKey] = useState<CreateSuccessPayload | null>(
     null,
@@ -68,9 +66,6 @@ const useCreateApiKeyModalState = () => {
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (!next) {
-      if (createdKey) {
-        router.refresh();
-      }
       setCreatedKey(null);
       handledSuccessRef.current = null;
     }

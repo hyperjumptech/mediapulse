@@ -1,12 +1,20 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const fetchInvocationPayloadActionMock = vi.fn();
 
 vi.mock("@/app/dashboard/executions/agent-activity-actions", () => ({
   fetchAgentActivitiesAction: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock("@/app/dashboard/executions/invocation-payload-actions", () => ({
+  fetchInvocationPayloadAction: (...args: unknown[]) =>
+    fetchInvocationPayloadActionMock(...args),
+}));
+
 import { ScheduleExecutionInvocationsTable } from "./schedule-execution-invocations-table";
+import type { InvocationPayloadSource } from "./use-schedule-execution-invocations-modal";
 
 vi.mock("@workspace/ui/components/dialog", () => ({
   Dialog: ({
@@ -31,47 +39,99 @@ vi.mock("@workspace/ui/components/dialog", () => ({
   ),
 }));
 
+const payloadSource: InvocationPayloadSource = {
+  kind: "httpTrigger",
+  parentId: "trigger-1",
+  executionId: "exec-1",
+};
+
+const failedInvocation = {
+  jobId: "j1",
+  status: "failed",
+  semanticStatus: null,
+  outcomeSummary: "err",
+  agentId: "my-agent",
+  startedAtIso: "2025-03-20T10:00:00.000Z",
+  completedAtIso: "2025-03-20T10:00:05.000Z",
+  dataQueueAttempts: null,
+  dataQueueMaxAttempts: null,
+};
+
 describe("ScheduleExecutionInvocationsTable", () => {
-  it("opens the modal with JSON when a job id is clicked", () => {
+  afterEach(() => {
+    fetchInvocationPayloadActionMock.mockReset();
+  });
+
+  it("loads the clicked job's payload and shows its JSON in the modal", async () => {
     // Setup
-    const invocations = [
-      {
-        jobId: "j1",
-        status: "failed",
-        semanticStatus: null,
-        outcomeSummary: "err",
-        transportError: { message: "err" },
-        agentResponse: null,
-        inputMasked: { ticker: "ABC" },
-        configMasked: { foo: 1 },
-        agentId: "my-agent",
-        startedAtIso: "2025-03-20T10:00:00.000Z",
-        completedAtIso: "2025-03-20T10:00:05.000Z",
-        dataQueueAttempts: null,
-        dataQueueMaxAttempts: null,
-      },
-    ];
+    fetchInvocationPayloadActionMock.mockResolvedValue({
+      inputMasked: { ticker: "ABC" },
+      configMasked: { foo: 1 },
+      transportError: { message: "err" },
+      agentResponse: null,
+    });
 
     // Act
-    render(<ScheduleExecutionInvocationsTable invocations={invocations} />);
+    render(
+      <ScheduleExecutionInvocationsTable
+        invocations={[failedInvocation]}
+        payloadSource={payloadSource}
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: "j1" }));
 
-    // Assert — invocation details dialog (first of two Dialog instances)
+    // Assert
     const openDialogs = screen
       .getAllByTestId("dialog")
       .filter((node) => node.getAttribute("data-open") === "true");
+
     expect(openDialogs).toHaveLength(1);
-    expect(screen.getByText(/"ticker": "ABC"/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Loading invocation details" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText(/"ticker": "ABC"/)).toBeInTheDocument();
     expect(screen.getByText(/"foo": 1/)).toBeInTheDocument();
     expect(screen.getByText("my-agent")).toBeInTheDocument();
+    expect(fetchInvocationPayloadActionMock).toHaveBeenCalledWith({
+      kind: "httpTrigger",
+      parentId: "trigger-1",
+      executionId: "exec-1",
+      jobId: "j1",
+    });
+  });
+
+  it("shows error text in the modal when the payload cannot be loaded", async () => {
+    // Setup
+    fetchInvocationPayloadActionMock.mockRejectedValue(new Error("boom"));
+
+    // Act
+    render(
+      <ScheduleExecutionInvocationsTable
+        invocations={[failedInvocation]}
+        payloadSource={payloadSource}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "j1" }));
+
+    // Assert
+    expect(
+      await screen.findByText(/could not load this invocation's details/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Input")).not.toBeInTheDocument();
   });
 
   it("renders empty state when there are no invocations", () => {
     // Act
-    render(<ScheduleExecutionInvocationsTable invocations={[]} />);
+    render(
+      <ScheduleExecutionInvocationsTable
+        invocations={[]}
+        payloadSource={payloadSource}
+      />,
+    );
 
     // Assert
     expect(screen.getByText("No invocations.")).toBeInTheDocument();
+    expect(fetchInvocationPayloadActionMock).not.toHaveBeenCalled();
   });
 
   it("shows sortable started/completed headers and collapses status to outcome", () => {
@@ -82,10 +142,6 @@ describe("ScheduleExecutionInvocationsTable", () => {
         status: "completed",
         semanticStatus: "success" as const,
         outcomeSummary: null,
-        transportError: null,
-        agentResponse: null,
-        inputMasked: {},
-        configMasked: null,
         agentId: "alpha",
         startedAtIso: "2025-01-02T00:00:00.000Z",
         completedAtIso: "2025-01-02T00:01:00.000Z",
@@ -95,7 +151,12 @@ describe("ScheduleExecutionInvocationsTable", () => {
     ];
 
     // Act
-    render(<ScheduleExecutionInvocationsTable invocations={invocations} />);
+    render(
+      <ScheduleExecutionInvocationsTable
+        invocations={invocations}
+        payloadSource={payloadSource}
+      />,
+    );
 
     // Assert
     expect(

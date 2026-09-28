@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import {
   Dialog,
@@ -86,7 +85,6 @@ const initialUsageState = (): VariableUsageState => ({
  * Encapsulates create/edit variable modal state, form actions, and success effects.
  */
 const useVariableModalState = (props: VariableModalProps) => {
-  const router = useRouter();
   const isCreate = isCreateMode(props);
 
   const [internalOpen, setInternalOpen] = useState(false);
@@ -144,19 +142,15 @@ const useVariableModalState = (props: VariableModalProps) => {
     ) {
       handledCreateIdRef.current = createSuccessId;
       setOpenRef.current(false);
-      const id = setTimeout(() => router.refresh(), 0);
-      return () => clearTimeout(id);
     }
-  }, [isCreate, createSuccessId, router]);
+  }, [isCreate, createSuccessId]);
 
   useEffect(() => {
     if (!isCreate && updateSuccess && !didHandleUpdateRef.current) {
       didHandleUpdateRef.current = true;
       onOpenChangeRef.current(false);
-      const id = setTimeout(() => router.refresh(), 0);
-      return () => clearTimeout(id);
     }
-  }, [isCreate, updateSuccess, router]);
+  }, [isCreate, updateSuccess]);
 
   const variable = !isCreate ? props.variable : null;
   const title = isCreate

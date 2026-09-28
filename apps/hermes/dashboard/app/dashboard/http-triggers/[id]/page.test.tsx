@@ -9,7 +9,7 @@ const getHttpTriggerExecutionsPageMock = vi.fn().mockResolvedValue({
   page: 1,
   pageSize: 15,
 });
-const getPipelinesWithStepsMock = vi.fn();
+const getPipelineOptionsMock = vi.fn();
 const notFoundMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -33,8 +33,8 @@ vi.mock("@/lib/http-triggers", () => ({
     getHttpTriggerExecutionsPageMock(...args),
 }));
 
-vi.mock("@/lib/pipelines", () => ({
-  getPipelinesWithSteps: () => getPipelinesWithStepsMock(),
+vi.mock("@/lib/pipeline-options", () => ({
+  getPipelineOptions: () => getPipelineOptionsMock(),
 }));
 
 vi.mock("./http-trigger-executions-section", () => ({
@@ -82,7 +82,7 @@ import HttpTriggerDetailPage from "./page";
 describe("HttpTriggerDetailPage", () => {
   afterEach(() => {
     getHttpTriggerByIdMock.mockReset();
-    getPipelinesWithStepsMock.mockReset();
+    getPipelineOptionsMock.mockReset();
     notFoundMock.mockReset();
   });
 
@@ -93,7 +93,10 @@ describe("HttpTriggerDetailPage", () => {
       name: "Webhook",
       pipeline: { id: "p1", name: "Pipeline" },
     });
-    getPipelinesWithStepsMock.mockResolvedValue([{ id: "p1" }, { id: "p2" }]);
+    getPipelineOptionsMock.mockResolvedValue([
+      { id: "p1", name: "First", isActive: true },
+      { id: "p2", name: "Second", isActive: true },
+    ]);
 
     // Act
     const component = await HttpTriggerDetailPage({
@@ -119,7 +122,7 @@ describe("HttpTriggerDetailPage", () => {
   it("calls notFound when the trigger does not exist", async () => {
     // Setup
     getHttpTriggerByIdMock.mockResolvedValue(null);
-    getPipelinesWithStepsMock.mockResolvedValue([]);
+    getPipelineOptionsMock.mockResolvedValue([]);
     notFoundMock.mockImplementation(() => {
       throw new Error("NEXT_NOT_FOUND");
     });

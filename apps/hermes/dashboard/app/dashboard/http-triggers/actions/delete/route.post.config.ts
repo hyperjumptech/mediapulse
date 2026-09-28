@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 
 const bodyValidator = z.object({
   httpTriggerId: z.string().uuid(),
@@ -46,5 +47,6 @@ export const createDeleteHttpTriggerHandler = ({
   };
 };
 
-export const handler: DeleteHttpTriggerHandler =
-  createDeleteHttpTriggerHandler();
+export const handler: DeleteHttpTriggerHandler = withDashboardRevalidation(
+  createDeleteHttpTriggerHandler(),
+);

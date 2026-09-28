@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { createRequireHermesAdminManagementActor } from "@/lib/require-hermes-admin-management-actor";
 
 const bodyValidator = z.object({
@@ -83,4 +84,6 @@ export const createDeleteAdminHandler = ({
 /**
  * Handles delete admin: removes the user row.
  */
-export const handler: DeleteAdminHandler = createDeleteAdminHandler();
+export const handler: DeleteAdminHandler = withDashboardRevalidation(
+  createDeleteAdminHandler(),
+);

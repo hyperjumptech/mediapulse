@@ -222,7 +222,7 @@ describe("StepList", () => {
     expect(screen.getByText("Removing…")).toBeInTheDocument();
   });
 
-  it("calls router.refresh on successful remove", async () => {
+  it("does not call router.refresh on successful remove", async () => {
     // Setup
     const mock = await getUseFormActionMock();
     mock.mockReturnValue(createMockUseFormAction({ state: { status: true } }));
@@ -238,7 +238,10 @@ describe("StepList", () => {
     );
 
     // Assert
-    expect(routerRefreshMock).toHaveBeenCalled();
+    expect(routerRefreshMock).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Edit step summarizer@1.0" }),
+    ).toBeInTheDocument();
   });
 
   it("renders Edit button for each step", async () => {

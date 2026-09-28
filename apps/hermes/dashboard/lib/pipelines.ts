@@ -12,24 +12,18 @@ export type PipelineListRow = Prisma.PipelineGetPayload<{
   include: typeof pipelineListInclude;
 }>;
 
+const agentRegistryListSelect = {
+  id: true,
+  agentId: true,
+  agentVersion: true,
+  description: true,
+} satisfies Prisma.AgentRegistrySelect;
+
 export type PipelinesPageResult = {
   pipelines: PipelineListRow[];
   total: number;
   page: number;
   pageSize: number;
-};
-
-/**
- * Fetches all pipelines with their steps, ordered by updatedAt descending.
- *
- * @param db - Prisma client (injectable for tests).
- * @returns Pipelines with steps included.
- */
-export const getPipelinesWithSteps = async (db: Db = prisma) => {
-  return db.pipeline.findMany({
-    include: pipelineListInclude,
-    orderBy: { updatedAt: "desc" },
-  });
 };
 
 /**
@@ -90,11 +84,13 @@ export const getAgentRegistryList = async (
   db: Db = prisma,
   domainIntegrationId?: string,
 ) => {
-  return db.agentRegistry.findMany({
-    where: {
-      isActive: true,
-      ...(domainIntegrationId != null ? { domainIntegrationId } : {}),
-    },
+  const domainIntegrationWhere =
+    domainIntegrationId != null ? { domainIntegrationId } : {};
+  const findManyArgs = {
+    where: { isActive: true, ...domainIntegrationWhere },
+    select: agentRegistryListSelect,
     orderBy: [{ agentId: "asc" }, { agentVersion: "asc" }],
-  });
+  } satisfies Prisma.AgentRegistryFindManyArgs;
+
+  return db.agentRegistry.findMany(findManyArgs);
 };

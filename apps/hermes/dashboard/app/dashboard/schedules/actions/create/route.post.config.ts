@@ -9,6 +9,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { getPipelineWithSteps } from "@/lib/pipelines";
 import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";
 import { computeNextRunAt, ExecutionConfigSchema } from "@hermes/scheduler";
@@ -238,4 +239,6 @@ export const createCreateScheduleHandler = ({
 /**
  * Handles create schedule: validates session, pipeline, and creates schedule.
  */
-export const handler: CreateScheduleHandler = createCreateScheduleHandler();
+export const handler: CreateScheduleHandler = withDashboardRevalidation(
+  createCreateScheduleHandler(),
+);

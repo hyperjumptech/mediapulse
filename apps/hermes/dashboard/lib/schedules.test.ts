@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getScheduleById,
+  getScheduleExecutionSummary,
   getScheduleExecutionsPage,
   getSchedulesPage,
 } from "./schedules";
@@ -15,6 +16,7 @@ type MockDb = {
   };
   scheduleExecution: {
     findMany: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
     count: ReturnType<typeof vi.fn>;
   };
 };
@@ -27,6 +29,7 @@ const createMockDb = (): MockDb => ({
   },
   scheduleExecution: {
     findMany: vi.fn(),
+    findFirst: vi.fn(),
     count: vi.fn(),
   },
 });
@@ -288,7 +291,6 @@ describe("getScheduleExecutionsPage", () => {
         jobsEnqueued: true,
         succeededInvocationCount: true,
         failedInvocationCount: true,
-        errors: true,
         createdAt: true,
       },
     });
@@ -321,7 +323,6 @@ describe("getScheduleExecutionsPage", () => {
         jobsEnqueued: 3,
         succeededInvocationCount: 3,
         failedInvocationCount: 0,
-        errors: null,
         createdAt: new Date("2025-01-15T10:00:01Z"),
       },
     ];
@@ -336,5 +337,180 @@ describe("getScheduleExecutionsPage", () => {
       page: 1,
       pageSize: 10,
     });
+  });
+});
+
+describe("getScheduleExecutionSummary", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const summaryRow = () => ({
+    id: "exec-1",
+    executionTime: new Date("2026-04-21T12:00:00.000Z"),
+    enqueueStatus: "success",
+    runStatus: "failed",
+    effectiveExecutionConfig: null,
+    jobsCreated: 2,
+    jobsEnqueued: 2,
+    succeededInvocationCount: 1,
+    failedInvocationCount: 1,
+    errors: null,
+    metadata: null,
+    createdAt: new Date("2026-04-21T12:00:00.000Z"),
+    schedule: {
+      id: "sched-1",
+      name: "Nightly",
+      pipeline: { id: "pipe-1", name: "Pipeline" },
+    },
+    scheduleStepExecutions: [
+      {
+        pipelineStepId: "step-2",
+        expectedInvocationCount: 1,
+        succeededCount: 0,
+        failedCount: 1,
+        rollupStatus: "failed",
+        pipelineStep: { order: 1, agentId: "agent-b", agentVersion: "1.0.0" },
+      },
+      {
+        pipelineStepId: "step-1",
+        expectedInvocationCount: 1,
+        succeededCount: 1,
+        failedCount: 0,
+        rollupStatus: "success",
+        pipelineStep: { order: 0, agentId: "agent-a", agentVersion: "1.0.0" },
+      },
+    ],
+    agentJobExecutions: [
+      {
+        jobId: "job-1",
+        status: "failed",
+        semanticStatus: null,
+        agentId: "agent-b",
+        error: { message: "Upstream timed out" },
+        agentResponse: null,
+        enqueuedAt: new Date("2026-04-21T12:00:00.000Z"),
+        startedAt: new Date("2026-04-21T12:00:01.000Z"),
+        completedAt: new Date("2026-04-21T12:00:05.000Z"),
+        dataQueueAttempts: 3,
+        dataQueueMaxAttempts: 3,
+      },
+    ],
+  });
+
+  it("loads the execution, pipeline, steps and job summaries in one query", async () => {
+    // Setup
+    const db = createMockDb();
+    db.scheduleExecution.findFirst.mockResolvedValue(summaryRow());
+
+    // Act
+    await getScheduleExecutionSummary("sched-1", "exec-1", asDb(db));
+
+    // Assert
+    expect(db.scheduleExecution.findFirst).toHaveBeenCalledTimes(1);
+    expect(db.schedule.findUnique).not.toHaveBeenCalled();
+    expect(db.scheduleExecution.findFirst).toHaveBeenCalledWith({
+      where: { id: "exec-1", scheduleId: "sched-1" },
+      select: {
+        id: true,
+        executionTime: true,
+        enqueueStatus: true,
+        runStatus: true,
+        effectiveExecutionConfig: true,
+        jobsCreated: true,
+        jobsEnqueued: true,
+        succeededInvocationCount: true,
+        failedInvocationCount: true,
+        errors: true,
+        metadata: true,
+        createdAt: true,
+        schedule: {
+          select: {
+            id: true,
+            name: true,
+            pipeline: { select: { id: true, name: true } },
+          },
+        },
+        scheduleStepExecutions: {
+          select: {
+            pipelineStepId: true,
+            expectedInvocationCount: true,
+            succeededCount: true,
+            failedCount: true,
+            rollupStatus: true,
+            pipelineStep: {
+              select: { order: true, agentId: true, agentVersion: true },
+            },
+          },
+        },
+        agentJobExecutions: {
+          orderBy: { enqueuedAt: "asc" },
+          select: {
+            jobId: true,
+            status: true,
+            semanticStatus: true,
+            agentId: true,
+            error: true,
+            agentResponse: true,
+            enqueuedAt: true,
+            startedAt: true,
+            completedAt: true,
+            dataQueueAttempts: true,
+            dataQueueMaxAttempts: true,
+          },
+        },
+      },
+    });
+  });
+
+  it("returns scalar invocation rows with a server-computed outcome summary", async () => {
+    // Setup
+    const db = createMockDb();
+    db.scheduleExecution.findFirst.mockResolvedValue(summaryRow());
+
+    // Act
+    const summary = await getScheduleExecutionSummary(
+      "sched-1",
+      "exec-1",
+      asDb(db),
+    );
+
+    // Assert
+    expect(summary?.pipeline).toEqual({ id: "pipe-1", name: "Pipeline" });
+    expect(summary?.schedule).toEqual({ id: "sched-1", name: "Nightly" });
+    expect(summary?.stepExecutions.map((step) => step.stepOrder)).toEqual([
+      0, 1,
+    ]);
+    expect(summary?.invocations).toEqual([
+      {
+        jobId: "job-1",
+        status: "failed",
+        semanticStatus: null,
+        agentId: "agent-b",
+        outcomeSummary: "Upstream timed out",
+        enqueuedAt: new Date("2026-04-21T12:00:00.000Z"),
+        startedAt: new Date("2026-04-21T12:00:01.000Z"),
+        completedAt: new Date("2026-04-21T12:00:05.000Z"),
+        dataQueueAttempts: 3,
+        dataQueueMaxAttempts: 3,
+      },
+    ]);
+    expect(summary?.execution).not.toHaveProperty("schedule");
+  });
+
+  it("returns null when the execution does not belong to the schedule", async () => {
+    // Setup
+    const db = createMockDb();
+    db.scheduleExecution.findFirst.mockResolvedValue(null);
+
+    // Act
+    const summary = await getScheduleExecutionSummary(
+      "other-schedule",
+      "exec-1",
+      asDb(db),
+    );
+
+    // Assert
+    expect(summary).toBeNull();
   });
 });

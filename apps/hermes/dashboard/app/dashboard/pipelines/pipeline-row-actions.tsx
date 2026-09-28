@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 
 import {
   DropdownMenu,
@@ -18,17 +16,10 @@ import { DeleteConfirmForm } from "@/components/delete-confirm-form";
 import { useFormAction } from "@/app/dashboard/pipelines/actions/delete/.generated/use-form-action";
 
 /**
- * Encapsulates delete form action and refresh-on-success for pipeline row actions.
+ * Encapsulates delete form action for pipeline row actions.
  */
 const usePipelineRowActions = () => {
-  const router = useRouter();
-  const { FormWithAction, state, pending } = useFormAction();
-
-  useEffect(() => {
-    if (state && state.status === true) {
-      router.refresh();
-    }
-  }, [state, router]);
+  const { FormWithAction, pending } = useFormAction();
 
   return { FormWithAction, pending };
 };

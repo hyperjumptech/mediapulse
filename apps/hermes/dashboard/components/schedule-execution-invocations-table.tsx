@@ -43,6 +43,8 @@ import {
 } from "./use-schedule-execution-invocations-sort";
 import {
   useScheduleExecutionInvocationsModal,
+  type InvocationPayload,
+  type InvocationPayloadSource,
   type ScheduleExecutionInvocationRow,
 } from "./use-schedule-execution-invocations-modal";
 import { isActivityRowInProgress } from "@/lib/derive-activity-row-durations";
@@ -121,8 +123,70 @@ const TimestampSortHeader = ({
   );
 };
 
+type InvocationPayloadBodyProps = {
+  payload: InvocationPayload | null;
+  loading: boolean;
+  errorMessage: string | null;
+};
+
+const InvocationPayloadBody = ({
+  payload,
+  loading,
+  errorMessage,
+}: InvocationPayloadBodyProps) => {
+  if (loading) {
+    return (
+      <div
+        role="status"
+        aria-label="Loading invocation details"
+        className="flex justify-center py-8"
+      >
+        <Loader2
+          className="size-6 animate-spin text-muted-foreground"
+          aria-hidden
+        />
+      </div>
+    );
+  }
+  if (errorMessage != null) {
+    return <p className="text-sm text-destructive">{errorMessage}</p>;
+  }
+  if (payload == null) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <InvocationOutcomeDetail
+        transportError={payload.transportError}
+        agentResponse={payload.agentResponse}
+      />
+      <div>
+        <h3 className="mb-2 text-sm font-medium text-foreground">Input</h3>
+        <pre className="max-h-48 overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
+          {formatJsonBlock(payload.inputMasked)}
+        </pre>
+      </div>
+      <div>
+        <h3 className="mb-2 text-sm font-medium text-foreground">Config</h3>
+        {payload.configMasked == null ? (
+          <p className="text-sm text-muted-foreground">
+            No config stored for this invocation (older executions only saved
+            input).
+          </p>
+        ) : (
+          <pre className="max-h-48 overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
+            {formatJsonBlock(payload.configMasked)}
+          </pre>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export type ScheduleExecutionInvocationsTableProps = {
   invocations: ScheduleExecutionInvocationRow[];
+  payloadSource: InvocationPayloadSource;
 };
 
 /**
@@ -130,11 +194,19 @@ export type ScheduleExecutionInvocationsTableProps = {
  */
 export const ScheduleExecutionInvocationsTable = ({
   invocations,
+  payloadSource,
 }: ScheduleExecutionInvocationsTableProps) => {
   const { sortedRows, sortField, sortDir, toggleSort } =
     useScheduleExecutionInvocationsSort(invocations);
-  const { open, selected, openModal, onOpenChange } =
-    useScheduleExecutionInvocationsModal();
+  const {
+    open,
+    selected,
+    payload,
+    loading,
+    errorMessage,
+    openModal,
+    onOpenChange,
+  } = useScheduleExecutionInvocationsModal(payloadSource);
   const {
     open: activityOpen,
     jobId: activityJobId,
@@ -209,7 +281,7 @@ export const ScheduleExecutionInvocationsTable = ({
                         variant="link"
                         className="h-auto min-h-0 p-0 font-mono text-xs wrap-break-word whitespace-normal text-left"
                         onClick={() => {
-                          openModal(j);
+                          void openModal(j);
                         }}
                       >
                         {j.jobId}
@@ -290,35 +362,11 @@ export const ScheduleExecutionInvocationsTable = ({
             </p>
           </DialogHeader>
           {selected ? (
-            <div className="flex flex-col gap-4">
-              <InvocationOutcomeDetail
-                transportError={selected.transportError}
-                agentResponse={selected.agentResponse}
-              />
-              <div>
-                <h3 className="mb-2 text-sm font-medium text-foreground">
-                  Input
-                </h3>
-                <pre className="max-h-48 overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
-                  {formatJsonBlock(selected.inputMasked)}
-                </pre>
-              </div>
-              <div>
-                <h3 className="mb-2 text-sm font-medium text-foreground">
-                  Config
-                </h3>
-                {selected.configMasked == null ? (
-                  <p className="text-sm text-muted-foreground">
-                    No config stored for this invocation (older executions only
-                    saved input).
-                  </p>
-                ) : (
-                  <pre className="max-h-48 overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
-                    {formatJsonBlock(selected.configMasked)}
-                  </pre>
-                )}
-              </div>
-            </div>
+            <InvocationPayloadBody
+              payload={payload}
+              loading={loading}
+              errorMessage={errorMessage}
+            />
           ) : null}
         </DialogContent>
       </Dialog>

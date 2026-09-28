@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
@@ -78,14 +77,13 @@ export const StepList = ({
 };
 
 /**
- * Encapsulates step row state: edit mode, form fields, remove/update form actions, and refresh-on-success.
+ * Encapsulates step row state: edit mode, form fields, and remove/update form actions.
  */
 const useStepRowState = (
   step: Step,
   pipelineId: string,
   configsByAgentKey: Record<string, AgentConfigSummary[]>,
 ) => {
-  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [editAgentKey, setEditAgentKey] = useState(
     `${step.agentId}@${step.agentVersion}`,
@@ -94,11 +92,8 @@ const useStepRowState = (
     step.agentConfigId ?? "",
   );
 
-  const {
-    FormWithAction: RemoveForm,
-    state: removeState,
-    pending: removePending,
-  } = useRemoveStepFormAction();
+  const { FormWithAction: RemoveForm, pending: removePending } =
+    useRemoveStepFormAction();
   const {
     FormWithAction: UpdateForm,
     state: updateState,
@@ -106,17 +101,10 @@ const useStepRowState = (
   } = useUpdateStepFormAction();
 
   useEffect(() => {
-    if (removeState && removeState.status === true) {
-      router.refresh();
-    }
-  }, [removeState, router]);
-
-  useEffect(() => {
     if (updateState && updateState.status === true) {
       setIsEditing(false);
-      router.refresh();
     }
-  }, [updateState, router]);
+  }, [updateState]);
 
   const updateErrorMessage =
     updateState && updateState.status === false ? updateState.message : null;

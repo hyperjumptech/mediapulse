@@ -17,10 +17,9 @@ import {
   computePipelineWallElapsed,
   formatPipelineElapsedLabel,
 } from "@/lib/compute-execution-elapsed";
-import { formatInvocationOutcomeSummary } from "@/lib/format-invocation-outcome-summary";
-import { getHttpTriggerExecutionDetail } from "@/lib/http-triggers";
+import { getHttpTriggerExecutionSummary } from "@/lib/http-triggers";
 import { getHermesExecutionInvokeTransportBlurb } from "@/lib/hermes-execution-invoke-transport";
-import { maskHttpTriggerExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
+import { maskExecutionSummaryForDisplay } from "@/lib/mask-json-secrets";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 /**
@@ -32,23 +31,30 @@ export default async function HttpTriggerExecutionDetailPage({
   params: Promise<{ id: string; executionId: string }>;
 }) {
   const { id: triggerId, executionId } = await params;
-  const rawDetail = await withDashboardAdmin(
-    getHttpTriggerExecutionDetail(triggerId, executionId),
+  const summary = await withDashboardAdmin(
+    getHttpTriggerExecutionSummary(triggerId, executionId),
   );
-  if (!rawDetail) notFound();
+  if (!summary) notFound();
 
   const pipelineElapsed = computePipelineWallElapsed(
-    rawDetail.invocations.map((job) => ({
-      enqueuedAt: job.enqueuedAt,
-      startedAt: job.startedAt,
-      completedAt: job.completedAt,
-    })),
-    rawDetail.execution.runStatus,
+    summary.invocations,
+    summary.execution.runStatus,
   );
 
-  const detail = maskHttpTriggerExecutionDetailForDisplay(rawDetail);
+  const detail = maskExecutionSummaryForDisplay(summary);
   const invokeTransport =
     getHermesExecutionInvokeTransportBlurb("http-trigger");
+  const invocationRows = detail.invocations.map((invocation) => ({
+    jobId: invocation.jobId,
+    status: invocation.status,
+    semanticStatus: invocation.semanticStatus,
+    outcomeSummary: invocation.outcomeSummary,
+    agentId: invocation.agentId,
+    startedAtIso: invocation.startedAt?.toISOString() ?? null,
+    completedAtIso: invocation.completedAt?.toISOString() ?? null,
+    dataQueueAttempts: invocation.dataQueueAttempts,
+    dataQueueMaxAttempts: invocation.dataQueueMaxAttempts,
+  }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -187,23 +193,12 @@ export default async function HttpTriggerExecutionDetailPage({
       <section>
         <h2 className="mb-2 text-lg font-medium">Invocations</h2>
         <ScheduleExecutionInvocationsTable
-          invocations={detail.invocations.map((job) => ({
-            jobId: job.jobId,
-            status: job.status,
-            semanticStatus: job.semanticStatus,
-            outcomeSummary:
-              formatInvocationOutcomeSummary(job.error, job.agentResponse) ??
-              null,
-            transportError: job.error,
-            agentResponse: job.agentResponse,
-            inputMasked: job.params,
-            configMasked: job.invocationConfig,
-            agentId: job.agentId,
-            startedAtIso: job.startedAt?.toISOString() ?? null,
-            completedAtIso: job.completedAt?.toISOString() ?? null,
-            dataQueueAttempts: job.dataQueueAttempts,
-            dataQueueMaxAttempts: job.dataQueueMaxAttempts,
-          }))}
+          invocations={invocationRows}
+          payloadSource={{
+            kind: "httpTrigger",
+            parentId: triggerId,
+            executionId,
+          }}
         />
       </section>
     </div>

@@ -6,12 +6,12 @@ vi.mock("@/lib/require-dashboard-principal-response", () => ({
 }));
 
 vi.mock("@/lib/agents", () => ({
-  getAgentsPage: vi.fn(),
+  getAgentRegistryPage: vi.fn(),
 }));
 
 import { GET } from "./route";
-import type { AgentsPageResult } from "@/lib/agents";
-import { getAgentsPage } from "@/lib/agents";
+import type { AgentRegistryPageResult } from "@/lib/agents";
+import { getAgentRegistryPage } from "@/lib/agents";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 import { NextResponse } from "next/server";
 
@@ -51,7 +51,7 @@ describe("GET /api/agents", () => {
     vi.mocked(resolveDashboardPrincipalOrUnauthorized).mockResolvedValue(
       principal,
     );
-    vi.mocked(getAgentsPage).mockResolvedValue({
+    vi.mocked(getAgentRegistryPage).mockResolvedValue({
       agents: [],
       total: 0,
       page: 1,
@@ -80,7 +80,7 @@ describe("GET /api/agents", () => {
     vi.mocked(resolveDashboardPrincipalOrUnauthorized).mockResolvedValue(
       principal,
     );
-    vi.mocked(getAgentsPage).mockResolvedValue({
+    vi.mocked(getAgentRegistryPage).mockResolvedValue({
       agents: [
         {
           id: "agent-1",
@@ -100,7 +100,7 @@ describe("GET /api/agents", () => {
       total: 1,
       page: 1,
       pageSize: 20,
-    } satisfies AgentsPageResult);
+    } satisfies AgentRegistryPageResult);
 
     // Act
     const res = await GET(
@@ -110,7 +110,7 @@ describe("GET /api/agents", () => {
     );
 
     // Assert
-    expect(getAgentsPage).toHaveBeenCalledWith(1, 20);
+    expect(getAgentRegistryPage).toHaveBeenCalledWith(1, 20);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { items: unknown[] };
     expect(body.items).toHaveLength(1);

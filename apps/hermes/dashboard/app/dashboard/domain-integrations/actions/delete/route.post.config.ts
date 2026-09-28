@@ -7,7 +7,10 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
+import { invalidateDomainIntegrationToken } from "@/lib/domain-integration-auth-token";
+import { invalidateDomainIntegrationsCache } from "@/lib/domain-integrations";
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 
 const bodyValidator = z.object({
   id: z.string().uuid(),
@@ -56,6 +59,8 @@ export const createDeleteDomainIntegrationHandler = ({
     await db.domainIntegration.delete({
       where: { id },
     });
+    invalidateDomainIntegrationsCache();
+    invalidateDomainIntegrationToken(id);
 
     return successResponse({ ok: true as const });
   };
@@ -65,4 +70,4 @@ export const createDeleteDomainIntegrationHandler = ({
  * Handles delete domain integration: validates session and deletes by id.
  */
 export const handler: DeleteDomainIntegrationHandler =
-  createDeleteDomainIntegrationHandler();
+  withDashboardRevalidation(createDeleteDomainIntegrationHandler());

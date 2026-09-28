@@ -1,6 +1,17 @@
 import type { Prisma } from "@hermes/orchestration-database";
 import { prisma } from "@hermes/orchestration-database";
 
+import {
+  executionSummarySelect,
+  invocationSummarySelect,
+  stepExecutionSummarySelect,
+  toExecutionSummary,
+  toInvocationSummary,
+  toStepExecutionSummaries,
+  type ExecutionSummary,
+  type InvocationSummary,
+} from "./execution-summary";
+
 type Db = typeof prisma;
 
 const httpTriggerListInclude = {
@@ -108,7 +119,6 @@ export type HttpTriggerExecutionRow = Prisma.HttpTriggerExecutionGetPayload<{
     jobsEnqueued: true;
     succeededInvocationCount: true;
     failedInvocationCount: true;
-    errors: true;
     createdAt: true;
   };
 }>;
@@ -147,7 +157,6 @@ export const getHttpTriggerExecutionsPage = async (
       jobsEnqueued: true,
       succeededInvocationCount: true,
       failedInvocationCount: true,
-      errors: true,
       createdAt: true,
     },
   } satisfies Prisma.HttpTriggerExecutionFindManyArgs;
@@ -309,5 +318,50 @@ export const getHttpTriggerExecutionDetail = async (
       dataQueueAttempts: job.dataQueueAttempts,
       dataQueueMaxAttempts: job.dataQueueMaxAttempts,
     })),
+  };
+};
+
+export type HttpTriggerExecutionSummary = Omit<
+  HttpTriggerExecutionDetail,
+  "execution" | "invocations"
+> & {
+  execution: ExecutionSummary;
+  invocations: InvocationSummary[];
+};
+
+export const getHttpTriggerExecutionSummary = async (
+  httpTriggerId: string,
+  executionId: string,
+  db: Db = prisma,
+): Promise<HttpTriggerExecutionSummary | null> => {
+  const summaryQuery = {
+    where: { id: executionId, httpTriggerId },
+    select: {
+      ...executionSummarySelect,
+      httpTrigger: {
+        select: {
+          id: true,
+          name: true,
+          pipeline: { select: { id: true, name: true } },
+        },
+      },
+      httpTriggerStepExecutions: { select: stepExecutionSummarySelect },
+      agentJobExecutions: {
+        orderBy: { enqueuedAt: "asc" },
+        select: invocationSummarySelect,
+      },
+    },
+  } satisfies Prisma.HttpTriggerExecutionFindFirstArgs;
+  const row = await db.httpTriggerExecution.findFirst(summaryQuery);
+  if (!row) {
+    return null;
+  }
+
+  return {
+    execution: toExecutionSummary(row),
+    pipeline: row.httpTrigger.pipeline,
+    trigger: { id: row.httpTrigger.id, name: row.httpTrigger.name },
+    stepExecutions: toStepExecutionSummaries(row.httpTriggerStepExecutions),
+    invocations: row.agentJobExecutions.map(toInvocationSummary),
   };
 };

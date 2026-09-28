@@ -2,10 +2,12 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { HttpTriggerExecutionDetail } from "@/lib/http-triggers";
+import type { ScheduleExecutionInvocationsTableProps } from "@/components/schedule-execution-invocations-table";
+import type { HttpTriggerExecutionSummary } from "@/lib/http-triggers";
 
-const getHttpTriggerExecutionDetailMock = vi.fn();
+const getHttpTriggerExecutionSummaryMock = vi.fn();
 const notFoundMock = vi.fn();
+const invocationsTablePropsMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   notFound: () => notFoundMock(),
@@ -13,8 +15,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/http-triggers", () => ({
-  getHttpTriggerExecutionDetail: (...args: unknown[]) =>
-    getHttpTriggerExecutionDetailMock(...args),
+  getHttpTriggerExecutionSummary: (...args: unknown[]) =>
+    getHttpTriggerExecutionSummaryMock(...args),
 }));
 
 vi.mock("@/lib/require-dashboard-admin", () => ({
@@ -28,7 +30,7 @@ vi.mock("@/lib/require-dashboard-admin", () => ({
 }));
 
 vi.mock("@/lib/mask-json-secrets", () => ({
-  maskHttpTriggerExecutionDetailForDisplay: (detail: unknown) => detail,
+  maskExecutionSummaryForDisplay: (summary: unknown) => summary,
   maskSecretsInJson: (value: unknown) => value,
 }));
 
@@ -39,21 +41,21 @@ vi.mock("@/lib/compute-execution-elapsed", () => ({
   formatPipelineElapsedLabel: vi.fn().mockReturnValue("—"),
 }));
 
-vi.mock("@/lib/format-invocation-outcome-summary", () => ({
-  formatInvocationOutcomeSummary: vi.fn().mockReturnValue(null),
-}));
-
 vi.mock("@/components/schedule-execution-invocations-table", () => ({
-  ScheduleExecutionInvocationsTable: () => (
-    <div data-testid="invocations-stub">Invocations</div>
-  ),
+  ScheduleExecutionInvocationsTable: (
+    props: ScheduleExecutionInvocationsTableProps,
+  ) => {
+    invocationsTablePropsMock(props);
+
+    return <div data-testid="invocations-stub">Invocations</div>;
+  },
 }));
 
 import HttpTriggerExecutionDetailPage from "./page";
 
 const ROUTE_ENQUEUE_ERROR_MESSAGE = "HTTP_TRIGGER_ROUTE_ENQUEUE_FAIL";
 
-const minimalFailedDetail = (): HttpTriggerExecutionDetail => ({
+const minimalFailedSummary = (): HttpTriggerExecutionSummary => ({
   execution: {
     id: "exec-http-1",
     executionTime: new Date("2026-04-21T12:00:00.000Z"),
@@ -73,7 +75,7 @@ const minimalFailedDetail = (): HttpTriggerExecutionDetail => ({
     metadata: null,
     createdAt: new Date("2026-04-21T12:00:00.000Z"),
   },
-  pipeline: null,
+  pipeline: { id: "pipe-1", name: "P" },
   trigger: { id: "trig-1", name: "Test trigger" },
   stepExecutions: [],
   invocations: [],
@@ -82,12 +84,15 @@ const minimalFailedDetail = (): HttpTriggerExecutionDetail => ({
 describe("HttpTriggerExecutionDetailPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    getHttpTriggerExecutionDetailMock.mockReset();
+    getHttpTriggerExecutionSummaryMock.mockReset();
     notFoundMock.mockReset();
+    invocationsTablePropsMock.mockReset();
   });
 
   it("renders enqueue diagnostics region with persisted errors for failed enqueue", async () => {
-    getHttpTriggerExecutionDetailMock.mockResolvedValue(minimalFailedDetail());
+    getHttpTriggerExecutionSummaryMock.mockResolvedValue(
+      minimalFailedSummary(),
+    );
 
     const ui = await HttpTriggerExecutionDetailPage({
       params: Promise.resolve({
@@ -107,5 +112,61 @@ describe("HttpTriggerExecutionDetailPage", () => {
     expect(screen.getByText("failed")).toBeInTheDocument();
     expect(screen.getByText(/Invocation transport:/)).toBeInTheDocument();
     expect(screen.getByText(/Hermes worker \+ DataQueue/)).toBeInTheDocument();
+  });
+
+  it("passes scalar invocation rows and the httpTrigger payload scope to the table", async () => {
+    // Setup
+    getHttpTriggerExecutionSummaryMock.mockResolvedValue({
+      ...minimalFailedSummary(),
+      invocations: [
+        {
+          jobId: "job-1",
+          status: "completed",
+          semanticStatus: "success",
+          agentId: "agent-a",
+          outcomeSummary: null,
+          enqueuedAt: new Date("2026-04-21T12:00:00.000Z"),
+          startedAt: new Date("2026-04-21T12:00:01.000Z"),
+          completedAt: new Date("2026-04-21T12:00:04.000Z"),
+          dataQueueAttempts: null,
+          dataQueueMaxAttempts: null,
+        },
+      ],
+    } satisfies HttpTriggerExecutionSummary);
+
+    // Act
+    const ui = await HttpTriggerExecutionDetailPage({
+      params: Promise.resolve({
+        id: "trig-1",
+        executionId: "exec-http-1",
+      }),
+    });
+    render(ui as React.ReactElement);
+
+    // Assert
+    expect(getHttpTriggerExecutionSummaryMock).toHaveBeenCalledWith(
+      "trig-1",
+      "exec-http-1",
+    );
+    expect(invocationsTablePropsMock).toHaveBeenCalledWith({
+      invocations: [
+        {
+          jobId: "job-1",
+          status: "completed",
+          semanticStatus: "success",
+          outcomeSummary: null,
+          agentId: "agent-a",
+          startedAtIso: "2026-04-21T12:00:01.000Z",
+          completedAtIso: "2026-04-21T12:00:04.000Z",
+          dataQueueAttempts: null,
+          dataQueueMaxAttempts: null,
+        },
+      ],
+      payloadSource: {
+        kind: "httpTrigger",
+        parentId: "trig-1",
+        executionId: "exec-http-1",
+      },
+    });
   });
 });

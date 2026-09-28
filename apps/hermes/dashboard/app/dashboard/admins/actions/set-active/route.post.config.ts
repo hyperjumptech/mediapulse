@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { createRequireHermesAdminManagementActor } from "@/lib/require-hermes-admin-management-actor";
 
 const bodyValidator = z.object({
@@ -95,4 +96,6 @@ export const createSetActiveAdminHandler = ({
 /**
  * Handles set-active for an admin user.
  */
-export const handler: SetActiveAdminHandler = createSetActiveAdminHandler();
+export const handler: SetActiveAdminHandler = withDashboardRevalidation(
+  createSetActiveAdminHandler(),
+);

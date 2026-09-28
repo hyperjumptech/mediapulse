@@ -7,8 +7,20 @@ import {
   computePipelineWallElapsed,
   formatPipelineElapsedLabel,
 } from "./compute-execution-elapsed";
+import {
+  executionSummarySelect,
+  invocationSummarySelect,
+  stepExecutionSummarySelect,
+  toExecutionSummary,
+  toInvocationSummary,
+  toStepExecutionSummaries,
+  type ExecutionSummary,
+  type InvocationSummary,
+} from "./execution-summary";
 
 type Db = typeof prisma;
+
+const MAX_EXECUTIONS_PER_SOURCE = 1000;
 
 export type PipelineExecutionSource = "manual" | "schedule" | "http-trigger";
 
@@ -23,7 +35,6 @@ export type PipelineExecutionRow = {
   jobsEnqueued: number;
   succeededInvocationCount: number;
   failedInvocationCount: number;
-  errors: unknown;
   createdAt: Date;
   /** Wall-clock elapsed label for this execution (derived from job rows). */
   elapsedLabel: string;
@@ -34,6 +45,185 @@ export type PipelineExecutionsPageResult = {
   total: number;
   page: number;
   pageSize: number;
+};
+
+type PipelineExecutionListRow = Omit<PipelineExecutionRow, "elapsedLabel">;
+
+type ExecutionListFields = Omit<
+  PipelineExecutionListRow,
+  "source" | "sourceId"
+>;
+
+type PipelineExecutionSourcePage = {
+  rows: PipelineExecutionListRow[];
+  total: number;
+};
+
+const executionListSelect = {
+  id: true,
+  executionTime: true,
+  enqueueStatus: true,
+  runStatus: true,
+  jobsCreated: true,
+  jobsEnqueued: true,
+  succeededInvocationCount: true,
+  failedInvocationCount: true,
+  createdAt: true,
+} as const;
+
+const toPipelineExecutionListRow = (
+  execution: ExecutionListFields,
+  source: PipelineExecutionSource,
+  sourceId: string,
+): PipelineExecutionListRow => ({
+  id: execution.id,
+  source,
+  sourceId,
+  executionTime: execution.executionTime,
+  enqueueStatus: execution.enqueueStatus,
+  runStatus: execution.runStatus,
+  jobsCreated: execution.jobsCreated,
+  jobsEnqueued: execution.jobsEnqueued,
+  succeededInvocationCount: execution.succeededInvocationCount,
+  failedInvocationCount: execution.failedInvocationCount,
+  createdAt: execution.createdAt,
+});
+
+const compareNewestExecutionFirst = (
+  left: PipelineExecutionListRow,
+  right: PipelineExecutionListRow,
+): number => {
+  const executionTimeDifference =
+    right.executionTime.getTime() - left.executionTime.getTime();
+  if (executionTimeDifference !== 0) {
+    return executionTimeDifference;
+  }
+  if (left.id === right.id) {
+    return 0;
+  }
+
+  return left.id < right.id ? 1 : -1;
+};
+
+const loadNewestExecutionsPerParent = async <Execution>(
+  parentIds: string[],
+  loadNewestForParent: (parentId: string) => Promise<Execution[]>,
+  countForParents: (parentIds: string[]) => Promise<number>,
+): Promise<{ executions: Execution[]; total: number }> => {
+  if (parentIds.length === 0) {
+    return { executions: [], total: 0 };
+  }
+  const [executionsPerParent, total] = await Promise.all([
+    Promise.all(parentIds.map((parentId) => loadNewestForParent(parentId))),
+    countForParents(parentIds),
+  ]);
+
+  return { executions: executionsPerParent.flat(), total };
+};
+
+const loadScheduleExecutionsForPipeline = async (
+  pipelineId: string,
+  take: number,
+  db: Db,
+): Promise<PipelineExecutionSourcePage> => {
+  const schedulesQuery = {
+    where: { pipelineId },
+    select: { id: true },
+  } satisfies Prisma.ScheduleFindManyArgs;
+  const schedules = await db.schedule.findMany(schedulesQuery);
+  const scheduleIds = schedules.map((schedule) => schedule.id);
+  const { executions, total } = await loadNewestExecutionsPerParent(
+    scheduleIds,
+    (scheduleId) => {
+      const executionsQuery = {
+        where: { scheduleId },
+        orderBy: [{ executionTime: "desc" }, { id: "desc" }],
+        take,
+        select: { ...executionListSelect, scheduleId: true },
+      } satisfies Prisma.ScheduleExecutionFindManyArgs;
+
+      return db.scheduleExecution.findMany(executionsQuery);
+    },
+    (parentIds) => {
+      const countQuery = {
+        where: { scheduleId: { in: parentIds } },
+      } satisfies Prisma.ScheduleExecutionCountArgs;
+
+      return db.scheduleExecution.count(countQuery);
+    },
+  );
+  const rows = executions.map((execution) =>
+    toPipelineExecutionListRow(execution, "schedule", execution.scheduleId),
+  );
+
+  return { rows, total };
+};
+
+const loadHttpTriggerExecutionsForPipeline = async (
+  pipelineId: string,
+  take: number,
+  db: Db,
+): Promise<PipelineExecutionSourcePage> => {
+  const httpTriggersQuery = {
+    where: { pipelineId },
+    select: { id: true },
+  } satisfies Prisma.HttpTriggerFindManyArgs;
+  const httpTriggers = await db.httpTrigger.findMany(httpTriggersQuery);
+  const httpTriggerIds = httpTriggers.map((httpTrigger) => httpTrigger.id);
+  const { executions, total } = await loadNewestExecutionsPerParent(
+    httpTriggerIds,
+    (httpTriggerId) => {
+      const executionsQuery = {
+        where: { httpTriggerId },
+        orderBy: [{ executionTime: "desc" }, { id: "desc" }],
+        take,
+        select: { ...executionListSelect, httpTriggerId: true },
+      } satisfies Prisma.HttpTriggerExecutionFindManyArgs;
+
+      return db.httpTriggerExecution.findMany(executionsQuery);
+    },
+    (parentIds) => {
+      const countQuery = {
+        where: { httpTriggerId: { in: parentIds } },
+      } satisfies Prisma.HttpTriggerExecutionCountArgs;
+
+      return db.httpTriggerExecution.count(countQuery);
+    },
+  );
+  const rows = executions.map((execution) =>
+    toPipelineExecutionListRow(
+      execution,
+      "http-trigger",
+      execution.httpTriggerId,
+    ),
+  );
+
+  return { rows, total };
+};
+
+const loadManualExecutionsForPipeline = async (
+  pipelineId: string,
+  take: number,
+  db: Db,
+): Promise<PipelineExecutionSourcePage> => {
+  const executionsQuery = {
+    where: { pipelineId },
+    orderBy: [{ executionTime: "desc" }, { id: "desc" }],
+    take,
+    select: executionListSelect,
+  } satisfies Prisma.ManualPipelineExecutionFindManyArgs;
+  const countQuery = {
+    where: { pipelineId },
+  } satisfies Prisma.ManualPipelineExecutionCountArgs;
+  const [executions, total] = await Promise.all([
+    db.manualPipelineExecution.findMany(executionsQuery),
+    db.manualPipelineExecution.count(countQuery),
+  ]);
+  const rows = executions.map((execution) =>
+    toPipelineExecutionListRow(execution, "manual", pipelineId),
+  );
+
+  return { rows, total };
 };
 
 /**
@@ -51,124 +241,38 @@ export const getPipelineExecutionsPage = async (
   pageSize: number,
   db: Db = prisma,
 ): Promise<PipelineExecutionsPageResult> => {
-  const scheduleArgs = {
-    where: { schedule: { pipelineId } },
-    orderBy: { executionTime: "desc" },
-    select: {
-      id: true,
-      executionTime: true,
-      enqueueStatus: true,
-      runStatus: true,
-      jobsCreated: true,
-      jobsEnqueued: true,
-      succeededInvocationCount: true,
-      failedInvocationCount: true,
-      errors: true,
-      createdAt: true,
-      schedule: { select: { id: true } },
-    },
-  } satisfies Prisma.ScheduleExecutionFindManyArgs;
-  const httpTriggerArgs = {
-    where: { httpTrigger: { pipelineId } },
-    orderBy: { executionTime: "desc" },
-    select: {
-      id: true,
-      executionTime: true,
-      enqueueStatus: true,
-      runStatus: true,
-      jobsCreated: true,
-      jobsEnqueued: true,
-      succeededInvocationCount: true,
-      failedInvocationCount: true,
-      errors: true,
-      createdAt: true,
-      httpTrigger: { select: { id: true } },
-    },
-  } satisfies Prisma.HttpTriggerExecutionFindManyArgs;
-  const manualArgs = {
-    where: { pipelineId },
-    orderBy: { executionTime: "desc" },
-    select: {
-      id: true,
-      pipelineId: true,
-      executionTime: true,
-      enqueueStatus: true,
-      runStatus: true,
-      jobsCreated: true,
-      jobsEnqueued: true,
-      succeededInvocationCount: true,
-      failedInvocationCount: true,
-      errors: true,
-      createdAt: true,
-    },
-  } satisfies Prisma.ManualPipelineExecutionFindManyArgs;
-
-  const [scheduleRows, httpTriggerRows, manualRows] = await Promise.all([
-    db.scheduleExecution.findMany(scheduleArgs),
-    db.httpTriggerExecution.findMany(httpTriggerArgs),
-    db.manualPipelineExecution.findMany(manualArgs),
-  ]);
-
-  const merged: Array<Omit<PipelineExecutionRow, "elapsedLabel">> = [
-    ...scheduleRows.map((row) => ({
-      id: row.id,
-      source: "schedule" as const,
-      sourceId: row.schedule.id,
-      executionTime: row.executionTime,
-      enqueueStatus: row.enqueueStatus,
-      runStatus: row.runStatus,
-      jobsCreated: row.jobsCreated,
-      jobsEnqueued: row.jobsEnqueued,
-      succeededInvocationCount: row.succeededInvocationCount,
-      failedInvocationCount: row.failedInvocationCount,
-      errors: row.errors,
-      createdAt: row.createdAt,
-    })),
-    ...httpTriggerRows.map((row) => ({
-      id: row.id,
-      source: "http-trigger" as const,
-      sourceId: row.httpTrigger.id,
-      executionTime: row.executionTime,
-      enqueueStatus: row.enqueueStatus,
-      runStatus: row.runStatus,
-      jobsCreated: row.jobsCreated,
-      jobsEnqueued: row.jobsEnqueued,
-      succeededInvocationCount: row.succeededInvocationCount,
-      failedInvocationCount: row.failedInvocationCount,
-      errors: row.errors,
-      createdAt: row.createdAt,
-    })),
-    ...manualRows.map((row) => ({
-      id: row.id,
-      source: "manual" as const,
-      sourceId: row.pipelineId,
-      executionTime: row.executionTime,
-      enqueueStatus: row.enqueueStatus,
-      runStatus: row.runStatus,
-      jobsCreated: row.jobsCreated,
-      jobsEnqueued: row.jobsEnqueued,
-      succeededInvocationCount: row.succeededInvocationCount,
-      failedInvocationCount: row.failedInvocationCount,
-      errors: row.errors,
-      createdAt: row.createdAt,
-    })),
-  ].sort(
-    (left, right) =>
-      right.executionTime.getTime() - left.executionTime.getTime(),
+  const lastReachablePage = Math.max(
+    1,
+    Math.floor(MAX_EXECUTIONS_PER_SOURCE / pageSize),
   );
-
-  const start = Math.max(0, (page - 1) * pageSize);
-  const end = start + pageSize;
-  const slice = merged.slice(start, end);
+  const clampedPage = Math.min(Math.max(1, page), lastReachablePage);
+  const take = Math.min(clampedPage * pageSize, MAX_EXECUTIONS_PER_SOURCE);
+  const [scheduleExecutions, httpTriggerExecutions, manualExecutions] =
+    await Promise.all([
+      loadScheduleExecutionsForPipeline(pipelineId, take, db),
+      loadHttpTriggerExecutionsForPipeline(pipelineId, take, db),
+      loadManualExecutionsForPipeline(pipelineId, take, db),
+    ]);
+  const merged = [
+    ...scheduleExecutions.rows,
+    ...httpTriggerExecutions.rows,
+    ...manualExecutions.rows,
+  ].sort(compareNewestExecutionFirst);
+  const start = (clampedPage - 1) * pageSize;
+  const pageRows = merged.slice(start, start + pageSize);
   const executionsWithElapsed = await attachPipelineExecutionElapsedLabels(
-    slice,
+    pageRows,
     db,
   );
+  const total =
+    scheduleExecutions.total +
+    httpTriggerExecutions.total +
+    manualExecutions.total;
 
   return {
     executions: executionsWithElapsed,
-    total: merged.length,
-    page,
+    total,
+    page: clampedPage,
     pageSize,
   };
 };
@@ -540,5 +644,58 @@ export const getManualPipelineExecutionDetail = async (
       dataQueueAttempts: job.dataQueueAttempts,
       dataQueueMaxAttempts: job.dataQueueMaxAttempts,
     })),
+  };
+};
+
+export type ManualPipelineExecutionSummary = Omit<
+  ManualPipelineExecutionDetail,
+  "execution" | "invocations"
+> & {
+  execution: ExecutionSummary;
+  invocations: InvocationSummary[];
+};
+
+export const getManualPipelineExecutionSummary = async (
+  pipelineId: string,
+  executionId: string,
+  db: Db = prisma,
+): Promise<ManualPipelineExecutionSummary | null> => {
+  const summaryQuery = {
+    where: { id: executionId, pipelineId },
+    select: {
+      ...executionSummarySelect,
+      pipeline: { select: { id: true, name: true } },
+      manualPipelineStepExecutions: { select: stepExecutionSummarySelect },
+      agentJobExecutions: {
+        orderBy: { enqueuedAt: "asc" },
+        select: { ...invocationSummarySelect, pipelineStepId: true },
+      },
+    },
+  } satisfies Prisma.ManualPipelineExecutionFindFirstArgs;
+  const row = await db.manualPipelineExecution.findFirst(summaryQuery);
+  if (!row) {
+    return null;
+  }
+  const executionConfig = loadExecutionConfigForManualDetail(
+    row.effectiveExecutionConfig,
+  );
+  const { succeededInvocationCount, failedInvocationCount } =
+    deriveManualInvocationCountsFromJobs(row.agentJobExecutions);
+  const stepExecutions = deriveManualStepExecutionsFromJobs(
+    toStepExecutionSummaries(row.manualPipelineStepExecutions),
+    row.agentJobExecutions,
+    executionConfig.stepRollupPolicy,
+  );
+  const execution = toExecutionSummary(row);
+
+  return {
+    execution: {
+      ...execution,
+      succeededInvocationCount,
+      failedInvocationCount,
+    },
+    pipeline: row.pipeline,
+    stepExecutions,
+    invocations: row.agentJobExecutions.map(toInvocationSummary),
   };
 };

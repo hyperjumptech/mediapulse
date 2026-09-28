@@ -25,7 +25,6 @@ const useUnregisterAgentAction = () => {
   useEffect(() => {
     if (state && state.status === true) {
       router.push("/dashboard/agents");
-      router.refresh();
     }
   }, [state, router]);
 

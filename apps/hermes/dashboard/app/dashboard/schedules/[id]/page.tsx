@@ -6,11 +6,9 @@ import {
   parseListPagination,
   type ListPageSearchParams,
 } from "@/lib/list-page-params";
-import { getPipelinesWithSteps } from "@/lib/pipelines";
+import { getPipelineOptionsWithValidation } from "@/lib/pipeline-options";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 import { getScheduleById, getScheduleExecutionsPage } from "@/lib/schedules";
-import { getPipelinesValidationMap } from "@/lib/validate-pipeline";
-import { prisma } from "@hermes/orchestration-database";
 
 import { ScheduleDetailContent } from "./schedule-detail-content";
 import { ScheduleExecutionsSection } from "./schedule-executions-section";
@@ -31,18 +29,14 @@ const ScheduleDetailPage = async ({
   const { page, pageSize } = parseListPagination(resolved);
   const executionsPage = getScheduleExecutionsPage(id, page, pageSize);
   void executionsPage.catch(() => undefined);
-  const [schedule, pipelines] = await withDashboardAdmin(
-    Promise.all([getScheduleById(id), getPipelinesWithSteps()]),
-  );
+  const [schedule, { pipelines, pipelineValidationById }] =
+    await withDashboardAdmin(
+      Promise.all([getScheduleById(id), getPipelineOptionsWithValidation()]),
+    );
 
   if (!schedule) {
     notFound();
   }
-
-  const pipelineValidationById = await getPipelinesValidationMap(
-    pipelines,
-    prisma,
-  );
 
   return (
     <ScheduleDetailContent

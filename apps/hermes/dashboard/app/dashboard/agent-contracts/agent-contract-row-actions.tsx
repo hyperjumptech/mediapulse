@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -31,7 +30,6 @@ type AgentContractRowActionsProps = {
 };
 
 const useAgentContractRowActions = (contractName: string) => {
-  const router = useRouter();
   const deleteFormWrapperRef = useRef<HTMLDivElement>(null);
   const { FormWithAction, state, pending } = useFormAction();
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -44,9 +42,8 @@ const useAgentContractRowActions = (contractName: string) => {
   useEffect(() => {
     if (state && state.status === true) {
       setDeleteError(null);
-      router.refresh();
     }
-  }, [state, router]);
+  }, [state]);
 
   useEffect(() => {
     if (state && state.status === false) {

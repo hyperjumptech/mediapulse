@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import {
   Dialog,
@@ -36,7 +35,6 @@ const usePipelineFormModalState = ({
   editPipelineId,
   domainIntegrations,
 }: PipelineFormModalProps) => {
-  const router = useRouter();
   const [pipeline, setPipeline] = useState<PipelineForEdit | null | "loading">(
     null,
   );
@@ -83,9 +81,8 @@ const usePipelineFormModalState = ({
   useEffect(() => {
     if (success) {
       onOpenChange(false);
-      router.refresh();
     }
-  }, [success, onOpenChange, router]);
+  }, [success, onOpenChange]);
 
   const Form = isEdit ? UpdateForm : CreateForm;
   const title = isEdit ? "Edit pipeline" : "Create pipeline";

@@ -253,7 +253,7 @@ describe("PipelineEditForm", () => {
     );
   });
 
-  it("calls router.refresh on success", async () => {
+  it("does not call router.refresh on success", async () => {
     // Setup
     const mock = await getUseFormActionMock();
     mock.mockReturnValue(createMockUseFormAction({ state: { status: true } }));
@@ -269,6 +269,7 @@ describe("PipelineEditForm", () => {
     );
 
     // Assert
-    expect(routerRefreshMock).toHaveBeenCalled();
+    expect(routerRefreshMock).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Name")).toHaveValue("Test");
   });
 });

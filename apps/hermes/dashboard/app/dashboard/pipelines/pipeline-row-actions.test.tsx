@@ -171,7 +171,7 @@ describe("PipelineRowActions", () => {
     expect(screen.getByText("Deleting…")).toBeInTheDocument();
   });
 
-  it("calls router.refresh on successful delete", async () => {
+  it("does not call router.refresh on successful delete", async () => {
     // Setup
     const mock = await getUseFormActionMock();
     mock.mockReturnValue(createMockUseFormAction({ state: { status: true } }));
@@ -182,7 +182,8 @@ describe("PipelineRowActions", () => {
     );
 
     // Assert
-    expect(routerRefreshMock).toHaveBeenCalled();
+    expect(routerRefreshMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("delete-form")).toBeInTheDocument();
   });
 
   it("renders hidden input with pipeline id", async () => {

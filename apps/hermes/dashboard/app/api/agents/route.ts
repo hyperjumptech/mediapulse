@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { paginatedListJsonResponse } from "@/lib/api-paginated-list-response";
-import { getAgentsPage } from "@/lib/agents";
+import { getAgentRegistryPage } from "@/lib/agents";
 import { parseApiPageParams } from "@/lib/parse-api-page-params";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
@@ -18,7 +18,7 @@ export const GET = async (request: Request): Promise<NextResponse> => {
   }
 
   const { page, pageSize } = parseApiPageParams(request);
-  const result = await getAgentsPage(page, pageSize);
+  const result = await getAgentRegistryPage(page, pageSize);
   return paginatedListJsonResponse(
     result.agents,
     result.total,

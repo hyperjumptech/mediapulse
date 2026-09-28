@@ -7,6 +7,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 
 const bodyValidator = z.object({
   id: z.string().uuid(),
@@ -54,4 +55,6 @@ export const createDeleteVariableHandler = ({
 /**
  * Handles delete variable: validates session and deletes by id.
  */
-export const handler: DeleteVariableHandler = createDeleteVariableHandler();
+export const handler: DeleteVariableHandler = withDashboardRevalidation(
+  createDeleteVariableHandler(),
+);

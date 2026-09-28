@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { zFormBoolean } from "@/lib/form-boolean-schema";
 
 const stepItemValidator = z.object({
@@ -222,4 +223,6 @@ export const createUpdatePipelineHandler = ({
 /**
  * Handles update pipeline: validates session and updates pipeline in DB.
  */
-export const handler: UpdatePipelineHandler = createUpdatePipelineHandler();
+export const handler: UpdatePipelineHandler = withDashboardRevalidation(
+  createUpdatePipelineHandler(),
+);

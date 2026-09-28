@@ -257,15 +257,30 @@ describe("RunPipelineButton", () => {
     );
   });
 
-  it("calls router.refresh on success", async () => {
+  it("shows the queued result without calling router.refresh on success", async () => {
     // Setup
     const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction({ state: { status: true } }));
+    mock.mockReturnValue(
+      createMockUseFormAction({
+        state: {
+          status: true,
+          data: {
+            invocationsRun: 2,
+            runStatus: "running",
+            failedInvocationCount: 0,
+            executionId: "00000000-0000-4000-8000-000000000002",
+          },
+        },
+      }),
+    );
 
     // Act
     render(<RunPipelineButton pipelineId="pipeline-123" />);
 
     // Assert
-    expect(routerRefreshMock).toHaveBeenCalled();
+    expect(
+      screen.getByText(/Queued 2 invocations on the worker queue/),
+    ).toBeInTheDocument();
+    expect(routerRefreshMock).not.toHaveBeenCalled();
   });
 });

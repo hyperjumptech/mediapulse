@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -22,10 +21,9 @@ type AddAdminModalProps = {
 };
 
 /**
- * Owns add-admin dialog open state, form action wiring, and refresh after success.
+ * Owns add-admin dialog open state, form action wiring, and close after success.
  */
 const useAddAdminModalState = () => {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const { FormWithAction, state, pending } = useFormAction();
 
@@ -48,9 +46,8 @@ const useAddAdminModalState = () => {
     if (successId != null && handledSuccessRef.current !== successId) {
       handledSuccessRef.current = successId;
       setOpen(false);
-      router.refresh();
     }
-  }, [router, successId]);
+  }, [successId]);
 
   return {
     open,

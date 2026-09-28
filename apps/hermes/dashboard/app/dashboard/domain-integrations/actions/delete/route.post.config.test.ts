@@ -2,6 +2,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDeleteDomainIntegrationHandler } from "./route.post.config";
 
+const invalidateDomainIntegrationsCacheMock = vi.hoisted(() => vi.fn());
+const invalidateDomainIntegrationTokenMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/domain-integrations", () => ({
+  invalidateDomainIntegrationsCache: () =>
+    invalidateDomainIntegrationsCacheMock(),
+}));
+
+vi.mock("@/lib/domain-integration-auth-token", () => ({
+  invalidateDomainIntegrationToken: (...args: unknown[]) =>
+    invalidateDomainIntegrationTokenMock(...args),
+}));
+
 const mockDashboardUser = {
   id: "user-1",
   name: "A",
@@ -21,6 +34,8 @@ const baseData = {
 describe("createDeleteDomainIntegrationHandler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    invalidateDomainIntegrationsCacheMock.mockReset();
+    invalidateDomainIntegrationTokenMock.mockReset();
   });
 
   it("deletes domain integration and returns ok", async () => {
@@ -43,6 +58,10 @@ describe("createDeleteDomainIntegrationHandler", () => {
     expect(deleteMock).toHaveBeenCalledWith({
       where: { id: integrationId },
     });
+    expect(invalidateDomainIntegrationsCacheMock).toHaveBeenCalledTimes(1);
+    expect(invalidateDomainIntegrationTokenMock).toHaveBeenCalledWith(
+      integrationId,
+    );
   });
 
   it("returns error when pipelines still reference the integration", async () => {
@@ -63,5 +82,7 @@ describe("createDeleteDomainIntegrationHandler", () => {
     expect(result.status).toBe(false);
     expect((result as { message?: string }).message).toContain("pipelines");
     expect(deleteMock).not.toHaveBeenCalled();
+    expect(invalidateDomainIntegrationsCacheMock).not.toHaveBeenCalled();
+    expect(invalidateDomainIntegrationTokenMock).not.toHaveBeenCalled();
   });
 });

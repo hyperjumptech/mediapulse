@@ -9,6 +9,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { createRequireHermesAdminManagementActor } from "@/lib/require-hermes-admin-management-actor";
 import { updateHermesAdminPasswordWithCredentialBump } from "@/lib/update-hermes-admin-password";
 
@@ -81,5 +82,6 @@ export const createResetAdminPasswordHandler = ({
 /**
  * Handles admin password reset.
  */
-export const handler: ResetAdminPasswordHandler =
-  createResetAdminPasswordHandler();
+export const handler: ResetAdminPasswordHandler = withDashboardRevalidation(
+  createResetAdminPasswordHandler(),
+);

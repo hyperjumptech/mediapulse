@@ -7,6 +7,7 @@ import {
 import { z } from "zod";
 
 import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { createApiKey } from "@/lib/mcp-api-keys";
 
 const bodyValidator = z.object({
@@ -69,4 +70,6 @@ export const createCreateMcpApiKeyHandler = ({
 };
 
 /** Route handler for creating an MCP API key. */
-export const handler: CreateMcpApiKeyHandler = createCreateMcpApiKeyHandler();
+export const handler: CreateMcpApiKeyHandler = withDashboardRevalidation(
+  createCreateMcpApiKeyHandler(),
+);

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -69,7 +68,6 @@ const usePipelineDetailState = (
   pipeline: PipelineWithSteps,
   updateStepFormAction: typeof defaultUpdateStepFormAction,
 ) => {
-  const router = useRouter();
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [stepInput, setStepInput] = useState<Record<string, unknown>>({});
   const [stepAgentConfigId, setStepAgentConfigId] = useState<string>("");
@@ -156,8 +154,6 @@ const usePipelineDetailState = (
               .validationWarnings
           : [];
       setSaveWarnings(warnings);
-
-      router.refresh();
     } finally {
       setSaving(false);
     }
@@ -167,7 +163,6 @@ const usePipelineDetailState = (
     stepInput,
     stepAgentConfigId,
     stepAgentContractId,
-    router,
     updateStepFormAction,
   ]);
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { toast } from "sonner";
 
@@ -26,17 +25,10 @@ type ApiKeyRowActionsProps = {
 };
 
 /**
- * Wires revoke form action: refresh on success, toast server errors.
+ * Wires revoke form action and toasts server errors.
  */
 const useApiKeyRowRevokeActions = () => {
-  const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
-
-  useEffect(() => {
-    if (state && state.status === true) {
-      router.refresh();
-    }
-  }, [state, router]);
 
   useEffect(() => {
     if (state && state.status === false && state.message) {

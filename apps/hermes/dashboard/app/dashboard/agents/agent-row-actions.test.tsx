@@ -246,7 +246,7 @@ describe("AgentRowActions", () => {
     expect(screen.getByText("Deleting…")).toBeInTheDocument();
   });
 
-  it("calls router.refresh on successful delete", async () => {
+  it("does not call router.refresh on successful delete", async () => {
     // Setup
     const mock = await getUseFormActionMock();
     mock.mockReturnValue(createMockUseFormAction({ state: { status: true } }));
@@ -256,7 +256,8 @@ describe("AgentRowActions", () => {
     render(<AgentRowActions agent={agent} agentLabel="test-agent@1.0" />);
 
     // Assert
-    expect(routerRefreshMock).toHaveBeenCalled();
+    expect(routerRefreshMock).not.toHaveBeenCalled();
+    expect(screen.getByText("Delete")).toBeInTheDocument();
   });
 
   it("renders separator between View details and Delete", async () => {

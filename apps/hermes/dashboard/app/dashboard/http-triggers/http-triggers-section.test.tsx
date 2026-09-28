@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const getHttpTriggersPageMock = vi.fn();
-const getPipelinesWithStepsMock = vi.fn();
+const getPipelineOptionsMock = vi.fn();
 
 vi.mock("@/lib/require-dashboard-admin", () => ({
   withDashboardAdmin: <Value,>(load: Promise<Value>) => load,
@@ -13,8 +13,8 @@ vi.mock("@/lib/http-triggers", () => ({
   getHttpTriggersPage: (...args: unknown[]) => getHttpTriggersPageMock(...args),
 }));
 
-vi.mock("@/lib/pipelines", () => ({
-  getPipelinesWithSteps: () => getPipelinesWithStepsMock(),
+vi.mock("@/lib/pipeline-options", () => ({
+  getPipelineOptions: () => getPipelineOptionsMock(),
 }));
 
 vi.mock("./http-triggers-with-modal", () => ({
@@ -55,7 +55,7 @@ const baseQuery = {
 describe("HttpTriggersSection", () => {
   afterEach(() => {
     getHttpTriggersPageMock.mockReset();
-    getPipelinesWithStepsMock.mockReset();
+    getPipelineOptionsMock.mockReset();
   });
 
   it("renders HTTP triggers and pipelines from the loaders", async () => {
@@ -66,9 +66,9 @@ describe("HttpTriggersSection", () => {
       page: 2,
       pageSize: 15,
     });
-    getPipelinesWithStepsMock.mockResolvedValue([
-      { id: "pipeline-1" },
-      { id: "pipeline-2" },
+    getPipelineOptionsMock.mockResolvedValue([
+      { id: "pipeline-1", name: "First", isActive: true },
+      { id: "pipeline-2", name: "Second", isActive: true },
     ]);
 
     // Act
@@ -91,7 +91,7 @@ describe("HttpTriggersSection", () => {
       page: 1,
       pageSize: 15,
     });
-    getPipelinesWithStepsMock.mockResolvedValue([]);
+    getPipelineOptionsMock.mockResolvedValue([]);
 
     // Act
     render(

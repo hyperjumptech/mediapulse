@@ -67,17 +67,11 @@ const createMockPipeline = (
   }>,
 ) => ({
   id: "pipeline-1",
-  domainIntegrationId: "di-1",
   name: "Test Pipeline",
   description: "Test description",
   isActive: true,
-  timeout: null,
-  executionConfig: null,
-  steps: [],
   createdById: null,
   createdBy: null,
-  createdAt: new Date("2024-01-15"),
-  updatedAt: new Date("2024-01-15"),
   ...overrides,
 });
 

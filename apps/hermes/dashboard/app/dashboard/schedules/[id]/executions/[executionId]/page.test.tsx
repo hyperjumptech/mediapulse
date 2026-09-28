@@ -2,10 +2,12 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { ScheduleExecutionDetail } from "@/lib/schedules";
+import type { ScheduleExecutionInvocationsTableProps } from "@/components/schedule-execution-invocations-table";
+import type { ScheduleExecutionSummary } from "@/lib/schedules";
 
-const getScheduleExecutionDetailMock = vi.fn();
+const getScheduleExecutionSummaryMock = vi.fn();
 const notFoundMock = vi.fn();
+const invocationsTablePropsMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   notFound: () => notFoundMock(),
@@ -13,8 +15,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/schedules", () => ({
-  getScheduleExecutionDetail: (...args: unknown[]) =>
-    getScheduleExecutionDetailMock(...args),
+  getScheduleExecutionSummary: (...args: unknown[]) =>
+    getScheduleExecutionSummaryMock(...args),
 }));
 
 vi.mock("@/lib/require-dashboard-admin", () => ({
@@ -28,7 +30,7 @@ vi.mock("@/lib/require-dashboard-admin", () => ({
 }));
 
 vi.mock("@/lib/mask-json-secrets", () => ({
-  maskScheduleExecutionDetailForDisplay: (detail: unknown) => detail,
+  maskExecutionSummaryForDisplay: (summary: unknown) => summary,
   maskSecretsInJson: (value: unknown) => value,
 }));
 
@@ -39,21 +41,21 @@ vi.mock("@/lib/compute-execution-elapsed", () => ({
   formatPipelineElapsedLabel: vi.fn().mockReturnValue("—"),
 }));
 
-vi.mock("@/lib/format-invocation-outcome-summary", () => ({
-  formatInvocationOutcomeSummary: vi.fn().mockReturnValue(null),
-}));
-
 vi.mock("@/components/schedule-execution-invocations-table", () => ({
-  ScheduleExecutionInvocationsTable: () => (
-    <div data-testid="invocations-stub">Invocations</div>
-  ),
+  ScheduleExecutionInvocationsTable: (
+    props: ScheduleExecutionInvocationsTableProps,
+  ) => {
+    invocationsTablePropsMock(props);
+
+    return <div data-testid="invocations-stub">Invocations</div>;
+  },
 }));
 
 import ScheduleExecutionDetailPage from "./page";
 
 const ROUTE_ENQUEUE_ERROR_MESSAGE = "SCHEDULE_ROUTE_ENQUEUE_FAIL";
 
-const minimalFailedDetail = (): ScheduleExecutionDetail => ({
+const minimalFailedSummary = (): ScheduleExecutionSummary => ({
   execution: {
     id: "exec-schedule-1",
     executionTime: new Date("2026-04-21T12:00:00.000Z"),
@@ -82,12 +84,13 @@ const minimalFailedDetail = (): ScheduleExecutionDetail => ({
 describe("ScheduleExecutionDetailPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    getScheduleExecutionDetailMock.mockReset();
+    getScheduleExecutionSummaryMock.mockReset();
     notFoundMock.mockReset();
+    invocationsTablePropsMock.mockReset();
   });
 
   it("renders enqueue diagnostics region with persisted errors for failed enqueue", async () => {
-    getScheduleExecutionDetailMock.mockResolvedValue(minimalFailedDetail());
+    getScheduleExecutionSummaryMock.mockResolvedValue(minimalFailedSummary());
 
     const ui = await ScheduleExecutionDetailPage({
       params: Promise.resolve({
@@ -108,5 +111,61 @@ describe("ScheduleExecutionDetailPage", () => {
     expect(screen.getByText("failed")).toBeInTheDocument();
     expect(screen.getByText(/Invocation transport:/)).toBeInTheDocument();
     expect(screen.getByText(/Hermes worker \+ DataQueue/)).toBeInTheDocument();
+  });
+
+  it("passes scalar invocation rows and the schedule payload scope to the table", async () => {
+    // Setup
+    getScheduleExecutionSummaryMock.mockResolvedValue({
+      ...minimalFailedSummary(),
+      invocations: [
+        {
+          jobId: "job-1",
+          status: "failed",
+          semanticStatus: "failure",
+          agentId: "agent-a",
+          outcomeSummary: "HTTP 502",
+          enqueuedAt: new Date("2026-04-21T12:00:00.000Z"),
+          startedAt: new Date("2026-04-21T12:00:01.000Z"),
+          completedAt: null,
+          dataQueueAttempts: 1,
+          dataQueueMaxAttempts: 3,
+        },
+      ],
+    } satisfies ScheduleExecutionSummary);
+
+    // Act
+    const ui = await ScheduleExecutionDetailPage({
+      params: Promise.resolve({
+        id: "sched-1",
+        executionId: "exec-schedule-1",
+      }),
+    });
+    render(ui as React.ReactElement);
+
+    // Assert
+    expect(getScheduleExecutionSummaryMock).toHaveBeenCalledWith(
+      "sched-1",
+      "exec-schedule-1",
+    );
+    expect(invocationsTablePropsMock).toHaveBeenCalledWith({
+      invocations: [
+        {
+          jobId: "job-1",
+          status: "failed",
+          semanticStatus: "failure",
+          outcomeSummary: "HTTP 502",
+          agentId: "agent-a",
+          startedAtIso: "2026-04-21T12:00:01.000Z",
+          completedAtIso: null,
+          dataQueueAttempts: 1,
+          dataQueueMaxAttempts: 3,
+        },
+      ],
+      payloadSource: {
+        kind: "schedule",
+        parentId: "sched-1",
+        executionId: "exec-schedule-1",
+      },
+    });
   });
 });

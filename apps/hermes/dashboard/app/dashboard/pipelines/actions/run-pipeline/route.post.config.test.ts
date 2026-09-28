@@ -224,6 +224,7 @@ describe("createRunPipelineHandler", () => {
             {
               agentId: "ag1",
               agentVersion: "1.0.0",
+              domainIntegrationId: "di-1",
               endpoint: { url: "https://agent.example/run", method: "POST" },
               inputSchema: null,
               configSchema: null,
@@ -294,6 +295,7 @@ describe("createRunPipelineHandler", () => {
             {
               agentId: "ag1",
               agentVersion: "1.0.0",
+              domainIntegrationId: "di-1",
               endpoint: { url: "https://agent.example/run", method: "POST" },
               inputSchema: null,
               configSchema: null,
@@ -337,6 +339,7 @@ describe("createRunPipelineHandler", () => {
             {
               agentId: "ag1",
               agentVersion: "1.0.0",
+              domainIntegrationId: "di-1",
               endpoint: { url: "https://agent.example/run", method: "POST" },
               inputSchema: null,
               configSchema: null,
@@ -394,6 +397,7 @@ describe("createRunPipelineHandler", () => {
             {
               agentId: "ag1",
               agentVersion: "1.0.0",
+              domainIntegrationId: "di-1",
               endpoint: { url: "https://agent.example/run", method: "POST" },
               inputSchema: null,
               configSchema: null,
@@ -449,6 +453,7 @@ describe("createRunPipelineHandler", () => {
             {
               agentId: "ag1",
               agentVersion: "1.0.0",
+              domainIntegrationId: "di-1",
               endpoint: { url: "https://agent.example/run", method: "POST" },
               inputSchema: null,
               configSchema: null,

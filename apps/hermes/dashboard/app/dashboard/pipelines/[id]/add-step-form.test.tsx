@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { AddStepForm } from "./add-step-form";
 
@@ -262,13 +262,28 @@ describe("AddStepForm", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Failed to add step");
   });
 
-  it("calls router.refresh on success", async () => {
+  it("resets the selected agent without calling router.refresh on success", async () => {
     // Setup
     const mock = await getUseFormActionMock();
+    mock.mockReturnValue(createMockUseFormAction());
+    const { rerender } = render(
+      <AddStepForm
+        pipelineId="pipeline-123"
+        agents={createMockAgents()}
+        existingStepAgentKeys={[]}
+        configsByAgentKey={{}}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Add agent"), {
+      target: { value: "summarizer@1.0" },
+    });
+
+    expect(screen.getByLabelText("Add agent")).toHaveValue("summarizer@1.0");
+
     mock.mockReturnValue(createMockUseFormAction({ state: { status: true } }));
 
     // Act
-    render(
+    rerender(
       <AddStepForm
         pipelineId="pipeline-123"
         agents={createMockAgents()}
@@ -278,6 +293,7 @@ describe("AddStepForm", () => {
     );
 
     // Assert
-    expect(routerRefreshMock).toHaveBeenCalled();
+    expect(screen.getByLabelText("Add agent")).toHaveValue("");
+    expect(routerRefreshMock).not.toHaveBeenCalled();
   });
 });

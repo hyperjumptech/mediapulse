@@ -20,11 +20,39 @@ export type AgentRegistryWithDomainIntegrationId =
 
 export type AgentDetail = AgentRegistryWithDomainIntegrationId;
 
+const agentListSelect = {
+  id: true,
+  agentId: true,
+  agentVersion: true,
+  description: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+  domainIntegration: { select: { integrationId: true } },
+} satisfies Prisma.AgentRegistrySelect;
+
+export type AgentListRow = Prisma.AgentRegistryGetPayload<{
+  select: typeof agentListSelect;
+}>;
+
 export type AgentsPageResult = {
+  agents: AgentListRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type AgentRegistryPageResult = {
   agents: AgentRegistryWithDomainIntegrationId[];
   total: number;
   page: number;
   pageSize: number;
+};
+
+type AgentsPageOptions = {
+  search?: string;
+  sortBy?: AgentSortField;
+  sortDir?: AgentSortDir;
 };
 
 /**
@@ -84,6 +112,20 @@ const agentOrderBy = (
   return { agentId: dir };
 };
 
+const agentsPageWindow = (
+  page: number,
+  pageSize: number,
+  options?: AgentsPageOptions,
+) => {
+  const where = agentSearchWhere(options?.search);
+  const skip = (page - 1) * pageSize;
+  const sortBy = options?.sortBy ?? SORT_DEFAULT.sortBy;
+  const sortDir = options?.sortDir ?? SORT_DEFAULT.sortDir;
+  const orderBy = agentOrderBy(sortBy, sortDir);
+
+  return { where, skip, take: pageSize, orderBy };
+};
+
 /**
  * Fetches a paginated list of agents with optional sort and search.
  *
@@ -96,29 +138,43 @@ const agentOrderBy = (
 export const getAgentsPage = async (
   page: number,
   pageSize: number,
-  options?: {
-    search?: string;
-    sortBy?: AgentSortField;
-    sortDir?: AgentSortDir;
-  },
+  options?: AgentsPageOptions,
   db: Db = prisma,
 ): Promise<AgentsPageResult> => {
-  const skip = (page - 1) * pageSize;
-  const where = agentSearchWhere(options?.search);
-  const sortBy = options?.sortBy ?? SORT_DEFAULT.sortBy;
-  const sortDir = options?.sortDir ?? SORT_DEFAULT.sortDir;
-  const orderBy = agentOrderBy(sortBy, sortDir);
-
+  const pageWindow = agentsPageWindow(page, pageSize, options);
+  const findManyArgs = {
+    ...pageWindow,
+    select: agentListSelect,
+  } satisfies Prisma.AgentRegistryFindManyArgs;
+  const countArgs = {
+    where: pageWindow.where,
+  } satisfies Prisma.AgentRegistryCountArgs;
   const [agents, total] = await Promise.all([
-    db.agentRegistry.findMany({
-      where,
-      skip,
-      take: pageSize,
-      orderBy,
-      include: agentDomainIntegrationIdInclude,
-    }),
-    db.agentRegistry.count({ where }),
+    db.agentRegistry.findMany(findManyArgs),
+    db.agentRegistry.count(countArgs),
   ]);
+
+  return { agents, total, page, pageSize };
+};
+
+export const getAgentRegistryPage = async (
+  page: number,
+  pageSize: number,
+  db: Db = prisma,
+): Promise<AgentRegistryPageResult> => {
+  const pageWindow = agentsPageWindow(page, pageSize);
+  const findManyArgs = {
+    ...pageWindow,
+    include: agentDomainIntegrationIdInclude,
+  } satisfies Prisma.AgentRegistryFindManyArgs;
+  const countArgs = {
+    where: pageWindow.where,
+  } satisfies Prisma.AgentRegistryCountArgs;
+  const [agents, total] = await Promise.all([
+    db.agentRegistry.findMany(findManyArgs),
+    db.agentRegistry.count(countArgs),
+  ]);
+
   return { agents, total, page, pageSize };
 };
 

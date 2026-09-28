@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 
 const bodyValidator = z.object({
   id: z.string().uuid(),
@@ -65,5 +66,6 @@ export const createDeleteAgentConfigHandler = ({
 /**
  * Handles delete agent config: forbids if in use by any step.
  */
-export const handler: DeleteAgentConfigHandler =
-  createDeleteAgentConfigHandler();
+export const handler: DeleteAgentConfigHandler = withDashboardRevalidation(
+  createDeleteAgentConfigHandler(),
+);

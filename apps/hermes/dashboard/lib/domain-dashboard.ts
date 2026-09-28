@@ -3,11 +3,21 @@ import {
   tableV1ListResponseSchema,
   tableV1MetaResponseSchema,
 } from "@hermes/domain-contract";
-import type { PreviewExpansionResponse } from "@hermes/domain-contract";
+import type {
+  PreviewExpansionResponse,
+  TableV1MetaResponse,
+} from "@hermes/domain-contract";
 import { z } from "zod";
 
 import { getBearerJwtForDomainIntegrationId } from "@/lib/domain-integration-auth-token";
-import { getDomainIntegrationByIntegrationId } from "@/lib/domain-integrations";
+import {
+  DomainIntegrationTimeoutError,
+  requestDomainIntegration,
+} from "@/lib/domain-integration-request";
+import {
+  getDomainIntegrationByIntegrationId,
+  type DomainIntegrationRecord,
+} from "@/lib/domain-integrations";
 import {
   createDataSourceExpansionTemplateForIntegration,
   deleteDataSourceExpansionTemplateForIntegration,
@@ -24,6 +34,24 @@ import {
 
 /** Page size for pipeline ticker fetch; must not exceed domain-api `MAX_PAGE_SIZE` (100). */
 const PIPELINE_TICKER_PAGE_SIZE = 100;
+
+const DOMAIN_TABLE_META_CACHE_TTL_MS = 5 * 60 * 1000;
+
+const DOMAIN_TABLE_META_CACHE_MAX_ENTRIES = 200;
+
+type DomainRequestTarget = Pick<
+  DomainIntegrationRecord,
+  "id" | "integrationId"
+>;
+
+type DomainTableMetaCacheEntry = {
+  expiresAt: number;
+  meta: Promise<TableV1MetaResponse>;
+};
+
+const domainTableMetaCache = new Map<string, DomainTableMetaCacheEntry>();
+
+const JSON_CONTENT_TYPE_HEADERS = { "Content-Type": "application/json" };
 
 /** Result state for JSON file custom actions (e.g. IDX import) returned from server actions. */
 export type DomainTableJsonImportState =
@@ -47,25 +75,9 @@ export type DomainTableListParams = {
   filters?: Record<string, string>;
 };
 
-/**
- * Resolves a dashboard page from a specific domain integration manifest.
- *
- * @param integrationId - Registered integration id (URL segment).
- * @param resource - Dashboard path segment (matches manifest `pathSegment`).
- * @returns Domain page descriptor and base URL.
- */
-export const getDashboardPage = async (
+const requireActiveDomainIntegration = async (
   integrationId: string,
-  resource: string,
-): Promise<{
-  page: {
-    apiPrefix: string;
-    pathSegment: string;
-  };
-  baseUrl: string;
-  /** Orchestration `domain_integration.id` (UUID); used for JWT minting. */
-  domainIntegrationId: string;
-}> => {
+): Promise<DomainIntegrationRecord> => {
   const integration = await getDomainIntegrationByIntegrationId(integrationId);
   if (!integration) {
     throw new Error(
@@ -73,6 +85,35 @@ export const getDashboardPage = async (
     );
   }
 
+  return integration;
+};
+
+const requireDataSourceExpansionsSupport = (
+  integration: DomainIntegrationRecord,
+  resource: string,
+): void => {
+  if (
+    !integrationSupportsHermesDataSourceExpansionTemplates(
+      integration.capabilities,
+    )
+  ) {
+    throw new Error(
+      `Dashboard page "${resource}" is not registered for integration "${integration.integrationId}"`,
+    );
+  }
+};
+
+const resolveDashboardPage = (
+  integration: DomainIntegrationRecord,
+  resource: string,
+): {
+  page: {
+    apiPrefix: string;
+    pathSegment: string;
+  };
+  baseUrl: string;
+  domainIntegrationId: string;
+} => {
   if (
     resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT &&
     integrationSupportsHermesDataSourceExpansionTemplates(
@@ -98,7 +139,7 @@ export const getDashboardPage = async (
 
   if (!page || page.kind !== "resource-table") {
     throw new Error(
-      `Dashboard resource-table view "${resource}" is not registered for integration "${integrationId}"`,
+      `Dashboard resource-table view "${resource}" is not registered for integration "${integration.integrationId}"`,
     );
   }
 
@@ -107,6 +148,30 @@ export const getDashboardPage = async (
     baseUrl: integration.baseUrl.replace(/\/$/, ""),
     domainIntegrationId: integration.id,
   };
+};
+
+/**
+ * Resolves a dashboard page from a specific domain integration manifest.
+ *
+ * @param integrationId - Registered integration id (URL segment).
+ * @param resource - Dashboard path segment (matches manifest `pathSegment`).
+ * @returns Domain page descriptor and base URL.
+ */
+export const getDashboardPage = async (
+  integrationId: string,
+  resource: string,
+): Promise<{
+  page: {
+    apiPrefix: string;
+    pathSegment: string;
+  };
+  baseUrl: string;
+  /** Orchestration `domain_integration.id` (UUID); used for JWT minting. */
+  domainIntegrationId: string;
+}> => {
+  const integration = await requireActiveDomainIntegration(integrationId);
+
+  return resolveDashboardPage(integration, resource);
 };
 
 /**
@@ -121,25 +186,81 @@ const callDomain = async <T>(
   input: string,
   parser: (value: unknown) => T,
   init: RequestInit | undefined,
-  domainIntegrationId: string,
+  target: DomainRequestTarget,
 ): Promise<T> => {
   const headers = new Headers(init?.headers);
   headers.set("Content-Type", "application/json");
-  const jwt = await getBearerJwtForDomainIntegrationId(domainIntegrationId);
-  if (jwt) {
-    headers.set("Authorization", `Bearer ${jwt}`);
+
+  return requestDomainIntegration(
+    {
+      url: input,
+      domainIntegrationId: target.id,
+      integrationLabel: target.integrationId,
+      init: { ...init, headers },
+    },
+    async (response) => {
+      if (!response.ok) {
+        throw new Error(`Domain dashboard request failed (${response.status})`);
+      }
+      const payload = (await response.json()) as unknown;
+
+      return parser(payload);
+    },
+  );
+};
+
+const buildDomainTableMetaCacheKey = (
+  integration: DomainIntegrationRecord,
+  resource: string,
+): string => {
+  const integrationVersion = integration.version ?? "";
+  const integrationUpdatedAt = integration.updatedAt.getTime();
+
+  return `${integration.id}:${integrationVersion}:${integrationUpdatedAt}:${resource}`;
+};
+
+const evictOldestDomainTableMetaEntries = (): void => {
+  while (domainTableMetaCache.size > DOMAIN_TABLE_META_CACHE_MAX_ENTRIES) {
+    const oldestCacheKey = domainTableMetaCache.keys().next().value;
+    if (oldestCacheKey === undefined) {
+      return;
+    }
+    domainTableMetaCache.delete(oldestCacheKey);
+  }
+};
+
+const loadDomainTableMetaCached = async (
+  integration: DomainIntegrationRecord,
+  resource: string,
+  loadMeta: () => Promise<TableV1MetaResponse>,
+): Promise<TableV1MetaResponse> => {
+  const cacheKey = buildDomainTableMetaCacheKey(integration, resource);
+  const now = Date.now();
+  const cachedEntry = domainTableMetaCache.get(cacheKey);
+  if (cachedEntry && cachedEntry.expiresAt > now) {
+    const cachedMeta = await cachedEntry.meta;
+
+    return structuredClone(cachedMeta);
   }
 
-  const response = await fetch(input, {
-    ...init,
-    headers,
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    throw new Error(`Domain dashboard request failed (${response.status})`);
+  const entry: DomainTableMetaCacheEntry = {
+    expiresAt: now + DOMAIN_TABLE_META_CACHE_TTL_MS,
+    meta: loadMeta(),
+  };
+  domainTableMetaCache.delete(cacheKey);
+  domainTableMetaCache.set(cacheKey, entry);
+  evictOldestDomainTableMetaEntries();
+
+  try {
+    const loadedMeta = await entry.meta;
+
+    return structuredClone(loadedMeta);
+  } catch (error) {
+    if (domainTableMetaCache.get(cacheKey) === entry) {
+      domainTableMetaCache.delete(cacheKey);
+    }
+    throw error;
   }
-  const payload = (await response.json()) as unknown;
-  return parser(payload);
 };
 
 /**
@@ -153,41 +274,49 @@ export const getDomainTableMeta = async (
   integrationId: string,
   resource: string,
 ) => {
+  const integration = await requireActiveDomainIntegration(integrationId);
   if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
-    const integration =
-      await getDomainIntegrationByIntegrationId(integrationId);
-    if (!integration) {
-      throw new Error(
-        `Domain integration "${integrationId}" is not active or not registered`,
-      );
-    }
-    if (
-      !integrationSupportsHermesDataSourceExpansionTemplates(
-        integration.capabilities,
-      )
-    ) {
-      throw new Error(
-        `Dashboard page "${resource}" is not registered for integration "${integrationId}"`,
-      );
-    }
+    requireDataSourceExpansionsSupport(integration, resource);
+
     return getDataSourceExpansionTemplateTableMeta();
   }
 
-  const { page, baseUrl, domainIntegrationId } = await getDashboardPage(
-    integrationId,
-    resource,
-  );
-  return callDomain(
-    `${baseUrl}${page.apiPrefix}/meta`,
-    tableV1MetaResponseSchema.parse,
-    undefined,
-    domainIntegrationId,
+  const { page, baseUrl } = resolveDashboardPage(integration, resource);
+  const metaUrl = `${baseUrl}${page.apiPrefix}/meta`;
+
+  return loadDomainTableMetaCached(integration, resource, () =>
+    callDomain(
+      metaUrl,
+      tableV1MetaResponseSchema.parse,
+      undefined,
+      integration,
+    ),
   );
 };
 
 type CallDomainCustomPostResult =
   | { ok: true; data: unknown }
   | { ok: false; message: string };
+
+const readDomainCustomPostResult = async (
+  response: Response,
+): Promise<CallDomainCustomPostResult> => {
+  const payload = (await response.json().catch(() => null)) as unknown;
+
+  if (!response.ok) {
+    const message =
+      typeof payload === "object" &&
+      payload !== null &&
+      "message" in payload &&
+      typeof (payload as { message: unknown }).message === "string"
+        ? (payload as { message: string }).message
+        : `Domain request failed (${response.status})`;
+
+    return { ok: false, message };
+  }
+
+  return { ok: true, data: payload };
+};
 
 /**
  * POSTs JSON to a domain URL and returns either parsed JSON or an error message from the response body.
@@ -203,35 +332,27 @@ export const callDomainCustomPost = async (
   domainIntegrationId: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<CallDomainCustomPostResult> => {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  const jwt = await getBearerJwtForDomainIntegrationId(domainIntegrationId);
-  if (jwt) {
-    headers.Authorization = `Bearer ${jwt}`;
+  try {
+    return await requestDomainIntegration(
+      {
+        url,
+        domainIntegrationId,
+        integrationLabel: domainIntegrationId,
+        init: {
+          method: "POST",
+          headers: JSON_CONTENT_TYPE_HEADERS,
+          body: JSON.stringify(body),
+        },
+        fetchImpl,
+      },
+      readDomainCustomPostResult,
+    );
+  } catch (error) {
+    if (error instanceof DomainIntegrationTimeoutError) {
+      return { ok: false, message: error.message };
+    }
+    throw error;
   }
-
-  const response = await fetchImpl(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
-
-  const payload = (await response.json().catch(() => null)) as unknown;
-
-  if (!response.ok) {
-    const message =
-      typeof payload === "object" &&
-      payload !== null &&
-      "message" in payload &&
-      typeof (payload as { message: unknown }).message === "string"
-        ? (payload as { message: string }).message
-        : `Domain request failed (${response.status})`;
-    return { ok: false, message };
-  }
-
-  return { ok: true, data: payload };
 };
 
 export type InvokeDomainTableCustomActionDependencies = {
@@ -359,33 +480,17 @@ export const getDomainTableList = async (
   resource: string,
   params: DomainTableListParams,
 ) => {
+  const integration = await requireActiveDomainIntegration(integrationId);
   if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
-    const integration =
-      await getDomainIntegrationByIntegrationId(integrationId);
-    if (!integration) {
-      throw new Error(
-        `Domain integration "${integrationId}" is not active or not registered`,
-      );
-    }
-    if (
-      !integrationSupportsHermesDataSourceExpansionTemplates(
-        integration.capabilities,
-      )
-    ) {
-      throw new Error(
-        `Dashboard page "${resource}" is not registered for integration "${integrationId}"`,
-      );
-    }
+    requireDataSourceExpansionsSupport(integration, resource);
+
     return listDataSourceExpansionTemplatesForIntegration(
       integrationId,
       params,
     );
   }
 
-  const { page, baseUrl, domainIntegrationId } = await getDashboardPage(
-    integrationId,
-    resource,
-  );
+  const { page, baseUrl } = resolveDashboardPage(integration, resource);
   const search = new URLSearchParams();
   search.set("page", String(params.page));
   search.set("pageSize", String(params.pageSize));
@@ -400,7 +505,7 @@ export const getDomainTableList = async (
     `${baseUrl}${page.apiPrefix}?${search.toString()}`,
     tableV1ListResponseSchema.parse,
     undefined,
-    domainIntegrationId,
+    integration,
   );
 };
 
@@ -449,6 +554,10 @@ export const fetchAllDomainTableIdsForPipelineRun = async (
     integrationId,
     resource,
   );
+  const target: DomainRequestTarget = {
+    id: domainIntegrationId,
+    integrationId,
+  };
   const all: Array<{ id: string }> = [];
   let page = 1;
 
@@ -461,7 +570,7 @@ export const fetchAllDomainTableIdsForPipelineRun = async (
       `${baseUrl}${apiPrefix}?${search.toString()}`,
       tableV1ListResponseSchema.parse,
       undefined,
-      domainIntegrationId,
+      target,
     );
 
     for (const item of payload.items) {
@@ -498,52 +607,36 @@ export const getDomainTableItemById = async (
   resource: string,
   id: string,
 ): Promise<Record<string, unknown> | null> => {
+  const integration = await requireActiveDomainIntegration(integrationId);
   if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
-    const integration =
-      await getDomainIntegrationByIntegrationId(integrationId);
-    if (!integration) {
-      throw new Error(
-        `Domain integration "${integrationId}" is not active or not registered`,
-      );
-    }
-    if (
-      !integrationSupportsHermesDataSourceExpansionTemplates(
-        integration.capabilities,
-      )
-    ) {
-      throw new Error(
-        `Dashboard page "${resource}" is not registered for integration "${integrationId}"`,
-      );
-    }
+    requireDataSourceExpansionsSupport(integration, resource);
+
     return getDataSourceExpansionTemplateByIdForIntegration(integrationId, id);
   }
 
-  const { page, baseUrl, domainIntegrationId } = await getDashboardPage(
-    integrationId,
-    resource,
+  const { page, baseUrl } = resolveDashboardPage(integration, resource);
+
+  return requestDomainIntegration(
+    {
+      url: `${baseUrl}${page.apiPrefix}/${id}`,
+      domainIntegrationId: integration.id,
+      integrationLabel: integration.integrationId,
+      init: { headers: JSON_CONTENT_TYPE_HEADERS },
+    },
+    async (response) => {
+      if (response.status === 404) {
+        return null;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Domain dashboard request failed (${response.status})`);
+      }
+
+      const payload = (await response.json()) as unknown;
+
+      return domainTableItemResponseSchema.parse(payload);
+    },
   );
-  const headers = new Headers();
-  headers.set("Content-Type", "application/json");
-  const jwt = await getBearerJwtForDomainIntegrationId(domainIntegrationId);
-  if (jwt) {
-    headers.set("Authorization", `Bearer ${jwt}`);
-  }
-
-  const response = await fetch(`${baseUrl}${page.apiPrefix}/${id}`, {
-    headers,
-    cache: "no-store",
-  });
-
-  if (response.status === 404) {
-    return null;
-  }
-
-  if (!response.ok) {
-    throw new Error(`Domain dashboard request failed (${response.status})`);
-  }
-
-  const payload = (await response.json()) as unknown;
-  return domainTableItemResponseSchema.parse(payload);
 };
 
 type PreviewDomainExpansionDependencies = {
@@ -602,30 +695,15 @@ export const createDomainTableItem = async (
   resource: string,
   body: Record<string, unknown>,
 ) => {
+  const integration = await requireActiveDomainIntegration(integrationId);
   if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
-    const integration =
-      await getDomainIntegrationByIntegrationId(integrationId);
-    if (!integration) {
-      throw new Error(
-        `Domain integration "${integrationId}" is not active or not registered`,
-      );
-    }
-    if (
-      !integrationSupportsHermesDataSourceExpansionTemplates(
-        integration.capabilities,
-      )
-    ) {
-      throw new Error(
-        `Dashboard page "${resource}" is not registered for integration "${integrationId}"`,
-      );
-    }
+    requireDataSourceExpansionsSupport(integration, resource);
+
     return createDataSourceExpansionTemplateForIntegration(integrationId, body);
   }
 
-  const { page, baseUrl, domainIntegrationId } = await getDashboardPage(
-    integrationId,
-    resource,
-  );
+  const { page, baseUrl } = resolveDashboardPage(integration, resource);
+
   return callDomain(
     `${baseUrl}${page.apiPrefix}`,
     (value) => value,
@@ -633,7 +711,7 @@ export const createDomainTableItem = async (
       method: "POST",
       body: JSON.stringify(body),
     },
-    domainIntegrationId,
+    integration,
   );
 };
 
@@ -652,23 +730,10 @@ export const updateDomainTableItem = async (
   id: string,
   body: Record<string, unknown>,
 ) => {
+  const integration = await requireActiveDomainIntegration(integrationId);
   if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
-    const integration =
-      await getDomainIntegrationByIntegrationId(integrationId);
-    if (!integration) {
-      throw new Error(
-        `Domain integration "${integrationId}" is not active or not registered`,
-      );
-    }
-    if (
-      !integrationSupportsHermesDataSourceExpansionTemplates(
-        integration.capabilities,
-      )
-    ) {
-      throw new Error(
-        `Dashboard page "${resource}" is not registered for integration "${integrationId}"`,
-      );
-    }
+    requireDataSourceExpansionsSupport(integration, resource);
+
     return updateDataSourceExpansionTemplateForIntegration(
       integrationId,
       id,
@@ -676,10 +741,8 @@ export const updateDomainTableItem = async (
     );
   }
 
-  const { page, baseUrl, domainIntegrationId } = await getDashboardPage(
-    integrationId,
-    resource,
-  );
+  const { page, baseUrl } = resolveDashboardPage(integration, resource);
+
   return callDomain(
     `${baseUrl}${page.apiPrefix}/${id}`,
     (value) => value,
@@ -687,7 +750,7 @@ export const updateDomainTableItem = async (
       method: "PATCH",
       body: JSON.stringify(body),
     },
-    domainIntegrationId,
+    integration,
   );
 };
 
@@ -704,38 +767,23 @@ export const deleteDomainTableItem = async (
   resource: string,
   id: string,
 ) => {
+  const integration = await requireActiveDomainIntegration(integrationId);
   if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
-    const integration =
-      await getDomainIntegrationByIntegrationId(integrationId);
-    if (!integration) {
-      throw new Error(
-        `Domain integration "${integrationId}" is not active or not registered`,
-      );
-    }
-    if (
-      !integrationSupportsHermesDataSourceExpansionTemplates(
-        integration.capabilities,
-      )
-    ) {
-      throw new Error(
-        `Dashboard page "${resource}" is not registered for integration "${integrationId}"`,
-      );
-    }
+    requireDataSourceExpansionsSupport(integration, resource);
     await deleteDataSourceExpansionTemplateForIntegration(integrationId, id);
+
     return { ok: true };
   }
 
-  const { page, baseUrl, domainIntegrationId } = await getDashboardPage(
-    integrationId,
-    resource,
-  );
+  const { page, baseUrl } = resolveDashboardPage(integration, resource);
+
   return callDomain(
     `${baseUrl}${page.apiPrefix}/${id}`,
     (value) => value,
     {
       method: "DELETE",
     },
-    domainIntegrationId,
+    integration,
   );
 };
 
@@ -817,7 +865,6 @@ export const fetchProcessedUrlsForExecution = async (
   }
 
   const baseUrl = integration.baseUrl.replace(/\/$/, "");
-  const domainIntegrationId = integration.id;
 
   const search = new URLSearchParams();
   if (params.scheduleExecutionId) {
@@ -837,6 +884,6 @@ export const fetchProcessedUrlsForExecution = async (
     `${baseUrl}/v1${PROCESSED_URLS_PATH}?${search.toString()}`,
     processedUrlsListResponseSchema,
     undefined,
-    domainIntegrationId,
+    integration,
   );
 };

@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
@@ -11,10 +10,9 @@ import { useFormAction } from "@/app/dashboard/pipelines/actions/update/.generat
 import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
 
 /**
- * Encapsulates pipeline edit form action state and refresh-on-success.
+ * Encapsulates pipeline edit form action state.
  */
 const usePipelineEditFormState = () => {
-  const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
   const errorMessage = useMemo(() => {
@@ -22,17 +20,11 @@ const usePipelineEditFormState = () => {
     return null;
   }, [state]);
 
-  useEffect(() => {
-    if (state && state.status === true) {
-      router.refresh();
-    }
-  }, [state, router]);
-
   return { FormWithAction, pending, errorMessage };
 };
 
 /**
- * Edit pipeline form: name, description, isActive. Uses update action; refreshes on success.
+ * Edit pipeline form: name, description, isActive. Uses the update action.
  */
 export const PipelineEditForm = ({
   pipelineId,

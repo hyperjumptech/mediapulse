@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
@@ -25,7 +24,6 @@ const useAddStepFormState = (
   existingStepAgentKeys: string[],
   configsByAgentKey: Record<string, AgentConfigSummary[]>,
 ) => {
-  const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
   const [selected, setSelected] = useState<{
     agentId: string;
@@ -59,9 +57,8 @@ const useAddStepFormState = (
       setSelected(null);
       setSavedConfigId("");
       setCustomConfigJson("{}");
-      router.refresh();
     }
-  }, [state, router]);
+  }, [state]);
 
   useEffect(() => {
     setSavedConfigId("");

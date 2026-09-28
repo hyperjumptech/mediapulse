@@ -193,8 +193,9 @@ describe("PipelineFormModal", () => {
     expect(screen.getByTestId("dialog")).toHaveAttribute("data-open", "true");
   });
 
-  it("calls router.refresh on success", async () => {
+  it("closes the modal without calling router.refresh on success", async () => {
     // Setup
+    const onOpenChange = vi.fn();
     const mock = await getCreateUseFormActionMock();
     mock.mockReturnValue(createMockUseFormAction({ state: { status: true } }));
 
@@ -202,7 +203,7 @@ describe("PipelineFormModal", () => {
     render(
       <PipelineFormModal
         open={true}
-        onOpenChange={vi.fn()}
+        onOpenChange={onOpenChange}
         mode="create"
         editPipelineId={null}
         domainIntegrations={domainIntegrationsFixture}
@@ -210,6 +211,7 @@ describe("PipelineFormModal", () => {
     );
 
     // Assert
-    expect(routerRefreshMock).toHaveBeenCalled();
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(routerRefreshMock).not.toHaveBeenCalled();
   });
 });

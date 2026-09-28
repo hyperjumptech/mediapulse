@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -35,10 +34,9 @@ type AgentConfigRowActionsProps = {
 };
 
 /**
- * Encapsulates delete form action, error state, and refresh-on-success for agent config row actions.
+ * Encapsulates delete form action and error state for agent config row actions.
  */
 const useAgentConfigRowActions = (configLabel: string) => {
-  const router = useRouter();
   const deleteFormWrapperRef = useRef<HTMLDivElement>(null);
   const { FormWithAction, state, pending } = useFormAction();
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -51,9 +49,8 @@ const useAgentConfigRowActions = (configLabel: string) => {
   useEffect(() => {
     if (state && state.status === true) {
       setDeleteError(null);
-      router.refresh();
     }
-  }, [state, router]);
+  }, [state]);
 
   useEffect(() => {
     if (state && state.status === false) {

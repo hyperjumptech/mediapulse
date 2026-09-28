@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { abortManualPipelineRunIfLocal } from "@/lib/manual-pipeline-run-abort";
 import {
   finalizeManualPipelineExecutionAfterCooperativeCancel,
@@ -87,5 +88,6 @@ export const createCancelManualExecutionHandler = ({
   };
 };
 
-export const handler: CancelManualExecutionHandler =
-  createCancelManualExecutionHandler();
+export const handler: CancelManualExecutionHandler = withDashboardRevalidation(
+  createCancelManualExecutionHandler(),
+);

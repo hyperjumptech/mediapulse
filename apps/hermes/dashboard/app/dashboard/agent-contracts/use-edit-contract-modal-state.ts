@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import { useFormAction } from "@/app/dashboard/agent-contracts/actions/update/.generated/use-form-action";
 import { useCloseOnSuccessfulSubmit } from "@/app/dashboard/hooks/use-close-on-successful-submit";
@@ -20,7 +19,6 @@ export const useEditContractModalState = (
   open: boolean,
   onOpenChange: (open: boolean) => void,
 ) => {
-  const router = useRouter();
   const [formState, setFormState] = useState(initialFormState);
   const { FormWithAction, state, pending } = useFormAction();
 
@@ -47,7 +45,6 @@ export const useEditContractModalState = (
     isSuccess: (nextState) => Boolean(nextState && nextState.status === true),
     onSuccess: () => {
       onOpenChange(false);
-      router.refresh();
     },
   });
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import {
   Dialog,
@@ -54,7 +53,6 @@ const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
     pipelines,
     pipelineValidationById,
   } = props;
-  const router = useRouter();
   const [schedule, setSchedule] = useState<ScheduleForEdit | null | "loading">(
     null,
   );
@@ -113,7 +111,6 @@ const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
       ),
     onSuccess: () => {
       onOpenChange(false);
-      router.refresh();
     },
   });
 

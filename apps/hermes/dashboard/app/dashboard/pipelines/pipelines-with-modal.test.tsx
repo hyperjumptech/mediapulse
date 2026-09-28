@@ -64,17 +64,11 @@ const emptyDomainIntegrations: Array<{
 
 const createMockPipeline = (id: string, name: string) => ({
   id,
-  domainIntegrationId: "di-1",
   name,
   description: null,
   isActive: true,
-  timeout: null,
-  executionConfig: null,
   createdById: null,
   createdBy: null,
-  steps: [],
-  createdAt: new Date("2024-01-15"),
-  updatedAt: new Date("2024-01-15"),
 });
 
 describe("PipelinesWithModal", () => {

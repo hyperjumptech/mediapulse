@@ -11,6 +11,49 @@ export {
 
 import { maskSecretsInJson } from "./json-secret-mask";
 
+type ExecutionDiagnostics = {
+  errors: unknown;
+  metadata: unknown | null;
+};
+
+type InvocationJsonPayload = {
+  params: unknown;
+  invocationConfig: unknown | null;
+};
+
+export const maskExecutionDiagnosticsForDisplay = <
+  Execution extends ExecutionDiagnostics,
+>(
+  execution: Execution,
+): Execution => ({
+  ...execution,
+  errors: maskSecretsInJson(execution.errors),
+  metadata:
+    execution.metadata == null ? null : maskSecretsInJson(execution.metadata),
+});
+
+export const maskInvocationPayloadForDisplay = <
+  Invocation extends InvocationJsonPayload,
+>(
+  invocation: Invocation,
+): Invocation => ({
+  ...invocation,
+  params: maskSecretsInJson(invocation.params),
+  invocationConfig:
+    invocation.invocationConfig == null
+      ? null
+      : maskSecretsInJson(invocation.invocationConfig),
+});
+
+export const maskExecutionSummaryForDisplay = <
+  Summary extends { execution: ExecutionDiagnostics },
+>(
+  summary: Summary,
+): Summary => ({
+  ...summary,
+  execution: maskExecutionDiagnosticsForDisplay(summary.execution),
+});
+
 /**
  * Returns a copy of schedule execution detail with invocation `params` and `invocationConfig`
  * redacted for safe display in the dashboard (never expose resolved secrets in HTML or JSON APIs).
@@ -21,22 +64,8 @@ export const maskScheduleExecutionDetailForDisplay = (
   detail: ScheduleExecutionDetail,
 ): ScheduleExecutionDetail => ({
   ...detail,
-  execution: {
-    ...detail.execution,
-    errors: maskSecretsInJson(detail.execution.errors),
-    metadata:
-      detail.execution.metadata == null
-        ? null
-        : maskSecretsInJson(detail.execution.metadata),
-  },
-  invocations: detail.invocations.map((inv) => ({
-    ...inv,
-    params: maskSecretsInJson(inv.params),
-    invocationConfig:
-      inv.invocationConfig == null
-        ? null
-        : maskSecretsInJson(inv.invocationConfig),
-  })),
+  execution: maskExecutionDiagnosticsForDisplay(detail.execution),
+  invocations: detail.invocations.map(maskInvocationPayloadForDisplay),
 });
 
 /**
@@ -46,22 +75,8 @@ export const maskHttpTriggerExecutionDetailForDisplay = (
   detail: HttpTriggerExecutionDetail,
 ): HttpTriggerExecutionDetail => ({
   ...detail,
-  execution: {
-    ...detail.execution,
-    errors: maskSecretsInJson(detail.execution.errors),
-    metadata:
-      detail.execution.metadata == null
-        ? null
-        : maskSecretsInJson(detail.execution.metadata),
-  },
-  invocations: detail.invocations.map((inv) => ({
-    ...inv,
-    params: maskSecretsInJson(inv.params),
-    invocationConfig:
-      inv.invocationConfig == null
-        ? null
-        : maskSecretsInJson(inv.invocationConfig),
-  })),
+  execution: maskExecutionDiagnosticsForDisplay(detail.execution),
+  invocations: detail.invocations.map(maskInvocationPayloadForDisplay),
 });
 
 /**
@@ -71,20 +86,6 @@ export const maskManualPipelineExecutionDetailForDisplay = (
   detail: ManualPipelineExecutionDetail,
 ): ManualPipelineExecutionDetail => ({
   ...detail,
-  execution: {
-    ...detail.execution,
-    errors: maskSecretsInJson(detail.execution.errors),
-    metadata:
-      detail.execution.metadata == null
-        ? null
-        : maskSecretsInJson(detail.execution.metadata),
-  },
-  invocations: detail.invocations.map((inv) => ({
-    ...inv,
-    params: maskSecretsInJson(inv.params),
-    invocationConfig:
-      inv.invocationConfig == null
-        ? null
-        : maskSecretsInJson(inv.invocationConfig),
-  })),
+  execution: maskExecutionDiagnosticsForDisplay(detail.execution),
+  invocations: detail.invocations.map(maskInvocationPayloadForDisplay),
 });

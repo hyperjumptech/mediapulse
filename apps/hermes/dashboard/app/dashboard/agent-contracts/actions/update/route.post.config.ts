@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 
 const bodyValidator = z.object({
   id: z.string().uuid(),
@@ -56,5 +57,6 @@ export const createUpdateAgentContractHandler = ({
   };
 };
 
-export const handler: UpdateAgentContractHandler =
-  createUpdateAgentContractHandler();
+export const handler: UpdateAgentContractHandler = withDashboardRevalidation(
+  createUpdateAgentContractHandler(),
+);

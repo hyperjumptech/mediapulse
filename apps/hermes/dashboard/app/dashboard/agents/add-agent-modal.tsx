@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import {
   Dialog,
@@ -20,7 +19,6 @@ import { useCloseOnSuccessfulSubmit } from "@/app/dashboard/hooks/use-close-on-s
  * Encapsulates create-agent form state, modal open state, and close-on-success behavior.
  */
 const useAddAgentModalState = () => {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const { FormWithAction, state, pending } = useFormAction();
 
@@ -41,7 +39,6 @@ const useAddAgentModalState = () => {
       ),
     onSuccess: () => {
       setOpen(false);
-      router.refresh();
     },
   });
 
@@ -49,7 +46,7 @@ const useAddAgentModalState = () => {
 };
 
 /**
- * Modal with form to create a new agent. Submits via create action; closes and refreshes on success.
+ * Modal with form to create a new agent. Submits via create action and closes on success.
  */
 export const AddAgentModal = () => {
   const { open, setOpen, FormWithAction, pending, errorMessage } =

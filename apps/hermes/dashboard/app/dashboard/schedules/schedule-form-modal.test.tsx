@@ -210,8 +210,9 @@ describe("ScheduleFormModal", () => {
     expect(screen.getByTestId("dialog")).toHaveAttribute("data-open", "true");
   });
 
-  it("calls router.refresh on success after submit", async () => {
+  it("closes the modal without calling router.refresh on success after submit", async () => {
     // Setup
+    const onOpenChange = vi.fn();
     const mock = await getCreateUseFormActionMock();
     mock.mockReturnValueOnce(
       createMockUseFormAction({
@@ -230,7 +231,7 @@ describe("ScheduleFormModal", () => {
     const { rerender } = render(
       <ScheduleFormModal
         open={true}
-        onOpenChange={vi.fn()}
+        onOpenChange={onOpenChange}
         mode="create"
         editScheduleId={null}
         pipelines={createMockPipelines()}
@@ -240,7 +241,7 @@ describe("ScheduleFormModal", () => {
     rerender(
       <ScheduleFormModal
         open={true}
-        onOpenChange={vi.fn()}
+        onOpenChange={onOpenChange}
         mode="create"
         editScheduleId={null}
         pipelines={createMockPipelines()}
@@ -249,6 +250,7 @@ describe("ScheduleFormModal", () => {
     );
 
     // Assert
-    expect(routerRefreshMock).toHaveBeenCalled();
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(routerRefreshMock).not.toHaveBeenCalled();
   });
 });

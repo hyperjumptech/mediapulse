@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { toast } from "sonner";
 
@@ -27,19 +26,12 @@ type DomainIntegrationRowActionsProps = {
 };
 
 /**
- * Wires delete form action: refresh on success, toast server errors (e.g. pipelines still reference this integration).
+ * Wires delete form action and toasts server errors (e.g. pipelines still reference this integration).
  *
  * @returns `FormWithAction` for the delete route action and `pending` while the request runs.
  */
 const useDomainIntegrationRowDeleteActions = () => {
-  const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
-
-  useEffect(() => {
-    if (state && state.status === true) {
-      router.refresh();
-    }
-  }, [state, router]);
 
   useEffect(() => {
     if (state && state.status === false && state.message) {
@@ -51,7 +43,7 @@ const useDomainIntegrationRowDeleteActions = () => {
 };
 
 /**
- * Dropdown with delete for a domain integration row; refreshes the page on success.
+ * Dropdown with delete for a domain integration row.
  */
 export const DomainIntegrationRowActions = ({
   row,
