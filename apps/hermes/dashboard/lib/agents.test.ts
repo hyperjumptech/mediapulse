@@ -24,7 +24,6 @@ const createMockDb = (): MockDb => ({
   },
 });
 
-/** Cast minimal mock to PrismaClientWithSchema for tests. */
 const asDb = (db: MockDb): PrismaClientWithSchema =>
   db as unknown as PrismaClientWithSchema;
 
@@ -192,7 +191,6 @@ describe("getAgentRegistryPage", () => {
   });
 
   it("loads full registry rows with the default sort for the API", async () => {
-    // Setup
     const db = createMockDb();
     const agents = [
       {
@@ -213,10 +211,8 @@ describe("getAgentRegistryPage", () => {
     db.agentRegistry.findMany.mockResolvedValue(agents);
     db.agentRegistry.count.mockResolvedValue(21);
 
-    // Act
-    const result = await getAgentRegistryPage(2, 20, asDb(db));
+    const result = await getAgentRegistryPage(2, 20, undefined, asDb(db));
 
-    // Assert
     expect(db.agentRegistry.findMany).toHaveBeenCalledWith({
       where: undefined,
       skip: 20,
@@ -226,6 +222,36 @@ describe("getAgentRegistryPage", () => {
     });
     expect(db.agentRegistry.count).toHaveBeenCalledWith({ where: undefined });
     expect(result).toEqual({ agents, total: 21, page: 2, pageSize: 20 });
+  });
+
+  it("applies search and sort options to the registry query", async () => {
+    const db = createMockDb();
+    db.agentRegistry.findMany.mockResolvedValue([]);
+    db.agentRegistry.count.mockResolvedValue(0);
+    const expectedWhere = {
+      OR: [
+        { agentId: { contains: "summar", mode: "insensitive" } },
+        { description: { contains: "summar", mode: "insensitive" } },
+      ],
+    };
+
+    await getAgentRegistryPage(
+      1,
+      10,
+      { search: "summar", sortBy: "updated", sortDir: "desc" },
+      asDb(db),
+    );
+
+    expect(db.agentRegistry.findMany).toHaveBeenCalledWith({
+      where: expectedWhere,
+      skip: 0,
+      take: 10,
+      orderBy: { updatedAt: "desc" },
+      include: agentDomainIntegrationIdInclude,
+    });
+    expect(db.agentRegistry.count).toHaveBeenCalledWith({
+      where: expectedWhere,
+    });
   });
 });
 

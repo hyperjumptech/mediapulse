@@ -15,6 +15,19 @@ import type { HttpTriggersPageResult } from "@/lib/http-triggers";
 import { getHttpTriggersPage } from "@/lib/http-triggers";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
+const listPrincipal = {
+  authMethod: "api_key" as const,
+  user: {
+    id: "u1",
+    name: "Admin",
+    email: "admin@test.com",
+    credentialVersion: 0,
+  },
+  apiKeyId: "key-1",
+  readOnly: true,
+  label: "Agent",
+};
+
 describe("GET /api/http-triggers", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -54,6 +67,7 @@ describe("GET /api/http-triggers", () => {
       total: 0,
       page: 1,
       pageSize: 20,
+      hasMore: false,
     });
   });
 
@@ -99,5 +113,56 @@ describe("GET /api/http-triggers", () => {
     const body = await res.json();
 
     expect(JSON.stringify(body)).not.toContain("tokenHash");
+  });
+
+  it("forwards q, sort, and dir and reports hasMore", async () => {
+    vi.mocked(resolveDashboardPrincipalOrUnauthorized).mockResolvedValue(
+      listPrincipal,
+    );
+    vi.mocked(getHttpTriggersPage).mockResolvedValue({
+      httpTriggers: [],
+      total: 25,
+      page: 2,
+      pageSize: 10,
+    });
+
+    const res = await GET(
+      new Request(
+        "http://localhost/api/http-triggers?page=2&pageSize=10&q=webhook&sort=method&dir=desc",
+      ),
+    );
+
+    expect(getHttpTriggersPage).toHaveBeenCalledWith(2, 10, {
+      search: "webhook",
+      sortBy: "method",
+      sortDir: "desc",
+    });
+    await expect(res.json()).resolves.toEqual({
+      items: [],
+      total: 25,
+      page: 2,
+      pageSize: 10,
+      hasMore: true,
+    });
+  });
+
+  it("falls back to the default sort for unknown sort fields", async () => {
+    vi.mocked(resolveDashboardPrincipalOrUnauthorized).mockResolvedValue(
+      listPrincipal,
+    );
+    vi.mocked(getHttpTriggersPage).mockResolvedValue({
+      httpTriggers: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+    });
+
+    await GET(new Request("http://localhost/api/http-triggers?sort=secret"));
+
+    expect(getHttpTriggersPage).toHaveBeenCalledWith(1, 20, {
+      search: undefined,
+      sortBy: "name",
+      sortDir: "asc",
+    });
   });
 });

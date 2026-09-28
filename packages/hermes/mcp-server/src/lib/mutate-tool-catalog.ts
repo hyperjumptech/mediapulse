@@ -1,14 +1,46 @@
+import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
-/** Describes one Hermes mutation MCP tool and its backing dashboard POST route. */
 export type HermesMutateToolSpec = {
   name: string;
+  title: string;
   description: string;
   pathTemplate: string;
   inputSchema: z.ZodRawShape;
-  /** When true, `confirm: true` is required or no HTTP request is sent. */
   requiresConfirm: boolean;
+  annotations: ToolAnnotations;
 };
+
+const CREATE_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: false,
+  openWorldHint: false,
+};
+
+const DELETE_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  idempotentHint: true,
+  openWorldHint: false,
+};
+
+const CANCEL_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  idempotentHint: true,
+  openWorldHint: false,
+};
+
+const RUN_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  idempotentHint: false,
+  openWorldHint: true,
+};
+
+const CONFIRM_FIRST_SENTENCE =
+  "Needs confirm: true on a second call after the user approves.";
 
 const confirmField = {
   confirm: z
@@ -23,15 +55,14 @@ const idField = {
   id: z.guid().describe("Resource id"),
 };
 
-/**
- * Phase B mutation tools mapped to dashboard `route-action-gen` POST routes.
- */
 export const HERMES_MUTATE_TOOL_SPECS: HermesMutateToolSpec[] = [
   {
     name: "hermes_mutate_create_agent",
-    description: "Register a new agent in the Hermes registry.",
+    title: "Create agent",
+    description: "Register a new agent version in the Hermes registry.",
     pathTemplate: "/dashboard/agents/actions/create",
     requiresConfirm: false,
+    annotations: CREATE_ANNOTATIONS,
     inputSchema: {
       agentId: z.string().min(1).describe("Agent id"),
       agentVersion: z.string().min(1).describe("Agent version"),
@@ -50,16 +81,21 @@ export const HERMES_MUTATE_TOOL_SPECS: HermesMutateToolSpec[] = [
   },
   {
     name: "hermes_mutate_delete_agent",
-    description: "Delete an agent registry entry (destructive).",
+    title: "Delete agent",
+    description: `Delete an agent registry entry. ${CONFIRM_FIRST_SENTENCE}`,
     pathTemplate: "/dashboard/agents/actions/delete",
     requiresConfirm: true,
+    annotations: DELETE_ANNOTATIONS,
     inputSchema: { ...idField, ...confirmField },
   },
   {
     name: "hermes_mutate_create_variable",
-    description: "Create an orchestration variable.",
+    title: "Create variable",
+    description:
+      "Create an orchestration variable, optionally stored as a secret.",
     pathTemplate: "/dashboard/variables/actions/create",
     requiresConfirm: false,
+    annotations: CREATE_ANNOTATIONS,
     inputSchema: {
       key: z.string().min(1).describe("Variable key"),
       value: z.string().describe("Variable value"),
@@ -70,16 +106,20 @@ export const HERMES_MUTATE_TOOL_SPECS: HermesMutateToolSpec[] = [
   },
   {
     name: "hermes_mutate_delete_variable",
-    description: "Delete a variable (destructive).",
+    title: "Delete variable",
+    description: `Delete an orchestration variable. ${CONFIRM_FIRST_SENTENCE}`,
     pathTemplate: "/dashboard/variables/actions/delete",
     requiresConfirm: true,
+    annotations: DELETE_ANNOTATIONS,
     inputSchema: { ...idField, ...confirmField },
   },
   {
     name: "hermes_mutate_run_pipeline",
-    description: "Enqueue a manual pipeline run (destructive side effects).",
+    title: "Run pipeline",
+    description: `Enqueue a manual pipeline run. Its agents act on real data. ${CONFIRM_FIRST_SENTENCE}`,
     pathTemplate: "/dashboard/pipelines/actions/run-pipeline",
     requiresConfirm: true,
+    annotations: RUN_ANNOTATIONS,
     inputSchema: {
       pipelineId: z.guid().describe("Pipeline id"),
       ...confirmField,
@@ -87,9 +127,11 @@ export const HERMES_MUTATE_TOOL_SPECS: HermesMutateToolSpec[] = [
   },
   {
     name: "hermes_mutate_cancel_pipeline_execution",
-    description: "Cancel a manual pipeline execution (destructive).",
+    title: "Cancel manual pipeline run",
+    description: `Cancel a running manual pipeline execution. ${CONFIRM_FIRST_SENTENCE}`,
     pathTemplate: "/dashboard/pipelines/actions/cancel-manual-execution",
     requiresConfirm: true,
+    annotations: CANCEL_ANNOTATIONS,
     inputSchema: {
       pipelineId: z.guid().describe("Pipeline id"),
       manualExecutionId: z.guid().describe("Manual pipeline execution id"),
@@ -98,16 +140,20 @@ export const HERMES_MUTATE_TOOL_SPECS: HermesMutateToolSpec[] = [
   },
   {
     name: "hermes_mutate_delete_pipeline",
-    description: "Delete a pipeline (destructive).",
+    title: "Delete pipeline",
+    description: `Delete a pipeline and its steps. ${CONFIRM_FIRST_SENTENCE}`,
     pathTemplate: "/dashboard/pipelines/actions/delete",
     requiresConfirm: true,
+    annotations: DELETE_ANNOTATIONS,
     inputSchema: { ...idField, ...confirmField },
   },
   {
     name: "hermes_mutate_cancel_schedule_execution",
-    description: "Cancel a schedule execution (destructive).",
+    title: "Cancel schedule execution",
+    description: `Cancel a running schedule execution. ${CONFIRM_FIRST_SENTENCE}`,
     pathTemplate: "/dashboard/schedules/actions/cancel-execution",
     requiresConfirm: true,
+    annotations: CANCEL_ANNOTATIONS,
     inputSchema: {
       scheduleId: z.guid().describe("Schedule id"),
       scheduleExecutionId: z.guid().describe("Schedule execution id"),
@@ -116,16 +162,20 @@ export const HERMES_MUTATE_TOOL_SPECS: HermesMutateToolSpec[] = [
   },
   {
     name: "hermes_mutate_delete_schedule",
-    description: "Delete a schedule (destructive).",
+    title: "Delete schedule",
+    description: `Delete a schedule. ${CONFIRM_FIRST_SENTENCE}`,
     pathTemplate: "/dashboard/schedules/actions/delete",
     requiresConfirm: true,
+    annotations: DELETE_ANNOTATIONS,
     inputSchema: { ...idField, ...confirmField },
   },
   {
     name: "hermes_mutate_cancel_http_trigger_execution",
-    description: "Cancel an HTTP trigger execution (destructive).",
+    title: "Cancel HTTP trigger execution",
+    description: `Cancel a running HTTP trigger execution. ${CONFIRM_FIRST_SENTENCE}`,
     pathTemplate: "/dashboard/http-triggers/actions/cancel-execution",
     requiresConfirm: true,
+    annotations: CANCEL_ANNOTATIONS,
     inputSchema: {
       httpTriggerId: z.guid().describe("HTTP trigger id"),
       httpTriggerExecutionId: z.guid().describe("HTTP trigger execution id"),
@@ -134,23 +184,20 @@ export const HERMES_MUTATE_TOOL_SPECS: HermesMutateToolSpec[] = [
   },
   {
     name: "hermes_mutate_delete_http_trigger",
-    description: "Delete an HTTP trigger (destructive).",
+    title: "Delete HTTP trigger",
+    description: `Delete an HTTP trigger. ${CONFIRM_FIRST_SENTENCE}`,
     pathTemplate: "/dashboard/http-triggers/actions/delete",
     requiresConfirm: true,
+    annotations: DELETE_ANNOTATIONS,
     inputSchema: { ...idField, ...confirmField },
   },
 ];
 
-/**
- * Builds the JSON body for a mutation route from tool arguments (excludes `confirm`).
- *
- * @param args - Tool arguments from the MCP client.
- * @returns Request body for route-action-gen POST handlers.
- */
 export const buildMutationRequestBody = (
   args: Record<string, unknown>,
 ): Record<string, unknown> => {
   const body = { ...args };
   delete body.confirm;
+
   return body;
 };

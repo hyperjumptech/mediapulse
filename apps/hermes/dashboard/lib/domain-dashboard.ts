@@ -32,8 +32,7 @@ import {
   hermesDataSourceExpansionsManifestApiPrefix,
 } from "@/lib/data-source-expansion-template-meta";
 
-/** Page size for pipeline ticker fetch; must not exceed domain-api `MAX_PAGE_SIZE` (100). */
-const PIPELINE_TICKER_PAGE_SIZE = 100;
+const DOMAIN_ROW_ID_PAGE_SIZE = 100;
 
 const DOMAIN_TABLE_META_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -564,7 +563,7 @@ export const fetchAllDomainTableIdsForPipelineRun = async (
   while (true) {
     const search = new URLSearchParams();
     search.set("page", String(page));
-    search.set("pageSize", String(PIPELINE_TICKER_PAGE_SIZE));
+    search.set("pageSize", String(DOMAIN_ROW_ID_PAGE_SIZE));
 
     const payload = await callDomain(
       `${baseUrl}${apiPrefix}?${search.toString()}`,
@@ -583,7 +582,7 @@ export const fetchAllDomainTableIdsForPipelineRun = async (
     if (payload.items.length === 0) {
       break;
     }
-    if (page * PIPELINE_TICKER_PAGE_SIZE >= payload.total) {
+    if (page * DOMAIN_ROW_ID_PAGE_SIZE >= payload.total) {
       break;
     }
     page += 1;
@@ -787,102 +786,93 @@ export const deleteDomainTableItem = async (
   );
 };
 
-/** Mediapulse integration id used for processed-URL lookups. */
-const MEDIAPULSE_INTEGRATION_ID = "mediapulse";
-
-/** Domain-api path for the processed-urls endpoint (relative to `/v1`). */
 const PROCESSED_URLS_PATH = "/hermes-dashboard/processed-urls";
 
-/** Response item shape returned by the processed-urls domain-api endpoint. */
-export type ProcessedUrlItem = {
-  id: string;
-  tickerSymbol: string;
-  agent: string;
-  url: string;
-  status: string;
-  gateStatus: string;
-  reason: string | null;
-  reasonDetail: string | null;
-  source: string | null;
-  curatedSourceId: string | null;
-  curatedSourceName: string | null;
-  curatedSourceListingUrl: string | null;
-  createdAt: string;
-};
+const optionalProcessedUrlText = z
+  .string()
+  .nullable()
+  .optional()
+  .catch(undefined);
 
-/** Paginated response from the processed-urls domain-api endpoint. */
-export type ProcessedUrlsListResponse = {
-  items: ProcessedUrlItem[];
-  total: number;
-  page: number;
-  pageSize: number;
-};
+const processedUrlSubjectSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+});
 
-const processedUrlsListResponseSchema = (
+const processedUrlItemSchema = z.object({
+  id: z.string(),
+  subject: processedUrlSubjectSchema.nullable().optional().catch(undefined),
+  agent: z.string(),
+  url: z.string(),
+  status: z.string(),
+  reason: optionalProcessedUrlText,
+  reasonDetail: optionalProcessedUrlText,
+  source: optionalProcessedUrlText,
+  createdAt: z.string(),
+});
+
+const processedUrlsListResponseSchema = z.object({
+  items: z.array(processedUrlItemSchema),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+  subjectTitle: z.string().min(1).optional().catch(undefined),
+});
+
+export type ProcessedUrlSubject = z.infer<typeof processedUrlSubjectSchema>;
+
+export type ProcessedUrlItem = z.infer<typeof processedUrlItemSchema>;
+
+export type ProcessedUrlsListResponse = z.infer<
+  typeof processedUrlsListResponseSchema
+>;
+
+const parseProcessedUrlsListResponse = (
   value: unknown,
 ): ProcessedUrlsListResponse => {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !Array.isArray((value as { items?: unknown }).items) ||
-    typeof (value as { total?: unknown }).total !== "number" ||
-    typeof (value as { page?: unknown }).page !== "number" ||
-    typeof (value as { pageSize?: unknown }).pageSize !== "number"
-  ) {
+  const parsed = processedUrlsListResponseSchema.safeParse(value);
+  if (!parsed.success) {
     throw new Error("Invalid processed-urls response shape");
   }
-  return value as ProcessedUrlsListResponse;
+
+  return parsed.data;
 };
 
-/** Query params for {@link fetchProcessedUrlsForExecution}. */
 export type FetchProcessedUrlsParams = {
-  scheduleExecutionId?: string;
-  page?: number;
-  pageSize?: number;
-  tickerId?: string;
+  integrationId: string;
+  scheduleExecutionId: string;
+  page: number;
+  pageSize: number;
+  subjectId?: string;
   agent?: string;
   status?: string;
-  curatedSourceId?: string;
   gateStatus?: string;
 };
 
-/**
- * Fetches paginated processed-URL outcomes from the mediapulse domain-api.
- *
- * @param params - Optional `scheduleExecutionId` plus filters and pagination.
- * @returns Paginated list of processed-URL outcome items.
- */
-export const fetchProcessedUrlsForExecution = async (
-  params: FetchProcessedUrlsParams,
-): Promise<ProcessedUrlsListResponse> => {
-  const integration = await getDomainIntegrationByIntegrationId(
-    MEDIAPULSE_INTEGRATION_ID,
-  );
-  if (!integration) {
-    throw new Error(
-      "Mediapulse domain integration is not active or not registered",
-    );
-  }
-
-  const baseUrl = integration.baseUrl.replace(/\/$/, "");
-
+const buildProcessedUrlsSearch = (
+  query: Omit<FetchProcessedUrlsParams, "integrationId">,
+): URLSearchParams => {
   const search = new URLSearchParams();
-  if (params.scheduleExecutionId) {
-    search.set("scheduleExecutionId", params.scheduleExecutionId);
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== "") {
+      search.set(key, String(value));
+    }
   }
-  if (params.page !== undefined) search.set("page", String(params.page));
-  if (params.pageSize !== undefined)
-    search.set("pageSize", String(params.pageSize));
-  if (params.tickerId) search.set("tickerId", params.tickerId);
-  if (params.agent) search.set("agent", params.agent);
-  if (params.status) search.set("status", params.status);
-  if (params.curatedSourceId)
-    search.set("curatedSourceId", params.curatedSourceId);
-  if (params.gateStatus) search.set("gateStatus", params.gateStatus);
+
+  return search;
+};
+
+export const fetchProcessedUrlsForExecution = async ({
+  integrationId,
+  ...query
+}: FetchProcessedUrlsParams): Promise<ProcessedUrlsListResponse> => {
+  const integration = await requireActiveDomainIntegration(integrationId);
+  const baseUrl = integration.baseUrl.replace(/\/$/, "");
+  const search = buildProcessedUrlsSearch(query);
 
   return callDomain(
     `${baseUrl}/v1${PROCESSED_URLS_PATH}?${search.toString()}`,
-    processedUrlsListResponseSchema,
+    parseProcessedUrlsListResponse,
     undefined,
     integration,
   );

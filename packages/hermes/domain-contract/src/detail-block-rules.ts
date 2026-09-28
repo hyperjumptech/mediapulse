@@ -277,7 +277,7 @@ export function resolvePath(value: unknown, path: string): unknown {
  * resolved from `data`. Missing values cause the function to return `undefined`
  * so the caller can fall back to plain text.
  *
- * @param template - URL template (e.g. `/dashboard/{integrationId}/tickers/{tickerId}`).
+ * @param template - URL template (e.g. `/dashboard/{integrationId}/items/{itemId}`).
  * @param data - Object the placeholders resolve against.
  * @returns Rendered URL, or `undefined` when any placeholder is missing.
  */

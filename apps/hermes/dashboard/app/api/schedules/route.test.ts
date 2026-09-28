@@ -25,6 +25,19 @@ const principal = {
   },
 };
 
+const listPrincipal = {
+  authMethod: "api_key" as const,
+  user: {
+    id: "u1",
+    name: "Admin",
+    email: "admin@test.com",
+    credentialVersion: 0,
+  },
+  apiKeyId: "key-1",
+  readOnly: true,
+  label: "Agent",
+};
+
 describe("GET /api/schedules", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -55,6 +68,7 @@ describe("GET /api/schedules", () => {
       total: 0,
       page: 1,
       pageSize: 20,
+      hasMore: false,
     });
   });
 
@@ -93,7 +107,62 @@ describe("GET /api/schedules", () => {
       pageSize: 20,
     } satisfies SchedulesPageResult);
     const res = await GET(new Request("http://localhost/api/schedules"));
-    expect(getSchedulesPage).toHaveBeenCalledWith(1, 20);
+    expect(getSchedulesPage).toHaveBeenCalledWith(1, 20, {
+      search: undefined,
+      sortBy: "name",
+      sortDir: "asc",
+    });
     expect(res.status).toBe(200);
+  });
+
+  it("forwards q, sort, and dir and reports hasMore", async () => {
+    vi.mocked(resolveDashboardPrincipalOrUnauthorized).mockResolvedValue(
+      listPrincipal,
+    );
+    vi.mocked(getSchedulesPage).mockResolvedValue({
+      schedules: [],
+      total: 25,
+      page: 2,
+      pageSize: 10,
+    });
+
+    const res = await GET(
+      new Request(
+        "http://localhost/api/schedules?page=2&pageSize=10&q=daily&sort=nextRunAt&dir=desc",
+      ),
+    );
+
+    expect(getSchedulesPage).toHaveBeenCalledWith(2, 10, {
+      search: "daily",
+      sortBy: "nextRunAt",
+      sortDir: "desc",
+    });
+    await expect(res.json()).resolves.toEqual({
+      items: [],
+      total: 25,
+      page: 2,
+      pageSize: 10,
+      hasMore: true,
+    });
+  });
+
+  it("falls back to the default sort for unknown sort fields", async () => {
+    vi.mocked(resolveDashboardPrincipalOrUnauthorized).mockResolvedValue(
+      listPrincipal,
+    );
+    vi.mocked(getSchedulesPage).mockResolvedValue({
+      schedules: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+    });
+
+    await GET(new Request("http://localhost/api/schedules?sort=secret"));
+
+    expect(getSchedulesPage).toHaveBeenCalledWith(1, 20, {
+      search: undefined,
+      sortBy: "name",
+      sortDir: "asc",
+    });
   });
 });

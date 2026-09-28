@@ -1,28 +1,36 @@
 import type { Prisma } from "@mediapulse/database";
 
-/** Prisma include for collection-url-outcome rows (ticker symbol for display). */
+export const PROCESSED_URL_SUBJECT_TITLE = "Ticker";
+
 export const listInclude = {
   ticker: {
-    select: { symbol: true },
+    select: { id: true, symbol: true },
   },
   curatedSource: {
     select: { id: true, name: true, listingUrl: true },
   },
 } satisfies Prisma.CollectionUrlOutcomeInclude;
 
-/** Prisma row shape for `collectionUrlOutcome.findMany` when loading the list view. */
 export type ListRow = Prisma.CollectionUrlOutcomeGetPayload<{
   include: typeof listInclude;
 }>;
 
-/**
- * Maps a `CollectionUrlOutcome` row to the JSON list item served to the Hermes dashboard.
- *
- * @param row - Row from `prisma.collectionUrlOutcome.findMany` using {@link listInclude}.
- * @returns Serializable list item for the processed-URLs table.
- */
+export type ProcessedUrlSubject = {
+  id: string;
+  label: string;
+};
+
+const toSubject = (ticker: ListRow["ticker"]): ProcessedUrlSubject | null => {
+  if (!ticker) {
+    return null;
+  }
+
+  return { id: ticker.id, label: ticker.symbol };
+};
+
 export const mapRowToListItem = (row: ListRow) => ({
   id: row.id,
+  subject: toSubject(row.ticker),
   tickerSymbol: row.ticker?.symbol ?? "—",
   agent:
     row.agent === "data_collection" ? "data-collection" : "page-collection",
@@ -38,5 +46,4 @@ export const mapRowToListItem = (row: ListRow) => ({
   createdAt: row.createdAt.toISOString(),
 });
 
-/** JSON list item type; derived from {@link mapRowToListItem}. */
 export type ListItem = ReturnType<typeof mapRowToListItem>;

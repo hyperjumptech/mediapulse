@@ -1,10 +1,11 @@
 import { render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ProcessedUrlItem } from "@/lib/domain-dashboard";
 
 const withDashboardAdminMock = vi.fn();
 const fetchProcessedUrlsForExecutionMock = vi.fn();
+const loadProcessedUrlsExecutionMock = vi.fn();
 
 vi.mock("@/lib/require-dashboard-admin", () => ({
   withDashboardAdmin: (load: Promise<unknown>) => withDashboardAdminMock(load),
@@ -13,6 +14,11 @@ vi.mock("@/lib/require-dashboard-admin", () => ({
 vi.mock("@/lib/domain-dashboard", () => ({
   fetchProcessedUrlsForExecution: (...args: unknown[]) =>
     fetchProcessedUrlsForExecutionMock(...args),
+}));
+
+vi.mock("./processed-urls-execution", () => ({
+  loadProcessedUrlsExecution: (...args: unknown[]) =>
+    loadProcessedUrlsExecutionMock(...args),
 }));
 
 vi.mock("@/lib/data-table/read-column-visibility", () => ({
@@ -28,17 +34,13 @@ const processedUrl = (
   overrides: Partial<ProcessedUrlItem> = {},
 ): ProcessedUrlItem => ({
   id: "outcome-1",
-  tickerSymbol: "ACME",
-  agent: "data-collection",
+  subject: { id: "subject-1", label: "ACME" },
+  agent: "collector",
   url: "https://example.com/article",
   status: "collected",
-  gateStatus: "passed",
   reason: null,
   reasonDetail: null,
   source: null,
-  curatedSourceId: null,
-  curatedSourceName: null,
-  curatedSourceListingUrl: null,
   createdAt: "2026-01-01T00:00:00.000Z",
   ...overrides,
 });
@@ -53,42 +55,56 @@ const renderPage = async (searchParams: Record<string, string> = {}) => {
 };
 
 describe("ProcessedUrlsPage", () => {
+  beforeEach(() => {
+    loadProcessedUrlsExecutionMock.mockResolvedValue({
+      integrationId: "integration-a",
+      agentIds: ["collector", "crawler"],
+    });
+  });
+
   afterEach(() => {
     withDashboardAdminMock.mockReset();
     fetchProcessedUrlsForExecutionMock.mockReset();
+    loadProcessedUrlsExecutionMock.mockReset();
   });
 
-  it("loads processed URLs with the parsed filters and renders them", async () => {
+  it("loads processed URLs from the execution's integration and renders them", async () => {
     withDashboardAdminMock.mockImplementation((load: Promise<unknown>) => load);
     fetchProcessedUrlsForExecutionMock.mockResolvedValue({
       items: [processedUrl()],
       total: 1,
       page: 2,
       pageSize: 50,
+      subjectTitle: "Account",
     });
 
-    await renderPage({ page: "2", agent: "data-collection" });
+    await renderPage({ page: "2", agent: "collector" });
 
-    expect(fetchProcessedUrlsForExecutionMock).toHaveBeenCalledWith({
-      scheduleExecutionId: "execution-1",
-      page: 2,
-      pageSize: 50,
-      tickerId: undefined,
-      agent: "data-collection",
-      status: undefined,
-      gateStatus: undefined,
-    });
     const table = screen.getByRole("table");
     const headers = within(table)
       .getAllByRole("columnheader")
       .map((header) => header.textContent);
 
+    expect(loadProcessedUrlsExecutionMock).toHaveBeenCalledWith(
+      "schedule-1",
+      "execution-1",
+    );
+    expect(fetchProcessedUrlsForExecutionMock).toHaveBeenCalledWith({
+      integrationId: "integration-a",
+      scheduleExecutionId: "execution-1",
+      page: 2,
+      pageSize: 50,
+      subjectId: undefined,
+      agent: "collector",
+      status: undefined,
+      gateStatus: undefined,
+    });
     expect(within(table).getByText("ACME")).toBeInTheDocument();
     expect(
       within(table).getByRole("link", { name: "https://example.com/article" }),
     ).toHaveAttribute("href", "https://example.com/article");
     expect(headers).toEqual([
-      "Ticker",
+      "Account",
       "Agent",
       "Status",
       "Reason",
@@ -96,6 +112,95 @@ describe("ProcessedUrlsPage", () => {
       "Time",
     ]);
     expect(screen.queryByText(/Back to execution/)).not.toBeInTheDocument();
+  });
+
+  it("falls back to a Subject column with dashes when the domain sends no subject", async () => {
+    withDashboardAdminMock.mockImplementation((load: Promise<unknown>) => load);
+    fetchProcessedUrlsForExecutionMock.mockResolvedValue({
+      items: [processedUrl({ subject: undefined })],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    });
+
+    await renderPage();
+
+    const table = screen.getByRole("table");
+    const subjectHeader = within(table).getAllByRole("columnheader")[0];
+    const firstCell = within(table).getAllByRole("cell")[0];
+
+    expect(subjectHeader).toHaveTextContent("Subject");
+    expect(firstCell).toHaveTextContent("—");
+  });
+
+  it("forwards the subject filter and treats it as an active filter", async () => {
+    withDashboardAdminMock.mockImplementation((load: Promise<unknown>) => load);
+    fetchProcessedUrlsForExecutionMock.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 50,
+    });
+
+    await renderPage({ subjectId: "subject-1" });
+
+    const statusGroup = screen.getByRole("group", { name: "Status" });
+
+    expect(fetchProcessedUrlsForExecutionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ subjectId: "subject-1" }),
+    );
+    expect(
+      screen.getByText("No processed URLs match these filters"),
+    ).toBeInTheDocument();
+    expect(
+      within(statusGroup).getByRole("link", { name: "failed" }),
+    ).toHaveAttribute(
+      "href",
+      `${BASE_PATH}?subjectId=subject-1&status=failed&page=1`,
+    );
+  });
+
+  it("offers the agents that ran in the execution as agent filters", async () => {
+    withDashboardAdminMock.mockImplementation((load: Promise<unknown>) => load);
+    fetchProcessedUrlsForExecutionMock.mockResolvedValue({
+      items: [processedUrl()],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    });
+
+    await renderPage();
+
+    const agentGroup = screen.getByRole("group", { name: "Agent" });
+    const agentOptions = within(agentGroup)
+      .getAllByRole("link")
+      .map((link) => link.textContent);
+
+    expect(agentOptions).toEqual(["All", "collector", "crawler"]);
+    expect(
+      within(agentGroup).getByRole("link", { name: "crawler" }),
+    ).toHaveAttribute("href", `${BASE_PATH}?agent=crawler&page=1`);
+  });
+
+  it("hides the agent filter when the execution ran no agents", async () => {
+    withDashboardAdminMock.mockImplementation((load: Promise<unknown>) => load);
+    loadProcessedUrlsExecutionMock.mockResolvedValue({
+      integrationId: "integration-a",
+      agentIds: [],
+    });
+    fetchProcessedUrlsForExecutionMock.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 50,
+    });
+
+    await renderPage();
+
+    expect(
+      screen.queryByRole("group", { name: "Agent" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Status" })).toBeInTheDocument();
   });
 
   it("puts the filters on the table toolbar next to the column menu", async () => {
@@ -169,12 +274,12 @@ describe("ProcessedUrlsPage", () => {
       pageSize: 50,
     });
 
-    await renderPage({ agent: "data-collection", status: "failed" });
+    await renderPage({ agent: "collector", status: "failed" });
 
     const agentGroup = screen.getByRole("group", { name: "Agent" });
     const statusGroup = screen.getByRole("group", { name: "Status" });
     const activeAgent = within(agentGroup).getByRole("link", {
-      name: "data-collection",
+      name: "collector",
     });
     const allStatuses = within(statusGroup).getByRole("link", { name: "All" });
 
@@ -184,7 +289,7 @@ describe("ProcessedUrlsPage", () => {
     ).not.toHaveAttribute("aria-current");
     expect(allStatuses).toHaveAttribute(
       "href",
-      `${BASE_PATH}?agent=data-collection&page=1`,
+      `${BASE_PATH}?agent=collector&page=1`,
     );
     expect(
       within(screen.getByRole("group", { name: "Gate" })).getByRole("link", {
@@ -192,7 +297,7 @@ describe("ProcessedUrlsPage", () => {
       }),
     ).toHaveAttribute(
       "href",
-      `${BASE_PATH}?agent=data-collection&status=failed&gateStatus=passed&page=1`,
+      `${BASE_PATH}?agent=collector&status=failed&gateStatus=passed&page=1`,
     );
   });
 
@@ -262,7 +367,7 @@ describe("ProcessedUrlsPage", () => {
   it("shows the load error inline when the domain request fails", async () => {
     withDashboardAdminMock.mockImplementation((load: Promise<unknown>) => load);
     fetchProcessedUrlsForExecutionMock.mockRejectedValue(
-      new Error("domain-api unavailable"),
+      new Error('Domain integration "integration-a" is not active'),
     );
 
     await renderPage();
@@ -270,8 +375,20 @@ describe("ProcessedUrlsPage", () => {
     const alert = screen.getByRole("alert");
 
     expect(alert).toHaveTextContent("Could not load processed URLs");
-    expect(alert).toHaveTextContent("domain-api unavailable");
+    expect(alert).toHaveTextContent(
+      'Domain integration "integration-a" is not active',
+    );
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("returns not found when the execution does not belong to the schedule", async () => {
+    withDashboardAdminMock.mockImplementation((load: Promise<unknown>) => load);
+    loadProcessedUrlsExecutionMock.mockResolvedValue(null);
+
+    const pending = renderPage();
+
+    await expect(pending).rejects.toThrow("NEXT_HTTP_ERROR_FALLBACK;404");
+    expect(fetchProcessedUrlsForExecutionMock).not.toHaveBeenCalled();
   });
 
   it("rejects instead of rendering when the admin check fails", async () => {

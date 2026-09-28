@@ -36,12 +36,6 @@ const parseCapabilities = (
   return parsed.length > 0 ? parsed : [...defaultCapabilities];
 };
 
-/**
- * Parses a persisted dashboard manifest JSON payload.
- *
- * @param raw - Raw JSON value stored in Prisma.
- * @returns Normalized dashboard manifest.
- */
 const parseDashboardManifest = (
   raw: Prisma.JsonValue | null,
 ): DashboardManifest => {
@@ -59,14 +53,6 @@ const activeIntegrationWhere = {
   baseUrl: { not: null },
 } satisfies Prisma.DomainIntegrationWhereInput;
 
-/**
- * Registers (or refreshes) a domain integration record in orchestration storage.
- * The Bearer token must be the plaintext API key whose SHA-256 hex matches `encrypted_payload.credential_sha256_hex` for this integration.
- *
- * @param payload - Integration registration payload.
- * @param bearerToken - Raw API key from `Authorization: Bearer`.
- * @returns Stored integration record.
- */
 export const registerDomainIntegration = async (
   payload: RegisterDomainIntegrationRequest,
   bearerToken: string,
@@ -142,11 +128,6 @@ export const registerDomainIntegration = async (
   };
 };
 
-/**
- * Resolves the active default domain integration for runtime calls.
- *
- * @returns Active integration or null when none is configured.
- */
 export const getDefaultDomainIntegration = async (): Promise<{
   id: string;
   integrationId: string;
@@ -185,9 +166,6 @@ export const getDefaultDomainIntegration = async (): Promise<{
   };
 };
 
-/**
- * Shape returned for domain integration lookups (sidebar, routing, HTTP).
- */
 export type DomainIntegrationRecord = {
   id: string;
   integrationId: string;
@@ -255,46 +233,86 @@ export type DomainIntegrationsPageResult = {
   pageSize: number;
 };
 
-/**
- * Fetches a paginated list of domain integrations (all statuses).
- *
- * @param page - 1-based page number.
- * @param pageSize - Number of items per page.
- * @param db - Prisma delegate (injectable for tests).
- * @returns Integrations for the page plus total count and pagination info.
- */
+export type DomainIntegrationSortField =
+  | "isDefault"
+  | "integrationId"
+  | "name"
+  | "status";
+
+export type DomainIntegrationsPageOptions = {
+  search?: string;
+  sortBy?: DomainIntegrationSortField;
+  sortDir?: Prisma.SortOrder;
+};
+
+const domainIntegrationSearchWhere = (
+  search: string | undefined,
+): Prisma.DomainIntegrationWhereInput | undefined => {
+  const term = search?.trim();
+  if (!term) return undefined;
+
+  return {
+    OR: [
+      { integrationId: { contains: term, mode: "insensitive" } },
+      { name: { contains: term, mode: "insensitive" } },
+    ],
+  };
+};
+
+const domainIntegrationPrimaryOrder = (
+  sortBy: DomainIntegrationSortField,
+  sortDir: Prisma.SortOrder,
+): Prisma.DomainIntegrationOrderByWithRelationInput => {
+  if (sortBy === "integrationId") return { integrationId: sortDir };
+  if (sortBy === "name") return { name: sortDir };
+  if (sortBy === "status") return { status: sortDir };
+
+  return { isDefault: sortDir };
+};
+
+const domainIntegrationOrderBy = (
+  sortBy: DomainIntegrationSortField,
+  sortDir: Prisma.SortOrder,
+): Prisma.DomainIntegrationOrderByWithRelationInput[] => {
+  const primaryOrder = domainIntegrationPrimaryOrder(sortBy, sortDir);
+  if (sortBy === "integrationId") {
+    return [primaryOrder];
+  }
+
+  return [primaryOrder, { integrationId: "asc" }];
+};
+
 export const getDomainIntegrationsPage = async (
   page: number,
   pageSize: number,
+  options?: DomainIntegrationsPageOptions,
   db: Pick<
     typeof prisma.domainIntegration,
     "findMany" | "count"
   > = prisma.domainIntegration,
 ): Promise<DomainIntegrationsPageResult> => {
   const skip = (page - 1) * pageSize;
-  const orderBy = [
-    { isDefault: "desc" as const },
-    { integrationId: "asc" as const },
-  ] satisfies Prisma.DomainIntegrationOrderByWithRelationInput[];
-
+  const where = domainIntegrationSearchWhere(options?.search);
+  const orderBy = domainIntegrationOrderBy(
+    options?.sortBy ?? "isDefault",
+    options?.sortDir ?? "desc",
+  );
+  const findManyArgs = {
+    where,
+    select: domainIntegrationListSelect,
+    orderBy,
+    skip,
+    take: pageSize,
+  } satisfies Prisma.DomainIntegrationFindManyArgs;
+  const countArgs = { where } satisfies Prisma.DomainIntegrationCountArgs;
   const [integrations, total] = await Promise.all([
-    db.findMany({
-      select: domainIntegrationListSelect,
-      orderBy,
-      skip,
-      take: pageSize,
-    }),
-    db.count(),
+    db.findMany(findManyArgs),
+    db.count(countArgs),
   ]);
+
   return { integrations, total, page, pageSize };
 };
 
-/**
- * Maps a Prisma domain integration row to a typed record.
- *
- * @param row - Selected row from orchestration DB.
- * @returns Normalized integration record.
- */
 const toDomainIntegrationRecord = (row: {
   id: string;
   integrationId: string;
@@ -315,12 +333,6 @@ const toDomainIntegrationRecord = (row: {
   updatedAt: row.updatedAt,
 });
 
-/**
- * Returns all active domain integrations for dashboard navigation and keyed routes.
- *
- * @param db - Prisma delegate (injectable for tests).
- * @returns Ordered list of active integrations with parsed manifests.
- */
 export const getActiveDomainIntegrations = async (
   db: Pick<
     typeof prisma.domainIntegration,
@@ -416,13 +428,6 @@ const getDomainIntegrationByIntegrationIdForRequest = cache(
   },
 );
 
-/**
- * Loads a single active domain integration by integration id (stable slug).
- *
- * @param integrationId - Stable id from registration.
- * @param db - Prisma delegate (injectable for tests).
- * @returns Integration record or null if missing or inactive.
- */
 export const getDomainIntegrationByIntegrationId = async (
   integrationId: string,
   db?: Pick<typeof prisma.domainIntegration, "findFirst">,
@@ -435,13 +440,9 @@ export const getDomainIntegrationByIntegrationId = async (
 };
 
 export type CreatePendingDomainIntegrationInput = {
-  /** Unique integration id (URL segment for `/dashboard/{integrationId}/…`). */
   integrationId: string;
-  /** Human-readable name. */
   name: string;
-  /** Orchestration user id recorded on `domain_integration.created_by_id`. */
   userId: string;
-  /** When true, marks this integration as the default for expansion and templates. */
   isDefault?: boolean;
 };
 
@@ -449,18 +450,9 @@ export type CreatePendingDomainIntegrationResult = {
   id: string;
   integrationId: string;
   name: string;
-  /** Raw API key; show once to the operator. */
   apiKeyPlaintext: string;
 };
 
-/**
- * Creates a pending domain integration: generates an API key, stores ciphertext and credential hash on `encrypted_payload`.
- *
- * @param input - Integration id, display name, and owning user id.
- * @param db - Prisma client (injectable for tests).
- * @param masterKey - `HERMES_INTERNAL_API_KEY` for encrypting the API key at rest.
- * @returns Created row id and plaintext secret (once).
- */
 export const createPendingDomainIntegration = async (
   input: CreatePendingDomainIntegrationInput,
   db: typeof prisma = prisma,

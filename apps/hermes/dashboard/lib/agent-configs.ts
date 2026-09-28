@@ -1,5 +1,5 @@
 import { prisma } from "@hermes/orchestration-database";
-import type { PrismaClient } from "@hermes/orchestration-database";
+import type { Prisma, PrismaClient } from "@hermes/orchestration-database";
 
 type Db = typeof prisma;
 
@@ -23,9 +23,6 @@ export type AgentConfigsPageResult = {
   pageSize: number;
 };
 
-/**
- * Builds Prisma orderBy for agent config list.
- */
 const agentConfigOrderBy = (
   sortBy: AgentConfigSortField,
   sortDir: AgentConfigSortDir,
@@ -40,28 +37,37 @@ const agentConfigOrderBy = (
   return { name: dir };
 };
 
-/**
- * Fetches a paginated list of agent configs with optional filter by agent and sort.
- *
- * @param page - 1-based page number.
- * @param pageSize - Number of items per page.
- * @param options - Optional agentId, agentVersion, sort.
- * @param db - Prisma client (injectable for tests).
- * @returns Configs for the page plus total and pagination info.
- */
+const agentConfigSearchWhere = (
+  search: string | undefined,
+): Prisma.AgentConfigWhereInput | undefined => {
+  const term = search?.trim();
+  if (!term) return undefined;
+
+  return {
+    OR: [
+      { name: { contains: term, mode: "insensitive" } },
+      { description: { contains: term, mode: "insensitive" } },
+      { agentId: { contains: term, mode: "insensitive" } },
+    ],
+  };
+};
+
 export const getAgentConfigsPage = async (
   page: number,
   pageSize: number,
   options?: {
     agentId?: string;
     agentVersion?: string;
+    search?: string;
     sortBy?: AgentConfigSortField;
     sortDir?: AgentConfigSortDir;
   },
   db: Db = prisma,
 ): Promise<AgentConfigsPageResult> => {
   const skip = (page - 1) * pageSize;
-  const where: { agentId?: string; agentVersion?: string } = {};
+  const where: Prisma.AgentConfigWhereInput = {
+    ...agentConfigSearchWhere(options?.search),
+  };
   if (options?.agentId != null) where.agentId = options.agentId;
   if (options?.agentVersion != null) where.agentVersion = options.agentVersion;
 
@@ -89,13 +95,6 @@ export const getAgentConfigsPage = async (
   return { configs, total, page, pageSize };
 };
 
-/**
- * Fetches a single agent config by id, or null if not found.
- *
- * @param id - UUID of the agent config.
- * @param db - Prisma client (injectable for tests).
- * @returns The agent config or null.
- */
 export const getAgentConfigById = async (
   id: string,
   db: Db = prisma,
@@ -107,15 +106,6 @@ export const getAgentConfigById = async (
   });
 };
 
-/**
- * Fetches all agent configs for a given agent (agentId + agentVersion).
- * Used by pipeline step dropdown to list configs for the selected agent.
- *
- * @param agentId - Agent ID.
- * @param agentVersion - Agent version.
- * @param db - Prisma client (injectable for tests).
- * @returns List of configs for that agent, ordered by name.
- */
 export const getAgentConfigsForAgent = async (
   agentId: string,
   agentVersion: string,
@@ -148,13 +138,6 @@ export type AgentConfigSummary = {
   configSchemaFingerprint: string | null;
 };
 
-/**
- * Fetches agent configs for multiple agents in one query; returns a map of agentKey -> configs.
- *
- * @param agentKeys - Array of { agentId, agentVersion }.
- * @param db - Prisma client (injectable for tests).
- * @returns Map from "agentId@agentVersion" to list of config summaries.
- */
 export const getAgentConfigsByAgentKeys = async (
   agentKeys: Array<{ agentId: string; agentVersion: string }>,
   db: Db = prisma,

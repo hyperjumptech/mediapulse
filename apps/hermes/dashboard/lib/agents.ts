@@ -3,7 +3,6 @@ import { prisma } from "@hermes/orchestration-database";
 
 type Db = typeof prisma;
 
-/** Prisma include for agent fetches that need the domain integration stable id (list + detail). */
 export const agentDomainIntegrationIdInclude = {
   domainIntegration: {
     select: {
@@ -12,7 +11,6 @@ export const agentDomainIntegrationIdInclude = {
   },
 } satisfies Prisma.AgentRegistryInclude;
 
-/** Registry row with `domainIntegration.integrationId` (list and detail queries). */
 export type AgentRegistryWithDomainIntegrationId =
   Prisma.AgentRegistryGetPayload<{
     include: typeof agentDomainIntegrationIdInclude;
@@ -55,12 +53,6 @@ type AgentsPageOptions = {
   sortDir?: AgentSortDir;
 };
 
-/**
- * Builds a Prisma where clause for agent search by agentId or description (partial, case-insensitive).
- *
- * @param search - Raw search string; trimmed and ignored if empty.
- * @returns Where clause object or undefined if no search.
- */
 const agentSearchWhere = (
   search: string | undefined,
 ):
@@ -89,13 +81,6 @@ const SORT_DEFAULT: { sortBy: AgentSortField; sortDir: AgentSortDir } = {
   sortDir: "asc",
 };
 
-/**
- * Builds Prisma orderBy from sort field and direction. "created" maps to createdAt, "updated" to updatedAt.
- *
- * @param sortBy - Field to sort by (agentId, agentVersion, created, or updated).
- * @param sortDir - asc or desc.
- * @returns Prisma orderBy object.
- */
 const agentOrderBy = (
   sortBy: AgentSortField,
   sortDir: AgentSortDir,
@@ -126,15 +111,6 @@ const agentsPageWindow = (
   return { where, skip, take: pageSize, orderBy };
 };
 
-/**
- * Fetches a paginated list of agents with optional sort and search.
- *
- * @param page - 1-based page number.
- * @param pageSize - Number of items per page.
- * @param options - Optional search term and sort (sortBy: agentId | agentVersion | created | updated, sortDir: asc | desc).
- * @param db - Prisma client (injectable for tests).
- * @returns Agents for the page (each with `domainIntegration.integrationId`) plus total count and pagination info.
- */
 export const getAgentsPage = async (
   page: number,
   pageSize: number,
@@ -160,9 +136,10 @@ export const getAgentsPage = async (
 export const getAgentRegistryPage = async (
   page: number,
   pageSize: number,
+  options?: AgentsPageOptions,
   db: Db = prisma,
 ): Promise<AgentRegistryPageResult> => {
-  const pageWindow = agentsPageWindow(page, pageSize);
+  const pageWindow = agentsPageWindow(page, pageSize, options);
   const findManyArgs = {
     ...pageWindow,
     include: agentDomainIntegrationIdInclude,
@@ -178,13 +155,6 @@ export const getAgentRegistryPage = async (
   return { agents, total, page, pageSize };
 };
 
-/**
- * Fetches a single agent by id with its domain integration id, or null if not found.
- *
- * @param agentId - UUID of the agent registry row.
- * @param db - Prisma client (injectable for tests).
- * @returns The agent with `domainIntegration.integrationId`, or null.
- */
 export const getAgentById = async (
   agentId: string,
   db: Db = prisma,

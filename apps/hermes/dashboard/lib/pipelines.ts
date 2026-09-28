@@ -3,15 +3,6 @@ import { prisma } from "@hermes/orchestration-database";
 
 type Db = typeof prisma;
 
-const pipelineListInclude = {
-  steps: { orderBy: { order: "asc" as const } },
-  createdBy: { select: { id: true, name: true, email: true } },
-} satisfies Prisma.PipelineInclude;
-
-export type PipelineListRow = Prisma.PipelineGetPayload<{
-  include: typeof pipelineListInclude;
-}>;
-
 const agentRegistryListSelect = {
   id: true,
   agentId: true,
@@ -19,48 +10,6 @@ const agentRegistryListSelect = {
   description: true,
 } satisfies Prisma.AgentRegistrySelect;
 
-export type PipelinesPageResult = {
-  pipelines: PipelineListRow[];
-  total: number;
-  page: number;
-  pageSize: number;
-};
-
-/**
- * Fetches a paginated list of pipelines with steps, ordered by updatedAt descending.
- *
- * @param page - 1-based page number.
- * @param pageSize - Number of items per page.
- * @param db - Prisma client (injectable for tests).
- * @returns Pipelines for the page plus total count and pagination info.
- */
-export const getPipelinesPage = async (
-  page: number,
-  pageSize: number,
-  db: Db = prisma,
-): Promise<PipelinesPageResult> => {
-  const skip = (page - 1) * pageSize;
-  const findManyArgs = {
-    include: pipelineListInclude,
-    orderBy: { updatedAt: "desc" as const },
-    skip,
-    take: pageSize,
-  } satisfies Prisma.PipelineFindManyArgs;
-
-  const [pipelines, total] = await Promise.all([
-    db.pipeline.findMany(findManyArgs),
-    db.pipeline.count(),
-  ]);
-  return { pipelines, total, page, pageSize };
-};
-
-/**
- * Fetches a single pipeline by id with its steps, or null if not found.
- *
- * @param pipelineId - UUID of the pipeline.
- * @param db - Prisma client (injectable for tests).
- * @returns Pipeline with steps or null.
- */
 export const getPipelineWithSteps = async (
   pipelineId: string,
   db: Db = prisma,
@@ -74,12 +23,6 @@ export const getPipelineWithSteps = async (
   });
 };
 
-/**
- * Fetches all active agent registry entries for the "add step" palette.
- *
- * @param db - Prisma client (injectable for tests).
- * @returns Agent registry entries.
- */
 export const getAgentRegistryList = async (
   db: Db = prisma,
   domainIntegrationId?: string,

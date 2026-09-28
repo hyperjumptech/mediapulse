@@ -1,10 +1,6 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  getAgentRegistryList,
-  getPipelineWithSteps,
-  getPipelinesPage,
-} from "./pipelines";
+import { getAgentRegistryList, getPipelineWithSteps } from "./pipelines";
 import type { PrismaClientWithSchema } from "@hermes/orchestration-database/client";
 
 type MockDb = {
@@ -29,7 +25,6 @@ const createMockDb = (): MockDb => ({
   },
 });
 
-/** Cast minimal mock to PrismaClientWithSchema for tests. */
 const asDb = (db: MockDb): PrismaClientWithSchema =>
   db as unknown as PrismaClientWithSchema;
 
@@ -39,31 +34,6 @@ const agentRegistryListSelect = {
   agentVersion: true,
   description: true,
 };
-
-describe("getPipelinesPage", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("returns pipelines, total, page, and pageSize", async () => {
-    const db = createMockDb();
-    const pipelines = [{ id: "p1", name: "P1", steps: [] }];
-    db.pipeline.findMany.mockResolvedValue(pipelines);
-    db.pipeline.count.mockResolvedValue(1);
-
-    const result = await getPipelinesPage(2, 5, asDb(db));
-
-    expect(db.pipeline.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 5, take: 5 }),
-    );
-    expect(result).toEqual({
-      pipelines,
-      total: 1,
-      page: 2,
-      pageSize: 5,
-    });
-  });
-});
 
 describe("getPipelineWithSteps", () => {
   afterEach(() => {

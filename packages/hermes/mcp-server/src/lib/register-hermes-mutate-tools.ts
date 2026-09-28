@@ -6,7 +6,7 @@ import {
   formatHermesToolError,
 } from "./format-tool-result.js";
 import type { HermesHttpClient } from "./http-client.js";
-import { assertMutationAllowed } from "./mutation-access.js";
+import { assertMutationAllowed, type WhoamiCache } from "./mutation-access.js";
 import {
   buildMutationRequestBody,
   type HermesMutateToolSpec,
@@ -19,22 +19,18 @@ const DESTRUCTIVE_CONFIRM_MESSAGE =
 export type HandleHermesMutateToolCallDependencies = {
   httpClient: HermesHttpClient;
   assertMutationAllowed?: typeof assertMutationAllowed;
+  whoamiCache?: WhoamiCache;
+  resolveProfileKey?: () => string | undefined;
 };
 
-/**
- * Runs one Hermes mutation tool (confirm gate, read-only check, HTTP POST).
- *
- * @param spec - Mutation tool specification.
- * @param args - Tool arguments from the MCP client.
- * @param dependencies - HTTP client and optional access guard.
- * @returns MCP tool result.
- */
 export const handleHermesMutateToolCall = async (
   spec: HermesMutateToolSpec,
   args: Record<string, unknown>,
   {
     httpClient,
     assertMutationAllowed: assertMutationAllowedFn = assertMutationAllowed,
+    whoamiCache,
+    resolveProfileKey,
   }: HandleHermesMutateToolCallDependencies,
 ): Promise<CallToolResult> => {
   if (spec.requiresConfirm && args.confirm !== true) {
@@ -44,7 +40,11 @@ export const handleHermesMutateToolCall = async (
     });
   }
 
-  const access = await assertMutationAllowedFn({ httpClient });
+  const access = await assertMutationAllowedFn({
+    httpClient,
+    whoamiCache,
+    profileKey: resolveProfileKey?.(),
+  });
   if (!("allowed" in access)) {
     return access;
   }
@@ -62,32 +62,32 @@ export type RegisterHermesMutateToolsDependencies = {
   server: McpServer;
   httpClient: HermesHttpClient;
   assertMutationAllowed?: typeof assertMutationAllowed;
+  whoamiCache?: WhoamiCache;
+  resolveProfileKey?: () => string | undefined;
 };
 
-/**
- * Registers Hermes mutation MCP tools with confirm gate and read-only checks.
- *
- * @param dependencies - MCP server, HTTP client, and optional access guard for tests.
- */
 export const registerHermesMutateTools = ({
   server,
   httpClient,
   assertMutationAllowed: assertMutationAllowedFn = assertMutationAllowed,
+  whoamiCache,
+  resolveProfileKey,
 }: RegisterHermesMutateToolsDependencies): void => {
   for (const spec of HERMES_MUTATE_TOOL_SPECS) {
     server.registerTool(
       spec.name,
       {
+        title: spec.title,
         description: spec.description,
         inputSchema: spec.inputSchema,
-        annotations: spec.requiresConfirm
-          ? { destructiveHint: true }
-          : undefined,
+        annotations: { title: spec.title, ...spec.annotations },
       },
       async (args: Record<string, unknown>) =>
         handleHermesMutateToolCall(spec, args, {
           httpClient,
           assertMutationAllowed: assertMutationAllowedFn,
+          whoamiCache,
+          resolveProfileKey,
         }),
     );
   }

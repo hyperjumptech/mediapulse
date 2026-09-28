@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import {
   Alert,
   AlertDescription,
@@ -14,6 +15,7 @@ import {
 import { parseListPagination } from "@/lib/list-page-params";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
+import { loadProcessedUrlsExecution } from "./processed-urls-execution";
 import {
   ProcessedUrlsFilters,
   type ProcessedUrlFilterGroup,
@@ -28,26 +30,29 @@ type PageProps = {
 type ProcessedUrlFilterKey = "agent" | "status" | "gateStatus";
 
 type ProcessedUrlFilters = {
-  tickerId?: string;
+  subjectId?: string;
   agent?: string;
   status?: string;
   gateStatus?: string;
+};
+
+type ProcessedUrlFilterDefinition = {
+  key: ProcessedUrlFilterKey;
+  label: string;
+  values: readonly string[];
+};
+
+type ProcessedUrlsPageData = {
+  agentIds: string[];
+  data: ProcessedUrlsListResponse | null;
+  fetchError: string | null;
 };
 
 const PAGE_SIZE = 50;
 
 const PROCESSED_URLS_TABLE_ID = "processed-urls";
 
-const FILTER_DEFINITIONS: ReadonlyArray<{
-  key: ProcessedUrlFilterKey;
-  label: string;
-  values: readonly string[];
-}> = [
-  {
-    key: "agent",
-    label: "Agent",
-    values: ["", "data-collection", "page-collection"],
-  },
+const OUTCOME_FILTER_DEFINITIONS: readonly ProcessedUrlFilterDefinition[] = [
   {
     key: "status",
     label: "Status",
@@ -60,12 +65,25 @@ const firstValue = (
   value: string | string[] | undefined,
 ): string | undefined => (Array.isArray(value) ? value[0] : value);
 
+const buildFilterDefinitions = (
+  agentIds: string[],
+): ProcessedUrlFilterDefinition[] => {
+  if (agentIds.length === 0) {
+    return [...OUTCOME_FILTER_DEFINITIONS];
+  }
+
+  const agentFilterDefinition: ProcessedUrlFilterDefinition = {
+    key: "agent",
+    label: "Agent",
+    values: ["", ...agentIds],
+  };
+
+  return [agentFilterDefinition, ...OUTCOME_FILTER_DEFINITIONS];
+};
+
 const loadProcessedUrls = async (
   query: FetchProcessedUrlsParams,
-): Promise<{
-  data: ProcessedUrlsListResponse | null;
-  fetchError: string | null;
-}> => {
+): Promise<Omit<ProcessedUrlsPageData, "agentIds">> => {
   try {
     const data = await fetchProcessedUrlsForExecution(query);
 
@@ -76,6 +94,26 @@ const loadProcessedUrls = async (
 
     return { data: null, fetchError };
   }
+};
+
+const loadProcessedUrlsPageData = async (
+  scheduleId: string,
+  query: Omit<FetchProcessedUrlsParams, "integrationId">,
+): Promise<ProcessedUrlsPageData | null> => {
+  const execution = await loadProcessedUrlsExecution(
+    scheduleId,
+    query.scheduleExecutionId,
+  );
+  if (!execution) {
+    return null;
+  }
+
+  const result = await loadProcessedUrls({
+    ...query,
+    integrationId: execution.integrationId,
+  });
+
+  return { agentIds: execution.agentIds, ...result };
 };
 
 const buildFilterHref = (
@@ -101,8 +139,9 @@ const buildFilterGroups = (
   basePath: string,
   filters: ProcessedUrlFilters,
   pageSize: number,
+  definitions: ProcessedUrlFilterDefinition[],
 ): ProcessedUrlFilterGroup[] =>
-  FILTER_DEFINITIONS.map((definition) => {
+  definitions.map((definition) => {
     const activeValue = filters[definition.key] ?? "";
     const options = definition.values.map((value) => {
       const update = { [definition.key]: value || undefined };
@@ -155,15 +194,15 @@ export default async function ProcessedUrlsPage({
     PAGE_SIZE,
   );
   const filters: ProcessedUrlFilters = {
-    tickerId: firstValue(resolvedSearchParams.tickerId),
+    subjectId: firstValue(resolvedSearchParams.subjectId),
     agent: firstValue(resolvedSearchParams.agent),
     status: firstValue(resolvedSearchParams.status),
     gateStatus: firstValue(resolvedSearchParams.gateStatus),
   };
 
-  const [{ data, fetchError }, savedVisibility] = await Promise.all([
+  const [pageData, savedVisibility] = await Promise.all([
     withDashboardAdmin(
-      loadProcessedUrls({
+      loadProcessedUrlsPageData(scheduleId, {
         scheduleExecutionId: executionId,
         page,
         pageSize,
@@ -172,9 +211,19 @@ export default async function ProcessedUrlsPage({
     ),
     readColumnVisibility(PROCESSED_URLS_TABLE_ID),
   ]);
+  if (!pageData) {
+    notFound();
+  }
 
+  const { agentIds, data, fetchError } = pageData;
   const basePath = `/dashboard/schedules/${scheduleId}/executions/${executionId}/processed-urls`;
-  const filterGroups = buildFilterGroups(basePath, filters, pageSize);
+  const filterDefinitions = buildFilterDefinitions(agentIds);
+  const filterGroups = buildFilterGroups(
+    basePath,
+    filters,
+    pageSize,
+    filterDefinitions,
+  );
   const filterControls = <ProcessedUrlsFilters groups={filterGroups} />;
   const hasActiveFilters = Object.values(filters).some(Boolean);
 
@@ -191,6 +240,7 @@ export default async function ProcessedUrlsPage({
     <ProcessedUrlsTable
       tableId={PROCESSED_URLS_TABLE_ID}
       items={data.items}
+      subjectTitle={data.subjectTitle}
       urlState={{
         basePath,
         page: data.page,

@@ -4,9 +4,6 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 
 import { createHermesMcpServer } from "./lib/create-hermes-mcp-server.js";
 
-/**
- * Starts the Hermes MCP server on stdio (for Cursor and other MCP clients).
- */
 const main = async (): Promise<void> => {
   const server = createHermesMcpServer();
   const transport = new StdioServerTransport();

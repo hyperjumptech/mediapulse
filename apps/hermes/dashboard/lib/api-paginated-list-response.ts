@@ -1,22 +1,19 @@
 import { NextResponse } from "next/server";
 
-/** JSON body shape for paginated MCP list endpoints. */
 export type PaginatedListBody<T> = {
   items: T[];
   total: number;
   page: number;
   pageSize: number;
+  hasMore: boolean;
 };
 
-/**
- * Builds a JSON response for a paginated list endpoint.
- *
- * @param items - Rows for the current page.
- * @param total - Total row count across all pages.
- * @param page - 1-based current page.
- * @param pageSize - Requested page size.
- * @returns `NextResponse` with `{ items, total, page, pageSize }`.
- */
+export const hasMoreListPages = (
+  total: number,
+  page: number,
+  pageSize: number,
+): boolean => page * pageSize < total;
+
 export const paginatedListJsonResponse = <T>(
   items: T[],
   total: number,
@@ -28,4 +25,5 @@ export const paginatedListJsonResponse = <T>(
     total,
     page,
     pageSize,
+    hasMore: hasMoreListPages(total, page, pageSize),
   } satisfies PaginatedListBody<T>);

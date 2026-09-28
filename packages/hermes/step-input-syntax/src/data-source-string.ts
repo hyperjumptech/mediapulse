@@ -33,7 +33,7 @@ export const isDataSourceString = (value: unknown): value is string => {
  * Parses a data source string into components.
  * Supports: where.<key>=<value>, distinct=<field>, take=<n>, limit=<n>, orderBy=<field>:<dir>.
  *
- * @param str - Data source string (e.g. db:userTicker:tickerId?where.enabled=true&distinct=tickerId&take=100).
+ * @param str - Data source string (e.g. db:subscription:itemId?where.enabled=true&distinct=itemId&take=100).
  * @returns Parsed components, or null if format is invalid.
  */
 export const parseDataSourceString = (str: string): DataSourceParsed | null => {
