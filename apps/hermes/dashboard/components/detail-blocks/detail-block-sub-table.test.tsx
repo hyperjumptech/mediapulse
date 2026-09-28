@@ -1,10 +1,21 @@
-/** @vitest-environment jsdom */
-
 import type { ComponentProps } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DetailBlockSubTableView } from "./detail-block-sub-table";
+
+const table = () => within(screen.getByRole("table"));
+
+const mobileCards = () => {
+  const list = document.querySelector<HTMLElement>(
+    '[data-slot="data-table-mobile-list"]',
+  );
+  if (!list) {
+    throw new Error("Missing mobile list");
+  }
+
+  return list;
+};
 
 vi.mock("next/link", () => ({
   default: ({
@@ -38,7 +49,7 @@ describe("DetailBlockSubTableView", () => {
       />,
     );
 
-    expect(screen.getByText("Dec 31, 2025, 23:30")).toHaveAttribute(
+    expect(table().getByText("Dec 31, 2025, 23:30")).toHaveAttribute(
       "datetime",
       "2025-12-31T23:30:00.000Z",
     );
@@ -72,8 +83,8 @@ describe("DetailBlockSubTableView", () => {
       />,
     );
     expect(screen.getByText("Citations (2 unique)")).toBeInTheDocument();
-    expect(screen.getByText("Article")).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: /example\.com\/a/i });
+    expect(table().getByText("Article")).toBeInTheDocument();
+    const link = table().getByRole("link", { name: /example\.com\/a/i });
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
@@ -99,8 +110,8 @@ describe("DetailBlockSubTableView", () => {
         }}
       />,
     );
-    expect(screen.getByText("coffee prices outlook")).toBeInTheDocument();
-    expect(screen.getByText("breaking")).toBeInTheDocument();
+    expect(table().getByText("coffee prices outlook")).toBeInTheDocument();
+    expect(table().getByText("breaking")).toBeInTheDocument();
   });
 
   it("renders an overlineField as a muted line above the cell value", () => {
@@ -132,9 +143,9 @@ describe("DetailBlockSubTableView", () => {
         }}
       />,
     );
-    expect(screen.getByText("Regulatory & Policy Watch")).toBeInTheDocument();
+    expect(table().getByText("Regulatory & Policy Watch")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Auction concludes" }),
+      table().getByRole("link", { name: "Auction concludes" }),
     ).toBeInTheDocument();
   });
 
@@ -151,7 +162,7 @@ describe("DetailBlockSubTableView", () => {
         data={{ queries: [{ text: "coffee prices outlook" }] }}
       />,
     );
-    expect(screen.getByText("coffee prices outlook")).toBeInTheDocument();
+    expect(table().getByText("coffee prices outlook")).toBeInTheDocument();
     expect(
       screen.queryByRole("columnheader", { name: "Query" }),
     ).not.toBeInTheDocument();
@@ -191,11 +202,11 @@ describe("DetailBlockSubTableView", () => {
         data={{ rows: [{ status: "delivered", inconsistent: true }] }}
       />,
     );
-    expect(screen.getByText("delivered")).toHaveAttribute(
+    expect(table().getByText("delivered")).toHaveAttribute(
       "data-tone",
       "success",
     );
-    expect(screen.getByText("!")).toBeInTheDocument();
+    expect(table().getByText("!")).toBeInTheDocument();
   });
 
   it.each([
@@ -224,7 +235,7 @@ describe("DetailBlockSubTableView", () => {
         />,
       );
 
-      expect(screen.getByText("sent")).toHaveAttribute("data-tone", tone);
+      expect(table().getByText("sent")).toHaveAttribute("data-tone", tone);
     },
   );
 
@@ -242,7 +253,7 @@ describe("DetailBlockSubTableView", () => {
         data={{ rows: [{ msg: long }] }}
       />,
     );
-    const cell = screen.getByTitle(long);
+    const cell = table().getByTitle(long);
     expect(cell.textContent).toMatch(/^a{80}…$/);
   });
 
@@ -265,12 +276,11 @@ describe("DetailBlockSubTableView", () => {
 
     expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Previous" })).toBeNull();
-    expect(screen.getByText("Row 1")).toBeInTheDocument();
-    expect(screen.getByText("Row 5")).toBeInTheDocument();
+    expect(table().getByText("Row 1")).toBeInTheDocument();
+    expect(table().getByText("Row 5")).toBeInTheDocument();
   });
 
   it("paginates rows when row count exceeds pageSize and advances on Next", () => {
-    // Setup
     const rows = Array.from({ length: 12 }, (_, index) => ({
       id: `r-${index}`,
       name: `Row ${index + 1}`,
@@ -287,27 +297,22 @@ describe("DetailBlockSubTableView", () => {
       />,
     );
 
-    // Assert — first page
     expect(screen.getByText(/Showing 1–5 of 12/)).toBeInTheDocument();
     expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
-    expect(screen.getByText("Row 1")).toBeInTheDocument();
-    expect(screen.queryByText("Row 6")).toBeNull();
+    expect(table().getByText("Row 1")).toBeInTheDocument();
+    expect(table().queryByText("Row 6")).toBeNull();
     expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
 
-    // Act — advance one page
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    // Assert — second page
     expect(screen.getByText(/Showing 6–10 of 12/)).toBeInTheDocument();
     expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
-    expect(screen.getByText("Row 6")).toBeInTheDocument();
-    expect(screen.queryByText("Row 1")).toBeNull();
+    expect(table().getByText("Row 6")).toBeInTheDocument();
+    expect(table().queryByText("Row 1")).toBeNull();
     expect(screen.getByRole("button", { name: "Previous" })).not.toBeDisabled();
 
-    // Act — advance to the last page
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    // Assert — last page disables Next
     expect(screen.getByText(/Showing 11–12 of 12/)).toBeInTheDocument();
     expect(screen.getByText("Page 3 of 3")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
@@ -341,8 +346,7 @@ describe("DetailBlockSubTableView", () => {
 
     expect(screen.getByText("many recipients")).toBeInTheDocument();
     expect(screen.getByText(/Showing 1–10 of 25/)).toBeInTheDocument();
-    const table = screen.getByRole("table");
-    expect(within(table).getAllByRole("row")).toHaveLength(11);
+    expect(table().getAllByRole("row")).toHaveLength(11);
   });
 
   it("renders section-header rows spanning all columns when sectionHeaderField is set", () => {
@@ -373,10 +377,10 @@ describe("DetailBlockSubTableView", () => {
       />,
     );
 
-    const header = screen.getByText("Industry Pulse");
+    const header = table().getByText("Industry Pulse");
     expect(header.closest("td")).toHaveAttribute("colspan", "1");
     expect(header.closest("a")).toBeNull();
-    expect(screen.getByRole("link", { name: "Alpha" })).toHaveAttribute(
+    expect(table().getByRole("link", { name: "Alpha" })).toHaveAttribute(
       "href",
       "https://example.com/a",
     );
@@ -433,23 +437,23 @@ describe("DetailBlockSubTableView", () => {
       />,
     );
 
-    expect(screen.getByRole("link", { name: "Alpha" })).toHaveAttribute(
+    expect(table().getByRole("link", { name: "Alpha" })).toHaveAttribute(
       "href",
       "https://example.com/a",
     );
     expect(
-      screen.getByText("0.40 - Competitive Landscape"),
+      table().getByText("0.40 - Competitive Landscape"),
     ).toBeInTheDocument();
-    expect(screen.getByText("0.29 - Industry Pulse")).toBeInTheDocument();
-    expect(screen.getByText("2 of 5 rules matched.")).toBeInTheDocument();
+    expect(table().getByText("0.29 - Industry Pulse")).toBeInTheDocument();
+    expect(table().getByText("2 of 5 rules matched.")).toBeInTheDocument();
     expect(
-      screen.getByText("2 of 7 rules matched: ip-macro-move."),
+      table().getByText("2 of 7 rules matched: ip-macro-move."),
     ).toBeInTheDocument();
-    expect(screen.getByText("0.29 - Industry Pulse")).toHaveClass(
+    expect(table().getByText("0.29 - Industry Pulse")).toHaveClass(
       "text-red-600",
       { exact: false },
     );
-    expect(screen.getByText("0.40 - Competitive Landscape")).toHaveClass(
+    expect(table().getByText("0.40 - Competitive Landscape")).toHaveClass(
       "text-amber-600",
       { exact: false },
     );
@@ -491,7 +495,7 @@ describe("DetailBlockSubTableView", () => {
       />,
     );
 
-    const summary = screen
+    const summary = table()
       .getByText("0.80 - Disruptors / Tech")
       .closest("summary");
     expect(summary).not.toBeNull();
@@ -499,7 +503,7 @@ describe("DetailBlockSubTableView", () => {
     expect(disclosure).not.toBeNull();
     expect(disclosure).not.toHaveAttribute("open");
     expect(
-      screen.getByText("4 of 5 rules matched: dt-new-tech."),
+      table().getByText("4 of 5 rules matched: dt-new-tech."),
     ).toBeInTheDocument();
   });
 
@@ -543,10 +547,10 @@ describe("DetailBlockSubTableView", () => {
     );
 
     expect(
-      screen.getByText("0.40 - Competitive Landscape").closest("div"),
+      table().getByText("0.40 - Competitive Landscape").closest("div"),
     ).toHaveClass("font-bold", { exact: false });
     expect(
-      screen.getByText("0.29 - Industry Pulse").closest("div"),
+      table().getByText("0.29 - Industry Pulse").closest("div"),
     ).not.toHaveClass("font-bold", { exact: false });
   });
 
@@ -572,8 +576,8 @@ describe("DetailBlockSubTableView", () => {
       />,
     );
 
-    expect(screen.getByText("Alpha")).toBeInTheDocument();
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(table().getByText("Alpha")).toBeInTheDocument();
+    expect(table().getByText("—")).toBeInTheDocument();
   });
 
   it("renders descriptionField as a link when descriptionLinkTemplate is set", () => {
@@ -609,10 +613,10 @@ describe("DetailBlockSubTableView", () => {
     );
 
     expect(
-      screen.getByText("The board approved a record payout."),
+      table().getByText("The board approved a record payout."),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Telkom declares dividend" }),
+      table().getByRole("link", { name: "Telkom declares dividend" }),
     ).toHaveAttribute("href", "https://example.com/d");
   });
 
@@ -647,14 +651,13 @@ describe("DetailBlockSubTableView", () => {
       />,
     );
 
-    expect(screen.getByText("0.9").className).toContain("text-green-600");
-    expect(screen.getByText("supporting text").className).toContain(
+    expect(table().getByText("0.9").className).toContain("text-green-600");
+    expect(table().getByText("supporting text").className).toContain(
       "text-muted-foreground",
     );
   });
 
   it("renders internal link templates as client-side links", () => {
-    // Act
     render(
       <DetailBlockSubTableView
         block={{
@@ -673,8 +676,7 @@ describe("DetailBlockSubTableView", () => {
       />,
     );
 
-    // Assert
-    const link = screen.getByRole("link", { name: "Alpha" });
+    const link = table().getByRole("link", { name: "Alpha" });
     expect(link).toHaveAttribute(
       "href",
       "/dashboard/mediapulse/articles/article-1",
@@ -684,7 +686,6 @@ describe("DetailBlockSubTableView", () => {
   });
 
   it("keeps external link templates as plain anchors opening in a new tab", () => {
-    // Act
     render(
       <DetailBlockSubTableView
         block={{
@@ -704,8 +705,7 @@ describe("DetailBlockSubTableView", () => {
       />,
     );
 
-    // Assert
-    const link = screen.getByRole("link", { name: "Alpha" });
+    const link = table().getByRole("link", { name: "Alpha" });
     expect(link).toHaveAttribute("href", "https://example.com/a");
     expect(link).not.toHaveAttribute("data-next-link");
     expect(link).toHaveAttribute("target", "_blank");
@@ -713,7 +713,6 @@ describe("DetailBlockSubTableView", () => {
   });
 
   it("treats protocol-relative link templates as external anchors", () => {
-    // Act
     render(
       <DetailBlockSubTableView
         block={{
@@ -732,14 +731,12 @@ describe("DetailBlockSubTableView", () => {
       />,
     );
 
-    // Assert
-    const link = screen.getByRole("link", { name: "Alpha" });
+    const link = table().getByRole("link", { name: "Alpha" });
     expect(link).toHaveAttribute("href", "//example.com/a");
     expect(link).not.toHaveAttribute("data-next-link");
   });
 
   it("renders internal heading and description links as client-side links", () => {
-    // Act
     render(
       <DetailBlockSubTableView
         block={{
@@ -780,9 +777,8 @@ describe("DetailBlockSubTableView", () => {
       />,
     );
 
-    // Assert
-    const headingLink = screen.getByRole("link", { name: "Alpha" });
-    const descriptionLink = screen.getByRole("link", { name: "Bisnis" });
+    const headingLink = table().getByRole("link", { name: "Alpha" });
+    const descriptionLink = table().getByRole("link", { name: "Bisnis" });
     expect(headingLink).toHaveAttribute(
       "href",
       "/dashboard/mediapulse/articles/article-1",
@@ -796,7 +792,6 @@ describe("DetailBlockSubTableView", () => {
   });
 
   it("keeps an internal link opening in a new tab when linkExternal is set", () => {
-    // Act
     render(
       <DetailBlockSubTableView
         block={{
@@ -816,10 +811,216 @@ describe("DetailBlockSubTableView", () => {
       />,
     );
 
-    // Assert
-    const link = screen.getByRole("link", { name: "Alpha" });
+    const link = table().getByRole("link", { name: "Alpha" });
     expect(link).toHaveAttribute("data-next-link");
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("renders the column labels as a header row by default", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          columns: [
+            { field: "name", label: "Name", type: "text" },
+            { field: "status", label: "Status", type: "text" },
+          ],
+        }}
+        data={{ rows: [{ name: "Alpha", status: "sent" }] }}
+      />,
+    );
+
+    const headers = table()
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+
+    expect(headers).toEqual(["Name", "Status"]);
+  });
+
+  it("stacks each row as a phone card titled by its first column", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          hideHeader: true,
+          columns: [
+            {
+              field: "title",
+              label: "Article",
+              type: "text",
+              linkTemplate: "{url}",
+              linkExternal: true,
+              descriptionField: "agentLine",
+            },
+            { field: "queryText", label: "Query", type: "text" },
+            {
+              field: "status",
+              label: "Status",
+              type: "badge",
+              badgeVariants: { collected: "success" },
+            },
+          ],
+        }}
+        data={{
+          rows: [
+            {
+              title: "Alpha",
+              url: "https://example.com/a",
+              agentLine: "data-collection",
+              queryText: "coffee prices",
+              status: "collected",
+            },
+          ],
+        }}
+      />,
+    );
+
+    const cards = within(mobileCards()).getAllByRole("listitem");
+    const card = within(cards[0] as HTMLElement);
+
+    expect(cards).toHaveLength(1);
+    expect(card.getByRole("link", { name: "Alpha" })).toHaveAttribute(
+      "href",
+      "https://example.com/a",
+    );
+    expect(card.getByText("data-collection")).toBeInTheDocument();
+    expect(card.getByRole("term")).toHaveTextContent("Query");
+    expect(card.getByRole("definition")).toHaveTextContent("coffee prices");
+    expect(card.getByText("collected")).toHaveAttribute("data-tone", "success");
+  });
+
+  it("wraps phone card values across the full card width instead of cutting them off", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          columns: [
+            { field: "title", label: "Article", type: "text" },
+            { field: "reason", label: "Reason", type: "text" },
+          ],
+        }}
+        data={{
+          rows: [
+            {
+              title: "Alpha",
+              reason: "https://example.com/a/very/long/path/that/never/breaks",
+            },
+          ],
+        }}
+      />,
+    );
+
+    const card = within(within(mobileCards()).getByRole("listitem"));
+    const titleWrapper = card.getByText("Alpha").closest("div");
+    const reasonValue = card.getByRole("definition");
+
+    expect(titleWrapper).toHaveClass("wrap-anywhere");
+    expect(titleWrapper).not.toHaveClass("truncate");
+    expect(reasonValue).toHaveClass("wrap-anywhere");
+    expect(reasonValue).not.toHaveClass("truncate");
+    expect(reasonValue.parentElement).toHaveClass("col-span-2");
+  });
+
+  it("renders section-header rows as headings between the phone cards", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          hideHeader: true,
+          sectionHeaderField: "isSection",
+          columns: [{ field: "label", label: "Article", type: "text" }],
+        }}
+        data={{
+          rows: [
+            { label: "Industry Pulse", isSection: true },
+            { label: "Alpha", isSection: false },
+          ],
+        }}
+      />,
+    );
+
+    const items = within(mobileCards()).getAllByRole("listitem");
+
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveAttribute(
+      "data-slot",
+      "data-table-mobile-section-heading",
+    );
+    expect(items[0]).toHaveTextContent("Industry Pulse");
+    expect(items[1]).toHaveTextContent("Alpha");
+  });
+
+  it("applies a column's minWidth to its header and cells", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "counters",
+          columns: [
+            { field: "label", label: "Counter", type: "text", minWidth: 280 },
+            { field: "value", label: "Value", type: "text" },
+          ],
+        }}
+        data={{ counters: [{ label: "Articles read", value: "12" }] }}
+      />,
+    );
+
+    const header = table().getByRole("columnheader", { name: "Counter" });
+    const cell = table().getByText("Articles read").closest("td");
+
+    expect(header).toHaveStyle({ minWidth: "280px" });
+    expect(cell).toHaveStyle({ minWidth: "280px" });
+  });
+
+  it("keeps noWrap values on one line only where the desktop table shows", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          columns: [
+            {
+              field: "url",
+              label: "Article URL",
+              type: "text",
+              noWrap: true,
+              linkTemplate: "{url}",
+              linkExternal: true,
+            },
+          ],
+        }}
+        data={{ rows: [{ url: "https://example.com/a" }] }}
+      />,
+    );
+
+    const link = table().getByRole("link", { name: "https://example.com/a" });
+
+    expect(link).toHaveClass("md:whitespace-nowrap");
+    expect(link).not.toHaveClass("whitespace-nowrap");
+  });
+
+  it("renders a copyAction as an icon button beside the value", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          columns: [
+            { field: "id", label: "Id", type: "text", copyAction: true },
+          ],
+        }}
+        data={{ rows: [{ id: "run-123" }] }}
+      />,
+    );
+
+    const button = table().getByRole("button", { name: "Copy Id" });
+
+    expect(button).toHaveClass("size-7");
+    expect(button).toHaveTextContent("");
   });
 });

@@ -35,6 +35,7 @@ Paths are under `apps/hermes/dashboard/`. Primitives (Button, Card, Table, Sheet
 | Modal form layout | `components/form-dialog.tsx`, `components/submit-button.tsx`, `components/form-error-alert.tsx` |
 | One-time secret display | `components/one-time-secret-reveal.tsx` |
 | Copyable id | `components/copyable-id.tsx` |
+| JSON on a detail page or in a dialog (copy, wrap toggle, height cap with Show all) | `components/json-block.tsx` (`JsonBlock`). Never render JSON in a raw `<pre>` |
 | Execution detail pages | `components/execution-detail/` (`ExecutionDetailView`) |
 | Execution lists | `components/executions/executions-data-table.tsx` (`ExecutionsDataTable`) with rows from `lib/execution-list.ts` (`pipelineExecutionToListRow`); `omitColumns` drops Pipeline or Source when the page implies it |
 | Manifest-driven domain detail | `components/detail-blocks/` |

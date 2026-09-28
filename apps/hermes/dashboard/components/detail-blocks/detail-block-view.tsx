@@ -11,13 +11,6 @@ import { DetailBlockStatCardsView } from "./detail-block-stat-cards";
 import { DetailBlockSubTableView } from "./detail-block-sub-table";
 import { DetailBlockTabsView } from "./detail-block-tabs";
 
-/**
- * Renders a single detail block based on its discriminant `type`. Throws for
- * unknown types so a misconfigured manifest fails loudly during development.
- *
- * @param props.block - Manifest block definition.
- * @param props.data - Detail response object.
- */
 export const DetailBlockView = ({
   block,
   data,
@@ -45,13 +38,13 @@ export const DetailBlockView = ({
   }
   if (block.type === "panel") {
     return (
-      <Card className="gap-4 p-4 shadow-none">
+      <Card className="min-w-0 gap-4 p-4 shadow-none">
         <DetailBlockSectionHeader
           label={block.label}
           sectionRule={block.sectionRule}
           data={data}
         />
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-6">
           {block.blocks.map((child, index) => (
             <DetailBlockView
               key={`${child.type}-${String(index)}`}
@@ -66,18 +59,10 @@ export const DetailBlockView = ({
   if (block.type === "tabs") {
     return <DetailBlockTabsView block={block} data={data} />;
   }
-  // Exhaustive check — also satisfies the AC false-positive guard.
   const exhaustive: never = block;
   throw new Error(`Unknown detail block type: ${JSON.stringify(exhaustive)}`);
 };
 
-/**
- * Renders an ordered list of detail blocks. Convenience wrapper around
- * {@link DetailBlockView}.
- *
- * @param props.blocks - Manifest block list, in render order.
- * @param props.data - Detail response object.
- */
 export const DetailBlocksView = ({
   blocks,
   data,
@@ -85,7 +70,7 @@ export const DetailBlocksView = ({
   blocks: readonly DetailBlock[];
   data: unknown;
 }) => (
-  <div className="flex flex-col gap-8">
+  <div className="flex min-w-0 flex-col gap-6">
     {blocks.map((block, index) => (
       <DetailBlockView
         key={`${block.type}-${index}`}

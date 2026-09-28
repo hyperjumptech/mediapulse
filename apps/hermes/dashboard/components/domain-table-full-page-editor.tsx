@@ -15,6 +15,7 @@ import { Spinner } from "@workspace/ui/components/spinner";
 import { PipelineUsageList } from "@/components/pipeline-usage-list";
 import { DomainTableFormFields } from "@/components/domain-table-form-fields";
 import { FormErrorAlert } from "@/components/form-error-alert";
+import { JsonBlock } from "@/components/json-block";
 import { FormStatusSubmitButton } from "@/components/submit-button";
 import { useDomainTableFullPageEditor } from "@/hooks/use-domain-table-full-page-editor";
 import { runDomainTablePreviewExpansion } from "@/lib/domain-table-full-page-actions";
@@ -116,9 +117,10 @@ export const DomainTableFullPageEditor = ({
               />
             ) : null}
             {previewResult?.success === true ? (
-              <pre className="max-h-[min(60vh,480px)] overflow-auto rounded-md border bg-muted/40 p-3 text-xs">
-                {JSON.stringify(previewResult.values, null, 2)}
-              </pre>
+              <JsonBlock
+                value={previewResult.values}
+                maxHeight="max-h-[min(60vh,480px)]"
+              />
             ) : null}
             {!previewError && previewResult === null ? (
               <p className="text-sm text-muted-foreground">

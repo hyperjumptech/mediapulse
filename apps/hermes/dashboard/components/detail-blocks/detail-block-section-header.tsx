@@ -22,10 +22,16 @@ export const DetailBlockSectionHeader = ({
     : false;
   const showLabel = typeof label === "string" && label.length > 0;
   if (!showLabel && !matches) return null;
+
   return (
-    <div className="flex items-center gap-2">
+    <div
+      data-slot="detail-block-section-header"
+      className="flex min-w-0 flex-wrap items-center gap-2"
+    >
       {showLabel ? (
-        <h2 className="text-base font-semibold text-foreground">{label}</h2>
+        <h2 className="min-w-0 text-base font-semibold break-words text-foreground">
+          {label}
+        </h2>
       ) : null}
       {matches && sectionRule ? (
         <ToneBadge tone={mapBadgeTone(sectionRule.badge)}>
@@ -42,6 +48,7 @@ const evaluateSectionRuleSafely = (
 ): boolean => {
   try {
     const ast = parseDetailBlockRule(rule.when);
+
     return evaluateDetailBlockRule(ast, data);
   } catch {
     return false;

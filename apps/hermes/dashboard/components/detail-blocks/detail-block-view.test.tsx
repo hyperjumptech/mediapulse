@@ -1,6 +1,5 @@
-/** @vitest-environment jsdom */
-
-import { render, screen } from "@testing-library/react";
+import type { DetailBlock } from "@hermes/domain-contract";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { DetailBlockView, DetailBlocksView } from "./detail-block-view";
@@ -105,8 +104,10 @@ describe("DetailBlockView", () => {
         }}
       />,
     );
-    expect(screen.getByText("Article")).toBeInTheDocument();
-    const link = screen.getByRole("link");
+    const table = within(screen.getByRole("table"));
+    const link = table.getByRole("link");
+
+    expect(table.getByText("Article")).toBeInTheDocument();
     expect(link).toHaveAttribute(
       "href",
       "/dashboard/mediapulse/data-sources/abc",
@@ -140,19 +141,26 @@ describe("DetailBlockView", () => {
   });
 
   it("throws on unknown block type", () => {
+    const unknownBlock = { type: "unknown" } as unknown as DetailBlock;
+
     expect(() =>
-      render(
-        <DetailBlockView
-          // @ts-expect-error intentional bad type for false-positive guard
-          block={{ type: "unknown" }}
-          data={{}}
-        />,
-      ),
+      render(<DetailBlockView block={unknownBlock} data={{}} />),
     ).toThrow();
   });
 });
 
 describe("DetailBlocksView", () => {
+  it("separates top-level blocks with a 24px gap", () => {
+    const { container } = render(
+      <DetailBlocksView
+        blocks={[{ type: "markdown", field: "body" }]}
+        data={{ body: "Hello" }}
+      />,
+    );
+
+    expect(container.firstElementChild).toHaveClass("flex-col", "gap-6");
+  });
+
   it("renders blocks in order", () => {
     render(
       <DetailBlocksView

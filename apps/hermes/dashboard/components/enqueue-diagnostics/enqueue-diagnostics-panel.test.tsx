@@ -38,7 +38,6 @@ describe("EnqueueDiagnosticsPanel", () => {
   });
 
   it("describes a failed enqueue in a destructive card", () => {
-    // Act
     render(
       <EnqueueDiagnosticsPanel
         enqueueStatus="failed"
@@ -46,7 +45,6 @@ describe("EnqueueDiagnosticsPanel", () => {
       />,
     );
 
-    // Assert
     const region = screen.getByRole("region", { name: "Enqueue diagnostics" });
 
     expect(region).toHaveAttribute("data-slot", "card");
@@ -57,7 +55,6 @@ describe("EnqueueDiagnosticsPanel", () => {
   });
 
   it("describes a partial enqueue in a warning card", () => {
-    // Act
     render(
       <EnqueueDiagnosticsPanel
         enqueueStatus="partial"
@@ -65,7 +62,6 @@ describe("EnqueueDiagnosticsPanel", () => {
       />,
     );
 
-    // Assert
     const region = screen.getByRole("region", { name: "Enqueue diagnostics" });
 
     expect(region).toHaveClass("border-warning/40");
@@ -100,6 +96,26 @@ describe("EnqueueDiagnosticsPanel", () => {
     );
     expect(screen.getByText("Invalid error payload")).toBeInTheDocument();
     expect(screen.getByText(/"not"/)).toBeInTheDocument();
+  });
+
+  it("shows the invalid payload in a capped, copyable JSON block", () => {
+    render(
+      <EnqueueDiagnosticsPanel
+        enqueueStatus="failed"
+        errors={{ not: "array" }}
+      />,
+    );
+
+    const payloadBody = screen.getByRole("region", { name: "Raw payload" });
+
+    expect(payloadBody).toHaveTextContent('{ "not": "array" }');
+    expect(payloadBody).toHaveClass("max-h-48");
+    expect(
+      screen.getByRole("button", { name: "Copy raw payload" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Copy enqueue diagnostics JSON" }),
+    ).toBeInTheDocument();
   });
 
   it("masks structured secrets in invalid error JSON before display", () => {

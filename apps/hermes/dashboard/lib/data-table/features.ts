@@ -27,6 +27,8 @@ export type DataTableColumnMeta = {
   sortKey?: string;
   hideBelow?: DataTableBreakpoint;
   mobile?: DataTableMobileRole;
+  mobileWrap?: boolean;
+  minWidth?: number;
   headerClassName?: string;
   cellClassName?: string;
 };

@@ -136,6 +136,12 @@ describe("ScheduleExecutionInvocationsTable", () => {
     fireEvent.mouseDown(within(dialog).getByRole("tab", { name: "Input" }));
 
     expect(within(dialog).getByText(/"ticker": "ABC"/)).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Copy JSON" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Wrap lines" }),
+    ).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.mouseDown(within(dialog).getByRole("tab", { name: "Config" }));
 

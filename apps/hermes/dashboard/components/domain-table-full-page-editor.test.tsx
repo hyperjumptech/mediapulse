@@ -1,13 +1,19 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import type { PreviewExpansionResponse } from "@hermes/domain-contract";
 
 import { DomainTableFullPageEditor } from "./domain-table-full-page-editor";
+
+const { previewResultMock } = vi.hoisted(() => ({
+  previewResultMock: vi.fn<() => PreviewExpansionResponse | null>(() => null),
+}));
 
 vi.mock("@/hooks/use-domain-table-full-page-editor", () => ({
   useDomainTableFullPageEditor: () => ({
     formRef: { current: null },
-    previewResult: null,
+    previewResult: previewResultMock(),
     previewLoading: false,
     previewError: null,
     runPreviewClick: vi.fn(),
@@ -53,11 +59,14 @@ const baseProps = {
 };
 
 describe("DomainTableFullPageEditor", () => {
+  afterEach(() => {
+    previewResultMock.mockReset();
+    previewResultMock.mockReturnValue(null);
+  });
+
   it("renders empty usage state when no pipelines reference the item", () => {
-    // Act
     render(<DomainTableFullPageEditor {...baseProps} usedInPipelines={[]} />);
 
-    // Assert
     expect(screen.getByText("Used in pipelines")).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -67,7 +76,6 @@ describe("DomainTableFullPageEditor", () => {
   });
 
   it("renders linked pipeline rows when usage exists", () => {
-    // Act
     render(
       <DomainTableFullPageEditor
         {...baseProps}
@@ -82,10 +90,47 @@ describe("DomainTableFullPageEditor", () => {
       />,
     );
 
-    // Assert
     expect(screen.getByRole("link", { name: "Pipeline one" })).toHaveAttribute(
       "href",
       "/dashboard/pipelines/pipeline-1",
     );
+  });
+
+  it("prompts for a preview before one has run", () => {
+    render(
+      <DomainTableFullPageEditor
+        {...baseProps}
+        showPreview
+        previewFieldKey="expansionString"
+      />,
+    );
+
+    expect(
+      screen.getByText("Run preview to see resolved values here."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows resolved preview values in a copyable JSON block", () => {
+    previewResultMock.mockReturnValue({
+      success: true,
+      values: ["alpha", "beta"],
+    });
+
+    render(
+      <DomainTableFullPageEditor
+        {...baseProps}
+        showPreview
+        previewFieldKey="expansionString"
+      />,
+    );
+
+    const jsonBody = screen.getByRole("region", { name: "JSON" });
+
+    expect(jsonBody).toHaveTextContent('[ "alpha", "beta" ]');
+    expect(jsonBody).toHaveClass("max-h-[min(60vh,480px)]");
+    expect(screen.getByRole("button", { name: "Copy JSON" })).toBeVisible();
+    expect(
+      screen.queryByText("Run preview to see resolved values here."),
+    ).not.toBeInTheDocument();
   });
 });

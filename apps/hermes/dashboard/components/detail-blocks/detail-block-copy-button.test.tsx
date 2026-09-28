@@ -1,5 +1,3 @@
-/** @vitest-environment jsdom */
-
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -7,48 +5,60 @@ import { DetailBlockCopyButton } from "./detail-block-copy-button";
 
 describe("DetailBlockCopyButton", () => {
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  it("renders the Copy label and the accessible aria-label", () => {
+  it("renders a small icon-only button named by its label", () => {
     render(
       <DetailBlockCopyButton value="abc-123" label="Copy newsletter id" />,
     );
 
     const button = screen.getByRole("button", { name: "Copy newsletter id" });
-    expect(button).toBeInTheDocument();
-    expect(screen.getByText("Copy")).toBeInTheDocument();
+
+    expect(button).toHaveClass("size-7", "shrink-0");
+    expect(button).toHaveAttribute("title", "Copy newsletter id");
+    expect(button).toHaveTextContent("");
   });
 
-  it("writes the value to the clipboard and shows the Copied confirmation", async () => {
-    // Setup
+  it("merges a custom className onto the button", () => {
+    render(
+      <DetailBlockCopyButton
+        value="abc-123"
+        label="Copy id"
+        className="-my-1"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Copy id" })).toHaveClass(
+      "-my-1",
+      "size-7",
+    );
+  });
+
+  it("writes the value to the clipboard and announces the copy", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { clipboard: { writeText } });
 
-    // Act
     render(<DetailBlockCopyButton value="abc-123" label="Copy id" />);
     fireEvent.click(screen.getByRole("button", { name: "Copy id" }));
-    await screen.findByText("Copied");
+    const copiedButton = await screen.findByRole("button", { name: "Copied" });
 
-    // Assert
     expect(writeText).toHaveBeenCalledWith("abc-123");
-    expect(screen.getByText("Copied")).toBeInTheDocument();
+    expect(copiedButton).toBeInTheDocument();
   });
 
-  it("keeps showing Copy when the clipboard write rejects", async () => {
-    // Setup
+  it("keeps the copy label when the clipboard write rejects", async () => {
     const writeText = vi.fn().mockRejectedValue(new Error("denied"));
     vi.stubGlobal("navigator", { clipboard: { writeText } });
 
-    // Act
     render(<DetailBlockCopyButton value="abc-123" label="Copy id" />);
     fireEvent.click(screen.getByRole("button", { name: "Copy id" }));
     await Promise.resolve();
     await Promise.resolve();
 
-    // Assert
     expect(writeText).toHaveBeenCalledWith("abc-123");
-    expect(screen.queryByText("Copied")).toBeNull();
-    expect(screen.getByText("Copy")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Copied" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Copy id" })).toBeInTheDocument();
   });
 });

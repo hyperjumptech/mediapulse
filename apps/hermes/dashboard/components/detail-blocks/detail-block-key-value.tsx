@@ -6,7 +6,9 @@ import {
 } from "@hermes/domain-contract";
 
 import { DateTime } from "@/components/date-time/date-time";
+import { SummaryGrid, SummaryItem } from "@/components/summary-grid";
 import { toValidDate } from "@/lib/date-time/format-date-time";
+import { isUnbrokenText } from "@/lib/unbroken-text";
 
 import { DetailBlockCopyButton } from "./detail-block-copy-button";
 import { DetailBlockSectionHeader } from "./detail-block-section-header";
@@ -42,10 +44,13 @@ const formatTokens = (row: DetailBlockKeyValueRow, data: unknown): string => {
   return `${fmt(prompt)} + ${fmt(completion)} = ${fmt(total)}`;
 };
 
-/**
- * Renders one label/value row of a `keyValue` block. Honors `linkTemplate`,
- * `copyAction`, and `format` options on the row.
- */
+const copyValueFor = (raw: unknown): string => {
+  if (typeof raw === "string") return raw;
+  if (raw === null || raw === undefined) return "";
+
+  return String(raw);
+};
+
 const DetailBlockKeyValueRowView = ({
   row,
   data,
@@ -64,43 +69,35 @@ const DetailBlockKeyValueRowView = ({
     return formatPlain(raw);
   })();
   const content = date ? <DateTime value={date} style="datetime" /> : text;
-  const copyValue =
-    typeof raw === "string"
-      ? raw
-      : raw === null || raw === undefined
-        ? ""
-        : String(raw);
+  const copyValue = copyValueFor(raw);
+  const showCopy = row.copyAction === true && copyValue.length > 0;
+  const breakAll = date === null && isUnbrokenText(text);
+
   return (
-    <div className="grid gap-1">
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-        {row.label}
-      </dt>
-      <dd className="flex items-center gap-2 break-words text-sm">
+    <SummaryItem label={row.label} breakAll={breakAll}>
+      <div className="flex min-w-0 items-start gap-1">
         {url && text !== "—" ? (
-          <a href={url} className="text-primary underline underline-offset-4">
+          <a
+            href={url}
+            className="min-w-0 text-primary underline underline-offset-4"
+          >
             {content}
           </a>
         ) : (
-          <span>{content}</span>
+          <span className="min-w-0">{content}</span>
         )}
-        {row.copyAction === true && copyValue.length > 0 ? (
+        {showCopy ? (
           <DetailBlockCopyButton
             value={copyValue}
             label={`Copy ${row.label}`}
+            className="-my-1"
           />
         ) : null}
-      </dd>
-    </div>
+      </div>
+    </SummaryItem>
   );
 };
 
-/**
- * Renders a `keyValue` detail block — a grid of label/value rows pulled from
- * the detail response.
- *
- * @param props.block - Manifest definition.
- * @param props.data - Detail response object.
- */
 export const DetailBlockKeyValueView = ({
   block,
   data,
@@ -109,13 +106,13 @@ export const DetailBlockKeyValueView = ({
   data: unknown;
 }) => {
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <DetailBlockSectionHeader
         label={block.label}
         sectionRule={block.sectionRule}
         data={data}
       />
-      <dl className="grid max-w-3xl gap-3 sm:grid-cols-2">
+      <SummaryGrid variant="plain" className="max-w-3xl">
         {block.rows.map((row) => (
           <DetailBlockKeyValueRowView
             key={`${row.field}:${row.label}`}
@@ -123,7 +120,7 @@ export const DetailBlockKeyValueView = ({
             data={data}
           />
         ))}
-      </dl>
+      </SummaryGrid>
     </section>
   );
 };

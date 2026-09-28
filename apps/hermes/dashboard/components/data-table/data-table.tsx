@@ -68,6 +68,8 @@ export type DataTableProps<Row extends RowData> = {
   toolbarFilters?: ReactNode;
   emptyState: DataTableEmptyState;
   initialColumnVisibility?: ColumnVisibility;
+  hideHeader?: boolean;
+  getSectionHeading?: (row: Row) => string | null;
 };
 
 const HIDE_BELOW_CLASS: Record<DataTableBreakpoint, string> = {
@@ -126,6 +128,23 @@ const ariaSortFor = (headerSort: HeaderSort | null) => {
 
   return headerSort.activeDirection === "asc" ? "ascending" : "descending";
 };
+
+const minWidthStyle = (minWidth: number | undefined) =>
+  minWidth ? { minWidth } : undefined;
+
+const SectionHeadingRow = ({
+  heading,
+  columnCount,
+}: {
+  heading: string;
+  columnCount: number;
+}) => (
+  <TableRow className="bg-muted/50 hover:bg-muted/50">
+    <TableCell colSpan={columnCount} className="px-4 font-semibold">
+      {heading}
+    </TableCell>
+  </TableRow>
+);
 
 const EmptyResults = ({
   emptyState,
@@ -187,6 +206,8 @@ export const DataTable = <Row extends RowData>({
   toolbarFilters,
   emptyState,
   initialColumnVisibility,
+  hideHeader = false,
+  getSectionHeading,
 }: DataTableProps<Row>) => {
   const table = useDataTable({
     tableId,
@@ -235,83 +256,108 @@ export const DataTable = <Row extends RowData>({
         <>
           <DataTableCard className="hidden md:block">
             <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow
-                    key={headerGroup.id}
-                    className="hover:bg-transparent"
-                  >
-                    {headerGroup.headers.map((header, index) => {
-                      const meta = header.column.columnDef.meta;
-                      const headerSort = headerSortFor(
-                        header.column,
-                        meta?.sortKey,
-                        urlState,
-                        Boolean(clientSorting),
-                      );
-                      const isLast = index === headerGroup.headers.length - 1;
+              {hideHeader ? null : (
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow
+                      key={headerGroup.id}
+                      className="hover:bg-transparent"
+                    >
+                      {headerGroup.headers.map((header, index) => {
+                        const meta = header.column.columnDef.meta;
+                        const headerSort = headerSortFor(
+                          header.column,
+                          meta?.sortKey,
+                          urlState,
+                          Boolean(clientSorting),
+                        );
+                        const isLast = index === headerGroup.headers.length - 1;
 
-                      return (
-                        <TableHead
-                          key={header.id}
-                          aria-sort={ariaSortFor(headerSort)}
-                          className={cn(
-                            index === 0 && "pl-4",
-                            isLast && "pr-4",
-                            meta?.mobile === "actions" && "w-0",
-                            meta?.hideBelow && HIDE_BELOW_CLASS[meta.hideBelow],
-                            meta?.headerClassName,
-                          )}
-                        >
-                          {headerSort ? (
-                            <DataTableColumnHeader
-                              label={meta?.label ?? header.column.id}
-                              activeDirection={headerSort.activeDirection}
-                              targets={headerSort.targets}
-                              onHide={
-                                header.column.getCanHide()
-                                  ? () => header.column.toggleVisibility(false)
-                                  : undefined
-                              }
-                            />
-                          ) : meta?.mobile === "actions" ? (
-                            <span className="sr-only">{meta.label}</span>
-                          ) : (
-                            (meta?.label ?? <FlexRender header={header} />)
-                          )}
-                        </TableHead>
-                      );
-                    })}
-                  </TableRow>
-                ))}
-              </TableHeader>
+                        return (
+                          <TableHead
+                            key={header.id}
+                            aria-sort={ariaSortFor(headerSort)}
+                            style={minWidthStyle(meta?.minWidth)}
+                            className={cn(
+                              index === 0 && "pl-4",
+                              isLast && "pr-4",
+                              meta?.mobile === "actions" && "w-0",
+                              meta?.hideBelow &&
+                                HIDE_BELOW_CLASS[meta.hideBelow],
+                              meta?.headerClassName,
+                            )}
+                          >
+                            {headerSort ? (
+                              <DataTableColumnHeader
+                                label={meta?.label ?? header.column.id}
+                                activeDirection={headerSort.activeDirection}
+                                targets={headerSort.targets}
+                                onHide={
+                                  header.column.getCanHide()
+                                    ? () =>
+                                        header.column.toggleVisibility(false)
+                                    : undefined
+                                }
+                              />
+                            ) : meta?.mobile === "actions" ? (
+                              <span className="sr-only">{meta.label}</span>
+                            ) : (
+                              (meta?.label ?? <FlexRender header={header} />)
+                            )}
+                          </TableHead>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+              )}
               <TableBody>
-                {tableRows.map((row) => (
-                  <TableRow key={row.id}>
-                    {row.getVisibleCells().map((cell, index, cells) => {
-                      const meta = cell.column.columnDef.meta;
-                      const isLast = index === cells.length - 1;
+                {tableRows.map((row) => {
+                  const cells = row.getVisibleCells();
+                  const sectionHeading =
+                    getSectionHeading?.(row.original) ?? null;
+                  if (sectionHeading !== null) {
+                    return (
+                      <SectionHeadingRow
+                        key={row.id}
+                        heading={sectionHeading}
+                        columnCount={cells.length}
+                      />
+                    );
+                  }
 
-                      return (
-                        <TableCell
-                          key={cell.id}
-                          className={cn(
-                            index === 0 && "pl-4",
-                            isLast && meta?.mobile !== "actions" && "pr-4",
-                            meta?.hideBelow && HIDE_BELOW_CLASS[meta.hideBelow],
-                            meta?.cellClassName,
-                          )}
-                        >
-                          <FlexRender cell={cell} />
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))}
+                  return (
+                    <TableRow key={row.id}>
+                      {cells.map((cell, index) => {
+                        const meta = cell.column.columnDef.meta;
+                        const isLast = index === cells.length - 1;
+
+                        return (
+                          <TableCell
+                            key={cell.id}
+                            style={minWidthStyle(meta?.minWidth)}
+                            className={cn(
+                              index === 0 && "pl-4",
+                              isLast && meta?.mobile !== "actions" && "pr-4",
+                              meta?.hideBelow &&
+                                HIDE_BELOW_CLASS[meta.hideBelow],
+                              meta?.cellClassName,
+                            )}
+                          >
+                            <FlexRender cell={cell} />
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </DataTableCard>
-          <DataTableMobileList rows={tableRows} />
+          <DataTableMobileList
+            rows={tableRows}
+            getSectionHeading={getSectionHeading}
+          />
         </>
       )}
 

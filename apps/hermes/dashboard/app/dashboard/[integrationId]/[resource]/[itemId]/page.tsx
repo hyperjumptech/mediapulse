@@ -22,6 +22,7 @@ import {
 } from "@/lib/domain-table-columns";
 import { parseDomainTableFormFieldsFromJsonSchema } from "@/lib/domain-table-form-schema";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
+import { isUnbrokenText } from "@/lib/unbroken-text";
 
 type DomainTableMeta = Awaited<ReturnType<typeof getDomainTableMeta>>;
 
@@ -178,7 +179,8 @@ const ViewDomainTableItemPage = async ({
             <SummaryItem
               key={field.key}
               label={field.label}
-              className={field.isLong ? "col-span-full" : undefined}
+              wide={field.isLong}
+              breakAll={isUnbrokenText(field.display)}
             >
               <span className="whitespace-pre-wrap">{field.display}</span>
             </SummaryItem>

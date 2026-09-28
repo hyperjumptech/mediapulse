@@ -1,3 +1,5 @@
+"use client";
+
 import {
   renderCaptionTemplate,
   renderUrlTemplate,
@@ -9,20 +11,18 @@ import {
 } from "@hermes/domain-contract";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import { useMemo, type ReactNode } from "react";
+import { ChevronDown, Inbox } from "lucide-react";
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@workspace/ui/components/table";
+import { cn } from "@workspace/ui/lib/utils";
 
+import { DataTable } from "@/components/data-table/data-table";
 import { DateTime } from "@/components/date-time/date-time";
 import { ToneBadge } from "@/components/status-badge";
+import {
+  createDataTableColumnHelper,
+  type DataTableMobileRole,
+} from "@/lib/data-table/features";
 import { toValidDate } from "@/lib/date-time/format-date-time";
 
 import { DetailBlockCopyButton } from "./detail-block-copy-button";
@@ -97,7 +97,6 @@ const asRow = (entry: unknown): Record<string, unknown> =>
     : {};
 
 const LIST_GRID_CLASS: Record<number, string> = {
-  1: "grid-cols-1",
   2: "sm:grid-cols-2",
   3: "sm:grid-cols-3",
   4: "sm:grid-cols-4",
@@ -299,7 +298,10 @@ const DetailBlockSubTableCellBody = ({
 
     return (
       <div
-        className={`grid gap-x-8 gap-y-2.5 ${LIST_GRID_CLASS[perRow] ?? ""}`}
+        className={cn(
+          "grid grid-cols-1 gap-x-8 gap-y-2.5",
+          LIST_GRID_CLASS[perRow],
+        )}
       >
         {renderedEntries}
       </div>
@@ -349,7 +351,8 @@ const DetailBlockSubTableCellBody = ({
         row: rowContext,
       })
     : undefined;
-  const nowrapClass = column.noWrap === true ? "whitespace-nowrap" : undefined;
+  const nowrapClass =
+    column.noWrap === true ? "md:whitespace-nowrap" : undefined;
   const mutedClass =
     column.muted === true ? "text-muted-foreground" : undefined;
   const colorVariant = column.colorField
@@ -383,7 +386,7 @@ const DetailBlockSubTableCellBody = ({
       </span>
     );
   const primary = (
-    <span className="inline-flex items-center gap-2">
+    <span className="inline-flex max-w-full items-center gap-1">
       {node}
       {column.copyAction === true &&
       typeof value === "string" &&
@@ -442,6 +445,78 @@ const DetailBlockSubTableCellBody = ({
   );
 };
 
+type SubTableRow = {
+  rowKey: string;
+  values: Record<string, unknown>;
+};
+
+const SUB_TABLE_ID = "detail-block-sub-table";
+
+const subTableColumnHelper = createDataTableColumnHelper<SubTableRow>();
+
+const mobileRoleFor = (
+  column: DetailBlockSubTableColumn,
+  index: number,
+  titleIndex: number,
+): DataTableMobileRole => {
+  if (column.type === "badge") return "badge";
+
+  return index === titleIndex ? "title" : "field";
+};
+
+const buildSubTableColumns = (
+  columns: readonly DetailBlockSubTableColumn[],
+  rowContext: unknown,
+) => {
+  const titleIndex = columns.findIndex((column) => column.type !== "badge");
+
+  return subTableColumnHelper.columns(
+    columns.map((column, index) =>
+      subTableColumnHelper.display({
+        id: `${String(index)}:${column.field}`,
+        enableHiding: false,
+        meta: {
+          label: column.label,
+          mobile: mobileRoleFor(column, index, titleIndex),
+          mobileWrap: true,
+          minWidth: column.minWidth,
+        },
+        cell: ({ row }) => (
+          <DetailBlockSubTableCell
+            column={column}
+            row={row.original.values}
+            rowContext={rowContext}
+          />
+        ),
+      }),
+    ),
+  );
+};
+
+const toSubTableRows = (
+  rows: readonly Record<string, unknown>[],
+): SubTableRow[] =>
+  rows.map((values, index) => ({
+    rowKey: typeof values.id === "string" ? values.id : `row-${String(index)}`,
+    values,
+  }));
+
+const sectionHeadingReader = (
+  columns: readonly DetailBlockSubTableColumn[],
+  sectionHeaderField: string | undefined,
+) => {
+  if (sectionHeaderField === undefined) return undefined;
+  const headerColumn = columns[0];
+
+  return (row: SubTableRow): string | null => {
+    if (!resolvePath(row.values, sectionHeaderField)) return null;
+
+    return headerColumn
+      ? String(resolvePath(row.values, headerColumn.field) ?? "")
+      : "";
+  };
+};
+
 export const DetailBlockSubTableContent = ({
   columns,
   rows,
@@ -454,71 +529,29 @@ export const DetailBlockSubTableContent = ({
   rowContext: unknown;
   hideHeader?: boolean;
   sectionHeaderField?: string;
-}) => (
-  <div className="overflow-x-auto rounded-md border">
-    <Table>
-      {hideHeader ? null : (
-        <TableHeader>
-          <TableRow>
-            {columns.map((column) => (
-              <TableHead
-                key={column.field}
-                style={
-                  column.minWidth ? { minWidth: column.minWidth } : undefined
-                }
-              >
-                {column.label}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-      )}
-      <TableBody>
-        {rows.map((row, rowIndex) => {
-          const rowKey =
-            typeof row.id === "string" ? row.id : `row-${rowIndex}`;
-          const isSectionHeader =
-            sectionHeaderField !== undefined &&
-            Boolean(resolvePath(row, sectionHeaderField));
-          if (isSectionHeader) {
-            const headerColumn = columns[0];
-            const headerText = headerColumn
-              ? String(resolvePath(row, headerColumn.field) ?? "")
-              : "";
-            return (
-              <TableRow key={rowKey} className="bg-muted/50">
-                <TableCell
-                  colSpan={columns.length}
-                  className="text-foreground font-semibold"
-                >
-                  {headerText}
-                </TableCell>
-              </TableRow>
-            );
-          }
-          return (
-            <TableRow key={rowKey}>
-              {columns.map((column) => (
-                <TableCell
-                  key={`${rowKey}-${column.field}`}
-                  style={
-                    column.minWidth ? { minWidth: column.minWidth } : undefined
-                  }
-                >
-                  <DetailBlockSubTableCell
-                    column={column}
-                    row={row}
-                    rowContext={rowContext}
-                  />
-                </TableCell>
-              ))}
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
-  </div>
-);
+}) => {
+  const tableColumns = useMemo(
+    () => buildSubTableColumns(columns, rowContext),
+    [columns, rowContext],
+  );
+  const tableRows = useMemo(() => toSubTableRows(rows), [rows]);
+  const getSectionHeading = useMemo(
+    () => sectionHeadingReader(columns, sectionHeaderField),
+    [columns, sectionHeaderField],
+  );
+
+  return (
+    <DataTable
+      tableId={SUB_TABLE_ID}
+      columns={tableColumns}
+      rows={tableRows}
+      getRowId={(row) => row.rowKey}
+      hideHeader={hideHeader}
+      getSectionHeading={getSectionHeading}
+      emptyState={{ icon: Inbox, title: "No items." }}
+    />
+  );
+};
 
 export const DetailBlockSubTableView = ({
   block,
@@ -555,8 +588,9 @@ export const DetailBlockSubTableView = ({
   }
   const shouldPaginate =
     typeof block.pageSize === "number" && rows.length > block.pageSize;
+
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <DetailBlockSectionHeader
         label={block.label}
         sectionRule={block.sectionRule}

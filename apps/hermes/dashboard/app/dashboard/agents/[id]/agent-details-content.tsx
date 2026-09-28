@@ -21,6 +21,7 @@ import {
 import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
 import { CopyableId } from "@/components/copyable-id";
 import { DomainContentView } from "@/components/domain-content-view";
+import { JsonBlock } from "@/components/json-block";
 import { PageHeader } from "@/components/page-header";
 import { DateTime } from "@/components/date-time/date-time";
 import { StatusBadge } from "@/components/status-badge";
@@ -28,7 +29,6 @@ import { SummaryGrid, SummaryItem } from "@/components/summary-grid";
 import type { AgentDetail } from "@/lib/agents";
 
 import { EndpointDisplay, endpointToRecord } from "../endpoint-display";
-import { JsonPretty } from "../json-pretty";
 import { AgentUnregisterButton } from "./agent-unregister-button";
 
 type AgentTabContent = {
@@ -61,6 +61,23 @@ const readEndpointUrl = (endpoint: unknown): string | null => {
     : null;
 };
 
+const readEndpointDetailsWithoutUrl = (
+  endpoint: unknown,
+): Record<string, unknown> | null => {
+  const endpointRecord = endpointToRecord(endpoint);
+
+  if (endpointRecord === null) {
+    return null;
+  }
+
+  const endpointEntriesWithoutUrl = Object.entries(endpointRecord).filter(
+    ([key]) => key !== "url",
+  );
+  const endpointDetails = Object.fromEntries(endpointEntriesWithoutUrl);
+
+  return Object.keys(endpointDetails).length > 0 ? endpointDetails : null;
+};
+
 const TAB_TRIGGER_CLASS_NAME = "flex-none px-3";
 
 export const AgentDetailsContent = ({
@@ -73,6 +90,7 @@ export const AgentDetailsContent = ({
   const agentLabel = `${agent.agentId}@${agent.agentVersion}`;
   const activeStatus = agent.isActive ? "active" : "inactive";
   const endpointUrl = readEndpointUrl(agent.endpoint);
+  const endpointDetails = readEndpointDetailsWithoutUrl(agent.endpoint);
   const description = agent.description ?? undefined;
 
   return (
@@ -139,31 +157,32 @@ export const AgentDetailsContent = ({
             />
           </TabsContent>
         ))}
-        <TabsContent value="schema" className="grid gap-6 lg:grid-cols-2">
-          <JsonPretty value={agent.inputSchema} title="Input schema" />
-          <JsonPretty value={agent.configSchema} title="Config schema" />
+        <TabsContent
+          value="schema"
+          className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2"
+        >
+          <JsonBlock value={agent.inputSchema} title="Input schema" />
+          <JsonBlock value={agent.configSchema} title="Config schema" />
         </TabsContent>
-        <TabsContent value="general" className="flex flex-col gap-6">
+        <TabsContent value="general" className="flex min-w-0 flex-col gap-6">
           <section className="flex flex-col gap-3">
             <h2 className="text-sm font-semibold text-foreground">Details</h2>
-            <SummaryGrid className="lg:grid-cols-3">
-              <SummaryItem label="Agent ID">
-                <span className="font-mono">{agent.agentId}</span>
-              </SummaryItem>
-              <SummaryItem label="Version">
-                <span className="font-mono">{agent.agentVersion}</span>
-              </SummaryItem>
-              <SummaryItem label="Registry ID">
+            <SummaryGrid>
+              <SummaryItem label="Registry ID" wide>
                 <CopyableId value={agent.id} label="Copy registry ID" />
               </SummaryItem>
             </SummaryGrid>
           </section>
-          <section className="flex flex-col gap-3">
-            <h2 className="text-sm font-semibold text-foreground">Endpoint</h2>
-            <div className="overflow-hidden rounded-lg border bg-card">
-              <EndpointDisplay endpoint={agent.endpoint} />
-            </div>
-          </section>
+          {endpointDetails ? (
+            <section className="flex flex-col gap-3">
+              <h2 className="text-sm font-semibold text-foreground">
+                Endpoint
+              </h2>
+              <div className="overflow-hidden rounded-lg border bg-card">
+                <EndpointDisplay endpoint={endpointDetails} />
+              </div>
+            </section>
+          ) : null}
         </TabsContent>
       </Tabs>
     </div>

@@ -13,13 +13,6 @@ import { DetailBlockSectionHeader } from "./detail-block-section-header";
 import { parseMarkdownBody, renderInlineNodes } from "./markdown-renderer";
 import { useMarkdownClamp } from "./use-markdown-clamp";
 
-/**
- * Renders a `markdown` detail block. Handles the clamp/expand affordance,
- * the optional copy button, and the section-header rule.
- *
- * @param props.block - Manifest definition.
- * @param props.data - Detail response object.
- */
 export const DetailBlockMarkdownView = ({
   block,
   data,
@@ -43,14 +36,15 @@ export const DetailBlockMarkdownView = ({
     clampedState,
   );
   const blocks = parseMarkdownBody(text);
+
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <DetailBlockSectionHeader
         label={block.label}
         sectionRule={block.sectionRule}
         data={data}
       />
-      <div className="prose-sm max-w-3xl space-y-3 text-sm">
+      <div className="prose-sm max-w-3xl space-y-3 text-sm break-words">
         {blocks.map((parsed, index) => {
           if (parsed.kind === "heading") {
             const Tag = `h${parsed.level + 2}` as "h3" | "h4" | "h5";

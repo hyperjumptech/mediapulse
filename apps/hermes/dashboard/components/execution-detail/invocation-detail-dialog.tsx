@@ -17,6 +17,7 @@ import {
 
 import { CopyableId } from "@/components/copyable-id";
 import { InvocationOutcomeDetail } from "@/components/invocation-outcome-detail";
+import { JsonBlock } from "@/components/json-block";
 import { StatusBadge } from "@/components/status-badge";
 import type {
   InvocationPayload,
@@ -35,22 +36,7 @@ type InvocationDetailDialogProps = {
   onOpenChange: InvocationDetailOpenChangeHandler;
 };
 
-const JSON_BLOCK_CLASS_NAME =
-  "max-h-[50vh] overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-xs leading-relaxed";
-
-const formatJsonBlock = (value: unknown): string => {
-  try {
-    return JSON.stringify(value ?? null, null, 2);
-  } catch {
-    return String(value);
-  }
-};
-
 const InvocationPayloadTabs = ({ payload }: { payload: InvocationPayload }) => {
-  const inputJson = formatJsonBlock(payload.inputMasked);
-  const configJson =
-    payload.configMasked == null ? null : formatJsonBlock(payload.configMasked);
-
   return (
     <Tabs defaultValue="outcome" className="min-w-0 gap-3">
       <TabsList>
@@ -65,16 +51,16 @@ const InvocationPayloadTabs = ({ payload }: { payload: InvocationPayload }) => {
         />
       </TabsContent>
       <TabsContent value="input" className="min-w-0">
-        <pre className={JSON_BLOCK_CLASS_NAME}>{inputJson}</pre>
+        <JsonBlock value={payload.inputMasked} />
       </TabsContent>
       <TabsContent value="config" className="min-w-0">
-        {configJson == null ? (
+        {payload.configMasked == null ? (
           <p className="text-sm text-muted-foreground">
             No config stored for this invocation (older executions only saved
             input).
           </p>
         ) : (
-          <pre className={JSON_BLOCK_CLASS_NAME}>{configJson}</pre>
+          <JsonBlock value={payload.configMasked} />
         )}
       </TabsContent>
     </Tabs>

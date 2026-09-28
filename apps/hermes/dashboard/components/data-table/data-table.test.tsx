@@ -290,4 +290,108 @@ describe("DataTable", () => {
       screen.getByRole("navigation", { name: "Fruit pagination" }),
     ).toBeInTheDocument();
   });
+
+  it("drops the header row when hideHeader is set", () => {
+    renderTable({ urlState: undefined, search: undefined, hideHeader: true });
+
+    expect(within(desktopTable()).queryAllByRole("columnheader")).toHaveLength(
+      0,
+    );
+    expect(within(desktopTable()).getByText("Apple")).toBeInTheDocument();
+  });
+
+  it("renders section heading rows across every column and between phone cards", () => {
+    const rows: Fruit[] = [
+      { id: "h1", name: "Orchard", colour: "", stock: 0 },
+      ...fruits,
+    ];
+
+    renderTable({
+      urlState: undefined,
+      search: undefined,
+      rows,
+      getSectionHeading: (fruit) =>
+        fruit.id.startsWith("h") ? fruit.name : null,
+    });
+
+    const headingCell = within(desktopTable()).getByText("Orchard");
+    const mobileItems = within(mobileList() as HTMLElement).getAllByRole(
+      "listitem",
+    );
+
+    expect(headingCell.tagName).toBe("TD");
+    expect(headingCell).toHaveAttribute("colspan", "4");
+    expect(mobileItems).toHaveLength(3);
+    expect(mobileItems[0]).toHaveAttribute(
+      "data-slot",
+      "data-table-mobile-section-heading",
+    );
+    expect(mobileItems[0]).toHaveTextContent("Orchard");
+  });
+
+  it("applies a column's minWidth to its header and cells", () => {
+    const widthColumns = columnHelper.columns([
+      columnHelper.accessor("name", {
+        id: "name",
+        enableHiding: false,
+        meta: { label: "Name", mobile: "title", minWidth: 240 },
+        cell: ({ row }) => row.original.name,
+      }),
+    ]);
+
+    renderTable({
+      urlState: undefined,
+      search: undefined,
+      columns: widthColumns,
+    });
+
+    expect(
+      within(desktopTable()).getByRole("columnheader", { name: "Name" }),
+    ).toHaveStyle({ minWidth: "240px" });
+    expect(within(desktopTable()).getByText("Apple")).toHaveStyle({
+      minWidth: "240px",
+    });
+  });
+
+  it("wraps phone card values across the card when a column asks to", () => {
+    const wrappingColumns = columnHelper.columns([
+      columnHelper.accessor("name", {
+        id: "name",
+        enableHiding: false,
+        meta: { label: "Name", mobile: "title", mobileWrap: true },
+        cell: ({ row }) => row.original.name,
+      }),
+      columnHelper.accessor("colour", {
+        id: "colour",
+        enableHiding: false,
+        meta: { label: "Colour", mobileWrap: true },
+        cell: ({ row }) => row.original.colour,
+      }),
+      columnHelper.accessor("stock", {
+        id: "stock",
+        enableHiding: false,
+        meta: { label: "Stock" },
+        cell: ({ row }) => row.original.stock,
+      }),
+    ]);
+
+    renderTable({
+      urlState: undefined,
+      search: undefined,
+      columns: wrappingColumns,
+    });
+
+    const [appleCard] = within(mobileList() as HTMLElement).getAllByRole(
+      "listitem",
+    );
+    const card = within(appleCard as HTMLElement);
+    const [colourValue, stockValue] = card.getAllByRole("definition");
+
+    expect(card.getByText("Apple")).toHaveClass("wrap-anywhere");
+    expect(card.getByText("Apple")).not.toHaveClass("truncate");
+    expect(colourValue).toHaveClass("wrap-anywhere");
+    expect(colourValue?.parentElement).toHaveClass("col-span-2");
+    expect(stockValue).toHaveClass("truncate");
+    expect(stockValue?.parentElement).not.toHaveClass("col-span-2");
+  });
 });

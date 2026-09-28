@@ -71,4 +71,63 @@ describe("InvocationOutcomeDetailView", () => {
     expect(screen.getByText("Content quality drops")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
   });
+
+  it("shows the transport error and agent details as wrapping JSON blocks", () => {
+    const transportError = { message: "Agent HTTP 500", retryable: true };
+    const model = buildInvocationOutcomeDetailModel(transportError, {
+      status: "failure",
+      details: { failureReason: "insufficient_successful_sources" },
+    });
+
+    render(
+      <InvocationOutcomeDetailView
+        model={model}
+        transportError={transportError}
+      />,
+    );
+
+    const transportJson = screen.getByRole("region", { name: "JSON" });
+    const detailsJson = screen.getByRole("region", { name: "Details" });
+
+    expect(transportJson).toHaveTextContent('"retryable": true');
+    expect(transportJson).toHaveClass("max-h-48");
+    expect(transportJson.querySelector("pre")).toHaveClass(
+      "whitespace-pre-wrap",
+    );
+    expect(detailsJson).toHaveTextContent(
+      '"failureReason": "insufficient_successful_sources"',
+    );
+    expect(
+      screen.getByRole("button", { name: "Copy details" }),
+    ).toBeInTheDocument();
+  });
+
+  it("stacks run summary counters in one column until there is room for two", () => {
+    const model = buildInvocationOutcomeDetailModel(null, {
+      status: "success",
+      details: { summary: { discoveredCount: 6, totalSources: 2 } },
+    });
+
+    render(<InvocationOutcomeDetailView model={model} transportError={null} />);
+
+    const discovered = screen.getByText("Discovered");
+    const counters = discovered.closest("dl");
+
+    expect(counters).toHaveClass("grid-cols-1", "sm:grid-cols-2");
+    expect(discovered.nextElementSibling).toHaveTextContent("6");
+  });
+
+  it("wraps long log messages instead of overflowing", () => {
+    const longMessage = "x".repeat(300);
+    const model = buildInvocationOutcomeDetailModel(null, {
+      status: "success",
+      logs: [{ level: "info", message: longMessage }],
+    });
+
+    render(<InvocationOutcomeDetailView model={model} transportError={null} />);
+
+    expect(screen.getByText(longMessage).closest("li")).toHaveClass(
+      "break-words",
+    );
+  });
 });
