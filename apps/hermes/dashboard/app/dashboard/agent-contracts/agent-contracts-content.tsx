@@ -2,17 +2,15 @@
 
 import { useCallback, useState } from "react";
 
-import { Button } from "@workspace/ui/components/button";
-
 import { ListPagination } from "@/components/list-pagination";
-import { AddContractModal } from "./add-contract-modal";
-import { AgentContractsTable } from "./agent-contracts-table";
-import { EditContractModal } from "./edit-contract-modal";
-import type { AgentContractRow } from "./agent-contract-row-actions";
 import type {
   AgentContractSortDir,
   AgentContractSortField,
 } from "@/lib/agent-contracts";
+
+import type { AgentContractRow } from "./agent-contract-row-actions";
+import { AgentContractsTable } from "./agent-contracts-table";
+import { EditContractModal } from "./edit-contract-modal";
 
 type AgentContractsContentProps = {
   contracts: AgentContractRow[];
@@ -23,26 +21,17 @@ type AgentContractsContentProps = {
   sortDir: AgentContractSortDir;
 };
 
-const useAgentContractsModals = () => {
-  const [addModalOpen, setAddModalOpen] = useState(false);
+const useEditingContract = () => {
   const [editingContract, setEditingContract] =
     useState<AgentContractRow | null>(null);
 
-  const openAddModal = useCallback(() => setAddModalOpen(true), []);
-  const setEditingContractOrClose = useCallback(
-    (contract: AgentContractRow | null) => {
-      setEditingContract(contract);
-    },
-    [],
-  );
+  const handleEditOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      setEditingContract(null);
+    }
+  }, []);
 
-  return {
-    addModalOpen,
-    setAddModalOpen,
-    editingContract,
-    openAddModal,
-    setEditingContract: setEditingContractOrClose,
-  };
+  return { editingContract, setEditingContract, handleEditOpenChange };
 };
 
 export const AgentContractsContent = ({
@@ -53,20 +42,12 @@ export const AgentContractsContent = ({
   sortBy,
   sortDir,
 }: AgentContractsContentProps) => {
-  const {
-    addModalOpen,
-    setAddModalOpen,
-    editingContract,
-    openAddModal,
-    setEditingContract,
-  } = useAgentContractsModals();
+  const { editingContract, setEditingContract, handleEditOpenChange } =
+    useEditingContract();
 
   return (
     <>
       <div className="flex flex-col gap-4">
-        <div className="flex justify-end">
-          <Button onClick={openAddModal}>Add contract</Button>
-        </div>
         <AgentContractsTable
           contracts={contracts}
           sortBy={sortBy}
@@ -84,15 +65,10 @@ export const AgentContractsContent = ({
           sortDir={sortDir}
         />
       </div>
-      <AddContractModal
-        open={addModalOpen}
-        onOpenChange={setAddModalOpen}
-        trigger={null}
-      />
       <EditContractModal
         contract={editingContract}
         open={editingContract !== null}
-        onOpenChange={(open) => !open && setEditingContract(null)}
+        onOpenChange={handleEditOpenChange}
       />
     </>
   );

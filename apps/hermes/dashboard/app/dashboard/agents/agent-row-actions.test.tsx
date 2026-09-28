@@ -1,14 +1,14 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
-import { AgentRowActions } from "./agent-row-actions";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-const routerRefreshMock = vi.fn();
+const { useFormActionMock, toastErrorMock } = vi.hoisted(() => ({
+  useFormActionMock: vi.fn(),
+  toastErrorMock: vi.fn(),
+}));
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({
-    refresh: routerRefreshMock,
-  }),
+vi.mock("sonner", () => ({
+  toast: { error: toastErrorMock },
 }));
 
 vi.mock("next/link", () => ({
@@ -25,35 +25,10 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-const createMockFormWithAction = () => {
-  const FormWithAction = ({
-    children,
-    className,
-  }: {
-    children: React.ReactNode;
-    className?: string;
-  }) => (
-    <form data-testid="delete-form" className={className}>
-      {children}
-    </form>
-  );
-  FormWithAction.displayName = "FormWithAction";
-  return FormWithAction;
-};
-
-const createMockUseFormAction = (overrides?: {
-  state?: { status: boolean } | null;
-  pending?: boolean;
-}) => ({
-  FormWithAction: createMockFormWithAction(),
-  state: overrides?.state ?? null,
-  pending: overrides?.pending ?? false,
-});
-
 vi.mock(
   "@/app/dashboard/agents/actions/delete/.generated/use-form-action",
   () => ({
-    useFormAction: vi.fn(() => createMockUseFormAction()),
+    useFormAction: useFormActionMock,
   }),
 );
 
@@ -61,148 +36,115 @@ vi.mock("@workspace/ui/components/dropdown-menu", () => ({
   DropdownMenu: ({ children }: React.PropsWithChildren) => (
     <div data-testid="dropdown-menu">{children}</div>
   ),
-  DropdownMenuTrigger: ({
-    children,
-  }: React.PropsWithChildren<{ asChild?: boolean }>) => (
-    <div data-testid="dropdown-trigger">{children}</div>
+  DropdownMenuTrigger: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
   ),
-  DropdownMenuContent: ({
-    children,
-    align,
-  }: React.PropsWithChildren<{ align?: string }>) => (
-    <div data-testid="dropdown-content" data-align={align}>
-      {children}
-    </div>
+  DropdownMenuContent: ({ children }: React.PropsWithChildren) => (
+    <div role="menu">{children}</div>
   ),
   DropdownMenuItem: ({
     children,
+    asChild,
     variant,
     disabled,
+    onSelect,
   }: React.PropsWithChildren<{
     asChild?: boolean;
     variant?: string;
     disabled?: boolean;
-    onSelect?: (e: Event) => void;
-  }>) => (
-    <div
-      data-testid="dropdown-item"
-      data-variant={variant}
-      data-disabled={disabled}
-    >
-      {children}
-    </div>
-  ),
-  DropdownMenuSeparator: () => <hr data-testid="dropdown-separator" />,
+    onSelect?: () => void;
+  }>) =>
+    asChild ? (
+      <div data-variant={variant}>{children}</div>
+    ) : (
+      <button
+        type="button"
+        role="menuitem"
+        data-variant={variant}
+        disabled={disabled}
+        onClick={() => onSelect?.()}
+      >
+        {children}
+      </button>
+    ),
+  DropdownMenuSeparator: () => <hr />,
 }));
 
-vi.mock("@workspace/ui/components/button", () => ({
-  Button: ({
-    children,
-    variant,
-    size,
-    "aria-label": ariaLabel,
-  }: React.PropsWithChildren<{
-    variant?: string;
-    size?: string;
-    "aria-label"?: string;
-  }>) => (
-    <button aria-label={ariaLabel} data-variant={variant} data-size={size}>
-      {children}
-    </button>
-  ),
-}));
+import { AgentRowActions } from "./agent-row-actions";
 
-const createMockAgent = () => ({
+type FormActionState = { status: boolean; message?: string } | null;
+
+const DeleteForm = ({ children }: { children: React.ReactNode }) => (
+  <form data-testid="delete-form">{children}</form>
+);
+
+const mockFormAction = ({
+  state = null,
+  pending = false,
+}: {
+  state?: FormActionState;
+  pending?: boolean;
+} = {}) => {
+  useFormActionMock.mockReturnValue({
+    FormWithAction: DeleteForm,
+    state,
+    pending,
+  });
+};
+
+const createAgent = () => ({
   id: "agent-123",
-  domainIntegrationId: "di-1",
   agentId: "test-agent",
   agentVersion: "1.0",
   description: "Test description",
-  endpoint: { url: "https://example.com" },
-  inputSchema: null,
-  configSchema: null,
   isActive: true,
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),
   domainIntegration: { integrationId: "mediapulse-local" },
 });
 
-const getUseFormActionMock = async () => {
-  const mod =
-    await import("@/app/dashboard/agents/actions/delete/.generated/use-form-action");
-  return mod.useFormAction as Mock;
-};
-
 describe("AgentRowActions", () => {
   afterEach(() => {
-    vi.restoreAllMocks();
-    routerRefreshMock.mockReset();
+    useFormActionMock.mockReset();
+    toastErrorMock.mockReset();
   });
 
-  it("renders dropdown menu trigger", async () => {
+  it("labels the menu trigger with the agent", () => {
     // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
-    const agent = createMockAgent();
+    mockFormAction();
 
     // Act
-    render(<AgentRowActions agent={agent} agentLabel="test-agent@1.0" />);
+    render(
+      <AgentRowActions agent={createAgent()} agentLabel="test-agent@1.0" />,
+    );
 
     // Assert
     expect(
-      screen.getByRole("button", { name: "Open menu" }),
+      screen.getByRole("button", { name: "Actions for agent test-agent@1.0" }),
     ).toBeInTheDocument();
   });
 
-  it("renders View details option", async () => {
+  it("links View details to the agent detail page", () => {
     // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
-    const agent = createMockAgent();
+    mockFormAction();
 
     // Act
-    render(<AgentRowActions agent={agent} agentLabel="test-agent@1.0" />);
+    render(
+      <AgentRowActions agent={createAgent()} agentLabel="test-agent@1.0" />,
+    );
 
     // Assert
-    expect(screen.getByText("View details")).toBeInTheDocument();
-  });
+    const viewLink = screen.getByRole("link", { name: /View details/ });
 
-  it("renders Delete option", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
-    const agent = createMockAgent();
-
-    // Act
-    render(<AgentRowActions agent={agent} agentLabel="test-agent@1.0" />);
-
-    // Assert
-    expect(screen.getByText("Delete")).toBeInTheDocument();
-  });
-
-  it("renders View details as a client-side link when onView not provided", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
-    const agent = createMockAgent();
-
-    // Act
-    render(<AgentRowActions agent={agent} agentLabel="test-agent@1.0" />);
-
-    // Assert
-    const viewLink = screen.getByRole("link", { name: /View details/i });
     expect(viewLink).toHaveAttribute("href", "/dashboard/agents/agent-123");
     expect(viewLink).toHaveAttribute("data-next-link");
   });
 
-  it("renders View details as button when onView provided", async () => {
+  it("calls onView instead of linking when provided", () => {
     // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
-    const agent = createMockAgent();
+    mockFormAction();
     const onView = vi.fn();
-
-    // Act
+    const agent = createAgent();
     render(
       <AgentRowActions
         agent={agent}
@@ -211,82 +153,81 @@ describe("AgentRowActions", () => {
       />,
     );
 
+    // Act
+    fireEvent.click(screen.getByRole("menuitem", { name: /View details/ }));
+
     // Assert
+    expect(onView).toHaveBeenCalledWith(agent);
     expect(
-      screen.queryByRole("link", { name: /View details/i }),
+      screen.queryByRole("link", { name: /View details/ }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("View details")).toBeInTheDocument();
   });
 
-  it("renders hidden input with agent id for delete", async () => {
+  it("opens a confirmation dialog instead of deleting immediately", () => {
     // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
-    const agent = createMockAgent();
-
-    // Act
-    render(<AgentRowActions agent={agent} agentLabel="test-agent@1.0" />);
-
-    // Assert
-    const form = screen.getByTestId("delete-form");
-    const hiddenInput = form.querySelector('input[name="body.id"]');
-    expect(hiddenInput).toHaveValue("agent-123");
-  });
-
-  it("shows Deleting label when pending", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction({ pending: true }));
-    const agent = createMockAgent();
-
-    // Act
-    render(<AgentRowActions agent={agent} agentLabel="test-agent@1.0" />);
-
-    // Assert
-    expect(screen.getByText("Deleting…")).toBeInTheDocument();
-  });
-
-  it("does not call router.refresh on successful delete", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction({ state: { status: true } }));
-    const agent = createMockAgent();
-
-    // Act
-    render(<AgentRowActions agent={agent} agentLabel="test-agent@1.0" />);
-
-    // Assert
-    expect(routerRefreshMock).not.toHaveBeenCalled();
-    expect(screen.getByText("Delete")).toBeInTheDocument();
-  });
-
-  it("renders separator between View details and Delete", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
-    const agent = createMockAgent();
-
-    // Act
-    render(<AgentRowActions agent={agent} agentLabel="test-agent@1.0" />);
-
-    // Assert
-    expect(screen.getByTestId("dropdown-separator")).toBeInTheDocument();
-  });
-
-  it("applies destructive variant to delete item", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
-    const agent = createMockAgent();
-
-    // Act
-    render(<AgentRowActions agent={agent} agentLabel="test-agent@1.0" />);
-
-    // Assert
-    const items = screen.getAllByTestId("dropdown-item");
-    const deleteItem = items.find((item) =>
-      item.textContent?.includes("Delete"),
+    mockFormAction();
+    render(
+      <AgentRowActions agent={createAgent()} agentLabel="test-agent@1.0" />,
     );
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+
+    // Act
+    fireEvent.click(screen.getByRole("menuitem", { name: /Delete/ }));
+
+    // Assert
+    const dialog = screen.getByRole("alertdialog");
+    const hiddenInput = screen
+      .getByTestId("delete-form")
+      .querySelector('input[name="body.id"]');
+
+    expect(dialog).toHaveTextContent("Delete agent?");
+    expect(dialog).toHaveTextContent("test-agent@1.0");
+    expect(hiddenInput).toHaveValue("agent-123");
+    expect(
+      screen.getByRole("button", { name: "Delete agent" }),
+    ).toHaveAttribute("type", "submit");
+  });
+
+  it("marks the delete item destructive and disables it while pending", () => {
+    // Setup
+    mockFormAction({ pending: true });
+
+    // Act
+    render(
+      <AgentRowActions agent={createAgent()} agentLabel="test-agent@1.0" />,
+    );
+
+    // Assert
+    const deleteItem = screen.getByRole("menuitem", { name: /Delete/ });
+
     expect(deleteItem).toHaveAttribute("data-variant", "destructive");
+    expect(deleteItem).toBeDisabled();
+  });
+
+  it("toasts the server message when the delete fails", () => {
+    // Setup
+    mockFormAction({ state: { status: false, message: "Agent is in use" } });
+
+    // Act
+    render(
+      <AgentRowActions agent={createAgent()} agentLabel="test-agent@1.0" />,
+    );
+
+    // Assert
+    expect(toastErrorMock).toHaveBeenCalledWith("Agent is in use");
+  });
+
+  it("does not toast when the delete succeeds", () => {
+    // Setup
+    mockFormAction({ state: { status: true } });
+
+    // Act
+    render(
+      <AgentRowActions agent={createAgent()} agentLabel="test-agent@1.0" />,
+    );
+
+    // Assert
+    expect(toastErrorMock).not.toHaveBeenCalled();
   });
 });

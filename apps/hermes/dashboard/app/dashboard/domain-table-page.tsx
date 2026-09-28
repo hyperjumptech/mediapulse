@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -179,55 +180,47 @@ export const DomainTablePage = async ({
   );
 
   const fullPage = meta.createNavigation === "full-page";
+  const canCreate = Boolean(meta.actions.create) && createFields.length > 0;
+  const createLabel = `Add ${meta.title}`;
+  const hasHeaderActions = dangerConfirmActions.length > 0 || canCreate;
 
-  return (
-    <div className="flex flex-col gap-4">
-      <PageHeader title={meta.title} description={meta.description ?? ""} />
-
-      {showListFilters ? (
-        <DomainTableListFilters
-          basePath={basePath}
-          listFilters={listFilters}
-          filterOptions={meta.filterOptions}
-          filterValues={params.filters}
-          preserveParams={filterFormPreserveParams}
+  const headerActions = hasHeaderActions ? (
+    <>
+      {dangerConfirmActions.map((action) => (
+        <DomainTableDangerConfirmButton
+          key={action.id}
+          action={action}
+          serverAction={dangerConfirmServerAction}
+        />
+      ))}
+      {canCreate && fullPage ? (
+        <Button asChild>
+          <Link href={`${basePath}/new`}>
+            <Plus aria-hidden />
+            {createLabel}
+          </Link>
+        </Button>
+      ) : null}
+      {canCreate && !fullPage ? (
+        <DomainCreateModal
+          fields={createFields}
+          createAction={createAction}
+          triggerLabel={createLabel}
         />
       ) : null}
+    </>
+  ) : null;
 
-      <div className="flex flex-col items-end gap-2">
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          <DomainTableSearch
-            basePath={basePath}
-            initialQuery={params.query ?? ""}
-            pageSize={params.pageSize}
-            sortBy={params.sortBy}
-            sortDir={params.sortDir}
-            preserveParams={filterExtraParams}
-            ariaLabel={`Search ${meta.title}`}
-          />
-          {dangerConfirmActions.map((action) => (
-            <DomainTableDangerConfirmButton
-              key={action.id}
-              action={action}
-              serverAction={dangerConfirmServerAction}
-            />
-          ))}
-          {fullPage && meta.actions.create && createFields.length > 0 ? (
-            <Button asChild>
-              <Link href={`${basePath}/new`}>{`Add ${meta.title}`}</Link>
-            </Button>
-          ) : meta.actions.create && createFields.length > 0 ? (
-            <DomainCreateModal
-              fields={createFields}
-              createAction={createAction}
-              triggerLabel={`Add ${meta.title}`}
-            />
-          ) : null}
-        </div>
-      </div>
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title={meta.title}
+        description={meta.description}
+        actions={headerActions}
+      />
 
       {jsonImportActions.length > 0 ? (
-        <div className="flex flex-col gap-4">
+        <div className="grid gap-3 lg:grid-cols-2">
           {jsonImportActions.map((action) => (
             <DomainTableJsonUploadCard
               key={action.id}
@@ -238,18 +231,41 @@ export const DomainTablePage = async ({
         </div>
       ) : null}
 
-      <Suspense key={JSON.stringify(params)} fallback={<SectionSkeleton />}>
-        <DomainTableRowsSection
-          integrationId={integrationId}
-          resource={resource}
-          basePath={basePath}
-          meta={meta}
-          params={params}
-          updateFields={updateFields}
-          updateAction={updateAction}
-          deleteAction={deleteAction}
-        />
-      </Suspense>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <DomainTableSearch
+            basePath={basePath}
+            initialQuery={params.query ?? ""}
+            pageSize={params.pageSize}
+            sortBy={params.sortBy}
+            sortDir={params.sortDir}
+            preserveParams={filterExtraParams}
+            ariaLabel={`Search ${meta.title}`}
+          />
+          {showListFilters ? (
+            <DomainTableListFilters
+              basePath={basePath}
+              listFilters={listFilters}
+              filterOptions={meta.filterOptions}
+              filterValues={params.filters}
+              preserveParams={filterFormPreserveParams}
+            />
+          ) : null}
+        </div>
+
+        <Suspense key={JSON.stringify(params)} fallback={<SectionSkeleton />}>
+          <DomainTableRowsSection
+            integrationId={integrationId}
+            resource={resource}
+            basePath={basePath}
+            meta={meta}
+            params={params}
+            updateFields={updateFields}
+            updateAction={updateAction}
+            deleteAction={deleteAction}
+          />
+        </Suspense>
+      </div>
     </div>
   );
 };

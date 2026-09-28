@@ -29,8 +29,8 @@ export const AgentsSection = async ({
   );
 
   return (
-    <>
-      <div className="flex flex-col justify-between sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <AgentsSearch
           initialQuery={search ?? ""}
           pageSize={agentsResult.pageSize}
@@ -55,6 +55,6 @@ export const AgentsSection = async ({
         sortBy={sortBy}
         sortDir={sortDir}
       />
-    </>
+    </div>
   );
 };

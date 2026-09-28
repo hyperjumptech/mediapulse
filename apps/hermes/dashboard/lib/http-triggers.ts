@@ -19,9 +19,14 @@ const httpTriggerListInclude = {
   createdBy: { select: { id: true, name: true, email: true } },
 } satisfies Prisma.HttpTriggerInclude;
 
+const httpTriggerSecretOmit = {
+  tokenHash: true,
+} satisfies Prisma.HttpTriggerOmit;
+
 export type HttpTriggersPageResult = {
   httpTriggers: Prisma.HttpTriggerGetPayload<{
     include: typeof httpTriggerListInclude;
+    omit: typeof httpTriggerSecretOmit;
   }>[];
   total: number;
   page: number;
@@ -80,6 +85,7 @@ export const getHttpTriggersPage = async (
     take: pageSize,
     orderBy,
     include: httpTriggerListInclude,
+    omit: httpTriggerSecretOmit,
   } satisfies Prisma.HttpTriggerFindManyArgs;
   const [httpTriggers, total] = await Promise.all([
     db.httpTrigger.findMany(args),
@@ -99,6 +105,7 @@ export const getHttpTriggerById = async (
     pipeline: true;
     createdBy: { select: { id: true; name: true; email: true } };
   };
+  omit: typeof httpTriggerSecretOmit;
 }> | null> => {
   return db.httpTrigger.findUnique({
     where: { id: triggerId },
@@ -106,6 +113,7 @@ export const getHttpTriggerById = async (
       pipeline: true,
       createdBy: { select: { id: true, name: true, email: true } },
     },
+    omit: httpTriggerSecretOmit,
   });
 };
 

@@ -3,8 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PrismaClientWithSchema } from "@hermes/orchestration-database/client";
 
 import {
+  getHttpTriggerById,
   getHttpTriggerExecutionSummary,
   getHttpTriggerExecutionsPage,
+  getHttpTriggersPage,
 } from "./http-triggers";
 
 type MockDb = {
@@ -222,5 +224,44 @@ describe("getHttpTriggerExecutionSummary", () => {
 
     // Assert
     expect(summary).toBeNull();
+  });
+});
+
+describe("HTTP trigger loaders never read the token hash", () => {
+  it("omits tokenHash from the list query", async () => {
+    // Setup
+    const findMany = vi.fn().mockResolvedValue([]);
+    const count = vi.fn().mockResolvedValue(0);
+    const db = { httpTrigger: { findMany, count } };
+
+    // Act
+    await getHttpTriggersPage(
+      1,
+      15,
+      undefined,
+      db as unknown as PrismaClientWithSchema,
+    );
+
+    // Assert
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ omit: { tokenHash: true } }),
+    );
+  });
+
+  it("omits tokenHash from the detail query", async () => {
+    // Setup
+    const findUnique = vi.fn().mockResolvedValue(null);
+    const db = { httpTrigger: { findUnique } };
+
+    // Act
+    await getHttpTriggerById(
+      "trigger-1",
+      db as unknown as PrismaClientWithSchema,
+    );
+
+    // Assert
+    expect(findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ omit: { tokenHash: true } }),
+    );
   });
 });

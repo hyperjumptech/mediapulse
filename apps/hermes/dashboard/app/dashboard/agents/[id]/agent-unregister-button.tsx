@@ -2,61 +2,76 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@workspace/ui/components/button";
-import { Trash2 } from "lucide-react";
 
 import { useFormAction } from "@/app/dashboard/agents/actions/unregister/.generated/use-form-action";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
+import { useConfirmActionDialog } from "@/hooks/use-confirm-action-dialog";
 
 type AgentUnregisterButtonProps = {
-  /** Agent registry row id. */
   agentId: string;
-  /** Human-readable label (e.g. "article-analysis@3.0.0") used in the confirm dialog. */
   agentLabel: string;
 };
 
-/**
- * Encapsulates the unregister form action and navigate-to-list-on-success behavior.
- */
 const useUnregisterAgentAction = () => {
   const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
+  const { open, setOpen, requestConfirmation } = useConfirmActionDialog(state);
 
   useEffect(() => {
     if (state && state.status === true) {
       router.push("/dashboard/agents");
     }
+    if (state && state.status === false) {
+      const message = state.message
+        ? String(state.message)
+        : "Unregister failed";
+      toast.error(message);
+    }
   }, [state, router]);
 
-  return { FormWithAction, pending };
+  return { FormWithAction, pending, open, setOpen, requestConfirmation };
 };
 
-/**
- * Destructive button that unregisters an agent and returns to the agents list on success.
- */
 export const AgentUnregisterButton = ({
   agentId,
   agentLabel,
 }: AgentUnregisterButtonProps) => {
-  const { FormWithAction, pending } = useUnregisterAgentAction();
+  const { FormWithAction, pending, open, setOpen, requestConfirmation } =
+    useUnregisterAgentAction();
+  const hiddenFields = [{ name: "body.id", value: agentId }];
 
   return (
-    <FormWithAction
-      onSubmit={(e: React.FormEvent<HTMLFormElement>) => {
-        if (
-          !confirm(
-            `Unregister agent "${agentLabel}"? It will be removed from the registry.`,
-          )
-        ) {
-          e.preventDefault();
-        }
-      }}
-    >
-      <input type="hidden" name="body.id" value={agentId} readOnly />
-      <Button type="submit" variant="destructive" disabled={pending}>
-        <Trash2 className="mr-2 size-4" />
+    <>
+      <Button
+        type="button"
+        variant="destructive"
+        disabled={pending}
+        onClick={requestConfirmation}
+      >
+        <Trash2 />
         {pending ? "Unregistering…" : "Unregister agent"}
       </Button>
-    </FormWithAction>
+      <ConfirmActionDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Unregister agent?"
+        description={
+          <>
+            This removes{" "}
+            <span className="font-mono text-foreground">{agentLabel}</span> from
+            the registry. This cannot be undone.
+          </>
+        }
+        confirmLabel="Unregister agent"
+        pendingLabel="Unregistering…"
+        pending={pending}
+        FormWithAction={FormWithAction}
+        hiddenFields={hiddenFields}
+      />
+    </>
   );
 };

@@ -1,5 +1,3 @@
-import { Button } from "@workspace/ui/components/button";
-
 import { ListPagination } from "@/components/list-pagination";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 import {
@@ -8,7 +6,6 @@ import {
   type VariableSortField,
 } from "@/lib/variables";
 
-import { VariableModal } from "./variable-modal";
 import { VariablesSearch } from "./variables-search";
 import { VariablesTableWithEdit } from "./variables-table-with-edit";
 
@@ -32,20 +29,14 @@ export const VariablesSection = async ({
   );
 
   return (
-    <>
-      <div className="flex flex-col justify-between sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <VariablesSearch
           initialQuery={search ?? ""}
           pageSize={variablesResult.pageSize}
           sortBy={sortBy}
           sortDir={sortDir}
         />
-        <div className="shrink-0 sm:ml-auto">
-          <VariableModal
-            variable={null}
-            trigger={<Button>Add variable</Button>}
-          />
-        </div>
       </div>
       <VariablesTableWithEdit
         variables={variablesResult.variables}
@@ -64,6 +55,6 @@ export const VariablesSection = async ({
         sortBy={sortBy}
         sortDir={sortDir}
       />
-    </>
+    </div>
   );
 };

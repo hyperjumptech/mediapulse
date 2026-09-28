@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect } from "react";
+import { Copy, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
+import { Button } from "@workspace/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,10 +13,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
-import { Button } from "@workspace/ui/components/button";
-import { Copy, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
 import { useFormAction } from "@/app/dashboard/agent-configs/actions/delete/.generated/use-form-action";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
+import { useConfirmActionDialog } from "@/hooks/use-confirm-action-dialog";
 
 export type AgentConfigRow = {
   id: string;
@@ -33,69 +36,27 @@ type AgentConfigRowActionsProps = {
   configLabel: string;
 };
 
-/**
- * Encapsulates delete form action and error state for agent config row actions.
- */
-const useAgentConfigRowActions = (configLabel: string) => {
-  const deleteFormWrapperRef = useRef<HTMLDivElement>(null);
+const useAgentConfigRowActions = () => {
   const { FormWithAction, state, pending } = useFormAction();
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  const errorMessage = useMemo(() => {
-    if (state && state.status === false) return state.message as string;
-    return null;
-  }, [state]);
-
-  useEffect(() => {
-    if (state && state.status === true) {
-      setDeleteError(null);
-    }
-  }, [state]);
+  const { open, setOpen, requestConfirmation } = useConfirmActionDialog(state);
 
   useEffect(() => {
     if (state && state.status === false) {
-      setDeleteError(errorMessage ?? "Delete failed");
+      const message = state.message ? String(state.message) : "Delete failed";
+      toast.error(message);
     }
-  }, [state, errorMessage]);
+  }, [state]);
 
-  const handleDeleteClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      const confirmed = confirm(
-        `Delete config "${configLabel}"? This cannot be undone.`,
-      );
-      if (confirmed) {
-        setDeleteError(null);
-        const form = deleteFormWrapperRef.current?.querySelector("form");
-        if (form instanceof HTMLFormElement) form.requestSubmit();
-      }
-    },
-    [configLabel],
-  );
-
-  return {
-    FormWithAction,
-    pending,
-    deleteError,
-    deleteFormWrapperRef,
-    handleDeleteClick,
-  };
+  return { FormWithAction, pending, open, setOpen, requestConfirmation };
 };
 
-/**
- * Dropdown actions for an agent config row: Edit, Duplicate, Delete.
- */
 export const AgentConfigRowActions = ({
   config,
   configLabel,
 }: AgentConfigRowActionsProps) => {
-  const {
-    FormWithAction,
-    pending,
-    deleteError,
-    deleteFormWrapperRef,
-    handleDeleteClick,
-  } = useAgentConfigRowActions(configLabel);
+  const { FormWithAction, pending, open, setOpen, requestConfirmation } =
+    useAgentConfigRowActions();
+  const hiddenFields = [{ name: "body.id", value: config.id }];
 
   return (
     <>
@@ -103,57 +64,54 @@ export const AgentConfigRowActions = ({
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            size="icon"
-            className="size-8"
-            aria-label="Open menu"
+            size="icon-sm"
+            className="text-muted-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
+            aria-label={`Actions for config ${configLabel}`}
           >
-            <MoreHorizontal className="size-4" />
+            <MoreHorizontal />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem asChild>
             <Link href={`/dashboard/agent-configs/${config.id}/edit`}>
-              <Pencil className="mr-2 size-4" />
+              <Pencil />
               Edit
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href={`/dashboard/agent-configs/new?duplicate=${config.id}`}>
-              <Copy className="mr-2 size-4" />
+              <Copy />
               Duplicate
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" disabled={pending} asChild>
-            <div
-              ref={deleteFormWrapperRef}
-              className="flex w-full cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-destructive/10 focus:text-destructive"
-            >
-              <FormWithAction className="flex w-full [&_button]:flex [&_button]:w-full [&_button]:cursor-default [&_button]:items-center [&_button]:text-left [&_button]:gap-2">
-                <input
-                  type="hidden"
-                  name="body.id"
-                  value={config.id}
-                  readOnly
-                />
-                <button
-                  type="button"
-                  className="flex items-center gap-2"
-                  onClick={handleDeleteClick}
-                >
-                  <Trash2 className="size-4" />
-                  {pending ? "Deleting…" : "Delete"}
-                </button>
-              </FormWithAction>
-            </div>
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={pending}
+            onSelect={requestConfirmation}
+          >
+            <Trash2 />
+            Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {deleteError ? (
-        <p className="text-destructive text-sm mt-1" role="alert">
-          {deleteError}
-        </p>
-      ) : null}
+      <ConfirmActionDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Delete config?"
+        description={
+          <>
+            This permanently deletes{" "}
+            <span className="font-medium text-foreground">{configLabel}</span>.
+            This cannot be undone.
+          </>
+        }
+        confirmLabel="Delete config"
+        pendingLabel="Deleting…"
+        pending={pending}
+        FormWithAction={FormWithAction}
+        hiddenFields={hiddenFields}
+      />
     </>
   );
 };

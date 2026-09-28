@@ -1,240 +1,177 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { ScheduleRowActions } from "./schedule-row-actions";
 
-const routerRefreshMock = vi.fn();
+type DeleteActionState = { status: boolean; message?: string } | null;
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({
-    refresh: routerRefreshMock,
-  }),
+const { useFormActionMock, toastErrorMock } = vi.hoisted(() => ({
+  useFormActionMock: vi.fn(),
+  toastErrorMock: vi.fn(),
 }));
-
-const createMockFormWithAction = () => {
-  const FormWithAction = ({
-    children,
-    className,
-  }: {
-    children: React.ReactNode;
-    className?: string;
-  }) => (
-    <form data-testid="delete-form" className={className}>
-      {children}
-    </form>
-  );
-  FormWithAction.displayName = "FormWithAction";
-  return FormWithAction;
-};
-
-const createMockUseFormAction = (overrides?: {
-  state?: { status: boolean } | null;
-  pending?: boolean;
-}) => ({
-  FormWithAction: createMockFormWithAction(),
-  state: overrides?.state ?? null,
-  pending: overrides?.pending ?? false,
-});
 
 vi.mock(
   "@/app/dashboard/schedules/actions/delete/.generated/use-form-action",
   () => ({
-    useFormAction: vi.fn(() => createMockUseFormAction()),
+    useFormAction: () => useFormActionMock(),
   }),
 );
 
-vi.mock("@workspace/ui/components/dropdown-menu", () => ({
-  DropdownMenu: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="dropdown-menu">{children}</div>
-  ),
-  DropdownMenuTrigger: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="dropdown-trigger">{children}</div>
-  ),
-  DropdownMenuContent: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="dropdown-content">{children}</div>
-  ),
-  DropdownMenuItem: ({
-    children,
-    variant,
-  }: React.PropsWithChildren<{ variant?: string; asChild?: boolean }>) => (
-    <div data-testid="dropdown-item" data-variant={variant}>
-      {children}
-    </div>
-  ),
-  DropdownMenuSeparator: () => <hr data-testid="dropdown-separator" />,
+vi.mock("sonner", () => ({
+  toast: { error: toastErrorMock },
 }));
 
-vi.mock("@workspace/ui/components/button", () => ({
-  Button: ({
-    children,
-    "aria-label": ariaLabel,
-  }: React.PropsWithChildren<{ "aria-label"?: string }>) => (
-    <button aria-label={ariaLabel}>{children}</button>
-  ),
-}));
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
 
-const getUseFormActionMock = async () => {
-  const mod =
-    await import("@/app/dashboard/schedules/actions/delete/.generated/use-form-action");
-  return mod.useFormAction as Mock;
+const DeleteForm = ({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <form data-testid="delete-form" className={className}>
+    {children}
+  </form>
+);
+
+const mockDeleteAction = ({
+  state = null,
+  pending = false,
+}: { state?: DeleteActionState; pending?: boolean } = {}) => {
+  useFormActionMock.mockReturnValue({
+    FormWithAction: DeleteForm,
+    state,
+    pending,
+  });
 };
 
-describe("ScheduleRowActions", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-    routerRefreshMock.mockReset();
+const openActionsMenu = async () => {
+  const trigger = screen.getByRole("button", {
+    name: "Actions for schedule Daily Run",
   });
 
-  it("renders dropdown menu trigger", async () => {
+  await act(async () => {
+    fireEvent.keyDown(trigger, { key: "Enter" });
+  });
+
+  return screen.getByRole("menu");
+};
+
+const renderRowActions = (onEdit = vi.fn()) =>
+  render(
+    <ScheduleRowActions
+      scheduleId="schedule-123"
+      scheduleName="Daily Run"
+      onEdit={onEdit}
+    />,
+  );
+
+describe("ScheduleRowActions", () => {
+  beforeEach(() => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+    mockDeleteAction();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    useFormActionMock.mockReset();
+    toastErrorMock.mockReset();
+  });
+
+  it("opens the edit modal for the schedule", async () => {
     // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
+    const onEdit = vi.fn();
+    renderRowActions(onEdit);
+    const menu = await openActionsMenu();
 
     // Act
-    render(
-      <ScheduleRowActions
-        scheduleId="schedule-123"
-        scheduleName="Daily Run"
-        onEdit={vi.fn()}
-      />,
-    );
+    await act(async () => {
+      fireEvent.click(within(menu).getByRole("menuitem", { name: "Edit" }));
+    });
+
+    // Assert
+    expect(onEdit).toHaveBeenCalledWith("schedule-123");
+  });
+
+  it("asks for confirmation before deleting", async () => {
+    // Setup
+    renderRowActions();
+    const menu = await openActionsMenu();
+
+    // Act
+    await act(async () => {
+      fireEvent.click(within(menu).getByRole("menuitem", { name: "Delete" }));
+    });
+
+    // Assert
+    const dialog = screen.getByRole("alertdialog", {
+      name: "Delete schedule?",
+    });
+    const hiddenInput = within(dialog)
+      .getByTestId("delete-form")
+      .querySelector('input[name="body.scheduleId"]');
+
+    expect(dialog).toHaveTextContent("Daily Run");
+    expect(hiddenInput).toHaveValue("schedule-123");
+    expect(
+      within(dialog).getByRole("button", { name: "Delete schedule" }),
+    ).toHaveAttribute("type", "submit");
+  });
+
+  it("marks the delete item as destructive", async () => {
+    // Setup
+    renderRowActions();
+
+    // Act
+    const menu = await openActionsMenu();
 
     // Assert
     expect(
-      screen.getByRole("button", { name: "Open menu" }),
-    ).toBeInTheDocument();
+      within(menu).getByRole("menuitem", { name: "Delete" }),
+    ).toHaveAttribute("data-variant", "destructive");
   });
 
-  it("renders Edit option", async () => {
+  it("disables the delete item while a delete is pending", async () => {
     // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
+    mockDeleteAction({ pending: true });
+    renderRowActions();
 
     // Act
-    render(
-      <ScheduleRowActions
-        scheduleId="schedule-123"
-        scheduleName="Daily Run"
-        onEdit={vi.fn()}
-      />,
-    );
+    const menu = await openActionsMenu();
 
     // Assert
-    expect(screen.getByText("Edit")).toBeInTheDocument();
+    expect(
+      within(menu).getByRole("menuitem", { name: "Delete" }),
+    ).toHaveAttribute("data-disabled");
   });
 
-  it("renders Delete option", async () => {
+  it("shows a toast when the delete fails", () => {
     // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
+    mockDeleteAction({
+      state: { status: false, message: "Schedule not found" },
+    });
 
     // Act
-    render(
-      <ScheduleRowActions
-        scheduleId="schedule-123"
-        scheduleName="Daily Run"
-        onEdit={vi.fn()}
-      />,
-    );
+    renderRowActions();
 
     // Assert
-    expect(screen.getByText("Delete")).toBeInTheDocument();
+    expect(toastErrorMock).toHaveBeenCalledWith("Schedule not found");
   });
 
-  it("renders hidden input with schedule id for delete", async () => {
+  it("does not toast after a successful delete", () => {
     // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
+    mockDeleteAction({ state: { status: true } });
 
     // Act
-    render(
-      <ScheduleRowActions
-        scheduleId="schedule-123"
-        scheduleName="Daily Run"
-        onEdit={vi.fn()}
-      />,
-    );
+    renderRowActions();
 
     // Assert
-    const form = screen.getByTestId("delete-form");
-    const hiddenInput = form.querySelector('input[name="body.scheduleId"]');
-    expect(hiddenInput).toHaveValue("schedule-123");
-  });
-
-  it("shows Deleting label when pending", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction({ pending: true }));
-
-    // Act
-    render(
-      <ScheduleRowActions
-        scheduleId="schedule-123"
-        scheduleName="Daily Run"
-        onEdit={vi.fn()}
-      />,
-    );
-
-    // Assert
-    expect(screen.getByText("Deleting…")).toBeInTheDocument();
-  });
-
-  it("does not call router.refresh on successful delete", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction({ state: { status: true } }));
-
-    // Act
-    render(
-      <ScheduleRowActions
-        scheduleId="schedule-123"
-        scheduleName="Daily Run"
-        onEdit={vi.fn()}
-      />,
-    );
-
-    // Assert
-    expect(routerRefreshMock).not.toHaveBeenCalled();
-    expect(screen.getByText("Delete")).toBeInTheDocument();
-  });
-
-  it("renders separator between Edit and Delete", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
-
-    // Act
-    render(
-      <ScheduleRowActions
-        scheduleId="schedule-123"
-        scheduleName="Daily Run"
-        onEdit={vi.fn()}
-      />,
-    );
-
-    // Assert
-    expect(screen.getByTestId("dropdown-separator")).toBeInTheDocument();
-  });
-
-  it("applies destructive variant to delete item", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
-
-    // Act
-    render(
-      <ScheduleRowActions
-        scheduleId="schedule-123"
-        scheduleName="Daily Run"
-        onEdit={vi.fn()}
-      />,
-    );
-
-    // Assert
-    const items = screen.getAllByTestId("dropdown-item");
-    const deleteItem = items.find((item) =>
-      item.textContent?.includes("Delete"),
-    );
-    expect(deleteItem).toHaveAttribute("data-variant", "destructive");
+    expect(toastErrorMock).not.toHaveBeenCalled();
   });
 });

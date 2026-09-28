@@ -1,8 +1,21 @@
 import { prisma } from "@hermes/orchestration-database";
+import { Blocks, Plus } from "lucide-react";
+import Link from "next/link";
 
+import { CopyableId } from "@/components/copyable-id";
+import { DataTableCard } from "@/components/data-table/data-table-card";
+import { StatusBadge } from "@/components/status-badge";
 import { formatCreatedBy } from "@/lib/format-created-by";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
-import { Badge } from "@workspace/ui/components/badge";
+import { Button } from "@workspace/ui/components/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@workspace/ui/components/empty";
 import {
   Table,
   TableBody,
@@ -13,6 +26,28 @@ import {
 } from "@workspace/ui/components/table";
 
 import { DomainIntegrationRowActions } from "./domain-integration-row-actions";
+
+const DomainIntegrationsEmptyState = () => {
+  return (
+    <Empty className="gap-4 py-12 md:py-16">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Blocks aria-hidden className="size-5 text-muted-foreground" />
+        </EmptyMedia>
+        <EmptyTitle className="text-base">No integrations yet</EmptyTitle>
+        <EmptyDescription>Create one to get an API key.</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/dashboard/domain-integrations/create">
+            <Plus aria-hidden />
+            New integration
+          </Link>
+        </Button>
+      </EmptyContent>
+    </Empty>
+  );
+};
 
 export const DomainIntegrationsSection = async () => {
   const rows = await withDashboardAdmin(
@@ -36,51 +71,61 @@ export const DomainIntegrationsSection = async () => {
     }),
   );
 
+  if (rows.length === 0) {
+    return (
+      <DataTableCard>
+        <DomainIntegrationsEmptyState />
+      </DataTableCard>
+    );
+  }
+
   return (
-    <div className="rounded-md border">
+    <DataTableCard>
       <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow className="border-muted hover:bg-transparent">
-            <TableHead className="w-[200px]">Integration id</TableHead>
-            <TableHead className="min-w-[140px]">Name</TableHead>
-            <TableHead className="w-[120px]">Status</TableHead>
-            <TableHead>Base URL</TableHead>
-            <TableHead>Created by</TableHead>
-            <TableHead className="w-[56px] text-right">Actions</TableHead>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="pl-4">Name</TableHead>
+            <TableHead>Integration id</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="hidden md:table-cell">Base URL</TableHead>
+            <TableHead className="hidden lg:table-cell">Created by</TableHead>
+            <TableHead className="w-12 pr-2">
+              <span className="sr-only">Actions</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.length === 0 ? (
-            <TableRow>
-              <TableCell
-                colSpan={6}
-                className="text-center text-muted-foreground"
-              >
-                No integrations yet. Create one to get an API key.
-              </TableCell>
-            </TableRow>
-          ) : (
-            rows.map((row) => (
+          {rows.map((row) => {
+            const createdByLabel = formatCreatedBy(
+              row.createdBy,
+              row.createdById,
+            );
+
+            return (
               <TableRow key={row.id}>
-                <TableCell className="font-mono text-sm font-medium">
-                  {row.integrationId}
-                </TableCell>
-                <TableCell className="font-medium">{row.name}</TableCell>
+                <TableCell className="pl-4 font-medium">{row.name}</TableCell>
                 <TableCell>
-                  <Badge
-                    variant={row.status === "active" ? "default" : "secondary"}
-                    className="font-normal capitalize"
-                  >
-                    {row.status}
-                  </Badge>
+                  <CopyableId
+                    value={row.integrationId}
+                    label={`Copy integration id ${row.integrationId}`}
+                  />
                 </TableCell>
-                <TableCell className="max-w-[280px] truncate text-muted-foreground text-sm">
-                  {row.baseUrl ?? "—"}
+                <TableCell>
+                  <StatusBadge status={row.status} />
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {formatCreatedBy(row.createdBy, row.createdById)}
+                <TableCell className="hidden text-muted-foreground md:table-cell">
+                  {row.baseUrl ? (
+                    <div className="max-w-xs truncate" title={row.baseUrl}>
+                      {row.baseUrl}
+                    </div>
+                  ) : (
+                    "—"
+                  )}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="hidden text-muted-foreground lg:table-cell">
+                  {createdByLabel}
+                </TableCell>
+                <TableCell className="pr-2 text-right">
                   <DomainIntegrationRowActions
                     row={{
                       id: row.id,
@@ -90,10 +135,10 @@ export const DomainIntegrationsSection = async () => {
                   />
                 </TableCell>
               </TableRow>
-            ))
-          )}
+            );
+          })}
         </TableBody>
       </Table>
-    </div>
+    </DataTableCard>
   );
 };

@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-import { format } from "date-fns";
+import { Plus, SlidersHorizontal } from "lucide-react";
 
+import { Button } from "@workspace/ui/components/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@workspace/ui/components/empty";
 import {
   Table,
   TableBody,
@@ -12,32 +20,29 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
-import { Badge } from "@workspace/ui/components/badge";
-
 import {
-  AgentConfigRowActions,
-  type AgentConfigRow,
-} from "./agent-config-row-actions";
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip";
+
+import { DataTableCard } from "@/components/data-table/data-table-card";
+import { SortableHeader } from "@/components/data-table/sortable-header";
+import { RelativeTime } from "@/components/relative-time";
+import { StatusBadge } from "@/components/status-badge";
 import type {
   AgentConfigSortDir,
   AgentConfigSortField,
 } from "@/lib/agent-configs";
 import { formatCreatedBy } from "@/lib/format-created-by";
+import { buildListHref, nextSortDirection } from "@/lib/list-page-params";
+
+import {
+  AgentConfigRowActions,
+  type AgentConfigRow,
+} from "./agent-config-row-actions";
 
 const BASE_PATH = "/dashboard/agent-configs";
-
-const buildSortHref = (
-  sortBy: AgentConfigSortField,
-  sortDir: AgentConfigSortDir,
-  pageSize: number,
-): string => {
-  const params = new URLSearchParams();
-  params.set("page", "1");
-  params.set("size", String(pageSize));
-  params.set("sort", sortBy);
-  params.set("dir", sortDir);
-  return `${BASE_PATH}?${params.toString()}`;
-};
 
 type AgentConfigsTableProps = {
   configs: AgentConfigRow[];
@@ -46,101 +51,150 @@ type AgentConfigsTableProps = {
   pageSize: number;
 };
 
-/**
- * Renders the agent configs list as a table with sortable columns and row actions.
- */
+const AgentConfigsEmptyState = () => {
+  return (
+    <Empty className="gap-4 py-12 md:py-16">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <SlidersHorizontal
+            aria-hidden
+            className="size-5 text-muted-foreground"
+          />
+        </EmptyMedia>
+        <EmptyTitle className="text-base">No agent configs yet</EmptyTitle>
+        <EmptyDescription>
+          Save reusable settings for an agent as a preset.
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`${BASE_PATH}/new`}>
+            <Plus aria-hidden />
+            Add config
+          </Link>
+        </Button>
+      </EmptyContent>
+    </Empty>
+  );
+};
+
+const SchemaStatus = ({ schemaValid }: { schemaValid: boolean }) => {
+  if (schemaValid) {
+    return <span className="text-sm text-muted-foreground">Up to date</span>;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          tabIndex={0}
+          className="inline-flex rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
+          <StatusBadge status="invalid" label="Schema changed" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-64">
+        The agent&apos;s config schema changed after this preset was saved. Edit
+        the preset to review its fields.
+      </TooltipContent>
+    </Tooltip>
+  );
+};
+
 export const AgentConfigsTable = ({
   configs,
   sortBy,
   sortDir,
   pageSize,
 }: AgentConfigsTableProps) => {
-  const sortLink = (field: AgentConfigSortField, label: string) => {
-    const isActive = sortBy === field;
-    const nextDir: AgentConfigSortDir =
-      isActive && sortDir === "asc" ? "desc" : "asc";
-    const href = buildSortHref(field, isActive ? nextDir : "asc", pageSize);
-    const Icon = isActive
-      ? sortDir === "asc"
-        ? ArrowUp
-        : ArrowDown
-      : ArrowUpDown;
+  const sortHeader = (field: AgentConfigSortField, label: string) => {
+    const direction = nextSortDirection(field, sortBy, sortDir);
+    const href = buildListHref(BASE_PATH, {
+      pageSize,
+      sortBy: field,
+      sortDir: direction,
+    });
+
     return (
-      <Link
+      <SortableHeader
+        label={label}
         href={href}
-        className="inline-flex items-center gap-1 hover:underline"
-      >
-        {label}
-        <Icon className="size-4" />
-      </Link>
+        isActive={sortBy === field}
+        direction={sortDir}
+      />
     );
   };
 
+  if (configs.length === 0) {
+    return (
+      <DataTableCard>
+        <AgentConfigsEmptyState />
+      </DataTableCard>
+    );
+  }
+
   return (
-    <div className="rounded-md border">
+    <DataTableCard>
       <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow className="border-muted hover:bg-transparent">
-            <TableHead>{sortLink("name", "Name")}</TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead>{sortLink("agentId", "Agent")}</TableHead>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="pl-4">{sortHeader("name", "Name")}</TableHead>
+            <TableHead>{sortHeader("agentId", "Agent")}</TableHead>
+            <TableHead className="hidden lg:table-cell">Description</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>{sortLink("createdAt", "Created")}</TableHead>
-            <TableHead>Created by</TableHead>
-            <TableHead className="w-[60px]" />
+            <TableHead>{sortHeader("createdAt", "Created")}</TableHead>
+            <TableHead className="hidden md:table-cell">Created by</TableHead>
+            <TableHead className="w-12 pr-2">
+              <span className="sr-only">Actions</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {configs.length === 0 ? (
-            <TableRow>
-              <TableCell
-                colSpan={7}
-                className="text-center text-muted-foreground"
-              >
-                No agent configs yet.
-              </TableCell>
-            </TableRow>
-          ) : (
-            configs.map((config) => (
+          {configs.map((config) => {
+            const agentLabel = `${config.agentId}@${config.agentVersion}`;
+            const description = config.description ?? "—";
+
+            return (
               <TableRow key={config.id}>
-                <TableCell className="font-medium">
+                <TableCell className="pl-4">
                   <Link
-                    href={`/dashboard/agent-configs/${config.id}/edit`}
-                    className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground hover:text-foreground"
+                    href={`${BASE_PATH}/${config.id}/edit`}
+                    className="font-medium text-foreground underline-offset-4 hover:underline"
                   >
                     {config.name}
                   </Link>
                 </TableCell>
-                <TableCell className="max-w-[200px] truncate text-muted-foreground">
-                  {config.description ?? "—"}
+                <TableCell className="font-mono text-xs text-muted-foreground">
+                  {agentLabel}
                 </TableCell>
-                <TableCell className="font-mono text-sm">
-                  {config.agentId}@{config.agentVersion}
+                <TableCell className="hidden text-muted-foreground lg:table-cell">
+                  <div
+                    className="max-w-xs truncate"
+                    title={config.description ?? undefined}
+                  >
+                    {description}
+                  </div>
                 </TableCell>
                 <TableCell>
-                  {config.schemaValid ? (
-                    <Badge variant="secondary">Valid</Badge>
-                  ) : (
-                    <Badge variant="destructive">Schema changed</Badge>
-                  )}
+                  <SchemaStatus schemaValid={config.schemaValid} />
                 </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {format(config.createdAt, "MMM d, yyyy")}
+                <TableCell className="text-muted-foreground">
+                  <RelativeTime value={config.createdAt} />
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
+                <TableCell className="hidden text-muted-foreground md:table-cell">
                   {formatCreatedBy(config.createdBy)}
                 </TableCell>
-                <TableCell>
+                <TableCell className="pr-2 text-right">
                   <AgentConfigRowActions
                     config={config}
                     configLabel={config.name}
                   />
                 </TableCell>
               </TableRow>
-            ))
-          )}
+            );
+          })}
         </TableBody>
       </Table>
-    </div>
+    </DataTableCard>
   );
 };

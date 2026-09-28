@@ -2,12 +2,6 @@ const MINUTE_IN_MILLISECONDS = 60_000;
 const HOUR_IN_MILLISECONDS = 60 * MINUTE_IN_MILLISECONDS;
 const DAY_IN_MILLISECONDS = 24 * HOUR_IN_MILLISECONDS;
 
-const utcTimestampFormatter = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-  timeStyle: "short",
-  timeZone: "UTC",
-});
-
 const formatCompactSpan = (milliseconds: number): string => {
   if (milliseconds < HOUR_IN_MILLISECONDS) {
     return `${Math.floor(milliseconds / MINUTE_IN_MILLISECONDS)}m`;
@@ -30,6 +24,3 @@ export const formatRelativeTime = (date: Date, now: Date): string => {
 
   return isFuture ? `in ${compactSpan}` : `${compactSpan} ago`;
 };
-
-export const formatUtcTimestamp = (date: Date): string =>
-  `${utcTimestampFormatter.format(date)} UTC`;

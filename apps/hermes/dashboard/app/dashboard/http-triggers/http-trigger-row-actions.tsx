@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback } from "react";
-import { buildHttpTriggerInvokeCurlCommand } from "@/lib/http-trigger-invoke-curl";
-import { Copy, MoreHorizontal, Pencil } from "lucide-react";
+import { useCallback, useEffect } from "react";
+import { Copy, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -12,31 +12,39 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
-import { DeleteConfirmForm } from "@/components/delete-confirm-form";
+
 import { useFormAction } from "@/app/dashboard/http-triggers/actions/delete/.generated/use-form-action";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
+import { useConfirmActionDialog } from "@/hooks/use-confirm-action-dialog";
+import {
+  buildHttpTriggerInvokeCurlCommand,
+  type HttpTriggerInvokeMethod,
+} from "@/lib/http-trigger-invoke-curl";
 
-const useHttpTriggerRowActions = () => {
-  const { FormWithAction, pending } = useFormAction();
+type EditHttpTriggerHandler = (httpTriggerId: string) => void;
 
-  return { FormWithAction, pending };
-};
-
-/**
- * Dropdown row actions for one HTTP trigger.
- */
-export const HttpTriggerRowActions = ({
-  httpTriggerId,
-  httpTriggerName,
-  method,
-  onEdit,
-}: {
+type HttpTriggerRowActionsProps = {
   httpTriggerId: string;
   httpTriggerName: string;
-  method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
-  onEdit: (httpTriggerId: string) => void;
-}) => {
-  const { FormWithAction, pending } = useHttpTriggerRowActions();
-  const onCopyCurl = useCallback(async () => {
+  method: HttpTriggerInvokeMethod;
+  onEdit: EditHttpTriggerHandler;
+};
+
+const useHttpTriggerRowActions = (
+  httpTriggerId: string,
+  method: HttpTriggerInvokeMethod,
+) => {
+  const { FormWithAction, state, pending } = useFormAction();
+  const { open, setOpen, requestConfirmation } = useConfirmActionDialog(state);
+
+  useEffect(() => {
+    if (state && state.status === false) {
+      const message = state.message ? String(state.message) : "Delete failed";
+      toast.error(message);
+    }
+  }, [state]);
+
+  const copyCurlCommand = useCallback(async () => {
     const command = buildHttpTriggerInvokeCurlCommand({
       method,
       triggerId: httpTriggerId,
@@ -44,43 +52,91 @@ export const HttpTriggerRowActions = ({
     });
     try {
       await navigator.clipboard.writeText(command);
-      window.alert("cURL command copied to clipboard.");
+      toast.success("cURL command copied");
     } catch {
-      window.alert("Failed to copy cURL command.");
+      toast.error("Couldn't copy the cURL command");
     }
   }, [httpTriggerId, method]);
 
+  return {
+    FormWithAction,
+    pending,
+    open,
+    setOpen,
+    requestConfirmation,
+    copyCurlCommand,
+  };
+};
+
+export const HttpTriggerRowActions = ({
+  httpTriggerId,
+  httpTriggerName,
+  method,
+  onEdit,
+}: HttpTriggerRowActionsProps) => {
+  const {
+    FormWithAction,
+    pending,
+    open,
+    setOpen,
+    requestConfirmation,
+    copyCurlCommand,
+  } = useHttpTriggerRowActions(httpTriggerId, method);
+  const hiddenFields = [{ name: "body.httpTriggerId", value: httpTriggerId }];
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-8"
-          aria-label="Open menu"
-        >
-          <MoreHorizontal className="size-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuItem onSelect={() => onEdit(httpTriggerId)}>
-          <Pencil className="mr-2 size-4" />
-          Edit
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => void onCopyCurl()}>
-          <Copy className="mr-2 size-4" />
-          Copy cURL
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" disabled={pending} asChild>
-          <DeleteConfirmForm
-            FormWithAction={FormWithAction}
-            confirmMessage={`Delete HTTP trigger "${httpTriggerName}"? This cannot be undone.`}
-            bodyField={{ name: "body.httpTriggerId", value: httpTriggerId }}
-            pending={pending}
-          />
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
+            aria-label={`Actions for HTTP trigger ${httpTriggerName}`}
+          >
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem onSelect={() => onEdit(httpTriggerId)}>
+            <Pencil />
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void copyCurlCommand()}>
+            <Copy />
+            Copy cURL
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={pending}
+            onSelect={requestConfirmation}
+          >
+            <Trash2 />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ConfirmActionDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Delete HTTP trigger?"
+        description={
+          <>
+            This deletes{" "}
+            <span className="font-medium text-foreground">
+              {httpTriggerName}
+            </span>{" "}
+            and its run history. Callers using its endpoint will get errors.
+            This cannot be undone.
+          </>
+        }
+        confirmLabel="Delete HTTP trigger"
+        pendingLabel="Deleting…"
+        pending={pending}
+        FormWithAction={FormWithAction}
+        hiddenFields={hiddenFields}
+      />
+    </>
   );
 };

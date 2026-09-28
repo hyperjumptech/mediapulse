@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useState } from "react";
-
-import { Button } from "@workspace/ui/components/button";
-import type { ScheduleSortDir, ScheduleSortField } from "@/lib/schedules";
-import type { SchedulesPageResult } from "@/lib/schedules";
-import type { PipelineValidationResult } from "@/lib/validate-pipeline";
-import type { PipelineOption } from "./schedule-form-fields";
-
+import { useEntityFormModal } from "@/components/entity-form-modal-provider";
 import { ListPagination } from "@/components/list-pagination";
+import type {
+  ScheduleSortDir,
+  ScheduleSortField,
+  SchedulesPageResult,
+} from "@/lib/schedules";
+import type { PipelineValidationResult } from "@/lib/validate-pipeline";
+
+import type { PipelineOption } from "./schedule-form-fields";
 import { ScheduleFormModal } from "./schedule-form-modal";
 import { SchedulesSearch } from "./schedules-search";
 import { SchedulesTable } from "./schedules-table";
@@ -27,39 +28,6 @@ export type SchedulesWithModalProps = {
   sortDir: ScheduleSortDir;
 };
 
-/**
- * Encapsulates schedule list modal state: open, mode, edit id, and open callbacks.
- */
-const useSchedulesWithModalState = () => {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
-  const [editScheduleId, setEditScheduleId] = useState<string | null>(null);
-
-  const openCreateModal = useCallback(() => {
-    setModalMode("create");
-    setEditScheduleId(null);
-    setModalOpen(true);
-  }, []);
-
-  const openEditModal = useCallback((scheduleId: string) => {
-    setModalMode("edit");
-    setEditScheduleId(scheduleId);
-    setModalOpen(true);
-  }, []);
-
-  return {
-    modalOpen,
-    setModalOpen,
-    modalMode,
-    editScheduleId,
-    openCreateModal,
-    openEditModal,
-  };
-};
-
-/**
- * Client wrapper that provides Create/Edit schedule modals and wires table row Edit to open the modal.
- */
 export const SchedulesWithModal = ({
   schedules,
   pipelines,
@@ -71,36 +39,26 @@ export const SchedulesWithModal = ({
   sortBy,
   sortDir,
 }: SchedulesWithModalProps) => {
-  const {
-    modalOpen,
-    setModalOpen,
-    modalMode,
-    editScheduleId,
-    openCreateModal,
-    openEditModal,
-  } = useSchedulesWithModalState();
+  const { open, setOpen, mode, editId, openCreate, openEdit } =
+    useEntityFormModal();
 
   return (
     <>
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col justify-between sm:flex-row sm:items-center">
-          <SchedulesSearch
-            initialQuery={searchQuery ?? ""}
-            pageSize={pageSize}
-            sortBy={sortBy}
-            sortDir={sortDir}
-          />
-          <div className="shrink-0 sm:ml-auto">
-            <Button onClick={openCreateModal}>Create schedule</Button>
-          </div>
-        </div>
+      <div className="flex flex-col gap-3">
+        <SchedulesSearch
+          initialQuery={searchQuery ?? ""}
+          pageSize={pageSize}
+          sortBy={sortBy}
+          sortDir={sortDir}
+        />
         <SchedulesTable
           schedules={schedules}
           sortBy={sortBy}
           sortDir={sortDir}
           pageSize={pageSize}
           searchQuery={searchQuery}
-          onEdit={openEditModal}
+          onEdit={openEdit}
+          onCreate={openCreate}
         />
         <ListPagination
           basePath="/dashboard/schedules"
@@ -114,10 +72,10 @@ export const SchedulesWithModal = ({
         />
       </div>
       <ScheduleFormModal
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        mode={modalMode}
-        editScheduleId={editScheduleId}
+        open={open}
+        onOpenChange={setOpen}
+        mode={mode}
+        editScheduleId={editId}
         pipelines={pipelines}
         pipelineValidationById={pipelineValidationById}
       />

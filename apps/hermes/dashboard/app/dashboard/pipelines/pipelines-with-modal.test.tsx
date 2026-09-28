@@ -1,16 +1,17 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { PipelinesWithModal } from "./pipelines-with-modal";
 
-vi.mock("@workspace/ui/components/button", () => ({
-  Button: ({
-    children,
-    onClick,
-  }: React.PropsWithChildren<{ onClick?: () => void }>) => (
-    <button onClick={onClick}>{children}</button>
-  ),
-}));
+import {
+  EntityFormModalCreateButton,
+  EntityFormModalProvider,
+} from "@/components/entity-form-modal-provider";
+import type { PipelineSummary } from "@/lib/pipeline-summaries";
+
+import {
+  PipelinesWithModal,
+  type PipelinesWithModalProps,
+} from "./pipelines-with-modal";
 
 vi.mock("./pipeline-form-modal", () => ({
   PipelineFormModal: ({
@@ -38,160 +39,110 @@ vi.mock("./pipelines-table", () => ({
   PipelinesTable: ({
     pipelines,
     onEdit,
+    onCreate,
   }: {
     pipelines: Array<{ id: string }>;
-    onEdit?: (id: string) => void;
+    onEdit: (pipelineId: string) => void;
+    onCreate: () => void;
   }) => (
     <div data-testid="pipelines-table" data-count={pipelines.length}>
-      {pipelines.map((p) => (
+      <button type="button" onClick={onCreate}>
+        Empty state create
+      </button>
+      {pipelines.map((pipeline) => (
         <button
-          key={p.id}
-          data-testid={`edit-${p.id}`}
-          onClick={() => onEdit?.(p.id)}
+          key={pipeline.id}
+          type="button"
+          onClick={() => onEdit(pipeline.id)}
         >
-          Edit {p.id}
+          Edit {pipeline.id}
         </button>
       ))}
     </div>
   ),
 }));
 
-const emptyDomainIntegrations: Array<{
-  id: string;
-  integrationId: string;
-  name: string;
-}> = [];
-
-const createMockPipeline = (id: string, name: string) => ({
+const createMockPipeline = (id: string): PipelineSummary => ({
   id,
-  name,
+  name: `Pipeline ${id}`,
   description: null,
   isActive: true,
   createdById: null,
   createdBy: null,
 });
 
+const baseProps: PipelinesWithModalProps = {
+  pipelines: [],
+  pipelineValidationById: {},
+  domainIntegrations: [
+    { id: "integration-1", integrationId: "mediapulse", name: "Mediapulse" },
+  ],
+};
+
+const renderWithProvider = (props: Partial<PipelinesWithModalProps> = {}) =>
+  render(
+    <EntityFormModalProvider>
+      <EntityFormModalCreateButton label="New pipeline" />
+      <PipelinesWithModal {...baseProps} {...props} />
+    </EntityFormModalProvider>,
+  );
+
 describe("PipelinesWithModal", () => {
-  it("renders create pipeline button", () => {
+  it("renders the table and a closed modal with domain integrations", () => {
     // Act
-    render(
-      <PipelinesWithModal
-        pipelines={[]}
-        pipelineValidationById={{}}
-        domainIntegrations={emptyDomainIntegrations}
-      />,
-    );
+    renderWithProvider({ pipelines: [createMockPipeline("1")] });
 
     // Assert
-    expect(
-      screen.getByRole("button", { name: "Create pipeline" }),
-    ).toBeInTheDocument();
-  });
+    const modal = screen.getByTestId("pipeline-form-modal");
 
-  it("renders pipelines table", () => {
-    // Setup
-    const pipelines = [createMockPipeline("1", "Pipeline A")];
-
-    // Act
-    render(
-      <PipelinesWithModal
-        pipelines={pipelines}
-        pipelineValidationById={{ "1": { valid: true, warnings: [] } }}
-        domainIntegrations={emptyDomainIntegrations}
-      />,
-    );
-
-    // Assert
-    expect(screen.getByTestId("pipelines-table")).toBeInTheDocument();
     expect(screen.getByTestId("pipelines-table")).toHaveAttribute(
       "data-count",
       "1",
     );
+    expect(modal).toHaveAttribute("data-open", "false");
+    expect(modal).toHaveAttribute("data-domain-count", "1");
   });
 
-  it("renders pipeline form modal", () => {
-    // Act
-    render(
-      <PipelinesWithModal
-        pipelines={[]}
-        pipelineValidationById={{}}
-        domainIntegrations={emptyDomainIntegrations}
-      />,
-    );
-
-    // Assert
-    expect(screen.getByTestId("pipeline-form-modal")).toBeInTheDocument();
-  });
-
-  it("opens create modal when clicking create button", () => {
-    // Act
-    render(
-      <PipelinesWithModal
-        pipelines={[]}
-        pipelineValidationById={{}}
-        domainIntegrations={emptyDomainIntegrations}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Create pipeline" }));
-
-    // Assert
-    expect(screen.getByTestId("pipeline-form-modal")).toHaveAttribute(
-      "data-open",
-      "true",
-    );
-    expect(screen.getByTestId("pipeline-form-modal")).toHaveAttribute(
-      "data-mode",
-      "create",
-    );
-  });
-
-  it("opens edit modal when clicking edit in table", () => {
+  it("opens the create modal from the page header button", () => {
     // Setup
-    const pipelines = [createMockPipeline("pipeline-1", "Pipeline A")];
+    renderWithProvider();
 
     // Act
-    render(
-      <PipelinesWithModal
-        pipelines={pipelines}
-        pipelineValidationById={{
-          "pipeline-1": { valid: true, warnings: [] },
-        }}
-        domainIntegrations={emptyDomainIntegrations}
-      />,
-    );
+    fireEvent.click(screen.getByRole("button", { name: "New pipeline" }));
 
-    fireEvent.click(screen.getByTestId("edit-pipeline-1"));
+    // Assert
+    const modal = screen.getByTestId("pipeline-form-modal");
+
+    expect(modal).toHaveAttribute("data-open", "true");
+    expect(modal).toHaveAttribute("data-mode", "create");
+  });
+
+  it("opens the create modal from the empty state", () => {
+    // Setup
+    renderWithProvider();
+
+    // Act
+    fireEvent.click(screen.getByRole("button", { name: "Empty state create" }));
 
     // Assert
     expect(screen.getByTestId("pipeline-form-modal")).toHaveAttribute(
       "data-open",
       "true",
     );
-    expect(screen.getByTestId("pipeline-form-modal")).toHaveAttribute(
-      "data-mode",
-      "edit",
-    );
-    expect(screen.getByTestId("pipeline-form-modal")).toHaveAttribute(
-      "data-edit-id",
-      "pipeline-1",
-    );
   });
 
-  it("modal is closed initially", () => {
+  it("opens the edit modal for the selected row", () => {
+    // Setup
+    renderWithProvider({ pipelines: [createMockPipeline("pipeline-1")] });
+
     // Act
-    render(
-      <PipelinesWithModal
-        pipelines={[]}
-        pipelineValidationById={{}}
-        domainIntegrations={emptyDomainIntegrations}
-      />,
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit pipeline-1" }));
 
     // Assert
-    expect(screen.getByTestId("pipeline-form-modal")).toHaveAttribute(
-      "data-open",
-      "false",
-    );
+    const modal = screen.getByTestId("pipeline-form-modal");
+
+    expect(modal).toHaveAttribute("data-open", "true");
+    expect(modal).toHaveAttribute("data-mode", "edit");
+    expect(modal).toHaveAttribute("data-edit-id", "pipeline-1");
   });
 });

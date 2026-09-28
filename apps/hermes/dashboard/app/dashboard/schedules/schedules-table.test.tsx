@@ -1,8 +1,10 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import { SchedulesTable } from "./schedules-table";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import type { SchedulesPageResult } from "@/lib/schedules";
+
+import { SchedulesTable } from "./schedules-table";
 
 type ScheduleRow = SchedulesPageResult["schedules"][number];
 
@@ -10,29 +12,18 @@ vi.mock("next/link", () => ({
   default: ({
     children,
     href,
-  }: {
-    children: React.ReactNode;
-    href: string;
-  }) => <a href={href}>{children}</a>,
-}));
-
-vi.mock("@workspace/ui/components/table", () => ({
-  Table: ({ children }: React.PropsWithChildren) => (
-    <table data-testid="table">{children}</table>
-  ),
-  TableHeader: ({ children }: React.PropsWithChildren) => (
-    <thead>{children}</thead>
-  ),
-  TableBody: ({ children }: React.PropsWithChildren) => (
-    <tbody>{children}</tbody>
-  ),
-  TableRow: ({ children }: React.PropsWithChildren) => <tr>{children}</tr>,
-  TableHead: ({ children }: React.PropsWithChildren) => <th>{children}</th>,
-  TableCell: ({
-    children,
-    colSpan,
-  }: React.PropsWithChildren<{ colSpan?: number }>) => (
-    <td colSpan={colSpan}>{children}</td>
+    className,
+    "aria-label": ariaLabel,
+    "aria-sort": ariaSort,
+  }: React.ComponentProps<"a"> & { href: string }) => (
+    <a
+      href={href}
+      className={className}
+      aria-label={ariaLabel}
+      aria-sort={ariaSort}
+    >
+      {children}
+    </a>
   ),
 }));
 
@@ -44,197 +35,211 @@ vi.mock("./schedule-row-actions", () => ({
     scheduleId: string;
     scheduleName: string;
   }) => (
-    <button data-testid={`row-actions-${scheduleId}`} data-name={scheduleName}>
+    <button
+      type="button"
+      data-testid={`row-actions-${scheduleId}`}
+      data-name={scheduleName}
+    >
       Actions
     </button>
   ),
 }));
 
-const createMockSchedule = (
-  overrides?: Partial<{
-    id: string;
-    name: string;
-    repeat: string;
-    enabled: boolean;
-    nextRunAt: Date | null;
-    pipeline: { id: string; name: string };
-  }>,
-): ScheduleRow =>
+const now = new Date("2024-01-15T09:00:00.000Z");
+
+const createMockSchedule = (overrides: Partial<ScheduleRow> = {}) =>
   ({
     id: "schedule-1",
     name: "Daily Run",
+    description: null,
     repeat: "repeating",
+    interval: 15 * 60_000,
+    cronExpression: null,
+    timezone: "Asia/Jakarta",
     enabled: true,
-    nextRunAt: new Date("2024-01-15T10:00:00Z"),
+    nextRunAt: new Date("2024-01-15T10:00:00.000Z"),
     pipeline: { id: "pipeline-1", name: "Test Pipeline" },
-    createdAt: new Date("2024-01-01"),
+    createdAt: new Date("2024-01-12T09:00:00.000Z"),
     createdById: null,
-    createdBy: null,
+    createdBy: { id: "user-1", name: "Ada Lovelace", email: "ada@example.com" },
     ...overrides,
   }) as ScheduleRow;
 
+const renderTable = (
+  props: Partial<React.ComponentProps<typeof SchedulesTable>> = {},
+) =>
+  render(
+    <SchedulesTable
+      schedules={[createMockSchedule()]}
+      sortBy="name"
+      sortDir="asc"
+      pageSize={15}
+      onEdit={vi.fn()}
+      onCreate={vi.fn()}
+      {...props}
+    />,
+  );
+
 describe("SchedulesTable", () => {
-  it("renders table headers", () => {
-    // Act
-    render(
-      <SchedulesTable
-        schedules={[]}
-        sortBy="name"
-        sortDir="asc"
-        pageSize={15}
-        onEdit={vi.fn()}
-      />,
-    );
-
-    // Assert
-    expect(screen.getByText("Name")).toBeInTheDocument();
-    expect(screen.getByText("Pipeline")).toBeInTheDocument();
-    expect(screen.getByText("Repeat")).toBeInTheDocument();
-    expect(screen.getByText("Next run")).toBeInTheDocument();
-    expect(screen.getByText("Enabled")).toBeInTheDocument();
-    expect(screen.getByText("Created")).toBeInTheDocument();
-    expect(screen.getByText("Created by")).toBeInTheDocument();
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(now);
   });
 
-  it("renders empty state when no schedules", () => {
-    // Act
-    render(
-      <SchedulesTable
-        schedules={[]}
-        sortBy="name"
-        sortDir="asc"
-        pageSize={15}
-        onEdit={vi.fn()}
-      />,
-    );
-
-    // Assert
-    expect(screen.getByText("No schedules yet.")).toBeInTheDocument();
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
-  it("renders schedule rows when schedules provided", () => {
-    // Setup
-    const schedules = [createMockSchedule()];
-
+  it("renders the column headers", () => {
     // Act
-    render(
-      <SchedulesTable
-        schedules={schedules}
-        sortBy="name"
-        sortDir="asc"
-        pageSize={15}
-        onEdit={vi.fn()}
-      />,
-    );
+    renderTable();
 
     // Assert
-    expect(screen.getByText("Daily Run")).toBeInTheDocument();
-    expect(screen.getByText("Test Pipeline")).toBeInTheDocument();
-    expect(screen.getByText("repeating")).toBeInTheDocument();
+    const headers = screen
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+
+    expect(headers).toEqual([
+      "Name",
+      "Pipeline",
+      "Repeats",
+      "Next run",
+      "Status",
+      "Created",
+      "Created by",
+      "Actions",
+    ]);
   });
 
-  it("displays Yes for enabled schedules", () => {
-    // Setup
-    const schedules = [createMockSchedule({ enabled: true })];
-
+  it("links sort headers to the next direction and resets to page 1", () => {
     // Act
-    render(
-      <SchedulesTable
-        schedules={schedules}
-        sortBy="name"
-        sortDir="asc"
-        pageSize={15}
-        onEdit={vi.fn()}
-      />,
-    );
+    renderTable({ sortBy: "name", sortDir: "asc", searchQuery: "daily" });
 
     // Assert
-    expect(screen.getByText("Yes")).toBeInTheDocument();
-  });
-
-  it("displays No for disabled schedules", () => {
-    // Setup
-    const schedules = [createMockSchedule({ enabled: false })];
-
-    // Act
-    render(
-      <SchedulesTable
-        schedules={schedules}
-        sortBy="name"
-        sortDir="asc"
-        pageSize={15}
-        onEdit={vi.fn()}
-      />,
-    );
-
-    // Assert
-    expect(screen.getByText("No")).toBeInTheDocument();
-  });
-
-  it("displays dash for null nextRunAt", () => {
-    // Setup
-    const schedules = [createMockSchedule({ nextRunAt: null })];
-
-    // Act
-    render(
-      <SchedulesTable
-        schedules={schedules}
-        sortBy="name"
-        sortDir="asc"
-        pageSize={15}
-        onEdit={vi.fn()}
-      />,
-    );
-
-    // Assert
-    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
-  });
-
-  it("schedule name is a link to schedule detail page", () => {
-    // Setup
-    const schedules = [createMockSchedule({ id: "schedule-123" })];
-
-    // Act
-    render(
-      <SchedulesTable
-        schedules={schedules}
-        sortBy="name"
-        sortDir="asc"
-        pageSize={15}
-        onEdit={vi.fn()}
-      />,
-    );
-
-    const nameLink = screen.getByRole("link", { name: "Daily Run" });
-
-    // Assert
-    expect(nameLink).toBeInTheDocument();
-    expect(nameLink).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Name" })).toHaveAttribute(
       "href",
-      "/dashboard/schedules/schedule-123",
+      "/dashboard/schedules?page=1&size=15&q=daily&sort=name&dir=desc",
     );
+    expect(screen.getByRole("link", { name: "Next run" })).toHaveAttribute(
+      "href",
+      "/dashboard/schedules?page=1&size=15&q=daily&sort=nextRunAt&dir=asc",
+    );
+    expect(screen.getByRole("link", { name: "Name" })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
+  });
+
+  it("renders a row with links, cadence, relative times, status, and creator", () => {
+    // Act
+    renderTable();
+
+    // Assert
+    const row = screen.getByRole("row", { name: /Daily Run/ });
+
+    expect(
+      within(row).getByRole("link", { name: "Daily Run" }),
+    ).toHaveAttribute("href", "/dashboard/schedules/schedule-1");
+    expect(
+      within(row).getByRole("link", { name: "Test Pipeline" }),
+    ).toHaveAttribute("href", "/dashboard/pipelines/pipeline-1");
+    expect(within(row).getByText("Every 15m")).toBeInTheDocument();
+    expect(within(row).getByText("in 1h")).toHaveAttribute(
+      "datetime",
+      "2024-01-15T10:00:00.000Z",
+    );
+    expect(within(row).getByText("3d ago")).toBeInTheDocument();
+    expect(within(row).getByText("enabled")).toHaveAttribute(
+      "data-variant",
+      "success",
+    );
+    expect(within(row).getByText("Ada Lovelace")).toBeInTheDocument();
+    expect(screen.getByTestId("row-actions-schedule-1")).toHaveAttribute(
+      "data-name",
+      "Daily Run",
+    );
+  });
+
+  it("marks disabled schedules with a muted status", () => {
+    // Act
+    renderTable({ schedules: [createMockSchedule({ enabled: false })] });
+
+    // Assert
+    expect(screen.getByText("disabled")).toHaveAttribute(
+      "data-variant",
+      "muted",
+    );
+  });
+
+  it("shows custom cron expressions in monospace with the schedule timezone", () => {
+    // Act
+    renderTable({
+      schedules: [
+        createMockSchedule({ interval: null, cronExpression: "0 7 * * 1-5" }),
+      ],
+    });
+
+    // Assert
+    const cron = screen.getByText("0 7 * * 1-5");
+
+    expect(cron.tagName).toBe("CODE");
+    expect(cron).toHaveAttribute("title", "Cron in Asia/Jakarta");
+  });
+
+  it("displays a dash when there is no next run", () => {
+    // Act
+    renderTable({ schedules: [createMockSchedule({ nextRunAt: null })] });
+
+    // Assert
+    expect(screen.getByText("—")).toBeInTheDocument();
   });
 
   it("renders row actions for each schedule", () => {
-    // Setup
-    const schedules = [
-      createMockSchedule({ id: "schedule-1" }),
-      createMockSchedule({ id: "schedule-2", name: "Weekly Run" }),
-    ];
-
     // Act
-    render(
-      <SchedulesTable
-        schedules={schedules}
-        sortBy="name"
-        sortDir="asc"
-        pageSize={15}
-        onEdit={vi.fn()}
-      />,
-    );
+    renderTable({
+      schedules: [
+        createMockSchedule({ id: "schedule-1" }),
+        createMockSchedule({ id: "schedule-2", name: "Weekly Run" }),
+      ],
+    });
 
     // Assert
     expect(screen.getByTestId("row-actions-schedule-1")).toBeInTheDocument();
     expect(screen.getByTestId("row-actions-schedule-2")).toBeInTheDocument();
+  });
+
+  it("invites creating the first schedule when there are none", () => {
+    // Setup
+    const onCreate = vi.fn();
+    renderTable({ schedules: [], onCreate });
+
+    // Act
+    fireEvent.click(screen.getByRole("button", { name: "New schedule" }));
+
+    // Assert
+    expect(screen.getByText("No schedules yet")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(onCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers to clear the search when nothing matches", () => {
+    // Act
+    renderTable({
+      schedules: [],
+      searchQuery: "daily",
+      sortBy: "nextRunAt",
+      sortDir: "desc",
+      pageSize: 20,
+    });
+
+    // Assert
+    expect(screen.getByText("No schedules match “daily”")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Clear search" })).toHaveAttribute(
+      "href",
+      "/dashboard/schedules?page=1&size=20&sort=nextRunAt&dir=desc",
+    );
+    expect(
+      screen.queryByRole("button", { name: "New schedule" }),
+    ).not.toBeInTheDocument();
   });
 });

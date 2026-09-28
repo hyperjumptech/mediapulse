@@ -6,14 +6,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { RelativeTime } from "@/components/relative-time";
+import { StatusBadge } from "@/components/status-badge";
 import type {
   OverviewExecution,
   OverviewExecutionKind,
 } from "@/lib/dashboard-overview";
 
 import { OVERVIEW_ROW_CLASS_NAME } from "./overview-panel";
-import { RelativeTime } from "./relative-time";
-import { RunStatusBadge } from "./run-status-badge";
 
 const EXECUTION_SOURCE_ICON: Record<OverviewExecutionKind, LucideIcon> = {
   schedule: CalendarClock,
@@ -60,20 +60,21 @@ const ExecutionSource = ({ execution }: { execution: OverviewExecution }) => {
 
 const OverviewExecutionItem = ({
   execution,
-  now,
 }: {
   execution: OverviewExecution;
-  now: Date;
 }) => {
   return (
     <li>
       <Link href={execution.href} className={OVERVIEW_ROW_CLASS_NAME}>
-        <RunStatusBadge runStatus={execution.runStatus} />
+        <StatusBadge status={execution.runStatus} className="min-w-24" />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="truncate font-medium">{execution.pipelineName}</span>
           <ExecutionSource execution={execution} />
         </span>
-        <RelativeTime date={execution.executionTime} now={now} />
+        <RelativeTime
+          value={execution.executionTime}
+          className="shrink-0 text-xs text-muted-foreground"
+        />
       </Link>
     </li>
   );
@@ -81,10 +82,8 @@ const OverviewExecutionItem = ({
 
 export const OverviewExecutionList = ({
   executions,
-  now,
 }: {
   executions: OverviewExecution[];
-  now: Date;
 }) => {
   return (
     <ul className="flex flex-col">
@@ -92,7 +91,6 @@ export const OverviewExecutionList = ({
         <OverviewExecutionItem
           key={`${execution.kind}:${execution.executionId}`}
           execution={execution}
-          now={now}
         />
       ))}
     </ul>

@@ -1,4 +1,8 @@
+import Link from "next/link";
 import { Suspense } from "react";
+import { Plus } from "lucide-react";
+
+import { Button } from "@workspace/ui/components/button";
 
 import { PageHeader } from "@/components/page-header";
 import { ListBodySkeleton } from "@/components/page-skeletons";
@@ -28,10 +32,18 @@ const AgentConfigsPage = async ({
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Agent configs"
         description="Create and manage agent configuration presets."
+        actions={
+          <Button asChild>
+            <Link href="/dashboard/agent-configs/new">
+              <Plus aria-hidden />
+              Add config
+            </Link>
+          </Button>
+        }
       />
       <Suspense key={JSON.stringify(query)} fallback={<ListBodySkeleton />}>
         <AgentConfigsSection {...query} />

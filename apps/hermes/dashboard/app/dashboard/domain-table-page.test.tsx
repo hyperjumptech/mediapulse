@@ -188,6 +188,67 @@ describe("DomainTablePage", () => {
     expect(rowsSectionProps.deleteAction).toBeTypeOf("function");
   });
 
+  it("places custom danger actions and create in the page header", async () => {
+    // Act
+    await renderPage();
+
+    // Assert
+    const headerActions = document.querySelector(
+      '[data-slot="page-header-actions"]',
+    );
+
+    expect(headerActions).toContainElement(
+      screen.getByTestId("domain-table-danger-confirm-button"),
+    );
+    expect(headerActions).toContainElement(
+      screen.getByTestId("domain-create-modal"),
+    );
+    expect(lastProps<{ triggerLabel: string }>(createModalMock)).toMatchObject({
+      triggerLabel: "Add Tickers",
+    });
+    expect(headerActions).not.toContainElement(
+      screen.getByTestId("domain-table-search"),
+    );
+  });
+
+  it("links create to the full-page editor when the manifest asks for it", async () => {
+    // Setup
+    getDomainTableMetaMock.mockResolvedValue({
+      ...meta,
+      createNavigation: "full-page",
+      customActions: [],
+    });
+
+    // Act
+    await renderPage();
+
+    // Assert
+    expect(screen.getByRole("link", { name: "Add Tickers" })).toHaveAttribute(
+      "href",
+      "/dashboard/mediapulse/tickers/new",
+    );
+    expect(createModalMock).not.toHaveBeenCalled();
+    expect(dangerConfirmButtonMock).not.toHaveBeenCalled();
+  });
+
+  it("omits header actions when the manifest allows no create or danger actions", async () => {
+    // Setup
+    getDomainTableMetaMock.mockResolvedValue({
+      ...meta,
+      actions: { create: false, update: false, delete: false },
+      customActions: [],
+    });
+
+    // Act
+    await renderPage();
+
+    // Assert
+    expect(
+      document.querySelector('[data-slot="page-header-actions"]'),
+    ).toBeNull();
+    expect(screen.getByTestId("domain-table-search")).toBeInTheDocument();
+  });
+
   it("creates an item for an admin and returns to the list", async () => {
     // Setup
     await renderPage();

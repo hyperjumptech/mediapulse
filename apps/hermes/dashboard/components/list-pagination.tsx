@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
-
-import { Button } from "@workspace/ui/components/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+
+import { PaginationStepButton } from "./pagination-step-button";
 
 export type ListPaginationProps = {
   /** Base URL path (e.g. /dashboard/variables). Query string is appended. */
@@ -23,14 +22,8 @@ export type ListPaginationProps = {
   extraParams?: Record<string, string>;
 };
 
-/**
- * Builds pagination query string from page, size, and optional search/sort.
- *
- * @param page - 1-based page number.
- * @param pageSize - Items per page.
- * @param options - Optional searchQuery, sortBy, sortDir.
- * @returns URL search params string (without leading ?).
- */
+const countFormatter = new Intl.NumberFormat("en-US");
+
 const buildQueryString = (
   page: number,
   pageSize: number,
@@ -44,18 +37,39 @@ const buildQueryString = (
   const params = new URLSearchParams();
   params.set("page", String(page));
   params.set("size", String(pageSize));
-  if (options.searchQuery) params.set("q", options.searchQuery);
-  if (options.sortBy) params.set("sort", options.sortBy);
-  if (options.sortDir) params.set("dir", options.sortDir);
+  if (options.searchQuery) {
+    params.set("q", options.searchQuery);
+  }
+  if (options.sortBy) {
+    params.set("sort", options.sortBy);
+  }
+  if (options.sortDir) {
+    params.set("dir", options.sortDir);
+  }
   for (const [key, value] of Object.entries(options.extraParams ?? {})) {
     params.set(key, value);
   }
+
   return params.toString();
 };
 
-/**
- * Reusable prev/next list pagination. Hides when a single page. Preserves search and sort in links.
- */
+export const describeVisibleRange = (
+  page: number,
+  pageSize: number,
+  total: number,
+): string => {
+  const firstItem = (page - 1) * pageSize + 1;
+  const lastItem = Math.min(page * pageSize, total);
+  const formattedTotal = countFormatter.format(total);
+  if (firstItem > total) {
+    return `${formattedTotal} total`;
+  }
+  const formattedFirstItem = countFormatter.format(firstItem);
+  const formattedLastItem = countFormatter.format(lastItem);
+
+  return `Showing ${formattedFirstItem}–${formattedLastItem} of ${formattedTotal}`;
+};
+
 export const ListPagination = ({
   basePath,
   page,
@@ -68,55 +82,44 @@ export const ListPagination = ({
   extraParams,
 }: ListPaginationProps) => {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const hasPrev = page > 1;
+  const hasPrevious = page > 1;
   const hasNext = page < totalPages;
-
-  const opts = { searchQuery, sortBy, sortDir, extraParams };
-  const prevHref = hasPrev
-    ? `${basePath}?${buildQueryString(page - 1, pageSize, opts)}`
-    : undefined;
-  const nextHref = hasNext
-    ? `${basePath}?${buildQueryString(page + 1, pageSize, opts)}`
-    : undefined;
 
   if (totalPages <= 1 && total <= pageSize) {
     return null;
   }
 
+  const queryOptions = { searchQuery, sortBy, sortDir, extraParams };
+  const previousHref = hasPrevious
+    ? `${basePath}?${buildQueryString(page - 1, pageSize, queryOptions)}`
+    : undefined;
+  const nextHref = hasNext
+    ? `${basePath}?${buildQueryString(page + 1, pageSize, queryOptions)}`
+    : undefined;
+  const visibleRange = describeVisibleRange(page, pageSize, total);
+
   return (
     <nav
-      className="flex items-center justify-between gap-2"
+      className="flex items-center justify-between gap-4"
       aria-label={ariaLabel}
     >
-      <Button variant="outline" size="sm" asChild disabled={!hasPrev}>
-        {prevHref ? (
-          <Link href={prevHref} aria-label="Previous page">
-            <ChevronLeft className="size-4" />
-            Previous
-          </Link>
-        ) : (
-          <span>
-            <ChevronLeft className="size-4" />
-            Previous
-          </span>
-        )}
-      </Button>
-      <span className="text-sm text-muted-foreground">
-        Page {page} of {totalPages} ({total} total)
-      </span>
-      <Button variant="outline" size="sm" asChild disabled={!hasNext}>
-        {nextHref ? (
-          <Link href={nextHref} aria-label="Next page">
-            Next
-            <ChevronRight className="size-4" />
-          </Link>
-        ) : (
-          <span>
-            Next
-            <ChevronRight className="size-4" />
-          </span>
-        )}
-      </Button>
+      <p className="text-sm text-muted-foreground tabular-nums">
+        {visibleRange}
+      </p>
+      <div className="flex items-center gap-1.5">
+        <PaginationStepButton
+          href={previousHref}
+          label="Previous page"
+          rel="prev"
+          icon={ChevronLeft}
+        />
+        <PaginationStepButton
+          href={nextHref}
+          label="Next page"
+          rel="next"
+          icon={ChevronRight}
+        />
+      </div>
     </nav>
   );
 };

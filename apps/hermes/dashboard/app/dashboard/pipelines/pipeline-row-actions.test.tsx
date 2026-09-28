@@ -1,204 +1,196 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { PipelineRowActions } from "./pipeline-row-actions";
 
-const routerRefreshMock = vi.fn();
+type DeleteActionState = { status: boolean; message?: string } | null;
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({
-    refresh: routerRefreshMock,
+const { useFormActionMock, toastErrorMock } = vi.hoisted(() => ({
+  useFormActionMock: vi.fn(),
+  toastErrorMock: vi.fn(),
+}));
+
+vi.mock(
+  "@/app/dashboard/pipelines/actions/delete/.generated/use-form-action",
+  () => ({
+    useFormAction: () => useFormActionMock(),
   }),
+);
+
+vi.mock("sonner", () => ({
+  toast: { error: toastErrorMock },
 }));
 
 vi.mock("next/link", () => ({
   default: ({
     children,
     href,
-  }: {
-    children: React.ReactNode;
-    href: string;
-  }) => <a href={href}>{children}</a>,
+    ...props
+  }: React.ComponentProps<"a"> & { href: string }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
 }));
 
-const createMockFormWithAction = () => {
-  const FormWithAction = ({
-    children,
-    className,
-  }: {
-    children: React.ReactNode;
-    className?: string;
-  }) => (
-    <form data-testid="delete-form" className={className}>
-      {children}
-    </form>
-  );
-  FormWithAction.displayName = "FormWithAction";
-  return FormWithAction;
-};
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
 
-const createMockUseFormAction = (overrides?: {
-  state?: { status: boolean } | null;
-  pending?: boolean;
-}) => ({
-  FormWithAction: createMockFormWithAction(),
-  state: overrides?.state ?? null,
-  pending: overrides?.pending ?? false,
-});
-
-vi.mock(
-  "@/app/dashboard/pipelines/actions/delete/.generated/use-form-action",
-  () => ({
-    useFormAction: vi.fn(() => createMockUseFormAction()),
-  }),
+const DeleteForm = ({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <form data-testid="delete-form" className={className}>
+    {children}
+  </form>
 );
 
-vi.mock("@workspace/ui/components/dropdown-menu", () => ({
-  DropdownMenu: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="dropdown-menu">{children}</div>
-  ),
-  DropdownMenuTrigger: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="dropdown-trigger">{children}</div>
-  ),
-  DropdownMenuContent: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="dropdown-content">{children}</div>
-  ),
-  DropdownMenuItem: ({
-    children,
-    variant,
-  }: React.PropsWithChildren<{ variant?: string; asChild?: boolean }>) => (
-    <div data-testid="dropdown-item" data-variant={variant}>
-      {children}
-    </div>
-  ),
-  DropdownMenuSeparator: () => <hr data-testid="dropdown-separator" />,
-}));
+const mockDeleteAction = ({
+  state = null,
+  pending = false,
+}: { state?: DeleteActionState; pending?: boolean } = {}) => {
+  useFormActionMock.mockReturnValue({
+    FormWithAction: DeleteForm,
+    state,
+    pending,
+  });
+};
 
-vi.mock("@workspace/ui/components/button", () => ({
-  Button: ({
-    children,
-    "aria-label": ariaLabel,
-  }: React.PropsWithChildren<{ "aria-label"?: string }>) => (
-    <button aria-label={ariaLabel}>{children}</button>
-  ),
-}));
+const openActionsMenu = async () => {
+  const trigger = screen.getByRole("button", {
+    name: "Actions for pipeline Newsletter",
+  });
 
-const getUseFormActionMock = async () => {
-  const mod =
-    await import("@/app/dashboard/pipelines/actions/delete/.generated/use-form-action");
-  return mod.useFormAction as Mock;
+  await act(async () => {
+    fireEvent.keyDown(trigger, { key: "Enter" });
+  });
+
+  return screen.getByRole("menu");
 };
 
 describe("PipelineRowActions", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-    routerRefreshMock.mockReset();
+  beforeEach(() => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+    mockDeleteAction();
   });
 
-  it("renders dropdown menu trigger", async () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    useFormActionMock.mockReset();
+    toastErrorMock.mockReset();
+  });
+
+  it("opens the edit modal when a handler is provided", async () => {
     // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
+    const onEdit = vi.fn();
+    render(
+      <PipelineRowActions
+        pipelineId="pipeline-123"
+        pipelineName="Newsletter"
+        onEdit={onEdit}
+      />,
+    );
+    const menu = await openActionsMenu();
 
     // Act
+    await act(async () => {
+      fireEvent.click(within(menu).getByRole("menuitem", { name: "Edit" }));
+    });
+
+    // Assert
+    expect(onEdit).toHaveBeenCalledWith("pipeline-123");
+  });
+
+  it("links Edit to the pipeline editor without a handler", async () => {
+    // Setup
     render(
-      <PipelineRowActions pipelineId="pipeline-123" pipelineName="Test" />,
+      <PipelineRowActions
+        pipelineId="pipeline-123"
+        pipelineName="Newsletter"
+      />,
     );
+
+    // Act
+    const menu = await openActionsMenu();
 
     // Assert
     expect(
-      screen.getByRole("button", { name: "Open menu" }),
-    ).toBeInTheDocument();
+      within(menu).getByRole("menuitem", { name: "Edit" }),
+    ).toHaveAttribute("href", "/dashboard/pipelines/pipeline-123");
   });
 
-  it("renders Edit option", async () => {
+  it("warns that deleting removes dependent schedules and triggers", async () => {
     // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
+    render(
+      <PipelineRowActions
+        pipelineId="pipeline-123"
+        pipelineName="Newsletter"
+      />,
+    );
+    const menu = await openActionsMenu();
 
     // Act
-    render(
-      <PipelineRowActions pipelineId="pipeline-123" pipelineName="Test" />,
-    );
+    await act(async () => {
+      fireEvent.click(within(menu).getByRole("menuitem", { name: "Delete" }));
+    });
 
     // Assert
-    expect(screen.getByText("Edit")).toBeInTheDocument();
-  });
+    const dialog = screen.getByRole("alertdialog", {
+      name: "Delete pipeline?",
+    });
+    const hiddenInput = within(dialog)
+      .getByTestId("delete-form")
+      .querySelector('input[name="body.pipelineId"]');
 
-  it("renders Delete option", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
-
-    // Act
-    render(
-      <PipelineRowActions pipelineId="pipeline-123" pipelineName="Test" />,
+    expect(dialog).toHaveTextContent("Newsletter");
+    expect(dialog).toHaveTextContent(
+      "every schedule and HTTP trigger that uses it",
     );
-
-    // Assert
-    expect(screen.getByText("Delete")).toBeInTheDocument();
-  });
-
-  it("renders Edit as link when onEdit not provided", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
-
-    // Act
-    render(
-      <PipelineRowActions pipelineId="pipeline-123" pipelineName="Test" />,
-    );
-
-    // Assert
-    const editLink = screen.getByRole("link", { name: /Edit/i });
-    expect(editLink).toHaveAttribute(
-      "href",
-      "/dashboard/pipelines/pipeline-123",
-    );
-  });
-
-  it("shows Deleting label when pending", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction({ pending: true }));
-
-    // Act
-    render(
-      <PipelineRowActions pipelineId="pipeline-123" pipelineName="Test" />,
-    );
-
-    // Assert
-    expect(screen.getByText("Deleting…")).toBeInTheDocument();
-  });
-
-  it("does not call router.refresh on successful delete", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction({ state: { status: true } }));
-
-    // Act
-    render(
-      <PipelineRowActions pipelineId="pipeline-123" pipelineName="Test" />,
-    );
-
-    // Assert
-    expect(routerRefreshMock).not.toHaveBeenCalled();
-    expect(screen.getByTestId("delete-form")).toBeInTheDocument();
-  });
-
-  it("renders hidden input with pipeline id", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
-
-    // Act
-    render(
-      <PipelineRowActions pipelineId="pipeline-123" pipelineName="Test" />,
-    );
-
-    // Assert
-    const form = screen.getByTestId("delete-form");
-    const hiddenInput = form.querySelector('input[name="body.pipelineId"]');
     expect(hiddenInput).toHaveValue("pipeline-123");
+    expect(
+      within(dialog).getByRole("button", { name: "Delete pipeline" }),
+    ).toHaveAttribute("type", "submit");
+  });
+
+  it("disables the delete item while a delete is pending", async () => {
+    // Setup
+    mockDeleteAction({ pending: true });
+    render(
+      <PipelineRowActions
+        pipelineId="pipeline-123"
+        pipelineName="Newsletter"
+      />,
+    );
+
+    // Act
+    const menu = await openActionsMenu();
+
+    // Assert
+    expect(
+      within(menu).getByRole("menuitem", { name: "Delete" }),
+    ).toHaveAttribute("data-disabled");
+  });
+
+  it("shows a toast when the delete fails", () => {
+    // Setup
+    mockDeleteAction({ state: { status: false, message: "Pipeline in use" } });
+
+    // Act
+    render(
+      <PipelineRowActions
+        pipelineId="pipeline-123"
+        pipelineName="Newsletter"
+      />,
+    );
+
+    // Assert
+    expect(toastErrorMock).toHaveBeenCalledWith("Pipeline in use");
   });
 });

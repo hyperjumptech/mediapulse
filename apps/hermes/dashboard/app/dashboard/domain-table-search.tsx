@@ -1,32 +1,45 @@
 import Form from "next/form";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 
-import { Input } from "@workspace/ui/components/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@workspace/ui/components/input-group";
 import { Label } from "@workspace/ui/components/label";
 
 type DomainTableSearchProps = {
-  /** Base path for GET search (e.g. `/dashboard/{integrationId}/tickers`). */
   basePath: string;
-  /** Current search query for the input default value. */
   initialQuery?: string;
-  /** Page size to preserve when searching. */
   pageSize: number;
-  /** Sort field to preserve when searching. */
   sortBy?: string;
-  /** Sort direction to preserve when searching. */
   sortDir: "asc" | "desc";
-  /** Additional query params (filters) to preserve when searching. */
   preserveParams?: Record<string, string>;
-  /** Accessible name for the search region (e.g. "Search tickers"). */
   ariaLabel: string;
-  /** Input placeholder text. */
   placeholder?: string;
 };
 
-/**
- * Search form for domain integration table pages. Submits via GET on Enter to preserve URL state.
- */
+const buildClearSearchHref = (
+  basePath: string,
+  pageSize: number,
+  sortDir: "asc" | "desc",
+  sortBy: string | undefined,
+  preserveParams: Record<string, string>,
+) => {
+  const clearParams = new URLSearchParams();
+  clearParams.set("size", String(pageSize));
+  clearParams.set("dir", sortDir);
+  if (sortBy) {
+    clearParams.set("sort", sortBy);
+  }
+  for (const [key, value] of Object.entries(preserveParams)) {
+    clearParams.set(key, value);
+  }
+
+  return `${basePath}?${clearParams.toString()}`;
+};
+
 export const DomainTableSearch = ({
   basePath,
   initialQuery = "",
@@ -38,58 +51,56 @@ export const DomainTableSearch = ({
   placeholder = "Search…",
 }: DomainTableSearchProps) => {
   const hasActiveSearch = initialQuery.trim().length > 0;
-  const clearParams = new URLSearchParams();
-  clearParams.set("size", String(pageSize));
-  clearParams.set("dir", sortDir);
-  if (sortBy) clearParams.set("sort", sortBy);
-  for (const [key, value] of Object.entries(preserveParams)) {
-    clearParams.set(key, value);
-  }
-  const clearHref = `${basePath}?${clearParams.toString()}`;
+  const clearHref = buildClearSearchHref(
+    basePath,
+    pageSize,
+    sortDir,
+    sortBy,
+    preserveParams,
+  );
 
   return (
-    <>
-      <Form
-        action={basePath}
-        className="flex w-56 items-center"
-        role="search"
-        aria-label={ariaLabel}
-      >
-        <input type="hidden" name="size" value={pageSize} />
-        <input type="hidden" name="dir" value={sortDir} />
-        {sortBy ? <input type="hidden" name="sort" value={sortBy} /> : null}
-        {Object.entries(preserveParams).map(([key, value]) => (
-          <input key={key} type="hidden" name={key} value={value} />
-        ))}
-        <Label htmlFor="domain-table-search" className="sr-only">
-          {ariaLabel}
-        </Label>
-        <div className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background px-3 has-focus-visible:outline-none has-focus-visible:ring-2 has-focus-visible:ring-ring has-focus-visible:ring-offset-2">
-          <Search
-            className="size-4 shrink-0 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            id="domain-table-search"
-            type="search"
-            name="q"
-            defaultValue={initialQuery}
-            placeholder={placeholder}
-            className="min-h-0 flex-1 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
-            autoComplete="off"
-          />
-        </div>
-      </Form>
-      {hasActiveSearch ? (
-        <Link
-          href={clearHref}
-          className="shrink-0 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <span className="underline underline-offset-2 decoration-muted-foreground/40 hover:decoration-foreground">
-            Clear search
-          </span>
-        </Link>
-      ) : null}
-    </>
+    <Form
+      action={basePath}
+      className="w-full sm:max-w-xs"
+      role="search"
+      aria-label={ariaLabel}
+    >
+      <input type="hidden" name="size" value={pageSize} />
+      <input type="hidden" name="dir" value={sortDir} />
+      {sortBy ? <input type="hidden" name="sort" value={sortBy} /> : null}
+      {Object.entries(preserveParams).map(([key, value]) => (
+        <input key={key} type="hidden" name={key} value={value} />
+      ))}
+      <Label htmlFor="domain-table-search" className="sr-only">
+        {ariaLabel}
+      </Label>
+      <InputGroup className="bg-background">
+        <InputGroupAddon>
+          <Search aria-hidden />
+        </InputGroupAddon>
+        <InputGroupInput
+          id="domain-table-search"
+          type="search"
+          name="q"
+          defaultValue={initialQuery}
+          placeholder={placeholder}
+          autoComplete="off"
+          enterKeyHint="search"
+          className="[&::-webkit-search-cancel-button]:appearance-none"
+        />
+        {hasActiveSearch ? (
+          <InputGroupAddon align="inline-end">
+            <Link
+              href={clearHref}
+              className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <X aria-hidden className="size-4" />
+              <span className="sr-only">Clear search</span>
+            </Link>
+          </InputGroupAddon>
+        ) : null}
+      </InputGroup>
+    </Form>
   );
 };

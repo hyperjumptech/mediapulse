@@ -98,6 +98,56 @@ describe("DomainTableListFilters", () => {
     expect(form.querySelector('input[name="q"]')).toHaveValue("acme");
   });
 
+  it("renders date ranges as date inputs beside an apply button", () => {
+    // Act
+    render(
+      <DomainTableListFilters
+        basePath="/dashboard/acme/items"
+        listFilters={[
+          {
+            key: "createdAt",
+            label: "Created",
+            ui: "date-range",
+            rangeParams: { from: "createdFrom", to: "createdTo" },
+          },
+        ]}
+        filterValues={{ createdFrom: "2026-07-01" }}
+        preserveParams={{}}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByLabelText("From date")).toHaveAttribute("type", "date");
+    expect(screen.getByLabelText("From date")).toHaveValue("2026-07-01");
+    expect(screen.getByLabelText("To date")).toHaveAttribute(
+      "name",
+      "createdTo",
+    );
+    expect(screen.getByRole("button", { name: "Apply" })).toHaveAttribute(
+      "type",
+      "submit",
+    );
+  });
+
+  it("hides the clear link when no filter is active", () => {
+    // Act
+    render(
+      <DomainTableListFilters
+        basePath="/dashboard/acme/items"
+        listFilters={[
+          { key: "isActive", label: "Active", ui: "boolean-select" },
+        ]}
+        filterValues={{}}
+        preserveParams={{}}
+      />,
+    );
+
+    // Assert
+    expect(
+      screen.queryByRole("link", { name: /Clear filters/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("returns null when no filters are declared", () => {
     const { container } = render(
       <DomainTableListFilters

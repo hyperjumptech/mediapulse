@@ -1,5 +1,9 @@
 import { Suspense } from "react";
 
+import {
+  EntityFormModalCreateButton,
+  EntityFormModalProvider,
+} from "@/components/entity-form-modal-provider";
 import { PageHeader } from "@/components/page-header";
 import { ListBodySkeleton } from "@/components/page-skeletons";
 import type { HttpTriggerSortField } from "@/lib/http-triggers";
@@ -35,15 +39,18 @@ const HttpTriggersPage = async ({
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <PageHeader
-        title="HTTP Triggers"
-        description="Run pipelines on demand through authenticated HTTP endpoints."
-      />
-      <Suspense key={JSON.stringify(query)} fallback={<ListBodySkeleton />}>
-        <HttpTriggersSection {...query} />
-      </Suspense>
-    </div>
+    <EntityFormModalProvider>
+      <div className="flex flex-col gap-6">
+        <PageHeader
+          title="HTTP Triggers"
+          description="Run pipelines on demand through authenticated HTTP endpoints."
+          actions={<EntityFormModalCreateButton label="New HTTP trigger" />}
+        />
+        <Suspense key={JSON.stringify(query)} fallback={<ListBodySkeleton />}>
+          <HttpTriggersSection {...query} />
+        </Suspense>
+      </div>
+    </EntityFormModalProvider>
   );
 };
 
