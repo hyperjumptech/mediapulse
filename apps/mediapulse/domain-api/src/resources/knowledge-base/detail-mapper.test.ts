@@ -1,4 +1,3 @@
-/** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 
 import {
@@ -48,6 +47,7 @@ const relationLink = (
     evidenceSpan: string | null;
     kindLabel: string;
     inverseLabel: string | null;
+    symmetric: boolean;
     curated: boolean;
   }> = {},
 ) => ({
@@ -69,6 +69,7 @@ const relationLink = (
     kind: {
       label: overrides.kindLabel ?? "competes with",
       inverseLabel: overrides.inverseLabel ?? null,
+      symmetric: overrides.symmetric ?? false,
       curated: overrides.curated ?? true,
     },
     subjectEntity: { canonicalName: "Fore Kopi Indonesia" },
@@ -191,6 +192,78 @@ describe("mapRowToDetailItem", () => {
     const node = item.graph.nodes.find((entry) => entry.id === "entity:mapi");
 
     expect(node?.tooltip).toContain("seen as Starbucks");
+  });
+
+  it("hands the graph each entity's other names and each article's publish date", () => {
+    const item = mapRowToDetailItem(
+      row([
+        entityLink({ entityId: "issuer", isIssuer: true, kind: "issuer" }),
+        entityLink({
+          entityId: "mapi",
+          canonicalName: "Mitra Adiperkasa",
+          mentionCount: 1,
+          aliases: ["Mitra Adiperkasa", "MAPI"],
+        }),
+      ]),
+      [
+        mention({
+          entityId: "mapi",
+          dataSourceId: "article-1",
+          surfaceForm: "Starbucks",
+        }),
+      ],
+    );
+
+    const entityNode = item.graph.nodes.find(
+      (entry) => entry.id === "entity:mapi",
+    );
+    const articleNode = item.graph.nodes.find(
+      (entry) => entry.id === "article:article-1",
+    );
+
+    expect(entityNode?.seenAs).toBe("Starbucks, MAPI");
+    expect(articleNode?.publishedAt).toBe("2026-09-09T00:00:00.000Z");
+    expect(articleNode?.publisher).toBe("example.test");
+  });
+
+  it("draws one edge for a symmetric relation stored in both directions", () => {
+    const item = mapRowToDetailItem(
+      row(
+        [
+          entityLink({ entityId: "issuer", isIssuer: true, kind: "issuer" }),
+          entityLink({ entityId: "kenangan", canonicalName: "Kopi Kenangan" }),
+          entityLink({ entityId: "tomoro", canonicalName: "Tomoro Coffee" }),
+        ],
+        [
+          relationLink({
+            relationId: "forward",
+            subjectEntityId: "kenangan",
+            objectEntityId: "tomoro",
+            symmetric: true,
+          }),
+          relationLink({
+            relationId: "backward",
+            subjectEntityId: "tomoro",
+            objectEntityId: "kenangan",
+            symmetric: true,
+          }),
+        ],
+      ),
+      [],
+    );
+
+    const betweenEntities = item.graph.edges.filter(
+      (edge) =>
+        edge.source.startsWith("entity:") && edge.target.startsWith("entity:"),
+    );
+
+    expect(betweenEntities).toStrictEqual([
+      {
+        source: "entity:kenangan",
+        target: "entity:tomoro",
+        label: "competes with",
+      },
+    ]);
   });
 
   it("prints an em dash for a relation no article states", () => {

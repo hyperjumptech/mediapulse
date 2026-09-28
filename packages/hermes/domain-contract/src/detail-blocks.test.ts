@@ -197,6 +197,51 @@ describe("detailBlockSchema", () => {
     expect(parsed.maxHeight).toBe(520);
   });
 
+  it("keeps up to eight node detail fields and drops bad formats", () => {
+    const parsed = detailBlockSchema.parse({
+      type: "graph",
+      nodesField: "graph.nodes",
+      edgesField: "graph.edges",
+      node: {
+        idField: "id",
+        labelField: "label",
+        detailFields: [
+          { label: "Kind", field: "kind" },
+          { label: "Mentions", field: "mentionCount", format: "number" },
+          { label: "Source", field: "url", format: "sparkline" },
+        ],
+      },
+      edge: { sourceField: "source", targetField: "target" },
+    });
+
+    if (parsed.type !== "graph") throw new Error("expected graph");
+    expect(parsed.node.detailFields).toEqual([
+      { label: "Kind", field: "kind" },
+      { label: "Mentions", field: "mentionCount", format: "number" },
+      { label: "Source", field: "url" },
+    ]);
+  });
+
+  it("drops detail fields entirely when there are more than eight", () => {
+    const parsed = detailBlockSchema.parse({
+      type: "graph",
+      nodesField: "graph.nodes",
+      edgesField: "graph.edges",
+      node: {
+        idField: "id",
+        labelField: "label",
+        detailFields: Array.from({ length: 9 }, (_, index) => ({
+          label: `Field ${index}`,
+          field: `field${index}`,
+        })),
+      },
+      edge: { sourceField: "source", targetField: "target" },
+    });
+
+    if (parsed.type !== "graph") throw new Error("expected graph");
+    expect(parsed.node.detailFields).toBeUndefined();
+  });
+
   it("parses a graph block with group variants, ranks and links", () => {
     const parsed = detailBlockSchema.parse({
       type: "graph",

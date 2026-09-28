@@ -5,9 +5,16 @@ import {
   type DetailBlockGraphPaletteSlot,
 } from "@hermes/domain-contract";
 
+export type GraphNodeDetail = {
+  label: string;
+  value: string;
+  format: "text" | "number" | "date-time" | "url";
+};
+
 export type GraphModelNode = {
   id: string;
   label: string;
+  details: GraphNodeDetail[];
   group?: string;
   tooltip?: string;
   href?: string;
@@ -71,6 +78,7 @@ const asFiniteNumber = (value: unknown): number | undefined => {
 type RawNode = {
   id: string;
   label: string;
+  details: GraphNodeDetail[];
   group?: string;
   tooltip?: string;
   href?: string;
@@ -79,6 +87,25 @@ type RawNode = {
   explicitRank?: number;
   order?: number;
 };
+
+const readDetails = (
+  block: DetailBlockGraph,
+  entry: unknown,
+): GraphNodeDetail[] =>
+  (block.node.detailFields ?? []).flatMap((detailField) => {
+    const raw = resolvePath(entry, detailField.field);
+    const value =
+      typeof raw === "number" && Number.isFinite(raw)
+        ? String(raw)
+        : asOptionalText(raw);
+    if (value === undefined) {
+      return [];
+    }
+
+    return [
+      { label: detailField.label, value, format: detailField.format ?? "text" },
+    ];
+  });
 
 const readNodes = (
   block: DetailBlockGraph,
@@ -104,6 +131,7 @@ const readNodes = (
     kept.push({
       id,
       label: asOptionalText(resolvePath(entry, block.node.labelField)) ?? id,
+      details: readDetails(block, entry),
       group: block.node.groupField
         ? asOptionalText(resolvePath(entry, block.node.groupField))
         : undefined,
@@ -201,7 +229,6 @@ const deriveRanks = (
     }
   }
 
-  const rankCeiling = raw.length;
   let cursor = 0;
   while (cursor < queue.length) {
     const currentId = queue[cursor];
@@ -209,10 +236,8 @@ const deriveRanks = (
     if (currentId === undefined) continue;
     const currentRank = derived.get(currentId) ?? 0;
     for (const nextId of outgoing.get(currentId) ?? []) {
-      const candidate = currentRank + 1;
-      if (candidate > rankCeiling) continue;
-      if (candidate <= (derived.get(nextId) ?? -1)) continue;
-      derived.set(nextId, candidate);
+      if (derived.has(nextId)) continue;
+      derived.set(nextId, currentRank + 1);
       queue.push(nextId);
     }
   }
@@ -289,6 +314,7 @@ export const buildGraphModel = (
     .map(({ node, rank }) => ({
       id: node.id,
       label: node.label,
+      details: node.details,
       group: node.group,
       tooltip: node.tooltip,
       href: node.href,

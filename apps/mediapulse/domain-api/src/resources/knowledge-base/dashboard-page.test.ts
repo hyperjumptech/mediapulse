@@ -1,8 +1,36 @@
-import { dashboardViewSchema } from "@hermes/domain-contract";
+import {
+  dashboardViewSchema,
+  detailBlockSchema,
+} from "@hermes/domain-contract";
 import { describe, expect, it } from "vitest";
 
 import { hermesDashboardResources } from "../../hermes-dashboard/hermes-dashboard-resource-registry";
+import { buildKnowledgeBaseGraph } from "./build-knowledge-base-graph";
 import { knowledgeBaseDashboardPage } from "./dashboard-page";
+
+const declaredGraphBlock = () => {
+  const graph = knowledgeBaseDashboardPage.detailBlocks.find(
+    (block) => block.type === "graph",
+  );
+  if (graph?.type !== "graph") {
+    throw new Error("expected a graph block");
+  }
+
+  return graph;
+};
+
+const parsedGraphBlock = () => {
+  const parsed = dashboardViewSchema.parse(knowledgeBaseDashboardPage);
+  if (parsed.kind !== "resource-table") {
+    throw new Error("expected a resource table");
+  }
+  const graph = parsed.detailBlocks?.find((block) => block.type === "graph");
+  if (graph?.type !== "graph") {
+    throw new Error("expected a graph block");
+  }
+
+  return graph;
+};
 
 describe("knowledgeBaseDashboardPage", () => {
   it("satisfies the Hermes dashboard view contract", () => {
@@ -52,15 +80,75 @@ describe("knowledgeBaseDashboardPage", () => {
   });
 
   it("binds the graph block to the payload's graph fields", () => {
-    const graph = knowledgeBaseDashboardPage.detailBlocks?.find(
-      (block) => block.type === "graph",
-    );
+    const graph = declaredGraphBlock();
 
     expect(graph).toMatchObject({
       nodesField: "graph.nodes",
       edgesField: "graph.edges",
-      orientation: "horizontal",
+      maxNodes: 150,
     });
+    expect(graph).not.toHaveProperty("orientation");
+  });
+
+  it("passes the graph block through the detail block contract unchanged", () => {
+    const parsed = detailBlockSchema.safeParse(declaredGraphBlock());
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("keeps every node detail field after the manifest is parsed", () => {
+    const declared = declaredGraphBlock().node.detailFields;
+    const parsed = parsedGraphBlock().node.detailFields;
+
+    expect(declared).toHaveLength(7);
+    expect(parsed).toStrictEqual(declared);
+  });
+
+  it("names only detail fields that some node in a drawn graph carries", () => {
+    const payload = buildKnowledgeBaseGraph({
+      ticker: { tickerId: "ticker-1", symbol: "FORE", name: "Fore" },
+      entities: [
+        {
+          entityId: "mapi",
+          canonicalName: "Mitra Adiperkasa",
+          kind: "company",
+          isIssuer: false,
+          mentionCount: 1,
+          sourceLabel: "Ticker Profile",
+          surfaceForm: "Starbucks",
+          aliases: [],
+          articles: [
+            {
+              dataSourceId: "article-1",
+              title: "Article 1",
+              url: "https://example.test/1",
+              publisher: "example.test",
+              publishedAt: "2026-09-09T00:00:00.000Z",
+            },
+          ],
+        },
+      ],
+      relations: [],
+      totals: { entityCount: 1, relationCount: 0, articleCount: 1 },
+    });
+
+    const carried = parsedGraphBlock().node.detailFields?.filter(
+      (detailField) =>
+        payload.nodes.some((node) => {
+          const value: unknown = Reflect.get(node, detailField.field);
+
+          return value !== null && value !== undefined;
+        }),
+    );
+
+    expect(carried).toStrictEqual(parsedGraphBlock().node.detailFields);
+  });
+
+  it("never tells the reader that graph nodes are listed elsewhere", () => {
+    const graph = declaredGraphBlock();
+    const copy = [graph.captionTemplate, graph.emptyState].join(" ");
+
+    expect(copy).not.toMatch(/listed below|rather than drawn/i);
   });
 
   it("orders the sidebar entry the same way in both declarations", () => {

@@ -1,13 +1,12 @@
-/** @vitest-environment jsdom */
 import { detailBlockGraphSchema } from "@hermes/domain-contract";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it } from "vitest";
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), prefetch: vi.fn() }),
-}));
+import { stubViewportWidth } from "@/test-utils/stub-viewport-width";
 
 import { DetailBlockGraphView } from "./detail-block-graph";
+import { buildGraphModel } from "./detail-block-graph-model";
+import { buildGraphScene } from "./graph/build-graph-scene";
 
 const graphBlock = (overrides: Record<string, unknown> = {}) =>
   detailBlockGraphSchema.parse({
@@ -27,7 +26,7 @@ const graphBlock = (overrides: Record<string, unknown> = {}) =>
   });
 
 const sampleData = {
-  integrationId: "mediapulse",
+  integrationId: "acme",
   graph: {
     nodes: [
       { id: "s1", label: "Contract delay", group: "storyline", rank: 0 },
@@ -44,41 +43,82 @@ const sampleData = {
 };
 
 describe("DetailBlockGraphView", () => {
-  it("renders an accessible svg labelled by its title and description", () => {
+  beforeEach(() => {
+    stubViewportWidth(1280);
+  });
+
+  it("renders the scene built from the block's data", () => {
+    const block = graphBlock();
+    const scene = buildGraphScene(buildGraphModel(block, sampleData));
+    const { bounds } = scene;
     const { container } = render(
-      <DetailBlockGraphView block={graphBlock()} data={sampleData} />,
+      <DetailBlockGraphView block={block} data={sampleData} />,
     );
     const svg = container.querySelector("svg");
 
-    expect(svg?.getAttribute("role")).toBe("img");
+    expect(
+      screen.getByRole("heading", { name: "Knowledge graph" }),
+    ).toBeInTheDocument();
+    expect(svg?.getAttribute("role")).toBe("group");
+    expect(svg?.getAttribute("viewBox")).toBe(
+      `${String(bounds.minX)} ${String(bounds.minY)} ${String(bounds.width)} ${String(bounds.height)}`,
+    );
     expect(container.querySelector("desc")?.textContent).toBe(
       "2 nodes and 1 connection",
     );
-    const labelledBy = svg?.getAttribute("aria-labelledby")?.split(" ") ?? [];
-    expect(labelledBy).toHaveLength(2);
-    for (const id of labelledBy) {
-      expect(container.querySelector(`#${id}`)).not.toBeNull();
+    for (const sceneNode of scene.nodes) {
+      const mark = container.querySelector(
+        `[data-graph-node-id="${sceneNode.id}"]`,
+      );
+
+      expect(mark?.getAttribute("transform")).toBe(
+        `translate(${String(sceneNode.x)} ${String(sceneNode.y)})`,
+      );
     }
   });
 
-  it("renders one node title carrying the label and tooltip", () => {
+  it("labels each node with its group and connections and pins the focus node", () => {
     const { container } = render(
       <DetailBlockGraphView block={graphBlock()} data={sampleData} />,
     );
-    const titles = [...container.querySelectorAll("title")].map(
-      (node) => node.textContent,
-    );
+    const focusNode = screen.getByRole("button", {
+      name: "Contract delay, storyline, 1 connection",
+    });
 
-    expect(titles).toContain("Delay confirmed — body path");
-    expect(titles).toContain("Contract delay");
+    expect(
+      screen.getByRole("button", {
+        name: "Delay confirmed, development, 1 connection",
+      }),
+    ).toBeInTheDocument();
+    expect(focusNode).toHaveAttribute("transform", "translate(0 0)");
+    expect(focusNode).toHaveAttribute("tabindex", "0");
+    expect(focusNode.querySelector("[data-graph-ring=focus]")).not.toBeNull();
+    expect(container.querySelectorAll("[data-graph-ring=focus]")).toHaveLength(
+      1,
+    );
   });
 
-  it("renders the edge label", () => {
+  it("shows the tooltip and edge label once a node is selected", () => {
     const { container } = render(
       <DetailBlockGraphView block={graphBlock()} data={sampleData} />,
     );
 
-    expect(container.textContent).toContain("reports");
+    expect(container.textContent).not.toContain("reports");
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Delay confirmed, development, 1 connection",
+      }),
+    );
+    const panel = screen.getByRole("region", {
+      name: "Delay confirmed details",
+    });
+
+    expect(within(panel).getByText("body path")).toBeInTheDocument();
+    expect(within(panel).getByText("development")).toBeInTheDocument();
+    expect(
+      container.querySelector("[data-graph-edge-label]")?.textContent,
+    ).toBe("reports");
   });
 
   it("renders a screen-reader list describing every node and its links", () => {
@@ -86,7 +126,7 @@ describe("DetailBlockGraphView", () => {
       <DetailBlockGraphView block={graphBlock()} data={sampleData} />,
     );
     const items = [...container.querySelectorAll("ul.sr-only li")].map(
-      (node) => node.textContent,
+      (item) => item.textContent,
     );
 
     expect(items).toContain(
@@ -95,7 +135,7 @@ describe("DetailBlockGraphView", () => {
     expect(items).toContain("Delay confirmed (development)");
   });
 
-  it("links only the nodes whose link template resolves", () => {
+  it("keeps node links out of the drawing and behind the Open button", () => {
     const block = graphBlock({
       node: {
         idField: "id",
@@ -108,15 +148,15 @@ describe("DetailBlockGraphView", () => {
       <DetailBlockGraphView
         block={block}
         data={{
-          integrationId: "mediapulse",
+          integrationId: "acme",
           graph: {
             nodes: [
               {
-                id: "t1",
-                label: "FORE",
+                id: "e1",
+                label: "Entity one",
                 rank: 0,
-                linkResource: "tickers",
-                linkId: "ticker-1",
+                linkResource: "entities",
+                linkId: "entity-1",
               },
               {
                 id: "s1",
@@ -131,21 +171,33 @@ describe("DetailBlockGraphView", () => {
         }}
       />,
     );
-    const anchors = [...container.querySelectorAll("a")];
 
-    expect(anchors).toHaveLength(1);
-    expect(anchors[0]?.getAttribute("href")).toBe(
-      "/dashboard/mediapulse/tickers/ticker-1",
+    expect(container.querySelectorAll("a")).toHaveLength(0);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Contract delay, 0 connections" }),
+    );
+
+    expect(screen.queryByRole("link", { name: "Open" })).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Entity one, 0 connections" }),
+    );
+
+    expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute(
+      "href",
+      "/dashboard/acme/entities/entity-1",
     );
   });
 
   it("renders the empty state when there are no nodes", () => {
     const block = graphBlock({ emptyState: "No developments yet." });
-    render(
+    const { container } = render(
       <DetailBlockGraphView block={block} data={{ graph: { nodes: [] } }} />,
     );
 
     expect(screen.getByText("No developments yet.")).toBeInTheDocument();
+    expect(container.querySelector("svg")).toBeNull();
   });
 
   it("reports the node overflow when the cap drops nodes", () => {
@@ -171,9 +223,13 @@ describe("DetailBlockGraphView", () => {
     );
     const legendItems = [
       ...container.querySelectorAll("ul:not(.sr-only) li"),
-    ].map((node) => node.textContent);
+    ].map((item) => item.textContent);
+    const swatches = [
+      ...container.querySelectorAll("ul:not(.sr-only) li span"),
+    ].map((swatch) => (swatch as HTMLElement).style.background);
 
     expect(legendItems).toEqual(["storyline", "development"]);
+    expect(swatches).toEqual(["var(--chart-1)", "var(--chart-2)"]);
   });
 
   it("renders the caption template", () => {

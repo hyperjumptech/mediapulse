@@ -6,10 +6,8 @@ import {
 } from "./build-knowledge-base-graph";
 import { kindLabel, sourceLabel, truncateTitle } from "./knowledge-base-labels";
 
-/** Entities read for one detail page. Above this a ticker's graph is unreadable anyway. */
 export const KB_ENTITY_FETCH_CAP = 200;
 
-/** Articles read per entity, which is what the tabs and the graph both draw from. */
 export const KB_ARTICLES_PER_ENTITY_FETCH_CAP = 10;
 
 export const detailInclude = {
@@ -42,7 +40,14 @@ export const detailInclude = {
           evidenceSpan: true,
           evidenceDataSourceId: true,
           lastObservedAt: true,
-          kind: { select: { label: true, inverseLabel: true, curated: true } },
+          kind: {
+            select: {
+              label: true,
+              inverseLabel: true,
+              symmetric: true,
+              curated: true,
+            },
+          },
           subjectEntity: { select: { canonicalName: true } },
           objectEntity: { select: { canonicalName: true } },
         },
@@ -55,7 +60,6 @@ export type KnowledgeBaseDetailRow = Prisma.TickerGetPayload<{
   include: typeof detailInclude;
 }>;
 
-/** One article naming one of the ticker's entities. */
 export type MentionRow = {
   entityId: string;
   dataSourceId: string;
@@ -131,12 +135,6 @@ export type DetailItem = {
 const isoOrNull = (value: Date | null): string | null =>
   value === null ? null : value.toISOString();
 
-/**
- * Shapes one ticker's knowledge base for the detail page and its graph.
- *
- * @param row - The ticker with its entity and relation memberships.
- * @param mentions - Every mention read for this ticker, newest first.
- */
 export function mapRowToDetailItem(
   row: KnowledgeBaseDetailRow,
   mentions: readonly MentionRow[],
@@ -176,7 +174,6 @@ export function mapRowToDetailItem(
       sourceLabel: sourceLabel(link.relation.source),
       curatedLabel: link.relation.kind.curated ? "curated" : "new kind",
       observations: link.relation.observations,
-      // An empty span is the point, not an omission: a relation no article states has none.
       evidenceSpan:
         link.relation.evidenceSpan === null
           ? "—"
@@ -239,11 +236,13 @@ export function mapRowToDetailItem(
         mentionCount: link.mentionCount,
         sourceLabel: sourceLabel(link.source),
         surfaceForm: entityMentions[0]?.surfaceForm ?? null,
+        aliases: link.entity.aliases.map((alias) => alias.alias),
         articles: entityMentions.map((mention) => ({
           dataSourceId: mention.dataSourceId,
           title: mention.dataSource.title,
           url: mention.dataSource.url,
           publisher: mention.dataSource.registrableDomain,
+          publishedAt: isoOrNull(mention.dataSource.publishedAt),
         })),
       };
     }),
@@ -252,6 +251,7 @@ export function mapRowToDetailItem(
       objectEntityId: link.relation.objectEntityId,
       label: link.relation.kind.label,
       inverseLabel: link.relation.kind.inverseLabel,
+      symmetric: link.relation.kind.symmetric,
     })),
     totals: {
       entityCount: entities.length,

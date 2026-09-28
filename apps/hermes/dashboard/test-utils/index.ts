@@ -9,3 +9,4 @@ export {
 } from "./create-mock-router";
 export { createMockDb, asDb } from "./create-mock-db";
 export { renderWithProviders } from "./render-with-providers";
+export { stubViewportWidth } from "./stub-viewport-width";

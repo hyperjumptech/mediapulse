@@ -35,7 +35,10 @@ describe("DetailBlockTabsView", () => {
       />,
     );
 
-    expect(container.querySelector("svg")?.getAttribute("role")).toBe("img");
+    expect(container.querySelector("svg")?.getAttribute("role")).toBe("group");
+    expect(
+      screen.getByRole("button", { name: "Contract delay, 0 connections" }),
+    ).toBeInTheDocument();
   });
 
   it("renders the outer label and tab triggers, defaulting to the first tab", () => {

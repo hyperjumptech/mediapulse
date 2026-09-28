@@ -100,6 +100,7 @@ export {
 export {
   detailBlockBadgeVariantSchema,
   detailBlockGraphEdgeSchema,
+  detailBlockGraphNodeDetailFieldSchema,
   detailBlockGraphNodeSchema,
   detailBlockGraphPaletteSlotSchema,
   detailBlockGraphSchema,
@@ -121,6 +122,7 @@ export {
   type DetailBlockGraph,
   type DetailBlockGraphEdge,
   type DetailBlockGraphNode,
+  type DetailBlockGraphNodeDetailField,
   type DetailBlockGraphPaletteSlot,
   type DetailBlockHtmlPreview,
   type DetailBlockKeyValue,
