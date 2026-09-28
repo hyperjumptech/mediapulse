@@ -25,7 +25,7 @@ const languageModelSchema = z
     model: z.string().default("{{AI_MODEL}}"),
     apiKey: z.string().default("{{AI_API_KEY}}"),
   })
-  .default({})
+  .prefault({})
   .describe(
     "LLM used to discover related entities and generate the search-query candidates.",
   );
@@ -42,7 +42,7 @@ const generationSchema = z
         "Queries persisted per intent. Every intent is filled to this number, so the active query set holds this many times the intent count.",
       ),
   })
-  .default({})
+  .prefault({})
   .describe("Per-intent query budget.");
 
 /**

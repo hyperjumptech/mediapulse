@@ -28,8 +28,7 @@ queryAnalysisRunsRoutes.get("/", async (c) => {
   const skip = (page - 1) * pageSize;
 
   const tickerFilter = z
-    .string()
-    .uuid()
+    .guid()
     .safeParse(c.req.query("tickerId")?.trim() ?? "");
   const startRaw = c.req.query("start")?.trim();
   const endRaw = c.req.query("end")?.trim();

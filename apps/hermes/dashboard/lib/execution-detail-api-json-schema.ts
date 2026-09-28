@@ -11,7 +11,7 @@ import { z } from "zod";
  */
 export const executionDetailApiPayloadSchema = z
   .object({
-    execution: z.record(z.unknown()),
+    execution: z.record(z.string(), z.unknown()),
   })
   .passthrough()
   .superRefine((val, ctx) => {

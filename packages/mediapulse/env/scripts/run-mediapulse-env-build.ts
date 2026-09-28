@@ -9,6 +9,7 @@ import {
   resolveMediapulseEnvBuildTargets,
   type MediapulseEnvBuildTargetKey,
 } from "./resolve-mediapulse-env-build-targets";
+import { normalizeGeneratedEnvFile } from "./normalize-generated-env";
 
 const PACKAGE_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -82,5 +83,6 @@ export const runMediapulseEnvCodegen = (
       `pnpm exec env-to-t3 -i ${JSON.stringify(spec.input)} -o ${JSON.stringify(spec.output)}`,
       { cwd: PACKAGE_ROOT, stdio: "inherit" },
     );
+    normalizeGeneratedEnvFile(path.join(PACKAGE_ROOT, spec.output));
   }
 };

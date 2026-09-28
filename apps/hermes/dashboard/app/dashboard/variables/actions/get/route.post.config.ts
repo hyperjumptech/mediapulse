@@ -11,7 +11,7 @@ import { requireDashboardPrincipalForRoute } from "@/lib/auth-dashboard";
 import { getVariableById } from "@/lib/variables";
 
 const bodyValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
 });
 
 export const requestValidator = createRequestValidator({
@@ -20,7 +20,7 @@ export const requestValidator = createRequestValidator({
 });
 
 export const responseValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   key: z.string(),
   value: z.string(),
   note: z.string().nullable(),

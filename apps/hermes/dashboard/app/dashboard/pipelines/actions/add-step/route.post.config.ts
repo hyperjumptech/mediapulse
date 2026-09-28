@@ -13,7 +13,7 @@ import { validateDataSourceExpressions } from "@/lib/step-input-expansion";
 
 const jsonObjectSchema = z
   .union([
-    z.record(z.unknown()),
+    z.record(z.string(), z.unknown()),
     z
       .string()
       .optional()
@@ -30,14 +30,14 @@ const jsonObjectSchema = z
       }),
   ])
   .optional()
-  .default({});
+  .prefault({});
 
 const bodyValidator = z.object({
-  pipelineId: z.string().uuid(),
+  pipelineId: z.guid(),
   agentId: z.string().min(1),
   agentVersion: z.string().min(1),
   agentConfigId: z
-    .union([z.string().uuid(), z.literal("")])
+    .union([z.guid(), z.literal("")])
     .optional()
     .transform((s) => (s === "" ? undefined : s)),
   input: jsonObjectSchema,
@@ -50,7 +50,7 @@ export const requestValidator = createRequestValidator({
 });
 
 export const responseValidator = z.object({
-  stepId: z.string().uuid(),
+  stepId: z.guid(),
 });
 
 type AddStepHandlerDependencies = {

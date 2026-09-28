@@ -19,7 +19,7 @@ import { computeNextRunAt, ExecutionConfigSchema } from "@hermes/scheduler";
 
 const retryConfigSchema = z
   .union([
-    z.record(z.unknown()).nullable(),
+    z.record(z.string(), z.unknown()).nullable(),
     z
       .string()
       .optional()
@@ -41,7 +41,7 @@ const retryConfigSchema = z
 
 const bodyValidator = z
   .object({
-    scheduleId: z.string().uuid(),
+    scheduleId: z.guid(),
     name: z.string().min(1).optional(),
     description: z.string().optional(),
     repeat: z.enum(["once", "repeating"]).optional(),
@@ -49,7 +49,7 @@ const bodyValidator = z
     interval: z.coerce.number().int().positive().optional().nullable(),
     timezone: z.string().min(1).optional(),
     startAt: z.union([z.date(), z.string()]).optional().nullable(),
-    pipelineId: z.string().uuid().optional(),
+    pipelineId: z.guid().optional(),
     retryConfig: retryConfigSchema,
     executionConfig: retryConfigSchema,
     priority: z.coerce.number().int().optional(),

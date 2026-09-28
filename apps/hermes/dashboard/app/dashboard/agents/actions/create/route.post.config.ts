@@ -30,7 +30,7 @@ const bodyValidator = z.object({
   agentVersion: z.string().min(1, "Agent version is required"),
   description: z.string().optional(),
   endpoint: endpointSchema,
-  domainIntegrationId: z.string().uuid().optional(),
+  domainIntegrationId: z.guid().optional(),
   isActive: z
     .union([z.boolean(), z.literal("true"), z.literal("false")])
     .optional()
@@ -44,7 +44,7 @@ export const requestValidator = createRequestValidator({
 });
 
 export const responseValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
 });
 
 type CreateAgentHandlerDependencies = {

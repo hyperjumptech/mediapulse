@@ -14,7 +14,7 @@ import { validateWithJsonSchema } from "@/lib/validate-json-schema";
 
 const configBody = z
   .union([
-    z.record(z.unknown()),
+    z.record(z.string(), z.unknown()),
     z
       .string()
       .optional()
@@ -30,10 +30,10 @@ const configBody = z
         }
       }),
   ])
-  .default({});
+  .prefault({});
 
 const bodyValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   agentId: z.string().min(1),

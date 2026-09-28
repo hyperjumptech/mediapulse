@@ -2,8 +2,8 @@ import { z } from "zod";
 
 /** Claim/release a per-recipient delivery checkpoint before sending (shared by both verbs). */
 export const deliveryClaimBodySchema = z.object({
-  userTickerId: z.string().uuid(),
-  newsletterId: z.string().uuid(),
+  userTickerId: z.guid(),
+  newsletterId: z.guid(),
 });
 
 export const postDeliveryClaimResponseSchema = z.object({

@@ -11,7 +11,7 @@ import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutatio
 import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 
 const bodyValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   brief: z.string().min(1, "Brief is required"),
@@ -24,7 +24,7 @@ export const requestValidator = createRequestValidator({
 });
 
 export const responseValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
 });
 
 type UpdateAgentContractHandlerDependencies = {

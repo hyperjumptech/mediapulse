@@ -15,7 +15,7 @@ import { validateWithJsonSchema } from "@/lib/validate-json-schema";
 
 const jsonObjectSchema = z
   .union([
-    z.record(z.unknown()),
+    z.record(z.string(), z.unknown()),
     z
       .string()
       .optional()
@@ -32,20 +32,20 @@ const jsonObjectSchema = z
       }),
   ])
   .optional()
-  .default({});
+  .prefault({});
 
 const bodyValidator = z.object({
-  pipelineId: z.string().uuid(),
-  stepId: z.string().uuid(),
+  pipelineId: z.guid(),
+  stepId: z.guid(),
   agentId: z.string().min(1),
   agentVersion: z.string().min(1),
   agentConfigId: z
-    .union([z.string().uuid(), z.literal("")])
+    .union([z.guid(), z.literal("")])
     .nullable()
     .optional()
     .transform((s) => (s === "" ? null : (s ?? null))),
   agentContractId: z
-    .union([z.string().uuid(), z.literal("")])
+    .union([z.guid(), z.literal("")])
     .nullable()
     .optional()
     .transform((s) => (s === "" ? null : (s ?? null))),

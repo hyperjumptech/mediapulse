@@ -20,7 +20,7 @@ const confirmField = {
 };
 
 const idField = {
-  id: z.string().uuid().describe("Resource id"),
+  id: z.guid().describe("Resource id"),
 };
 
 /**
@@ -41,8 +41,7 @@ export const HERMES_MUTATE_TOOL_SPECS: HermesMutateToolSpec[] = [
         .optional()
         .describe("JSON object string for agent endpoint config"),
       domainIntegrationId: z
-        .string()
-        .uuid()
+        .guid()
         .optional()
         .describe("Domain integration id"),
       isActive: z.boolean().optional().describe("Whether the agent is active"),
@@ -82,7 +81,7 @@ export const HERMES_MUTATE_TOOL_SPECS: HermesMutateToolSpec[] = [
     pathTemplate: "/dashboard/pipelines/actions/run-pipeline",
     requiresConfirm: true,
     inputSchema: {
-      pipelineId: z.string().uuid().describe("Pipeline id"),
+      pipelineId: z.guid().describe("Pipeline id"),
       ...confirmField,
     },
   },
@@ -92,11 +91,8 @@ export const HERMES_MUTATE_TOOL_SPECS: HermesMutateToolSpec[] = [
     pathTemplate: "/dashboard/pipelines/actions/cancel-manual-execution",
     requiresConfirm: true,
     inputSchema: {
-      pipelineId: z.string().uuid().describe("Pipeline id"),
-      manualExecutionId: z
-        .string()
-        .uuid()
-        .describe("Manual pipeline execution id"),
+      pipelineId: z.guid().describe("Pipeline id"),
+      manualExecutionId: z.guid().describe("Manual pipeline execution id"),
       ...confirmField,
     },
   },
@@ -113,8 +109,8 @@ export const HERMES_MUTATE_TOOL_SPECS: HermesMutateToolSpec[] = [
     pathTemplate: "/dashboard/schedules/actions/cancel-execution",
     requiresConfirm: true,
     inputSchema: {
-      scheduleId: z.string().uuid().describe("Schedule id"),
-      scheduleExecutionId: z.string().uuid().describe("Schedule execution id"),
+      scheduleId: z.guid().describe("Schedule id"),
+      scheduleExecutionId: z.guid().describe("Schedule execution id"),
       ...confirmField,
     },
   },
@@ -131,11 +127,8 @@ export const HERMES_MUTATE_TOOL_SPECS: HermesMutateToolSpec[] = [
     pathTemplate: "/dashboard/http-triggers/actions/cancel-execution",
     requiresConfirm: true,
     inputSchema: {
-      httpTriggerId: z.string().uuid().describe("HTTP trigger id"),
-      httpTriggerExecutionId: z
-        .string()
-        .uuid()
-        .describe("HTTP trigger execution id"),
+      httpTriggerId: z.guid().describe("HTTP trigger id"),
+      httpTriggerExecutionId: z.guid().describe("HTTP trigger execution id"),
       ...confirmField,
     },
   },

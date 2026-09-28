@@ -1,5 +1,12 @@
 export { createDomainIntegrationClient } from "./client";
 export {
+  defaultTitleForFormFieldKey,
+  hermesFormJsonSchemaFromZod,
+  keepZodV3JsonSchemaShape,
+  mergeHermesObjectFormProperties,
+  type HermesFormJsonSchemaOptions,
+} from "./form-json-schema";
+export {
   dashboardManifestSchema,
   dashboardPageActionsSchema,
   dashboardObjectFormJsonSchema,

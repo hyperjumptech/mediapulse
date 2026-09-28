@@ -18,7 +18,7 @@ export const ConfigSchema = z.object({
       maxAttempts: z.number().int().positive().optional().default(5),
     })
     .optional()
-    .default({}),
+    .prefault({}),
   retry: z
     .object({
       maxAttempts: z.number().int().nonnegative().optional().default(3),
@@ -26,7 +26,7 @@ export const ConfigSchema = z.object({
       maxDelayMs: z.number().int().positive().optional().default(5000),
     })
     .optional()
-    .default({}),
+    .prefault({}),
   newsletterDeliveryTimeLabel: z.string().optional(),
   inboxPageSize: z.number().int().min(1).max(1000).optional().default(50),
   inboxMaxPagesPerRun: z.number().int().positive().optional().default(20),

@@ -10,7 +10,7 @@ import { z } from "zod";
 import { requireDashboardPrincipalForRoute } from "@/lib/auth-dashboard";
 
 const bodyValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
 });
 
 export const requestValidator = createRequestValidator({
@@ -19,12 +19,12 @@ export const requestValidator = createRequestValidator({
 });
 
 export const responseValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   name: z.string(),
   description: z.string().nullable(),
   agentId: z.string(),
   agentVersion: z.string(),
-  config: z.record(z.unknown()),
+  config: z.record(z.string(), z.unknown()),
   configSchemaFingerprint: z.string().nullable(),
   createdAt: z.date(),
   updatedAt: z.date(),

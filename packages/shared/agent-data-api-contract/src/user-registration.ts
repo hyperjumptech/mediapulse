@@ -34,7 +34,7 @@ export const postUserRegistrationRegisterBodySchema = z.object({
 });
 
 export const postUserRegistrationConfirmBodySchema = z.object({
-  userTickerId: z.string().uuid(),
+  userTickerId: z.guid(),
   audit: z
     .object({
       graphMessageId: z.string().optional(),
@@ -70,7 +70,7 @@ export const userRegistrationConfirmSubscriptionQuerySchema = z.object({
 // Response schemas
 export const postUserRegistrationRegisterResponseSchema = z.object({
   tickerKnown: z.boolean(),
-  userTickerId: z.string().uuid().optional(),
+  userTickerId: z.guid().optional(),
   isNewSubscription: z.boolean(),
   subscriptionChanged: z.boolean(),
 });
@@ -94,7 +94,7 @@ export const userRegistrationUnsubscribeResponseSchema = z.object({
 export const postUserRegistrationWebSignupResponseSchema = z.object({
   ok: z.literal(true),
   tickerKnown: z.boolean(),
-  userTickerId: z.string().uuid().optional(),
+  userTickerId: z.guid().optional(),
   isNewSubscription: z.boolean(),
 });
 

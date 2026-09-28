@@ -13,7 +13,7 @@ export const newsletterSectionItemSchema = z.object({
     .min(1)
     .max(NEWSLETTER_SECTION_ITEM_POINTS_MAX),
   url: z.string().trim().min(1).nullable(),
-  dataSourceId: z.string().uuid().nullable(),
+  dataSourceId: z.guid().nullable(),
   position: z.number().int().nonnegative(),
 });
 
@@ -26,7 +26,7 @@ export const newsletterSectionSchema = z.object({
 });
 
 export const postContentGenerationSectionsBodySchema = z.object({
-  newsletterId: z.string().uuid(),
+  newsletterId: z.guid(),
   sections: z
     .array(newsletterSectionSchema)
     .min(1)

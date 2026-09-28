@@ -47,7 +47,7 @@ export const MEDIAPULSE_CGA_READ_TOOL_SPECS: MediapulseMcpReadToolSpec[] = [
     method: "GET",
     pathTemplate: "/api/agents/content-generation-runs/{id}",
     inputSchema: {
-      id: z.string().uuid().describe("Content-generation run id"),
+      id: z.guid().describe("Content-generation run id"),
     },
   },
 ];

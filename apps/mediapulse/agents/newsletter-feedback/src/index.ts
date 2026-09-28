@@ -22,11 +22,7 @@ const BodySchemaInner = z.object({
     .transform((value) => Math.max(value, MIN_MAX_MESSAGES_PER_RUN)),
   watermark: z.string().datetime().optional(),
 });
-const BodySchema = BodySchemaInner as unknown as z.ZodType<
-  Input,
-  z.ZodTypeDef,
-  Input
->;
+const BodySchema = BodySchemaInner as unknown as z.ZodType<Input>;
 
 const app = createAgentApp<
   Input,

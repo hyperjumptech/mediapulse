@@ -9,9 +9,9 @@ export const dataCollectionRunStatusSchema = z.enum([
 ]);
 
 export const dataCollectionRunInputSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   tickerId: z.string().trim().min(1).optional(),
-  scheduleExecutionId: z.string().uuid().optional(),
+  scheduleExecutionId: z.guid().optional(),
   startedAt: z.string().datetime(),
   completedAt: z.string().datetime(),
   status: dataCollectionRunStatusSchema,

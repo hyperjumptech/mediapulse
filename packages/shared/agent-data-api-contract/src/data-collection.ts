@@ -16,8 +16,8 @@ const dataCollectionInputSchema = z.object({
   author: z.string().optional(),
   source: z.string().optional(),
   tickerId: z.string().trim().min(1),
-  searchQueryId: z.string().uuid(),
-  dataCollectionRunId: z.string().uuid().optional(),
+  searchQueryId: z.guid(),
+  dataCollectionRunId: z.guid().optional(),
   publishedAt: z.string().datetime().optional(),
   metadata: z.object({ provider: z.string().optional() }).optional(),
 });
@@ -27,7 +27,7 @@ export const dataCollectionBodySchema = z.array(dataCollectionInputSchema);
 export const getDataCollectionResponseSchema = z.object({
   data: z.array(
     z.object({
-      id: z.string().uuid(),
+      id: z.guid(),
       text: z.string(),
       tickerId: z.string().trim().min(1),
       intent: queryAnalysisIntentSchema,
@@ -90,7 +90,7 @@ export const getDataCollectionRecentSourceFingerprintsQuerySchema = z.object({
 });
 
 export const sourceFingerprintSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   title: z.string(),
   headSnippet: z.string(),
 });
@@ -116,14 +116,14 @@ export type SourceFingerprint = z.infer<typeof sourceFingerprintSchema>;
  * Body for POST `/data-collection/curated-listing-query`: ensures a per-ticker synthetic query.
  */
 export const postCuratedListingQueryBodySchema = z.object({
-  tickerId: z.string().uuid(),
+  tickerId: z.guid(),
 });
 
 /**
  * Response: the stable id of the curated SearchQuery row for the ticker.
  */
 export const postCuratedListingQueryResponseSchema = z.object({
-  searchQueryId: z.string().uuid(),
+  searchQueryId: z.guid(),
 });
 
 export type PostCuratedListingQueryBody = z.infer<

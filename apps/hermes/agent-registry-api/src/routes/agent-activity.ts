@@ -5,7 +5,7 @@ import { validateBody } from "@workspace/api-utils";
 import { postAgentActivity as postAgentActivityService } from "../services/post-agent-activity";
 
 const postAgentActivityBodySchema = z.object({
-  jobId: z.string().uuid(),
+  jobId: z.guid(),
   title: z.string().min(1).max(200),
   description: z.string().max(500).optional(),
   status: z.enum(["processing", "completed"]),

@@ -119,7 +119,7 @@ const acceptanceSchema = z
     apiKey: z.string().default("{{AI_API_KEY}}"),
     baseUrl: z.string().default("{{AI_BASE_URL}}"),
   })
-  .default({})
+  .prefault({})
   .describe("LLM (OpenAI-compatible) credentials used to classify articles.");
 
 /**
@@ -392,7 +392,7 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
  */
 const acceptanceCriteriaSchema = z
   .array(acceptanceCriteriaRuleSchema)
-  .default(() =>
+  .prefault(() =>
     DEFAULT_ACCEPTANCE_CRITERIA.map((rule) => ({
       section: rule.section,
       criteria: rule.criteria.map((criterion) => ({ ...criterion })),

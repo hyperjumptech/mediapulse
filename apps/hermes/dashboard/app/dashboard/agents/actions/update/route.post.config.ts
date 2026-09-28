@@ -30,7 +30,7 @@ const endpointSchema = z
   });
 
 const bodyValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   agentId: z.string().min(1).optional(),
   agentVersion: z.string().min(1).optional(),
   description: z.string().optional().nullable(),

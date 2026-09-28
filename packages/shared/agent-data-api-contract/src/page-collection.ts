@@ -11,8 +11,8 @@ const pageCollectionArticleInputSchema = z.object({
   source: z.string().optional(),
   publisherUrl: z.string().url().optional(),
   curatedSourceListingUrl: z.string().url(),
-  tickerId: z.string().uuid().optional(),
-  dataCollectionRunId: z.string().uuid().optional(),
+  tickerId: z.guid().optional(),
+  dataCollectionRunId: z.guid().optional(),
   publishedAt: z.string().datetime().optional(),
   metadata: z.object({ provider: z.string().optional() }).optional(),
   collectionGateStatus: collectionGateStatusSchema.default("passed"),
@@ -49,7 +49,7 @@ export const postPageCollectionResolveSourcesResponseSchema = z.object({
   sources: z.array(
     z.object({
       listingUrl: z.string().url(),
-      curatedSourceId: z.string().uuid(),
+      curatedSourceId: z.guid(),
       linkType: curatedSourceLinkTypeSchema,
       maxItems: z.number().int().positive().nullable(),
     }),
@@ -58,7 +58,7 @@ export const postPageCollectionResolveSourcesResponseSchema = z.object({
 
 export const getPageCollectionArticlesQuerySchema = z.object({
   gateStatus: collectionGateStatusSchema.optional(),
-  curatedSourceId: z.string().uuid().optional(),
+  curatedSourceId: z.guid().optional(),
   unanalyzed: z
     .enum(["true", "false"])
     .optional()
@@ -68,12 +68,12 @@ export const getPageCollectionArticlesQuerySchema = z.object({
 });
 
 export const pageCollectionArticleListItemSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   url: z.string(),
   title: z.string(),
   collectionGateStatus: collectionGateStatusSchema.nullable(),
   collectionGateReason: z.string().nullable(),
-  curatedSourceId: z.string().uuid().nullable(),
+  curatedSourceId: z.guid().nullable(),
   curatedSourceListingUrl: z.string().nullable(),
   analyzedAt: z.coerce.date().nullable(),
   createdAt: z.coerce.date(),

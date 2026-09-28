@@ -179,7 +179,9 @@ export const detailBlockSubTableColumnSchema = z
      * For `type: "badge"` only — maps the cell value to a badge variant
      * (`success` / `warning` / `destructive` / `muted` / `outline`).
      */
-    badgeVariants: z.record(detailBlockBadgeVariantSchema).optional(),
+    badgeVariants: z
+      .record(z.string(), detailBlockBadgeVariantSchema)
+      .optional(),
     /**
      * For `type: "badge"` only — path to a field whose value is the badge variant name directly. Use
      * when the variant is computed server-side (e.g. a score band) rather than mapped from the cell
@@ -377,7 +379,9 @@ export const detailBlockGraphSchema = z.object({
   /** Direction layers advance in. */
   orientation: z.enum(["horizontal", "vertical"]).default("horizontal"),
   /** Pins a group value to a palette slot. Unlisted groups take the next slot in rotation. */
-  groupVariants: z.record(detailBlockGraphPaletteSlotSchema).optional(),
+  groupVariants: z
+    .record(z.string(), detailBlockGraphPaletteSlotSchema)
+    .optional(),
   /** Renderer-side safety net. Nodes past this count are dropped and reported beneath the diagram. */
   maxNodes: z.number().int().positive().max(500).default(150),
   /** Maximum drawing height in pixels before the diagram scrolls inside its frame. */

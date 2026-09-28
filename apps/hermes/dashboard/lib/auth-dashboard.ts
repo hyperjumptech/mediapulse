@@ -18,6 +18,7 @@ const dashboardAuthUserCookieSchema = z.object({
   email: z.string(),
   credentialVersion: z
     .unknown()
+    .optional()
     .transform((v) => (typeof v === "number" && Number.isInteger(v) ? v : 0)),
 });
 

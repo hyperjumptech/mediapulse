@@ -32,7 +32,7 @@ export const knowledgeFactSourceSchema = z.enum([
 
 export const getKnowledgeExtractionCandidatesQuerySchema = z.object({
   /** Extraction is per issuer: an entity's relevance is a per-ticker fact. */
-  tickerId: z.string().uuid(),
+  tickerId: z.guid(),
   since: z.string().datetime().optional(),
   fromStart: z
     .union([z.boolean(), z.string()])
@@ -79,8 +79,8 @@ export const getKnowledgeExtractionCandidatesResponseSchema = z.object({
 });
 
 export const postKnowledgeExtractionSeedBodySchema = z.object({
-  tickerId: z.string().uuid(),
-  extractionRunId: z.string().uuid().nullable(),
+  tickerId: z.guid(),
+  extractionRunId: z.guid().nullable(),
 });
 
 export const postKnowledgeExtractionSeedResponseSchema = z.object({
@@ -106,9 +106,9 @@ export const knowledgeExtractedRelationSchema = z.object({
 });
 
 export const postKnowledgeExtractionsBodySchema = z.object({
-  tickerId: z.string().uuid(),
-  dataSourceId: z.string().uuid(),
-  extractionRunId: z.string().uuid().nullable(),
+  tickerId: z.guid(),
+  dataSourceId: z.guid(),
+  extractionRunId: z.guid().nullable(),
   entities: z
     .array(knowledgeExtractedEntitySchema)
     .max(KNOWLEDGE_EXTRACTION_MAX_ENTITIES),
@@ -138,7 +138,7 @@ export const postKnowledgeExtractionsResponseSchema = z.object({
 });
 
 export const postKnowledgeExtractionRunsBodySchema = z.object({
-  tickerId: z.string().uuid().nullable(),
+  tickerId: z.guid().nullable(),
   scheduleExecutionId: z.string().nullable(),
   agentVersion: z.string().nullable(),
   startedAt: z.string().datetime(),
@@ -149,7 +149,7 @@ export const postKnowledgeExtractionRunsResponseSchema = z.object({
 });
 
 export const postKnowledgeExtractionRunsFinishBodySchema = z.object({
-  extractionRunId: z.string().uuid(),
+  extractionRunId: z.guid(),
   status: z.enum(["success", "partial_success", "failed"]),
   completedAt: z.string().datetime(),
   watermarkAt: z.string().datetime().nullable(),

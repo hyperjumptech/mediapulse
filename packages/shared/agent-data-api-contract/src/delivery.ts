@@ -7,8 +7,8 @@ export const getDeliveryQuerySchema = z.object({
 });
 
 export const postDeliveryBodySchema = z.object({
-  userTickerId: z.string().uuid(),
-  newsletterId: z.string().uuid(),
+  userTickerId: z.guid(),
+  newsletterId: z.guid(),
   resendEmailId: z.string().min(1).optional(),
 });
 
@@ -20,7 +20,7 @@ export const deliveryNewsletterTranslationSchema = z.object({
 });
 
 export const deliveryNewsletterSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   subject: z.string(),
   content: z.string(),
   symbol: z.string(),
@@ -29,7 +29,7 @@ export const deliveryNewsletterSchema = z.object({
 });
 
 export const deliverySubscriberSchema = z.object({
-  userTickerId: z.string().uuid(),
+  userTickerId: z.guid(),
   email: z.string().email(),
   /** Subscription language used to pick which rendered text the recipient receives. */
   language: newsletterLanguageSchema,
@@ -39,7 +39,7 @@ export const getDeliveryResponseSchema = z.object({
   newsletter: deliveryNewsletterSchema.nullable(),
   subscribers: z.array(deliverySubscriberSchema),
   /** User-ticker ids that already have a delivery checkpoint for the latest newsletter (skip send on replay). */
-  deliveredUserTickerIds: z.array(z.string().uuid()),
+  deliveredUserTickerIds: z.array(z.guid()),
 });
 
 export const postDeliveryResponseSchema = z.object({

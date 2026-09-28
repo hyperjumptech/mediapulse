@@ -11,7 +11,7 @@ export const tickerPeerSchema = z.object({
 });
 
 export const getTickerResponseSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   symbol: z.string(),
   name: z.string(),
   /** Known alternate names and symbols for relevance matching (excludes duplicates of symbol/name). */

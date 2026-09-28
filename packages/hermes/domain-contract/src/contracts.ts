@@ -182,7 +182,7 @@ export const registerDomainIntegrationRequestSchema = z.object({
   version: z.string().optional(),
   capabilities: z.array(domainIntegrationCapabilitySchema).default([]),
   isDefault: z.boolean().optional(),
-  dashboard: dashboardManifestSchema.default({
+  dashboard: dashboardManifestSchema.prefault({
     templateVersion: 1,
     views: [],
   }),
@@ -192,7 +192,7 @@ export const registerDomainIntegrationRequestSchema = z.object({
  * Schema for a response from a request to register a domain integration.
  */
 export const registerDomainIntegrationResponseSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   integrationId: z.string().min(1),
   name: z.string().min(1),
   baseUrl: z.string().url(),
@@ -225,13 +225,13 @@ export const previewExpansionResponseSchema = z.union([
 ]);
 
 export const expandStepInputsRequestSchema = z.object({
-  input: z.record(z.unknown()),
+  input: z.record(z.string(), z.unknown()),
   maxTake: z.number().int().nonnegative().optional(),
   defaultTake: z.number().int().nonnegative().optional(),
 });
 
 export const expandStepInputsResponseSchema = z.object({
-  expandedInputs: z.array(z.record(z.unknown())),
+  expandedInputs: z.array(z.record(z.string(), z.unknown())),
 });
 
 export type RegisterDomainIntegrationRequest = z.infer<

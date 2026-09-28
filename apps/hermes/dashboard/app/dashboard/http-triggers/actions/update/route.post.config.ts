@@ -15,10 +15,10 @@ import { createTokenHint, hashHttpTriggerToken } from "@/lib/http-trigger-auth";
 
 /** Parsed and validated HTTP trigger update form body (also used in tests). */
 export const httpTriggerUpdateBodySchema = z.object({
-  httpTriggerId: z.string().uuid(),
+  httpTriggerId: z.guid(),
   name: z.string().min(1).optional(),
   description: z.string().optional(),
-  pipelineId: z.string().uuid().optional(),
+  pipelineId: z.guid().optional(),
   enabled: z
     .union([z.boolean(), z.literal("on"), z.literal("false")])
     .optional()

@@ -7,8 +7,8 @@
     "build": "tsx scripts/execute-hermes-env-build.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "build:default": "pnpm exec env-to-t3 -i env.example -o src/index.ts",
-    "build:hermes-worker": "pnpm exec env-to-t3 -i env.hermes-worker.example -o src/hermes-worker.ts"
+    "build:default": "HERMES_ENV_BUILD_TARGETS=default tsx scripts/execute-hermes-env-build.ts",
+    "build:hermes-worker": "HERMES_ENV_BUILD_TARGETS=hermes.worker tsx scripts/execute-hermes-env-build.ts"
   },
   "exports": {
     "./hermes-worker": {
@@ -21,7 +21,7 @@
     }
   },
   "dependencies": {
-    "@t3-oss/env-nextjs": "^0.10.1",
+    "@t3-oss/env-nextjs": "^0.13.11",
     "zod": "catalog:"
   },
   "devDependencies": {

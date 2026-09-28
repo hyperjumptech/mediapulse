@@ -12,7 +12,7 @@ import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { createRequireHermesAdminManagementActor } from "@/lib/require-hermes-admin-management-actor";
 
 const bodyValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   active: z
     .union([z.boolean(), z.literal("true"), z.literal("false")])
     .transform((v) => v === true || v === "true"),

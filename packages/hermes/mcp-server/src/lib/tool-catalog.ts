@@ -54,7 +54,7 @@ export const HERMES_READ_TOOL_SPECS: HermesReadToolSpec[] = [
     method: "GET",
     pathTemplate: "/api/pipelines/{pipelineId}/schemas",
     inputSchema: {
-      pipelineId: z.string().uuid().describe("Pipeline id"),
+      pipelineId: z.guid().describe("Pipeline id"),
     },
   },
   {
@@ -63,8 +63,8 @@ export const HERMES_READ_TOOL_SPECS: HermesReadToolSpec[] = [
     method: "GET",
     pathTemplate: "/api/schedules/{scheduleId}/executions/{executionId}",
     inputSchema: {
-      scheduleId: z.string().uuid().describe("Schedule id"),
-      executionId: z.string().uuid().describe("Execution id"),
+      scheduleId: z.guid().describe("Schedule id"),
+      executionId: z.guid().describe("Execution id"),
     },
   },
   {
@@ -73,8 +73,8 @@ export const HERMES_READ_TOOL_SPECS: HermesReadToolSpec[] = [
     method: "GET",
     pathTemplate: "/api/http-triggers/{triggerId}/executions/{executionId}",
     inputSchema: {
-      triggerId: z.string().uuid().describe("HTTP trigger id"),
-      executionId: z.string().uuid().describe("Execution id"),
+      triggerId: z.guid().describe("HTTP trigger id"),
+      executionId: z.guid().describe("Execution id"),
     },
   },
   {
@@ -83,8 +83,8 @@ export const HERMES_READ_TOOL_SPECS: HermesReadToolSpec[] = [
     method: "GET",
     pathTemplate: "/api/pipelines/{pipelineId}/executions/{executionId}",
     inputSchema: {
-      pipelineId: z.string().uuid().describe("Pipeline id"),
-      executionId: z.string().uuid().describe("Execution id"),
+      pipelineId: z.guid().describe("Pipeline id"),
+      executionId: z.guid().describe("Execution id"),
     },
   },
   {
@@ -93,7 +93,7 @@ export const HERMES_READ_TOOL_SPECS: HermesReadToolSpec[] = [
     method: "POST",
     pathTemplate: "/dashboard/variables/actions/get",
     inputSchema: {
-      id: z.string().uuid().describe("Variable id"),
+      id: z.guid().describe("Variable id"),
     },
   },
   {
@@ -102,7 +102,7 @@ export const HERMES_READ_TOOL_SPECS: HermesReadToolSpec[] = [
     method: "POST",
     pathTemplate: "/dashboard/agent-configs/actions/get",
     inputSchema: {
-      id: z.string().uuid().describe("Agent config id"),
+      id: z.guid().describe("Agent config id"),
     },
   },
   {

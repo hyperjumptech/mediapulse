@@ -39,8 +39,7 @@ deliveryRunsRoutes.get("/", async (c) => {
   const skip = (page - 1) * pageSize;
 
   const tickerFilter = z
-    .string()
-    .uuid()
+    .guid()
     .safeParse(c.req.query("tickerId")?.trim() ?? "");
   const outcomeFilter = deliveryRunOutcomeFilterSchema.safeParse(
     c.req.query("outcome")?.trim() ?? "",

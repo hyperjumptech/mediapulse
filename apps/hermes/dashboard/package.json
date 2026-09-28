@@ -51,8 +51,7 @@
     "resend": "^6.9.1",
     "route-action-gen": "catalog:",
     "sonner": "catalog:",
-    "zod": "catalog:",
-    "zod-to-json-schema": "^3.25.1"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",

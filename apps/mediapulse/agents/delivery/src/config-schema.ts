@@ -25,13 +25,13 @@ export const DeliveryConfigSchema = z
         includeHtml: z.boolean().default(true),
         includeText: z.boolean().default(true),
       })
-      .default({ includeHtml: true, includeText: true }),
+      .prefault({ includeHtml: true, includeText: true }),
     rateLimit: z
       .object({
         minIntervalMs: z.number().int().positive(),
         maxSendsPerMinute: z.number().int().positive(),
       })
-      .default({ minIntervalMs: 600, maxSendsPerMinute: 8 }),
+      .prefault({ minIntervalMs: 600, maxSendsPerMinute: 8 }),
     retry: z
       .object({
         maxAttempts: z.number().int().positive(),
@@ -39,7 +39,7 @@ export const DeliveryConfigSchema = z
         maxDelayMs: z.number().int().positive(),
         jitter: z.boolean(),
       })
-      .default({
+      .prefault({
         maxAttempts: 4,
         baseDelayMs: 500,
         maxDelayMs: 20_000,
@@ -49,7 +49,7 @@ export const DeliveryConfigSchema = z
       .object({
         newsletterVariant: z.enum(["default"]).default("default"),
       })
-      .default({ newsletterVariant: "default" }),
+      .prefault({ newsletterVariant: "default" }),
   })
   .superRefine((val, ctx) => {
     if (!val.send.includeHtml && !val.send.includeText) {

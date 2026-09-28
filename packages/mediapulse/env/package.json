@@ -7,18 +7,18 @@
     "build": "tsx scripts/execute-mediapulse-env-build.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "build:default": "pnpm exec env-to-t3 -i env.example -o src/index.ts",
-    "build:agents.data-collection": "pnpm exec env-to-t3 -i env.agents.data-collection.example -o src/agents-data-collection.ts",
-    "build:agents.content-generation": "pnpm exec env-to-t3 -i env.agents.content-generation.example -o src/agents-content-generation.ts",
-    "build:agents.delivery": "pnpm exec env-to-t3 -i env.agents.delivery.example -o src/agents-delivery.ts",
-    "build:agents.query-analysis": "pnpm exec env-to-t3 -i env.agents.query-analysis.example -o src/agents-query-analysis.ts",
-    "build:agents.ticker-echo": "pnpm exec env-to-t3 -i env.agents.ticker-echo.example -o src/agents-ticker-echo.ts",
-    "build:agents.user-registration": "pnpm exec env-to-t3 -i env.agents.user-registration.example -o src/agents-user-registration.ts",
-    "build:app.user-registration": "pnpm exec env-to-t3 -i env.app.user-registration.example -o src/app-user-registration.ts",
-    "build:agents.article-analysis": "pnpm exec env-to-t3 -i env.agents.article-analysis.example -o src/agents-article-analysis.ts",
-    "build:agents.page-collection": "pnpm exec env-to-t3 -i env.agents.page-collection.example -o src/agents-page-collection.ts",
-    "build:agents.newsletter-feedback": "pnpm exec env-to-t3 -i env.agents.newsletter-feedback.example -o src/agents-newsletter-feedback.ts",
-    "build:agents.knowledge-ingestion": "pnpm exec env-to-t3 -i env.agents.knowledge-ingestion.example -o src/agents-knowledge-ingestion.ts"
+    "build:default": "MEDIAPULSE_ENV_BUILD_TARGETS=default tsx scripts/execute-mediapulse-env-build.ts",
+    "build:agents.data-collection": "MEDIAPULSE_ENV_BUILD_TARGETS=agents.data-collection tsx scripts/execute-mediapulse-env-build.ts",
+    "build:agents.content-generation": "MEDIAPULSE_ENV_BUILD_TARGETS=agents.content-generation tsx scripts/execute-mediapulse-env-build.ts",
+    "build:agents.delivery": "MEDIAPULSE_ENV_BUILD_TARGETS=agents.delivery tsx scripts/execute-mediapulse-env-build.ts",
+    "build:agents.query-analysis": "MEDIAPULSE_ENV_BUILD_TARGETS=agents.query-analysis tsx scripts/execute-mediapulse-env-build.ts",
+    "build:agents.ticker-echo": "MEDIAPULSE_ENV_BUILD_TARGETS=agents.ticker-echo tsx scripts/execute-mediapulse-env-build.ts",
+    "build:agents.user-registration": "MEDIAPULSE_ENV_BUILD_TARGETS=agents.user-registration tsx scripts/execute-mediapulse-env-build.ts",
+    "build:app.user-registration": "MEDIAPULSE_ENV_BUILD_TARGETS=app.user-registration tsx scripts/execute-mediapulse-env-build.ts",
+    "build:agents.article-analysis": "MEDIAPULSE_ENV_BUILD_TARGETS=agents.article-analysis tsx scripts/execute-mediapulse-env-build.ts",
+    "build:agents.page-collection": "MEDIAPULSE_ENV_BUILD_TARGETS=agents.page-collection tsx scripts/execute-mediapulse-env-build.ts",
+    "build:agents.newsletter-feedback": "MEDIAPULSE_ENV_BUILD_TARGETS=agents.newsletter-feedback tsx scripts/execute-mediapulse-env-build.ts",
+    "build:agents.knowledge-ingestion": "MEDIAPULSE_ENV_BUILD_TARGETS=agents.knowledge-ingestion tsx scripts/execute-mediapulse-env-build.ts"
   },
   "exports": {
     "./agents-content-generation": {
@@ -71,7 +71,7 @@
     }
   },
   "dependencies": {
-    "@t3-oss/env-nextjs": "^0.10.1",
+    "@t3-oss/env-nextjs": "^0.13.11",
     "zod": "catalog:"
   },
   "devDependencies": {

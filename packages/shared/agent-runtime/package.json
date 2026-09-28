@@ -21,8 +21,7 @@
     "@workspace/logger": "workspace:*",
     "hono": "catalog:",
     "hono-pino": "catalog:",
-    "zod": "catalog:",
-    "zod-to-json-schema": "^3.25.1"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@workspace/typescript-config": "workspace:*",
