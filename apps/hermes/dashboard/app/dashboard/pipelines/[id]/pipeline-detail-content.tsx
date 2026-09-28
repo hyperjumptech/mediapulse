@@ -23,6 +23,7 @@ import type {
   getPipelineWithSteps,
 } from "@/lib/pipelines";
 
+import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
 import { getPipelineStatus } from "@/lib/pipeline-status";
 import type { PipelineValidationResult } from "@/lib/validate-pipeline";
 
@@ -238,6 +239,7 @@ export const PipelineDetailContent = ({
 
   return (
     <div className="flex flex-col gap-6">
+      <BreadcrumbEntityLabel segment={pipeline.id} label={pipeline.name} />
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex min-w-0 items-center gap-2">

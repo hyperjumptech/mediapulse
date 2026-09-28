@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
 
+import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
 import { PageHeader } from "@/components/page-header";
 import { getAgentConfigById } from "@/lib/agent-configs";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
@@ -34,6 +35,7 @@ const EditConfigPage = async ({
 
   return (
     <div className="flex flex-col gap-4">
+      <BreadcrumbEntityLabel segment={id} label={config.name} />
       <PageHeader
         title={`Edit config: ${config.name}`}
         description="Update this agent configuration preset."

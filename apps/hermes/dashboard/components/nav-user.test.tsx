@@ -1,7 +1,24 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import { NavUser, getInitials } from "./nav-user";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  within,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { SidebarProvider } from "@workspace/ui/components/sidebar";
+
+import { NavUser, getInitials, useThemePreference } from "./nav-user";
+
+const useThemeMock = vi.fn();
+const setThemeMock = vi.fn();
+
+vi.mock("next-themes", () => ({
+  useTheme: () => useThemeMock(),
+}));
 
 vi.mock("@/app/dashboard/logout-form", () => ({
   LogoutForm: ({ className }: { className?: string }) => (
@@ -11,40 +28,64 @@ vi.mock("@/app/dashboard/logout-form", () => ({
   ),
 }));
 
-vi.mock("@workspace/ui/components/dropdown-menu", () => ({
-  DropdownMenu: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="dropdown-menu">{children}</div>
-  ),
-  DropdownMenuTrigger: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="dropdown-trigger">{children}</div>
-  ),
-  DropdownMenuContent: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="dropdown-content">{children}</div>
-  ),
-  DropdownMenuLabel: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="dropdown-label">{children}</div>
-  ),
-  DropdownMenuSeparator: () => <hr data-testid="dropdown-separator" />,
-  DropdownMenuItem: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="dropdown-item">{children}</div>
-  ),
-}));
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
 
-vi.mock("@workspace/ui/components/sidebar", () => ({
-  SidebarMenu: ({ children }: React.PropsWithChildren) => (
-    <nav data-testid="sidebar-menu">{children}</nav>
-  ),
-  SidebarMenuItem: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="sidebar-menu-item">{children}</div>
-  ),
-  SidebarMenuButton: ({
-    children,
-  }: React.PropsWithChildren<{
-    asChild?: boolean;
-    size?: string;
-    className?: string;
-  }>) => <button data-testid="sidebar-menu-button">{children}</button>,
-}));
+const stubMatchMedia = () => {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: vi.fn((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+};
+
+const user = { name: "John Doe", email: "john@example.com" };
+
+const FakeLogoutForm = () => (
+  <button type="submit" data-testid="logout-form">
+    Sign out
+  </button>
+);
+
+const renderNavUser = () =>
+  render(
+    <SidebarProvider>
+      <NavUser user={user} LogoutFormComponent={FakeLogoutForm as never} />
+    </SidebarProvider>,
+  );
+
+const openUserMenu = async () => {
+  const trigger = screen.getByRole("button", { name: /John Doe/ });
+
+  await act(async () => {
+    fireEvent.keyDown(trigger, { key: "Enter" });
+  });
+
+  return screen.getByRole("menu");
+};
+
+const openThemeMenu = async (userMenu: HTMLElement) => {
+  const themeTrigger = within(userMenu).getByRole("menuitem", {
+    name: "Theme",
+  });
+
+  await act(async () => {
+    themeTrigger.focus();
+    fireEvent.keyDown(themeTrigger, { key: "ArrowRight" });
+  });
+};
 
 describe("getInitials", () => {
   it("returns two uppercase initials from a full name", () => {
@@ -68,46 +109,144 @@ describe("getInitials", () => {
   });
 });
 
+describe("useThemePreference", () => {
+  afterEach(() => {
+    useThemeMock.mockReset();
+    setThemeMock.mockReset();
+  });
+
+  it.each([
+    [undefined, "system"],
+    ["light", "light"],
+    ["dark", "dark"],
+    ["system", "system"],
+    ["sepia", "system"],
+  ])("maps theme %s to preference %s", (theme, expectedPreference) => {
+    // Setup
+    useThemeMock.mockReturnValue({ theme, setTheme: setThemeMock });
+
+    // Act
+    const { result } = renderHook(() => useThemePreference());
+
+    // Assert
+    expect(result.current.themePreference).toBe(expectedPreference);
+  });
+
+  it("sets a supported theme", () => {
+    // Setup
+    useThemeMock.mockReturnValue({ theme: "light", setTheme: setThemeMock });
+    const { result } = renderHook(() => useThemePreference());
+
+    // Act
+    result.current.setThemePreference("dark");
+
+    // Assert
+    expect(setThemeMock).toHaveBeenCalledWith("dark");
+  });
+
+  it("ignores an unsupported theme", () => {
+    // Setup
+    useThemeMock.mockReturnValue({ theme: "light", setTheme: setThemeMock });
+    const { result } = renderHook(() => useThemePreference());
+
+    // Act
+    result.current.setThemePreference("sepia");
+
+    // Assert
+    expect(setThemeMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("NavUser", () => {
-  const user = { name: "John Doe", email: "john@example.com" };
-
-  const FakeLogoutForm = () => (
-    <button data-testid="logout-form">Sign out</button>
-  );
-
-  it("renders the user initials in the trigger", () => {
-    render(
-      <NavUser user={user} LogoutFormComponent={FakeLogoutForm as never} />,
-    );
-
-    const initials = screen.getAllByText("JD");
-    expect(initials.length).toBeGreaterThanOrEqual(1);
+  beforeEach(() => {
+    stubMatchMedia();
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+    useThemeMock.mockReturnValue({ theme: "dark", setTheme: setThemeMock });
   });
 
-  it("renders the user name and email in the trigger", () => {
-    render(
-      <NavUser user={user} LogoutFormComponent={FakeLogoutForm as never} />,
-    );
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    useThemeMock.mockReset();
+    setThemeMock.mockReset();
+  });
 
-    expect(screen.getAllByText("John Doe").length).toBeGreaterThanOrEqual(1);
+  it("shows the avatar initials, name, and email in the trigger", () => {
+    // Act
+    renderNavUser();
+
+    // Assert
+    const trigger = screen.getByRole("button", { name: /John Doe/ });
+
+    expect(trigger).toHaveTextContent("JD");
+    expect(trigger).toHaveTextContent("john@example.com");
+  });
+
+  it("shows the user, theme menu, and logout form when opened", async () => {
+    // Setup
+    renderNavUser();
+
+    // Act
+    const userMenu = await openUserMenu();
+
+    // Assert
+    expect(userMenu).toHaveTextContent("John Doe");
+    expect(userMenu).toHaveTextContent("john@example.com");
     expect(
-      screen.getAllByText("john@example.com").length,
-    ).toBeGreaterThanOrEqual(1);
+      within(userMenu).getByRole("menuitem", { name: "Theme" }),
+    ).toBeInTheDocument();
+    expect(within(userMenu).getByTestId("logout-form")).toBeInTheDocument();
   });
 
-  it("renders the logout form inside the dropdown content", () => {
-    render(
-      <NavUser user={user} LogoutFormComponent={FakeLogoutForm as never} />,
-    );
+  it("checks the current theme in the theme menu", async () => {
+    // Setup
+    renderNavUser();
+    const userMenu = await openUserMenu();
 
-    expect(screen.getByTestId("logout-form")).toBeInTheDocument();
+    // Act
+    await openThemeMenu(userMenu);
+
+    // Assert
+    expect(screen.getByRole("menuitemradio", { name: "Dark" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(
+      screen.getByRole("menuitemradio", { name: "Light" }),
+    ).toHaveAttribute("aria-checked", "false");
+    expect(
+      screen.getByRole("menuitemradio", { name: "System" }),
+    ).toHaveAttribute("aria-checked", "false");
   });
 
-  it("renders the chevrons icon button", () => {
+  it("switches the theme from the theme menu", async () => {
+    // Setup
+    renderNavUser();
+    const userMenu = await openUserMenu();
+    await openThemeMenu(userMenu);
+
+    // Act
+    await act(async () => {
+      fireEvent.click(screen.getByRole("menuitemradio", { name: "Light" }));
+    });
+
+    // Assert
+    expect(setThemeMock).toHaveBeenCalledWith("light");
+  });
+
+  it("uses the real logout form by default", async () => {
+    // Setup
     render(
-      <NavUser user={user} LogoutFormComponent={FakeLogoutForm as never} />,
+      <SidebarProvider>
+        <NavUser user={user} />
+      </SidebarProvider>,
     );
 
-    expect(screen.getByTestId("sidebar-menu-button")).toBeInTheDocument();
+    // Act
+    const userMenu = await openUserMenu();
+
+    // Assert
+    expect(
+      within(userMenu).getByTestId("logout-form-default"),
+    ).toBeInTheDocument();
   });
 });

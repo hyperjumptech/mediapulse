@@ -1,13 +1,39 @@
 import React from "react";
-import { act, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { AppSidebar } from "./app-sidebar";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DashboardPage } from "@hermes/domain-contract";
 
+import {
+  SidebarProvider,
+  SidebarTrigger,
+} from "@workspace/ui/components/sidebar";
+
+import { AppSidebar } from "./app-sidebar";
+import type { DomainIntegrationNav } from "@/lib/dashboard-routes";
+
+type MockLinkProps = React.ComponentProps<"a"> & { href: string };
+
 const usePathnameMock = vi.fn();
+const useLinkStatusMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   usePathname: () => usePathnameMock(),
+}));
+
+vi.mock("next/link", () => ({
+  default: ({ href, onClick, children, ...props }: MockLinkProps) => (
+    <a
+      href={href}
+      onClick={(event) => {
+        event.preventDefault();
+        onClick?.(event);
+      }}
+      {...props}
+    >
+      {children}
+    </a>
+  ),
+  useLinkStatus: () => useLinkStatusMock(),
 }));
 
 vi.mock("@/app/dashboard/logout-form", () => ({
@@ -15,50 +41,6 @@ vi.mock("@/app/dashboard/logout-form", () => ({
     <button data-testid="logout-form" className={className}>
       Sign out
     </button>
-  ),
-}));
-
-vi.mock("@workspace/ui/components/sidebar", () => ({
-  Sidebar: ({ children, ...props }: React.PropsWithChildren) => (
-    <aside data-testid="sidebar" {...props}>
-      {children}
-    </aside>
-  ),
-  SidebarHeader: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="sidebar-header">{children}</div>
-  ),
-  SidebarContent: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="sidebar-content">{children}</div>
-  ),
-  SidebarFooter: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="sidebar-footer">{children}</div>
-  ),
-  SidebarGroup: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="sidebar-group">{children}</div>
-  ),
-  SidebarGroupLabel: ({ children }: React.PropsWithChildren) => (
-    <span data-testid="sidebar-group-label">{children}</span>
-  ),
-  SidebarGroupContent: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="sidebar-group-content">{children}</div>
-  ),
-  SidebarMenu: ({ children }: React.PropsWithChildren) => (
-    <nav data-testid="sidebar-menu">{children}</nav>
-  ),
-  SidebarMenuItem: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="sidebar-menu-item">{children}</div>
-  ),
-  SidebarMenuButton: ({
-    children,
-    isActive,
-  }: React.PropsWithChildren<{
-    asChild?: boolean;
-    isActive?: boolean;
-    size?: string;
-  }>) => (
-    <div data-testid="sidebar-menu-button" data-active={isActive}>
-      {children}
-    </div>
   ),
 }));
 
@@ -71,115 +53,136 @@ vi.mock("./nav-user", () => ({
   ),
 }));
 
-vi.mock("@workspace/ui/components/separator", () => ({
-  Separator: ({ className }: { className?: string }) => (
-    <hr data-testid="separator" className={className} />
-  ),
-}));
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
 
-const domainPages: DashboardPage[] = [
-  {
-    id: "tickers",
-    label: "Tickers",
-    pathSegment: "tickers",
-    kind: "resource-table",
-    placement: "sidebar",
-    apiPrefix: "/v1/hermes-dashboard/tickers",
-    columns: [],
-    searchableFields: [],
-    sortableFields: [],
-    actions: { create: true, update: true, delete: true, view: false },
-    order: 10,
-    customActions: [],
-    createNavigation: "modal",
-  },
-  {
-    id: "search-queries",
-    label: "Search Queries",
-    pathSegment: "search-queries",
-    kind: "resource-table",
-    placement: "sidebar",
-    apiPrefix: "/v1/hermes-dashboard/search-queries",
-    columns: [],
-    searchableFields: [],
-    sortableFields: [],
-    actions: { create: false, update: false, delete: true, view: false },
-    order: 20,
-    customActions: [],
-    createNavigation: "modal",
-  },
-  {
-    id: "entity-types",
-    label: "Entity Types",
-    pathSegment: "entity-types",
-    kind: "resource-table",
-    placement: "sidebar",
-    apiPrefix: "/v1/hermes-dashboard/entity-types",
-    columns: [],
-    searchableFields: [],
-    sortableFields: [],
-    actions: { create: true, update: true, delete: true, view: false },
-    order: 30,
-    customActions: [],
-    createNavigation: "modal",
-  },
-  {
-    id: "relation-types",
-    label: "Relation Types",
-    pathSegment: "relation-types",
-    kind: "resource-table",
-    placement: "sidebar",
-    apiPrefix: "/v1/hermes-dashboard/relation-types",
-    columns: [],
-    searchableFields: [],
-    sortableFields: [],
-    actions: { create: true, update: true, delete: true, view: false },
-    order: 40,
-    customActions: [],
-    createNavigation: "modal",
-  },
-];
+const createDomainPage = (
+  id: string,
+  label: string,
+  order: number,
+): DashboardPage => ({
+  id,
+  label,
+  pathSegment: id,
+  kind: "resource-table",
+  placement: "sidebar",
+  apiPrefix: `/v1/hermes-dashboard/${id}`,
+  columns: [],
+  searchableFields: [],
+  sortableFields: [],
+  actions: { create: true, update: true, delete: true, view: false },
+  order,
+  customActions: [],
+  createNavigation: "modal",
+});
 
-const domainIntegrations = [
+const domainIntegrations: DomainIntegrationNav[] = [
   {
     integrationId: "mediapulse",
     name: "Mediapulse",
-    views: domainPages,
+    views: [
+      createDomainPage("tickers", "Tickers", 10),
+      createDomainPage("search-queries", "Search Queries", 20),
+      createDomainPage("entity-types", "Entity Types", 30),
+      createDomainPage("relation-types", "Relation Types", 40),
+    ],
   },
 ];
 
-const renderSidebar = async (sidebar: React.ReactElement) => {
-  await act(async () => {
-    render(sidebar);
+const DESKTOP_WIDTH = 1280;
+const MOBILE_WIDTH = 500;
+
+const stubViewport = (width: number) => {
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    writable: true,
+    value: width,
+  });
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: vi.fn((query: string) => ({
+      matches: width < 768,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
   });
 };
 
+type RenderSidebarOptions = {
+  user?: { name: string; email: string } | null;
+  integrations?: Promise<DomainIntegrationNav[]>;
+  defaultOpen?: boolean;
+};
+
+const renderSidebar = async ({
+  user,
+  integrations = Promise.resolve(domainIntegrations),
+  defaultOpen = true,
+}: RenderSidebarOptions = {}) => {
+  await act(async () => {
+    render(
+      <SidebarProvider defaultOpen={defaultOpen}>
+        <AppSidebar user={user} domainIntegrations={integrations} />
+        <SidebarTrigger />
+      </SidebarProvider>,
+    );
+  });
+};
+
+const getNavLink = (name: string) => screen.getByRole("link", { name });
+
+const getSidebarRoot = () =>
+  document.querySelector<HTMLElement>('[data-slot="sidebar"]');
+
 describe("AppSidebar", () => {
+  beforeEach(() => {
+    stubViewport(DESKTOP_WIDTH);
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+    useLinkStatusMock.mockReturnValue({ pending: false });
+  });
+
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     usePathnameMock.mockReset();
+    useLinkStatusMock.mockReset();
   });
 
-  it("renders the Hermes logo text", async () => {
-    usePathnameMock.mockReturnValue("/dashboard");
+  it("renders the Hermes brand linking to the dashboard", async () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard/pipelines");
 
-    await renderSidebar(
-      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
-    );
+    // Act
+    await renderSidebar();
 
-    expect(screen.getByText("Hermes")).toBeInTheDocument();
+    // Assert
+    const brandLink = screen.getByRole("link", { name: /Hermes/ });
+
+    expect(brandLink).toHaveAttribute("href", "/dashboard");
+    expect(brandLink).toHaveTextContent("Orchestration");
   });
 
-  it("renders Hermes grouped main nav and integration-grouped domain links", async () => {
+  it("renders Hermes groups followed by integration groups", async () => {
+    // Setup
     usePathnameMock.mockReturnValue("/dashboard");
 
-    await renderSidebar(
-      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
+    // Act
+    await renderSidebar();
+
+    // Assert
+    const groupLabels = Array.from(
+      document.querySelectorAll('[data-sidebar="group-label"]'),
+      (groupLabel) => groupLabel.textContent,
     );
 
-    const groupLabels = screen
-      .getAllByTestId("sidebar-group-label")
-      .map((el) => el.textContent);
     expect(groupLabels).toEqual([
       "Overview",
       "Orchestration",
@@ -187,172 +190,204 @@ describe("AppSidebar", () => {
       "Platform",
       "Mediapulse",
     ]);
-    expect(screen.getByText("Dashboard")).toBeInTheDocument();
-    expect(screen.getByText("Pipelines")).toBeInTheDocument();
-    expect(screen.getByText("Mediapulse")).toBeInTheDocument();
-    expect(screen.getByText("Tickers")).toBeInTheDocument();
-    expect(screen.getByText("Search Queries")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Agents" })).toBeInTheDocument();
-    expect(screen.getByText("Agent configs")).toBeInTheDocument();
-    expect(screen.getByText("Variables")).toBeInTheDocument();
-    expect(screen.getByText("HTTP triggers")).toBeInTheDocument();
-    expect(screen.getByText("Admins")).toBeInTheDocument();
-    expect(screen.getByText("Domain integrations")).toBeInTheDocument();
-    expect(screen.getByText("Schedules")).toBeInTheDocument();
-    expect(screen.getByText("Entity Types")).toBeInTheDocument();
-    expect(screen.getByText("Relation Types")).toBeInTheDocument();
   });
 
-  it("marks Dashboard as active when on /dashboard", async () => {
+  it("links every Hermes section and integration view", async () => {
+    // Setup
     usePathnameMock.mockReturnValue("/dashboard");
 
-    await renderSidebar(
-      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
-    );
+    // Act
+    await renderSidebar();
 
-    const buttons = screen.getAllByTestId("sidebar-menu-button");
-    const dashboardButton = buttons.find((btn) =>
-      btn.textContent?.includes("Dashboard"),
+    // Assert
+    expect(getNavLink("Dashboard")).toHaveAttribute("href", "/dashboard");
+    expect(getNavLink("Pipelines")).toHaveAttribute(
+      "href",
+      "/dashboard/pipelines",
     );
-    expect(dashboardButton).toHaveAttribute("data-active", "true");
+    expect(getNavLink("HTTP triggers")).toHaveAttribute(
+      "href",
+      "/dashboard/http-triggers",
+    );
+    expect(getNavLink("Agent contracts")).toHaveAttribute(
+      "href",
+      "/dashboard/agent-contracts",
+    );
+    expect(getNavLink("API keys")).toHaveAttribute(
+      "href",
+      "/dashboard/api-keys",
+    );
+    expect(getNavLink("Tickers")).toHaveAttribute(
+      "href",
+      "/dashboard/mediapulse/tickers",
+    );
+    expect(getNavLink("Relation Types")).toHaveAttribute(
+      "href",
+      "/dashboard/mediapulse/relation-types",
+    );
   });
 
-  it("marks Tickers as active when on keyed tickers path", async () => {
-    usePathnameMock.mockReturnValue("/dashboard/mediapulse/tickers");
+  it.each([
+    ["/dashboard", "Dashboard"],
+    ["/dashboard/agents", "Agents"],
+    ["/dashboard/schedules/schedule-1", "Schedules"],
+    ["/dashboard/domain-integrations", "Domain integrations"],
+    ["/dashboard/mediapulse/tickers", "Tickers"],
+    ["/dashboard/mediapulse/search-queries/item-1/edit", "Search Queries"],
+  ])("marks the item for %s as active", async (pathname, activeLabel) => {
+    // Setup
+    usePathnameMock.mockReturnValue(pathname);
 
-    await renderSidebar(
-      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
-    );
+    // Act
+    await renderSidebar();
 
-    const buttons = screen.getAllByTestId("sidebar-menu-button");
-    const tickersButton = buttons.find((btn) =>
-      btn.textContent?.includes("Tickers"),
-    );
-    expect(tickersButton).toHaveAttribute("data-active", "true");
+    // Assert
+    const activeLinks = screen
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("data-active") === "true");
+    const activeLink = getNavLink(activeLabel);
+
+    expect(activeLinks).toEqual([activeLink]);
+    expect(activeLink).toHaveAttribute("aria-current", "page");
   });
 
-  it("marks Agents as active when on /dashboard/agents", async () => {
-    usePathnameMock.mockReturnValue("/dashboard/agents");
+  it("does not mark Agents active on agent configs", async () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard/agent-configs");
 
-    await renderSidebar(
-      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
-    );
+    // Act
+    await renderSidebar();
 
-    const buttons = screen.getAllByTestId("sidebar-menu-button");
-    const agentsButton = buttons.find((btn) =>
-      btn.textContent?.includes("Agents"),
-    );
-    expect(agentsButton).toHaveAttribute("data-active", "true");
+    // Assert
+    expect(getNavLink("Agents")).toHaveAttribute("data-active", "false");
+    expect(getNavLink("Agent configs")).toHaveAttribute("data-active", "true");
   });
 
-  it("marks Domain integrations as active when on /dashboard/domain-integrations", async () => {
-    usePathnameMock.mockReturnValue("/dashboard/domain-integrations");
+  it("shows three skeleton rows while integrations load", async () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard");
+    const pendingIntegrations = new Promise<DomainIntegrationNav[]>(() => {});
 
-    await renderSidebar(
-      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
-    );
+    // Act
+    await renderSidebar({ integrations: pendingIntegrations });
 
-    const buttons = screen.getAllByTestId("sidebar-menu-button");
-    const domainIntegrationsButton = buttons.find((btn) =>
-      btn.textContent?.includes("Domain integrations"),
-    );
-    expect(domainIntegrationsButton).toHaveAttribute("data-active", "true");
+    // Assert
+    const skeleton = screen.getByTestId("domain-integration-nav-skeleton");
+
+    expect(
+      skeleton.querySelectorAll('[data-sidebar="menu-skeleton"]'),
+    ).toHaveLength(3);
+    expect(screen.queryByRole("link", { name: "Tickers" })).toBeNull();
   });
 
-  it("marks Search Queries as active when on keyed search-queries path", async () => {
-    usePathnameMock.mockReturnValue("/dashboard/mediapulse/search-queries");
+  it("collapses to icons with an inset variant", async () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard");
 
-    await renderSidebar(
-      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
-    );
+    // Act
+    await renderSidebar({ defaultOpen: false });
 
-    const buttons = screen.getAllByTestId("sidebar-menu-button");
-    const searchQueriesButton = buttons.find((btn) =>
-      btn.textContent?.includes("Search Queries"),
-    );
-    expect(searchQueriesButton).toHaveAttribute("data-active", "true");
+    // Assert
+    const sidebarRoot = getSidebarRoot();
+
+    expect(sidebarRoot).toHaveAttribute("data-state", "collapsed");
+    expect(sidebarRoot).toHaveAttribute("data-collapsible", "icon");
+    expect(sidebarRoot).toHaveAttribute("data-variant", "inset");
   });
 
-  it("marks Schedules as active when on /dashboard/schedules", async () => {
-    usePathnameMock.mockReturnValue("/dashboard/schedules");
+  it("renders a rail that toggles the sidebar", async () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard");
+    await renderSidebar();
+    const rail = document.querySelector<HTMLElement>('[data-sidebar="rail"]');
 
-    await renderSidebar(
-      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
-    );
+    // Act
+    await act(async () => {
+      rail?.click();
+    });
 
-    const buttons = screen.getAllByTestId("sidebar-menu-button");
-    const schedulesButton = buttons.find((btn) =>
-      btn.textContent?.includes("Schedules"),
-    );
-    expect(schedulesButton).toHaveAttribute("data-active", "true");
+    // Assert
+    expect(rail).not.toBeNull();
+    expect(getSidebarRoot()).toHaveAttribute("data-state", "collapsed");
   });
 
-  it("marks Entity Types as active when on keyed entity-types path", async () => {
-    usePathnameMock.mockReturnValue("/dashboard/mediapulse/entity-types");
+  it("shows the item label as a tooltip when collapsed", async () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard");
+    await renderSidebar({ defaultOpen: false });
 
-    await renderSidebar(
-      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
-    );
+    // Act
+    await act(async () => {
+      fireEvent.focus(getNavLink("Pipelines"));
+    });
 
-    const buttons = screen.getAllByTestId("sidebar-menu-button");
-    const entityTypesButton = buttons.find((btn) =>
-      btn.textContent?.includes("Entity Types"),
-    );
-    expect(entityTypesButton).toHaveAttribute("data-active", "true");
+    // Assert
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Pipelines");
   });
 
-  it("marks Relation Types as active when on keyed relation-types path", async () => {
-    usePathnameMock.mockReturnValue("/dashboard/mediapulse/relation-types");
+  it("hides the pending indicator in collapsed mode and pulses it while navigating", async () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard");
+    useLinkStatusMock.mockReturnValue({ pending: true });
 
-    await renderSidebar(
-      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
-    );
+    // Act
+    await renderSidebar();
 
-    const buttons = screen.getAllByTestId("sidebar-menu-button");
-    const relationTypesButton = buttons.find((btn) =>
-      btn.textContent?.includes("Relation Types"),
+    // Assert
+    const pendingIndicator =
+      getNavLink("Pipelines").querySelector("span[aria-hidden]");
+
+    expect(pendingIndicator).toHaveClass(
+      "group-data-[collapsible=icon]:hidden",
+      "animate-pulse",
+      "opacity-100",
     );
-    expect(relationTypesButton).toHaveAttribute("data-active", "true");
   });
 
-  it("renders NavUser with name and email when user prop provided", async () => {
+  it("closes the mobile sidebar after choosing a link", async () => {
+    // Setup
+    stubViewport(MOBILE_WIDTH);
+    usePathnameMock.mockReturnValue("/dashboard");
+    await renderSidebar();
+    await act(async () => {
+      screen.getByRole("button", { name: "Toggle Sidebar" }).click();
+    });
+    const mobileSidebar = screen.getByRole("dialog");
+
+    // Act
+    await act(async () => {
+      within(mobileSidebar).getByRole("link", { name: "Pipelines" }).click();
+    });
+
+    // Assert
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("renders NavUser when a user is provided", async () => {
+    // Setup
     usePathnameMock.mockReturnValue("/dashboard");
     const user = { name: "John Doe", email: "john@example.com" };
 
-    await renderSidebar(
-      <AppSidebar
-        user={user}
-        domainIntegrations={Promise.resolve(domainIntegrations)}
-      />,
-    );
+    // Act
+    await renderSidebar({ user });
 
-    expect(screen.getByTestId("nav-user")).toBeInTheDocument();
-    expect(screen.getByText("John Doe")).toBeInTheDocument();
-    expect(screen.getByText("john@example.com")).toBeInTheDocument();
+    // Assert
+    expect(screen.getByTestId("nav-user")).toHaveTextContent("John Doe");
+    expect(screen.queryByTestId("logout-form")).not.toBeInTheDocument();
   });
 
-  it("renders logout form (no NavUser) when no user provided", async () => {
-    usePathnameMock.mockReturnValue("/dashboard");
+  it.each([undefined, null])(
+    "renders the logout form when the user is %s",
+    async (user) => {
+      // Setup
+      usePathnameMock.mockReturnValue("/dashboard");
 
-    await renderSidebar(
-      <AppSidebar domainIntegrations={Promise.resolve(domainIntegrations)} />,
-    );
+      // Act
+      await renderSidebar({ user });
 
-    expect(screen.getByTestId("logout-form")).toBeInTheDocument();
-    expect(screen.queryByTestId("nav-user")).not.toBeInTheDocument();
-  });
-
-  it("renders logout form (no NavUser) when user is null", async () => {
-    usePathnameMock.mockReturnValue("/dashboard");
-
-    await renderSidebar(
-      <AppSidebar
-        user={null}
-        domainIntegrations={Promise.resolve(domainIntegrations)}
-      />,
-    );
-
-    expect(screen.getByTestId("logout-form")).toBeInTheDocument();
-    expect(screen.queryByTestId("nav-user")).not.toBeInTheDocument();
-  });
+      // Assert
+      expect(screen.getByTestId("logout-form")).toBeInTheDocument();
+      expect(screen.queryByTestId("nav-user")).not.toBeInTheDocument();
+    },
+  );
 });

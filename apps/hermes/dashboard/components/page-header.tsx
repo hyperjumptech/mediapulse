@@ -1,19 +1,36 @@
+import type { ReactNode } from "react";
+
 type PageHeaderProps = {
-  /** Main heading text for the page. */
   title: string;
-  /** Short description shown below the title. */
-  description: string;
+  description?: string;
+  actions?: ReactNode;
 };
 
-/**
- * Renders a consistent page title and description block for dashboard pages.
- * Matches the dashboard page pattern: h1 + muted description paragraph.
- */
-export const PageHeader = ({ title, description }: PageHeaderProps) => {
+export const PageHeader = ({
+  title,
+  description,
+  actions,
+}: PageHeaderProps) => {
   return (
-    <div className="flex flex-col gap-2">
-      <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
-      <p className="text-muted-foreground">{description}</p>
+    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div className="flex min-w-0 flex-col gap-1">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          {title}
+        </h1>
+        {description ? (
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            {description}
+          </p>
+        ) : null}
+      </div>
+      {actions ? (
+        <div
+          data-slot="page-header-actions"
+          className="flex shrink-0 flex-wrap items-center gap-2"
+        >
+          {actions}
+        </div>
+      ) : null}
     </div>
   );
 };
