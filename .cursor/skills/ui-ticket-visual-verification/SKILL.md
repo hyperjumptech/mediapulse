@@ -57,11 +57,23 @@ For tickets like **“warning modal when Add to cart on sold-out item”**, do *
 
 ## Browser capture workflow
 
-Use the **Cursor IDE browser** tools when available:
+For Hermes dashboard pages, use the route capture harness. It logs in, then screenshots each route at 375 and 1440 px wide in light and dark, and writes `report.json` with console errors, hydration errors and horizontal overflow per shot:
 
-1. List tabs; navigate to the fixture URL on the local dev server.
-2. Take a **snapshot** before interactions; interact (click, open modal); snapshot again.
-3. Use **screenshot** for static proof; use **video** only when the ticket needs motion (animation, toast timing, drag). If the browser tool cannot record video, use a one-line note in the PR telling reviewers to run the repro script and record locally, or add an optional Playwright/Vitest browser script if the package already supports it.
+```bash
+pnpm --filter @hermes/dashboard exec playwright install chromium   # once
+pnpm --filter @hermes/dashboard visual:capture \
+  --email <admin email> --password <password> \
+  --routes /dashboard,/dashboard/agents \
+  --time-zone Asia/Jakarta --fail-on-errors
+```
+
+Output goes to `artifacts/ui-evidence/<branch>/` (gitignored). Add `--full-page` for long pages and `--channel chrome` to reuse an installed Chrome. Domain pages also need `agent-auth-api` (:8080) and `domain-api` (:8090) running.
+
+For other apps, or when a state needs interaction (open modal, selected row), drive a browser with whatever tool the agent has (Cursor browser tools, Claude in Chrome, or a short Playwright script):
+
+1. Navigate to the page or fixture URL on the local dev server.
+2. Interact to reach the state, then take a **screenshot**. Use **video** only when the change is about motion (animation, toast timing, drag).
+3. Check the console for hydration or runtime errors before accepting the capture.
 
 Save files under something like `artifacts/ui-evidence/<ticket-or-branch-slug>/` and ensure that path is **gitignored** (or use PR attachments only). Do not rely on binary blobs living in git unless the team already commits golden images. Put **repro notes, ticket link, and capture commands** in a **`README.md` next to the dev fixture** (e.g. `app/dev/ui/<issue>/README.md`) instead of the app’s top-level `README.md`.
 
@@ -115,15 +127,15 @@ Run every item before marking visual-verification work complete or opening/updat
 
 ## Anti-patterns (never repeat)
 
-| Mistake                                                                 | Why it fails                                       | Do instead                                                          |
-| ----------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------- |
-| 1×1 / blank / solid-color PNG on `issue-proofs`                         | Reviewers see empty images; violates trust         | Real browser screenshot; stop if blocked                            |
-| `[label](https://github.com/.../blob/...png)` only                      | GitHub does not render `blob` links as images      | `![label](https://raw.githubusercontent.com/.../path.png)`          |
-| Marking visual todo complete without embeds                             | Plan/AC not met                                    | Keep todo open until PR shows inline images                         |
-| Separate `chore/*` branch for stack-related rules/docs                  | Extra PR noise; stack already carries the feature  | Commit guidance on **bottom stack branch** (layer 1) or final layer |
-| Pushing feature branch before **`pnpm code-quality`**                 | CI “Code quality” fails on lint, types, tests, or Prettier | Run **`pnpm code-quality`** at repo root before push (see open-github-pr skill) |
-| Editing imports in `run.ts` without re-running agent tests              | Broken production path (e.g. dropped `env` import) | Run package `pnpm vitest run` for touched agents                    |
-| Delegating capture to a subagent then shipping without verifying output | Subagent may hit env errors or skip work           | Parent verifies local artifacts + PR body before handoff            |
+| Mistake                                                                 | Why it fails                                               | Do instead                                                                      |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| 1×1 / blank / solid-color PNG on `issue-proofs`                         | Reviewers see empty images; violates trust                 | Real browser screenshot; stop if blocked                                        |
+| `[label](https://github.com/.../blob/...png)` only                      | GitHub does not render `blob` links as images              | `![label](https://raw.githubusercontent.com/.../path.png)`                      |
+| Marking visual todo complete without embeds                             | Plan/AC not met                                            | Keep todo open until PR shows inline images                                     |
+| Separate `chore/*` branch for stack-related rules/docs                  | Extra PR noise; stack already carries the feature          | Commit guidance on **bottom stack branch** (layer 1) or final layer             |
+| Pushing feature branch before **`pnpm code-quality`**                   | CI “Code quality” fails on lint, types, tests, or Prettier | Run **`pnpm code-quality`** at repo root before push (see open-github-pr skill) |
+| Editing imports in `run.ts` without re-running agent tests              | Broken production path (e.g. dropped `env` import)         | Run package `pnpm vitest run` for touched agents                                |
+| Delegating capture to a subagent then shipping without verifying output | Subagent may hit env errors or skip work                   | Parent verifies local artifacts + PR body before handoff                        |
 
 ## Further patterns
 

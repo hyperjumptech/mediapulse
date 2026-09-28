@@ -59,7 +59,7 @@ Type scale mapped to Tailwind:
 
 ## Color
 
-This project uses **OKLCH** color tokens defined in `packages/ui/src/styles/globals.css`.
+This project uses **OKLCH** color tokens defined in `packages/shared/ui/src/styles/globals.css`.
 
 ### Semantic tokens (use these, not raw colors)
 
@@ -132,6 +132,7 @@ Use a 5-level elevation scale. Combine two shadows for realism.
 - Define and reuse systems for: font sizes, weights, colors, spacing, shadows, border radius.
 - Limit choices — design by **elimination** from a constrained scale.
 - The project's border-radius scale: `rounded-sm` / `rounded-md` / `rounded-lg` / `rounded-xl` (mapped from `--radius`).
+- Missing a primitive or block? Add it with `npx shadcn@latest add <name>` from `apps/hermes/dashboard` rather than writing one by hand. The Hermes dashboard follows the shadcn `dashboard-01` layout.
 
 ## When Providing Design Advice
 

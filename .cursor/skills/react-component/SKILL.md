@@ -10,6 +10,9 @@ description: Generate React components following TypeScript, Shadcn/Tailwind, co
 - **TypeScript** only — never use the `any` type.
 - **Arrow functions** — use `const` declarations, never `function` or `React.FC`.
 - **Shadcn + Tailwind** for all UI primitives and styling.
+- **Add shadcn primitives and blocks with the CLI**, never by hand: run `npx shadcn@latest add <name>` from `apps/hermes/dashboard` (its `components.json` writes primitives into `@workspace/ui`). For blocks such as `dashboard-01`, run the CLI, review the overwrite diff with `git diff`, then wire the generated files to real data.
+- **Hooks own state:** no `useState` / `useEffect` directly in a component; put them in `hooks/use-*.ts`.
+- **No comments** in component code.
 - **HTML-escape** all rendered text content.
 - **File names** in kebab-case.
 
@@ -170,7 +173,7 @@ Before finalizing a component, verify:
 
 - [ ] TypeScript with no `any`
 - [ ] `const` arrow function, no `React.FC`
-- [ ] Shadcn primitives + Tailwind classes
+- [ ] Shadcn primitives + Tailwind classes (primitives added via `npx shadcn@latest add`)
 - [ ] Server component unless interactivity is required
 - [ ] **No `useState` or `useEffect` in the component** — all state/effects in a custom hook. Make sure `useEffect` does not cause infinite re-renders!
 - [ ] All stateful logic in custom hooks (single responsibility per hook)

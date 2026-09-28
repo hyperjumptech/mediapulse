@@ -72,7 +72,9 @@ GRAPH_REPORT.md
 .cursor/plans
 prds/
 
-.claude/
+.claude/*
+!.claude/skills
+!.claude/agents
 
 docs
 reviews

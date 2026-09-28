@@ -5,7 +5,7 @@ description: Create email templates using React Email in the @workspace/email-te
 
 # Email Template Creation
 
-Create email templates in `packages/email-templates/src/` using `@react-email/components`.
+Create email templates in `packages/shared/email-templates/src/` using `@react-email/components`.
 
 ## File Conventions
 
@@ -38,13 +38,6 @@ export interface InviteEmailProps {
   inviteUrl: string;
 }
 
-/**
- * Email sent when a user is invited to join a workspace.
- *
- * @param props.inviterName - Name of the person who sent the invite.
- * @param props.inviteUrl - URL the recipient clicks to accept.
- * @returns The invite email React Email component.
- */
 export const InviteEmail = ({
   inviterName,
   inviteUrl,
@@ -96,7 +89,7 @@ Before finalizing a template:
 - [ ] File is in a domain subfolder under `src/` (e.g., `src/user/`)
 - [ ] File name is kebab-case
 - [ ] Exports an `interface` ending in `Props`
-- [ ] Exports a named `const` arrow-function component with JSDoc
+- [ ] Exports a named `const` arrow-function component (no comments)
 - [ ] Component return type is `React.JSX.Element`
 - [ ] `PreviewProps` set with `satisfies {PropsType}`
 - [ ] Default export of the component
