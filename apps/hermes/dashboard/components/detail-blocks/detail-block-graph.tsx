@@ -68,7 +68,7 @@ export const DetailBlockGraphView = ({
 
   if (model.nodes.length === 0) {
     return (
-      <section className="flex flex-col gap-3">
+      <section className="flex min-w-0 flex-col gap-4">
         <DetailBlockSectionHeader
           label={block.label}
           sectionRule={block.sectionRule}
@@ -111,14 +111,14 @@ export const DetailBlockGraphView = ({
     .join(" ");
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <DetailBlockSectionHeader
         label={block.label}
         sectionRule={block.sectionRule}
         data={data}
       />
       <div
-        className="bg-card overflow-auto rounded-md border"
+        className="bg-card max-w-full overflow-auto rounded-md border"
         style={{ maxHeight: block.maxHeight }}
       >
         <svg

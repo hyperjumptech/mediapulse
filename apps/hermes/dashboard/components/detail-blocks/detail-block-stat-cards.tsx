@@ -8,6 +8,7 @@ import {
 import { CircleHelp } from "lucide-react";
 
 import { Card } from "@workspace/ui/components/card";
+import { cn } from "@workspace/ui/lib/utils";
 import {
   Tooltip,
   TooltipContent,
@@ -50,13 +51,6 @@ const VALUE_COLOR_BY_VARIANT: Record<string, string> = {
   muted: "text-muted-foreground",
 };
 
-/**
- * Renders a `statCards` detail block — a responsive row of KPI cards, each with a label, a prominent
- * value, and an optional help icon whose tooltip reveals a breakdown.
- *
- * @param props.block - Manifest definition.
- * @param props.data - Detail response object.
- */
 export const DetailBlockStatCardsView = ({
   block,
   data,
@@ -64,7 +58,7 @@ export const DetailBlockStatCardsView = ({
   block: DetailBlockStatCards;
   data: unknown;
 }) => (
-  <section className="flex flex-col gap-3">
+  <section className="flex min-w-0 flex-col gap-4">
     <DetailBlockSectionHeader
       label={block.label}
       sectionRule={block.sectionRule}
@@ -85,7 +79,7 @@ export const DetailBlockStatCardsView = ({
         return (
           <Card
             key={`${card.label}-${String(index)}`}
-            className="gap-1 p-4 shadow-none"
+            className="min-w-0 gap-1 p-4 shadow-none"
           >
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               {card.label}
@@ -103,7 +97,10 @@ export const DetailBlockStatCardsView = ({
               ) : null}
             </span>
             <span
-              className={`text-lg font-semibold ${colorClass ?? "text-foreground"}`}
+              className={cn(
+                "min-w-0 text-lg font-semibold break-words",
+                colorClass ?? "text-foreground",
+              )}
             >
               <StatCardValue
                 card={card}

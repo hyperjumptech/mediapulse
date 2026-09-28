@@ -16,6 +16,7 @@ import { cn } from "@workspace/ui/lib/utils";
 import type { HermesEnqueueCorrelation } from "@hermes/scheduler/enqueue-diagnostics-correlation";
 
 import { DateTime } from "@/components/date-time/date-time";
+import { JsonBlock } from "@/components/json-block";
 import type { EnqueueDiagnosticEntry } from "@/lib/enqueue-diagnostics";
 
 import {
@@ -30,7 +31,6 @@ import {
 export type EnqueueDiagnosticsPanelProps = {
   enqueueStatus: string;
   errors: unknown;
-  /** Execution row `metadata` JSON; used for `hermesEnqueueCorrelation` only. */
   metadata?: unknown;
 };
 
@@ -211,12 +211,6 @@ const CorrelationSubsection = ({
   return <CorrelationSubsectionInner rows={rows} />;
 };
 
-/**
- * Surfaces persisted enqueue-phase errors on execution detail pages (failed / partial only).
- *
- * Masking and normalization run inside {@link useEnqueueDiagnosticsPanelViewModel} so the
- * panel stays thin and the derived state is easy to test with `renderHook`.
- */
 export const EnqueueDiagnosticsPanel = ({
   enqueueStatus,
   errors,
@@ -258,12 +252,11 @@ export const EnqueueDiagnosticsPanel = ({
             }
           </p>
         </div>
-        <pre
-          className="max-h-48 overflow-auto rounded-md border bg-muted p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap wrap-break-word text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          tabIndex={0}
-        >
-          {view.payloadPreview}
-        </pre>
+        <JsonBlock
+          value={view.payloadPreview}
+          title="Raw payload"
+          maxHeight="max-h-48"
+        />
       </EnqueueDiagnosticsCard>
     );
   }

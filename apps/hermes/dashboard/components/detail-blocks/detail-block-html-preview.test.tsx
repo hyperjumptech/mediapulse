@@ -1,5 +1,3 @@
-/** @vitest-environment jsdom */
-
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -56,5 +54,19 @@ describe("DetailBlockHtmlPreviewView", () => {
 
     const iframe = screen.getByTitle("Preview");
     expect(iframe).toHaveAttribute("srcdoc", "");
+  });
+
+  it("caps the preview height to the viewport so it fits on a phone", () => {
+    render(
+      <DetailBlockHtmlPreviewView
+        block={{ type: "htmlPreview", label: "Preview", field: "html" }}
+        data={{ html: "<p>hi</p>" }}
+      />,
+    );
+
+    const iframe = screen.getByTitle("Preview");
+
+    expect(iframe).toHaveClass("h-[min(600px,70vh)]", "w-full");
+    expect(iframe).not.toHaveClass("h-[600px]");
   });
 });

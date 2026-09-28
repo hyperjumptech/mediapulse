@@ -3,48 +3,35 @@
 import { Check, Copy } from "lucide-react";
 
 import { Button } from "@workspace/ui/components/button";
+import { cn } from "@workspace/ui/lib/utils";
 
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 
-/**
- * Small copy-to-clipboard button. Writes the provided text and briefly shows a
- * checkmark to confirm success. State and effects live in the shared
- * `useCopyToClipboard` hook so the component stays declarative.
- *
- * @param props.value - Text written to clipboard on click.
- * @param props.label - Accessible button label, e.g. "Copy newsletter id".
- */
 export const DetailBlockCopyButton = ({
   value,
   label,
+  className,
 }: {
   value: string;
   label: string;
+  className?: string;
 }) => {
   const { copied, copy } = useCopyToClipboard();
+  const Icon = copied ? Check : Copy;
 
   return (
     <Button
       type="button"
       variant="ghost"
-      size="sm"
+      size="icon"
       onClick={() => {
         void copy(value);
       }}
-      aria-label={label}
-      className="h-7 px-2"
+      aria-label={copied ? "Copied" : label}
+      title={label}
+      className={cn("size-7 shrink-0 text-muted-foreground", className)}
     >
-      {copied ? (
-        <>
-          <Check className="h-3.5 w-3.5" aria-hidden="true" />
-          <span className="ml-1 text-xs">Copied</span>
-        </>
-      ) : (
-        <>
-          <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-          <span className="ml-1 text-xs">Copy</span>
-        </>
-      )}
+      <Icon className="size-3.5" aria-hidden="true" />
     </Button>
   );
 };

@@ -7,7 +7,6 @@ import { SummaryGrid, SummaryItem } from "./summary-grid";
 
 describe("SummaryGrid", () => {
   it("renders items as a definition list with muted labels", () => {
-    // Act
     const { container } = render(
       <SummaryGrid>
         <SummaryItem label="Pipeline">Daily digest</SummaryItem>
@@ -15,7 +14,6 @@ describe("SummaryGrid", () => {
       </SummaryGrid>,
     );
 
-    // Assert
     const grid = container.querySelector("dl");
     const labels = within(grid as HTMLElement).getAllByRole("term");
     const values = within(grid as HTMLElement).getAllByRole("definition");
@@ -29,39 +27,64 @@ describe("SummaryGrid", () => {
       "UTC",
     ]);
     expect(labels[0]).toHaveClass("text-xs", "text-muted-foreground");
+    expect(labels[0]).not.toHaveClass("uppercase");
     expect(values[0]).toHaveClass("text-sm");
   });
 
-  it("lays out two columns on mobile and four on large screens", () => {
-    // Act
+  it("lays out one column on phones and two from sm", () => {
     const { container } = render(
       <SummaryGrid>
         <SummaryItem label="Method">POST</SummaryItem>
       </SummaryGrid>,
     );
 
-    // Assert
     const grid = container.querySelector('[data-slot="summary-grid"]');
 
-    expect(grid).toHaveClass("grid-cols-2", "md:grid-cols-3", "lg:grid-cols-4");
+    expect(grid).toHaveClass("grid-cols-1", "sm:grid-cols-2");
+    expect(grid).not.toHaveClass("grid-cols-2");
+  });
+
+  it("draws a card around the grid by default", () => {
+    const { container } = render(
+      <SummaryGrid>
+        <SummaryItem label="Method">POST</SummaryItem>
+      </SummaryGrid>,
+    );
+
+    const grid = container.querySelector('[data-slot="summary-grid"]');
+
+    expect(grid).toHaveAttribute("data-variant", "card");
+    expect(grid).toHaveClass("rounded-lg", "border", "bg-card");
+  });
+
+  it("drops the card chrome in the plain variant", () => {
+    const { container } = render(
+      <SummaryGrid variant="plain">
+        <SummaryItem label="Method">POST</SummaryItem>
+      </SummaryGrid>,
+    );
+
+    const grid = container.querySelector('[data-slot="summary-grid"]');
+
+    expect(grid).toHaveAttribute("data-variant", "plain");
+    expect(grid).toHaveClass("grid", "grid-cols-1", "sm:grid-cols-2");
+    expect(grid).not.toHaveClass("border");
+    expect(grid).not.toHaveClass("bg-card");
   });
 
   it("merges a custom className onto the grid", () => {
-    // Act
     const { container } = render(
       <SummaryGrid className="summary-extra">
         <SummaryItem label="Method">POST</SummaryItem>
       </SummaryGrid>,
     );
 
-    // Assert
     const grid = container.querySelector('[data-slot="summary-grid"]');
 
     expect(grid).toHaveClass("summary-extra", "grid");
   });
 
-  it("spans two columns for wide items", () => {
-    // Act
+  it("spans the full row for wide items at every width", () => {
     render(
       <SummaryGrid>
         <SummaryItem label="Invoke URL" wide>
@@ -73,17 +96,46 @@ describe("SummaryGrid", () => {
       </SummaryGrid>,
     );
 
-    // Assert
     const wideItem = screen.getByText("Invoke URL").parentElement;
     const narrowItem = screen.getByText("Method").parentElement;
 
-    expect(wideItem).toHaveClass("col-span-2");
-    expect(narrowItem).not.toHaveClass("col-span-2");
+    expect(wideItem).toHaveClass("col-span-full");
+    expect(wideItem).not.toHaveClass("col-span-2");
+    expect(narrowItem).not.toHaveClass("col-span-full");
     expect(narrowItem).toHaveClass("item-extra");
   });
 
+  it("lets values shrink and wrap between words", () => {
+    render(
+      <SummaryGrid>
+        <SummaryItem label="Description">
+          A long sentence that wraps
+        </SummaryItem>
+      </SummaryGrid>,
+    );
+
+    const value = screen.getByRole("definition");
+
+    expect(value).toHaveClass("min-w-0", "break-words");
+    expect(value).not.toHaveClass("break-all");
+  });
+
+  it("breaks long ids anywhere when breakAll is set", () => {
+    render(
+      <SummaryGrid>
+        <SummaryItem label="Registry ID" breakAll>
+          3f1c9a52-7d0e-4b8a-9f3e-2c6d1b0a8e47
+        </SummaryItem>
+      </SummaryGrid>,
+    );
+
+    const value = screen.getByRole("definition");
+
+    expect(value).toHaveClass("min-w-0", "break-all");
+    expect(value).not.toHaveClass("break-words");
+  });
+
   it("renders rich value content", () => {
-    // Act
     render(
       <SummaryGrid>
         <SummaryItem label="Pipeline">
@@ -92,7 +144,6 @@ describe("SummaryGrid", () => {
       </SummaryGrid>,
     );
 
-    // Assert
     expect(screen.getByRole("link", { name: "Daily digest" })).toHaveAttribute(
       "href",
       "/dashboard/pipelines/p-1",

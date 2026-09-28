@@ -10,6 +10,7 @@ import {
 
 import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
 import { EnqueueDiagnosticsPanel } from "@/components/enqueue-diagnostics";
+import { JsonBlock } from "@/components/json-block";
 
 import { ExecutionDetailHeader } from "./execution-detail-header";
 import { ExecutionInvocationsTableSection } from "./execution-invocations-table-section";
@@ -66,12 +67,7 @@ const RequestSnapshotCard = ({ json }: { json: string }) => {
         </CardDescription>
       </CardHeader>
       <CardContent className="min-w-0 px-5">
-        <pre
-          className="max-h-[32rem] overflow-auto rounded-md border bg-muted/40 p-4 font-mono text-xs leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          tabIndex={0}
-        >
-          {json}
-        </pre>
+        <JsonBlock value={json} maxHeight="max-h-[32rem]" />
       </CardContent>
     </Card>
   );

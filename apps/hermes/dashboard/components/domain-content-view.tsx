@@ -32,11 +32,6 @@ const renderHeading = (
   );
 };
 
-/**
- * Renders domain-provided markdown, html, or plain text content.
- *
- * @param props - View kind and body from the domain content API.
- */
 export const DomainContentView = ({
   kind,
   body,
@@ -44,11 +39,13 @@ export const DomainContentView = ({
 }: DomainContentViewProps) => {
   if (kind === "text") {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4">
         {title ? (
-          <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+          <h1 className="text-xl font-semibold break-words text-foreground">
+            {title}
+          </h1>
         ) : null}
-        <pre className="whitespace-pre-wrap rounded-lg border border-border/50 bg-muted/25 p-6 text-sm text-foreground">
+        <pre className="max-w-full overflow-x-auto rounded-lg border border-border/50 bg-muted/25 p-4 text-sm break-words whitespace-pre-wrap text-foreground sm:p-6">
           {body}
         </pre>
       </div>
@@ -57,27 +54,32 @@ export const DomainContentView = ({
 
   if (kind === "html") {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4">
         {title ? (
-          <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+          <h1 className="text-xl font-semibold break-words text-foreground">
+            {title}
+          </h1>
         ) : null}
         <iframe
           srcDoc={body}
           sandbox="allow-popups"
           title={title ?? "Domain content"}
-          className="min-h-[480px] w-full rounded-lg border border-border/50 bg-background"
+          className="h-[min(480px,70vh)] w-full max-w-full rounded-lg border border-border/50 bg-background"
         />
       </div>
     );
   }
 
   const blocks = parseMarkdownBody(body);
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       {title ? (
-        <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+        <h1 className="text-xl font-semibold break-words text-foreground">
+          {title}
+        </h1>
       ) : null}
-      <div className="prose prose-sm dark:prose-invert max-w-none space-y-4">
+      <div className="prose prose-sm dark:prose-invert max-w-none space-y-4 break-words">
         {blocks.map((block, index) => {
           if (block.kind === "heading") {
             return (
@@ -91,6 +93,7 @@ export const DomainContentView = ({
           }
           if (block.kind === "list") {
             const ListTag = block.ordered ? "ol" : "ul";
+
             return (
               <ListTag
                 key={index}

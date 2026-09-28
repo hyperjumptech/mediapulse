@@ -102,11 +102,6 @@ const renderLeafBlock = (block: DetailBlockLeaf, data: unknown) => {
   throw new Error(`Unknown tab block type: ${JSON.stringify(exhaustive)}`);
 };
 
-/**
- * Renders one tab's content. A `subTable` with `rowLimitOptions` is rendered without its own
- * selector (the selector lives on the tab bar); its rows are sliced to `limitValue`. Every other
- * leaf block renders as-is.
- */
 const renderTabBody = (
   block: DetailBlockLeaf,
   data: unknown,
@@ -120,6 +115,7 @@ const renderTabBody = (
       );
     }
     const limit = limitValue === ALL_VALUE ? rows.length : Number(limitValue);
+
     return (
       <DetailBlockSubTableContent
         columns={block.columns}
@@ -133,15 +129,6 @@ const renderTabBody = (
   return renderLeafBlock(block, data);
 };
 
-/**
- * Renders a `tabs` detail block — groups one or more leaf blocks under a tabbed section. The outer
- * block's `label` and section-rule badge render above the tab list; each tab's inner block has its
- * own `label` stripped so the tab trigger acts as the heading instead. When the active tab is a
- * `subTable` with `rowLimitOptions`, its row-count selector renders on the right of the tab bar.
- *
- * @param props.block - Manifest definition.
- * @param props.data - Detail response object.
- */
 export const DetailBlockTabsView = ({
   block,
   data,
@@ -166,7 +153,7 @@ export const DetailBlockTabsView = ({
     activeBlock?.type === "subTable" ? activeBlock.rowLimitOptions : undefined;
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-4">
       <DetailBlockSectionHeader
         label={block.label}
         sectionRule={block.sectionRule}
@@ -177,12 +164,13 @@ export const DetailBlockTabsView = ({
         onValueChange={(value) =>
           setActiveIndex(Number(value.slice("tab-".length)))
         }
-        className="gap-4"
+        className="min-w-0 gap-4"
       >
-        <div className="flex items-center justify-between gap-2">
-          <TabsList>
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+          <TabsList className="max-w-full justify-start overflow-x-auto">
             {visibleTabs.map((tab, index) => {
               const count = tabCount(data, tab.countField);
+
               return (
                 <TabsTrigger
                   key={`tab-trigger-${index}`}
@@ -213,7 +201,7 @@ export const DetailBlockTabsView = ({
               value={limitFor(safeActiveIndex, activeBlock as DetailBlockLeaf)}
               onValueChange={(value) => setLimitForTab(safeActiveIndex, value)}
             >
-              <SelectTrigger className="h-8 w-[5.5rem] text-xs">
+              <SelectTrigger className="ml-auto h-8 w-auto min-w-20 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -229,8 +217,13 @@ export const DetailBlockTabsView = ({
         </div>
         {visibleTabs.map((tab, index) => {
           const tabBlock = stripLabel(tab.block);
+
           return (
-            <TabsContent key={`tab-content-${index}`} value={`tab-${index}`}>
+            <TabsContent
+              key={`tab-content-${index}`}
+              value={`tab-${index}`}
+              className="min-w-0"
+            >
               {renderTabBody(tabBlock, data, limitFor(index, tabBlock))}
             </TabsContent>
           );

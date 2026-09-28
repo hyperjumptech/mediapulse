@@ -1,5 +1,6 @@
 "use client";
 
+import { JsonBlock } from "@/components/json-block";
 import { StatusBadge } from "@/components/status-badge";
 import { formatInvocationErrorSummary } from "@/lib/format-invocation-error";
 
@@ -7,35 +8,6 @@ import {
   useInvocationOutcomeDetail,
   type InvocationOutcomeDetailModel,
 } from "./use-invocation-outcome-detail";
-
-const formatJsonBlock = (value: unknown): string => {
-  try {
-    return JSON.stringify(value ?? null, null, 2);
-  } catch {
-    return String(value);
-  }
-};
-
-type JsonBlockProps = {
-  title: string;
-  value: unknown;
-  maxHeightClass?: string;
-};
-
-const JsonBlock = ({
-  title,
-  value,
-  maxHeightClass = "max-h-48",
-}: JsonBlockProps) => (
-  <div>
-    <h3 className="mb-2 text-sm font-medium text-foreground">{title}</h3>
-    <pre
-      className={`overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-xs leading-relaxed ${maxHeightClass}`}
-    >
-      {formatJsonBlock(value)}
-    </pre>
-  </div>
-);
 
 type RunSummaryCountersProps = {
   summary: Record<string, unknown>;
@@ -84,11 +56,14 @@ const RunSummaryCounters = ({ summary }: RunSummaryCountersProps) => {
   }
 
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+    <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
       {rows.map((row) => (
-        <div key={row.label} className="contents">
-          <dt className="text-muted-foreground">{row.label}</dt>
-          <dd className="font-medium tabular-nums">{row.value}</dd>
+        <div
+          key={row.label}
+          className="flex min-w-0 items-baseline justify-between gap-3"
+        >
+          <dt className="min-w-0 text-muted-foreground">{row.label}</dt>
+          <dd className="shrink-0 font-medium tabular-nums">{row.value}</dd>
         </div>
       ))}
     </dl>
@@ -127,23 +102,23 @@ export const InvocationOutcomeDetailView = ({
   const { envelope, runSummary, logs } = model;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       {transportSummary ? (
-        <div>
-          <h3 className="mb-2 text-sm font-medium text-foreground">
+        <div className="flex min-w-0 flex-col gap-2">
+          <h3 className="text-sm font-medium text-foreground">
             Transport error
           </h3>
-          <p className="text-sm text-destructive">{transportSummary}</p>
+          <p className="text-sm break-words text-destructive">
+            {transportSummary}
+          </p>
           {transportError != null ? (
-            <pre className="mt-2 max-h-32 overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
-              {formatJsonBlock(transportError)}
-            </pre>
+            <JsonBlock value={transportError} maxHeight="max-h-48" />
           ) : null}
         </div>
       ) : null}
 
       {envelope ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-medium text-foreground">
               Agent response
@@ -151,7 +126,9 @@ export const InvocationOutcomeDetailView = ({
             {envelope.status ? <StatusBadge status={envelope.status} /> : null}
           </div>
           {envelope.message ? (
-            <p className="text-sm text-muted-foreground">{envelope.message}</p>
+            <p className="text-sm break-words text-muted-foreground">
+              {envelope.message}
+            </p>
           ) : null}
           {envelope.details ? (
             <JsonBlock title="Details" value={envelope.details} />
@@ -160,11 +137,11 @@ export const InvocationOutcomeDetailView = ({
       ) : null}
 
       {logs && logs.length > 0 ? (
-        <div>
-          <h3 className="mb-2 text-sm font-medium text-foreground">Logs</h3>
-          <ul className="max-h-48 space-y-2 overflow-auto rounded-md border bg-muted/40 p-3 text-xs">
+        <div className="flex min-w-0 flex-col gap-2">
+          <h3 className="text-sm font-medium text-foreground">Logs</h3>
+          <ul className="max-h-64 space-y-2 overflow-y-auto rounded-lg border bg-muted/40 p-3 text-xs">
             {logs.map((entry, index) => (
-              <li key={`${entry.level}-${index}`}>
+              <li key={`${entry.level}-${index}`} className="break-words">
                 <span className="font-mono uppercase text-muted-foreground">
                   {entry.level}
                 </span>
@@ -177,10 +154,8 @@ export const InvocationOutcomeDetailView = ({
       ) : null}
 
       {runSummary ? (
-        <div>
-          <h3 className="mb-2 text-sm font-medium text-foreground">
-            Run summary
-          </h3>
+        <div className="flex min-w-0 flex-col gap-2">
+          <h3 className="text-sm font-medium text-foreground">Run summary</h3>
           <RunSummaryCounters summary={runSummary} />
         </div>
       ) : null}

@@ -1,6 +1,4 @@
-/** @vitest-environment jsdom */
-
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { DetailBlockTabsView } from "./detail-block-tabs";
@@ -255,10 +253,60 @@ describe("DetailBlockTabsView", () => {
     );
 
     expect(screen.getByRole("combobox")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Alpha" })).toHaveAttribute(
-      "href",
-      "https://example.com/a",
+    expect(
+      within(screen.getByRole("table")).getByRole("link", { name: "Alpha" }),
+    ).toHaveAttribute("href", "https://example.com/a");
+  });
+
+  it("scrolls the tab list sideways instead of widening the page", () => {
+    render(
+      <DetailBlockTabsView
+        block={{
+          type: "tabs",
+          tabs: [{ label: "Body", block: { type: "markdown", field: "body" } }],
+        }}
+        data={{ body: "Hello" }}
+      />,
     );
+
+    const tabList = screen.getByRole("tablist");
+
+    expect(tabList).toHaveClass("max-w-full", "overflow-x-auto");
+    expect(tabList.parentElement).toHaveClass("flex-wrap");
+  });
+
+  it("limits a subTable tab to the first row-count option", () => {
+    render(
+      <DetailBlockTabsView
+        block={{
+          type: "tabs",
+          tabs: [
+            {
+              label: "Collected",
+              block: {
+                type: "subTable",
+                field: "sources",
+                rowLimitOptions: [2, 5],
+                columns: [{ field: "title", label: "Article", type: "text" }],
+              },
+            },
+          ],
+        }}
+        data={{
+          sources: [
+            { id: "s1", title: "Alpha" },
+            { id: "s2", title: "Beta" },
+            { id: "s3", title: "Gamma" },
+          ],
+        }}
+      />,
+    );
+
+    const table = within(screen.getByRole("table"));
+
+    expect(screen.getByRole("combobox")).toHaveTextContent("2");
+    expect(table.getByText("Beta")).toBeInTheDocument();
+    expect(table.queryByText("Gamma")).not.toBeInTheDocument();
   });
 
   it("shows no selector when the active tab has no row-count options", () => {

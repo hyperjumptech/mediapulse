@@ -274,8 +274,13 @@ describe("ExecutionDetailView", () => {
     );
 
     const snapshot = screen.getByRole("region", { name: "Request snapshot" });
+    const snapshotJson = within(snapshot).getByRole("region", { name: "JSON" });
 
     expect(within(snapshot).getByText(/"method": "POST"/)).toBeVisible();
+    expect(snapshotJson).toHaveClass("max-h-[32rem]");
+    expect(
+      within(snapshot).getByRole("button", { name: "Copy JSON" }),
+    ).toBeVisible();
     expect(screen.getByText("Request id: req-9")).toBeVisible();
   });
 
