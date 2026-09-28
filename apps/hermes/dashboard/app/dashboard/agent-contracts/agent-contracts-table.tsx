@@ -22,7 +22,7 @@ import {
 
 import { DataTableCard } from "@/components/data-table/data-table-card";
 import { SortableHeader } from "@/components/data-table/sortable-header";
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 import type {
   AgentContractSortDir,
   AgentContractSortField,
@@ -150,7 +150,7 @@ export const AgentContractsTable = ({
                   </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  <RelativeTime value={contract.createdAt} />
+                  <DateTime value={contract.createdAt} />
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground md:table-cell">
                   {formatCreatedBy(contract.createdBy)}

@@ -53,7 +53,7 @@ describe("buildContentGeneration", () => {
       newsletterId: "nl-1",
     });
     expect(result.agentLabel).toBe("content-generation - 3.0.0");
-    expect(result.generatedAtLabel).toBe("July 13, 2026 at 13:00");
+    expect(result.generatedAt).toBe("2026-07-13T06:00:00.000Z");
     expect(result.model).toBe("claude-opus-4-8");
     expect(result.tokensTotalLabel).toBe("5.5K");
     expect(result.tokensBreakdownLabel).toBe("Input 4,200 · Output 1,300");

@@ -192,7 +192,9 @@ describe("PipelineExecutionsTable", () => {
     expect(screen.getByTitle("1 succeeded, 1 failed")).toBeInTheDocument();
     expect(screen.getByText("1m 5s")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Open execution from 10m ago" }),
+      screen.getByRole("link", {
+        name: "Open execution from Sep 28, 11:50 10m ago",
+      }),
     ).toBeInTheDocument();
   });
 });

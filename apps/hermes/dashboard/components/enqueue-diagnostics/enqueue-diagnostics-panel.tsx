@@ -15,6 +15,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils";
 import type { HermesEnqueueCorrelation } from "@hermes/scheduler/enqueue-diagnostics-correlation";
 
+import { DateTime } from "@/components/date-time/date-time";
 import type { EnqueueDiagnosticEntry } from "@/lib/enqueue-diagnostics";
 
 import {
@@ -36,8 +37,8 @@ export type EnqueueDiagnosticsPanelProps = {
 const displayMessage = (entry: EnqueueDiagnosticEntry): string =>
   entry.message ?? entry.exception?.message ?? "(no message)";
 
-const displayTimestamp = (entry: EnqueueDiagnosticEntry): string =>
-  entry.timestamp ?? "(no timestamp)";
+const entryKey = (entry: EnqueueDiagnosticEntry): string =>
+  entry.timestamp ?? "no-timestamp";
 
 const optionalMeta = (
   entry: EnqueueDiagnosticEntry,
@@ -304,10 +305,14 @@ export const EnqueueDiagnosticsPanel = ({
       ) : null}
       <ol className="list-none space-y-3 p-0">
         {sorted.map((entry, index) => (
-          <li key={`${displayTimestamp(entry)}-${index}`}>
+          <li key={`${entryKey(entry)}-${index}`}>
             <article className="rounded-md border bg-background/80 p-3 text-sm">
               <p className="text-xs text-muted-foreground">
-                {displayTimestamp(entry)}
+                {entry.timestamp ? (
+                  <DateTime value={entry.timestamp} style="datetime" />
+                ) : (
+                  "(no timestamp)"
+                )}
               </p>
               <p className="mt-1 wrap-break-word text-foreground">
                 {displayMessage(entry)}

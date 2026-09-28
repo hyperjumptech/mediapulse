@@ -20,11 +20,6 @@ import { UpcomingSchedulesSection } from "./upcoming-schedules-section";
 
 const now = new Date("2026-09-28T12:00:00.000Z");
 
-const viewerTimestampFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
 const activeSchedule: UpcomingSchedule = {
   id: "schedule-1",
   name: "Morning digest",
@@ -62,7 +57,7 @@ describe("UpcomingSchedulesSection", () => {
 
     // Assert
     const links = screen.getAllByRole("link");
-    const nextRun = screen.getByText("in 12m");
+    const nextRun = screen.getByText("in 12m").closest("time");
 
     expect(links).toHaveLength(2);
     expect(links[0]).toHaveAttribute("href", "/dashboard/schedules/schedule-1");
@@ -71,10 +66,7 @@ describe("UpcomingSchedulesSection", () => {
     expect(links[1]).toHaveAttribute("href", "/dashboard/schedules/schedule-2");
     expect(links[1]).toHaveTextContent("in 5h");
     expect(nextRun).toHaveAttribute("dateTime", "2026-09-28T12:12:00.000Z");
-    expect(nextRun).toHaveAttribute(
-      "title",
-      viewerTimestampFormatter.format(activeSchedule.nextRunAt),
-    );
+    expect(nextRun).toHaveAttribute("title", "Sep 28, 2026, 12:12 UTC");
   });
 
   it("marks only schedules whose pipeline is disabled", async () => {

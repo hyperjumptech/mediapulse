@@ -124,6 +124,66 @@ describe("createUpdateScheduleHandler", () => {
     });
   });
 
+  it("reads a datetime-local start in the schedule timezone", async () => {
+    const updateMock = vi.fn().mockResolvedValue(undefined);
+    const db = {
+      schedule: {
+        findUnique: vi.fn().mockResolvedValue(existingSchedule),
+        update: updateMock,
+      },
+    };
+    const updateHandler = createUpdateScheduleHandler({ db: db as never });
+
+    const result = await updateHandler({
+      body: {
+        scheduleId,
+        timezone: "Asia/Jakarta",
+        startAt: "2026-09-28T09:00",
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    const expectedStartAt = new Date("2026-09-28T02:00:00.000Z");
+
+    expect(result.status).toBe(true);
+    expect(updateMock).toHaveBeenCalledWith({
+      where: { id: scheduleId },
+      data: expect.objectContaining({
+        timezone: "Asia/Jakarta",
+        startAt: expectedStartAt,
+        nextRunAt: expectedStartAt,
+      }),
+    });
+  });
+
+  it("rejects a start that is not a date", async () => {
+    const updateMock = vi.fn();
+    const db = {
+      schedule: {
+        findUnique: vi.fn().mockResolvedValue(existingSchedule),
+        update: updateMock,
+      },
+    };
+    const updateHandler = createUpdateScheduleHandler({ db: db as never });
+
+    const result = await updateHandler({
+      body: { scheduleId, startAt: "next tuesday" },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    expect(result.status).toBe(false);
+    expect((result as { message?: string }).message).toBe(
+      "Start date/time is not a valid date.",
+    );
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
   it("returns error when setting repeat=once without startAt", async () => {
     // Setup
     const updateMock = vi.fn().mockResolvedValue(undefined);

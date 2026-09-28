@@ -23,7 +23,7 @@ import {
 
 import { DataTableCard } from "@/components/data-table/data-table-card";
 import { SortableHeader } from "@/components/data-table/sortable-header";
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 import { StatusBadge } from "@/components/status-badge";
 import { formatCreatedBy } from "@/lib/format-created-by";
 import { buildListHref, nextSortDirection } from "@/lib/list-page-params";
@@ -223,7 +223,7 @@ export const SchedulesTable = ({
                 </TableCell>
                 <TableCell>
                   {schedule.nextRunAt ? (
-                    <RelativeTime value={schedule.nextRunAt} />
+                    <DateTime value={schedule.nextRunAt} variant="both" />
                   ) : (
                     <span className="text-muted-foreground">—</span>
                   )}
@@ -232,7 +232,7 @@ export const SchedulesTable = ({
                   <StatusBadge status={enabledStatus} />
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground sm:table-cell">
-                  <RelativeTime value={schedule.createdAt} />
+                  <DateTime value={schedule.createdAt} />
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground md:table-cell">
                   {createdBy}

@@ -1,7 +1,5 @@
 import type { Prisma, prisma } from "@mediapulse/database";
 
-const STAGE_TIMEZONE = "Asia/Jakarta";
-
 /** Agent id shown in the stage's Agent KPI card (a single agent produces this stage). */
 const DELIVERY_AGENT_ID = "delivery" as const;
 
@@ -15,7 +13,7 @@ export type DeliveryOutcomeVariant =
 /** Shape of the delivery-stage payload exposed by the detail handler. */
 export type DeliveryPayload = {
   agentLabel: string;
-  deliveredAtLabel: string;
+  deliveredAt: string | null;
   outcomeLabel: string;
   outcomeVariant: DeliveryOutcomeVariant;
   deliveredLabel: string;
@@ -40,23 +38,6 @@ const OUTCOME_VARIANT: Record<string, DeliveryOutcomeVariant> = {
   failed: "destructive",
   skipped: "muted",
   skipped_all_already_delivered: "muted",
-};
-
-const formatDeliveredAt = (date: Date): string => {
-  const datePart = new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: STAGE_TIMEZONE,
-  }).format(date);
-  const timePart = new Intl.DateTimeFormat("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: STAGE_TIMEZONE,
-  }).format(date);
-
-  return `${datePart} at ${timePart}`;
 };
 
 /**
@@ -91,7 +72,7 @@ export const buildDelivery = async (
 
   return {
     agentLabel,
-    deliveredAtLabel: run ? formatDeliveredAt(run.createdAt) : "—",
+    deliveredAt: run ? run.createdAt.toISOString() : null,
     outcomeLabel: run ? (OUTCOME_LABEL[run.outcome] ?? run.outcome) : "—",
     outcomeVariant: run ? (OUTCOME_VARIANT[run.outcome] ?? "muted") : "muted",
     deliveredLabel: `${counts.delivered.toLocaleString("en-US")} / ${counts.total.toLocaleString("en-US")}`,

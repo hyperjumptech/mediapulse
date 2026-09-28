@@ -29,6 +29,17 @@ vi.mock("next/headers", () => ({
   }),
 }));
 
+vi.mock("@/lib/date-time/viewer-date-time", () => ({
+  getViewerDateTimeContext: async () => ({
+    timeZone: "UTC",
+    renderedAt: Date.parse("2026-09-28T12:00:00.000Z"),
+  }),
+}));
+
+vi.mock("@/components/date-time/date-time-provider", () => ({
+  DateTimeProvider: ({ children }: React.PropsWithChildren) => children,
+}));
+
 vi.mock("@/lib/auth-dashboard", () => ({
   getDashboardSession: () => getDashboardSessionMock(),
   HERMES_DASHBOARD_CLEAR_SESSION_PATH: "/clear-hermes-dashboard-session",

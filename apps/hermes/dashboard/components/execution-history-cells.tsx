@@ -10,7 +10,7 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty";
 
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 
 export const ExecutionsEmptyState = ({
   description,
@@ -43,7 +43,7 @@ export const ExecutionTimeLink = ({
       className="font-medium text-foreground underline-offset-4 hover:underline"
     >
       <span className="sr-only">Open execution from</span>{" "}
-      <RelativeTime value={executionTime} />
+      <DateTime value={executionTime} variant="both" />
     </Link>
   );
 };

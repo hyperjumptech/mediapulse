@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/page-header";
 import { SummaryGrid, SummaryItem } from "@/components/summary-grid";
 import {
   formatDomainTableCellValue,
+  type DomainTableCellFormatOptions,
   type DomainTableColumnForDisplay,
 } from "@/app/dashboard/domain-table-page";
 import { getDomainIntegrationByIntegrationId } from "@/lib/domain-integrations";
@@ -18,6 +19,7 @@ import {
   getDomainTableMeta,
 } from "@/lib/domain-dashboard";
 import { DATA_SOURCE_EXPANSIONS_PATH_SEGMENT } from "@/lib/data-source-expansion-template-meta";
+import { getViewerDateTimeContext } from "@/lib/date-time/viewer-date-time";
 import { parseDomainTableFormFieldsFromJsonSchema } from "@/lib/domain-table-form-schema";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
@@ -35,6 +37,7 @@ const LONG_VALUE_CHARACTER_COUNT = 120;
 const resolveDomainTableDetailTitle = (
   columns: DomainTableColumnForDisplay[] | undefined,
   row: Record<string, unknown>,
+  formatOptions: DomainTableCellFormatOptions,
   detailTitleField?: string,
 ): string => {
   if (detailTitleField) {
@@ -43,7 +46,11 @@ const resolveDomainTableDetailTitle = (
   }
   const primary = columns?.[0];
   if (!primary) return "Detail";
-  const value = formatDomainTableCellValue(primary, row[primary.key]);
+  const value = formatDomainTableCellValue(
+    primary,
+    row[primary.key],
+    formatOptions,
+  );
 
   return value.trim().length > 0 ? value : "Detail";
 };
@@ -68,13 +75,14 @@ const resolveEditHref = (
 const collectDetailFields = (
   columns: DomainTableColumnForDisplay[],
   row: Record<string, unknown>,
+  formatOptions: DomainTableCellFormatOptions,
 ): DetailField[] =>
   columns.flatMap((column) => {
     const rawValue = row[column.key];
     if (rawValue == null || rawValue === "") {
       return [];
     }
-    const display = formatDomainTableCellValue(column, rawValue);
+    const display = formatDomainTableCellValue(column, rawValue, formatOptions);
     if (display.length === 0) {
       return [];
     }
@@ -120,12 +128,19 @@ const ViewDomainTableItemPage = async ({
   const row = await getDomainTableItemById(integrationId, resource, itemId);
   if (!row) notFound();
 
+  const { timeZone, renderedAt } = await getViewerDateTimeContext();
+  const formatOptions: DomainTableCellFormatOptions = {
+    timeZone,
+    now: new Date(renderedAt),
+    style: "datetime",
+  };
   const basePath = `/dashboard/${integrationId}/${resource}`;
   const detailBlocks = meta.detailBlocks;
   const blockData = { ...row, integrationId, resource, itemId };
   const title = resolveDomainTableDetailTitle(
     meta.columns,
     row,
+    formatOptions,
     meta.detailTitleField,
   );
   const description = meta.description ?? undefined;
@@ -153,7 +168,11 @@ const ViewDomainTableItemPage = async ({
     );
   }
 
-  const detailFields = collectDetailFields(meta.columns ?? [], row);
+  const detailFields = collectDetailFields(
+    meta.columns ?? [],
+    row,
+    formatOptions,
+  );
 
   return (
     <div className="flex flex-col gap-6">

@@ -25,7 +25,7 @@ import {
 import { CopyableId } from "@/components/copyable-id";
 import { DataTableCard } from "@/components/data-table/data-table-card";
 import { SortableHeader } from "@/components/data-table/sortable-header";
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 import { formatCreatedBy } from "@/lib/format-created-by";
 import { buildListHref, nextSortDirection } from "@/lib/list-page-params";
 import type {
@@ -244,7 +244,7 @@ export const VariablesTable = ({
                   </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  <RelativeTime value={variable.createdAt} />
+                  <DateTime value={variable.createdAt} />
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground lg:table-cell">
                   {formatCreatedBy(variable.createdBy)}

@@ -24,7 +24,7 @@ import {
 
 import { DataTableCard } from "@/components/data-table/data-table-card";
 import { SortableHeader } from "@/components/data-table/sortable-header";
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 import { StatusBadge } from "@/components/status-badge";
 import { formatCreatedBy } from "@/lib/format-created-by";
 import type {
@@ -211,13 +211,13 @@ export const HttpTriggersTable = ({
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {trigger.lastTriggeredAt ? (
-                    <RelativeTime value={trigger.lastTriggeredAt} />
+                    <DateTime value={trigger.lastTriggeredAt} variant="both" />
                   ) : (
                     "Never"
                   )}
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground sm:table-cell">
-                  <RelativeTime value={trigger.createdAt} />
+                  <DateTime value={trigger.createdAt} />
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground md:table-cell">
                   {createdBy}

@@ -39,6 +39,7 @@ import {
 
 export {
   formatDomainTableCellValue,
+  type DomainTableCellFormatOptions,
   type DomainTableColumnForDisplay,
 } from "@/app/dashboard/domain-table-rows-section";
 

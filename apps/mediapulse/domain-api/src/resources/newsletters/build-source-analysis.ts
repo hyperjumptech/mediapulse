@@ -9,8 +9,6 @@ import {
   type SectionScorePayload,
 } from "./build-section-scores";
 
-const STAGE_TIMEZONE = "Asia/Jakarta";
-
 /** Agent id shown in the stage's Agent KPI card (a single agent produces this stage). */
 const ARTICLE_ANALYSIS_AGENT_ID = "article-analysis" as const;
 
@@ -61,7 +59,7 @@ export type SourceAnalysisRejectedPayload = {
 /** Shape of the source-analysis stage payload exposed by the detail handler. */
 export type SourceAnalysisPayload = {
   agentLabel: string;
-  generatedAtLabel: string;
+  generatedAt: string | null;
   modelLabel: string;
   tokensTotalLabel: string;
   tokensBreakdownLabel: string;
@@ -98,23 +96,6 @@ const scoreVariantFor = (
   if (score >= 0.4) return "warning";
 
   return "destructive";
-};
-
-const formatGeneratedAt = (date: Date): string => {
-  const datePart = new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: STAGE_TIMEZONE,
-  }).format(date);
-  const timePart = new Intl.DateTimeFormat("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: STAGE_TIMEZONE,
-  }).format(date);
-
-  return `${datePart} at ${timePart}`;
 };
 
 /**
@@ -314,7 +295,7 @@ export const buildSourceAnalysis = async (
 
   return {
     agentLabel,
-    generatedAtLabel: latestRunAt ? formatGeneratedAt(latestRunAt) : "—",
+    generatedAt: latestRunAt ? latestRunAt.toISOString() : null,
     modelLabel,
     tokensTotalLabel: compactNumber(totalTokens),
     tokensBreakdownLabel: `Input ${promptTokens.toLocaleString("en-US")} · Output ${completionTokens.toLocaleString("en-US")} · Reasoning ${reasoningTokens.toLocaleString("en-US")}`,

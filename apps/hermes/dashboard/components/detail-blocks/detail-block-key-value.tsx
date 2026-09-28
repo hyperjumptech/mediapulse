@@ -5,18 +5,11 @@ import {
   type DetailBlockKeyValueRow,
 } from "@hermes/domain-contract";
 
+import { DateTime } from "@/components/date-time/date-time";
+import { toValidDate } from "@/lib/date-time/format-date-time";
+
 import { DetailBlockCopyButton } from "./detail-block-copy-button";
 import { DetailBlockSectionHeader } from "./detail-block-section-header";
-
-const formatDateTime = (value: unknown): string => {
-  if (value === null || value === undefined || value === "") return "—";
-  if (typeof value !== "string" && !(value instanceof Date)) {
-    return String(value);
-  }
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-  return date.toISOString();
-};
 
 const formatNumber = (value: unknown): string => {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -64,12 +57,13 @@ const DetailBlockKeyValueRowView = ({
   const url = row.linkTemplate
     ? renderUrlTemplate(row.linkTemplate, data)
     : undefined;
+  const date = row.format === "date-time" ? toValidDate(raw) : null;
   const text = (() => {
     if (row.format === "tokens") return formatTokens(row, data);
-    if (row.format === "date-time") return formatDateTime(raw);
     if (row.format === "number") return formatNumber(raw);
     return formatPlain(raw);
   })();
+  const content = date ? <DateTime value={date} style="datetime" /> : text;
   const copyValue =
     typeof raw === "string"
       ? raw
@@ -84,10 +78,10 @@ const DetailBlockKeyValueRowView = ({
       <dd className="flex items-center gap-2 break-words text-sm">
         {url && text !== "—" ? (
           <a href={url} className="text-primary underline underline-offset-4">
-            {text}
+            {content}
           </a>
         ) : (
-          <span>{text}</span>
+          <span>{content}</span>
         )}
         {row.copyAction === true && copyValue.length > 0 ? (
           <DetailBlockCopyButton

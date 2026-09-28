@@ -144,11 +144,11 @@ describe("SchedulesTable", () => {
       within(row).getByRole("link", { name: "Test Pipeline" }),
     ).toHaveAttribute("href", "/dashboard/pipelines/pipeline-1");
     expect(within(row).getByText("Every 15m")).toBeInTheDocument();
-    expect(within(row).getByText("in 1h")).toHaveAttribute(
+    expect(within(row).getByText("in 1h").closest("time")).toHaveAttribute(
       "datetime",
       "2024-01-15T10:00:00.000Z",
     );
-    expect(within(row).getByText("3d ago")).toBeInTheDocument();
+    expect(within(row).getByText("Jan 12, 09:00")).toBeInTheDocument();
     expect(within(row).getByText("enabled")).toHaveAttribute(
       "data-variant",
       "success",

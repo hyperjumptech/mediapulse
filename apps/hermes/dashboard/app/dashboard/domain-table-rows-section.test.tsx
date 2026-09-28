@@ -1,6 +1,5 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { format } from "date-fns";
 import { tableV1MetaResponseSchema } from "@hermes/domain-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +11,13 @@ const rowActionsMock = vi.fn();
 
 vi.mock("@/lib/require-dashboard-admin", () => ({
   withDashboardAdmin: <Value,>(load: Promise<Value>) => load,
+}));
+
+vi.mock("@/lib/date-time/viewer-date-time", () => ({
+  getViewerDateTimeContext: async () => ({
+    timeZone: "Asia/Jakarta",
+    renderedAt: Date.parse("2026-09-28T12:00:00.000Z"),
+  }),
 }));
 
 vi.mock("@/lib/domain-dashboard", () => ({
@@ -42,6 +48,11 @@ const textColumn: DomainTableColumnForDisplay = {
   key: "name",
   label: "Name",
   type: "text",
+};
+
+const formatOptions = {
+  timeZone: "Asia/Jakarta",
+  now: new Date("2026-09-28T12:00:00.000Z"),
 };
 
 const updateSchema = {
@@ -92,17 +103,34 @@ const renderSection = async (
 };
 
 describe("formatDomainTableCellValue", () => {
-  it("formats ISO values for date-time columns", () => {
+  it("formats ISO values in the viewer time zone", () => {
     // Setup
     const iso = "2025-01-01T12:00:00.000Z";
-    const expected = format(new Date(iso), "LLL d, yyyy");
 
     // Act
-    const result = formatDomainTableCellValue(dateTimeColumn, iso);
+    const result = formatDomainTableCellValue(
+      dateTimeColumn,
+      iso,
+      formatOptions,
+    );
 
     // Assert
-    expect(result).toBe(expected);
-    expect(result).not.toBe(iso);
+    expect(result).toBe("Jan 1, 2025, 19:00");
+  });
+
+  it("drops the year for dates in the current year", () => {
+    // Setup
+    const iso = "2026-09-27T20:30:00.000Z";
+
+    // Act
+    const result = formatDomainTableCellValue(
+      dateTimeColumn,
+      iso,
+      formatOptions,
+    );
+
+    // Assert
+    expect(result).toBe("Sep 28, 03:30");
   });
 
   it("keeps non-date columns as plain string values", () => {
@@ -110,7 +138,7 @@ describe("formatDomainTableCellValue", () => {
     const value = "alpha";
 
     // Act
-    const result = formatDomainTableCellValue(textColumn, value);
+    const result = formatDomainTableCellValue(textColumn, value, formatOptions);
 
     // Assert
     expect(result).toBe("alpha");
@@ -121,15 +149,23 @@ describe("formatDomainTableCellValue", () => {
     const badDate = "not-a-date";
 
     // Act
-    const result = formatDomainTableCellValue(dateTimeColumn, badDate);
+    const result = formatDomainTableCellValue(
+      dateTimeColumn,
+      badDate,
+      formatOptions,
+    );
 
     // Assert
     expect(result).toBe("not-a-date");
   });
 
   it("renders boolean values as Yes/No", () => {
-    expect(formatDomainTableCellValue(textColumn, true)).toBe("Yes");
-    expect(formatDomainTableCellValue(textColumn, false)).toBe("No");
+    expect(formatDomainTableCellValue(textColumn, true, formatOptions)).toBe(
+      "Yes",
+    );
+    expect(formatDomainTableCellValue(textColumn, false, formatOptions)).toBe(
+      "No",
+    );
   });
 });
 

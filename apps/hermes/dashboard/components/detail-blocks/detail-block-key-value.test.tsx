@@ -129,4 +129,23 @@ describe("DetailBlockKeyValueView", () => {
     expect(screen.queryByRole("link")).toBeNull();
     expect(screen.getByText("Apple Inc.")).toBeInTheDocument();
   });
+
+  it("formats a date-time row instead of printing the ISO string", () => {
+    render(
+      <DetailBlockKeyValueView
+        block={{
+          type: "keyValue",
+          rows: [
+            { field: "receivedAt", label: "Received", format: "date-time" },
+          ],
+        }}
+        data={{ receivedAt: "2026-09-28T07:55:00.000Z" }}
+      />,
+    );
+
+    expect(screen.getByText("Sep 28, 2026, 07:55")).toBeInTheDocument();
+    expect(
+      screen.queryByText("2026-09-28T07:55:00.000Z"),
+    ).not.toBeInTheDocument();
+  });
 });

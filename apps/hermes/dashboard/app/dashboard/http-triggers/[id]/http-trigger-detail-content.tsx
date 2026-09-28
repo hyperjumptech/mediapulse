@@ -11,7 +11,7 @@ import { Button } from "@workspace/ui/components/button";
 import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
 import { CopyableId } from "@/components/copyable-id";
 import { PageHeader } from "@/components/page-header";
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 import { StatusBadge } from "@/components/status-badge";
 import { SummaryGrid, SummaryItem } from "@/components/summary-grid";
 import { formatCreatedBy } from "@/lib/format-created-by";
@@ -147,13 +147,17 @@ export const HttpTriggerDetailContent = ({
           </SummaryItem>
           <SummaryItem label="Last triggered">
             {trigger.lastTriggeredAt ? (
-              <RelativeTime value={trigger.lastTriggeredAt} />
+              <DateTime
+                value={trigger.lastTriggeredAt}
+                variant="both"
+                style="datetime"
+              />
             ) : (
               <span className="text-muted-foreground">Never</span>
             )}
           </SummaryItem>
           <SummaryItem label="Created">
-            <RelativeTime value={trigger.createdAt} />
+            <DateTime value={trigger.createdAt} style="datetime" />
           </SummaryItem>
           <SummaryItem label="Created by">{createdBy}</SummaryItem>
         </SummaryGrid>

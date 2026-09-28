@@ -24,7 +24,7 @@ import { Button } from "@workspace/ui/components/button";
 import { formAction as defaultUpdateStepFormAction } from "@/app/dashboard/pipelines/actions/update-step/.generated/form.action";
 import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
 import { PageHeader } from "@/components/page-header";
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 import { SummaryGrid, SummaryItem } from "@/components/summary-grid";
 import type { AgentConfigSummary } from "@/lib/agent-configs";
 import type { AgentContractSummary } from "@/lib/agent-contracts";
@@ -379,10 +379,10 @@ export const PipelineDetailContent = ({
           {describeAgentTimeout(pipeline.timeout)}
         </SummaryItem>
         <SummaryItem label="Updated">
-          <RelativeTime value={pipeline.updatedAt} />
+          <DateTime value={pipeline.updatedAt} style="datetime" />
         </SummaryItem>
         <SummaryItem label="Created">
-          <RelativeTime value={pipeline.createdAt} />
+          <DateTime value={pipeline.createdAt} style="datetime" />
         </SummaryItem>
         <SummaryItem label="Created by">{createdBy}</SummaryItem>
       </SummaryGrid>

@@ -10,6 +10,10 @@ import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
 import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
+import {
+  INVALID_SCHEDULE_START_AT_MESSAGE,
+  resolveScheduleStartAt,
+} from "@/lib/schedule-start-at";
 import { getPipelineWithSteps } from "@/lib/pipelines";
 import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";
 import { computeNextRunAt, ExecutionConfigSchema } from "@hermes/scheduler";
@@ -47,7 +51,7 @@ const bodyValidator = z
     cronExpression: z.string().optional().nullable(),
     interval: z.coerce.number().int().positive().optional().nullable(),
     timezone: z.string().min(1, "Timezone is required"),
-    startAt: z.coerce.date().optional().nullable(),
+    startAt: z.union([z.date(), z.string()]).optional().nullable(),
     pipelineId: z.string().uuid(),
     retryConfig: retryConfigSchema,
     executionConfig: retryConfigSchema,
@@ -166,13 +170,21 @@ export const createCreateScheduleHandler = ({
   return async (data) => {
     const userId = data.user.id;
     const body = data.body;
+    const startAtResolution = resolveScheduleStartAt(
+      body.startAt,
+      body.timezone,
+    );
+    if (!startAtResolution.ok) {
+      return errorResponse(INVALID_SCHEDULE_START_AT_MESSAGE);
+    }
+    const startAt = startAtResolution.startAt ?? null;
 
-    if (body.repeat === "once" && body.startAt == null) {
+    if (body.repeat === "once" && startAt == null) {
       return errorResponse("One-time schedules require a start date/time.");
     }
     if (
       body.repeat === "repeating" &&
-      !isValidRepeatingCron(body.cronExpression, body.timezone, body.startAt)
+      !isValidRepeatingCron(body.cronExpression, body.timezone, startAt)
     ) {
       return errorResponse(
         "Invalid cron expression for the selected timezone.",
@@ -192,7 +204,7 @@ export const createCreateScheduleHandler = ({
 
     const nextRunAt = computeNextRun(
       body.repeat,
-      body.startAt ?? null,
+      startAt,
       body.cronExpression ?? null,
       body.interval ?? null,
       body.timezone,
@@ -215,7 +227,7 @@ export const createCreateScheduleHandler = ({
         cronExpression: body.cronExpression ?? null,
         interval: body.interval ?? null,
         timezone: body.timezone,
-        startAt: body.startAt ?? null,
+        startAt,
         nextRunAt,
         pipelineId: body.pipelineId,
         retryConfig:

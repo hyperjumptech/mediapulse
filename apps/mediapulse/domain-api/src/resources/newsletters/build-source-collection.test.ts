@@ -79,7 +79,7 @@ describe("buildSourceCollection", () => {
     expect(runFindMany).not.toHaveBeenCalled();
     expect(outcomeFindMany).not.toHaveBeenCalled();
     expect(result).toStrictEqual({
-      generatedAtLabel: "—",
+      generatedAt: null,
       creditsTotalLabel: "0",
       creditsBreakdownLabel: "No cost recorded",
       collectedTotalLabel: "0",
@@ -150,7 +150,7 @@ describe("buildSourceCollection", () => {
       runId: { in: ["run-data", "run-page"] },
       status: { in: ["dropped", "failed"] },
     });
-    expect(result.generatedAtLabel).toBe("July 13, 2026 at 13:00");
+    expect(result.generatedAt).toBe("2026-07-13T06:00:00.000Z");
     expect(result.creditsTotalLabel).toBe("42");
     expect(result.creditsBreakdownLabel).toBe("Serper 30 · Tavily 12");
     expect(result.collectedTotalLabel).toBe("2");
@@ -223,6 +223,6 @@ describe("buildSourceCollection", () => {
     expect(result.collectedTotalLabel).toBe("1");
     expect(result.droppedTotalLabel).toBe("0");
     expect(result.sources[0]?.agentLine).toBe("By Data Collection");
-    expect(result.generatedAtLabel).toBe("—");
+    expect(result.generatedAt).toBeNull();
   });
 });

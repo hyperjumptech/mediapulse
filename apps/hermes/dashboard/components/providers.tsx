@@ -5,6 +5,8 @@ import { ThemeProvider as NextThemesProvider } from "next-themes";
 
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 
+import { TimeZoneCookieSync } from "@/components/date-time/time-zone-cookie-sync";
+
 const Providers = ({ children }: { children: React.ReactNode }) => (
   <NextThemesProvider
     attribute="class"
@@ -13,7 +15,10 @@ const Providers = ({ children }: { children: React.ReactNode }) => (
     enableColorScheme
     disableTransitionOnChange
   >
-    <TooltipProvider>{children}</TooltipProvider>
+    <TooltipProvider>
+      <TimeZoneCookieSync />
+      {children}
+    </TooltipProvider>
   </NextThemesProvider>
 );
 

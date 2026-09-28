@@ -1,4 +1,3 @@
-import { format } from "date-fns";
 import Link from "next/link";
 import { SearchX, Table2 } from "lucide-react";
 import type { TableV1MetaResponse } from "@hermes/domain-contract";
@@ -20,6 +19,12 @@ import { DataTableCard } from "@/components/data-table/data-table-card";
 import { ListPagination } from "@/components/list-pagination";
 import { DomainTableRowActions } from "@/app/dashboard/domain-table-row-actions";
 import { DomainTableSortableHeader } from "@/app/dashboard/domain-table-sortable-header";
+import {
+  formatDateTime,
+  toValidDate,
+  type DateTimeStyle,
+} from "@/lib/date-time/format-date-time";
+import { getViewerDateTimeContext } from "@/lib/date-time/viewer-date-time";
 import { getDomainTableList } from "@/lib/domain-dashboard";
 import type { DomainTableFormField } from "@/lib/domain-table-form-schema";
 import {
@@ -35,21 +40,16 @@ export type DomainTableColumnForDisplay = {
   type: "text" | "date-time";
 };
 
-/**
- * Formats a raw domain table cell value for display based on column type.
- *
- * Booleans render as `Yes`/`No` so domains can return raw booleans instead of
- * pre-stringified labels. `date-time` columns render like other dashboard lists
- * (e.g. `LLL d, yyyy` via date-fns). Unparseable dates fall back to the original
- * string representation.
- *
- * @param column - Column descriptor from domain table meta.
- * @param rawValue - Cell value from the list row.
- * @returns String safe to render in a table cell.
- */
+export type DomainTableCellFormatOptions = {
+  timeZone: string;
+  now: Date;
+  style?: DateTimeStyle;
+};
+
 export const formatDomainTableCellValue = (
   column: DomainTableColumnForDisplay,
   rawValue: unknown,
+  { timeZone, now, style = "compact" }: DomainTableCellFormatOptions,
 ): string => {
   if (typeof rawValue === "boolean") {
     return rawValue ? "Yes" : "No";
@@ -60,17 +60,18 @@ export const formatDomainTableCellValue = (
   if (rawValue == null || rawValue === "") {
     return "";
   }
-  if (rawValue instanceof Date) {
-    return Number.isNaN(rawValue.getTime())
-      ? ""
-      : format(rawValue, "LLL d, yyyy");
+  if (
+    rawValue instanceof Date ||
+    typeof rawValue === "string" ||
+    typeof rawValue === "number"
+  ) {
+    const date = toValidDate(rawValue);
+
+    return date
+      ? formatDateTime(date, { timeZone, now, style })
+      : String(rawValue);
   }
-  if (typeof rawValue === "string" || typeof rawValue === "number") {
-    const parsed = new Date(rawValue);
-    return Number.isNaN(parsed.getTime())
-      ? String(rawValue)
-      : format(parsed, "LLL d, yyyy");
-  }
+
   return String(rawValue);
 };
 
@@ -165,6 +166,8 @@ export const DomainTableRowsSection = async ({
   const list = await withDashboardAdmin(
     getDomainTableList(integrationId, resource, params),
   );
+  const { timeZone, renderedAt } = await getViewerDateTimeContext();
+  const cellFormatOptions = { timeZone, now: new Date(renderedAt) };
   const filterExtraParams = buildDomainTableFilterExtraParams(params.filters);
   const hasRowActions =
     meta.actions.update || meta.actions.delete || meta.actions.view;
@@ -212,6 +215,7 @@ export const DomainTableRowsSection = async ({
                       const text = formatDomainTableCellValue(
                         column,
                         row[column.key],
+                        cellFormatOptions,
                       );
                       const cellClassName = cn(
                         isPrimary

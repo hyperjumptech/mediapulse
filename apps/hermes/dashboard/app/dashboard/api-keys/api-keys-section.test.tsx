@@ -52,7 +52,9 @@ describe("ApiKeysSection", () => {
     const { container } = render(await ApiKeysSection());
 
     // Assert
-    const lastUsedTime = container.querySelector("time");
+    const lastUsedTime = container.querySelector(
+      'time[datetime="2026-01-04T00:00:00.000Z"]',
+    );
 
     expect(screen.getByText("Cursor")).toBeInTheDocument();
     expect(screen.getByText("Read-only")).toHaveAttribute(
@@ -62,10 +64,8 @@ describe("ApiKeysSection", () => {
     expect(screen.getByText("Full")).toHaveAttribute("data-variant", "outline");
     expect(screen.getByText("Ada")).toBeInTheDocument();
     expect(screen.getByText("Never")).toBeInTheDocument();
-    expect(lastUsedTime).toHaveAttribute(
-      "datetime",
-      "2026-01-04T00:00:00.000Z",
-    );
+    expect(lastUsedTime).toHaveTextContent("Jan 4, 00:00");
+    expect(screen.getByText("Jan 3, 2026")).toBeInTheDocument();
     expect(screen.getByTestId("api-key-row-actions-key-2")).toHaveAttribute(
       "data-label",
       "CI",

@@ -23,7 +23,7 @@ import {
 
 import { DataTableCard } from "@/components/data-table/data-table-card";
 import { SortableHeader } from "@/components/data-table/sortable-header";
-import { RelativeTime } from "@/components/relative-time";
+import { DateTime } from "@/components/date-time/date-time";
 import { StatusBadge } from "@/components/status-badge";
 import type {
   AgentsPageResult,
@@ -218,10 +218,10 @@ export const AgentsTable = ({
                   />
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  <RelativeTime value={agent.createdAt} />
+                  <DateTime value={agent.createdAt} />
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground sm:table-cell">
-                  <RelativeTime value={agent.updatedAt} />
+                  <DateTime value={agent.updatedAt} />
                 </TableCell>
                 <TableCell className="pr-2 text-right">
                   <AgentRowActions
