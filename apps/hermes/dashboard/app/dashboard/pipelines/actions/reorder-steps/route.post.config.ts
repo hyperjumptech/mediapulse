@@ -7,6 +7,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 
 const stepIdsSchema = z.union([
   z.array(z.string().uuid()),
@@ -83,4 +84,6 @@ export const createReorderStepsHandler = ({
 /**
  * Handles reorder pipeline steps: validates session, updates step order by index.
  */
-export const handler: ReorderStepsHandler = createReorderStepsHandler();
+export const handler: ReorderStepsHandler = withDashboardRevalidation(
+  createReorderStepsHandler(),
+);

@@ -1,6 +1,17 @@
 import type { Prisma } from "@hermes/orchestration-database";
 import { prisma } from "@hermes/orchestration-database";
 
+import {
+  executionSummarySelect,
+  invocationSummarySelect,
+  stepExecutionSummarySelect,
+  toExecutionSummary,
+  toInvocationSummary,
+  toStepExecutionSummaries,
+  type ExecutionSummary,
+  type InvocationSummary,
+} from "./execution-summary";
+
 type Db = typeof prisma;
 
 const scheduleListInclude = {
@@ -145,7 +156,6 @@ export type ScheduleExecutionRow = {
   jobsEnqueued: number;
   succeededInvocationCount: number;
   failedInvocationCount: number;
-  errors: unknown;
   createdAt: Date;
 };
 
@@ -189,7 +199,6 @@ export const getScheduleExecutionsPage = async (
         jobsEnqueued: true,
         succeededInvocationCount: true,
         failedInvocationCount: true,
-        errors: true,
         createdAt: true,
       },
     }),
@@ -357,5 +366,50 @@ export const getScheduleExecutionDetail = async (
       dataQueueAttempts: j.dataQueueAttempts,
       dataQueueMaxAttempts: j.dataQueueMaxAttempts,
     })),
+  };
+};
+
+export type ScheduleExecutionSummary = Omit<
+  ScheduleExecutionDetail,
+  "execution" | "invocations"
+> & {
+  execution: ExecutionSummary;
+  invocations: InvocationSummary[];
+};
+
+export const getScheduleExecutionSummary = async (
+  scheduleId: string,
+  executionId: string,
+  db: Db = prisma,
+): Promise<ScheduleExecutionSummary | null> => {
+  const summaryQuery = {
+    where: { id: executionId, scheduleId },
+    select: {
+      ...executionSummarySelect,
+      schedule: {
+        select: {
+          id: true,
+          name: true,
+          pipeline: { select: { id: true, name: true } },
+        },
+      },
+      scheduleStepExecutions: { select: stepExecutionSummarySelect },
+      agentJobExecutions: {
+        orderBy: { enqueuedAt: "asc" },
+        select: invocationSummarySelect,
+      },
+    },
+  } satisfies Prisma.ScheduleExecutionFindFirstArgs;
+  const row = await db.scheduleExecution.findFirst(summaryQuery);
+  if (!row) {
+    return null;
+  }
+
+  return {
+    execution: toExecutionSummary(row),
+    pipeline: row.schedule.pipeline,
+    schedule: { id: row.schedule.id, name: row.schedule.name },
+    stepExecutions: toStepExecutionSummaries(row.scheduleStepExecutions),
+    invocations: row.agentJobExecutions.map(toInvocationSummary),
   };
 };

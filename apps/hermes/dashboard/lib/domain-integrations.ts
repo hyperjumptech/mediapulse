@@ -12,6 +12,7 @@ import {
 } from "@hermes/orchestration-database";
 import { encryptDomainIntegrationApiKey } from "@hermes/domain-integration-crypto";
 import * as crypto from "node:crypto";
+import { cache } from "react";
 
 import { env } from "@hermes/env";
 
@@ -126,6 +127,7 @@ export const registerDomainIntegration = async (
       ...(payload.isDefault === true ? { isDefault: true } : {}),
     },
   });
+  invalidateDomainIntegrationsCache();
 
   return {
     id: integration.id,
@@ -194,6 +196,34 @@ export type DomainIntegrationRecord = {
   version: string | null;
   dashboard: DashboardManifest;
   capabilities: RegisterDomainIntegrationResponse["capabilities"];
+  updatedAt: Date;
+};
+
+const domainIntegrationRecordSelect = {
+  id: true,
+  integrationId: true,
+  name: true,
+  baseUrl: true,
+  version: true,
+  dashboardManifest: true,
+  capabilities: true,
+  updatedAt: true,
+} satisfies Prisma.DomainIntegrationSelect;
+
+const ACTIVE_DOMAIN_INTEGRATIONS_CACHE_TTL_MS = 60_000;
+
+type ActiveDomainIntegrationsCacheState = {
+  generation: number;
+  loadedAt: number;
+  integrations: DomainIntegrationRecord[] | undefined;
+  inFlight: Promise<DomainIntegrationRecord[]> | undefined;
+};
+
+const activeDomainIntegrationsCacheState: ActiveDomainIntegrationsCacheState = {
+  generation: 0,
+  loadedAt: 0,
+  integrations: undefined,
+  inFlight: undefined,
 };
 
 const domainIntegrationListSelect = {
@@ -273,6 +303,7 @@ const toDomainIntegrationRecord = (row: {
   version: string | null;
   dashboardManifest: Prisma.JsonValue | null;
   capabilities: Prisma.JsonValue | null;
+  updatedAt: Date;
 }): DomainIntegrationRecord => ({
   id: row.id,
   integrationId: row.integrationId,
@@ -281,6 +312,7 @@ const toDomainIntegrationRecord = (row: {
   version: row.version,
   dashboard: parseDashboardManifest(row.dashboardManifest),
   capabilities: parseCapabilities(row.capabilities),
+  updatedAt: row.updatedAt,
 });
 
 /**
@@ -295,23 +327,94 @@ export const getActiveDomainIntegrations = async (
     "findMany"
   > = prisma.domainIntegration,
 ): Promise<DomainIntegrationRecord[]> => {
-  const rows = await db.findMany({
+  const activeIntegrationsQuery = {
     where: activeIntegrationWhere,
     orderBy: [{ isDefault: "desc" }, { integrationId: "asc" }],
-    select: {
-      id: true,
-      integrationId: true,
-      name: true,
-      baseUrl: true,
-      version: true,
-      dashboardManifest: true,
-      capabilities: true,
-    },
-  });
+    select: domainIntegrationRecordSelect,
+  } satisfies Prisma.DomainIntegrationFindManyArgs;
+  const rows = await db.findMany(activeIntegrationsQuery);
   return rows
     .filter((r) => r.baseUrl != null && r.baseUrl.length > 0)
     .map(toDomainIntegrationRecord);
 };
+
+export const getActiveDomainIntegrationsCached = async (): Promise<
+  DomainIntegrationRecord[]
+> => {
+  const cacheState = activeDomainIntegrationsCacheState;
+  const cacheAge = Date.now() - cacheState.loadedAt;
+  if (
+    cacheState.integrations &&
+    cacheAge < ACTIVE_DOMAIN_INTEGRATIONS_CACHE_TTL_MS
+  ) {
+    return cacheState.integrations;
+  }
+  if (cacheState.inFlight) {
+    return cacheState.inFlight;
+  }
+
+  const loadGeneration = cacheState.generation;
+  const inFlight = getActiveDomainIntegrations()
+    .then((integrations) => {
+      if (cacheState.generation === loadGeneration) {
+        cacheState.integrations = integrations;
+        cacheState.loadedAt = Date.now();
+      }
+
+      return integrations;
+    })
+    .finally(() => {
+      if (cacheState.inFlight === inFlight) {
+        cacheState.inFlight = undefined;
+      }
+    });
+  cacheState.inFlight = inFlight;
+
+  return inFlight;
+};
+
+export const invalidateDomainIntegrationsCache = (): void => {
+  activeDomainIntegrationsCacheState.generation += 1;
+  activeDomainIntegrationsCacheState.loadedAt = 0;
+  activeDomainIntegrationsCacheState.integrations = undefined;
+  activeDomainIntegrationsCacheState.inFlight = undefined;
+};
+
+const findActiveDomainIntegrationByIntegrationId = async (
+  integrationId: string,
+  db: Pick<typeof prisma.domainIntegration, "findFirst">,
+): Promise<DomainIntegrationRecord | null> => {
+  const activeIntegrationQuery = {
+    where: {
+      integrationId,
+      ...activeIntegrationWhere,
+    },
+    select: domainIntegrationRecordSelect,
+  } satisfies Prisma.DomainIntegrationFindFirstArgs;
+  const row = await db.findFirst(activeIntegrationQuery);
+  if (!row) {
+    return null;
+  }
+
+  return toDomainIntegrationRecord(row);
+};
+
+const getDomainIntegrationByIntegrationIdForRequest = cache(
+  async (integrationId: string): Promise<DomainIntegrationRecord | null> => {
+    const activeIntegrations = await getActiveDomainIntegrationsCached();
+    const cachedIntegration = activeIntegrations.find(
+      (integration) => integration.integrationId === integrationId,
+    );
+    if (cachedIntegration) {
+      return cachedIntegration;
+    }
+
+    return findActiveDomainIntegrationByIntegrationId(
+      integrationId,
+      prisma.domainIntegration,
+    );
+  },
+);
 
 /**
  * Loads a single active domain integration by integration id (stable slug).
@@ -322,28 +425,13 @@ export const getActiveDomainIntegrations = async (
  */
 export const getDomainIntegrationByIntegrationId = async (
   integrationId: string,
-  db: Pick<
-    typeof prisma.domainIntegration,
-    "findFirst"
-  > = prisma.domainIntegration,
+  db?: Pick<typeof prisma.domainIntegration, "findFirst">,
 ): Promise<DomainIntegrationRecord | null> => {
-  const row = await db.findFirst({
-    where: {
-      integrationId,
-      ...activeIntegrationWhere,
-    },
-    select: {
-      id: true,
-      integrationId: true,
-      name: true,
-      baseUrl: true,
-      version: true,
-      dashboardManifest: true,
-      capabilities: true,
-    },
-  });
-  if (!row) return null;
-  return toDomainIntegrationRecord(row);
+  if (db) {
+    return findActiveDomainIntegrationByIntegrationId(integrationId, db);
+  }
+
+  return getDomainIntegrationByIntegrationIdForRequest(integrationId);
 };
 
 export type CreatePendingDomainIntegrationInput = {
@@ -382,7 +470,7 @@ export const createPendingDomainIntegration = async (
   const hash = crypto.createHash("sha256").update(rawKey).digest("hex");
   const encrypted = encryptDomainIntegrationApiKey(rawKey, masterKey);
 
-  return db.$transaction(async (tx) => {
+  const createdIntegration = await db.$transaction(async (tx) => {
     const row = await tx.domainIntegration.create({
       data: {
         integrationId: input.integrationId,
@@ -408,4 +496,7 @@ export const createPendingDomainIntegration = async (
       apiKeyPlaintext: rawKey,
     };
   });
+  invalidateDomainIntegrationsCache();
+
+  return createdIntegration;
 };

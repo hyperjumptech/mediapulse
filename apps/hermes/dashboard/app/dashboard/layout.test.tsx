@@ -26,7 +26,7 @@ vi.mock("@/lib/require-dashboard-admin", () => ({
 }));
 
 vi.mock("@/lib/domain-integrations", () => ({
-  getActiveDomainIntegrations: () => getActiveDomainIntegrationsMock(),
+  getActiveDomainIntegrationsCached: () => getActiveDomainIntegrationsMock(),
 }));
 
 vi.mock("@/lib/merge-domain-integration-nav-pages", () => ({

@@ -3,7 +3,7 @@ import {
   type HttpTriggerSortDir,
   type HttpTriggerSortField,
 } from "@/lib/http-triggers";
-import { getPipelinesWithSteps } from "@/lib/pipelines";
+import { getPipelineOptions } from "@/lib/pipeline-options";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 import { HttpTriggersWithModal } from "./http-triggers-with-modal";
@@ -26,7 +26,7 @@ export const HttpTriggersSection = async ({
   const [triggersResult, pipelines] = await withDashboardAdmin(
     Promise.all([
       getHttpTriggersPage(page, pageSize, { search, sortBy, sortDir }),
-      getPipelinesWithSteps(),
+      getPipelineOptions(),
     ]),
   );
 

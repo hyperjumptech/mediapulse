@@ -9,6 +9,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import {
   encryptSecretVariableForPayload,
   fromStoredSecretVariableValue,
@@ -148,4 +149,6 @@ export const createUpdateVariableHandler = ({
 /**
  * Handles update variable: validates session and updates key, value (if not mask), note, isSecret.
  */
-export const handler: UpdateVariableHandler = createUpdateVariableHandler();
+export const handler: UpdateVariableHandler = withDashboardRevalidation(
+  createUpdateVariableHandler(),
+);

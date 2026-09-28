@@ -7,6 +7,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 
 const bodyValidator = z.object({
   pipelineId: z.string().uuid(),
@@ -52,4 +53,6 @@ export const createDeletePipelineHandler = ({
 /**
  * Handles delete pipeline: validates session and deletes pipeline (steps cascade).
  */
-export const handler: DeletePipelineHandler = createDeletePipelineHandler();
+export const handler: DeletePipelineHandler = withDashboardRevalidation(
+  createDeletePipelineHandler(),
+);

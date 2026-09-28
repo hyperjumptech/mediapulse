@@ -8,7 +8,7 @@ import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/ui/lib/utils";
 
 import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
-import type { getPipelinesWithSteps } from "@/lib/pipelines";
+import type { PipelineOption } from "@/lib/pipeline-options";
 import {
   getPipelineStatus,
   type PipelineValidationResult,
@@ -163,9 +163,7 @@ export const formatTimezoneSelectLabel = (
   return offset ? `${ianaTimeZone} (${offset})` : ianaTimeZone;
 };
 
-export type PipelineOption = Awaited<
-  ReturnType<typeof getPipelinesWithSteps>
->[number];
+export type { PipelineOption };
 
 /** Repeating schedule sub-type: preset or custom. */
 export type RepeatingType = "hourly" | "daily-midnight" | "interval" | "cron";

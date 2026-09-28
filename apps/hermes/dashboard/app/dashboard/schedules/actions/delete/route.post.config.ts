@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 
 const bodyValidator = z.object({
   scheduleId: z.string().uuid(),
@@ -59,4 +60,6 @@ export const createDeleteScheduleHandler = ({
 /**
  * Handles delete schedule: validates session, verifies schedule exists, then deletes.
  */
-export const handler: DeleteScheduleHandler = createDeleteScheduleHandler();
+export const handler: DeleteScheduleHandler = withDashboardRevalidation(
+  createDeleteScheduleHandler(),
+);

@@ -1,8 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,17 +14,10 @@ import { DeleteConfirmForm } from "@/components/delete-confirm-form";
 import { useFormAction } from "@/app/dashboard/schedules/actions/delete/.generated/use-form-action";
 
 /**
- * Encapsulates delete form action and refresh-on-success for schedule row actions.
+ * Encapsulates delete form action for schedule row actions.
  */
 const useScheduleRowActions = () => {
-  const router = useRouter();
-  const { FormWithAction, state, pending } = useFormAction();
-
-  useEffect(() => {
-    if (state && state.status === true) {
-      router.refresh();
-    }
-  }, [state, router]);
+  const { FormWithAction, pending } = useFormAction();
 
   return { FormWithAction, pending };
 };

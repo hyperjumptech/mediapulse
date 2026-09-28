@@ -14,13 +14,10 @@ import {
   type PipelineValidationResult,
 } from "@/lib/pipeline-status";
 import { formatCreatedBy } from "@/lib/format-created-by";
+import type { PipelineSummary } from "@/lib/pipeline-summaries";
 
 import { PipelineRowActions } from "./pipeline-row-actions";
 import { PipelineStatusBadge } from "./pipeline-status-badge";
-
-type PipelineWithSteps = Awaited<
-  ReturnType<typeof import("@/lib/pipelines").getPipelinesWithSteps>
->[number];
 
 /**
  * Renders the pipelines list as a table with Name, Description, Status (Incomplete/Disabled/Enabled), and row actions.
@@ -31,7 +28,7 @@ export const PipelinesTable = ({
   pipelineValidationById = {},
   onEdit,
 }: {
-  pipelines: PipelineWithSteps[];
+  pipelines: PipelineSummary[];
   pipelineValidationById?: Record<string, PipelineValidationResult>;
   onEdit?: (pipelineId: string) => void;
 }) => {

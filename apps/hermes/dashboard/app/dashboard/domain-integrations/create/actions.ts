@@ -4,6 +4,7 @@ import { prisma } from "@hermes/orchestration-database";
 
 import { createPendingDomainIntegration } from "@/lib/domain-integrations";
 import { getDashboardAdmin } from "@/lib/require-dashboard-admin";
+import { revalidateDashboard } from "@/lib/revalidate-dashboard";
 
 export type CreateDomainIntegrationState =
   | { ok: false; error: string }
@@ -50,6 +51,8 @@ export async function createDomainIntegrationAction(
       name,
       userId: user.id,
     });
+    revalidateDashboard();
+
     return {
       ok: true,
       apiKeyPlaintext: result.apiKeyPlaintext,

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const getDashboardAdminMock = vi.fn();
 const findUniqueMock = vi.fn();
 const createPendingDomainIntegrationMock = vi.fn();
+const revalidateDashboardMock = vi.fn();
 
 vi.mock("@/lib/require-dashboard-admin", () => ({
   getDashboardAdmin: () => getDashboardAdminMock(),
@@ -22,6 +23,10 @@ vi.mock("@/lib/domain-integrations", () => ({
     createPendingDomainIntegrationMock(...args),
 }));
 
+vi.mock("@/lib/revalidate-dashboard", () => ({
+  revalidateDashboard: () => revalidateDashboardMock(),
+}));
+
 import { createDomainIntegrationAction } from "./actions";
 
 const buildFormData = () => {
@@ -37,6 +42,7 @@ describe("createDomainIntegrationAction", () => {
     getDashboardAdminMock.mockReset();
     findUniqueMock.mockReset();
     createPendingDomainIntegrationMock.mockReset();
+    revalidateDashboardMock.mockReset();
   });
 
   it("returns the unauthorized state when the caller is not an active admin", async () => {
@@ -49,6 +55,7 @@ describe("createDomainIntegrationAction", () => {
     // Assert
     expect(result).toEqual({ ok: false, error: "Unauthorized" });
     expect(createPendingDomainIntegrationMock).not.toHaveBeenCalled();
+    expect(revalidateDashboardMock).not.toHaveBeenCalled();
   });
 
   it("creates the integration for an active admin", async () => {
@@ -81,5 +88,30 @@ describe("createDomainIntegrationAction", () => {
       integrationId: "acme",
       name: "Acme",
     });
+    expect(revalidateDashboardMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not revalidate the dashboard when creating the integration fails", async () => {
+    // Setup
+    getDashboardAdminMock.mockResolvedValue({
+      id: "u1",
+      name: "U",
+      email: "u@example.com",
+      credentialVersion: 0,
+    });
+    findUniqueMock.mockResolvedValue({ id: "u1" });
+    createPendingDomainIntegrationMock.mockRejectedValue(
+      new Error("Integration id already exists."),
+    );
+
+    // Act
+    const result = await createDomainIntegrationAction(null, buildFormData());
+
+    // Assert
+    expect(result).toEqual({
+      ok: false,
+      error: "Integration id already exists.",
+    });
+    expect(revalidateDashboardMock).not.toHaveBeenCalled();
   });
 });

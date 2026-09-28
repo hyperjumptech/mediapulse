@@ -1,7 +1,12 @@
 /** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  getBearerJwtForDomainIntegrationId,
+  invalidateDomainIntegrationToken,
+} from "@/lib/domain-integration-auth-token";
+import {
   callDomainCustomPost,
+  createDomainTableItem,
   fetchAllDomainTableIdsForPipelineRun,
   getDomainTableItemById,
   getDomainTableList,
@@ -19,6 +24,7 @@ vi.mock("@/lib/domain-integrations", () => ({
 
 vi.mock("@/lib/domain-integration-auth-token", () => ({
   getBearerJwtForDomainIntegrationId: vi.fn().mockResolvedValue("test-jwt"),
+  invalidateDomainIntegrationToken: vi.fn(),
 }));
 
 describe("getDomainTableMeta", () => {
@@ -37,6 +43,7 @@ describe("getDomainTableMeta", () => {
       name: "Mediapulse",
       baseUrl: "http://localhost:3001",
       version: "1",
+      updatedAt: new Date("2026-09-01T00:00:00.000Z"),
       capabilities: ["expand-step-inputs", "preview-expansion"],
       dashboard: {
         templateVersion: 1,
@@ -697,5 +704,316 @@ describe("fetchAllDomainTableIdsForPipelineRun", () => {
     );
 
     expect(result).toEqual([]);
+  });
+});
+
+const tickersMetaPayload = {
+  title: "Tickers",
+  description: "List",
+  columns: [{ key: "symbol", label: "Symbol", type: "text" }],
+  searchableFields: [],
+  sortableFields: [],
+  actions: { create: true, update: true, delete: true, view: false },
+  createNavigation: "modal",
+};
+
+const buildTickersIntegration = (
+  overrides: { id?: string; integrationId?: string; updatedAt?: Date } = {},
+) => ({
+  id: overrides.id ?? "i1",
+  integrationId: overrides.integrationId ?? "mediapulse",
+  name: "Mediapulse",
+  baseUrl: "http://localhost:3001",
+  version: "1",
+  updatedAt: overrides.updatedAt ?? new Date("2026-09-01T00:00:00.000Z"),
+  capabilities: ["expand-step-inputs", "preview-expansion"],
+  dashboard: {
+    templateVersion: 1,
+    views: [
+      {
+        id: "tickers",
+        label: "Tickers",
+        pathSegment: "tickers",
+        kind: "resource-table",
+        placement: "sidebar",
+        apiPrefix: "/v1/hermes-dashboard/tickers",
+        columns: [],
+        searchableFields: [],
+        sortableFields: [],
+        actions: { create: true, update: true, delete: true, view: false },
+        order: 0,
+      },
+    ],
+  },
+});
+
+const buildMetaFetchMock = () =>
+  vi.fn().mockImplementation(async () => ({
+    ok: true,
+    status: 200,
+    json: async () => tickersMetaPayload,
+  }));
+
+describe("getDomainTableMeta cache", () => {
+  beforeEach(() => {
+    getDomainIntegrationByIntegrationId.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("reuses cached meta for the same integration and resource", async () => {
+    // Setup
+    getDomainIntegrationByIntegrationId.mockResolvedValue(
+      buildTickersIntegration({ id: "meta-cache-reuse" }),
+    );
+    const fetchMock = buildMetaFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Act
+    const firstMeta = await getDomainTableMeta("mediapulse", "tickers");
+    const secondMeta = await getDomainTableMeta("mediapulse", "tickers");
+
+    // Assert
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(secondMeta).toEqual(firstMeta);
+    expect(secondMeta).not.toBe(firstMeta);
+  });
+
+  it("refetches meta after the integration is registered again", async () => {
+    // Setup
+    getDomainIntegrationByIntegrationId
+      .mockResolvedValueOnce(
+        buildTickersIntegration({
+          id: "meta-cache-reregister",
+          updatedAt: new Date("2026-09-01T00:00:00.000Z"),
+        }),
+      )
+      .mockResolvedValueOnce(
+        buildTickersIntegration({
+          id: "meta-cache-reregister",
+          updatedAt: new Date("2026-09-02T00:00:00.000Z"),
+        }),
+      );
+    const fetchMock = buildMetaFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Act
+    await getDomainTableMeta("mediapulse", "tickers");
+    await getDomainTableMeta("mediapulse", "tickers");
+
+    // Assert
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("refetches meta once five minutes have passed", async () => {
+    // Setup
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-28T00:00:00.000Z"));
+    getDomainIntegrationByIntegrationId.mockResolvedValue(
+      buildTickersIntegration({ id: "meta-cache-expiry" }),
+    );
+    const fetchMock = buildMetaFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Act
+    await getDomainTableMeta("mediapulse", "tickers");
+    vi.setSystemTime(new Date("2026-09-28T00:04:59.000Z"));
+    await getDomainTableMeta("mediapulse", "tickers");
+    vi.setSystemTime(new Date("2026-09-28T00:05:00.000Z"));
+    await getDomainTableMeta("mediapulse", "tickers");
+
+    // Assert
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("shares one in-flight meta request between concurrent callers", async () => {
+    // Setup
+    getDomainIntegrationByIntegrationId.mockResolvedValue(
+      buildTickersIntegration({ id: "meta-cache-in-flight" }),
+    );
+    const fetchMock = buildMetaFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Act
+    const metas = await Promise.all([
+      getDomainTableMeta("mediapulse", "tickers"),
+      getDomainTableMeta("mediapulse", "tickers"),
+      getDomainTableMeta("mediapulse", "tickers"),
+    ]);
+
+    // Assert
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(metas.map((meta) => meta.title)).toEqual([
+      "Tickers",
+      "Tickers",
+      "Tickers",
+    ]);
+  });
+
+  it("does not cache a failed meta request", async () => {
+    // Setup
+    getDomainIntegrationByIntegrationId.mockResolvedValue(
+      buildTickersIntegration({ id: "meta-cache-failure" }),
+    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 503, json: async () => ({}) })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => tickersMetaPayload,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Act
+    const failedError = await getDomainTableMeta("mediapulse", "tickers").catch(
+      (error: unknown) => error,
+    );
+    const meta = await getDomainTableMeta("mediapulse", "tickers");
+
+    // Assert
+    expect((failedError as Error).message).toContain("(503)");
+    expect(meta.title).toBe("Tickers");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("evicts the oldest entries beyond 200 cached metas", async () => {
+    // Setup
+    getDomainIntegrationByIntegrationId.mockImplementation(
+      async (integrationId: string) =>
+        buildTickersIntegration({ id: `eviction-${integrationId}` }),
+    );
+    const fetchMock = buildMetaFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    const integrationIds = Array.from(
+      { length: 201 },
+      (_, index) => `integration-${index}`,
+    );
+    for (const integrationId of integrationIds) {
+      await getDomainTableMeta(integrationId, "tickers");
+    }
+
+    // Act
+    await getDomainTableMeta("integration-200", "tickers");
+    await getDomainTableMeta("integration-0", "tickers");
+
+    // Assert
+    expect(fetchMock).toHaveBeenCalledTimes(202);
+  });
+});
+
+describe("domain request handling", () => {
+  beforeEach(() => {
+    getDomainIntegrationByIntegrationId.mockReset();
+    vi.mocked(invalidateDomainIntegrationToken).mockClear();
+    vi.mocked(getBearerJwtForDomainIntegrationId).mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("retries a list request once with a fresh token after a 401", async () => {
+    // Setup
+    getDomainIntegrationByIntegrationId.mockResolvedValue(
+      buildTickersIntegration({ id: "retry-integration" }),
+    );
+    vi.mocked(getBearerJwtForDomainIntegrationId)
+      .mockResolvedValueOnce("stale-jwt")
+      .mockResolvedValueOnce("fresh-jwt");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ items: [], total: 0, page: 1, pageSize: 15 }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Act
+    const list = await getDomainTableList("mediapulse", "tickers", {
+      page: 1,
+      pageSize: 15,
+    });
+
+    // Assert
+    const retryInit = fetchMock.mock.calls[1]?.[1] as RequestInit;
+
+    expect(list.total).toBe(0);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(invalidateDomainIntegrationToken).toHaveBeenCalledWith(
+      "retry-integration",
+    );
+    expect(new Headers(retryInit.headers).get("Authorization")).toBe(
+      "Bearer fresh-jwt",
+    );
+  });
+
+  it("reports a domain timeout with the integration id", async () => {
+    // Setup
+    getDomainIntegrationByIntegrationId.mockResolvedValue(
+      buildTickersIntegration({ id: "timeout-integration" }),
+    );
+    vi.mocked(getBearerJwtForDomainIntegrationId).mockResolvedValue("jwt");
+    const timeoutError = new DOMException("timed out", "TimeoutError");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(timeoutError));
+
+    // Act
+    const request = getDomainTableItemById("mediapulse", "tickers", "a1");
+
+    // Assert
+    await expect(request).rejects.toThrow(
+      'Domain integration "mediapulse" did not respond within 10s',
+    );
+  });
+
+  it("uses the write timeout message for create requests", async () => {
+    // Setup
+    getDomainIntegrationByIntegrationId.mockResolvedValue(
+      buildTickersIntegration({ id: "write-timeout-integration" }),
+    );
+    vi.mocked(getBearerJwtForDomainIntegrationId).mockResolvedValue("jwt");
+    const timeoutError = new DOMException("timed out", "TimeoutError");
+    const fetchMock = vi.fn().mockRejectedValue(timeoutError);
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Act
+    const caughtError = await createDomainTableItem("mediapulse", "tickers", {
+      symbol: "BBCA",
+    }).catch((error: unknown) => error);
+
+    // Assert
+    const createInit = fetchMock.mock.calls[0]?.[1] as RequestInit;
+
+    expect(createInit.method).toBe("POST");
+    expect(caughtError).toBeInstanceOf(Error);
+    expect((caughtError as Error).message).toBe(
+      'Domain integration "mediapulse" did not respond within 30s',
+    );
+  });
+
+  it("returns a timeout message from custom action posts", async () => {
+    // Setup
+    vi.mocked(getBearerJwtForDomainIntegrationId).mockResolvedValue("jwt");
+    const timeoutError = new DOMException("timed out", "TimeoutError");
+    const fetchMock = vi.fn().mockRejectedValue(timeoutError);
+
+    // Act
+    const result = await callDomainCustomPost(
+      "http://localhost/v1/x",
+      { payloadJson: "{}" },
+      "di-1",
+      fetchMock,
+    );
+
+    // Assert
+    expect(result).toEqual({
+      ok: false,
+      message: 'Domain integration "di-1" did not respond within 30s',
+    });
   });
 });

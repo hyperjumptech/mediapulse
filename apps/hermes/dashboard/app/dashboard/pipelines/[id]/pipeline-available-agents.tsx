@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
@@ -49,7 +48,6 @@ const usePipelineAvailableAgentsState = (
   existingStepAgentKeys: string[],
   addStepFormAction: typeof defaultAddStepFormAction,
 ) => {
-  const router = useRouter();
   const [state, setState] = useState<unknown>(null);
   const [pending, setPending] = useState(false);
 
@@ -74,19 +72,11 @@ const usePipelineAvailableAgentsState = (
         );
         const result = await addStepFormAction(null, formData);
         setState(result);
-        if (
-          result &&
-          typeof result === "object" &&
-          "status" in result &&
-          (result as { status: boolean }).status === true
-        ) {
-          router.refresh();
-        }
       } finally {
         setPending(false);
       }
     },
-    [pipelineId, router, addStepFormAction],
+    [pipelineId, addStepFormAction],
   );
 
   const errorMessage =

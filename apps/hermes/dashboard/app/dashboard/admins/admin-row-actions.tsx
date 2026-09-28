@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import {
   DropdownMenu,
@@ -28,20 +27,10 @@ type AdminRowActionsProps = {
   currentUserId: string;
 };
 
-/**
- * Refresh router when a row mutation succeeds (delete or enable/disable).
- */
-const useRefreshOnMutationSuccess = (
-  deleteState: { status?: boolean } | null,
-  setActiveState: { status?: boolean } | null,
-) => {
-  const router = useRouter();
+const useResetPasswordDialogState = () => {
+  const [resetOpen, setResetOpen] = useState(false);
 
-  useEffect(() => {
-    if (deleteState?.status === true || setActiveState?.status === true) {
-      router.refresh();
-    }
-  }, [deleteState, router, setActiveState]);
+  return { resetOpen, setResetOpen };
 };
 
 /**
@@ -51,11 +40,9 @@ export const AdminRowActions = ({
   admin,
   currentUserId,
 }: AdminRowActionsProps) => {
-  const [resetOpen, setResetOpen] = useState(false);
+  const { resetOpen, setResetOpen } = useResetPasswordDialogState();
   const deleteAction = useDeleteFormAction();
   const setActiveAction = useSetActiveFormAction();
-
-  useRefreshOnMutationSuccess(deleteAction.state, setActiveAction.state);
 
   const { FormWithAction: DeleteForm, pending: deletePending } = deleteAction;
   const { FormWithAction: SetActiveForm, pending: setActivePending } =

@@ -1,6 +1,16 @@
-import { describe, expect, it } from "vitest";
+import Ajv from "ajv";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { validateWithJsonSchema } from "./validate-json-schema";
+
+const VALIDATOR_CACHE_CAPACITY = 256;
+
+const createNamedSchema = (title: string) => ({
+  title,
+  type: "object",
+  properties: { name: { type: "string" } },
+  required: ["name"],
+});
 
 describe("validateWithJsonSchema", () => {
   it("returns valid: true when data satisfies schema", () => {
@@ -174,5 +184,164 @@ describe("validateWithJsonSchema", () => {
       expect(result.errors.some((e) => e.includes("/retries"))).toBe(true);
       expect(result.errors.some((e) => e.includes("/replyTo"))).toBe(false);
     }
+  });
+
+  describe("compiled validator cache", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("compiles equal schema content once across distinct objects and key orders", () => {
+      // Setup
+      const compileSpy = vi.spyOn(Ajv.prototype, "compile");
+      const firstSchema = createNamedSchema("cache-equal-content");
+      const secondSchema = structuredClone(firstSchema);
+      const reorderedSchema = {
+        required: ["name"],
+        properties: { name: { type: "string" } },
+        type: "object",
+        title: "cache-equal-content",
+      };
+
+      // Act
+      const firstResult = validateWithJsonSchema(firstSchema, { name: "a" });
+      const secondResult = validateWithJsonSchema(secondSchema, {});
+      const reorderedResult = validateWithJsonSchema(reorderedSchema, {
+        name: "b",
+      });
+
+      // Assert
+      expect(compileSpy).toHaveBeenCalledTimes(1);
+      expect(firstResult).toEqual({ valid: true });
+      expect(secondResult).toEqual({
+        valid: false,
+        errors: ["/ must have required property 'name'"],
+      });
+      expect(reorderedResult).toEqual({ valid: true });
+    });
+
+    it("recompiles when schema content changes", () => {
+      // Setup
+      const compileSpy = vi.spyOn(Ajv.prototype, "compile");
+      const firstSchema = createNamedSchema("cache-changed-content");
+      const changedSchema = {
+        ...createNamedSchema("cache-changed-content"),
+        required: [],
+      };
+
+      // Act
+      const firstResult = validateWithJsonSchema(firstSchema, {});
+      const changedResult = validateWithJsonSchema(changedSchema, {});
+
+      // Assert
+      expect(compileSpy).toHaveBeenCalledTimes(2);
+      expect(firstResult.valid).toBe(false);
+      expect(changedResult).toEqual({ valid: true });
+    });
+
+    it("keeps at most 256 validators and removes the least recently used one from Ajv", () => {
+      // Setup
+      const schemas = Array.from(
+        { length: VALIDATOR_CACHE_CAPACITY + 1 },
+        (_, schemaIndex) => createNamedSchema(`cache-eviction-${schemaIndex}`),
+      );
+      const fillingSchemas = schemas.slice(0, VALIDATOR_CACHE_CAPACITY);
+      for (const schema of fillingSchemas) {
+        validateWithJsonSchema(schema, { name: "fill" });
+      }
+      const [firstSchema, secondSchema] = schemas;
+      const overflowSchema = schemas[VALIDATOR_CACHE_CAPACITY];
+      validateWithJsonSchema(firstSchema!, { name: "refresh" });
+      const compileSpy = vi.spyOn(Ajv.prototype, "compile");
+      const removeSchemaSpy = vi.spyOn(Ajv.prototype, "removeSchema");
+
+      // Act
+      validateWithJsonSchema(overflowSchema!, { name: "overflow" });
+      validateWithJsonSchema(firstSchema!, { name: "still cached" });
+      validateWithJsonSchema(secondSchema!, { name: "evicted" });
+
+      // Assert
+      expect(removeSchemaSpy).toHaveBeenNthCalledWith(1, secondSchema);
+      expect(compileSpy).toHaveBeenCalledTimes(2);
+      expect(compileSpy).toHaveBeenNthCalledWith(1, overflowSchema);
+      expect(compileSpy).toHaveBeenNthCalledWith(2, secondSchema);
+    });
+
+    it("keeps filtering placeholder-deferred errors on a cached validator", () => {
+      // Setup
+      const schema = {
+        type: "object",
+        title: "cache-placeholder",
+        properties: { replyTo: { type: "string", format: "email" } },
+      };
+      const compileSpy = vi.spyOn(Ajv.prototype, "compile");
+
+      // Act
+      const firstResult = validateWithJsonSchema(schema, {
+        replyTo: "{{RESEND_REPLY_TO}}",
+      });
+      const secondResult = validateWithJsonSchema(structuredClone(schema), {
+        replyTo: "{{RESEND_REPLY_TO}}",
+      });
+      const concreteResult = validateWithJsonSchema(structuredClone(schema), {
+        replyTo: "not-an-email",
+      });
+
+      // Assert
+      expect(compileSpy).toHaveBeenCalledTimes(1);
+      expect(firstResult).toEqual({ valid: true });
+      expect(secondResult).toEqual({ valid: true });
+      expect(concreteResult).toEqual({
+        valid: false,
+        errors: ['/replyTo must match format "email"'],
+      });
+    });
+
+    it("validates repeated schemas that carry the same $id without an already-exists error", () => {
+      // Setup
+      const schema = {
+        $id: "https://hermes.test/schemas/cache-shared-id",
+        type: "object",
+        properties: { name: { type: "string" } },
+        required: ["name"],
+      };
+      const changedSchema = {
+        ...structuredClone(schema),
+        properties: { name: { type: "string", minLength: 1 } },
+      };
+
+      // Act
+      const firstResult = validateWithJsonSchema(schema, { name: "a" });
+      const secondResult = validateWithJsonSchema(structuredClone(schema), {});
+      const changedResult = validateWithJsonSchema(changedSchema, {});
+
+      // Assert
+      expect(firstResult).toEqual({ valid: true });
+      expect(secondResult).toEqual({
+        valid: false,
+        errors: ["/ must have required property 'name'"],
+      });
+      expect(changedResult).toEqual({
+        valid: false,
+        errors: ["/ must have required property 'name'"],
+      });
+    });
+
+    it("does not cache a schema that fails to compile and releases it from Ajv", () => {
+      // Setup
+      const schema = { type: "not-a-type", title: "cache-invalid" };
+      const compileSpy = vi.spyOn(Ajv.prototype, "compile");
+      const removeSchemaSpy = vi.spyOn(Ajv.prototype, "removeSchema");
+
+      // Act
+      const firstResult = validateWithJsonSchema(schema, {});
+      const secondResult = validateWithJsonSchema(schema, {});
+
+      // Assert
+      expect(firstResult.valid).toBe(false);
+      expect(secondResult.valid).toBe(false);
+      expect(compileSpy).toHaveBeenCalledTimes(2);
+      expect(removeSchemaSpy).toHaveBeenCalledTimes(2);
+    });
   });
 });

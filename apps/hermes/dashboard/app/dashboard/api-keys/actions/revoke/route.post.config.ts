@@ -7,6 +7,7 @@ import {
 import { z } from "zod";
 
 import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { revokeApiKey } from "@/lib/mcp-api-keys";
 
 const bodyValidator = z.object({
@@ -51,4 +52,6 @@ export const createRevokeMcpApiKeyHandler = ({
 };
 
 /** Route handler for revoking an MCP API key. */
-export const handler: RevokeMcpApiKeyHandler = createRevokeMcpApiKeyHandler();
+export const handler: RevokeMcpApiKeyHandler = withDashboardRevalidation(
+  createRevokeMcpApiKeyHandler(),
+);

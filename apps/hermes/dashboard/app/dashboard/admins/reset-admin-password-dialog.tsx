@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { useRouter } from "next/navigation";
 
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -25,13 +24,12 @@ type ResetAdminPasswordDialogProps = {
 };
 
 /**
- * Dialog state, password confirmation, and reset-password form action with refresh on success.
+ * Dialog state, password confirmation, and reset-password form action with close on success.
  */
 const useResetAdminPasswordDialogState = ({
   open,
   onOpenChange,
 }: Pick<ResetAdminPasswordDialogProps, "open" | "onOpenChange">) => {
-  const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
 
   const errorMessage = useMemo(
@@ -46,7 +44,6 @@ const useResetAdminPasswordDialogState = ({
     isSuccess: (nextState) => Boolean(nextState && nextState.status === true),
     onSuccess: () => {
       onOpenChange(false);
-      router.refresh();
     },
   });
 

@@ -57,7 +57,6 @@ const createMockExecution = (
   jobsEnqueued: 2,
   succeededInvocationCount: 2,
   failedInvocationCount: 0,
-  errors: null,
   createdAt: new Date(),
   ...overrides,
 });

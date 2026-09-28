@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { getPipelineWithSteps } from "@/lib/pipelines";
 import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";
 import { createTokenHint, hashHttpTriggerToken } from "@/lib/http-trigger-auth";
@@ -78,5 +79,6 @@ export const createCreateHttpTriggerHandler = ({
   };
 };
 
-export const handler: CreateHttpTriggerHandler =
-  createCreateHttpTriggerHandler();
+export const handler: CreateHttpTriggerHandler = withDashboardRevalidation(
+  createCreateHttpTriggerHandler(),
+);

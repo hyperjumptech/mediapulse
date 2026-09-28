@@ -8,7 +8,7 @@ import {
   getDashboardSession,
   HERMES_DASHBOARD_CLEAR_SESSION_PATH,
 } from "@/lib/auth-dashboard";
-import { getActiveDomainIntegrations } from "@/lib/domain-integrations";
+import { getActiveDomainIntegrationsCached } from "@/lib/domain-integrations";
 import { mergeDomainIntegrationNavViews } from "@/lib/merge-domain-integration-nav-pages";
 import { getDashboardAdmin } from "@/lib/require-dashboard-admin";
 
@@ -19,7 +19,7 @@ const loadDomainIntegrationNav = async (): Promise<DomainIntegrationNav[]> => {
   }
 
   try {
-    const integrations = await getActiveDomainIntegrations();
+    const integrations = await getActiveDomainIntegrationsCached();
 
     return integrations.map((integration) => ({
       integrationId: integration.integrationId,

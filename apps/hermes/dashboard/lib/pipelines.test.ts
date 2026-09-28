@@ -4,7 +4,6 @@ import {
   getAgentRegistryList,
   getPipelineWithSteps,
   getPipelinesPage,
-  getPipelinesWithSteps,
 } from "./pipelines";
 import type { PrismaClientWithSchema } from "@hermes/orchestration-database/client";
 
@@ -34,42 +33,12 @@ const createMockDb = (): MockDb => ({
 const asDb = (db: MockDb): PrismaClientWithSchema =>
   db as unknown as PrismaClientWithSchema;
 
-describe("getPipelinesWithSteps", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("calls pipeline.findMany with include steps and orderBy updatedAt desc", async () => {
-    const db = createMockDb();
-    db.pipeline.findMany.mockResolvedValue([]);
-
-    await getPipelinesWithSteps(asDb(db));
-
-    expect(db.pipeline.findMany).toHaveBeenCalledWith({
-      include: {
-        steps: { orderBy: { order: "asc" } },
-        createdBy: { select: { id: true, name: true, email: true } },
-      },
-      orderBy: { updatedAt: "desc" },
-    });
-  });
-
-  it("returns the result of findMany", async () => {
-    const db = createMockDb();
-    const pipelines = [
-      {
-        id: "p1",
-        name: "P1",
-        steps: [{ id: "s1", order: 0 }],
-      },
-    ];
-    db.pipeline.findMany.mockResolvedValue(pipelines);
-
-    const result = await getPipelinesWithSteps(asDb(db));
-
-    expect(result).toEqual(pipelines);
-  });
-});
+const agentRegistryListSelect = {
+  id: true,
+  agentId: true,
+  agentVersion: true,
+  description: true,
+};
 
 describe("getPipelinesPage", () => {
   afterEach(() => {
@@ -140,6 +109,7 @@ describe("getAgentRegistryList", () => {
 
     expect(db.agentRegistry.findMany).toHaveBeenCalledWith({
       where: { isActive: true },
+      select: agentRegistryListSelect,
       orderBy: [{ agentId: "asc" }, { agentVersion: "asc" }],
     });
   });
@@ -152,6 +122,7 @@ describe("getAgentRegistryList", () => {
 
     expect(db.agentRegistry.findMany).toHaveBeenCalledWith({
       where: { isActive: true, domainIntegrationId: "di-1" },
+      select: agentRegistryListSelect,
       orderBy: [{ agentId: "asc" }, { agentVersion: "asc" }],
     });
   });

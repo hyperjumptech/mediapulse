@@ -9,8 +9,7 @@ const getScheduleExecutionsPageMock = vi.fn().mockResolvedValue({
   page: 1,
   pageSize: 15,
 });
-const getPipelinesWithStepsMock = vi.fn();
-const getPipelinesValidationMapMock = vi.fn();
+const getPipelineOptionsWithValidationMock = vi.fn();
 const notFoundMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -34,16 +33,10 @@ vi.mock("@/lib/schedules", () => ({
     getScheduleExecutionsPageMock(...args),
 }));
 
-vi.mock("@/lib/pipelines", () => ({
-  getPipelinesWithSteps: () => getPipelinesWithStepsMock(),
+vi.mock("@/lib/pipeline-options", () => ({
+  getPipelineOptionsWithValidation: () =>
+    getPipelineOptionsWithValidationMock(),
 }));
-
-vi.mock("@/lib/validate-pipeline", () => ({
-  getPipelinesValidationMap: (...args: unknown[]) =>
-    getPipelinesValidationMapMock(...args),
-}));
-
-vi.mock("@hermes/orchestration-database", () => ({ prisma: {} }));
 
 vi.mock("./schedule-executions-section", () => ({
   ScheduleExecutionsSection: ({
@@ -94,8 +87,7 @@ describe("ScheduleDetailPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     getScheduleByIdMock.mockReset();
-    getPipelinesWithStepsMock.mockReset();
-    getPipelinesValidationMapMock.mockReset();
+    getPipelineOptionsWithValidationMock.mockReset();
     notFoundMock.mockReset();
   });
 
@@ -106,9 +98,9 @@ describe("ScheduleDetailPage", () => {
       name: "Daily Run",
       pipeline: { id: "p1", name: "Pipeline" },
     });
-    getPipelinesWithStepsMock.mockResolvedValue([{ id: "p1" }]);
-    getPipelinesValidationMapMock.mockResolvedValue({
-      p1: { valid: true, warnings: [] },
+    getPipelineOptionsWithValidationMock.mockResolvedValue({
+      pipelines: [{ id: "p1", name: "Pipeline", isActive: true }],
+      pipelineValidationById: { p1: { valid: true, warnings: [] } },
     });
 
     // Act
@@ -134,8 +126,10 @@ describe("ScheduleDetailPage", () => {
       name: "Test",
       pipeline: { id: "p1", name: "P" },
     });
-    getPipelinesWithStepsMock.mockResolvedValue([]);
-    getPipelinesValidationMapMock.mockResolvedValue({});
+    getPipelineOptionsWithValidationMock.mockResolvedValue({
+      pipelines: [],
+      pipelineValidationById: {},
+    });
 
     // Act
     const component = await ScheduleDetailPage({
@@ -155,7 +149,10 @@ describe("ScheduleDetailPage", () => {
   it("calls notFound when schedule does not exist", async () => {
     // Setup
     getScheduleByIdMock.mockResolvedValue(null);
-    getPipelinesWithStepsMock.mockResolvedValue([]);
+    getPipelineOptionsWithValidationMock.mockResolvedValue({
+      pipelines: [],
+      pipelineValidationById: {},
+    });
     notFoundMock.mockImplementation(() => {
       throw new Error("NEXT_NOT_FOUND");
     });
@@ -170,6 +167,5 @@ describe("ScheduleDetailPage", () => {
 
     // Assert
     expect(notFoundMock).toHaveBeenCalled();
-    expect(getPipelinesValidationMapMock).not.toHaveBeenCalled();
   });
 });

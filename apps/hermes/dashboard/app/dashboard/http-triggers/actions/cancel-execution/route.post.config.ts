@@ -12,6 +12,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { getHermesJobQueue } from "@/lib/hermes-job-queue";
 
 const bodyValidator = z.object({
@@ -77,4 +78,4 @@ export const createCancelHttpTriggerExecutionHandler = ({
 };
 
 export const handler: CancelHttpTriggerExecutionHandler =
-  createCancelHttpTriggerExecutionHandler();
+  withDashboardRevalidation(createCancelHttpTriggerExecutionHandler());

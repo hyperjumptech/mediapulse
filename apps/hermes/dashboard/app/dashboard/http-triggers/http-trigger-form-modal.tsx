@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import {
   Dialog,
@@ -33,7 +32,6 @@ const useHttpTriggerFormModalState = ({
   editHttpTriggerId,
   onOpenChange,
 }: HttpTriggerFormModalProps) => {
-  const router = useRouter();
   const [httpTrigger, setHttpTrigger] = useState<
     HttpTriggerForEdit | null | "loading"
   >(null);
@@ -76,7 +74,6 @@ const useHttpTriggerFormModalState = ({
       ),
     onSuccess: () => {
       onOpenChange(false);
-      router.refresh();
     },
   });
 

@@ -4,8 +4,21 @@ import {
   type DashboardView,
 } from "@hermes/domain-contract";
 
-import { getBearerJwtForDomainIntegrationId } from "@/lib/domain-integration-auth-token";
-import { getDomainIntegrationByIntegrationId } from "@/lib/domain-integrations";
+import { requestDomainIntegration } from "@/lib/domain-integration-request";
+import {
+  getDomainIntegrationByIntegrationId,
+  type DomainIntegrationRecord,
+} from "@/lib/domain-integrations";
+
+type ContentDashboardView = Extract<
+  DashboardView,
+  { kind: "markdown" | "html" | "text" }
+>;
+
+type AgentTabContent = {
+  view: DashboardView;
+  content: ContentViewResponse;
+};
 
 /**
  * Returns agent-tab views from an integration manifest that apply to the given agent id.
@@ -28,6 +41,39 @@ export const filterAgentTabViewsForAgent = (
     )
     .sort((a, b) => a.order - b.order);
 
+const fetchContentViewForIntegration = async (
+  integration: DomainIntegrationRecord,
+  view: ContentDashboardView,
+  agentId: string | undefined,
+): Promise<ContentViewResponse> => {
+  const baseUrl = integration.baseUrl.replace(/\/$/, "");
+  const url = new URL(`${baseUrl}${view.apiPrefix}`);
+  if (agentId) {
+    url.searchParams.set("agentId", agentId);
+  }
+
+  return requestDomainIntegration(
+    {
+      url: url.toString(),
+      domainIntegrationId: integration.id,
+      integrationLabel: integration.integrationId,
+      init: { headers: { Accept: "application/json" } },
+    },
+    async (response) => {
+      if (!response.ok) {
+        const responseText = await response.text();
+        throw new Error(
+          `Domain content view failed (${response.status}): ${responseText}`,
+        );
+      }
+
+      const json: unknown = await response.json();
+
+      return contentViewResponseSchema.parse(json);
+    },
+  );
+};
+
 /**
  * Fetches rendered content for a markdown, html, or text dashboard view.
  *
@@ -36,41 +82,42 @@ export const filterAgentTabViewsForAgent = (
  */
 export const fetchDomainContentView = async (input: {
   integrationId: string;
-  view: Extract<DashboardView, { kind: "markdown" | "html" | "text" }>;
+  view: ContentDashboardView;
   agentId?: string;
+  integration?: DomainIntegrationRecord;
 }): Promise<ContentViewResponse> => {
-  const integration = await getDomainIntegrationByIntegrationId(
-    input.integrationId,
-  );
+  const integration =
+    input.integration ??
+    (await getDomainIntegrationByIntegrationId(input.integrationId));
   if (!integration) {
     throw new Error(
       `Domain integration "${input.integrationId}" is not active or not registered`,
     );
   }
 
-  const baseUrl = integration.baseUrl.replace(/\/$/, "");
-  const url = new URL(`${baseUrl}${input.view.apiPrefix}`);
-  if (input.agentId) {
-    url.searchParams.set("agentId", input.agentId);
-  }
+  return fetchContentViewForIntegration(integration, input.view, input.agentId);
+};
 
-  const token = await getBearerJwtForDomainIntegrationId(integration.id);
-  const response = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-    },
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `Domain content view failed (${response.status}): ${await response.text()}`,
+const loadAgentTabContent = async (
+  integration: DomainIntegrationRecord,
+  view: ContentDashboardView,
+  agentId: string,
+): Promise<AgentTabContent> => {
+  try {
+    const content = await fetchContentViewForIntegration(
+      integration,
+      view,
+      agentId,
     );
-  }
 
-  const json: unknown = await response.json();
-  return contentViewResponseSchema.parse(json);
+    return { view, content };
+  } catch (error) {
+    console.error(
+      `Could not load agent tab "${view.id}" from domain integration "${integration.integrationId}"`,
+      error,
+    );
+    throw error;
+  }
 };
 
 /**
@@ -83,12 +130,7 @@ export const fetchDomainContentView = async (input: {
 export const fetchAgentTabContents = async (
   integrationId: string,
   agentId: string,
-): Promise<
-  Array<{
-    view: DashboardView;
-    content: ContentViewResponse;
-  }>
-> => {
+): Promise<AgentTabContent[]> => {
   const integration = await getDomainIntegrationByIntegrationId(integrationId);
   if (!integration) {
     return [];
@@ -98,22 +140,23 @@ export const fetchAgentTabContents = async (
     integration.dashboard.views,
     agentId,
   ).filter(
-    (
-      view,
-    ): view is Extract<DashboardView, { kind: "markdown" | "html" | "text" }> =>
+    (view): view is ContentDashboardView =>
       view.kind === "markdown" || view.kind === "html" || view.kind === "text",
   );
 
-  const results = await Promise.all(
-    tabViews.map(async (view) => ({
-      view,
-      content: await fetchDomainContentView({
-        integrationId,
-        view,
-        agentId,
-      }),
-    })),
+  const settledTabs = await Promise.allSettled(
+    tabViews.map((view) => loadAgentTabContent(integration, view, agentId)),
   );
+  const loadedTabs = settledTabs.flatMap((settledTab) =>
+    settledTab.status === "fulfilled" ? [settledTab.value] : [],
+  );
+  const firstFailedTab = settledTabs.find(
+    (settledTab): settledTab is PromiseRejectedResult =>
+      settledTab.status === "rejected",
+  );
+  if (loadedTabs.length === 0 && firstFailedTab) {
+    throw firstFailedTab.reason;
+  }
 
-  return results;
+  return loadedTabs;
 };

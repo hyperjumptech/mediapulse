@@ -4,15 +4,11 @@ import { useCallback, useState } from "react";
 
 import { Button } from "@workspace/ui/components/button";
 
-import type { getPipelinesWithSteps } from "@/lib/pipelines";
+import type { PipelineSummary } from "@/lib/pipeline-summaries";
 import type { PipelineValidationResult } from "@/lib/validate-pipeline";
 
 import { PipelineFormModal } from "./pipeline-form-modal";
 import { PipelinesTable } from "./pipelines-table";
-
-type PipelineWithSteps = Awaited<
-  ReturnType<typeof getPipelinesWithSteps>
->[number];
 
 /** Row for domain integration `<select>` in pipeline create/edit modal. */
 export type PipelineDomainIntegrationOption = {
@@ -22,7 +18,7 @@ export type PipelineDomainIntegrationOption = {
 };
 
 export type PipelinesWithModalProps = {
-  pipelines: PipelineWithSteps[];
+  pipelines: PipelineSummary[];
   pipelineValidationById: Record<string, PipelineValidationResult>;
   domainIntegrations: PipelineDomainIntegrationOption[];
 };

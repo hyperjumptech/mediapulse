@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 import { buildHttpTriggerInvokeCurlCommand } from "@/lib/http-trigger-invoke-curl";
-import { useRouter } from "next/navigation";
 import { Copy, MoreHorizontal, Pencil } from "lucide-react";
 
 import { Button } from "@workspace/ui/components/button";
@@ -17,13 +16,8 @@ import { DeleteConfirmForm } from "@/components/delete-confirm-form";
 import { useFormAction } from "@/app/dashboard/http-triggers/actions/delete/.generated/use-form-action";
 
 const useHttpTriggerRowActions = () => {
-  const router = useRouter();
-  const { FormWithAction, pending, state } = useFormAction();
-  useEffect(() => {
-    if (state && state.status === true) {
-      router.refresh();
-    }
-  }, [router, state]);
+  const { FormWithAction, pending } = useFormAction();
+
   return { FormWithAction, pending };
 };
 

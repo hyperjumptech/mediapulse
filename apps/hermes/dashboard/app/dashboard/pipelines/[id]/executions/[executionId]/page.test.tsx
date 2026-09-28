@@ -2,10 +2,12 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { ManualPipelineExecutionDetail } from "@/lib/pipeline-executions";
+import type { ScheduleExecutionInvocationsTableProps } from "@/components/schedule-execution-invocations-table";
+import type { ManualPipelineExecutionSummary } from "@/lib/pipeline-executions";
 
-const getManualPipelineExecutionDetailMock = vi.fn();
+const getManualPipelineExecutionSummaryMock = vi.fn();
 const notFoundMock = vi.fn();
+const invocationsTablePropsMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   notFound: () => notFoundMock(),
@@ -13,8 +15,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/pipeline-executions", () => ({
-  getManualPipelineExecutionDetail: (...args: unknown[]) =>
-    getManualPipelineExecutionDetailMock(...args),
+  getManualPipelineExecutionSummary: (...args: unknown[]) =>
+    getManualPipelineExecutionSummaryMock(...args),
 }));
 
 vi.mock("@/lib/require-dashboard-admin", () => ({
@@ -28,7 +30,7 @@ vi.mock("@/lib/require-dashboard-admin", () => ({
 }));
 
 vi.mock("@/lib/mask-json-secrets", () => ({
-  maskManualPipelineExecutionDetailForDisplay: (detail: unknown) => detail,
+  maskExecutionSummaryForDisplay: (summary: unknown) => summary,
   maskSecretsInJson: (value: unknown) => value,
 }));
 
@@ -39,21 +41,21 @@ vi.mock("@/lib/compute-execution-elapsed", () => ({
   formatPipelineElapsedLabel: vi.fn().mockReturnValue("—"),
 }));
 
-vi.mock("@/lib/format-invocation-outcome-summary", () => ({
-  formatInvocationOutcomeSummary: vi.fn().mockReturnValue(null),
-}));
-
 vi.mock("@/components/schedule-execution-invocations-table", () => ({
-  ScheduleExecutionInvocationsTable: () => (
-    <div data-testid="invocations-stub">Invocations</div>
-  ),
+  ScheduleExecutionInvocationsTable: (
+    props: ScheduleExecutionInvocationsTableProps,
+  ) => {
+    invocationsTablePropsMock(props);
+
+    return <div data-testid="invocations-stub">Invocations</div>;
+  },
 }));
 
 import PipelineExecutionDetailPage from "./page";
 
 const ROUTE_ENQUEUE_ERROR_MESSAGE = "MANUAL_PIPELINE_ROUTE_ENQUEUE_FAIL";
 
-const minimalFailedDetail = (): ManualPipelineExecutionDetail => ({
+const minimalFailedSummary = (): ManualPipelineExecutionSummary => ({
   execution: {
     id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
     executionTime: new Date("2026-04-21T12:00:00.000Z"),
@@ -81,13 +83,14 @@ const minimalFailedDetail = (): ManualPipelineExecutionDetail => ({
 describe("PipelineExecutionDetailPage (manual execution)", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    getManualPipelineExecutionDetailMock.mockReset();
+    getManualPipelineExecutionSummaryMock.mockReset();
     notFoundMock.mockReset();
+    invocationsTablePropsMock.mockReset();
   });
 
   it("renders enqueue diagnostics region with persisted errors for failed enqueue", async () => {
-    getManualPipelineExecutionDetailMock.mockResolvedValue(
-      minimalFailedDetail(),
+    getManualPipelineExecutionSummaryMock.mockResolvedValue(
+      minimalFailedSummary(),
     );
 
     const ui = await PipelineExecutionDetailPage({
@@ -108,5 +111,61 @@ describe("PipelineExecutionDetailPage (manual execution)", () => {
     expect(screen.getByText("failed")).toBeInTheDocument();
     expect(screen.getByText(/Invocation transport:/)).toBeInTheDocument();
     expect(screen.getByText(/Dashboard HTTP/)).toBeInTheDocument();
+  });
+
+  it("passes scalar invocation rows and the manual payload scope to the table", async () => {
+    // Setup
+    getManualPipelineExecutionSummaryMock.mockResolvedValue({
+      ...minimalFailedSummary(),
+      invocations: [
+        {
+          jobId: "job-1",
+          status: "completed",
+          semanticStatus: "success",
+          agentId: "agent-a",
+          outcomeSummary: null,
+          enqueuedAt: new Date("2026-04-21T12:00:00.000Z"),
+          startedAt: new Date("2026-04-21T12:00:01.000Z"),
+          completedAt: new Date("2026-04-21T12:00:04.000Z"),
+          dataQueueAttempts: null,
+          dataQueueMaxAttempts: null,
+        },
+      ],
+    } satisfies ManualPipelineExecutionSummary);
+
+    // Act
+    const ui = await PipelineExecutionDetailPage({
+      params: Promise.resolve({
+        id: "pipe-1",
+        executionId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      }),
+    });
+    render(ui as React.ReactElement);
+
+    // Assert
+    expect(getManualPipelineExecutionSummaryMock).toHaveBeenCalledWith(
+      "pipe-1",
+      "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    );
+    expect(invocationsTablePropsMock).toHaveBeenCalledWith({
+      invocations: [
+        {
+          jobId: "job-1",
+          status: "completed",
+          semanticStatus: "success",
+          outcomeSummary: null,
+          agentId: "agent-a",
+          startedAtIso: "2026-04-21T12:00:01.000Z",
+          completedAtIso: "2026-04-21T12:00:04.000Z",
+          dataQueueAttempts: null,
+          dataQueueMaxAttempts: null,
+        },
+      ],
+      payloadSource: {
+        kind: "manual",
+        parentId: "pipe-1",
+        executionId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      },
+    });
   });
 });

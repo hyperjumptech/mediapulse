@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { configSchemaFingerprint } from "@/lib/config-schema-fingerprint";
 import { validateWithJsonSchema } from "@/lib/validate-json-schema";
 
@@ -121,5 +122,6 @@ export const createUpdateAgentConfigHandler = ({
 /**
  * Handles update agent config: validates session, config schema; updates fingerprint.
  */
-export const handler: UpdateAgentConfigHandler =
-  createUpdateAgentConfigHandler();
+export const handler: UpdateAgentConfigHandler = withDashboardRevalidation(
+  createUpdateAgentConfigHandler(),
+);

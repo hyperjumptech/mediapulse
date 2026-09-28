@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
 import { Button } from "@workspace/ui/components/button";
@@ -21,17 +20,10 @@ export type RunPipelineButtonProps = {
 };
 
 /**
- * Encapsulates run-pipeline form action, refresh-on-success, and navigation guard while the action is pending.
+ * Encapsulates run-pipeline form action and navigation guard while the action is pending.
  */
 const useRunPipelineButtonState = () => {
-  const router = useRouter();
   const { FormWithAction, state, pending } = useFormAction();
-
-  useEffect(() => {
-    if (state && state.status === true) {
-      router.refresh();
-    }
-  }, [state, router]);
 
   useEffect(() => {
     if (!pending) {

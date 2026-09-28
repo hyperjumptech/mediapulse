@@ -209,7 +209,7 @@ describe("AddAgentModal", () => {
     );
   });
 
-  it("calls router.refresh on success", async () => {
+  it("closes the dialog without calling router.refresh on success", async () => {
     // Setup
     const mock = await getUseFormActionMock();
     mock.mockReturnValueOnce(
@@ -230,6 +230,7 @@ describe("AddAgentModal", () => {
     rerender(<AddAgentModal />);
 
     // Assert
-    expect(routerRefreshMock).toHaveBeenCalled();
+    expect(screen.getByTestId("dialog")).toHaveAttribute("data-open", "false");
+    expect(routerRefreshMock).not.toHaveBeenCalled();
   });
 });

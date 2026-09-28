@@ -18,11 +18,10 @@ import {
   computePipelineWallElapsed,
   formatPipelineElapsedLabel,
 } from "@/lib/compute-execution-elapsed";
-import { formatInvocationOutcomeSummary } from "@/lib/format-invocation-outcome-summary";
 import { getHermesExecutionInvokeTransportBlurb } from "@/lib/hermes-execution-invoke-transport";
-import { maskScheduleExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
+import { maskExecutionSummaryForDisplay } from "@/lib/mask-json-secrets";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
-import { getScheduleExecutionDetail } from "@/lib/schedules";
+import { getScheduleExecutionSummary } from "@/lib/schedules";
 
 type PageProps = {
   params: Promise<{ id: string; executionId: string }>;
@@ -35,22 +34,29 @@ export default async function ScheduleExecutionDetailPage({
   params,
 }: PageProps) {
   const { id: scheduleId, executionId } = await params;
-  const rawDetail = await withDashboardAdmin(
-    getScheduleExecutionDetail(scheduleId, executionId),
+  const summary = await withDashboardAdmin(
+    getScheduleExecutionSummary(scheduleId, executionId),
   );
-  if (!rawDetail) {
+  if (!summary) {
     notFound();
   }
   const pipelineElapsed = computePipelineWallElapsed(
-    rawDetail.invocations.map((job) => ({
-      enqueuedAt: job.enqueuedAt,
-      startedAt: job.startedAt,
-      completedAt: job.completedAt,
-    })),
-    rawDetail.execution.runStatus,
+    summary.invocations,
+    summary.execution.runStatus,
   );
-  const detail = maskScheduleExecutionDetailForDisplay(rawDetail);
+  const detail = maskExecutionSummaryForDisplay(summary);
   const invokeTransport = getHermesExecutionInvokeTransportBlurb("schedule");
+  const invocationRows = detail.invocations.map((invocation) => ({
+    jobId: invocation.jobId,
+    status: invocation.status,
+    semanticStatus: invocation.semanticStatus,
+    outcomeSummary: invocation.outcomeSummary,
+    agentId: invocation.agentId,
+    startedAtIso: invocation.startedAt?.toISOString() ?? null,
+    completedAtIso: invocation.completedAt?.toISOString() ?? null,
+    dataQueueAttempts: invocation.dataQueueAttempts,
+    dataQueueMaxAttempts: invocation.dataQueueMaxAttempts,
+  }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -186,22 +192,12 @@ export default async function ScheduleExecutionDetailPage({
       <section>
         <h2 className="mb-2 text-lg font-medium">Invocations</h2>
         <ScheduleExecutionInvocationsTable
-          invocations={detail.invocations.map((j) => ({
-            jobId: j.jobId,
-            status: j.status,
-            semanticStatus: j.semanticStatus,
-            outcomeSummary:
-              formatInvocationOutcomeSummary(j.error, j.agentResponse) ?? null,
-            transportError: j.error,
-            agentResponse: j.agentResponse,
-            inputMasked: j.params,
-            configMasked: j.invocationConfig,
-            agentId: j.agentId,
-            startedAtIso: j.startedAt?.toISOString() ?? null,
-            completedAtIso: j.completedAt?.toISOString() ?? null,
-            dataQueueAttempts: j.dataQueueAttempts,
-            dataQueueMaxAttempts: j.dataQueueMaxAttempts,
-          }))}
+          invocations={invocationRows}
+          payloadSource={{
+            kind: "schedule",
+            parentId: scheduleId,
+            executionId,
+          }}
         />
       </section>
     </div>

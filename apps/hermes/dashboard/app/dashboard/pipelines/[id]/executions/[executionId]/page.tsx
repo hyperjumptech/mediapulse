@@ -18,13 +18,12 @@ import {
   computePipelineWallElapsed,
   formatPipelineElapsedLabel,
 } from "@/lib/compute-execution-elapsed";
-import { formatInvocationOutcomeSummary } from "@/lib/format-invocation-outcome-summary";
 import {
   formatManualExecutionMetadataHints,
   getHermesExecutionInvokeTransportBlurb,
 } from "@/lib/hermes-execution-invoke-transport";
-import { maskManualPipelineExecutionDetailForDisplay } from "@/lib/mask-json-secrets";
-import { getManualPipelineExecutionDetail } from "@/lib/pipeline-executions";
+import { maskExecutionSummaryForDisplay } from "@/lib/mask-json-secrets";
+import { getManualPipelineExecutionSummary } from "@/lib/pipeline-executions";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 /**
@@ -36,26 +35,33 @@ export default async function PipelineExecutionDetailPage({
   params: Promise<{ id: string; executionId: string }>;
 }) {
   const { id: pipelineId, executionId } = await params;
-  const rawDetail = await withDashboardAdmin(
-    getManualPipelineExecutionDetail(pipelineId, executionId),
+  const summary = await withDashboardAdmin(
+    getManualPipelineExecutionSummary(pipelineId, executionId),
   );
-  if (!rawDetail) notFound();
+  if (!summary) notFound();
 
   const pipelineElapsed = computePipelineWallElapsed(
-    rawDetail.invocations.map((job) => ({
-      enqueuedAt: job.enqueuedAt,
-      startedAt: job.startedAt,
-      completedAt: job.completedAt,
-    })),
-    rawDetail.execution.runStatus,
+    summary.invocations,
+    summary.execution.runStatus,
   );
 
-  const detail = maskManualPipelineExecutionDetailForDisplay(rawDetail);
+  const detail = maskExecutionSummaryForDisplay(summary);
   const invokeTransport =
     getHermesExecutionInvokeTransportBlurb("manual-pipeline");
   const metadataHints = formatManualExecutionMetadataHints(
     detail.execution.metadata,
   );
+  const invocationRows = detail.invocations.map((invocation) => ({
+    jobId: invocation.jobId,
+    status: invocation.status,
+    semanticStatus: invocation.semanticStatus,
+    outcomeSummary: invocation.outcomeSummary,
+    agentId: invocation.agentId,
+    startedAtIso: invocation.startedAt?.toISOString() ?? null,
+    completedAtIso: invocation.completedAt?.toISOString() ?? null,
+    dataQueueAttempts: invocation.dataQueueAttempts,
+    dataQueueMaxAttempts: invocation.dataQueueMaxAttempts,
+  }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -175,23 +181,12 @@ export default async function PipelineExecutionDetailPage({
       <section>
         <h2 className="mb-2 text-lg font-medium">Invocations</h2>
         <ScheduleExecutionInvocationsTable
-          invocations={detail.invocations.map((job) => ({
-            jobId: job.jobId,
-            status: job.status,
-            semanticStatus: job.semanticStatus,
-            outcomeSummary:
-              formatInvocationOutcomeSummary(job.error, job.agentResponse) ??
-              null,
-            transportError: job.error,
-            agentResponse: job.agentResponse,
-            inputMasked: job.params,
-            configMasked: job.invocationConfig,
-            agentId: job.agentId,
-            startedAtIso: job.startedAt?.toISOString() ?? null,
-            completedAtIso: job.completedAt?.toISOString() ?? null,
-            dataQueueAttempts: job.dataQueueAttempts,
-            dataQueueMaxAttempts: job.dataQueueMaxAttempts,
-          }))}
+          invocations={invocationRows}
+          payloadSource={{
+            kind: "manual",
+            parentId: pipelineId,
+            executionId,
+          }}
         />
       </section>
     </div>

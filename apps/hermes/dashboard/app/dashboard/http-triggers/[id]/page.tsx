@@ -10,7 +10,7 @@ import {
   parseListPagination,
   type ListPageSearchParams,
 } from "@/lib/list-page-params";
-import { getPipelinesWithSteps } from "@/lib/pipelines";
+import { getPipelineOptions } from "@/lib/pipeline-options";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 import { HttpTriggerDetailContent } from "./http-trigger-detail-content";
@@ -36,7 +36,7 @@ const HttpTriggerDetailPage = async ({
   const executionsPage = getHttpTriggerExecutionsPage(id, page, pageSize);
   void executionsPage.catch(() => undefined);
   const [trigger, pipelines] = await withDashboardAdmin(
-    Promise.all([getHttpTriggerById(id), getPipelinesWithSteps()]),
+    Promise.all([getHttpTriggerById(id), getPipelineOptions()]),
   );
 
   if (!trigger) {

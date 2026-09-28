@@ -4,6 +4,7 @@ import {
 } from "@hermes/domain-contract";
 import { env } from "@hermes/env";
 import { NextResponse } from "next/server";
+import { invalidateDomainIntegrationToken } from "@/lib/domain-integration-auth-token";
 import { registerDomainIntegration } from "@/lib/domain-integrations";
 
 const getToken = (request: Request): string | null => {
@@ -45,6 +46,8 @@ export async function POST(request: Request) {
 
   try {
     const registered = await registerDomainIntegration(body.data, token);
+    invalidateDomainIntegrationToken(registered.id);
+
     return NextResponse.json(
       registerDomainIntegrationResponseSchema.parse(registered),
     );

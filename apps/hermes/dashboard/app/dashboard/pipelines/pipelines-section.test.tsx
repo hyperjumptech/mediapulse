@@ -2,8 +2,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const getPipelinesWithStepsMock = vi.fn();
-const getPipelinesValidationMapMock = vi.fn();
+const getPipelineSummariesWithValidationMock = vi.fn();
 
 const { findManyDomainIntegrations } = vi.hoisted(() => ({
   findManyDomainIntegrations: vi.fn(),
@@ -13,13 +12,9 @@ vi.mock("@/lib/require-dashboard-admin", () => ({
   withDashboardAdmin: <Value,>(load: Promise<Value>) => load,
 }));
 
-vi.mock("@/lib/pipelines", () => ({
-  getPipelinesWithSteps: () => getPipelinesWithStepsMock(),
-}));
-
-vi.mock("@/lib/validate-pipeline", () => ({
-  getPipelinesValidationMap: (...args: unknown[]) =>
-    getPipelinesValidationMapMock(...args),
+vi.mock("@/lib/pipeline-summaries", () => ({
+  getPipelineSummariesWithValidation: () =>
+    getPipelineSummariesWithValidationMock(),
 }));
 
 vi.mock("@hermes/orchestration-database", () => ({
@@ -33,14 +28,17 @@ vi.mock("@hermes/orchestration-database", () => ({
 vi.mock("./pipelines-with-modal", () => ({
   PipelinesWithModal: ({
     pipelines,
+    pipelineValidationById,
     domainIntegrations,
   }: {
     pipelines: Array<{ id: string; name: string }>;
+    pipelineValidationById: Record<string, { valid: boolean }>;
     domainIntegrations: unknown[];
   }) => (
     <div
       data-testid="pipelines-with-modal"
       data-count={pipelines.length}
+      data-validation-keys={Object.keys(pipelineValidationById).join(",")}
       data-domain-count={domainIntegrations.length}
     >
       Pipelines
@@ -52,17 +50,25 @@ import { PipelinesSection } from "./pipelines-section";
 
 describe("PipelinesSection", () => {
   afterEach(() => {
-    getPipelinesWithStepsMock.mockReset();
-    getPipelinesValidationMapMock.mockReset();
+    getPipelineSummariesWithValidationMock.mockReset();
     findManyDomainIntegrations.mockReset();
   });
 
   it("renders pipelines with modal and domain integrations", async () => {
     // Setup
-    getPipelinesWithStepsMock.mockResolvedValue([
-      { id: "1", name: "Test Pipeline", steps: [] },
-    ]);
-    getPipelinesValidationMapMock.mockResolvedValue({});
+    getPipelineSummariesWithValidationMock.mockResolvedValue({
+      pipelines: [
+        {
+          id: "1",
+          name: "Test Pipeline",
+          description: null,
+          isActive: true,
+          createdById: null,
+          createdBy: null,
+        },
+      ],
+      pipelineValidationById: { "1": { valid: true, warnings: [] } },
+    });
     findManyDomainIntegrations.mockResolvedValue([
       { id: "integration-1", integrationId: "mediapulse", name: "Mediapulse" },
     ]);
@@ -74,6 +80,7 @@ describe("PipelinesSection", () => {
     const table = screen.getByTestId("pipelines-with-modal");
 
     expect(table).toHaveAttribute("data-count", "1");
+    expect(table).toHaveAttribute("data-validation-keys", "1");
     expect(table).toHaveAttribute("data-domain-count", "1");
     expect(findManyDomainIntegrations).toHaveBeenCalledWith({
       orderBy: [{ isDefault: "desc" }, { integrationId: "asc" }],
@@ -83,8 +90,10 @@ describe("PipelinesSection", () => {
 
   it("renders empty state when no pipelines", async () => {
     // Setup
-    getPipelinesWithStepsMock.mockResolvedValue([]);
-    getPipelinesValidationMapMock.mockResolvedValue({});
+    getPipelineSummariesWithValidationMock.mockResolvedValue({
+      pipelines: [],
+      pipelineValidationById: {},
+    });
     findManyDomainIntegrations.mockResolvedValue([]);
 
     // Act

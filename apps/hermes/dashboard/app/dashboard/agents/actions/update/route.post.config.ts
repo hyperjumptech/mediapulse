@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
+import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 
 /**
  * Parses optional JSON string into a plain object for endpoint. Rejects arrays and non-object values.
@@ -126,4 +127,6 @@ export const createUpdateAgentHandler = ({
 /**
  * Handles update agent: validates session and updates agent in DB.
  */
-export const handler: UpdateAgentHandler = createUpdateAgentHandler();
+export const handler: UpdateAgentHandler = withDashboardRevalidation(
+  createUpdateAgentHandler(),
+);

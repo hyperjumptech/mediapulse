@@ -32,7 +32,7 @@ export function getPipelineStatus(
 /**
  * Returns a map of pipeline id to status for use in UI (e.g. pipelines table, schedule form).
  *
- * @param pipelines - Pipelines with steps and isActive (e.g. from getPipelinesWithSteps).
+ * @param pipelines - Pipelines with id and isActive (e.g. from getPipelineOptionsWithValidation).
  * @param validationById - Map from pipeline id to validation result (e.g. from getPipelinesValidationMap).
  * @returns Record of pipeline id to PipelineStatus.
  */

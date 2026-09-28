@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
 
 import { Button } from "@workspace/ui/components/button";
@@ -53,35 +52,24 @@ const reorderedStepIds = (
 };
 
 /**
- * Encapsulates remove/reorder form actions and refresh-on-success for the pipeline steps column.
+ * Encapsulates remove/reorder form actions and clears the selection after a step is removed.
  */
-const usePipelineStepsColumnState = (
-  onSelectStep: (stepId: string | null) => void,
-) => {
-  const router = useRouter();
+type SelectStepHandler = (stepId: string | null) => void;
+
+const usePipelineStepsColumnState = (onSelectStep: SelectStepHandler) => {
   const {
     FormWithAction: RemoveForm,
     state: removeState,
     pending: removePending,
   } = useRemoveStepFormAction();
-  const {
-    FormWithAction: ReorderForm,
-    state: reorderState,
-    pending: reorderPending,
-  } = useReorderStepsFormAction();
+  const { FormWithAction: ReorderForm, pending: reorderPending } =
+    useReorderStepsFormAction();
 
   useEffect(() => {
     if (removeState && removeState.status === true) {
       onSelectStep(null);
-      router.refresh();
     }
-  }, [removeState, onSelectStep, router]);
-
-  useEffect(() => {
-    if (reorderState && reorderState.status === true) {
-      router.refresh();
-    }
-  }, [reorderState, router]);
+  }, [removeState, onSelectStep]);
 
   const pending = removePending || reorderPending;
 

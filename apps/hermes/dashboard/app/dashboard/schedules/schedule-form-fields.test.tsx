@@ -161,31 +161,13 @@ describe("formatTimezoneSelectLabel", () => {
 const createMockPipelines = () => [
   {
     id: "pipeline-1",
-    domainIntegrationId: "di-1",
     name: "Pipeline A",
-    description: null,
     isActive: true,
-    timeout: null,
-    executionConfig: null,
-    createdById: null,
-    createdBy: null,
-    steps: [],
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-15"),
   },
   {
     id: "pipeline-2",
-    domainIntegrationId: "di-1",
     name: "Pipeline B",
-    description: null,
     isActive: true,
-    timeout: null,
-    executionConfig: null,
-    createdById: null,
-    createdBy: null,
-    steps: [],
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-15"),
   },
 ];
 
@@ -319,6 +301,68 @@ describe("ScheduleFormFields", () => {
     ).toBeInTheDocument();
     expect(
       within(pipelineSelect).getByRole("option", { name: "Pipeline B" }),
+    ).toBeInTheDocument();
+  });
+
+  it("disables incomplete and inactive pipeline options and explains why", () => {
+    // Setup
+    const pipelines = [
+      { id: "pipeline-enabled", name: "Enabled", isActive: true },
+      { id: "pipeline-incomplete", name: "Incomplete", isActive: true },
+      { id: "pipeline-inactive", name: "Inactive", isActive: false },
+    ];
+    const pipelineValidationById = {
+      "pipeline-enabled": { valid: true, warnings: [] },
+      "pipeline-incomplete": {
+        valid: false,
+        warnings: ["Step 1 (agent-a@1.0.0): agent not found in registry"],
+      },
+      "pipeline-inactive": { valid: true, warnings: [] },
+    };
+
+    // Act
+    render(
+      <ScheduleFormFields
+        pending={false}
+        errorMessage={null}
+        submitLabel="Create"
+        pipelines={pipelines}
+        pipelineValidationById={pipelineValidationById}
+        defaultName=""
+        defaultDescription=""
+        defaultRepeat="repeating"
+        defaultTimezone="UTC"
+        defaultPipelineId=""
+        defaultPriority={0}
+        defaultEnabled={true}
+      />,
+    );
+
+    // Assert
+    const pipelineSelect = screen.getByLabelText("Pipeline");
+    const enabledOption = within(pipelineSelect).getByRole("option", {
+      name: "Enabled",
+    });
+    const incompleteOption = within(pipelineSelect).getByRole("option", {
+      name: "Incomplete (incomplete)",
+    });
+    const inactiveOption = within(pipelineSelect).getByRole("option", {
+      name: "Inactive (disabled)",
+    });
+
+    expect(enabledOption).not.toBeDisabled();
+    expect(incompleteOption).toBeDisabled();
+    expect(incompleteOption).toHaveAttribute(
+      "title",
+      "Complete step input and config in pipeline editor to enable",
+    );
+    expect(inactiveOption).toBeDisabled();
+    expect(inactiveOption).toHaveAttribute(
+      "title",
+      "Enable the pipeline in pipeline settings to use in a schedule",
+    );
+    expect(
+      screen.getByText(/Only enabled pipelines can be selected/),
     ).toBeInTheDocument();
   });
 

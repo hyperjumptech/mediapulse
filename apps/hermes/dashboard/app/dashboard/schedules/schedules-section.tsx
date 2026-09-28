@@ -1,13 +1,10 @@
-import { prisma } from "@hermes/orchestration-database";
-
-import { getPipelinesWithSteps } from "@/lib/pipelines";
+import { getPipelineOptionsWithValidation } from "@/lib/pipeline-options";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 import {
   getSchedulesPage,
   type ScheduleSortDir,
   type ScheduleSortField,
 } from "@/lib/schedules";
-import { getPipelinesValidationMap } from "@/lib/validate-pipeline";
 
 import { SchedulesWithModal } from "./schedules-with-modal";
 
@@ -26,16 +23,13 @@ export const SchedulesSection = async ({
   sortBy,
   sortDir,
 }: SchedulesQuery) => {
-  const [schedulesResult, pipelines] = await withDashboardAdmin(
-    Promise.all([
-      getSchedulesPage(page, pageSize, { search, sortBy, sortDir }),
-      getPipelinesWithSteps(),
-    ]),
-  );
-  const pipelineValidationById = await getPipelinesValidationMap(
-    pipelines,
-    prisma,
-  );
+  const [schedulesResult, { pipelines, pipelineValidationById }] =
+    await withDashboardAdmin(
+      Promise.all([
+        getSchedulesPage(page, pageSize, { search, sortBy, sortDir }),
+        getPipelineOptionsWithValidation(),
+      ]),
+    );
 
   return (
     <SchedulesWithModal

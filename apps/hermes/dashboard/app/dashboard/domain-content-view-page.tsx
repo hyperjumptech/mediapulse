@@ -37,6 +37,7 @@ const DomainContentViewPage = async ({
   const content = await fetchDomainContentView({
     integrationId,
     view,
+    integration,
   });
 
   return (
