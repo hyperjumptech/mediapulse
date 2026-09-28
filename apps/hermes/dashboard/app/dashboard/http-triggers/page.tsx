@@ -42,7 +42,6 @@ const HttpTriggersPage = async ({
     <EntityFormModalProvider>
       <div className="flex flex-col gap-6">
         <PageHeader
-          title="HTTP Triggers"
           description="Run pipelines on demand through authenticated HTTP endpoints."
           actions={<EntityFormModalCreateButton label="New HTTP trigger" />}
         />

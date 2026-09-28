@@ -77,9 +77,6 @@ describe("ProcessedUrlsPage", () => {
       status: undefined,
       gateStatus: undefined,
     });
-    expect(
-      screen.getByRole("heading", { level: 1, name: "Processed URLs" }),
-    ).toBeInTheDocument();
     expect(screen.getByText("ACME")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "https://example.com/article" }),

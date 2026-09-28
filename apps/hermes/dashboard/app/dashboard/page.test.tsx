@@ -6,6 +6,12 @@ vi.mock("./overview/execution-stats-section", () => ({
   ExecutionStatsSection: () => <div data-testid="execution-stats-section" />,
 }));
 
+vi.mock("./overview/execution-activity-section", () => ({
+  ExecutionActivitySection: () => (
+    <div data-testid="execution-activity-section" />
+  ),
+}));
+
 vi.mock("./overview/active-executions-section", () => ({
   ActiveExecutionsSection: () => (
     <div data-testid="active-executions-section" />
@@ -25,41 +31,18 @@ vi.mock("./overview/recent-failures-section", () => ({
 import DashboardPage from "./page";
 
 describe("DashboardPage", () => {
-  it("renders the overview header", () => {
-    // Act
+  it("renders the KPI cards, the activity chart and the activity tabs", () => {
     render(<DashboardPage />);
 
-    // Assert
-    expect(
-      screen.getByRole("heading", { name: "Dashboard", level: 1 }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("What Hermes is running now and what needs attention."),
-    ).toBeInTheDocument();
-  });
-
-  it("renders the execution stats and every overview panel", () => {
-    // Act
-    render(<DashboardPage />);
-
-    // Assert
     expect(screen.getByTestId("execution-stats-section")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Running now", level: 2 }),
+      screen.getByTestId("execution-activity-section"),
     ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Running" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "Failed (7d)" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Upcoming" })).toBeInTheDocument();
     expect(screen.getByTestId("active-executions-section")).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Upcoming runs", level: 2 }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId("upcoming-schedules-section"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", {
-        name: "Recent failures (7 days)",
-        level: 2,
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByTestId("recent-failures-section")).toBeInTheDocument();
   });
 });

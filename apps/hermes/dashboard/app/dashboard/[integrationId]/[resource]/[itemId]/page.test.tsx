@@ -272,9 +272,6 @@ describe("ViewDomainTableItemPage header", () => {
     expect(contentItem).toHaveClass("col-span-full");
     expect(tickerItem).not.toHaveClass("col-span-full");
     expect(screen.queryByText("Empty", { selector: "dt" })).toBeNull();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      "Example headline",
-    );
   });
 
   it("explains when the item has no values to show", async () => {
@@ -291,9 +288,6 @@ describe("ViewDomainTableItemPage header", () => {
     await renderItemPage();
 
     // Assert
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      "Detail",
-    );
     expect(
       screen.getByText("This item has no values to show."),
     ).toBeInTheDocument();

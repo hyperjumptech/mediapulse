@@ -111,9 +111,6 @@ describe("HttpTriggerDetailContent", () => {
     renderTriggerDetail(createMockTrigger());
 
     // Assert
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      "Inbound webhook",
-    );
     expect(screen.getByText("enabled")).toHaveAttribute(
       "data-variant",
       "success",

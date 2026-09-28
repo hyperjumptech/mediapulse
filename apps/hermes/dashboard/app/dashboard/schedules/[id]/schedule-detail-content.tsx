@@ -128,7 +128,6 @@ export const ScheduleDetailContent = ({
       <BreadcrumbEntityLabel segment={schedule.id} label={schedule.name} />
       <div className="flex flex-col gap-6">
         <PageHeader
-          title={schedule.name}
           badges={<StatusBadge status={enabledStatus} />}
           description={description}
           actions={

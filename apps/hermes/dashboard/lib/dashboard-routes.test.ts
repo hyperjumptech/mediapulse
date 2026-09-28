@@ -5,6 +5,10 @@ import {
   buildDashboardBreadcrumbs,
   buildDomainIntegrationViewHref,
   dashboardNavGroups,
+  dashboardNavItems,
+  dashboardQuickCreateItems,
+  dashboardSecondaryNavItems,
+  resolveDashboardPageTitle,
   isDashboardPathActive,
   type DomainIntegrationNav,
 } from "./dashboard-routes";
@@ -69,25 +73,25 @@ describe("dashboardNavGroups", () => {
 
     // Assert
     expect(groupSummaries).toEqual([
-      { label: "Overview", items: ["Dashboard"] },
       {
-        label: "Orchestration",
-        items: ["Pipelines", "Schedules", "HTTP triggers"],
+        label: "Home",
+        items: ["Overview", "Pipelines", "Schedules", "HTTP triggers"],
       },
       {
         label: "Agents",
         items: ["Agents", "Agent configs", "Agent contracts", "Variables"],
       },
-      {
-        label: "Platform",
-        items: ["Domain integrations", "API keys", "Admins"],
-      },
+    ]);
+    expect(dashboardSecondaryNavItems.map((item) => item.label)).toEqual([
+      "Domain integrations",
+      "API keys",
+      "Admins",
     ]);
   });
 
   it("gives every item a dashboard href and an icon", () => {
     // Act
-    const items = dashboardNavGroups.flatMap((group) => group.items);
+    const items = dashboardNavItems;
 
     // Assert
     for (const item of items) {
@@ -161,19 +165,19 @@ describe("buildDomainIntegrationViewHref", () => {
 
 describe("buildDashboardBreadcrumbs", () => {
   describe("dashboard root", () => {
-    it("returns Dashboard for /dashboard", () => {
+    it("returns Overview for /dashboard", () => {
       // Assert
-      expect(build("/dashboard")).toEqual([{ label: "Dashboard" }]);
+      expect(build("/dashboard")).toEqual([{ label: "Overview" }]);
     });
 
-    it("returns Dashboard for a missing pathname", () => {
+    it("returns Overview for a missing pathname", () => {
       // Assert
-      expect(build(null)).toEqual([{ label: "Dashboard" }]);
+      expect(build(null)).toEqual([{ label: "Overview" }]);
     });
 
-    it("returns Dashboard for a path outside the dashboard", () => {
+    it("returns Overview for a path outside the dashboard", () => {
       // Assert
-      expect(build("/login")).toEqual([{ label: "Dashboard" }]);
+      expect(build("/login")).toEqual([{ label: "Overview" }]);
     });
   });
 
@@ -382,46 +386,6 @@ describe("buildDashboardBreadcrumbs", () => {
     });
   });
 
-  describe("content generation runs", () => {
-    it("labels the runs index as CGA diagnostics", () => {
-      // Assert
-      expect(build("/dashboard/agents/content-generation-runs")).toEqual([
-        { label: "Agents", href: "/dashboard/agents" },
-        { label: "CGA diagnostics" },
-      ]);
-    });
-
-    it("links the runs index from a run detail", () => {
-      // Assert
-      expect(
-        build(`/dashboard/agents/content-generation-runs/${EXECUTION_ID}`),
-      ).toEqual([
-        { label: "Agents", href: "/dashboard/agents" },
-        {
-          label: "CGA diagnostics",
-          href: "/dashboard/agents/content-generation-runs",
-        },
-        { label: "Run detail" },
-      ]);
-    });
-
-    it("humanizes segments after a run detail", () => {
-      // Act
-      const breadcrumbs = build(
-        `/dashboard/agents/content-generation-runs/${EXECUTION_ID}/raw-output`,
-      );
-
-      // Assert
-      expect(breadcrumbs.slice(-2)).toEqual([
-        {
-          label: "Run detail",
-          href: `/dashboard/agents/content-generation-runs/${EXECUTION_ID}`,
-        },
-        { label: "Raw output" },
-      ]);
-    });
-  });
-
   describe("domain integration pages", () => {
     it("shows the integration name and view label", () => {
       // Assert
@@ -565,6 +529,45 @@ describe("buildDashboardBreadcrumbs", () => {
         { label: "Constructor" },
         { label: "ToString" },
       ]);
+    });
+  });
+});
+
+describe("dashboardQuickCreateItems", () => {
+  it("opens the create form of each list page", () => {
+    expect(dashboardQuickCreateItems.map((item) => item.href)).toEqual([
+      "/dashboard/pipelines?create=1",
+      "/dashboard/schedules?create=1",
+      "/dashboard/http-triggers?create=1",
+      "/dashboard/agent-configs/new",
+    ]);
+  });
+});
+
+describe("resolveDashboardPageTitle", () => {
+  it("uses the last crumb as the title and the one before as the parent", () => {
+    const pageTitle = resolveDashboardPageTitle([
+      { label: "Pipelines", href: "/dashboard/pipelines" },
+      { label: "Daily ingest" },
+    ]);
+
+    expect(pageTitle).toEqual({
+      title: "Daily ingest",
+      parent: { label: "Pipelines", href: "/dashboard/pipelines" },
+    });
+  });
+
+  it("has no parent on a top-level page", () => {
+    expect(resolveDashboardPageTitle([{ label: "Schedules" }])).toEqual({
+      title: "Schedules",
+      parent: null,
+    });
+  });
+
+  it("falls back to Overview without crumbs", () => {
+    expect(resolveDashboardPageTitle([])).toEqual({
+      title: "Overview",
+      parent: null,
     });
   });
 });

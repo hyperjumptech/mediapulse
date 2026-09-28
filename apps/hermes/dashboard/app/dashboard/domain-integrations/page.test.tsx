@@ -23,9 +23,6 @@ describe("DomainIntegrationsPage", () => {
       name: "New integration",
     });
 
-    expect(
-      screen.getByRole("heading", { name: "Domain integrations" }),
-    ).toBeInTheDocument();
     expect(headerActions).toContainElement(newIntegrationLink);
     expect(newIntegrationLink).toHaveAttribute(
       "href",

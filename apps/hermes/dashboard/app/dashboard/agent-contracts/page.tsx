@@ -34,7 +34,6 @@ const AgentContractsPage = async ({
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Agent contracts"
         description="Create reusable product briefs that guide agents toward the intended end result."
         actions={
           <AddContractModal

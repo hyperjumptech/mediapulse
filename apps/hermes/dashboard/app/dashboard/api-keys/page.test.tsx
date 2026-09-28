@@ -24,9 +24,6 @@ describe("ApiKeysPage", () => {
       '[data-slot="page-header-actions"]',
     );
 
-    expect(
-      screen.getByRole("heading", { name: "API keys" }),
-    ).toBeInTheDocument();
     expect(headerActions).toContainElement(
       screen.getByRole("button", { name: "Create API key" }),
     );

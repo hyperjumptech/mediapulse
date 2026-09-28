@@ -35,9 +35,6 @@ describe("AgentConfigsPage", () => {
     render(await AgentConfigsPage({ searchParams: {} }));
 
     // Assert
-    expect(
-      screen.getByRole("heading", { name: "Agent configs" }),
-    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Add config" })).toHaveAttribute(
       "href",
       "/dashboard/agent-configs/new",

@@ -138,9 +138,6 @@ describe("PipelineExecutionDetailPage (manual execution)", () => {
     await renderPage();
 
     // Assert
-    expect(
-      screen.getByRole("heading", { level: 1, name: "Execution" }),
-    ).toBeInTheDocument();
     expect(screen.getByText(/Manual run/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Test pipeline" })).toHaveAttribute(
       "href",

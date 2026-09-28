@@ -98,12 +98,6 @@ describe("AgentDetailsContent", () => {
     render(<AgentDetailsContent agent={createMockAgent()} />);
 
     // Assert
-    const heading = screen.getByRole("heading", {
-      level: 1,
-      name: "test-agent@1.0",
-    });
-
-    expect(heading.querySelector(".font-mono")).not.toBeNull();
     expect(screen.getByText("active")).toHaveAttribute(
       "data-variant",
       "success",
@@ -261,9 +255,6 @@ describe("AgentDetailsContent", () => {
     // Assert
     const infoPanel = screen.getByRole("tabpanel");
 
-    expect(
-      within(infoPanel).getByRole("heading", { name: "Details" }),
-    ).toBeInTheDocument();
     expect(within(infoPanel).getByText("test-agent")).toBeInTheDocument();
     expect(within(infoPanel).getByText("1.0")).toBeInTheDocument();
     expect(within(infoPanel).getByText("agent-123")).toBeInTheDocument();

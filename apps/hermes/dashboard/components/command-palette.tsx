@@ -9,12 +9,10 @@ import {
   FileJson,
   GitBranch,
   Radio,
-  Search,
   Variable,
   type LucideIcon,
 } from "lucide-react";
 
-import { Button } from "@workspace/ui/components/button";
 import {
   CommandDialog,
   CommandEmpty,
@@ -23,14 +21,13 @@ import {
   CommandItem,
   CommandList,
 } from "@workspace/ui/components/command";
-import { Kbd } from "@workspace/ui/components/kbd";
 import { Spinner } from "@workspace/ui/components/spinner";
 
-import { useCommandPalette } from "@/hooks/use-command-palette";
 import {
   buildDomainIntegrationViewHref,
-  dashboardNavGroups,
+  dashboardNavItems,
 } from "@/lib/dashboard-routes";
+import { useCommandPaletteContext } from "./command-palette-provider";
 import {
   DASHBOARD_SEARCH_MAXIMUM_QUERY_LENGTH,
   type DashboardSearchResult,
@@ -70,9 +67,7 @@ const ENTITY_GROUP_DEFINITIONS: EntityGroupDefinition[] = [
   { type: "variable", heading: "Variables", icon: Variable },
 ];
 
-const STATIC_PAGES: CommandPalettePage[] = dashboardNavGroups.flatMap(
-  (group) => group.items,
-);
+const STATIC_PAGES: CommandPalettePage[] = dashboardNavItems;
 
 const buildIntegrationPages = (
   domainIntegrations: CommandPaletteDomainIntegration[],
@@ -200,13 +195,10 @@ export const CommandPalette = ({
 }) => {
   const router = useRouter();
   const { open, setOpen, query, setQuery, results, isSearching } =
-    useCommandPalette();
+    useCommandPaletteContext();
   const staticPages = filterPages(STATIC_PAGES, query);
   const entityGroups = groupSearchResults(results);
 
-  const openPalette = () => {
-    setOpen(true);
-  };
   const navigateTo = (href: string) => {
     setOpen(false);
     router.push(href);
@@ -214,27 +206,6 @@ export const CommandPalette = ({
 
   return (
     <>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="hidden w-56 justify-start gap-2 px-2.5 font-normal text-muted-foreground shadow-none sm:inline-flex"
-        onClick={openPalette}
-      >
-        <Search />
-        <span className="flex-1 text-left">Search…</span>
-        <Kbd>⌘K</Kbd>
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        className="sm:hidden"
-        aria-label="Search"
-        onClick={openPalette}
-      >
-        <Search />
-      </Button>
       <CommandDialog
         open={open}
         onOpenChange={setOpen}

@@ -39,7 +39,6 @@ const SchedulesPage = async ({
     <EntityFormModalProvider>
       <div className="flex flex-col gap-6">
         <PageHeader
-          title="Schedules"
           description="Run pipelines automatically on a cron expression or a fixed interval."
           actions={<EntityFormModalCreateButton label="New schedule" />}
         />

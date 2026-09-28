@@ -151,11 +151,7 @@ const ViewDomainTableItemPage = async ({
   const header = (
     <>
       <BreadcrumbEntityLabel segment={itemId} label={title} />
-      <PageHeader
-        title={title}
-        description={description}
-        actions={editAction}
-      />
+      <PageHeader description={description} actions={editAction} />
     </>
   );
 

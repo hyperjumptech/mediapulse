@@ -34,7 +34,6 @@ const AgentConfigsPage = async ({
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Agent configs"
         description="Create and manage agent configuration presets."
         actions={
           <Button asChild>

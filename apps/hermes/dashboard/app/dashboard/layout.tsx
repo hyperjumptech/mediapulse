@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { CommandPalette } from "@/components/command-palette";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { DateTimeProvider } from "@/components/date-time/date-time-provider";
 import {
@@ -62,9 +61,6 @@ export default async function DashboardLayout({
         user={user}
         defaultOpen={defaultOpen}
         domainIntegrations={domainIntegrations}
-        headerActions={
-          <CommandPalette domainIntegrations={domainIntegrations} />
-        }
       >
         {children}
       </DashboardShell>

@@ -11,10 +11,7 @@ const CreateDomainIntegrationPage = async () => {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader
-        title="New domain integration"
-        description="By creating an integration, Hermes will generate an API key for you. Use that key to register your system with Hermes."
-      />
+      <PageHeader description="By creating an integration, Hermes will generate an API key for you. Use that key to register your system with Hermes." />
       <CreateDomainIntegrationForm />
     </div>
   );

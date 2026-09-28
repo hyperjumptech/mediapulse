@@ -1,98 +1,90 @@
 import { render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { getExecutionStatusCounts } from "@/lib/dashboard-overview";
+import type {
+  ExecutionStatusCounts,
+  ExecutionWindow,
+} from "@/lib/dashboard-overview";
 
-const getExecutionStatusCountsMock = vi.fn<typeof getExecutionStatusCounts>();
+const countsInWindowMock =
+  vi.fn<(window: ExecutionWindow) => Promise<ExecutionStatusCounts>>();
 
 vi.mock("@/lib/require-dashboard-admin", () => ({
   withDashboardAdmin: <Value,>(load: Promise<Value>) => load,
 }));
 
 vi.mock("@/lib/dashboard-overview", () => ({
-  getExecutionStatusCounts: (since: Date) =>
-    getExecutionStatusCountsMock(since),
+  getExecutionStatusCountsInWindow: (window: ExecutionWindow) =>
+    countsInWindowMock(window),
 }));
 
 import { ExecutionStatsSection } from "./execution-stats-section";
 
 const now = new Date("2026-09-28T12:00:00.000Z");
 
+const counts = (
+  overrides: Partial<ExecutionStatusCounts>,
+): ExecutionStatusCounts => ({
+  total: 0,
+  running: 0,
+  succeeded: 0,
+  failed: 0,
+  cancelled: 0,
+  ...overrides,
+});
+
+const cardFor = (label: string) =>
+  screen.getByText(label).closest('[data-slot="card"]') as HTMLElement;
+
 describe("ExecutionStatsSection", () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(now);
-  });
-
   afterEach(() => {
-    vi.useRealTimers();
-    getExecutionStatusCountsMock.mockReset();
+    countsInWindowMock.mockReset();
   });
 
-  it("loads counts for the last 24 hours and renders each KPI", async () => {
-    // Setup
-    getExecutionStatusCountsMock.mockResolvedValue({
-      total: 42,
-      running: 3,
-      succeeded: 36,
-      failed: 2,
-      cancelled: 1,
+  it("compares the last 24 hours with the day before", async () => {
+    countsInWindowMock
+      .mockResolvedValueOnce(
+        counts({ total: 12, running: 2, succeeded: 9, failed: 1 }),
+      )
+      .mockResolvedValueOnce(counts({ total: 10, succeeded: 10 }));
+
+    render(await ExecutionStatsSection({ now }));
+
+    expect(countsInWindowMock).toHaveBeenNthCalledWith(1, {
+      since: new Date("2026-09-27T12:00:00.000Z"),
     });
+    expect(countsInWindowMock).toHaveBeenNthCalledWith(2, {
+      since: new Date("2026-09-26T12:00:00.000Z"),
+      until: new Date("2026-09-27T12:00:00.000Z"),
+    });
+    expect(cardFor("Runs (24h)")).toHaveTextContent("12");
+    expect(cardFor("Runs (24h)")).toHaveTextContent("+20%");
+    expect(cardFor("Success rate (24h)")).toHaveTextContent("90%");
+    expect(cardFor("Success rate (24h)")).toHaveTextContent("-10 pts");
+    expect(cardFor("Running now")).toHaveTextContent("2");
+  });
 
-    // Act
-    render(await ExecutionStatsSection());
+  it("highlights failures", async () => {
+    countsInWindowMock
+      .mockResolvedValueOnce(counts({ total: 3, failed: 2, succeeded: 1 }))
+      .mockResolvedValueOnce(counts({}));
 
-    // Assert
-    const runsValue = screen.getByText("Runs in the last 24h").nextSibling;
-    const runningValue = screen.getByText("Running now").nextSibling;
-    const succeededValue = screen.getByText("Succeeded").nextSibling;
-    const failedValue = screen.getByText("Failed").nextSibling;
+    render(await ExecutionStatsSection({ now }));
 
-    expect(getExecutionStatusCountsMock).toHaveBeenCalledWith(
-      new Date("2026-09-27T12:00:00.000Z"),
+    const failedCard = cardFor("Failed runs (24h)");
+
+    expect(failedCard).toHaveTextContent("Needs attention");
+    expect(failedCard.querySelector(".text-destructive")).toHaveTextContent(
+      "2",
     );
-    expect(runsValue).toHaveTextContent("42");
-    expect(runningValue).toHaveTextContent("3");
-    expect(succeededValue).toHaveTextContent("36");
-    expect(failedValue).toHaveTextContent("2");
   });
 
-  it("highlights the failed count when there are failures", async () => {
-    // Setup
-    getExecutionStatusCountsMock.mockResolvedValue({
-      total: 5,
-      running: 0,
-      succeeded: 4,
-      failed: 1,
-      cancelled: 0,
-    });
+  it("stays neutral when nothing ran", async () => {
+    countsInWindowMock.mockResolvedValue(counts({}));
 
-    // Act
-    render(await ExecutionStatsSection());
+    render(await ExecutionStatsSection({ now }));
 
-    // Assert
-    const failedValue = screen.getByText("Failed").nextSibling;
-
-    expect(failedValue).toHaveClass("text-destructive");
-  });
-
-  it("keeps the failed count neutral when nothing failed", async () => {
-    // Setup
-    getExecutionStatusCountsMock.mockResolvedValue({
-      total: 0,
-      running: 0,
-      succeeded: 0,
-      failed: 0,
-      cancelled: 0,
-    });
-
-    // Act
-    render(await ExecutionStatsSection());
-
-    // Assert
-    const failedValue = screen.getByText("Failed").nextSibling;
-
-    expect(failedValue).toHaveTextContent("0");
-    expect(failedValue).not.toHaveClass("text-destructive");
+    expect(cardFor("Success rate (24h)")).toHaveTextContent("—");
+    expect(cardFor("Failed runs (24h)")).toHaveTextContent("No failures");
   });
 });

@@ -43,12 +43,12 @@ describe("OverviewListSkeleton", () => {
 });
 
 describe("OverviewPageSkeleton", () => {
-  it("renders the header, KPI row, and two panels", () => {
+  it("renders the KPI row and the chart card", () => {
     // Act
     const { container } = render(<OverviewPageSkeleton />);
 
     // Assert
     expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
-    expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(6);
+    expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(5);
   });
 });

@@ -12,7 +12,6 @@ const AdminsPage = () => {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Admins"
         description="Manage who can sign in to the Hermes dashboard. Disabled admins cannot log in."
         actions={
           <AddAdminModal

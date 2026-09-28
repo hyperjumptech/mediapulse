@@ -129,10 +129,8 @@ describe("ExecutionDetailView", () => {
     renderView(buildViewModel());
 
     // Assert
-    const heading = screen.getByRole("heading", { level: 1 });
     const pipelineLink = screen.getByRole("link", { name: "Daily digest" });
 
-    expect(heading).toHaveTextContent("Execution");
     expect(screen.getByText(/Morning run/)).toBeInTheDocument();
     expect(pipelineLink).toHaveAttribute("href", "/dashboard/pipelines/pipe-1");
     expect(screen.getByText("exec-123")).toBeInTheDocument();

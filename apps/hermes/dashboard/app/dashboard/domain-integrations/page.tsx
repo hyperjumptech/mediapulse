@@ -12,7 +12,6 @@ const DomainIntegrationsPage = () => {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Domain integrations"
         description="Each integration has a stable id, used in env and URLs, and a separate API key that is shown once when you create it."
         actions={
           <Button asChild>

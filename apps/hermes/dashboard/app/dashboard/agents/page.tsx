@@ -33,10 +33,7 @@ const AgentsPage = async ({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Agents"
-        description="View and manage registered agents."
-      />
+      <PageHeader description="View and manage registered agents." />
       <Suspense key={JSON.stringify(query)} fallback={<ListBodySkeleton />}>
         <AgentsSection {...query} />
       </Suspense>

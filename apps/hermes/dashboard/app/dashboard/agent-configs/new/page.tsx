@@ -43,10 +43,7 @@ const AddConfigPage = async ({
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader
-        title={initialData ? "Duplicate config" : "Add config"}
-        description="Create a new agent configuration preset."
-      />
+      <PageHeader description="Create a new agent configuration preset." />
       <AddConfigPageClient
         agents={agentsForDropdown}
         pickerLoaders={{

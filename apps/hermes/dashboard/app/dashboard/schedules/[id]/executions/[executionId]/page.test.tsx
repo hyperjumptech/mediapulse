@@ -134,9 +134,6 @@ describe("ScheduleExecutionDetailPage", () => {
     await renderPage();
 
     // Assert
-    expect(
-      screen.getByRole("heading", { level: 1, name: "Execution" }),
-    ).toBeInTheDocument();
     expect(screen.getByText(/Test schedule/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Daily digest" })).toHaveAttribute(
       "href",

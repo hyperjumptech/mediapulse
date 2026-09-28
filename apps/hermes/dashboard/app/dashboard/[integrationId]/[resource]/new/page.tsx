@@ -55,7 +55,6 @@ const NewDomainTablePage = async ({
 
   return (
     <DomainTableFullPageEditor
-      title={`Add ${meta.title}`}
       description={meta.description ?? ""}
       basePath={basePath}
       fields={createFields}

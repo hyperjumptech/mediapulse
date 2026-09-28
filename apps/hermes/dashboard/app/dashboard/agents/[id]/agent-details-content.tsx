@@ -79,7 +79,6 @@ export const AgentDetailsContent = ({
     <div className="flex flex-col gap-6">
       <BreadcrumbEntityLabel segment={agent.id} label={agentLabel} />
       <PageHeader
-        title={<span className="font-mono tracking-normal">{agentLabel}</span>}
         badges={<StatusBadge status={activeStatus} />}
         description={description}
         actions={

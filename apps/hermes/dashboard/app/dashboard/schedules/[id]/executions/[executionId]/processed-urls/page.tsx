@@ -170,10 +170,7 @@ export default async function ProcessedUrlsPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Processed URLs"
-        description="Every URL seen by data-collection and page-collection agents in this execution."
-      />
+      <PageHeader description="Every URL seen by data-collection and page-collection agents in this execution." />
       <ProcessedUrlsFilters groups={filterGroups} />
       {fetchError ? <ProcessedUrlsLoadError message={fetchError} /> : null}
       {isEmpty ? (

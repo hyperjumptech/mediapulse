@@ -13,7 +13,7 @@ import type {
   OverviewExecutionKind,
 } from "@/lib/dashboard-overview";
 
-import { OVERVIEW_ROW_CLASS_NAME } from "./overview-panel";
+import { OVERVIEW_ROW_CLASS_NAME } from "./overview-row";
 
 const EXECUTION_SOURCE_ICON: Record<OverviewExecutionKind, LucideIcon> = {
   schedule: CalendarClock,

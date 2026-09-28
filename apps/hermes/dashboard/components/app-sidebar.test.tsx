@@ -1,5 +1,5 @@
 import React from "react";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DashboardPage } from "@hermes/domain-contract";
 
@@ -9,6 +9,10 @@ import {
 } from "@workspace/ui/components/sidebar";
 
 import { AppSidebar } from "./app-sidebar";
+import {
+  CommandPaletteProvider,
+  useCommandPaletteContext,
+} from "./command-palette-provider";
 import type { DomainIntegrationNav } from "@/lib/dashboard-routes";
 
 type MockLinkProps = React.ComponentProps<"a"> & { href: string };
@@ -88,6 +92,7 @@ const domainIntegrations: DomainIntegrationNav[] = [
       createDomainPage("search-queries", "Search Queries", 20),
       createDomainPage("entity-types", "Entity Types", 30),
       createDomainPage("relation-types", "Relation Types", 40),
+      createDomainPage("publishers", "Publishers", 50),
     ],
   },
 ];
@@ -131,11 +136,22 @@ const renderSidebar = async ({
   await act(async () => {
     render(
       <SidebarProvider defaultOpen={defaultOpen}>
-        <AppSidebar user={user} domainIntegrations={integrations} />
-        <SidebarTrigger />
+        <CommandPaletteProvider>
+          <AppSidebar user={user} domainIntegrations={integrations} />
+          <SidebarTrigger />
+          <PaletteStateProbe />
+        </CommandPaletteProvider>
       </SidebarProvider>,
     );
   });
+};
+
+const PaletteStateProbe = () => {
+  const { open } = useCommandPaletteContext();
+
+  return (
+    <output data-testid="palette-state">{open ? "open" : "closed"}</output>
+  );
 };
 
 const getNavLink = (name: string) => screen.getByRole("link", { name });
@@ -167,7 +183,6 @@ describe("AppSidebar", () => {
     const brandLink = screen.getByRole("link", { name: /Hermes/ });
 
     expect(brandLink).toHaveAttribute("href", "/dashboard");
-    expect(brandLink).toHaveTextContent("Orchestration");
   });
 
   it("renders Hermes groups followed by integration groups", async () => {
@@ -183,13 +198,7 @@ describe("AppSidebar", () => {
       (groupLabel) => groupLabel.textContent,
     );
 
-    expect(groupLabels).toEqual([
-      "Overview",
-      "Orchestration",
-      "Agents",
-      "Platform",
-      "Mediapulse",
-    ]);
+    expect(groupLabels).toEqual(["Home", "Agents", "Mediapulse"]);
   });
 
   it("links every Hermes section and integration view", async () => {
@@ -200,7 +209,7 @@ describe("AppSidebar", () => {
     await renderSidebar();
 
     // Assert
-    expect(getNavLink("Dashboard")).toHaveAttribute("href", "/dashboard");
+    expect(getNavLink("Overview")).toHaveAttribute("href", "/dashboard");
     expect(getNavLink("Pipelines")).toHaveAttribute(
       "href",
       "/dashboard/pipelines",
@@ -228,12 +237,13 @@ describe("AppSidebar", () => {
   });
 
   it.each([
-    ["/dashboard", "Dashboard"],
+    ["/dashboard", "Overview"],
     ["/dashboard/agents", "Agents"],
     ["/dashboard/schedules/schedule-1", "Schedules"],
     ["/dashboard/domain-integrations", "Domain integrations"],
     ["/dashboard/mediapulse/tickers", "Tickers"],
     ["/dashboard/mediapulse/search-queries/item-1/edit", "Search Queries"],
+    ["/dashboard/mediapulse/publishers", "Publishers"],
   ])("marks the item for %s as active", async (pathname, activeLabel) => {
     // Setup
     usePathnameMock.mockReturnValue(pathname);
@@ -280,7 +290,7 @@ describe("AppSidebar", () => {
     expect(screen.queryByRole("link", { name: "Tickers" })).toBeNull();
   });
 
-  it("collapses to icons with an inset variant", async () => {
+  it("slides off canvas with an inset variant when collapsed", async () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard");
 
@@ -291,41 +301,53 @@ describe("AppSidebar", () => {
     const sidebarRoot = getSidebarRoot();
 
     expect(sidebarRoot).toHaveAttribute("data-state", "collapsed");
-    expect(sidebarRoot).toHaveAttribute("data-collapsible", "icon");
+    expect(sidebarRoot).toHaveAttribute("data-collapsible", "offcanvas");
     expect(sidebarRoot).toHaveAttribute("data-variant", "inset");
   });
 
-  it("renders a rail that toggles the sidebar", async () => {
+  it("tucks integration views past the fourth under More", async () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard");
     await renderSidebar();
-    const rail = document.querySelector<HTMLElement>('[data-sidebar="rail"]');
 
     // Act
     await act(async () => {
-      rail?.click();
+      screen.getByRole("button", { name: "More" }).click();
     });
 
     // Assert
-    expect(rail).not.toBeNull();
-    expect(getSidebarRoot()).toHaveAttribute("data-state", "collapsed");
+    expect(getNavLink("Publishers")).toHaveAttribute(
+      "href",
+      "/dashboard/mediapulse/publishers",
+    );
   });
 
-  it("shows the item label as a tooltip when collapsed", async () => {
+  it("keeps More closed until one of its views is active", async () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard");
-    await renderSidebar({ defaultOpen: false });
+
+    // Act
+    await renderSidebar();
+
+    // Assert
+    expect(screen.queryByRole("link", { name: "Publishers" })).toBeNull();
+  });
+
+  it("opens the command palette from Search", async () => {
+    // Setup
+    usePathnameMock.mockReturnValue("/dashboard");
+    await renderSidebar();
 
     // Act
     await act(async () => {
-      fireEvent.focus(getNavLink("Pipelines"));
+      screen.getByRole("button", { name: /Search/ }).click();
     });
 
     // Assert
-    expect(await screen.findByRole("tooltip")).toHaveTextContent("Pipelines");
+    expect(screen.getByTestId("palette-state")).toHaveTextContent("open");
   });
 
-  it("hides the pending indicator in collapsed mode and pulses it while navigating", async () => {
+  it("pulses the pending indicator while navigating", async () => {
     // Setup
     usePathnameMock.mockReturnValue("/dashboard");
     useLinkStatusMock.mockReturnValue({ pending: true });
@@ -337,11 +359,7 @@ describe("AppSidebar", () => {
     const pendingIndicator =
       getNavLink("Pipelines").querySelector("span[aria-hidden]");
 
-    expect(pendingIndicator).toHaveClass(
-      "group-data-[collapsible=icon]:hidden",
-      "animate-pulse",
-      "opacity-100",
-    );
+    expect(pendingIndicator).toHaveClass("animate-pulse", "opacity-100");
   });
 
   it("closes the mobile sidebar after choosing a link", async () => {

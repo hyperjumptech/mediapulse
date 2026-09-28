@@ -14,7 +14,6 @@ const PipelinesPage = () => {
     <EntityFormModalProvider>
       <div className="flex flex-col gap-6">
         <PageHeader
-          title="Pipelines"
           description="Create and manage pipelines and their steps."
           actions={<EntityFormModalCreateButton label="New pipeline" />}
         />
