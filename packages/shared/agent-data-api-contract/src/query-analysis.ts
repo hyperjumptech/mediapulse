@@ -48,7 +48,7 @@ export const postQueryAnalysisBodySchema = z.object({
 });
 
 export const queryAnalysisTickerSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   symbol: z.string(),
   name: z.string(),
   aliases: z.array(z.string()).default([]),
@@ -95,8 +95,8 @@ export const getQueryAnalysisResponseSchema = z.object({
 
 export const postQueryAnalysisResponseSchema = z.object({
   created: z.number().int().nonnegative(),
-  createdSetId: z.string().uuid(),
-  activeSetId: z.string().uuid(),
+  createdSetId: z.guid(),
+  activeSetId: z.guid(),
 });
 
 export type ProvenQuery = z.infer<typeof provenQuerySchema>;

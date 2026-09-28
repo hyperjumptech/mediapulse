@@ -9,7 +9,7 @@ export const fetchEventStatusSchema = z.enum([
 ]);
 
 export const contentGenerationFetchEventItemSchema = z.object({
-  dataSourceId: z.string().uuid(),
+  dataSourceId: z.guid(),
   tickerId: z.string().trim().min(1),
   reason: z.string(),
   provider: z.string().min(1).nullable().optional(),

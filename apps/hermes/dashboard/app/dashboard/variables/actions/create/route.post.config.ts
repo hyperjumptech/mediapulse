@@ -33,7 +33,7 @@ export const requestValidator = createRequestValidator({
 });
 
 export const responseValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
 });
 
 type CreateVariableHandlerDependencies = {

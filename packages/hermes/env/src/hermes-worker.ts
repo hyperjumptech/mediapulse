@@ -7,7 +7,7 @@ export const env = createEnv({
   server: {
     NODE_ENV: z.string().optional(),
     ORCHESTRATION_DATABASE_URL: z.string().min(1),
-    HERMES_DATA_SOURCE_MAX_TAKE: z.number({ coerce: true }).optional(),
+    HERMES_DATA_SOURCE_MAX_TAKE: z.coerce.number().optional(),
     DATABASE_CERT_BASE64: z.string().optional(),
     PG_DATAQUEUE_DATABASE: z.string().min(1),
     HERMES_INTERNAL_API_KEY: z.string().min(1),
@@ -25,7 +25,7 @@ export const env = createEnv({
     HERMES_INVOKE_AGENT_RETRY_DELAY_MAX: z.string().optional(),
     HERMES_INVOKE_AGENT_JOB_TIMEOUT_MS: z.string().optional(),
     HERMES_INVOKE_AGENT_CANCEL_POLL_MS: z.string().optional(),
-    HERMES_SCHEDULE_RECOVERY_GRACE_MS: z.number({ coerce: true }).optional(),
+    HERMES_SCHEDULE_RECOVERY_GRACE_MS: z.coerce.number().optional(),
   },
   client: {
   },

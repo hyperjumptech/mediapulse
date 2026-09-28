@@ -1,3 +1,4 @@
+import type { Prisma } from "@mediapulse/database";
 /**
  * Zod write bodies and derived Hermes JSON Schemas for curated sources (from Prisma `CuratedSource`).
  */
@@ -5,7 +6,7 @@
 import { z } from "zod";
 
 import { prismaWriteFieldMetadata } from "../../generated/prisma-write-field-metadata";
-import { hermesFormJsonSchemaFromZod } from "../../lib/hermes-form-json-schema-from-zod";
+import { hermesFormJsonSchemaFromZod } from "@hermes/domain-contract";
 import { buildWriteBodySchema } from "../../lib/prisma-write-schema/build-write-body-schema";
 
 /** Writable form fields for curated-source create and update. */
@@ -17,7 +18,12 @@ const curatedSourceWriteFields = [
   "maxItems",
 ] as const;
 
-const curatedSourceWriteBodySchemaBuilt = buildWriteBodySchema({
+const curatedSourceWriteBodySchemaBuilt = buildWriteBodySchema<
+  Pick<
+    Prisma.CuratedSourceCreateInput,
+    (typeof curatedSourceWriteFields)[number]
+  >
+>({
   metadata: prismaWriteFieldMetadata,
   model: "CuratedSource",
   fields: curatedSourceWriteFields,

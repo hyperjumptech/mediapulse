@@ -3,12 +3,12 @@ import { z } from "zod";
 export const NEWSLETTER_CITATIONS_MAX = 200;
 
 export const newsletterCitationItemSchema = z.object({
-  dataSourceId: z.string().uuid(),
+  dataSourceId: z.guid(),
   sectionKey: z.string().trim().min(1),
 });
 
 export const postContentGenerationCitationsBodySchema = z.object({
-  newsletterId: z.string().uuid(),
+  newsletterId: z.guid(),
   citations: z
     .array(newsletterCitationItemSchema)
     .min(1)

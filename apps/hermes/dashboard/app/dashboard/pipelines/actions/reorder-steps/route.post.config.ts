@@ -10,7 +10,7 @@ import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutatio
 import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 
 const stepIdsSchema = z.union([
-  z.array(z.string().uuid()),
+  z.array(z.guid()),
   z.string().transform((s): string[] => {
     try {
       const parsed = JSON.parse(s) as unknown;
@@ -24,7 +24,7 @@ const stepIdsSchema = z.union([
 ]);
 
 const bodyValidator = z.object({
-  pipelineId: z.string().uuid(),
+  pipelineId: z.guid(),
   stepIds: stepIdsSchema,
 });
 

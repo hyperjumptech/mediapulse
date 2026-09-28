@@ -1,3 +1,4 @@
+import type { Prisma } from "@mediapulse/database";
 /**
  * Zod write bodies and derived Hermes JSON Schemas for tickers (Prisma `Ticker` scalars + IDX metadata typing).
  */
@@ -9,7 +10,7 @@ import {
   defaultTitleForFormFieldKey,
   hermesFormJsonSchemaFromZod,
   mergeHermesObjectFormProperties,
-} from "../../lib/hermes-form-json-schema-from-zod";
+} from "@hermes/domain-contract";
 import { buildWriteBodySchema } from "../../lib/prisma-write-schema/build-write-body-schema";
 import type { ListItem } from "./list-mapper";
 import { tickerMetadataFormProperties } from "./lib/metadata-form-properties";
@@ -28,7 +29,9 @@ const tickerScalarWriteFields = [
   "businessActivity",
 ] as const satisfies ReadonlyArray<keyof ListItem>;
 
-const tickerScalarWriteBodySchemaBuilt = buildWriteBodySchema({
+const tickerScalarWriteBodySchemaBuilt = buildWriteBodySchema<
+  Pick<Prisma.TickerCreateInput, (typeof tickerScalarWriteFields)[number]>
+>({
   metadata: prismaWriteFieldMetadata,
   model: "Ticker",
   fields: tickerScalarWriteFields,

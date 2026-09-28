@@ -4,7 +4,7 @@ import { z } from "zod";
 export const newsletterLanguageSchema = z.enum(["en", "id"]);
 
 export const postNewsletterTranslationBodySchema = z.object({
-  newsletterId: z.string().uuid(),
+  newsletterId: z.guid(),
   language: newsletterLanguageSchema,
   subject: z.string(),
   content: z.string(),

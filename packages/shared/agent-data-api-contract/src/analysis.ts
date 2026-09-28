@@ -121,8 +121,8 @@ export const postAnalysisBodySchema = z.object({
   articleSections: z
     .array(
       z.object({
-        dataSourceId: z.string().uuid(),
-        tickerId: z.string().uuid(),
+        dataSourceId: z.guid(),
+        tickerId: z.guid(),
         section: sectionEnum.nullable(),
         score: z.number().min(0).max(1),
         reason: z.string().trim().min(1).max(2000),
@@ -132,9 +132,9 @@ export const postAnalysisBodySchema = z.object({
     )
     .default([]),
   /** Marks the processed articles as analyzed at the article level (covers rejected rows too). */
-  analyzedDataSourceIds: z.array(z.string().uuid()).default([]),
+  analyzedDataSourceIds: z.array(z.guid()).default([]),
   /** Exact run that produced these classifications; stamped on each section row for provenance. */
-  articleAnalysisRunId: z.string().uuid().optional(),
+  articleAnalysisRunId: z.guid().optional(),
 });
 
 /** A company named in the issuer's profile, with the spellings it appears under in the press. */
@@ -162,9 +162,9 @@ export const analysisTickerContextSchema = z.object({
 });
 
 export const analysisDataSourceSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   /** Active ticker this article is being classified against (one row per (article, ticker) pair). */
-  tickerId: z.string().uuid(),
+  tickerId: z.guid(),
   url: z.string(),
   title: z.string(),
   description: z.string().nullable(),

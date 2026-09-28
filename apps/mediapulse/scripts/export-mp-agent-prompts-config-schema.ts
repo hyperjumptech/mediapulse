@@ -10,8 +10,10 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { enrichConfigSchemaForHermesUi } from "@workspace/agent-runtime";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import {
+  enrichConfigSchemaForHermesUi,
+  toAgentJsonSchema,
+} from "@workspace/agent-runtime";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -78,9 +80,7 @@ const main = async (): Promise<void> => {
   }
 
   const configSchema = enrichConfigSchemaForHermesUi(
-    zodToJsonSchema(zodSchema as never, {
-      $refStrategy: "none",
-    }) as Record<string, unknown>,
+    toAgentJsonSchema(zodSchema as Parameters<typeof toAgentJsonSchema>[0]),
   );
 
   mkdirSync(outDir, { recursive: true });

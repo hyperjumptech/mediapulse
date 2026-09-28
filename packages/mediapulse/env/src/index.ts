@@ -6,7 +6,7 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     MEDIAPULSE_DATABASE_URL: z.string().min(1),
-    HERMES_DATA_SOURCE_MAX_TAKE: z.number({ coerce: true }).optional(),
+    HERMES_DATA_SOURCE_MAX_TAKE: z.coerce.number().optional(),
     MEDIAPULSE_API_URL: z.string().min(1),
     HERMES_API_URL: z.string().min(1),
     DOMAIN_INTEGRATION_API_KEY: z.string().min(1),
@@ -14,7 +14,7 @@ export const env = createEnv({
     DOMAIN_INTEGRATION_NAME: z.string().optional(),
     DOMAIN_INTEGRATION_VERSION: z.string().optional(),
     DATABASE_CERT_BASE64: z.string().optional(),
-    PORT: z.number({ coerce: true }).optional(),
+    PORT: z.coerce.number().optional(),
     AGENT_AUTH_API_URL: z.string().min(1),
     UNSUBSCRIBE_SECRET: z.string().min(1),
     REGISTRATION_CONFIRM_SECRET: z.string().min(1),

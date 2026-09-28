@@ -16,7 +16,7 @@ import { createTokenHint, hashHttpTriggerToken } from "@/lib/http-trigger-auth";
 const bodyValidator = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
-  pipelineId: z.string().uuid(),
+  pipelineId: z.guid(),
   enabled: z
     .union([z.boolean(), z.literal("on"), z.literal("false")])
     .optional()
@@ -33,7 +33,7 @@ export const requestValidator = createRequestValidator({
 });
 
 export const responseValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
 });
 
 type CreateHttpTriggerHandler = HandlerFunc<

@@ -20,7 +20,7 @@ const collectionSchema = z
         "Cap on candidate URLs entering the per-article filters, applied after duplicate, already-collected, and dead-URL filtering. Articles still drop out on missing description, freshness, and ticker relevance, so fewer than this are persisted.",
       ),
   })
-  .default({})
+  .prefault({})
   .describe("Per-run collection caps.");
 
 /** Zod schema for agent config grouped for Hermes form sections. */

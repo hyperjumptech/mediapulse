@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { z } from "zod";
 
 import {
   articleSummarySchema,
@@ -221,7 +221,7 @@ describe("buildIssuerCoverageDirective", () => {
 
 describe("articleSummarySchema as JSON Schema", () => {
   it("sets no maxLength on a point", () => {
-    const json = JSON.stringify(zodToJsonSchema(articleSummarySchema));
+    const json = JSON.stringify(z.toJSONSchema(articleSummarySchema));
 
     expect(json).not.toContain("maxLength");
   });

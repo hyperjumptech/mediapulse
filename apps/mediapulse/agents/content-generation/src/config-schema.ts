@@ -21,7 +21,7 @@ const modelSchema = z
         "OpenAI-compatible base URL (for example an OpenRouter gateway).",
       ),
   })
-  .default({})
+  .prefault({})
   .describe("LLM credentials for newsletter generation.");
 
 const duplicateGuardSchema = z
@@ -44,7 +44,7 @@ const duplicateGuardSchema = z
         "IANA timezone for the one-newsletter-per-calendar-day precheck (e.g. Asia/Jakarta).",
       ),
   })
-  .default({})
+  .prefault({})
   .describe(
     "Skip-if-duplicate precheck window (one newsletter per ticker per calendar day in timezone).",
   );
@@ -74,7 +74,7 @@ const fetchSchema = z
         "Ordered fetch-provider chain. The first provider is tried for each URL; later providers run only after earlier failures.",
       ),
   })
-  .default({})
+  .prefault({})
   .describe("Ordered web-fetch provider chain for the on-demand fetch pass.");
 
 const deadUrlCacheSchema = z
@@ -90,7 +90,7 @@ const deadUrlCacheSchema = z
       .default(50)
       .describe("Batch size for dead-URL negative-cache lookups."),
   })
-  .default({})
+  .prefault({})
   .describe("Negative cache for URLs that repeatedly fail to fetch.");
 
 const hostErrorBreakerSchema = z
@@ -116,7 +116,7 @@ const hostErrorBreakerSchema = z
       .default(0.5)
       .describe("Host error rate above which further fetches are skipped."),
   })
-  .default({})
+  .prefault({})
   .describe("Per-host circuit breaker based on fetch error rate.");
 
 const resilienceSchema = z
@@ -124,7 +124,7 @@ const resilienceSchema = z
     deadUrlCache: deadUrlCacheSchema,
     hostErrorBreaker: hostErrorBreakerSchema,
   })
-  .default({})
+  .prefault({})
   .describe("Failure-avoidance controls applied before and during fetch.");
 
 /**

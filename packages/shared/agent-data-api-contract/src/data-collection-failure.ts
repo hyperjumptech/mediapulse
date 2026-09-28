@@ -10,8 +10,8 @@ export const dataCollectionFailureErrorCategorySchema = z.enum([
 ]);
 
 export const dataCollectionFailureInputSchema = z.object({
-  id: z.string().uuid(),
-  runId: z.string().uuid(),
+  id: z.guid(),
+  runId: z.guid(),
   tickerId: z.string().trim().min(1).optional(),
   stage: z.enum(["web-search", "web-fetch"]),
   provider: z.enum([
@@ -23,7 +23,7 @@ export const dataCollectionFailureInputSchema = z.object({
     "tavily",
     "exa",
   ]),
-  searchQueryId: z.string().uuid().optional(),
+  searchQueryId: z.guid().optional(),
   url: z.string().url().optional(),
   errorCategory: dataCollectionFailureErrorCategorySchema,
   retryable: z.boolean(),
@@ -45,7 +45,7 @@ export const getDataCollectionFailureResponseSchema = z.object({
 });
 
 export const dataCollectionFailureQuerySchema = z.object({
-  runId: z.string().uuid().optional(),
+  runId: z.guid().optional(),
   tickerId: z.string().trim().min(1).optional(),
 });
 

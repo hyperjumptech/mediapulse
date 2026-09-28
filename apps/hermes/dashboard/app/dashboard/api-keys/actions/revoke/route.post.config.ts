@@ -11,7 +11,7 @@ import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { revokeApiKey } from "@/lib/mcp-api-keys";
 
 const bodyValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
 });
 
 export const requestValidator = createRequestValidator({

@@ -592,7 +592,7 @@ export const fetchAllDomainTableIdsForPipelineRun = async (
   return all;
 };
 
-const domainTableItemResponseSchema = z.record(z.unknown());
+const domainTableItemResponseSchema = z.record(z.string(), z.unknown());
 
 /**
  * Loads a single table-v1 row by id when the domain API exposes GET `{apiPrefix}/{id}`.

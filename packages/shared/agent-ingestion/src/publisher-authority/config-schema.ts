@@ -18,7 +18,7 @@ export const publisherAuthoritySchema = z
         "Days a cached publisher authority stays fresh. OpenPageRank refreshes monthly, so a shorter window spends quota re-fetching identical numbers.",
       ),
   })
-  .default({})
+  .prefault({})
   .describe(
     "Publisher authority cache. Breaks ties between articles of equal section fit and never decides inclusion.",
   );

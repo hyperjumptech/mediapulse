@@ -45,7 +45,7 @@ const selfHostedProviderEntrySchema = z.object({
   provider: z.literal("firecrawl_selfhosted"),
   baseUrl: z.string(),
   headers: z
-    .record(z.string())
+    .record(z.string(), z.string())
     .optional()
     .describe("Extra HTTP headers sent with every request."),
 });

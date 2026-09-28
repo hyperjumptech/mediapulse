@@ -17,22 +17,21 @@
     "./search-query-set-persist": "./src/lib/search-query-set-persist.ts"
   },
   "dependencies": {
+    "@hermes/domain-contract": "workspace:*",
+    "@hermes/step-input-syntax": "workspace:*",
+    "@mediapulse/database": "workspace:*",
     "@mediapulse/env": "workspace:*",
+    "@mediapulse/hermes-integration": "workspace:*",
+    "@mediapulse/idx-tickers-importer": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/agent-data-api-contract": "workspace:*",
-    "@hermes/domain-contract": "workspace:*",
-    "@hermes/step-input-syntax": "workspace:*",
     "@workspace/email-templates": "workspace:*",
     "@workspace/logger": "workspace:*",
     "@workspace/utils": "workspace:*",
-    "@mediapulse/hermes-integration": "workspace:*",
-    "@mediapulse/idx-tickers-importer": "workspace:*",
-    "@mediapulse/database": "workspace:*",
     "hono": "catalog:",
     "hono-pino": "catalog:",
-    "zod": "catalog:",
-    "zod-to-json-schema": "^3.25.1"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@prisma/prisma-schema-wasm": "7.2.0-4.0c8ef2ce45c83248ab3df073180d5eda9e8be7a3",

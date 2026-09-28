@@ -17,11 +17,11 @@ const stepItemValidator = z.object({
 });
 
 const bodyValidator = z.object({
-  pipelineId: z.string().uuid(),
+  pipelineId: z.guid(),
   name: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
   isActive: zFormBoolean.optional(),
-  domainIntegrationId: z.string().uuid().optional(),
+  domainIntegrationId: z.guid().optional(),
   timeout: z
     .union([z.literal(""), z.coerce.number()])
     .optional()

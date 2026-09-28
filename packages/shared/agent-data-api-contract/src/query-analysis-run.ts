@@ -23,7 +23,7 @@ export const postQueryAnalysisRunBodySchema = z.object({
 });
 
 export const postQueryAnalysisRunResponseSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   tickerId: queryAnalysisRunTickerIdSchema,
   executionId: z.string().nullable().optional(),
   queries: z.array(queryDecisionSchema),

@@ -158,13 +158,13 @@ export const resourceTableViewSchema = dashboardViewBaseSchema.extend({
   columns: z.array(dashboardPageColumnSchema).default([]),
   searchableFields: z.array(z.string().min(1)).default([]),
   sortableFields: z.array(z.string().min(1)).default([]),
-  actions: dashboardPageActionsSchema.default({
+  actions: dashboardPageActionsSchema.prefault({
     create: false,
     update: false,
     delete: false,
   }),
-  createSchema: z.record(z.unknown()).optional(),
-  updateSchema: z.record(z.unknown()).optional(),
+  createSchema: z.record(z.string(), z.unknown()).optional(),
+  updateSchema: z.record(z.string(), z.unknown()).optional(),
   customActions: z.array(dashboardPageCustomActionSchema).default([]),
   createNavigation: dashboardPageCreateNavigationSchema,
   preview: dashboardPagePreviewSchema.optional(),
@@ -310,7 +310,7 @@ export const tableV1ListRequestQuerySchema =
   resourceTableListRequestQuerySchema;
 
 export const resourceTableListResponseSchema = z.object({
-  items: z.array(z.record(z.unknown())),
+  items: z.array(z.record(z.string(), z.unknown())),
   total: z.number().int().nonnegative(),
   page: z.number().int().positive(),
   pageSize: z.number().int().positive(),
@@ -326,8 +326,8 @@ export const resourceTableMetaResponseSchema = z.object({
   searchableFields: z.array(z.string().min(1)).default([]),
   sortableFields: z.array(z.string().min(1)).default([]),
   actions: dashboardPageActionsSchema,
-  createSchema: z.record(z.unknown()).optional(),
-  updateSchema: z.record(z.unknown()).optional(),
+  createSchema: z.record(z.string(), z.unknown()).optional(),
+  updateSchema: z.record(z.string(), z.unknown()).optional(),
   customActions: z.array(dashboardPageCustomActionSchema).default([]),
   createNavigation: dashboardPageCreateNavigationSchema,
   preview: dashboardPagePreviewSchema.optional(),

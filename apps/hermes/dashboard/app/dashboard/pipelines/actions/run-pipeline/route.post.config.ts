@@ -36,7 +36,7 @@ import { getHermesJobQueue } from "@/lib/hermes-job-queue";
 import { validatePipeline } from "@/lib/validate-pipeline";
 
 const bodyValidator = z.object({
-  pipelineId: z.string().uuid(),
+  pipelineId: z.guid(),
 });
 
 /** Prefix for server logs when debugging Run pipeline in Docker or `pnpm dev` output. */
@@ -84,7 +84,7 @@ export const requestValidator = createRequestValidator({
 export const responseValidator = z.object({
   ok: z.literal(true),
   invocationsRun: z.number(),
-  executionId: z.string().uuid(),
+  executionId: z.guid(),
   runStatus: z.enum(["running", "succeeded", "partial", "failed", "cancelled"]),
   failedInvocationCount: z.number(),
 });

@@ -15,7 +15,7 @@ const bodyValidator = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   isActive: zFormBoolean.optional().default(true),
-  domainIntegrationId: z.string().uuid().optional(),
+  domainIntegrationId: z.guid().optional(),
   timeout: z
     .union([z.literal(""), z.coerce.number()])
     .optional()
@@ -33,7 +33,7 @@ export const requestValidator = createRequestValidator({
 });
 
 export const responseValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
 });
 
 type CreatePipelineHandlerDependencies = {

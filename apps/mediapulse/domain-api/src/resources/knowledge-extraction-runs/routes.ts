@@ -65,8 +65,7 @@ knowledgeExtractionRunsRoutes.get("/", async (c) => {
     c.req.query("sortDir") === "asc" ? "asc" : "desc";
 
   const tickerFilter = z
-    .string()
-    .uuid()
+    .guid()
     .safeParse(c.req.query("tickerId")?.trim() ?? "");
 
   const where = buildRunsListWhere({

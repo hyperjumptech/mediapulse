@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { toAgentJsonSchema } from "@workspace/agent-runtime";
 import { describe, expect, it } from "vitest";
 
 import { fetchProviderEntrySchema } from "@workspace/agent-ingestion";
@@ -116,9 +116,7 @@ describe("ContentGenerationConfigSchema", () => {
   });
 
   it("JSON schema exposes the two config sections", () => {
-    const jsonSchema = zodToJsonSchema(ContentGenerationConfigSchema, {
-      $refStrategy: "none",
-    });
+    const jsonSchema = toAgentJsonSchema(ContentGenerationConfigSchema);
 
     const schemaStr = JSON.stringify(jsonSchema);
 
@@ -130,9 +128,7 @@ describe("ContentGenerationConfigSchema", () => {
   });
 
   it("publishes the fetch provider enum so Hermes renders a dropdown", () => {
-    const jsonSchema = zodToJsonSchema(ContentGenerationConfigSchema, {
-      $refStrategy: "none",
-    });
+    const jsonSchema = toAgentJsonSchema(ContentGenerationConfigSchema);
 
     const schemaStr = JSON.stringify(jsonSchema);
 
@@ -143,15 +139,8 @@ describe("ContentGenerationConfigSchema", () => {
   });
 
   it("publishes a provider schema identical to the unwrapped union", () => {
-    const wrapped = zodToJsonSchema(z.array(fetchProviderEntrySchema), {
-      $refStrategy: "none",
-    });
-    const bare = zodToJsonSchema(
-      z.array(
-        (fetchProviderEntrySchema as z.ZodEffects<z.ZodTypeAny>).innerType(),
-      ),
-      { $refStrategy: "none" },
-    );
+    const wrapped = toAgentJsonSchema(z.array(fetchProviderEntrySchema));
+    const bare = toAgentJsonSchema(z.array(fetchProviderEntrySchema.out));
 
     expect(JSON.stringify(wrapped)).toBe(JSON.stringify(bare));
   });

@@ -8,7 +8,7 @@ import { z } from "zod";
 import {
   hermesFormJsonSchemaFromZod,
   mergeHermesObjectFormProperties,
-} from "../../lib/hermes-form-json-schema-from-zod";
+} from "@hermes/domain-contract";
 
 const queriesArraySchema = z.array(queryAnalysisPostQuerySchema).min(1);
 
@@ -24,7 +24,7 @@ const searchQuerySetScalarsSchema = z.object({
 /** Validated create body after JSON fields are parsed to objects/arrays. */
 export const searchQuerySetCreateBodySchema = searchQuerySetScalarsSchema
   .extend({
-    tickerId: z.string().uuid(),
+    tickerId: z.guid(),
     strategySnapshot: strategySnapshotSchema,
     queries: queriesArraySchema,
   })
@@ -50,7 +50,7 @@ const jsonTextareaProperty = (
 
 const createScalarsJsonSchema = hermesFormJsonSchemaFromZod(
   searchQuerySetScalarsSchema.extend({
-    tickerId: z.string().uuid(),
+    tickerId: z.guid(),
   }),
 );
 

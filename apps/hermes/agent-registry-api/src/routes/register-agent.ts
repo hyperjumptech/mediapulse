@@ -13,7 +13,7 @@ const HERMES_INTERNAL_TOKEN_SUBJECT = "00000000-0000-4000-8000-000000000001";
 
 /** JSON Schema is an object (e.g. { type: "object", properties: { ... } }). */
 const jsonSchemaObject = z
-  .record(z.unknown())
+  .record(z.string(), z.unknown())
   .refine((v) => v !== null && typeof v === "object" && !Array.isArray(v), {
     message: "Must be a JSON object",
   });

@@ -23,7 +23,7 @@ import { computeNextRunAt, ExecutionConfigSchema } from "@hermes/scheduler";
  */
 const retryConfigSchema = z
   .union([
-    z.record(z.unknown()).nullable(),
+    z.record(z.string(), z.unknown()).nullable(),
     z
       .string()
       .optional()
@@ -52,7 +52,7 @@ const bodyValidator = z
     interval: z.coerce.number().int().positive().optional().nullable(),
     timezone: z.string().min(1, "Timezone is required"),
     startAt: z.union([z.date(), z.string()]).optional().nullable(),
-    pipelineId: z.string().uuid(),
+    pipelineId: z.guid(),
     retryConfig: retryConfigSchema,
     executionConfig: retryConfigSchema,
     priority: z.coerce.number().int().optional(),
@@ -114,7 +114,7 @@ export const requestValidator = createRequestValidator({
 });
 
 export const responseValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
 });
 
 type CreateScheduleHandlerDependencies = {

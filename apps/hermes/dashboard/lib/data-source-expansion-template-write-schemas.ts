@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 
-import { hermesFormJsonSchemaFromZod } from "./hermes-form-json-schema-from-zod";
+import { hermesFormJsonSchemaFromZod } from "@hermes/domain-contract";
 
 /** Validated JSON body for creating template rows (matches former domain-api shape). */
 export const dataSourceExpansionTemplateCreateBodySchema = z.object({

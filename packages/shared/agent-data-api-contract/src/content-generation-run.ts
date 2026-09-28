@@ -33,13 +33,13 @@ export const postContentGenerationRunBodySchema = z.object({
   durationMs: z.number().int().nonnegative().nullable().optional(),
   pipelineRunId: z.string().nullable().optional(),
   executionId: z.string().nullable().optional(),
-  newsletterId: z.string().uuid().nullable().optional(),
+  newsletterId: z.guid().nullable().optional(),
   /** Arbitrary JSON snapshot attached on the success path (e.g. `sectionFill`). */
   details: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 export const postContentGenerationRunResponseSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   agentId: z.string(),
   agentVersion: z.string(),
   tickerId: contentGenerationRunTickerIdSchema,
@@ -51,7 +51,7 @@ export const postContentGenerationRunResponseSchema = z.object({
   durationMs: z.number().int().nullable().optional(),
   pipelineRunId: z.string().nullable().optional(),
   executionId: z.string().nullable().optional(),
-  newsletterId: z.string().uuid().nullable().optional(),
+  newsletterId: z.guid().nullable().optional(),
   details: z.record(z.string(), z.unknown()).nullable().optional(),
   createdAt: z.string().datetime(),
 });
@@ -59,7 +59,7 @@ export const postContentGenerationRunResponseSchema = z.object({
 export const contentGenerationRunQuerySchema = z.object({
   cursor: z.preprocess(
     (v) => (v === "" || v === undefined ? undefined : v),
-    z.string().uuid().optional(),
+    z.guid().optional(),
   ),
   limit: z.preprocess(
     (v) => (v === undefined || v === "" ? undefined : Number(v)),
@@ -84,7 +84,7 @@ export const contentGenerationRunQuerySchema = z.object({
 });
 
 export const contentGenerationRunListItemSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   agentId: z.string(),
   agentVersion: z.string(),
   tickerId: contentGenerationRunTickerIdSchema,
@@ -96,7 +96,7 @@ export const contentGenerationRunListItemSchema = z.object({
   durationMs: z.number().int().nullable().optional(),
   pipelineRunId: z.string().nullable().optional(),
   executionId: z.string().nullable().optional(),
-  newsletterId: z.string().uuid().nullable().optional(),
+  newsletterId: z.guid().nullable().optional(),
   details: z.record(z.string(), z.unknown()).nullable().optional(),
   createdAt: z.string().datetime(),
 });

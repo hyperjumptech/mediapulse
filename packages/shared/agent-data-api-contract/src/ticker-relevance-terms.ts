@@ -5,7 +5,7 @@ export const getTickerRelevanceTermsQuerySchema = z.object({});
 
 /** Relevance-matching terms for one active ticker. */
 export const tickerRelevanceTermsItemSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   symbol: z.string(),
   /** Deduplicated symbol, name, alias, peer, and sector/industry strings for relevance matching. */
   terms: z.array(z.string()),

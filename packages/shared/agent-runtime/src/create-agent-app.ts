@@ -10,9 +10,8 @@ import { bearerAuth } from "hono/bearer-auth";
 import type { ZodError } from "zod";
 
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 
-import { enrichConfigSchemaForHermesUi } from "./enrich-config-schema-for-hermes-ui.js";
+import { buildAgentJsonSchemas } from "./agent-json-schemas.js";
 import { registerWithRegistry } from "./register-with-registry.js";
 import type { HermesInvokeEnvelopeV1 } from "./invoke-envelope.js";
 import { hermesInvokeCorrelationFromGetHeader } from "./hermes-invoke-correlation.js";
@@ -41,13 +40,9 @@ const emptyConfigSchema = z.object({});
  */
 export function createAgentApp<
   TInput,
-  TSchema extends z.ZodType<TInput, any, any>,
+  TSchema extends z.ZodType<TInput>,
   TConfig = Record<string, never>,
-  TConfigSchema extends z.ZodType<TConfig, any, any> = z.ZodType<
-    TConfig,
-    any,
-    any
-  >,
+  TConfigSchema extends z.ZodType<TConfig> = z.ZodType<TConfig>,
 >(
   config: AgentConfig<TInput, TSchema, TConfig, TConfigSchema>,
   options: CreateAgentAppOptions = {},
@@ -78,15 +73,9 @@ export function createAgentApp<
 
   /** GET /schemas returns input and config JSON Schemas (no auth). */
   app.get("/schemas", (context) => {
-    const inputSchema = zodToJsonSchema(config.inputSchema, {
-      $refStrategy: "none",
-    });
-    const configSchemaJson = enrichConfigSchemaForHermesUi(
-      zodToJsonSchema(configSchema, {
-        $refStrategy: "none",
-      }) as Record<string, unknown>,
+    return context.json(
+      buildAgentJsonSchemas(config.inputSchema, configSchema),
     );
-    return context.json({ inputSchema, configSchema: configSchemaJson });
   });
 
   app.use("*", bearerAuth({ verifyToken }));
@@ -100,14 +89,8 @@ export function createAgentApp<
       fetchFn,
       tokenFetchFn,
     } = options.autoRegister;
-    const inputSchemaJson = zodToJsonSchema(config.inputSchema, {
-      $refStrategy: "none",
-    }) as Record<string, unknown>;
-    const configSchemaJson = enrichConfigSchemaForHermesUi(
-      zodToJsonSchema(configSchema, {
-        $refStrategy: "none",
-      }) as Record<string, unknown>,
-    );
+    const { inputSchema: inputSchemaJson, configSchema: configSchemaJson } =
+      buildAgentJsonSchemas(config.inputSchema, configSchema);
     const maxAttempts = 3;
     const delayMs = 2000;
     if (!authApiUrl) {
@@ -194,9 +177,12 @@ export function createAgentApp<
         contract?: unknown;
       };
       const rawInput = requestBody?.input;
-      const input = (await config.inputSchema.parseAsync(rawInput)) as TInput;
+      const input = (await config.inputSchema.parseAsync(rawInput, {
+        reportInput: true,
+      })) as TInput;
       const configParsed = (await configSchema.parseAsync(
         requestBody?.config ?? {},
+        { reportInput: true },
       )) as TConfig;
       const contractResult = contractSchema.safeParse(requestBody?.contract);
       const contract = contractResult.success ? contractResult.data : undefined;
@@ -263,8 +249,7 @@ export function createAgentApp<
             zodError.issues
               .filter(
                 (issue) =>
-                  issue.code === "invalid_type" &&
-                  issue.received === "undefined",
+                  issue.code === "invalid_type" && issue.input === undefined,
               )
               .map((issue) =>
                 issue.path.length > 0 ? issue.path.join(".") : "input",

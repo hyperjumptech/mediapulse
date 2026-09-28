@@ -25,7 +25,7 @@ const defaultProviderPool: ProviderEntry[] = [
 const webSearchSchema = z
   .array(providerEntrySchema)
   .min(1)
-  .default([...defaultProviderPool])
+  .prefault([...defaultProviderPool])
   .describe(
     "Web-search provider pool. Each request rotates the starting provider (round-robin) and falls back to the rest on failure.",
   );
@@ -33,7 +33,7 @@ const webSearchSchema = z
 const webSearchLocalesSchema = z
   .array(localeSchema)
   .min(1)
-  .default([{ gl: "id", hl: "id" }])
+  .prefault([{ gl: "id", hl: "id" }])
   .describe(
     "Search localization. Each query fans out once per locale; results merge and dedup before fetch. Only Serper honors both fields: Firecrawl geo-targets on gl (country) and Exa on gl (userLocation), neither taking a search-language parameter, while Tavily ignores locale (its country param applies only to general, not news, search).",
   );
@@ -63,7 +63,7 @@ const collectionSchema = z
         "Max random delay before a run starts searching, so concurrent ticker runs de-synchronize and avoid bursting the shared search-provider rate limit. 0 disables.",
       ),
   })
-  .default({})
+  .prefault({})
   .describe("Repeat-loop targets.");
 
 /** Zod schema for agent config grouped for Hermes form sections. */

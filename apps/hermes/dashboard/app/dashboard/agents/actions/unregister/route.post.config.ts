@@ -9,7 +9,7 @@ import { z } from "zod";
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
 
 const bodyValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
 });
 
 export const requestValidator = createRequestValidator({

@@ -17,7 +17,7 @@ import {
 } from "@/lib/variables";
 
 const bodyValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   key: z.string().min(1).optional(),
   value: z.string().optional(),
   note: z.string().optional().nullable(),

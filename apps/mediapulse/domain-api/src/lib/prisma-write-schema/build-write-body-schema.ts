@@ -32,9 +32,15 @@ export type BuildWriteBodySchemaInput = {
  * @param input - Model, allowlisted fields, optional overrides, and enum resolver.
  * @returns A {@link z.ZodObject} with `.strict()` so unknown body keys are rejected.
  */
-export const buildWriteBodySchema = (
+export type WriteBodySchema<TBody extends object> = z.ZodObject<{
+  [Key in keyof TBody]-?: z.ZodType<TBody[Key]>;
+}>;
+
+export const buildWriteBodySchema = <
+  TBody extends object = Record<string, unknown>,
+>(
   input: BuildWriteBodySchemaInput,
-): z.ZodObject<z.ZodRawShape> => {
+): WriteBodySchema<TBody> => {
   const getEnumSchema = input.getEnumSchema ?? getPrismaEnumZodSchema;
 
   const modelFields = input.metadata[input.model];
@@ -44,7 +50,7 @@ export const buildWriteBodySchema = (
     );
   }
 
-  const shape: z.ZodRawShape = {};
+  const shape: Record<string, z.ZodType> = {};
 
   for (const fieldName of input.fields) {
     const override = input.fieldOverrides?.[fieldName];
@@ -63,5 +69,5 @@ export const buildWriteBodySchema = (
     });
   }
 
-  return zod.object(shape).strict();
+  return zod.object(shape).strict() as unknown as WriteBodySchema<TBody>;
 };

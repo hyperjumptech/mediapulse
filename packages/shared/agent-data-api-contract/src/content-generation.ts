@@ -22,7 +22,7 @@ export const postContentGenerationBodySchema = z.object({
 
 export const contentGenerationDataSourceSchema = z
   .object({
-    dataSourceId: z.string().uuid(),
+    dataSourceId: z.guid(),
     url: z.string(),
     title: z.string(),
     content: z.string().nullable().optional(),
@@ -30,7 +30,7 @@ export const contentGenerationDataSourceSchema = z
     source: z.string().nullable().optional(),
     tickerId: z.string().trim().min(1),
     /** Search query that surfaced the article; `null` for curated/global sources. */
-    searchQueryId: z.string().uuid().nullable().optional(),
+    searchQueryId: z.guid().nullable().optional(),
     description: z.string().nullable().optional(),
     /** Newsletter section assigned by article-analysis 3.0.0 (used to group sources at generation time). */
     section: z.enum(NEWSLETTER_SECTION_IDS as unknown as [string, ...string[]]),
@@ -68,7 +68,7 @@ export const postContentGenerationResponseSchema = z.object({
 export const CONTENT_GENERATION_FETCHED_CONTENT_MAX = 50;
 
 export const contentGenerationFetchedContentItemSchema = z.object({
-  dataSourceId: z.string().uuid(),
+  dataSourceId: z.guid(),
   content: z.string().min(1),
   fetchProvider: z.string().min(1),
   publishedAt: z.string().datetime().optional(),

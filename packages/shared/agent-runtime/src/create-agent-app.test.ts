@@ -22,7 +22,7 @@ import {
 } from "./hermes-invoke-correlation.js";
 import type { AgentRunResult } from "./types.js";
 
-const schema = z.object({ tickerId: z.string().uuid() });
+const schema = z.object({ tickerId: z.guid() });
 type Input = z.infer<typeof schema>;
 
 const validInput = { tickerId: "11111111-1111-4111-a111-111111111111" };

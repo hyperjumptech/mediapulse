@@ -1,3 +1,4 @@
+import type { Prisma } from "@mediapulse/database";
 /**
  * Zod write bodies and derived Hermes JSON Schemas for Mediapulse users (from Prisma `MediapulseUser` + allowlist + email override).
  */
@@ -8,7 +9,7 @@ import { prismaWriteFieldMetadata } from "../../generated/prisma-write-field-met
 import {
   defaultTitleForFormFieldKey,
   hermesFormJsonSchemaFromZod,
-} from "../../lib/hermes-form-json-schema-from-zod";
+} from "@hermes/domain-contract";
 import { buildWriteBodySchema } from "../../lib/prisma-write-schema/build-write-body-schema";
 import type { ListItem } from "./list-mapper";
 
@@ -18,7 +19,12 @@ const mediapulseUserWriteFields = [
   "enabled",
 ] as const satisfies ReadonlyArray<keyof ListItem>;
 
-const mediapulseUserWriteBodySchemaBuilt = buildWriteBodySchema({
+const mediapulseUserWriteBodySchemaBuilt = buildWriteBodySchema<
+  Pick<
+    Prisma.MediapulseUserCreateInput,
+    (typeof mediapulseUserWriteFields)[number]
+  >
+>({
   metadata: prismaWriteFieldMetadata,
   model: "MediapulseUser",
   fields: mediapulseUserWriteFields,

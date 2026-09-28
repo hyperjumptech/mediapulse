@@ -17,8 +17,8 @@ import {
 } from "@hermes/scheduler";
 
 const bodyValidator = z.object({
-  pipelineId: z.string().uuid(),
-  manualExecutionId: z.string().uuid(),
+  pipelineId: z.guid(),
+  manualExecutionId: z.guid(),
 });
 
 export const requestValidator = createRequestValidator({

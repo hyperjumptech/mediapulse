@@ -16,7 +16,7 @@ export const deliveryRunStageSchema = z.enum([
 ]);
 
 export const deliveryRecipientOutcomeInputSchema = z.object({
-  userTickerId: z.string().uuid(),
+  userTickerId: z.guid(),
   status: z.enum(["success", "failed", "skipped"]),
   attempts: z.number().int().nonnegative(),
   lastErrorCode: z.string().nullable().optional(),
@@ -28,16 +28,16 @@ export const deliveryRecipientOutcomeInputSchema = z.object({
 /**
  * POST body for persisting a delivery run.
  *
- * @todo(contract) `tickerId` remains `z.string().uuid()` while the delivery agent accepts any non-empty
+ * @todo(contract) `tickerId` remains `z.guid()` while the delivery agent accepts any non-empty
  * string (Hermes pipeline / `db:` expansion). Revisit alignment with Prisma and list/query schemas when
  * we persist non-UUID ticker ids end-to-end.
  */
 export const postDeliveryRunBodySchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   agentId: z.string().min(1),
   agentVersion: z.string().min(1),
-  tickerId: z.string().uuid(),
-  newsletterId: z.string().uuid().nullable().optional(),
+  tickerId: z.guid(),
+  newsletterId: z.guid().nullable().optional(),
   outcome: deliveryRunOutcomeSchema,
   stage: deliveryRunStageSchema.nullable().optional(),
   successCount: z.number().int().nonnegative(),
@@ -62,7 +62,7 @@ export const postDeliveryRunResponseSchema = z.object({
 export const deliveryRunQuerySchema = z.object({
   tickerId: z.preprocess(
     (v) => (v === "" || v === undefined ? undefined : v),
-    z.string().uuid().optional(),
+    z.guid().optional(),
   ),
   outcome: z.preprocess(
     (v) => (v === "" || v === undefined ? undefined : v),
@@ -79,12 +79,12 @@ export const deliveryRunQuerySchema = z.object({
 });
 
 export const deliveryRunListItemSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   agentId: z.string(),
   agentVersion: z.string(),
-  tickerId: z.string().uuid(),
+  tickerId: z.guid(),
   tickerSymbol: z.string().optional(),
-  newsletterId: z.string().uuid().nullable().optional(),
+  newsletterId: z.guid().nullable().optional(),
   outcome: deliveryRunOutcomeSchema,
   stage: deliveryRunStageSchema.nullable().optional(),
   successCount: z.number().int(),

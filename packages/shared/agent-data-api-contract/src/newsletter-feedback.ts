@@ -38,14 +38,14 @@ export const postNewsletterFeedbackRecordBodySchema = z.object({
 
 /** Correlation result: which subscriber/newsletter the reply was linked to. */
 export const newsletterFeedbackCorrelationSchema = z.object({
-  userId: z.string().uuid().optional(),
-  userTickerId: z.string().uuid().optional(),
-  newsletterId: z.string().uuid().optional(),
+  userId: z.guid().optional(),
+  userTickerId: z.guid().optional(),
+  newsletterId: z.guid().optional(),
 });
 
 /** Response for recording a newsletter reply. */
 export const postNewsletterFeedbackRecordResponseSchema = z.object({
-  feedbackId: z.string().uuid(),
+  feedbackId: z.guid(),
   /** False when the `graphMessageId` already existed (idempotent replay). */
   created: z.boolean(),
   correlated: newsletterFeedbackCorrelationSchema,

@@ -16,8 +16,8 @@ import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { getHermesJobQueue } from "@/lib/hermes-job-queue";
 
 const bodyValidator = z.object({
-  scheduleId: z.string().uuid(),
-  scheduleExecutionId: z.string().uuid(),
+  scheduleId: z.guid(),
+  scheduleExecutionId: z.guid(),
 });
 
 export const requestValidator = createRequestValidator({

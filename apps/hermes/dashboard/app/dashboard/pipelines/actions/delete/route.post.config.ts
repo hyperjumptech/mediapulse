@@ -10,7 +10,7 @@ import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutatio
 import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 
 const bodyValidator = z.object({
-  pipelineId: z.string().uuid(),
+  pipelineId: z.guid(),
 });
 
 export const requestValidator = createRequestValidator({

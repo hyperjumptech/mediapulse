@@ -14,7 +14,7 @@ import { createRequireHermesAdminManagementActor } from "@/lib/require-hermes-ad
 import { updateHermesAdminPasswordWithCredentialBump } from "@/lib/update-hermes-admin-password";
 
 const bodyValidator = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   newPassword: z.string().min(4),
 });
 

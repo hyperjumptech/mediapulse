@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const postAnalysisDataSourceDeleteBodySchema = z.object({
   tickerId: z.string().trim().min(1),
-  dataSourceId: z.string().uuid(),
+  dataSourceId: z.guid(),
 });
 
 export const postAnalysisDataSourceDeleteResponseSchema = z.object({

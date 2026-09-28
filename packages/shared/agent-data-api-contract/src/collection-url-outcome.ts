@@ -12,9 +12,9 @@ export const collectionUrlStatusSchema = z.enum([
 ]);
 
 export const collectionUrlOutcomeInputSchema = z.object({
-  id: z.string().uuid(),
-  scheduleExecutionId: z.string().uuid().optional(),
-  runId: z.string().uuid(),
+  id: z.guid(),
+  scheduleExecutionId: z.guid().optional(),
+  runId: z.guid(),
   tickerId: z.string().trim().min(1).optional(),
   agent: collectionAgentSchema,
   status: collectionUrlStatusSchema,
@@ -22,8 +22,8 @@ export const collectionUrlOutcomeInputSchema = z.object({
   reason: z.string().optional(),
   reasonDetail: z.string().optional(),
   source: z.string().optional(),
-  searchQueryId: z.string().uuid().optional(),
-  curatedSourceId: z.string().uuid().optional(),
+  searchQueryId: z.guid().optional(),
+  curatedSourceId: z.guid().optional(),
   createdAt: z.string().datetime(),
 });
 

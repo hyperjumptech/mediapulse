@@ -69,6 +69,11 @@
       "prisma",
       "sharp",
       "unix-dgram"
-    ]
+    ],
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "route-action-gen>zod": "4"
+      }
+    }
   }
 }

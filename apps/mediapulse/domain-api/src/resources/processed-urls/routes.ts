@@ -22,8 +22,7 @@ export const processedUrlsRoutes = new Hono();
 
 processedUrlsRoutes.get("/", async (c) => {
   const scheduleExecutionIdResult = z
-    .string()
-    .uuid()
+    .guid()
     .safeParse(c.req.query("scheduleExecutionId")?.trim() ?? "");
 
   const { page, pageSize } = parsePagination(
@@ -33,8 +32,7 @@ processedUrlsRoutes.get("/", async (c) => {
   const skip = (page - 1) * pageSize;
 
   const tickerFilter = z
-    .string()
-    .uuid()
+    .guid()
     .safeParse(c.req.query("tickerId")?.trim() ?? "");
   const agentFilter = agentFilterSchema.safeParse(
     c.req.query("agent")?.trim() ?? "",
@@ -43,8 +41,7 @@ processedUrlsRoutes.get("/", async (c) => {
     c.req.query("status")?.trim() ?? "",
   );
   const curatedSourceFilter = z
-    .string()
-    .uuid()
+    .guid()
     .safeParse(c.req.query("curatedSourceId")?.trim() ?? "");
   const gateStatusFilter = gateStatusFilterSchema.safeParse(
     c.req.query("gateStatus")?.trim() ?? "",
