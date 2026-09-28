@@ -46,18 +46,39 @@ const createContract = (
   ...overrides,
 });
 
+const urlState = {
+  basePath: "/dashboard/agent-contracts",
+  page: 1,
+  pageSize: 10,
+  total: 1,
+  sortBy: "createdAt",
+  sortDir: "asc" as const,
+};
+
+const renderTable = (
+  contracts: AgentContractRow[],
+  overrides: Partial<React.ComponentProps<typeof AgentContractsTable>> = {},
+) =>
+  render(
+    <AgentContractsTable
+      contracts={contracts}
+      urlState={urlState}
+      onEdit={vi.fn()}
+      {...overrides}
+    />,
+  );
+
+const table = () => screen.getByRole("table");
+
+const headerLabels = () =>
+  within(table())
+    .getAllByRole("columnheader")
+    .map((header) => header.textContent);
+
 describe("AgentContractsTable", () => {
   it("renders an empty state with an add contract action when there are no contracts", () => {
     // Act
-    render(
-      <AgentContractsTable
-        contracts={[]}
-        sortBy="name"
-        sortDir="asc"
-        pageSize={15}
-        onEdit={vi.fn()}
-      />,
-    );
+    renderTable([]);
 
     // Assert
     expect(screen.getByText("No agent contracts yet")).toBeInTheDocument();
@@ -69,46 +90,58 @@ describe("AgentContractsTable", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the contract row fields", () => {
+  it("shows the useful columns and keeps Created by in the column menu", () => {
     // Act
-    render(
-      <AgentContractsTable
-        contracts={[createContract()]}
-        sortBy="name"
-        sortDir="asc"
-        pageSize={15}
-        onEdit={vi.fn()}
-      />,
-    );
+    renderTable([createContract()]);
 
     // Assert
-    expect(screen.getByText("Newsletter brief")).toBeInTheDocument();
-    expect(screen.getByText("1.2")).toBeInTheDocument();
+    expect(headerLabels()).toEqual([
+      "Name",
+      "Version",
+      "Description",
+      "Created",
+      "Actions",
+    ]);
+  });
+
+  it("shows Created by when the saved column choices turn it on", () => {
+    // Act
+    renderTable([createContract()], {
+      initialColumnVisibility: { createdBy: true },
+    });
+
+    // Assert
+    expect(headerLabels()).toContain("Created by");
+    expect(within(table()).getByText("Kevin")).toBeInTheDocument();
+  });
+
+  it("renders the contract row fields", () => {
+    // Act
+    renderTable([createContract()]);
+
+    // Assert
+    const desktop = within(table());
+
+    expect(desktop.getByText("Newsletter brief")).toBeInTheDocument();
+    expect(desktop.getByText("1.2")).toBeInTheDocument();
     expect(
-      screen.getByText("What a good newsletter looks like"),
+      desktop.getByText("What a good newsletter looks like"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Kevin")).toBeInTheDocument();
-    expect(screen.getByRole("time")).toBeInTheDocument();
-    expect(screen.getByTestId("row-actions-contract-1")).toBeInTheDocument();
+    expect(desktop.getByRole("time")).toBeInTheDocument();
+    expect(desktop.getByTestId("row-actions-contract-1")).toBeInTheDocument();
   });
 
   it("opens the editor when the contract name is clicked", () => {
     // Setup
     const onEdit = vi.fn();
     const contract = createContract();
-    render(
-      <AgentContractsTable
-        contracts={[contract]}
-        sortBy="name"
-        sortDir="asc"
-        pageSize={15}
-        onEdit={onEdit}
-      />,
-    );
+    renderTable([contract], { onEdit });
 
     // Act
     fireEvent.click(
-      screen.getByRole("button", { name: "Edit contract Newsletter brief" }),
+      within(table()).getByRole("button", {
+        name: "Edit contract Newsletter brief",
+      }),
     );
 
     // Assert
@@ -117,24 +150,33 @@ describe("AgentContractsTable", () => {
 
   it("builds sort links that toggle the active column", () => {
     // Act
-    render(
-      <AgentContractsTable
-        contracts={[createContract()]}
-        sortBy="createdAt"
-        sortDir="asc"
-        pageSize={10}
-        onEdit={vi.fn()}
-      />,
-    );
+    renderTable([createContract()]);
 
     // Assert
-    expect(screen.getByRole("link", { name: /Name/ })).toHaveAttribute(
+    const desktop = within(table());
+
+    expect(desktop.getByRole("link", { name: "Name" })).toHaveAttribute(
       "href",
       "/dashboard/agent-contracts?page=1&size=10&sort=name&dir=asc",
     );
-    expect(screen.getByRole("link", { name: /Created/ })).toHaveAttribute(
+    expect(desktop.getByRole("link", { name: "Created" })).toHaveAttribute(
       "href",
       "/dashboard/agent-contracts?page=1&size=10&sort=createdAt&dir=desc",
     );
+    expect(
+      desktop.queryByRole("link", { name: "Version" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("paginates from the URL state when there is more than one page", () => {
+    // Act
+    renderTable([createContract()], { urlState: { ...urlState, total: 40 } });
+
+    // Assert
+    expect(
+      screen.getByRole("navigation", {
+        name: "Agent contracts list pagination",
+      }),
+    ).toBeInTheDocument();
   });
 });

@@ -24,27 +24,44 @@ vi.mock("./variable-modal", () => ({
   VariableModal: ({
     variable,
     trigger,
+    open,
+    onOpenChange,
   }: {
-    variable: null;
-    trigger: React.ReactNode;
-  }) => (
-    <div data-testid="variable-modal" data-variable={String(variable)}>
-      {trigger}
-    </div>
-  ),
+    variable: { key: string } | null;
+    trigger?: React.ReactNode;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+  }) =>
+    trigger ? (
+      <div data-testid="create-variable-modal">{trigger}</div>
+    ) : (
+      <div
+        data-testid="edit-variable-modal"
+        data-open={String(open)}
+        data-variable-key={variable?.key ?? ""}
+      >
+        <button type="button" onClick={() => onOpenChange?.(false)}>
+          Close editor
+        </button>
+      </div>
+    ),
 }));
 
 vi.mock("./variable-row-actions", () => ({
   VariableRowActions: ({
     variable,
     variableLabel,
+    onEdit,
   }: {
     variable: { id: string };
     variableLabel: string;
+    onEdit?: (variable: { id: string }) => void;
   }) => (
     <button
+      type="button"
       data-testid={`row-actions-${variable.id}`}
       data-label={variableLabel}
+      onClick={() => onEdit?.(variable)}
     >
       Actions
     </button>
@@ -65,153 +82,169 @@ const createVariable = (overrides?: Partial<VariableRow>): VariableRow => ({
   ...overrides,
 });
 
-describe("VariablesTable", () => {
-  it("renders an empty state with an add variable action when there are no variables", () => {
-    // Act
-    render(
-      <VariablesTable
-        variables={[]}
-        sortBy="key"
-        sortDir="asc"
-        pageSize={15}
-      />,
-    );
+const urlState = {
+  basePath: "/dashboard/variables",
+  page: 1,
+  pageSize: 15,
+  total: 1,
+  sortBy: "key",
+  sortDir: "asc" as const,
+};
 
-    // Assert
+const renderVariables = (
+  variables = [createVariable()],
+  overrides: Partial<React.ComponentProps<typeof VariablesTable>> = {},
+) =>
+  render(
+    <VariablesTable variables={variables} urlState={urlState} {...overrides} />,
+  );
+
+const table = () => screen.getByRole("table");
+
+const editModal = () => screen.getByTestId("edit-variable-modal");
+
+describe("VariablesTable", () => {
+  it("shows the useful columns and keeps Created by in the column menu", () => {
+    renderVariables();
+
+    const headers = within(table())
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+
+    expect(headers).toEqual(["Key", "Value", "Note", "Created", "Actions"]);
+    expect(within(table()).queryByText("Kevin")).not.toBeInTheDocument();
+  });
+
+  it("shows Created by when the saved column choices turn it on", () => {
+    renderVariables([createVariable()], { initialColumnVisibility: {} });
+
+    const headers = within(table())
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+
+    expect(headers).toContain("Created by");
+    expect(within(table()).getByText("Kevin")).toBeInTheDocument();
+  });
+
+  it("renders an empty state with an add variable action when there are no variables", () => {
+    renderVariables([]);
+
     expect(screen.getByText("No variables yet")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(
-      within(screen.getByTestId("variable-modal")).getByRole("button", {
+      within(screen.getByTestId("create-variable-modal")).getByRole("button", {
         name: "Add variable",
       }),
     ).toBeInTheDocument();
   });
 
   it("offers to clear the search when nothing matches", () => {
-    // Act
-    render(
-      <VariablesTable
-        variables={[]}
-        sortBy="created"
-        sortDir="desc"
-        pageSize={20}
-        searchQuery="TOKEN"
-      />,
-    );
+    renderVariables([], {
+      urlState: {
+        ...urlState,
+        pageSize: 20,
+        sortBy: "created",
+        sortDir: "desc",
+        search: "TOKEN",
+      },
+    });
 
-    // Assert
-    expect(screen.getByText("No variables match “TOKEN”")).toBeInTheDocument();
-    expect(screen.queryByTestId("variable-modal")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Clear search" })).toHaveAttribute(
-      "href",
+    const clearLinks = screen.getAllByRole("link", { name: "Clear search" });
+
+    expect(screen.getByText("Nothing matches “TOKEN”")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("create-variable-modal"),
+    ).not.toBeInTheDocument();
+    expect(clearLinks.map((link) => link.getAttribute("href"))).toContain(
       "/dashboard/variables?page=1&size=20&sort=created&dir=desc",
     );
   });
 
   it("renders a plain variable with a copyable value", () => {
-    // Act
-    render(
-      <VariablesTable
-        variables={[createVariable()]}
-        sortBy="key"
-        sortDir="asc"
-        pageSize={15}
-      />,
-    );
+    renderVariables();
 
-    // Assert
-    expect(screen.getByText("API_URL")).toBeInTheDocument();
-    expect(screen.getByText("https://api.example.com")).toBeInTheDocument();
+    const row = within(table()).getAllByRole("row")[1] as HTMLElement;
+
+    expect(row).toHaveTextContent("API_URL");
+    expect(row).toHaveTextContent("https://api.example.com");
     expect(
-      screen.getByRole("button", { name: "Copy value of API_URL" }),
+      within(row).getByRole("button", { name: "Copy value of API_URL" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Primary endpoint")).toBeInTheDocument();
-    expect(screen.getByText("Kevin")).toBeInTheDocument();
-    expect(screen.getByRole("time")).toBeInTheDocument();
-    expect(screen.queryByText("Secret")).not.toBeInTheDocument();
+    expect(row).toHaveTextContent("Primary endpoint");
+    expect(within(row).getByRole("time")).toBeInTheDocument();
+    expect(within(row).queryByText("Secret")).not.toBeInTheDocument();
   });
 
   it("keeps secret values masked and marks them with a secret badge", () => {
-    // Act
-    render(
-      <VariablesTable
-        variables={[createVariable({ isSecret: true, value: "••••••••" })]}
-        sortBy="key"
-        sortDir="asc"
-        pageSize={15}
-      />,
-    );
+    renderVariables([createVariable({ isSecret: true, value: "••••••••" })]);
 
-    // Assert
-    expect(screen.getByText("••••••••")).toBeInTheDocument();
-    expect(screen.getByText("Secret")).toHaveAttribute("data-variant", "muted");
+    const row = within(table()).getAllByRole("row")[1] as HTMLElement;
+
+    expect(within(row).getByText("••••••••")).toBeInTheDocument();
+    expect(within(row).getByText("Secret")).toHaveAttribute(
+      "data-variant",
+      "muted",
+    );
     expect(
-      screen.queryByRole("button", { name: "Copy value of API_URL" }),
+      within(row).queryByRole("button", { name: "Copy value of API_URL" }),
     ).not.toBeInTheDocument();
   });
 
-  it("opens the editor when the key is clicked", () => {
-    // Setup
-    const onEdit = vi.fn();
-    const variable = createVariable();
-    render(
-      <VariablesTable
-        variables={[variable]}
-        sortBy="key"
-        sortDir="asc"
-        pageSize={15}
-        onEdit={onEdit}
-      />,
-    );
+  it("opens the editor when the key is clicked and closes it again", () => {
+    renderVariables();
 
-    // Act
-    fireEvent.click(screen.getByRole("button", { name: "API_URL" }));
+    fireEvent.click(within(table()).getByRole("button", { name: "API_URL" }));
 
-    // Assert
-    expect(onEdit).toHaveBeenCalledWith(variable);
+    expect(editModal()).toHaveAttribute("data-open", "true");
+    expect(editModal()).toHaveAttribute("data-variable-key", "API_URL");
+
+    fireEvent.click(screen.getByRole("button", { name: "Close editor" }));
+
+    expect(editModal()).toHaveAttribute("data-open", "false");
+    expect(editModal()).toHaveAttribute("data-variable-key", "");
   });
 
-  it("renders the key as plain text without onEdit", () => {
-    // Act
-    render(
-      <VariablesTable
-        variables={[createVariable()]}
-        sortBy="key"
-        sortDir="asc"
-        pageSize={15}
-      />,
-    );
+  it("opens the editor from the row actions", () => {
+    renderVariables();
 
-    // Assert
-    expect(
-      screen.queryByRole("button", { name: "API_URL" }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByTestId("row-actions-variable-1")).toHaveAttribute(
-      "data-label",
-      "API_URL",
-    );
+    const rowActions = within(table()).getByTestId("row-actions-variable-1");
+
+    expect(rowActions).toHaveAttribute("data-label", "API_URL");
+
+    fireEvent.click(rowActions);
+
+    expect(editModal()).toHaveAttribute("data-open", "true");
+    expect(editModal()).toHaveAttribute("data-variable-key", "API_URL");
   });
 
   it("builds sort links that toggle the active column and keep the search", () => {
-    // Act
-    render(
-      <VariablesTable
-        variables={[createVariable()]}
-        sortBy="key"
-        sortDir="asc"
-        pageSize={15}
-        searchQuery="API"
-      />,
-    );
+    renderVariables([createVariable()], {
+      urlState: { ...urlState, search: "API" },
+    });
 
-    // Assert
-    expect(screen.getByRole("link", { name: /Key/ })).toHaveAttribute(
+    expect(within(table()).getByRole("link", { name: "Key" })).toHaveAttribute(
       "href",
       "/dashboard/variables?page=1&size=15&q=API&sort=key&dir=desc",
     );
-    expect(screen.getByRole("link", { name: /Created/ })).toHaveAttribute(
+    expect(
+      within(table()).getByRole("link", { name: "Created" }),
+    ).toHaveAttribute(
       "href",
       "/dashboard/variables?page=1&size=15&q=API&sort=created&dir=asc",
+    );
+  });
+
+  it("searches variables by key", () => {
+    renderVariables();
+
+    const form = screen.getByRole("search", {
+      name: "Search variables by key",
+    });
+
+    expect(form).toHaveAttribute("action", "/dashboard/variables");
+    expect(form.querySelector('input[name="q"]')).toHaveAttribute(
+      "placeholder",
+      "Search by key…",
     );
   });
 });

@@ -7,12 +7,22 @@ import type { AgentContractRow } from "./agent-contract-row-actions";
 vi.mock("./agent-contracts-table", () => ({
   AgentContractsTable: ({
     contracts,
+    urlState,
+    initialColumnVisibility,
     onEdit,
   }: {
     contracts: AgentContractRow[];
+    urlState: { basePath: string; total: number };
+    initialColumnVisibility?: Record<string, boolean>;
     onEdit: (contract: AgentContractRow) => void;
   }) => (
-    <div data-testid="agent-contracts-table" data-count={contracts.length}>
+    <div
+      data-testid="agent-contracts-table"
+      data-count={contracts.length}
+      data-base-path={urlState.basePath}
+      data-total={urlState.total}
+      data-visibility={JSON.stringify(initialColumnVisibility ?? null)}
+    >
       {contracts.map((contract) => (
         <button
           key={contract.id}
@@ -48,22 +58,6 @@ vi.mock("./edit-contract-modal", () => ({
   ),
 }));
 
-vi.mock("@/components/list-pagination", () => ({
-  ListPagination: ({
-    basePath,
-    total,
-  }: {
-    basePath: string;
-    total: number;
-  }) => (
-    <nav
-      data-testid="agent-contracts-pagination"
-      data-base-path={basePath}
-      data-total={total}
-    />
-  ),
-}));
-
 import { AgentContractsContent } from "./agent-contracts-content";
 
 const contract: AgentContractRow = {
@@ -80,27 +74,35 @@ const renderContent = () =>
   render(
     <AgentContractsContent
       contracts={[contract]}
-      total={12}
-      page={1}
-      pageSize={10}
-      sortBy="name"
-      sortDir="asc"
+      urlState={{
+        basePath: "/dashboard/agent-contracts",
+        page: 1,
+        pageSize: 10,
+        total: 12,
+        sortBy: "name",
+        sortDir: "asc",
+      }}
+      initialColumnVisibility={{ createdBy: false }}
     />,
   );
 
 describe("AgentContractsContent", () => {
-  it("renders the table and pagination without its own add action", () => {
+  it("passes rows, URL state and column choices to the table without its own add action", () => {
     // Act
     renderContent();
 
     // Assert
-    expect(screen.getByTestId("agent-contracts-table")).toHaveAttribute(
-      "data-count",
-      "1",
-    );
-    expect(screen.getByTestId("agent-contracts-pagination")).toHaveAttribute(
+    const table = screen.getByTestId("agent-contracts-table");
+
+    expect(table).toHaveAttribute("data-count", "1");
+    expect(table).toHaveAttribute(
       "data-base-path",
       "/dashboard/agent-contracts",
+    );
+    expect(table).toHaveAttribute("data-total", "12");
+    expect(table).toHaveAttribute(
+      "data-visibility",
+      JSON.stringify({ createdBy: false }),
     );
     expect(
       screen.queryByRole("button", { name: "Add contract" }),

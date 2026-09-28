@@ -1,171 +1,141 @@
 "use client";
 
+import { useMemo } from "react";
 import { FileText, Plus } from "lucide-react";
 
 import { Button } from "@workspace/ui/components/button";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@workspace/ui/components/empty";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@workspace/ui/components/table";
 
-import { DataTableCard } from "@/components/data-table/data-table-card";
-import { SortableHeader } from "@/components/data-table/sortable-header";
+import { DataTable } from "@/components/data-table/data-table";
 import { DateTime } from "@/components/date-time/date-time";
-import type {
-  AgentContractSortDir,
-  AgentContractSortField,
-} from "@/lib/agent-contracts";
+import type { ColumnVisibility } from "@/lib/data-table/column-visibility";
+import { createDataTableColumnHelper } from "@/lib/data-table/features";
+import type { ListUrlState } from "@/lib/data-table/list-url-state";
 import { formatCreatedBy } from "@/lib/format-created-by";
-import { buildListHref, nextSortDirection } from "@/lib/list-page-params";
 
 import { AddContractModal } from "./add-contract-modal";
 import {
   AgentContractRowActions,
   type AgentContractRow,
 } from "./agent-contract-row-actions";
-
-const BASE_PATH = "/dashboard/agent-contracts";
+import {
+  AGENT_CONTRACTS_DEFAULT_COLUMN_VISIBILITY,
+  AGENT_CONTRACTS_TABLE_ID,
+} from "./agent-contracts-table-defaults";
 
 type EditContractHandler = (contract: AgentContractRow) => void;
 
+const columnHelper = createDataTableColumnHelper<AgentContractRow>();
+
+const buildColumns = (onEdit: EditContractHandler) =>
+  columnHelper.columns([
+    columnHelper.accessor("name", {
+      id: "name",
+      enableHiding: false,
+      meta: { label: "Name", sortKey: "name", mobile: "title" },
+      cell: ({ row }) => (
+        <button
+          type="button"
+          onClick={() => onEdit(row.original)}
+          className="text-left font-medium text-foreground underline-offset-4 hover:underline"
+          aria-label={`Edit contract ${row.original.name}`}
+        >
+          {row.original.name}
+        </button>
+      ),
+    }),
+    columnHelper.accessor("version", {
+      id: "version",
+      meta: {
+        label: "Version",
+        mobile: "subtitle",
+        cellClassName: "font-mono text-xs text-muted-foreground tabular-nums",
+      },
+      cell: ({ row }) => row.original.version,
+    }),
+    columnHelper.accessor("description", {
+      id: "description",
+      meta: {
+        label: "Description",
+        hideBelow: "md",
+        mobile: "hidden",
+        cellClassName: "text-muted-foreground",
+      },
+      cell: ({ row }) => (
+        <div
+          className="max-w-xs truncate"
+          title={row.original.description ?? undefined}
+        >
+          {row.original.description ?? "—"}
+        </div>
+      ),
+    }),
+    columnHelper.accessor("createdAt", {
+      id: "created",
+      meta: {
+        label: "Created",
+        sortKey: "createdAt",
+        cellClassName: "text-muted-foreground",
+      },
+      cell: ({ row }) => <DateTime value={row.original.createdAt} />,
+    }),
+    columnHelper.accessor("createdBy", {
+      id: "createdBy",
+      meta: { label: "Created by", cellClassName: "text-muted-foreground" },
+      cell: ({ row }) => formatCreatedBy(row.original.createdBy),
+    }),
+    columnHelper.display({
+      id: "actions",
+      enableHiding: false,
+      meta: {
+        label: "Actions",
+        mobile: "actions",
+        cellClassName: "pr-2 text-right",
+      },
+      cell: ({ row }) => (
+        <AgentContractRowActions contract={row.original} onEdit={onEdit} />
+      ),
+    }),
+  ]);
+
 type AgentContractsTableProps = {
   contracts: AgentContractRow[];
-  sortBy: AgentContractSortField;
-  sortDir: AgentContractSortDir;
-  pageSize: number;
+  urlState: ListUrlState;
   onEdit: EditContractHandler;
-};
-
-const AgentContractsEmptyState = () => {
-  return (
-    <Empty className="gap-4 py-12 md:py-16">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <FileText aria-hidden className="size-5 text-muted-foreground" />
-        </EmptyMedia>
-        <EmptyTitle className="text-base">No agent contracts yet</EmptyTitle>
-        <EmptyDescription>
-          Write a product brief once and reuse it across agents.
-        </EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <AddContractModal
-          trigger={
-            <Button variant="outline" size="sm">
-              <Plus aria-hidden />
-              Add contract
-            </Button>
-          }
-        />
-      </EmptyContent>
-    </Empty>
-  );
+  initialColumnVisibility?: ColumnVisibility;
 };
 
 export const AgentContractsTable = ({
   contracts,
-  sortBy,
-  sortDir,
-  pageSize,
+  urlState,
   onEdit,
+  initialColumnVisibility = AGENT_CONTRACTS_DEFAULT_COLUMN_VISIBILITY,
 }: AgentContractsTableProps) => {
-  const sortHeader = (field: AgentContractSortField, label: string) => {
-    const direction = nextSortDirection(field, sortBy, sortDir);
-    const href = buildListHref(BASE_PATH, {
-      pageSize,
-      sortBy: field,
-      sortDir: direction,
-    });
-
-    return (
-      <SortableHeader
-        label={label}
-        href={href}
-        isActive={sortBy === field}
-        direction={sortDir}
-      />
-    );
-  };
-
-  if (contracts.length === 0) {
-    return (
-      <DataTableCard>
-        <AgentContractsEmptyState />
-      </DataTableCard>
-    );
-  }
+  const columns = useMemo(() => buildColumns(onEdit), [onEdit]);
 
   return (
-    <DataTableCard>
-      <Table>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead className="pl-4">{sortHeader("name", "Name")}</TableHead>
-            <TableHead>Version</TableHead>
-            <TableHead className="hidden md:table-cell">Description</TableHead>
-            <TableHead>{sortHeader("createdAt", "Created")}</TableHead>
-            <TableHead className="hidden md:table-cell">Created by</TableHead>
-            <TableHead className="w-12 pr-2">
-              <span className="sr-only">Actions</span>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {contracts.map((contract) => {
-            const description = contract.description ?? "—";
-
-            return (
-              <TableRow key={contract.id}>
-                <TableCell className="pl-4">
-                  <button
-                    type="button"
-                    onClick={() => onEdit(contract)}
-                    className="text-left font-medium text-foreground underline-offset-4 hover:underline"
-                    aria-label={`Edit contract ${contract.name}`}
-                  >
-                    {contract.name}
-                  </button>
-                </TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground tabular-nums">
-                  {contract.version}
-                </TableCell>
-                <TableCell className="hidden text-muted-foreground md:table-cell">
-                  <div
-                    className="max-w-xs truncate"
-                    title={contract.description ?? undefined}
-                  >
-                    {description}
-                  </div>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  <DateTime value={contract.createdAt} />
-                </TableCell>
-                <TableCell className="hidden text-muted-foreground md:table-cell">
-                  {formatCreatedBy(contract.createdBy)}
-                </TableCell>
-                <TableCell className="pr-2 text-right">
-                  <AgentContractRowActions
-                    contract={contract}
-                    onEdit={onEdit}
-                  />
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </DataTableCard>
+    <DataTable
+      tableId={AGENT_CONTRACTS_TABLE_ID}
+      columns={columns}
+      rows={contracts}
+      getRowId={(contract) => contract.id}
+      urlState={urlState}
+      paginationLabel="Agent contracts list pagination"
+      emptyState={{
+        icon: FileText,
+        title: "No agent contracts yet",
+        description: "Write a product brief once and reuse it across agents.",
+        action: (
+          <AddContractModal
+            trigger={
+              <Button variant="outline" size="sm">
+                <Plus aria-hidden />
+                Add contract
+              </Button>
+            }
+          />
+        ),
+      }}
+      initialColumnVisibility={initialColumnVisibility}
+    />
   );
 };

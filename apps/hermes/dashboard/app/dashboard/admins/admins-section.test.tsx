@@ -13,17 +13,25 @@ vi.mock("@/lib/hermes-admins-page", () => ({
   loadHermesAdminsForPage: () => loadHermesAdminsForPageMock(),
 }));
 
-vi.mock("./admin-row-actions", () => ({
-  AdminRowActions: ({
-    admin,
+vi.mock("@/lib/data-table/read-column-visibility", () => ({
+  readColumnVisibility: async () => ({ created: false }),
+}));
+
+vi.mock("./admins-table", () => ({
+  AdminsTable: ({
+    admins,
     currentUserId,
+    initialColumnVisibility,
   }: {
-    admin: { id: string };
+    admins: Array<{ id: string }>;
     currentUserId: string;
+    initialColumnVisibility: Record<string, boolean>;
   }) => (
     <div
-      data-testid={`admin-row-actions-${admin.id}`}
+      data-testid="admins-table"
+      data-count={admins.length}
       data-current-user-id={currentUserId}
+      data-visibility={JSON.stringify(initialColumnVisibility)}
     />
   ),
 }));
@@ -43,8 +51,7 @@ describe("AdminsSection", () => {
     requireDashboardAdminMock.mockReset();
   });
 
-  it("renders each admin with status and the current user id", async () => {
-    // Setup
+  it("hands the table its admins, the current user and saved column choices", async () => {
     loadHermesAdminsForPageMock.mockResolvedValue([
       {
         id: "user-1",
@@ -63,44 +70,15 @@ describe("AdminsSection", () => {
     ]);
     requireDashboardAdminMock.mockResolvedValue(currentUser);
 
-    // Act
     render(await AdminsSection());
 
-    // Assert
-    expect(screen.getByText("ada@example.com")).toBeInTheDocument();
-    expect(screen.getByText("grace@example.com")).toBeInTheDocument();
-    const youBadges = screen.getAllByText("You");
-    const currentUserRow = screen.getByText("Ada").closest("tr");
+    const table = screen.getByTestId("admins-table");
 
-    expect(screen.getByText("Active")).toHaveAttribute(
-      "data-variant",
-      "success",
+    expect(table).toHaveAttribute("data-count", "2");
+    expect(table).toHaveAttribute("data-current-user-id", "user-1");
+    expect(table).toHaveAttribute(
+      "data-visibility",
+      JSON.stringify({ created: false }),
     );
-    expect(screen.getByText("Disabled")).toHaveAttribute(
-      "data-variant",
-      "muted",
-    );
-    expect(youBadges).toHaveLength(1);
-    expect(currentUserRow).toContainElement(youBadges[0] ?? null);
-    expect(screen.getByTestId("admin-row-actions-user-2")).toHaveAttribute(
-      "data-current-user-id",
-      "user-1",
-    );
-  });
-
-  it("renders the empty state when there are no admins", async () => {
-    // Setup
-    loadHermesAdminsForPageMock.mockResolvedValue([]);
-    requireDashboardAdminMock.mockResolvedValue(currentUser);
-
-    // Act
-    render(await AdminsSection());
-
-    // Assert
-    expect(screen.getByText("No admins yet")).toBeInTheDocument();
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    expect(
-      screen.getByText("Use the CLI or “Add admin” to create one."),
-    ).toBeInTheDocument();
   });
 });

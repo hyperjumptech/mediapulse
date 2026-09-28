@@ -18,23 +18,22 @@ vi.mock("@hermes/orchestration-database", () => ({
   },
 }));
 
-vi.mock("@/components/copyable-id", () => ({
-  CopyableId: ({ value, label }: { value: string; label?: string }) => (
-    <span data-testid="copyable-id" aria-label={label}>
-      {value}
-    </span>
-  ),
+vi.mock("@/lib/data-table/read-column-visibility", () => ({
+  readColumnVisibility: async () => ({ baseUrl: false }),
 }));
 
-vi.mock("./domain-integration-row-actions", () => ({
-  DomainIntegrationRowActions: ({
-    row,
+vi.mock("./domain-integrations-table", () => ({
+  DomainIntegrationsTable: ({
+    integrations,
+    initialColumnVisibility,
   }: {
-    row: { id: string; integrationId: string; name: string };
+    integrations: Array<{ id: string }>;
+    initialColumnVisibility: Record<string, boolean>;
   }) => (
     <div
-      data-testid={`domain-integration-row-actions-${row.id}`}
-      data-integration-id={row.integrationId}
+      data-testid="domain-integrations-table"
+      data-ids={integrations.map((integration) => integration.id).join(",")}
+      data-visibility={JSON.stringify(initialColumnVisibility)}
     />
   ),
 }));
@@ -46,8 +45,7 @@ describe("DomainIntegrationsSection", () => {
     findManyDomainIntegrations.mockReset();
   });
 
-  it("renders each integration with its status and creator", async () => {
-    // Setup
+  it("hands the table its integrations and saved column choices", async () => {
     findManyDomainIntegrations.mockResolvedValue([
       {
         id: "integration-1",
@@ -55,8 +53,6 @@ describe("DomainIntegrationsSection", () => {
         name: "Mediapulse",
         status: "active",
         baseUrl: "https://mediapulse.example.com",
-        createdById: "user-1",
-        createdBy: { id: "user-1", name: "Ada", email: "ada@example.com" },
       },
       {
         id: "integration-2",
@@ -64,60 +60,34 @@ describe("DomainIntegrationsSection", () => {
         name: "Sandbox",
         status: "pending",
         baseUrl: null,
-        createdById: null,
-        createdBy: null,
       },
     ]);
 
-    // Act
     render(await DomainIntegrationsSection());
 
-    // Assert
-    const baseUrlCell = screen.getByText("https://mediapulse.example.com");
+    const table = screen.getByTestId("domain-integrations-table");
 
-    expect(screen.getByText("Mediapulse")).toBeInTheDocument();
-    expect(
-      screen.getByLabelText("Copy integration id mediapulse"),
-    ).toHaveTextContent("mediapulse");
-    expect(screen.getByText("active")).toHaveAttribute(
-      "data-variant",
-      "success",
-    );
-    expect(screen.getByText("pending")).toHaveAttribute(
-      "data-variant",
-      "muted",
-    );
-    expect(baseUrlCell).toHaveAttribute(
-      "title",
-      "https://mediapulse.example.com",
-    );
-    expect(baseUrlCell).toHaveClass("truncate");
-    expect(screen.getByText("Ada")).toBeInTheDocument();
-    expect(
-      screen.getByTestId("domain-integration-row-actions-integration-2"),
-    ).toHaveAttribute("data-integration-id", "sandbox");
-    expect(findManyDomainIntegrations).toHaveBeenCalledWith(
-      expect.objectContaining({
-        orderBy: [{ isDefault: "desc" }, { integrationId: "asc" }],
-      }),
+    expect(table).toHaveAttribute("data-ids", "integration-1,integration-2");
+    expect(table).toHaveAttribute(
+      "data-visibility",
+      JSON.stringify({ baseUrl: false }),
     );
   });
 
-  it("renders the empty state when there are no integrations", async () => {
-    // Setup
+  it("loads integrations default first without the creator", async () => {
     findManyDomainIntegrations.mockResolvedValue([]);
 
-    // Act
     render(await DomainIntegrationsSection());
 
-    // Assert
-    expect(screen.getByText("No integrations yet")).toBeInTheDocument();
-    expect(
-      screen.getByText("Create one to get an API key."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "New integration" }),
-    ).toHaveAttribute("href", "/dashboard/domain-integrations/create");
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(findManyDomainIntegrations).toHaveBeenCalledWith({
+      orderBy: [{ isDefault: "desc" }, { integrationId: "asc" }],
+      select: {
+        id: true,
+        integrationId: true,
+        name: true,
+        status: true,
+        baseUrl: true,
+      },
+    });
   });
 });

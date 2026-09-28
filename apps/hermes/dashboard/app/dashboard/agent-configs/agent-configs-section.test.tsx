@@ -26,28 +26,26 @@ vi.mock("@hermes/orchestration-database", () => ({
   },
 }));
 
-vi.mock("@/lib/variable-expansion-picker-actions", () => ({
-  loadExpansionPickerPage: vi.fn(),
-  loadVariablePickerPage: vi.fn(),
+vi.mock("@/lib/data-table/read-column-visibility", () => ({
+  readColumnVisibility: async () => ({ description: false }),
 }));
 
-vi.mock("./agent-configs-content", () => ({
-  AgentConfigsContent: ({
+vi.mock("./agent-configs-table", () => ({
+  AgentConfigsTable: ({
     configs,
-    agents,
-    total,
-    page,
-    pageSize,
-    sortBy,
-    sortDir,
+    urlState,
+    initialColumnVisibility,
   }: {
     configs: Array<{ id: string; schemaValid: boolean }>;
-    agents: Array<{ id: string }>;
-    total: number;
-    page: number;
-    pageSize: number;
-    sortBy: string;
-    sortDir: string;
+    urlState: {
+      basePath: string;
+      page: number;
+      pageSize: number;
+      total: number;
+      sortBy: string;
+      sortDir: string;
+    };
+    initialColumnVisibility: Record<string, boolean>;
   }) => {
     const schemaValidById = Object.fromEntries(
       configs.map((config) => [config.id, config.schemaValid]),
@@ -55,14 +53,15 @@ vi.mock("./agent-configs-content", () => ({
 
     return (
       <div
-        data-testid="agent-configs-content"
+        data-testid="agent-configs-table"
         data-schema-valid={JSON.stringify(schemaValidById)}
-        data-agents-count={agents.length}
-        data-total={total}
-        data-page={page}
-        data-page-size={pageSize}
-        data-sort-by={sortBy}
-        data-sort-dir={sortDir}
+        data-base-path={urlState.basePath}
+        data-total={urlState.total}
+        data-page={urlState.page}
+        data-page-size={urlState.pageSize}
+        data-sort-by={urlState.sortBy}
+        data-sort-dir={urlState.sortDir}
+        data-visibility={JSON.stringify(initialColumnVisibility)}
       />
     );
   },
@@ -93,24 +92,17 @@ const buildConfig = (
   createdBy: null,
 });
 
-const mockAgentRegistry = ({
-  dropdownAgents,
-  registeredSchemas,
-}: {
-  dropdownAgents: Array<{ id: string; agentId: string; agentVersion: string }>;
+const mockRegisteredSchemas = (
   registeredSchemas: Array<{
     agentId: string;
     agentVersion: string;
     configSchema: Record<string, unknown> | null;
-  }>;
-}) => {
-  findManyAgentRegistry.mockImplementation(
-    async (args: { select: Record<string, boolean> }) =>
-      args.select.configSchema ? registeredSchemas : dropdownAgents,
-  );
+  }>,
+) => {
+  findManyAgentRegistry.mockResolvedValue(registeredSchemas);
 };
 
-const renderedContent = () => screen.getByTestId("agent-configs-content");
+const renderedTable = () => screen.getByTestId("agent-configs-table");
 
 describe("AgentConfigsSection", () => {
   afterEach(() => {
@@ -133,29 +125,26 @@ describe("AgentConfigsSection", () => {
       page: 1,
       pageSize: 15,
     });
-    mockAgentRegistry({
-      dropdownAgents: [],
-      registeredSchemas: [
-        {
-          agentId: "summarizer",
-          agentVersion: "1.0.0",
-          configSchema: currentSchema,
-        },
-        {
-          agentId: "classifier",
-          agentVersion: "1.0.0",
-          configSchema: currentSchema,
-        },
-        { agentId: "translator", agentVersion: "1.0.0", configSchema: null },
-      ],
-    });
+    mockRegisteredSchemas([
+      {
+        agentId: "summarizer",
+        agentVersion: "1.0.0",
+        configSchema: currentSchema,
+      },
+      {
+        agentId: "classifier",
+        agentVersion: "1.0.0",
+        configSchema: currentSchema,
+      },
+      { agentId: "translator", agentVersion: "1.0.0", configSchema: null },
+    ]);
 
     // Act
     render(await AgentConfigsSection(baseQuery));
 
     // Assert
     const schemaValidById = JSON.parse(
-      renderedContent().getAttribute("data-schema-valid") ?? "{}",
+      renderedTable().getAttribute("data-schema-valid") ?? "{}",
     );
 
     expect(schemaValidById).toEqual({
@@ -185,16 +174,16 @@ describe("AgentConfigsSection", () => {
       page: 1,
       pageSize: 15,
     });
-    mockAgentRegistry({ dropdownAgents: [], registeredSchemas: [] });
+    mockRegisteredSchemas([]);
 
     // Act
     render(await AgentConfigsSection(baseQuery));
 
     // Assert
-    expect(findManyAgentRegistry).toHaveBeenCalledTimes(1);
+    expect(findManyAgentRegistry).not.toHaveBeenCalled();
   });
 
-  it("forwards sort and pagination and renders the agent dropdown options", async () => {
+  it("hands the table its URL state and saved column choices", async () => {
     // Setup
     getAgentConfigsPageMock.mockResolvedValue({
       configs: [],
@@ -202,13 +191,7 @@ describe("AgentConfigsSection", () => {
       page: 2,
       pageSize: 20,
     });
-    mockAgentRegistry({
-      dropdownAgents: [
-        { id: "agent-1", agentId: "summarizer", agentVersion: "1.0.0" },
-        { id: "agent-2", agentId: "classifier", agentVersion: "2.0.0" },
-      ],
-      registeredSchemas: [],
-    });
+    mockRegisteredSchemas([]);
 
     // Act
     render(
@@ -221,17 +204,21 @@ describe("AgentConfigsSection", () => {
     );
 
     // Assert
-    const content = renderedContent();
+    const table = renderedTable();
 
     expect(getAgentConfigsPageMock).toHaveBeenCalledWith(2, 20, {
       sortBy: "agentId",
       sortDir: "desc",
     });
-    expect(content).toHaveAttribute("data-agents-count", "2");
-    expect(content).toHaveAttribute("data-total", "21");
-    expect(content).toHaveAttribute("data-page", "2");
-    expect(content).toHaveAttribute("data-page-size", "20");
-    expect(content).toHaveAttribute("data-sort-by", "agentId");
-    expect(content).toHaveAttribute("data-sort-dir", "desc");
+    expect(table).toHaveAttribute("data-base-path", "/dashboard/agent-configs");
+    expect(table).toHaveAttribute("data-total", "21");
+    expect(table).toHaveAttribute("data-page", "2");
+    expect(table).toHaveAttribute("data-page-size", "20");
+    expect(table).toHaveAttribute("data-sort-by", "agentId");
+    expect(table).toHaveAttribute("data-sort-dir", "desc");
+    expect(table).toHaveAttribute(
+      "data-visibility",
+      JSON.stringify({ createdBy: false, description: false }),
+    );
   });
 });

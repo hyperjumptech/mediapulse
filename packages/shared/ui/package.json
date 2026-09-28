@@ -15,7 +15,7 @@
     "cmdk": "^1.1.1",
     "lucide-react": "catalog:",
     "next-themes": "^0.4.6",
-    "radix-ui": "^1.4.3",
+    "radix-ui": "^1.6.7",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "recharts": "3.8.0",
