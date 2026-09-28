@@ -11,6 +11,10 @@ import {
   type ExecutionSummary,
   type InvocationSummary,
 } from "./execution-summary";
+import {
+  attachExecutionElapsedLabels,
+  type PipelineExecutionRow,
+} from "./pipeline-executions";
 
 type Db = typeof prisma;
 
@@ -60,9 +64,6 @@ const httpTriggerOrderBy = (
   return { name: dir };
 };
 
-/**
- * Fetches paginated HTTP triggers with optional search and sorting.
- */
 export const getHttpTriggersPage = async (
   page: number,
   pageSize: number,
@@ -94,9 +95,6 @@ export const getHttpTriggersPage = async (
   return { httpTriggers, total, page, pageSize };
 };
 
-/**
- * Fetches one HTTP trigger by id with its pipeline.
- */
 export const getHttpTriggerById = async (
   triggerId: string,
   db: Db = prisma,
@@ -117,30 +115,13 @@ export const getHttpTriggerById = async (
   });
 };
 
-export type HttpTriggerExecutionRow = Prisma.HttpTriggerExecutionGetPayload<{
-  select: {
-    id: true;
-    executionTime: true;
-    enqueueStatus: true;
-    runStatus: true;
-    jobsCreated: true;
-    jobsEnqueued: true;
-    succeededInvocationCount: true;
-    failedInvocationCount: true;
-    createdAt: true;
-  };
-}>;
-
 export type HttpTriggerExecutionsPageResult = {
-  executions: HttpTriggerExecutionRow[];
+  executions: PipelineExecutionRow[];
   total: number;
   page: number;
   pageSize: number;
 };
 
-/**
- * Fetches paginated execution rows for one HTTP trigger.
- */
 export const getHttpTriggerExecutionsPage = async (
   httpTriggerId: string,
   page: number,
@@ -172,7 +153,18 @@ export const getHttpTriggerExecutionsPage = async (
     db.httpTriggerExecution.findMany(args),
     db.httpTriggerExecution.count({ where }),
   ]);
-  return { executions, total, page, pageSize };
+  const sourceRows = executions.map((execution) => ({
+    ...execution,
+    source: "http-trigger" as const,
+    sourceId: httpTriggerId,
+    sourceName: null,
+  }));
+  const executionsWithElapsed = await attachExecutionElapsedLabels(
+    sourceRows,
+    db,
+  );
+
+  return { executions: executionsWithElapsed, total, page, pageSize };
 };
 
 export type HttpTriggerExecutionDetail = {
@@ -222,9 +214,6 @@ export type HttpTriggerExecutionDetail = {
   }>;
 };
 
-/**
- * Loads one HTTP trigger execution with step rollups and invocation rows.
- */
 export const getHttpTriggerExecutionDetail = async (
   httpTriggerId: string,
   executionId: string,

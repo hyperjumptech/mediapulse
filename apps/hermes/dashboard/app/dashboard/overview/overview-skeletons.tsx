@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader } from "@workspace/ui/components/card";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 
+import { TableSkeleton } from "@/components/page-skeletons";
+
 const range = (count: number) =>
   Array.from({ length: count }, (_, index) => index);
 
@@ -18,35 +20,6 @@ const ExecutionStatCardsSkeleton = () => {
             <Skeleton className="h-3 w-32 max-w-full" />
           </CardContent>
         </Card>
-      ))}
-    </div>
-  );
-};
-
-const OverviewListRowsSkeleton = ({
-  rows,
-  withBadge,
-}: {
-  rows: number;
-  withBadge: boolean;
-}) => {
-  return (
-    <div className="flex flex-col">
-      {range(rows).map((row) => (
-        <div key={row} className="flex items-center gap-3 py-2">
-          {withBadge ? (
-            <Skeleton className="h-5 w-24 shrink-0 rounded-full" />
-          ) : null}
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <div className="flex h-5 items-center">
-              <Skeleton className="h-3.5 w-40 max-w-full" />
-            </div>
-            <div className="flex h-4 items-center">
-              <Skeleton className="h-3 w-24 max-w-full" />
-            </div>
-          </div>
-          <Skeleton className="h-3 w-12 shrink-0" />
-        </div>
       ))}
     </div>
   );
@@ -82,16 +55,14 @@ export const ExecutionActivitySkeleton = () => {
   );
 };
 
-export const OverviewListSkeleton = ({
-  rows = 4,
-  withBadge = true,
-}: {
-  rows?: number;
-  withBadge?: boolean;
-}) => {
+export const OverviewActivitySkeleton = () => {
   return (
-    <div role="status" aria-label="Loading">
-      <OverviewListRowsSkeleton rows={rows} withBadge={withBadge} />
+    <div role="status" aria-label="Loading" className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-2">
+        <Skeleton className="h-9 w-32 @xl/main:w-80" />
+        <Skeleton className="h-8 w-28" />
+      </div>
+      <TableSkeleton rows={5} columns={6} />
     </div>
   );
 };

@@ -1,10 +1,16 @@
 import {
   type Prisma,
   prisma,
+  type ScheduleEnqueueStatus,
   ScheduleRunStatus,
 } from "@hermes/orchestration-database";
 
 import { buildTrailingDayKeys, toDayKey } from "@/lib/date-time/day-key";
+import type {
+  ExecutionListRow,
+  ExecutionListSource,
+} from "@/lib/execution-list";
+import { attachExecutionElapsedLabels } from "@/lib/pipeline-executions";
 
 export type ExecutionStatusCounts = {
   total: number;
@@ -24,8 +30,10 @@ export type OverviewExecution = {
   pipelineId: string;
   pipelineName: string;
   runStatus: ScheduleRunStatus;
+  enqueueStatus: ScheduleEnqueueStatus;
+  succeededInvocationCount: number;
+  failedInvocationCount: number;
   executionTime: Date;
-  href: string;
 };
 
 export type ExecutionStatusCountsDb = {
@@ -49,6 +57,11 @@ export type OverviewExecutionsDb = {
 export type UpcomingSchedulesDb = {
   schedule: Pick<typeof prisma.schedule, "findMany">;
 };
+
+export type OverviewActivityDb = OverviewExecutionsDb &
+  UpcomingSchedulesDb & {
+    agentJobExecution: Pick<typeof prisma.agentJobExecution, "findMany">;
+  };
 
 type StatusCountBucket = Exclude<keyof ExecutionStatusCounts, "total">;
 
@@ -86,10 +99,17 @@ const EMPTY_STATUS_COUNTS: ExecutionStatusCounts = {
   cancelled: 0,
 };
 
-const scheduleExecutionOverviewSelect = {
+const executionOverviewFieldsSelect = {
   id: true,
   runStatus: true,
+  enqueueStatus: true,
+  succeededInvocationCount: true,
+  failedInvocationCount: true,
   executionTime: true,
+} as const;
+
+const scheduleExecutionOverviewSelect = {
+  ...executionOverviewFieldsSelect,
   schedule: {
     select: {
       id: true,
@@ -100,9 +120,7 @@ const scheduleExecutionOverviewSelect = {
 } satisfies Prisma.ScheduleExecutionSelect;
 
 const httpTriggerExecutionOverviewSelect = {
-  id: true,
-  runStatus: true,
-  executionTime: true,
+  ...executionOverviewFieldsSelect,
   httpTrigger: {
     select: {
       id: true,
@@ -113,9 +131,7 @@ const httpTriggerExecutionOverviewSelect = {
 } satisfies Prisma.HttpTriggerExecutionSelect;
 
 const manualPipelineExecutionOverviewSelect = {
-  id: true,
-  runStatus: true,
-  executionTime: true,
+  ...executionOverviewFieldsSelect,
   pipeline: { select: { id: true, name: true } },
 } satisfies Prisma.ManualPipelineExecutionSelect;
 
@@ -148,20 +164,24 @@ export type UpcomingSchedule = Omit<UpcomingScheduleRow, "nextRunAt"> & {
   nextRunAt: Date;
 };
 
-export const buildExecutionHref = (
-  kind: OverviewExecutionKind,
-  parentId: string,
-  executionId: string,
-): string => {
-  if (kind === "schedule") {
-    return `/dashboard/schedules/${parentId}/executions/${executionId}`;
-  }
-  if (kind === "httpTrigger") {
-    return `/dashboard/http-triggers/${parentId}/executions/${executionId}`;
-  }
+type ExecutionOverviewFields = Pick<
+  OverviewExecution,
+  | "runStatus"
+  | "enqueueStatus"
+  | "succeededInvocationCount"
+  | "failedInvocationCount"
+  | "executionTime"
+>;
 
-  return `/dashboard/pipelines/${parentId}/executions/${executionId}`;
-};
+const executionOverviewFields = (
+  row: ExecutionOverviewFields,
+): ExecutionOverviewFields => ({
+  runStatus: row.runStatus,
+  enqueueStatus: row.enqueueStatus,
+  succeededInvocationCount: row.succeededInvocationCount,
+  failedInvocationCount: row.failedInvocationCount,
+  executionTime: row.executionTime,
+});
 
 const fromScheduleExecution = (
   row: ScheduleExecutionOverviewRow,
@@ -172,9 +192,7 @@ const fromScheduleExecution = (
   parentName: row.schedule.name,
   pipelineId: row.schedule.pipeline.id,
   pipelineName: row.schedule.pipeline.name,
-  runStatus: row.runStatus,
-  executionTime: row.executionTime,
-  href: buildExecutionHref("schedule", row.schedule.id, row.id),
+  ...executionOverviewFields(row),
 });
 
 const fromHttpTriggerExecution = (
@@ -186,9 +204,7 @@ const fromHttpTriggerExecution = (
   parentName: row.httpTrigger.name,
   pipelineId: row.httpTrigger.pipeline.id,
   pipelineName: row.httpTrigger.pipeline.name,
-  runStatus: row.runStatus,
-  executionTime: row.executionTime,
-  href: buildExecutionHref("httpTrigger", row.httpTrigger.id, row.id),
+  ...executionOverviewFields(row),
 });
 
 const fromManualPipelineExecution = (
@@ -200,9 +216,7 @@ const fromManualPipelineExecution = (
   parentName: row.pipeline.name,
   pipelineId: row.pipeline.id,
   pipelineName: row.pipeline.name,
-  runStatus: row.runStatus,
-  executionTime: row.executionTime,
-  href: buildExecutionHref("manual", row.pipeline.id, row.id),
+  ...executionOverviewFields(row),
 });
 
 const byExecutionTimeDescending = (
@@ -341,6 +355,93 @@ export const getUpcomingSchedules = async (
   return rows.flatMap((row) =>
     row.nextRunAt ? [{ ...row, nextRunAt: row.nextRunAt }] : [],
   );
+};
+
+const EXECUTION_LIST_SOURCE: Record<
+  OverviewExecutionKind,
+  ExecutionListSource
+> = {
+  schedule: "schedule",
+  httpTrigger: "http-trigger",
+  manual: "manual",
+};
+
+export const toExecutionListRow = (
+  execution: OverviewExecution,
+): Omit<ExecutionListRow, "elapsedLabel"> => ({
+  id: execution.executionId,
+  source: EXECUTION_LIST_SOURCE[execution.kind],
+  sourceId: execution.parentId,
+  sourceName: execution.kind === "manual" ? null : execution.parentName,
+  pipelineName: execution.pipelineName,
+  executionTime: execution.executionTime,
+  runStatus: execution.runStatus,
+  enqueueStatus: execution.enqueueStatus,
+  succeededInvocationCount: execution.succeededInvocationCount,
+  failedInvocationCount: execution.failedInvocationCount,
+});
+
+export const OVERVIEW_ACTIVITY_LIMITS = {
+  running: 10,
+  failed: 8,
+  upcoming: 8,
+} as const;
+
+export type OverviewActivityList<Row> = {
+  rows: Row[];
+  hasMore: boolean;
+};
+
+export type OverviewActivity = {
+  running: OverviewActivityList<ExecutionListRow>;
+  failed: OverviewActivityList<ExecutionListRow>;
+  upcoming: OverviewActivityList<UpcomingSchedule>;
+};
+
+const toActivityList = <Row>(
+  rows: Row[],
+  limit: number,
+): OverviewActivityList<Row> => ({
+  rows: rows.slice(0, limit),
+  hasMore: rows.length > limit,
+});
+
+export const getOverviewActivity = async (
+  failuresSince: Date,
+  db: OverviewActivityDb = prisma,
+): Promise<OverviewActivity> => {
+  const [activeExecutions, recentFailures, upcomingSchedules] =
+    await Promise.all([
+      getActiveExecutions(OVERVIEW_ACTIVITY_LIMITS.running + 1, db),
+      getRecentFailures(failuresSince, OVERVIEW_ACTIVITY_LIMITS.failed + 1, db),
+      getUpcomingSchedules(OVERVIEW_ACTIVITY_LIMITS.upcoming + 1, db),
+    ]);
+  const running = toActivityList(
+    activeExecutions,
+    OVERVIEW_ACTIVITY_LIMITS.running,
+  );
+  const failed = toActivityList(
+    recentFailures,
+    OVERVIEW_ACTIVITY_LIMITS.failed,
+  );
+  const executionRows = [...running.rows, ...failed.rows].map(
+    toExecutionListRow,
+  );
+  const executionRowsWithElapsed = await attachExecutionElapsedLabels(
+    executionRows,
+    db,
+  );
+  const runningRows = executionRowsWithElapsed.slice(0, running.rows.length);
+  const failedRows = executionRowsWithElapsed.slice(running.rows.length);
+
+  return {
+    running: { rows: runningRows, hasMore: running.hasMore },
+    failed: { rows: failedRows, hasMore: failed.hasMore },
+    upcoming: toActivityList(
+      upcomingSchedules,
+      OVERVIEW_ACTIVITY_LIMITS.upcoming,
+    ),
+  };
 };
 
 export type ExecutionDailyPoint = {

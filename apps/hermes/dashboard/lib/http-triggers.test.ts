@@ -18,6 +18,9 @@ type MockDb = {
     findFirst: ReturnType<typeof vi.fn>;
     count: ReturnType<typeof vi.fn>;
   };
+  agentJobExecution: {
+    findMany: ReturnType<typeof vi.fn>;
+  };
 };
 
 const createMockDb = (): MockDb => ({
@@ -28,6 +31,9 @@ const createMockDb = (): MockDb => ({
     findMany: vi.fn(),
     findFirst: vi.fn(),
     count: vi.fn(),
+  },
+  agentJobExecution: {
+    findMany: vi.fn(),
   },
 });
 
@@ -85,15 +91,12 @@ describe("getHttpTriggerExecutionsPage", () => {
   });
 
   it("selects only the columns the executions table renders", async () => {
-    // Setup
     const db = createMockDb();
     db.httpTriggerExecution.findMany.mockResolvedValue([]);
     db.httpTriggerExecution.count.mockResolvedValue(0);
 
-    // Act
     await getHttpTriggerExecutionsPage("trigger-1", 2, 10, asDb(db));
 
-    // Assert
     expect(db.httpTriggerExecution.findMany).toHaveBeenCalledWith({
       where: { httpTriggerId: "trigger-1" },
       skip: 10,
@@ -114,6 +117,56 @@ describe("getHttpTriggerExecutionsPage", () => {
     expect(db.httpTriggerExecution.count).toHaveBeenCalledWith({
       where: { httpTriggerId: "trigger-1" },
     });
+    expect(db.agentJobExecution.findMany).not.toHaveBeenCalled();
+  });
+
+  it("tags each execution with its trigger and a duration from its jobs", async () => {
+    const db = createMockDb();
+    const execution = {
+      id: "exec-1",
+      executionTime: new Date("2026-04-21T12:00:00.000Z"),
+      enqueueStatus: "success",
+      runStatus: "succeeded",
+      jobsCreated: 1,
+      jobsEnqueued: 1,
+      succeededInvocationCount: 1,
+      failedInvocationCount: 0,
+      createdAt: new Date("2026-04-21T12:00:00.000Z"),
+    };
+    db.httpTriggerExecution.findMany.mockResolvedValue([execution]);
+    db.httpTriggerExecution.count.mockResolvedValue(1);
+    db.agentJobExecution.findMany.mockResolvedValue([
+      {
+        scheduleExecutionId: null,
+        httpTriggerExecutionId: "exec-1",
+        manualExecutionId: null,
+        enqueuedAt: new Date("2026-04-21T12:00:00.000Z"),
+        startedAt: new Date("2026-04-21T12:00:01.000Z"),
+        completedAt: new Date("2026-04-21T12:00:43.000Z"),
+      },
+    ]);
+
+    const result = await getHttpTriggerExecutionsPage(
+      "trigger-1",
+      1,
+      15,
+      asDb(db),
+    );
+
+    expect(db.agentJobExecution.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { OR: [{ httpTriggerExecutionId: { in: ["exec-1"] } }] },
+      }),
+    );
+    expect(result.executions).toEqual([
+      {
+        ...execution,
+        source: "http-trigger",
+        sourceId: "trigger-1",
+        sourceName: null,
+        elapsedLabel: "42s",
+      },
+    ]);
   });
 });
 
@@ -123,14 +176,11 @@ describe("getHttpTriggerExecutionSummary", () => {
   });
 
   it("loads the pipeline through the trigger in the same query", async () => {
-    // Setup
     const db = createMockDb();
     db.httpTriggerExecution.findFirst.mockResolvedValue(summaryRow());
 
-    // Act
     await getHttpTriggerExecutionSummary("trigger-1", "exec-1", asDb(db));
 
-    // Assert
     expect(db.pipeline.findUnique).not.toHaveBeenCalled();
     expect(db.httpTriggerExecution.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -165,18 +215,15 @@ describe("getHttpTriggerExecutionSummary", () => {
   });
 
   it("returns the trigger context and scalar invocation rows", async () => {
-    // Setup
     const db = createMockDb();
     db.httpTriggerExecution.findFirst.mockResolvedValue(summaryRow());
 
-    // Act
     const summary = await getHttpTriggerExecutionSummary(
       "trigger-1",
       "exec-1",
       asDb(db),
     );
 
-    // Assert
     expect(summary?.trigger).toEqual({ id: "trigger-1", name: "Webhook" });
     expect(summary?.pipeline).toEqual({ id: "pipe-1", name: "Pipeline" });
     expect(summary?.execution.metadata).toEqual({
@@ -211,30 +258,25 @@ describe("getHttpTriggerExecutionSummary", () => {
   });
 
   it("returns null when the execution does not belong to the trigger", async () => {
-    // Setup
     const db = createMockDb();
     db.httpTriggerExecution.findFirst.mockResolvedValue(null);
 
-    // Act
     const summary = await getHttpTriggerExecutionSummary(
       "other-trigger",
       "exec-1",
       asDb(db),
     );
 
-    // Assert
     expect(summary).toBeNull();
   });
 });
 
 describe("HTTP trigger loaders never read the token hash", () => {
   it("omits tokenHash from the list query", async () => {
-    // Setup
     const findMany = vi.fn().mockResolvedValue([]);
     const count = vi.fn().mockResolvedValue(0);
     const db = { httpTrigger: { findMany, count } };
 
-    // Act
     await getHttpTriggersPage(
       1,
       15,
@@ -242,24 +284,20 @@ describe("HTTP trigger loaders never read the token hash", () => {
       db as unknown as PrismaClientWithSchema,
     );
 
-    // Assert
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({ omit: { tokenHash: true } }),
     );
   });
 
   it("omits tokenHash from the detail query", async () => {
-    // Setup
     const findUnique = vi.fn().mockResolvedValue(null);
     const db = { httpTrigger: { findUnique } };
 
-    // Act
     await getHttpTriggerById(
       "trigger-1",
       db as unknown as PrismaClientWithSchema,
     );
 
-    // Assert
     expect(findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ omit: { tokenHash: true } }),
     );

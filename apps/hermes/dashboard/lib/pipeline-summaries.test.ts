@@ -2,8 +2,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  getPipelineSummariesWithValidation,
+  getPipelineSummariesPage,
   type PipelineSummariesDb,
+  type PipelineSummariesQuery,
 } from "./pipeline-summaries";
 import { getPipelinesValidationMap } from "./validate-pipeline";
 
@@ -16,7 +17,7 @@ vi.mock("./validate-pipeline", async (importOriginal) => {
 const getPipelinesValidationMapMock = vi.mocked(getPipelinesValidationMap);
 
 const createDb = () => ({
-  pipeline: { findMany: vi.fn() },
+  pipeline: { findMany: vi.fn(), count: vi.fn() },
   agentRegistry: { findMany: vi.fn() },
   agentConfig: { findMany: vi.fn() },
 });
@@ -24,80 +25,175 @@ const createDb = () => ({
 const asSummariesDb = (db: ReturnType<typeof createDb>): PipelineSummariesDb =>
   db as unknown as PipelineSummariesDb;
 
-describe("getPipelineSummariesWithValidation", () => {
+const baseQuery: PipelineSummariesQuery = {
+  page: 1,
+  pageSize: 15,
+  sortBy: "updated",
+  sortDir: "desc",
+};
+
+const expectedSelect = {
+  id: true,
+  name: true,
+  description: true,
+  isActive: true,
+  updatedAt: true,
+  createdById: true,
+  createdBy: { select: { id: true, name: true, email: true } },
+  domainIntegrationId: true,
+  steps: {
+    orderBy: { order: "asc" },
+    select: {
+      agentId: true,
+      agentVersion: true,
+      agentConfigId: true,
+      input: true,
+      config: true,
+    },
+  },
+  _count: { select: { steps: true } },
+};
+
+const createPipelineRecord = (id: string) => ({
+  id,
+  name: `Pipeline ${id}`,
+  description: "Runs every day",
+  isActive: true,
+  updatedAt: new Date("2026-09-20T08:00:00Z"),
+  createdById: "u1",
+  createdBy: { id: "u1", name: "Admin", email: "admin@example.com" },
+  domainIntegrationId: "di-1",
+  steps: [
+    {
+      agentId: "agent-a",
+      agentVersion: "1.0.0",
+      agentConfigId: null,
+      input: { query: "news" },
+      config: {},
+    },
+  ],
+  _count: { steps: 1 },
+});
+
+describe("getPipelineSummariesPage", () => {
   afterEach(() => {
-    vi.restoreAllMocks();
     getPipelinesValidationMapMock.mockReset();
   });
 
-  it("loads summary fields and validation steps in one query and strips steps from the result", async () => {
-    // Setup
+  it("loads one page ordered by last update and returns the total", async () => {
     const db = createDb();
-    const createdBy = { id: "u1", name: "Admin", email: "admin@example.com" };
-    const pipelines = [
+    db.pipeline.findMany.mockResolvedValue([]);
+    db.pipeline.count.mockResolvedValue(42);
+    getPipelinesValidationMapMock.mockResolvedValue({});
+
+    const result = await getPipelineSummariesPage(
+      { ...baseQuery, page: 3, pageSize: 10 },
+      asSummariesDb(db),
+    );
+
+    expect(db.pipeline.findMany).toHaveBeenCalledWith({
+      where: undefined,
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      skip: 20,
+      take: 10,
+      select: expectedSelect,
+    });
+    expect(db.pipeline.count).toHaveBeenCalledWith({ where: undefined });
+    expect(result).toEqual({ pipelines: [], total: 42, page: 3, pageSize: 10 });
+  });
+
+  it("searches name and description without regard to case", async () => {
+    const db = createDb();
+    db.pipeline.findMany.mockResolvedValue([]);
+    db.pipeline.count.mockResolvedValue(0);
+    getPipelinesValidationMapMock.mockResolvedValue({});
+    const expectedWhere = {
+      OR: [
+        { name: { contains: "digest", mode: "insensitive" } },
+        { description: { contains: "digest", mode: "insensitive" } },
+      ],
+    };
+
+    await getPipelineSummariesPage(
+      { ...baseQuery, search: "  digest " },
+      asSummariesDb(db),
+    );
+
+    expect(db.pipeline.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expectedWhere }),
+    );
+    expect(db.pipeline.count).toHaveBeenCalledWith({ where: expectedWhere });
+  });
+
+  it("ignores a blank search", async () => {
+    const db = createDb();
+    db.pipeline.findMany.mockResolvedValue([]);
+    db.pipeline.count.mockResolvedValue(0);
+    getPipelinesValidationMapMock.mockResolvedValue({});
+
+    await getPipelineSummariesPage(
+      { ...baseQuery, search: "   " },
+      asSummariesDb(db),
+    );
+
+    expect(db.pipeline.count).toHaveBeenCalledWith({ where: undefined });
+  });
+
+  it("sorts by name with the id as a tiebreaker", async () => {
+    const db = createDb();
+    db.pipeline.findMany.mockResolvedValue([]);
+    db.pipeline.count.mockResolvedValue(0);
+    getPipelinesValidationMapMock.mockResolvedValue({});
+
+    await getPipelineSummariesPage(
+      { ...baseQuery, sortBy: "name", sortDir: "asc" },
+      asSummariesDb(db),
+    );
+
+    expect(db.pipeline.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+      }),
+    );
+  });
+
+  it("validates only the loaded page and attaches the result and step count to each row", async () => {
+    const db = createDb();
+    const pipelines = [createPipelineRecord("p1")];
+    const validation = { valid: false, warnings: ["Step 1: missing input"] };
+    db.pipeline.findMany.mockResolvedValue(pipelines);
+    db.pipeline.count.mockResolvedValue(1);
+    getPipelinesValidationMapMock.mockResolvedValue({ p1: validation });
+
+    const result = await getPipelineSummariesPage(baseQuery, asSummariesDb(db));
+
+    expect(getPipelinesValidationMapMock).toHaveBeenCalledWith(pipelines, db);
+    expect(result.pipelines).toEqual([
       {
         id: "p1",
-        name: "Daily",
+        name: "Pipeline p1",
         description: "Runs every day",
         isActive: true,
+        updatedAt: new Date("2026-09-20T08:00:00Z"),
         createdById: "u1",
-        createdBy,
-        domainIntegrationId: "di-1",
-        steps: [
-          {
-            agentId: "agent-a",
-            agentVersion: "1.0.0",
-            agentConfigId: null,
-            input: { query: "news" },
-            config: {},
-          },
-        ],
+        createdBy: { id: "u1", name: "Admin", email: "admin@example.com" },
+        stepCount: 1,
+        validation,
       },
-    ];
-    const validationById = { p1: { valid: true, warnings: [] } };
-    db.pipeline.findMany.mockResolvedValue(pipelines);
-    getPipelinesValidationMapMock.mockResolvedValue(validationById);
+    ]);
+  });
 
-    // Act
-    const result = await getPipelineSummariesWithValidation(asSummariesDb(db));
+  it("treats a row without a validation result as invalid", async () => {
+    const db = createDb();
+    db.pipeline.findMany.mockResolvedValue([createPipelineRecord("p1")]);
+    db.pipeline.count.mockResolvedValue(1);
+    getPipelinesValidationMapMock.mockResolvedValue({});
 
-    // Assert
-    expect(db.pipeline.findMany).toHaveBeenCalledTimes(1);
-    expect(db.pipeline.findMany).toHaveBeenCalledWith({
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        isActive: true,
-        createdById: true,
-        createdBy: { select: { id: true, name: true, email: true } },
-        domainIntegrationId: true,
-        steps: {
-          orderBy: { order: "asc" },
-          select: {
-            agentId: true,
-            agentVersion: true,
-            agentConfigId: true,
-            input: true,
-            config: true,
-          },
-        },
-      },
-      orderBy: { updatedAt: "desc" },
-    });
-    expect(getPipelinesValidationMapMock).toHaveBeenCalledWith(pipelines, db);
-    expect(result).toEqual({
-      pipelines: [
-        {
-          id: "p1",
-          name: "Daily",
-          description: "Runs every day",
-          isActive: true,
-          createdById: "u1",
-          createdBy,
-        },
-      ],
-      pipelineValidationById: validationById,
+    const result = await getPipelineSummariesPage(baseQuery, asSummariesDb(db));
+
+    expect(result.pipelines[0]?.validation).toEqual({
+      valid: false,
+      warnings: [],
     });
   });
 });

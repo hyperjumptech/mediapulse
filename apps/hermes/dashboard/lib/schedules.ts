@@ -11,6 +11,10 @@ import {
   type ExecutionSummary,
   type InvocationSummary,
 } from "./execution-summary";
+import {
+  attachExecutionElapsedLabels,
+  type PipelineExecutionRow,
+} from "./pipeline-executions";
 
 type Db = typeof prisma;
 
@@ -28,12 +32,6 @@ export type SchedulesPageResult = {
   pageSize: number;
 };
 
-/**
- * Builds a Prisma where clause for schedule search by name or description (partial, case-insensitive).
- *
- * @param search - Raw search string; trimmed and ignored if empty.
- * @returns Where clause object or undefined if no search.
- */
 const scheduleSearchWhere = (
   search: string | undefined,
 ):
@@ -65,13 +63,6 @@ const SORT_DEFAULT: {
   sortDir: "asc",
 };
 
-/**
- * Builds Prisma orderBy from sort field and direction. "created" maps to createdAt.
- *
- * @param sortBy - Field to sort by (name, nextRunAt, created, or enabled).
- * @param sortDir - asc or desc.
- * @returns Prisma orderBy object.
- */
 const scheduleOrderBy = (
   sortBy: ScheduleSortField,
   sortDir: ScheduleSortDir,
@@ -83,15 +74,6 @@ const scheduleOrderBy = (
   return { name: dir };
 };
 
-/**
- * Fetches a paginated list of schedules with optional sort and search.
- *
- * @param page - 1-based page number.
- * @param pageSize - Number of items per page.
- * @param options - Optional search term and sort (sortBy: name | nextRunAt | created | enabled, sortDir: asc | desc).
- * @param db - Prisma client (injectable for tests).
- * @returns Schedules for the page plus total count and pagination info.
- */
 export const getSchedulesPage = async (
   page: number,
   pageSize: number,
@@ -121,13 +103,6 @@ export const getSchedulesPage = async (
   return { schedules, total, page, pageSize };
 };
 
-/**
- * Fetches a single schedule by id with pipeline, or null if not found.
- *
- * @param scheduleId - UUID of the schedule.
- * @param db - Prisma client (injectable for tests).
- * @returns The schedule with pipeline or null.
- */
 export const getScheduleById = async (
   scheduleId: string,
   db: Db = prisma,
@@ -146,35 +121,13 @@ export const getScheduleById = async (
   });
 };
 
-/** Shape of a single execution returned by getScheduleExecutionsPage. */
-export type ScheduleExecutionRow = {
-  id: string;
-  executionTime: Date;
-  enqueueStatus: string;
-  runStatus: string;
-  jobsCreated: number;
-  jobsEnqueued: number;
-  succeededInvocationCount: number;
-  failedInvocationCount: number;
-  createdAt: Date;
-};
-
 export type ScheduleExecutionsPageResult = {
-  executions: ScheduleExecutionRow[];
+  executions: PipelineExecutionRow[];
   total: number;
   page: number;
   pageSize: number;
 };
 
-/**
- * Fetches a paginated list of schedule executions for a schedule, newest first.
- *
- * @param scheduleId - UUID of the schedule.
- * @param page - 1-based page number.
- * @param pageSize - Number of items per page.
- * @param db - Prisma client (injectable for tests).
- * @returns Executions for the page plus total count and pagination info.
- */
 export const getScheduleExecutionsPage = async (
   scheduleId: string,
   page: number,
@@ -182,38 +135,42 @@ export const getScheduleExecutionsPage = async (
   db: Db = prisma,
 ): Promise<ScheduleExecutionsPageResult> => {
   const skip = (page - 1) * pageSize;
-  const where = { scheduleId };
-
+  const where = { scheduleId } satisfies Prisma.ScheduleExecutionWhereInput;
+  const executionsQuery = {
+    where,
+    skip,
+    take: pageSize,
+    orderBy: { executionTime: "desc" },
+    select: {
+      id: true,
+      executionTime: true,
+      enqueueStatus: true,
+      runStatus: true,
+      jobsCreated: true,
+      jobsEnqueued: true,
+      succeededInvocationCount: true,
+      failedInvocationCount: true,
+      createdAt: true,
+    },
+  } satisfies Prisma.ScheduleExecutionFindManyArgs;
   const [executions, total] = await Promise.all([
-    db.scheduleExecution.findMany({
-      where,
-      skip,
-      take: pageSize,
-      orderBy: { executionTime: "desc" },
-      select: {
-        id: true,
-        executionTime: true,
-        enqueueStatus: true,
-        runStatus: true,
-        jobsCreated: true,
-        jobsEnqueued: true,
-        succeededInvocationCount: true,
-        failedInvocationCount: true,
-        createdAt: true,
-      },
-    }),
+    db.scheduleExecution.findMany(executionsQuery),
     db.scheduleExecution.count({ where }),
   ]);
+  const sourceRows = executions.map((execution) => ({
+    ...execution,
+    source: "schedule" as const,
+    sourceId: scheduleId,
+    sourceName: null,
+  }));
+  const executionsWithElapsed = await attachExecutionElapsedLabels(
+    sourceRows,
+    db,
+  );
 
-  return {
-    executions: executions as ScheduleExecutionRow[],
-    total,
-    page,
-    pageSize,
-  };
+  return { executions: executionsWithElapsed, total, page, pageSize };
 };
 
-/** Full execution detail for admin debugging (steps + invocations). */
 export type ScheduleExecutionDetail = {
   execution: {
     id: string;
@@ -246,9 +203,7 @@ export type ScheduleExecutionDetail = {
     status: string;
     agentId: string;
     pipelineStepId: string | null;
-    /** Resolved step input (JSON) stored on the job row. */
     params: unknown;
-    /** Resolved step config from enqueue time; null for rows created before this column existed. */
     invocationConfig: unknown | null;
     error: unknown;
     agentResponse: unknown;
@@ -256,20 +211,11 @@ export type ScheduleExecutionDetail = {
     enqueuedAt: Date;
     startedAt: Date | null;
     completedAt: Date | null;
-    /** DataQueue `attempts` when the worker last claimed this job; null for legacy rows. */
     dataQueueAttempts: number | null;
-    /** DataQueue `max_attempts` when last synced; null for legacy rows. */
     dataQueueMaxAttempts: number | null;
   }>;
 };
 
-/**
- * Loads one schedule execution with pipeline/schedule context, per-step rollup rows, and invocations.
- *
- * @param scheduleId - Schedule id (must own the execution).
- * @param executionId - Schedule execution id.
- * @param db - Prisma client.
- */
 export const getScheduleExecutionDetail = async (
   scheduleId: string,
   executionId: string,

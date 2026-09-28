@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const getHttpTriggersPageMock = vi.fn();
 const getPipelineOptionsMock = vi.fn();
+const readColumnVisibilityMock = vi.fn();
 
 vi.mock("@/lib/require-dashboard-admin", () => ({
   withDashboardAdmin: <Value,>(load: Promise<Value>) => load,
@@ -17,27 +18,29 @@ vi.mock("@/lib/pipeline-options", () => ({
   getPipelineOptions: () => getPipelineOptionsMock(),
 }));
 
+vi.mock("@/lib/data-table/read-column-visibility", () => ({
+  readColumnVisibility: (...args: unknown[]) =>
+    readColumnVisibilityMock(...args),
+}));
+
 vi.mock("./http-triggers-with-modal", () => ({
   HttpTriggersWithModal: ({
     httpTriggers,
     pipelines,
-    currentPage,
-    total,
-    searchQuery,
+    urlState,
+    initialColumnVisibility,
   }: {
     httpTriggers: Array<{ id: string }>;
     pipelines: Array<{ id: string }>;
-    currentPage: number;
-    total: number;
-    searchQuery?: string;
+    urlState: Record<string, unknown>;
+    initialColumnVisibility: Record<string, boolean>;
   }) => (
     <div
       data-testid="http-triggers-with-modal"
       data-triggers-count={httpTriggers.length}
       data-pipelines-count={pipelines.length}
-      data-page={currentPage}
-      data-total={total}
-      data-search={searchQuery ?? ""}
+      data-url-state={JSON.stringify(urlState)}
+      data-visibility={JSON.stringify(initialColumnVisibility)}
     />
   ),
 }));
@@ -56,10 +59,10 @@ describe("HttpTriggersSection", () => {
   afterEach(() => {
     getHttpTriggersPageMock.mockReset();
     getPipelineOptionsMock.mockReset();
+    readColumnVisibilityMock.mockReset();
   });
 
-  it("renders HTTP triggers and pipelines from the loaders", async () => {
-    // Setup
+  it("hands the table its rows, pipelines, URL state and saved column choices", async () => {
     getHttpTriggersPageMock.mockResolvedValue({
       httpTriggers: [{ id: "trigger-1" }],
       total: 16,
@@ -70,21 +73,36 @@ describe("HttpTriggersSection", () => {
       { id: "pipeline-1", name: "First", isActive: true },
       { id: "pipeline-2", name: "Second", isActive: true },
     ]);
+    readColumnVisibilityMock.mockResolvedValue({ method: false });
 
-    // Act
-    render(await HttpTriggersSection({ ...baseQuery, page: 2 }));
+    render(
+      await HttpTriggersSection({ ...baseQuery, page: 2, search: "webhook" }),
+    );
 
-    // Assert
-    const table = screen.getByTestId("http-triggers-with-modal");
+    const section = screen.getByTestId("http-triggers-with-modal");
 
-    expect(table).toHaveAttribute("data-triggers-count", "1");
-    expect(table).toHaveAttribute("data-pipelines-count", "2");
-    expect(table).toHaveAttribute("data-page", "2");
-    expect(table).toHaveAttribute("data-total", "16");
+    expect(readColumnVisibilityMock).toHaveBeenCalledWith("http-triggers");
+    expect(section).toHaveAttribute("data-triggers-count", "1");
+    expect(section).toHaveAttribute("data-pipelines-count", "2");
+    expect(section).toHaveAttribute(
+      "data-url-state",
+      JSON.stringify({
+        basePath: "/dashboard/http-triggers",
+        page: 2,
+        pageSize: 15,
+        total: 16,
+        search: "webhook",
+        sortBy: "name",
+        sortDir: "asc",
+      }),
+    );
+    expect(section).toHaveAttribute(
+      "data-visibility",
+      JSON.stringify({ method: false }),
+    );
   });
 
   it("forwards search and sort to getHttpTriggersPage", async () => {
-    // Setup
     getHttpTriggersPageMock.mockResolvedValue({
       httpTriggers: [],
       total: 0,
@@ -92,8 +110,8 @@ describe("HttpTriggersSection", () => {
       pageSize: 15,
     });
     getPipelineOptionsMock.mockResolvedValue([]);
+    readColumnVisibilityMock.mockResolvedValue({});
 
-    // Act
     render(
       await HttpTriggersSection({
         ...baseQuery,
@@ -103,15 +121,10 @@ describe("HttpTriggersSection", () => {
       }),
     );
 
-    // Assert
     expect(getHttpTriggersPageMock).toHaveBeenCalledWith(1, 15, {
       search: "webhook",
       sortBy: "method",
       sortDir: "desc",
     });
-    expect(screen.getByTestId("http-triggers-with-modal")).toHaveAttribute(
-      "data-search",
-      "webhook",
-    );
   });
 });

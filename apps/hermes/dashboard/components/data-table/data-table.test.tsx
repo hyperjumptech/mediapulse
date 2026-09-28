@@ -147,6 +147,34 @@ describe("DataTable", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("sorts loaded rows in place when there is no URL state", async () => {
+    renderTable({
+      urlState: undefined,
+      search: undefined,
+      clientSorting: { initial: { id: "stock", desc: true } },
+    });
+
+    const names = () =>
+      within(desktopTable())
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => row.firstElementChild?.textContent);
+
+    expect(names()).toEqual(["Pear", "Apple"]);
+    expect(
+      within(desktopTable()).getByRole("columnheader", { name: "Stock" }),
+    ).toHaveAttribute("aria-sort", "descending");
+
+    await openMenu(
+      within(desktopTable()).getByRole("button", { name: "Stock" }),
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("menuitem", { name: "Asc" }));
+    });
+
+    expect(names()).toEqual(["Apple", "Pear"]);
+  });
+
   it("hides columns below their breakpoint", () => {
     renderTable();
 

@@ -12,34 +12,63 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
 
-import {
-  buildSortHref,
-  type ListUrlState,
-} from "@/lib/data-table/list-url-state";
+export type ColumnSortDirection = "asc" | "desc";
+
+export type ColumnSortTargets =
+  | { kind: "link"; ascHref: string; descHref: string }
+  | { kind: "client"; onSort: (direction: ColumnSortDirection) => void };
 
 type DataTableColumnHeaderProps = {
   label: string;
-  sortKey: string;
-  urlState: ListUrlState;
+  activeDirection: ColumnSortDirection | null;
+  targets: ColumnSortTargets;
   onHide?: () => void;
 };
 
-const sortIconFor = (isActive: boolean, urlState: ListUrlState) => {
-  if (!isActive) {
+const sortIconFor = (activeDirection: ColumnSortDirection | null) => {
+  if (!activeDirection) {
     return ChevronsUpDown;
   }
 
-  return urlState.sortDir === "asc" ? ArrowUp : ArrowDown;
+  return activeDirection === "asc" ? ArrowUp : ArrowDown;
+};
+
+const SortItem = ({
+  direction,
+  targets,
+}: {
+  direction: ColumnSortDirection;
+  targets: ColumnSortTargets;
+}) => {
+  const Icon = direction === "asc" ? ArrowUp : ArrowDown;
+  const label = direction === "asc" ? "Asc" : "Desc";
+  if (targets.kind === "client") {
+    return (
+      <DropdownMenuItem onSelect={() => targets.onSort(direction)}>
+        <Icon aria-hidden />
+        {label}
+      </DropdownMenuItem>
+    );
+  }
+  const href = direction === "asc" ? targets.ascHref : targets.descHref;
+
+  return (
+    <DropdownMenuItem asChild>
+      <Link href={href} scroll={false}>
+        <Icon aria-hidden />
+        {label}
+      </Link>
+    </DropdownMenuItem>
+  );
 };
 
 export const DataTableColumnHeader = ({
   label,
-  sortKey,
-  urlState,
+  activeDirection,
+  targets,
   onHide,
 }: DataTableColumnHeaderProps) => {
-  const isActive = urlState.sortBy === sortKey;
-  const SortIcon = sortIconFor(isActive, urlState);
+  const SortIcon = sortIconFor(activeDirection);
 
   return (
     <DropdownMenu>
@@ -54,18 +83,8 @@ export const DataTableColumnHeader = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
-        <DropdownMenuItem asChild>
-          <Link href={buildSortHref(urlState, sortKey, "asc")} scroll={false}>
-            <ArrowUp aria-hidden />
-            Asc
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href={buildSortHref(urlState, sortKey, "desc")} scroll={false}>
-            <ArrowDown aria-hidden />
-            Desc
-          </Link>
-        </DropdownMenuItem>
+        <SortItem direction="asc" targets={targets} />
+        <SortItem direction="desc" targets={targets} />
         {onHide ? (
           <>
             <DropdownMenuSeparator />

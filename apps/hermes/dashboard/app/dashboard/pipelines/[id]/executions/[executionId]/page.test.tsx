@@ -43,15 +43,18 @@ vi.mock("@/lib/compute-execution-elapsed", () => ({
   formatPipelineElapsedLabel: vi.fn().mockReturnValue("—"),
 }));
 
-vi.mock("@/components/schedule-execution-invocations-table", () => ({
-  ScheduleExecutionInvocationsTable: (
-    props: ScheduleExecutionInvocationsTableProps,
-  ) => {
-    invocationsTablePropsMock(props);
+vi.mock(
+  "@/components/execution-detail/execution-invocations-table-section",
+  () => ({
+    ExecutionInvocationsTableSection: (
+      props: ScheduleExecutionInvocationsTableProps,
+    ) => {
+      invocationsTablePropsMock(props);
 
-    return <div data-testid="invocations-stub">Invocations</div>;
-  },
-}));
+      return <div data-testid="invocations-stub">Invocations</div>;
+    },
+  }),
+);
 
 import PipelineExecutionDetailPage from "./page";
 
@@ -104,15 +107,12 @@ describe("PipelineExecutionDetailPage (manual execution)", () => {
   });
 
   it("renders enqueue diagnostics region with persisted errors for failed enqueue", async () => {
-    // Setup
     getManualPipelineExecutionSummaryMock.mockResolvedValue(
       minimalFailedSummary(),
     );
 
-    // Act
     await renderPage();
 
-    // Assert
     const region = await screen.findByRole("region", {
       name: /enqueue diagnostics/i,
     });
@@ -129,15 +129,12 @@ describe("PipelineExecutionDetailPage (manual execution)", () => {
   });
 
   it("describes a manual run with its full execution id and metadata hints", async () => {
-    // Setup
     const summary = minimalFailedSummary();
     summary.execution.metadata = { source: "dashboard" };
     getManualPipelineExecutionSummaryMock.mockResolvedValue(summary);
 
-    // Act
     await renderPage();
 
-    // Assert
     expect(screen.getByText(/Manual run/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Test pipeline" })).toHaveAttribute(
       "href",
@@ -155,7 +152,6 @@ describe("PipelineExecutionDetailPage (manual execution)", () => {
   });
 
   it("passes scalar invocation rows and the manual payload scope to the table", async () => {
-    // Setup
     getManualPipelineExecutionSummaryMock.mockResolvedValue({
       ...minimalFailedSummary(),
       invocations: [
@@ -174,10 +170,8 @@ describe("PipelineExecutionDetailPage (manual execution)", () => {
       ],
     } satisfies ManualPipelineExecutionSummary);
 
-    // Act
     await renderPage();
 
-    // Assert
     expect(getManualPipelineExecutionSummaryMock).toHaveBeenCalledWith(
       "pipe-1",
       EXECUTION_ID,

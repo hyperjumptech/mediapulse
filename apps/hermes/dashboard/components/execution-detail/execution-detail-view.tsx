@@ -10,9 +10,9 @@ import {
 
 import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
 import { EnqueueDiagnosticsPanel } from "@/components/enqueue-diagnostics";
-import { ScheduleExecutionInvocationsTable } from "@/components/schedule-execution-invocations-table";
 
 import { ExecutionDetailHeader } from "./execution-detail-header";
+import { ExecutionInvocationsTableSection } from "./execution-invocations-table-section";
 import { ExecutionDetailStats } from "./execution-detail-stats";
 import type { ExecutionDetailViewModel } from "./execution-detail-view-model";
 import { ExecutionPipelineStepsTable } from "./execution-pipeline-steps-table";
@@ -118,7 +118,7 @@ export const ExecutionDetailView = ({
         title="Invocations"
         count={invocations.length}
       >
-        <ScheduleExecutionInvocationsTable
+        <ExecutionInvocationsTableSection
           invocations={invocations}
           payloadSource={payloadSource}
         />

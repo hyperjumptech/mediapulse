@@ -1,47 +1,29 @@
 import React from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { HttpTriggersPageResult } from "@/lib/http-triggers";
+import type { ListUrlState } from "@/lib/data-table/list-url-state";
 
-import { HttpTriggersTable } from "./http-triggers-table";
-
-type HttpTriggerRow = HttpTriggersPageResult["httpTriggers"][number];
-
-vi.mock("next/link", () => ({
-  default: ({
-    children,
-    href,
-    className,
-    "aria-label": ariaLabel,
-    "aria-sort": ariaSort,
-  }: React.ComponentProps<"a"> & { href: string }) => (
-    <a
-      href={href}
-      className={className}
-      aria-label={ariaLabel}
-      aria-sort={ariaSort}
-    >
-      {children}
-    </a>
-  ),
-}));
+import { HttpTriggersTable, type HttpTriggerRow } from "./http-triggers-table";
 
 vi.mock("./http-trigger-row-actions", () => ({
   HttpTriggerRowActions: ({
     httpTriggerId,
     httpTriggerName,
     method,
+    onEdit,
   }: {
     httpTriggerId: string;
     httpTriggerName: string;
     method: string;
+    onEdit: (httpTriggerId: string) => void;
   }) => (
     <button
       type="button"
       data-testid={`row-actions-${httpTriggerId}`}
       data-name={httpTriggerName}
       data-method={method}
+      onClick={() => onEdit(httpTriggerId)}
     >
       Actions
     </button>
@@ -66,20 +48,35 @@ const createMockTrigger = (overrides: Partial<HttpTriggerRow> = {}) =>
     ...overrides,
   }) as HttpTriggerRow;
 
+const urlState: ListUrlState = {
+  basePath: "/dashboard/http-triggers",
+  page: 1,
+  pageSize: 15,
+  total: 1,
+  sortBy: "name",
+  sortDir: "asc",
+};
+
 const renderTable = (
   props: Partial<React.ComponentProps<typeof HttpTriggersTable>> = {},
 ) =>
   render(
     <HttpTriggersTable
       httpTriggers={[createMockTrigger()]}
-      sortBy="name"
-      sortDir="asc"
-      pageSize={15}
+      urlState={urlState}
       onEdit={vi.fn()}
       onCreate={vi.fn()}
       {...props}
     />,
   );
+
+const table = () => screen.getByRole("table");
+
+const openMenu = async (trigger: HTMLElement) => {
+  await act(async () => {
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+  });
+};
 
 describe("HttpTriggersTable", () => {
   beforeEach(() => {
@@ -91,12 +88,10 @@ describe("HttpTriggersTable", () => {
     vi.useRealTimers();
   });
 
-  it("renders the column headers", () => {
-    // Act
+  it("shows name, pipeline, method, status, last triggered and actions", () => {
     renderTable();
 
-    // Assert
-    const headers = screen
+    const headers = within(table())
       .getAllByRole("columnheader")
       .map((header) => header.textContent);
 
@@ -106,37 +101,14 @@ describe("HttpTriggersTable", () => {
       "Method",
       "Status",
       "Last triggered",
-      "Created",
-      "Created by",
       "Actions",
     ]);
   });
 
-  it("toggles the active sort direction and keeps the search", () => {
-    // Act
-    renderTable({ sortBy: "method", sortDir: "desc", searchQuery: "hook" });
-
-    // Assert
-    expect(screen.getByRole("link", { name: "Method" })).toHaveAttribute(
-      "href",
-      "/dashboard/http-triggers?page=1&size=15&q=hook&sort=method&dir=asc",
-    );
-    expect(screen.getByRole("link", { name: "Method" })).toHaveAttribute(
-      "aria-sort",
-      "descending",
-    );
-    expect(screen.getByRole("link", { name: "Status" })).toHaveAttribute(
-      "href",
-      "/dashboard/http-triggers?page=1&size=15&q=hook&sort=enabled&dir=asc",
-    );
-  });
-
-  it("renders a row with links, method, status, timestamps, and creator", () => {
-    // Act
+  it("renders a row with links, method, status and last call", () => {
     renderTable();
 
-    // Assert
-    const row = screen.getByRole("row", { name: /Inbound webhook/ });
+    const row = within(table()).getAllByRole("row")[1] as HTMLElement;
 
     expect(
       within(row).getByRole("link", { name: "Inbound webhook" }),
@@ -153,53 +125,97 @@ describe("HttpTriggersTable", () => {
       "data-tone",
       "success",
     );
-    expect(within(row).getByText("5m ago")).toBeInTheDocument();
-    expect(within(row).getByText("Jan 8, 09:00")).toBeInTheDocument();
-    expect(within(row).getByText("user-1")).toBeInTheDocument();
-    expect(screen.getByTestId("row-actions-trigger-1")).toHaveAttribute(
+    expect(within(row).getByText("5m ago").closest("time")).toHaveAttribute(
+      "datetime",
+      "2024-01-15T08:55:00.000Z",
+    );
+    expect(within(row).getByTestId("row-actions-trigger-1")).toHaveAttribute(
       "data-method",
       "POST",
     );
   });
 
   it("shows Never for triggers that have not been called", () => {
-    // Act
     renderTable({
       httpTriggers: [
         createMockTrigger({ lastTriggeredAt: null, enabled: false }),
       ],
     });
 
-    // Assert
-    expect(screen.getByText("Never")).toBeInTheDocument();
-    expect(screen.getByText("disabled")).toHaveAttribute("data-tone", "muted");
+    expect(within(table()).getByText("Never")).toBeInTheDocument();
+    expect(within(table()).getByText("disabled")).toHaveAttribute(
+      "data-tone",
+      "muted",
+    );
+  });
+
+  it("hands the row id to the edit handler", () => {
+    const onEdit = vi.fn();
+    renderTable({ onEdit });
+
+    fireEvent.click(within(table()).getByTestId("row-actions-trigger-1"));
+
+    expect(onEdit).toHaveBeenCalledWith("trigger-1");
+  });
+
+  it("marks the sorted column and leaves last triggered unsortable", () => {
+    renderTable({
+      urlState: { ...urlState, sortBy: "method", sortDir: "desc" },
+    });
+
+    expect(
+      within(table()).getByRole("columnheader", { name: "Method" }),
+    ).toHaveAttribute("aria-sort", "descending");
+    expect(
+      within(table()).queryByRole("button", { name: "Last triggered" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("sorts the status column by enabled and keeps the search", async () => {
+    renderTable({ urlState: { ...urlState, search: "hook" } });
+
+    await openMenu(within(table()).getByRole("button", { name: "Status" }));
+
+    expect(screen.getByRole("menuitem", { name: "Asc" })).toHaveAttribute(
+      "href",
+      "/dashboard/http-triggers?page=1&size=15&q=hook&sort=enabled&dir=asc",
+    );
   });
 
   it("invites creating the first trigger when there are none", () => {
-    // Setup
     const onCreate = vi.fn();
     renderTable({ httpTriggers: [], onCreate });
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "New HTTP trigger" }));
 
-    // Assert
     expect(screen.getByText("No HTTP triggers yet")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
   it("offers to clear the search when nothing matches", () => {
-    // Act
-    renderTable({ httpTriggers: [], searchQuery: "hook" });
+    renderTable({
+      httpTriggers: [],
+      urlState: { ...urlState, search: "hook" },
+    });
 
-    // Assert
-    expect(
-      screen.getByText("No HTTP triggers match “hook”"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Nothing matches “hook”")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Clear search" })).toHaveAttribute(
       "href",
       "/dashboard/http-triggers?page=1&size=15&sort=name&dir=asc",
     );
+  });
+
+  it("offers the HTTP trigger search box", () => {
+    renderTable();
+
+    expect(
+      screen.getByRole("search", {
+        name: "Search HTTP triggers by name or description",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Filter HTTP triggers…"),
+    ).toBeInTheDocument();
   });
 });

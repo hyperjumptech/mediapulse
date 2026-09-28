@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const getPipelineSummariesWithValidationMock = vi.fn();
+const getPipelineSummariesPageMock = vi.fn();
 
 const { findManyDomainIntegrations } = vi.hoisted(() => ({
   findManyDomainIntegrations: vi.fn(),
@@ -13,8 +13,8 @@ vi.mock("@/lib/require-dashboard-admin", () => ({
 }));
 
 vi.mock("@/lib/pipeline-summaries", () => ({
-  getPipelineSummariesWithValidation: () =>
-    getPipelineSummariesWithValidationMock(),
+  getPipelineSummariesPage: (...args: unknown[]) =>
+    getPipelineSummariesPageMock(...args),
 }));
 
 vi.mock("@hermes/orchestration-database", () => ({
@@ -25,62 +25,93 @@ vi.mock("@hermes/orchestration-database", () => ({
   },
 }));
 
+vi.mock("@/lib/data-table/read-column-visibility", () => ({
+  readColumnVisibility: async () => ({ description: false }),
+}));
+
 vi.mock("./pipelines-with-modal", () => ({
   PipelinesWithModal: ({
     pipelines,
-    pipelineValidationById,
+    urlState,
+    initialColumnVisibility,
     domainIntegrations,
   }: {
-    pipelines: Array<{ id: string; name: string }>;
-    pipelineValidationById: Record<string, { valid: boolean }>;
+    pipelines: Array<{ id: string }>;
+    urlState: Record<string, unknown>;
+    initialColumnVisibility: Record<string, boolean>;
     domainIntegrations: unknown[];
   }) => (
     <div
       data-testid="pipelines-with-modal"
       data-count={pipelines.length}
-      data-validation-keys={Object.keys(pipelineValidationById).join(",")}
+      data-url-state={JSON.stringify(urlState)}
+      data-visibility={JSON.stringify(initialColumnVisibility)}
       data-domain-count={domainIntegrations.length}
-    >
-      Pipelines
-    </div>
+    />
   ),
 }));
 
 import { PipelinesSection } from "./pipelines-section";
 
+const baseQuery = {
+  page: 1,
+  pageSize: 15,
+  search: undefined,
+  sortBy: "updated" as const,
+  sortDir: "desc" as const,
+};
+
 describe("PipelinesSection", () => {
   afterEach(() => {
-    getPipelineSummariesWithValidationMock.mockReset();
+    getPipelineSummariesPageMock.mockReset();
     findManyDomainIntegrations.mockReset();
   });
 
-  it("renders pipelines with modal and domain integrations", async () => {
-    // Setup
-    getPipelineSummariesWithValidationMock.mockResolvedValue({
-      pipelines: [
-        {
-          id: "1",
-          name: "Test Pipeline",
-          description: null,
-          isActive: true,
-          createdById: null,
-          createdBy: null,
-        },
-      ],
-      pipelineValidationById: { "1": { valid: true, warnings: [] } },
+  it("hands the table its rows, URL state, saved column choices and domain integrations", async () => {
+    getPipelineSummariesPageMock.mockResolvedValue({
+      pipelines: [{ id: "p1" }],
+      total: 31,
+      page: 2,
+      pageSize: 15,
     });
     findManyDomainIntegrations.mockResolvedValue([
-      { id: "integration-1", integrationId: "mediapulse", name: "Mediapulse" },
+      { id: "integration-1", integrationId: "primary", name: "Primary" },
     ]);
 
-    // Act
-    render(await PipelinesSection());
+    render(
+      await PipelinesSection({
+        ...baseQuery,
+        page: 2,
+        search: "digest",
+        sortBy: "name",
+        sortDir: "asc",
+      }),
+    );
 
-    // Assert
     const table = screen.getByTestId("pipelines-with-modal");
+    const urlState = JSON.parse(table.getAttribute("data-url-state") ?? "{}");
 
+    expect(getPipelineSummariesPageMock).toHaveBeenCalledWith({
+      page: 2,
+      pageSize: 15,
+      search: "digest",
+      sortBy: "name",
+      sortDir: "asc",
+    });
+    expect(urlState).toEqual({
+      basePath: "/dashboard/pipelines",
+      page: 2,
+      pageSize: 15,
+      total: 31,
+      search: "digest",
+      sortBy: "name",
+      sortDir: "asc",
+    });
     expect(table).toHaveAttribute("data-count", "1");
-    expect(table).toHaveAttribute("data-validation-keys", "1");
+    expect(table).toHaveAttribute(
+      "data-visibility",
+      JSON.stringify({ createdBy: false, description: false }),
+    );
     expect(table).toHaveAttribute("data-domain-count", "1");
     expect(findManyDomainIntegrations).toHaveBeenCalledWith({
       orderBy: [{ isDefault: "desc" }, { integrationId: "asc" }],
@@ -88,18 +119,17 @@ describe("PipelinesSection", () => {
     });
   });
 
-  it("renders empty state when no pipelines", async () => {
-    // Setup
-    getPipelineSummariesWithValidationMock.mockResolvedValue({
+  it("renders an empty page", async () => {
+    getPipelineSummariesPageMock.mockResolvedValue({
       pipelines: [],
-      pipelineValidationById: {},
+      total: 0,
+      page: 1,
+      pageSize: 15,
     });
     findManyDomainIntegrations.mockResolvedValue([]);
 
-    // Act
-    render(await PipelinesSection());
+    render(await PipelinesSection(baseQuery));
 
-    // Assert
     const table = screen.getByTestId("pipelines-with-modal");
 
     expect(table).toHaveAttribute("data-count", "0");

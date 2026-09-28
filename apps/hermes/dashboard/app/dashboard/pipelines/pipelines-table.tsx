@@ -1,156 +1,161 @@
+"use client";
+
+import { useMemo } from "react";
 import Link from "next/link";
 import { Plus, Workflow } from "lucide-react";
 
 import { Button } from "@workspace/ui/components/button";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@workspace/ui/components/empty";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@workspace/ui/components/table";
 
-import { DataTableCard } from "@/components/data-table/data-table-card";
+import { DataTable } from "@/components/data-table/data-table";
+import { DateTime } from "@/components/date-time/date-time";
+import type { ColumnVisibility } from "@/lib/data-table/column-visibility";
+import { createDataTableColumnHelper } from "@/lib/data-table/features";
+import type { ListUrlState } from "@/lib/data-table/list-url-state";
 import { formatCreatedBy } from "@/lib/format-created-by";
-import {
-  getPipelineStatus,
-  type PipelineValidationResult,
-} from "@/lib/pipeline-status";
+import { getPipelineStatus } from "@/lib/pipeline-status";
 import type { PipelineSummary } from "@/lib/pipeline-summaries";
 
 import { PipelineRowActions } from "./pipeline-row-actions";
 import { PipelineStatusBadge } from "./pipeline-status-badge";
+import {
+  PIPELINES_DEFAULT_COLUMN_VISIBILITY,
+  PIPELINES_TABLE_ID,
+} from "./pipelines-table-defaults";
 
 type EditPipelineHandler = (pipelineId: string) => void;
 
 type CreatePipelineHandler = () => void;
 
-const MISSING_VALIDATION: PipelineValidationResult = {
-  valid: false,
-  warnings: [],
-};
+const columnHelper = createDataTableColumnHelper<PipelineSummary>();
 
-const PipelinesEmptyState = ({
-  onCreate,
-}: {
+const buildPipelineColumns = (onEdit: EditPipelineHandler | undefined) =>
+  columnHelper.columns([
+    columnHelper.accessor("name", {
+      id: "name",
+      enableHiding: false,
+      meta: { label: "Name", sortKey: "name", mobile: "title" },
+      cell: ({ row }) => (
+        <Link
+          href={`/dashboard/pipelines/${row.original.id}`}
+          className="font-medium text-foreground underline-offset-4 hover:underline"
+        >
+          {row.original.name}
+        </Link>
+      ),
+    }),
+    columnHelper.accessor("description", {
+      id: "description",
+      meta: {
+        label: "Description",
+        hideBelow: "lg",
+        mobile: "hidden",
+        cellClassName: "text-muted-foreground",
+      },
+      cell: ({ row }) => (
+        <div
+          className="max-w-xs truncate"
+          title={row.original.description ?? undefined}
+        >
+          {row.original.description?.trim() || "—"}
+        </div>
+      ),
+    }),
+    columnHelper.accessor("stepCount", {
+      id: "steps",
+      meta: {
+        label: "Steps",
+        mobile: "field",
+        headerClassName: "text-right",
+        cellClassName: "text-right tabular-nums",
+      },
+      cell: ({ row }) => row.original.stepCount,
+    }),
+    columnHelper.accessor("isActive", {
+      id: "status",
+      meta: { label: "Status", mobile: "badge" },
+      cell: ({ row }) => (
+        <PipelineStatusBadge
+          status={getPipelineStatus(row.original, row.original.validation)}
+          warnings={row.original.validation.warnings}
+        />
+      ),
+    }),
+    columnHelper.accessor("updatedAt", {
+      id: "updated",
+      meta: {
+        label: "Updated",
+        sortKey: "updated",
+        cellClassName: "text-muted-foreground",
+      },
+      cell: ({ row }) => <DateTime value={row.original.updatedAt} />,
+    }),
+    columnHelper.accessor("createdBy", {
+      id: "createdBy",
+      meta: { label: "Created by", cellClassName: "text-muted-foreground" },
+      cell: ({ row }) =>
+        formatCreatedBy(row.original.createdBy, row.original.createdById),
+    }),
+    columnHelper.display({
+      id: "actions",
+      enableHiding: false,
+      meta: {
+        label: "Actions",
+        mobile: "actions",
+        cellClassName: "pr-2 text-right",
+      },
+      cell: ({ row }) => (
+        <PipelineRowActions
+          pipelineId={row.original.id}
+          pipelineName={row.original.name}
+          onEdit={onEdit}
+        />
+      ),
+    }),
+  ]);
+
+type PipelinesTableProps = {
+  pipelines: PipelineSummary[];
+  urlState: ListUrlState;
+  initialColumnVisibility?: ColumnVisibility;
+  onEdit?: EditPipelineHandler;
   onCreate?: CreatePipelineHandler;
-}) => {
-  return (
-    <Empty className="gap-4 py-12 md:py-16">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <Workflow aria-hidden className="size-5 text-muted-foreground" />
-        </EmptyMedia>
-        <EmptyTitle className="text-base">No pipelines yet</EmptyTitle>
-        <EmptyDescription>
-          A pipeline chains agent steps together. Run it by hand, on a schedule,
-          or from an HTTP trigger.
-        </EmptyDescription>
-      </EmptyHeader>
-      {onCreate ? (
-        <EmptyContent>
-          <Button type="button" variant="outline" size="sm" onClick={onCreate}>
-            <Plus aria-hidden />
-            New pipeline
-          </Button>
-        </EmptyContent>
-      ) : null}
-    </Empty>
-  );
 };
 
 export const PipelinesTable = ({
   pipelines,
-  pipelineValidationById = {},
+  urlState,
+  initialColumnVisibility = PIPELINES_DEFAULT_COLUMN_VISIBILITY,
   onEdit,
   onCreate,
-}: {
-  pipelines: PipelineSummary[];
-  pipelineValidationById?: Record<string, PipelineValidationResult>;
-  onEdit?: EditPipelineHandler;
-  onCreate?: CreatePipelineHandler;
-}) => {
-  if (pipelines.length === 0) {
-    return (
-      <DataTableCard>
-        <PipelinesEmptyState onCreate={onCreate} />
-      </DataTableCard>
-    );
-  }
+}: PipelinesTableProps) => {
+  const columns = useMemo(() => buildPipelineColumns(onEdit), [onEdit]);
+  const createAction = onCreate ? (
+    <Button type="button" variant="outline" size="sm" onClick={onCreate}>
+      <Plus aria-hidden />
+      New pipeline
+    </Button>
+  ) : undefined;
 
   return (
-    <DataTableCard>
-      <Table>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead className="pl-4">Name</TableHead>
-            <TableHead className="hidden md:table-cell">Description</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="hidden sm:table-cell">Created by</TableHead>
-            <TableHead className="w-12 pr-2">
-              <span className="sr-only">Actions</span>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {pipelines.map((pipeline) => {
-            const validation =
-              pipelineValidationById[pipeline.id] ?? MISSING_VALIDATION;
-            const status = getPipelineStatus(pipeline, validation);
-            const description = pipeline.description?.trim() || "—";
-            const createdBy = formatCreatedBy(
-              pipeline.createdBy,
-              pipeline.createdById,
-            );
-
-            return (
-              <TableRow key={pipeline.id}>
-                <TableCell className="pl-4">
-                  <Link
-                    href={`/dashboard/pipelines/${pipeline.id}`}
-                    className="font-medium text-foreground underline-offset-4 hover:underline"
-                  >
-                    {pipeline.name}
-                  </Link>
-                </TableCell>
-                <TableCell className="hidden text-muted-foreground md:table-cell">
-                  <div
-                    className="max-w-md truncate"
-                    title={pipeline.description ?? undefined}
-                  >
-                    {description}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <PipelineStatusBadge
-                    status={status}
-                    warnings={validation.warnings}
-                  />
-                </TableCell>
-                <TableCell className="hidden text-muted-foreground sm:table-cell">
-                  {createdBy}
-                </TableCell>
-                <TableCell className="pr-2 text-right">
-                  <PipelineRowActions
-                    pipelineId={pipeline.id}
-                    pipelineName={pipeline.name}
-                    onEdit={onEdit}
-                  />
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </DataTableCard>
+    <DataTable
+      tableId={PIPELINES_TABLE_ID}
+      columns={columns}
+      rows={pipelines}
+      getRowId={(pipeline) => pipeline.id}
+      urlState={urlState}
+      paginationLabel="Pipelines list pagination"
+      search={{
+        label: "Search pipelines by name or description",
+        placeholder: "Filter pipelines…",
+      }}
+      emptyState={{
+        icon: Workflow,
+        title: "No pipelines yet",
+        description:
+          "A pipeline chains agent steps together. Run it by hand, on a schedule, or from an HTTP trigger.",
+        action: createAction,
+      }}
+      initialColumnVisibility={initialColumnVisibility}
+    />
   );
 };

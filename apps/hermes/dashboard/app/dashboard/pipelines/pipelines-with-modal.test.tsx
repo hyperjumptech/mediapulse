@@ -48,14 +48,23 @@ vi.mock("./pipeline-form-modal", () => ({
 vi.mock("./pipelines-table", () => ({
   PipelinesTable: ({
     pipelines,
+    urlState,
+    initialColumnVisibility,
     onEdit,
     onCreate,
   }: {
     pipelines: Array<{ id: string }>;
+    urlState: { total: number };
+    initialColumnVisibility?: Record<string, boolean>;
     onEdit: (pipelineId: string) => void;
     onCreate: () => void;
   }) => (
-    <div data-testid="pipelines-table" data-count={pipelines.length}>
+    <div
+      data-testid="pipelines-table"
+      data-count={pipelines.length}
+      data-total={urlState.total}
+      data-visibility={JSON.stringify(initialColumnVisibility)}
+    >
       <button type="button" onClick={onCreate}>
         Empty state create
       </button>
@@ -77,15 +86,25 @@ const createMockPipeline = (id: string): PipelineSummary => ({
   name: `Pipeline ${id}`,
   description: null,
   isActive: true,
+  updatedAt: new Date("2026-09-20T08:00:00Z"),
   createdById: null,
   createdBy: null,
+  stepCount: 0,
+  validation: { valid: true, warnings: [] },
 });
 
 const baseProps: PipelinesWithModalProps = {
   pipelines: [],
-  pipelineValidationById: {},
+  urlState: {
+    basePath: "/dashboard/pipelines",
+    page: 1,
+    pageSize: 15,
+    total: 0,
+    sortBy: "updated",
+    sortDir: "desc",
+  },
   domainIntegrations: [
-    { id: "integration-1", integrationId: "mediapulse", name: "Mediapulse" },
+    { id: "integration-1", integrationId: "primary", name: "Primary" },
   ],
 };
 
@@ -98,28 +117,30 @@ const renderWithProvider = (props: Partial<PipelinesWithModalProps> = {}) =>
 
 describe("PipelinesWithModal", () => {
   it("renders the table and a closed modal with domain integrations", () => {
-    // Act
-    renderWithProvider({ pipelines: [createMockPipeline("1")] });
+    renderWithProvider({
+      pipelines: [createMockPipeline("1")],
+      urlState: { ...baseProps.urlState, total: 1 },
+      initialColumnVisibility: { createdBy: false },
+    });
 
-    // Assert
+    const table = screen.getByTestId("pipelines-table");
     const modal = screen.getByTestId("pipeline-form-modal");
 
-    expect(screen.getByTestId("pipelines-table")).toHaveAttribute(
-      "data-count",
-      "1",
+    expect(table).toHaveAttribute("data-count", "1");
+    expect(table).toHaveAttribute("data-total", "1");
+    expect(table).toHaveAttribute(
+      "data-visibility",
+      JSON.stringify({ createdBy: false }),
     );
     expect(modal).toHaveAttribute("data-open", "false");
     expect(modal).toHaveAttribute("data-domain-count", "1");
   });
 
   it("opens the create modal when the header link asks for it", () => {
-    // Setup
     searchParams.current = "create=1";
 
-    // Act
     renderWithProvider();
 
-    // Assert
     const modal = screen.getByTestId("pipeline-form-modal");
 
     expect(modal).toHaveAttribute("data-open", "true");
@@ -127,13 +148,10 @@ describe("PipelinesWithModal", () => {
   });
 
   it("opens the create modal from the empty state", () => {
-    // Setup
     renderWithProvider();
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Empty state create" }));
 
-    // Assert
     expect(screen.getByTestId("pipeline-form-modal")).toHaveAttribute(
       "data-open",
       "true",
@@ -141,13 +159,10 @@ describe("PipelinesWithModal", () => {
   });
 
   it("opens the edit modal for the selected row", () => {
-    // Setup
     renderWithProvider({ pipelines: [createMockPipeline("pipeline-1")] });
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Edit pipeline-1" }));
 
-    // Assert
     const modal = screen.getByTestId("pipeline-form-modal");
 
     expect(modal).toHaveAttribute("data-open", "true");

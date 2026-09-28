@@ -163,12 +163,7 @@ export const HttpTriggerDetailContent = ({
           </SummaryItem>
           <SummaryItem label="Created by">{createdBy}</SummaryItem>
         </SummaryGrid>
-        <section className="flex flex-col gap-3">
-          <h2 className="text-base font-semibold text-foreground">
-            Executions
-          </h2>
-          {executionsSection}
-        </section>
+        <section>{executionsSection}</section>
       </div>
       <HttpTriggerFormModal
         open={editModalOpen}

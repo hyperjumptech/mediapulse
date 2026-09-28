@@ -12,12 +12,7 @@ import type { ScheduleSortField } from "@/lib/schedules";
 
 import { SchedulesSection, type SchedulesQuery } from "./schedules-section";
 
-const SORT_FIELDS: ScheduleSortField[] = [
-  "name",
-  "nextRunAt",
-  "created",
-  "enabled",
-];
+const SORT_FIELDS: ScheduleSortField[] = ["name", "nextRunAt", "enabled"];
 
 const SchedulesPage = async ({
   searchParams,

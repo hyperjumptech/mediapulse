@@ -3,14 +3,12 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { EntityFormModalProvider } from "@/components/entity-form-modal-provider";
-import type { HttpTriggersPageResult } from "@/lib/http-triggers";
 
+import type { HttpTriggerRow } from "./http-triggers-table";
 import {
   HttpTriggersWithModal,
   type HttpTriggersWithModalProps,
 } from "./http-triggers-with-modal";
-
-type HttpTriggerRow = HttpTriggersPageResult["httpTriggers"][number];
 
 const { searchParams } = vi.hoisted(() => ({
   searchParams: { current: "" },
@@ -24,25 +22,6 @@ vi.mock("next/navigation", async (importOriginal) => ({
 afterEach(() => {
   searchParams.current = "";
 });
-
-vi.mock("@/components/list-pagination", () => ({
-  ListPagination: ({
-    page,
-    total,
-    basePath,
-  }: {
-    page: number;
-    total: number;
-    basePath: string;
-  }) => (
-    <nav
-      data-testid="pagination"
-      data-page={page}
-      data-total={total}
-      data-base-path={basePath}
-    />
-  ),
-}));
 
 vi.mock("./http-trigger-form-modal", () => ({
   HttpTriggerFormModal: ({
@@ -66,23 +45,28 @@ vi.mock("./http-trigger-form-modal", () => ({
   ),
 }));
 
-vi.mock("./http-triggers-search", () => ({
-  HttpTriggersSearch: ({ initialQuery }: { initialQuery?: string }) => (
-    <div data-testid="http-triggers-search" data-query={initialQuery ?? ""} />
-  ),
-}));
-
 vi.mock("./http-triggers-table", () => ({
   HttpTriggersTable: ({
     httpTriggers,
+    urlState,
+    initialColumnVisibility,
     onEdit,
     onCreate,
   }: {
     httpTriggers: Array<{ id: string }>;
+    urlState: { basePath: string; total: number; search?: string };
+    initialColumnVisibility?: Record<string, boolean>;
     onEdit: (httpTriggerId: string) => void;
     onCreate: () => void;
   }) => (
-    <div data-testid="http-triggers-table" data-count={httpTriggers.length}>
+    <div
+      data-testid="http-triggers-table"
+      data-count={httpTriggers.length}
+      data-base-path={urlState.basePath}
+      data-total={urlState.total}
+      data-search={urlState.search ?? ""}
+      data-visibility={JSON.stringify(initialColumnVisibility ?? {})}
+    >
       <button type="button" onClick={onCreate}>
         Empty state create
       </button>
@@ -112,11 +96,14 @@ const createMockTrigger = (id: string): HttpTriggerRow =>
 const baseProps: HttpTriggersWithModalProps = {
   httpTriggers: [],
   pipelines: [{ id: "pipeline-1", name: "Ingest", isActive: true }],
-  currentPage: 1,
-  pageSize: 15,
-  total: 0,
-  sortBy: "name",
-  sortDir: "asc",
+  urlState: {
+    basePath: "/dashboard/http-triggers",
+    page: 1,
+    pageSize: 15,
+    total: 0,
+    sortBy: "name",
+    sortDir: "asc",
+  },
 };
 
 const renderWithProvider = (props: Partial<HttpTriggersWithModalProps> = {}) =>
@@ -127,45 +114,33 @@ const renderWithProvider = (props: Partial<HttpTriggersWithModalProps> = {}) =>
   );
 
 describe("HttpTriggersWithModal", () => {
-  it("renders search, table, pagination, and a closed modal", () => {
-    // Act
+  it("hands the table its rows, URL state and column choices next to a closed modal", () => {
     renderWithProvider({
       httpTriggers: [createMockTrigger("trigger-1")],
-      currentPage: 2,
-      total: 16,
-      searchQuery: "webhook",
+      urlState: { ...baseProps.urlState, total: 16, search: "webhook" },
+      initialColumnVisibility: { lastTriggered: false },
     });
 
-    // Assert
-    const pagination = screen.getByTestId("pagination");
+    const table = screen.getByTestId("http-triggers-table");
     const modal = screen.getByTestId("http-trigger-form-modal");
 
-    expect(screen.getByTestId("http-triggers-search")).toHaveAttribute(
-      "data-query",
-      "webhook",
-    );
-    expect(screen.getByTestId("http-triggers-table")).toHaveAttribute(
-      "data-count",
-      "1",
-    );
-    expect(pagination).toHaveAttribute("data-page", "2");
-    expect(pagination).toHaveAttribute("data-total", "16");
-    expect(pagination).toHaveAttribute(
-      "data-base-path",
-      "/dashboard/http-triggers",
+    expect(table).toHaveAttribute("data-count", "1");
+    expect(table).toHaveAttribute("data-base-path", "/dashboard/http-triggers");
+    expect(table).toHaveAttribute("data-total", "16");
+    expect(table).toHaveAttribute("data-search", "webhook");
+    expect(table).toHaveAttribute(
+      "data-visibility",
+      JSON.stringify({ lastTriggered: false }),
     );
     expect(modal).toHaveAttribute("data-open", "false");
     expect(modal).toHaveAttribute("data-pipelines-count", "1");
   });
 
   it("opens the create modal when the header link asks for it", () => {
-    // Setup
     searchParams.current = "create=1";
 
-    // Act
     renderWithProvider();
 
-    // Assert
     const modal = screen.getByTestId("http-trigger-form-modal");
 
     expect(modal).toHaveAttribute("data-open", "true");
@@ -173,30 +148,21 @@ describe("HttpTriggersWithModal", () => {
   });
 
   it("opens the create modal from the empty state", () => {
-    // Setup
     renderWithProvider();
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Empty state create" }));
 
-    // Assert
-    expect(screen.getByTestId("http-trigger-form-modal")).toHaveAttribute(
-      "data-open",
-      "true",
-    );
+    const modal = screen.getByTestId("http-trigger-form-modal");
+
+    expect(modal).toHaveAttribute("data-open", "true");
+    expect(modal).toHaveAttribute("data-mode", "create");
   });
 
   it("opens the edit modal for the selected row", () => {
-    // Setup
-    renderWithProvider({
-      httpTriggers: [createMockTrigger("trigger-1")],
-      total: 1,
-    });
+    renderWithProvider({ httpTriggers: [createMockTrigger("trigger-1")] });
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Edit trigger-1" }));
 
-    // Assert
     const modal = screen.getByTestId("http-trigger-form-modal");
 
     expect(modal).toHaveAttribute("data-mode", "edit");

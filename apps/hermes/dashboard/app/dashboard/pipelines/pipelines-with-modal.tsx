@@ -1,8 +1,9 @@
 "use client";
 
 import { useEntityFormModal } from "@/components/entity-form-modal-provider";
+import type { ColumnVisibility } from "@/lib/data-table/column-visibility";
+import type { ListUrlState } from "@/lib/data-table/list-url-state";
 import type { PipelineSummary } from "@/lib/pipeline-summaries";
-import type { PipelineValidationResult } from "@/lib/validate-pipeline";
 
 import { PipelineFormModal } from "./pipeline-form-modal";
 import { PipelinesTable } from "./pipelines-table";
@@ -15,13 +16,15 @@ export type PipelineDomainIntegrationOption = {
 
 export type PipelinesWithModalProps = {
   pipelines: PipelineSummary[];
-  pipelineValidationById: Record<string, PipelineValidationResult>;
+  urlState: ListUrlState;
+  initialColumnVisibility?: ColumnVisibility;
   domainIntegrations: PipelineDomainIntegrationOption[];
 };
 
 export const PipelinesWithModal = ({
   pipelines,
-  pipelineValidationById,
+  urlState,
+  initialColumnVisibility,
   domainIntegrations,
 }: PipelinesWithModalProps) => {
   const { open, setOpen, mode, editId, openCreate, openEdit } =
@@ -31,7 +34,8 @@ export const PipelinesWithModal = ({
     <>
       <PipelinesTable
         pipelines={pipelines}
-        pipelineValidationById={pipelineValidationById}
+        urlState={urlState}
+        initialColumnVisibility={initialColumnVisibility}
         onEdit={openEdit}
         onCreate={openCreate}
       />

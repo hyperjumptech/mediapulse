@@ -1,16 +1,9 @@
 import { useCallback, useState } from "react";
 
 import { isHermesExecutionCancellable } from "@/lib/hermes-execution-cancellable";
+import type { ExecutionCancelTarget } from "@/lib/execution-list";
 
-/** Identifies which Hermes execution type is being cancelled and its ids. */
-export type CancelTarget =
-  | { kind: "schedule"; scheduleId: string; scheduleExecutionId: string }
-  | {
-      kind: "httpTrigger";
-      httpTriggerId: string;
-      httpTriggerExecutionId: string;
-    }
-  | { kind: "manual"; pipelineId: string; manualExecutionId: string };
+export type CancelTarget = ExecutionCancelTarget;
 
 const cancelUrl = (target: CancelTarget): string => {
   switch (target.kind) {
@@ -44,19 +37,11 @@ const cancelBody = (target: CancelTarget): Record<string, string> => {
 };
 
 export type UseHermesExecutionCancelButtonResult = {
-  /** True while the cancel POST is in flight. */
   isLoading: boolean;
-  /** Cancel is only offered for non-terminal runs. */
   canCancel: boolean;
-  /** Starts the cancel request (fire-and-forget safe). */
   requestCancel: () => void;
 };
 
-/**
- * Owns loading state and the cancel POST for schedule, HTTP trigger, or manual executions.
- *
- * @param refresh - Called after a successful cancel (typically `router.refresh()` from the host component).
- */
 export const useHermesExecutionCancelButton = (
   target: CancelTarget,
   runStatus: string,

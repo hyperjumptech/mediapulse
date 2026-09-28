@@ -1,73 +1,38 @@
 "use client";
 
 import { useEntityFormModal } from "@/components/entity-form-modal-provider";
-import { ListPagination } from "@/components/list-pagination";
-import type {
-  HttpTriggersPageResult,
-  HttpTriggerSortDir,
-  HttpTriggerSortField,
-} from "@/lib/http-triggers";
+import type { ColumnVisibility } from "@/lib/data-table/column-visibility";
+import type { ListUrlState } from "@/lib/data-table/list-url-state";
 
 import type { PipelineOption } from "../schedules/schedule-form-fields";
 import { HttpTriggerFormModal } from "./http-trigger-form-modal";
-import { HttpTriggersSearch } from "./http-triggers-search";
-import { HttpTriggersTable } from "./http-triggers-table";
-
-type HttpTriggerRow = HttpTriggersPageResult["httpTriggers"][number];
+import { HttpTriggersTable, type HttpTriggerRow } from "./http-triggers-table";
 
 export type HttpTriggersWithModalProps = {
   httpTriggers: HttpTriggerRow[];
   pipelines: PipelineOption[];
-  currentPage: number;
-  pageSize: number;
-  total: number;
-  searchQuery?: string;
-  sortBy: HttpTriggerSortField;
-  sortDir: HttpTriggerSortDir;
+  urlState: ListUrlState;
+  initialColumnVisibility?: ColumnVisibility;
 };
 
 export const HttpTriggersWithModal = ({
   httpTriggers,
   pipelines,
-  currentPage,
-  pageSize,
-  total,
-  searchQuery,
-  sortBy,
-  sortDir,
+  urlState,
+  initialColumnVisibility,
 }: HttpTriggersWithModalProps) => {
   const { open, setOpen, mode, editId, openCreate, openEdit } =
     useEntityFormModal();
 
   return (
     <>
-      <div className="flex flex-col gap-3">
-        <HttpTriggersSearch
-          initialQuery={searchQuery ?? ""}
-          pageSize={pageSize}
-          sortBy={sortBy}
-          sortDir={sortDir}
-        />
-        <HttpTriggersTable
-          httpTriggers={httpTriggers}
-          sortBy={sortBy}
-          sortDir={sortDir}
-          pageSize={pageSize}
-          searchQuery={searchQuery}
-          onEdit={openEdit}
-          onCreate={openCreate}
-        />
-        <ListPagination
-          basePath="/dashboard/http-triggers"
-          page={currentPage}
-          pageSize={pageSize}
-          total={total}
-          ariaLabel="HTTP triggers list pagination"
-          searchQuery={searchQuery}
-          sortBy={sortBy}
-          sortDir={sortDir}
-        />
-      </div>
+      <HttpTriggersTable
+        httpTriggers={httpTriggers}
+        urlState={urlState}
+        onEdit={openEdit}
+        onCreate={openCreate}
+        initialColumnVisibility={initialColumnVisibility}
+      />
       <HttpTriggerFormModal
         open={open}
         onOpenChange={setOpen}
