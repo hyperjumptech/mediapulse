@@ -164,7 +164,7 @@ describe("buildGraphModel", () => {
     expect(rankById.get("c")).toBe(2);
   });
 
-  it("takes the longest path when a node has two ancestors", () => {
+  it("ranks a node by its shortest distance from the root", () => {
     const model = buildGraphModel(blockFor(), {
       graph: {
         nodes: [
@@ -181,7 +181,33 @@ describe("buildGraphModel", () => {
     });
     const rankById = new Map(model.nodes.map((node) => [node.id, node.rank]));
 
-    expect(rankById.get("c")).toBe(2);
+    expect(rankById.get("c")).toBe(1);
+  });
+
+  it("keeps two-way edges from pushing ranks outward", () => {
+    const model = buildGraphModel(blockFor(), {
+      graph: {
+        nodes: [
+          { id: "root", label: "Root" },
+          { id: "a", label: "A" },
+          { id: "b", label: "B" },
+          { id: "c", label: "C" },
+        ],
+        edges: [
+          { source: "root", target: "a" },
+          { source: "root", target: "b" },
+          { source: "a", target: "b" },
+          { source: "b", target: "a" },
+          { source: "b", target: "c" },
+          { source: "c", target: "b" },
+        ],
+      },
+    });
+    const rankById = Object.fromEntries(
+      model.nodes.map((node) => [node.id, node.rank]),
+    );
+
+    expect(rankById).toEqual({ root: 0, a: 1, b: 1, c: 2 });
   });
 
   it("terminates on a cyclic edge list", () => {

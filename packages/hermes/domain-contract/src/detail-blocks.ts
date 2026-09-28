@@ -313,6 +313,15 @@ export const detailBlockGraphPaletteSlotSchema = z.enum([
   "neutral",
 ]);
 
+export const detailBlockGraphNodeDetailFieldSchema = z.object({
+  label: z.string().min(1),
+  field: z.string().min(1),
+  format: z
+    .enum(["text", "number", "date-time", "url"])
+    .optional()
+    .catch(undefined),
+});
+
 /**
  * How each entry of a `graph` block's bound nodes array is read. Every `*Field` is a dotted path
  * on the entry itself, not on the enclosing response.
@@ -329,12 +338,7 @@ export const detailBlockGraphNodeSchema = z.object({
   groupField: z.string().min(1).optional(),
   /** Path to longer text revealed on hover and read out in the block's text fallback. */
   tooltipField: z.string().min(1).optional(),
-  /**
-   * Path to an explicit layer index, 0 nearest the root. When any node lacks one, layers are
-   * derived from the edge list by walking forward from the nodes nothing points at.
-   */
   rankField: z.string().min(1).optional(),
-  /** Path to a number ordering nodes inside their layer. Ties and absences keep input order. */
   orderField: z.string().min(1).optional(),
   /** Path to a boolean marking a node as the focus of the graph, drawn with a heavier outline. */
   emphasisField: z.string().min(1).optional(),
@@ -345,6 +349,11 @@ export const detailBlockGraphNodeSchema = z.object({
   linkTemplate: z.string().min(1).optional(),
   /** Open node links in a new tab with `rel="noopener noreferrer"`. */
   linkExternal: z.boolean().optional(),
+  detailFields: z
+    .array(detailBlockGraphNodeDetailFieldSchema)
+    .max(8)
+    .optional()
+    .catch(undefined),
 });
 
 /**
@@ -360,13 +369,6 @@ export const detailBlockGraphEdgeSchema = z.object({
   labelField: z.string().min(1).optional(),
 });
 
-/**
- * `graph` block — a node-link diagram over two bound arrays. Nodes are laid out in layers, so the
- * same response always draws the same picture with no measuring pass and no layout library.
- *
- * - Important: edges whose endpoints are not among the rendered nodes are dropped rather than
- *   drawn dangling, and self-loops are never drawn.
- */
 export const detailBlockGraphSchema = z.object({
   type: z.literal("graph"),
   ...detailBlockCommonShape,
@@ -376,7 +378,6 @@ export const detailBlockGraphSchema = z.object({
   edgesField: z.string().min(1),
   node: detailBlockGraphNodeSchema,
   edge: detailBlockGraphEdgeSchema,
-  /** Direction layers advance in. */
   orientation: z.enum(["horizontal", "vertical"]).default("horizontal"),
   /** Pins a group value to a palette slot. Unlisted groups take the next slot in rotation. */
   groupVariants: z
@@ -489,6 +490,9 @@ export type DetailBlockStatCards = z.infer<typeof detailBlockStatCardsSchema>;
 export type DetailBlockStatCard = z.infer<typeof detailBlockStatCardSchema>;
 export type DetailBlockGraph = z.infer<typeof detailBlockGraphSchema>;
 export type DetailBlockGraphNode = z.infer<typeof detailBlockGraphNodeSchema>;
+export type DetailBlockGraphNodeDetailField = z.infer<
+  typeof detailBlockGraphNodeDetailFieldSchema
+>;
 export type DetailBlockGraphEdge = z.infer<typeof detailBlockGraphEdgeSchema>;
 export type DetailBlockGraphPaletteSlot = z.infer<
   typeof detailBlockGraphPaletteSlotSchema

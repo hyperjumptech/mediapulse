@@ -1,4 +1,9 @@
-import type { DashboardViewInput, DetailBlock } from "@hermes/domain-contract";
+import type {
+  DashboardViewInput,
+  DetailBlock,
+  detailBlockSchema,
+} from "@hermes/domain-contract";
+import type { z } from "zod";
 
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
@@ -6,6 +11,8 @@ import {
   rowFieldKeysFor,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
+
+type DetailBlockInput = z.input<typeof detailBlockSchema>;
 
 export const knowledgeBaseHermesPathSegment = "knowledge-base" as const;
 
@@ -45,8 +52,7 @@ const knowledgeBaseGraphBlock = {
   label: "Knowledge graph",
   nodesField: "graph.nodes",
   edgesField: "graph.edges",
-  orientation: "horizontal",
-  maxNodes: 120,
+  maxNodes: 150,
   maxHeight: 620,
   node: {
     idField: "id",
@@ -57,6 +63,15 @@ const knowledgeBaseGraphBlock = {
     orderField: "order",
     emphasisField: "emphasis",
     linkTemplate: "/dashboard/{integrationId}/{linkResource}/{linkId}",
+    detailFields: [
+      { label: "Kind", field: "kindLabel" },
+      { label: "Articles", field: "mentionCount", format: "number" },
+      { label: "Seen as", field: "seenAs" },
+      { label: "Came from", field: "sourceLabel" },
+      { label: "Publisher", field: "publisher" },
+      { label: "Published", field: "publishedAt", format: "date-time" },
+      { label: "URL", field: "url", format: "url" },
+    ],
   },
   edge: { sourceField: "source", targetField: "target", labelField: "label" },
   groupVariants: {
@@ -71,7 +86,7 @@ const knowledgeBaseGraphBlock = {
   captionTemplate:
     "{graph.nodes.length} nodes · {graph.edges.length} connections. {graph.truncatedLabel}",
   emptyState: "No entities recorded for this issuer yet.",
-} satisfies DetailBlock;
+} satisfies DetailBlockInput;
 
 const knowledgeBaseEvidenceBlock = {
   type: "tabs",

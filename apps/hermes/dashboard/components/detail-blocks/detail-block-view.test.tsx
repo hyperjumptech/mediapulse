@@ -49,8 +49,8 @@ describe("DetailBlockView", () => {
     expect(
       screen.getByRole("heading", { name: "Knowledge graph" }),
     ).toBeInTheDocument();
-    expect(container.querySelector("svg")?.getAttribute("role")).toBe("img");
-    expect(container.querySelectorAll("path")).toHaveLength(1);
+    expect(container.querySelector("svg")?.getAttribute("role")).toBe("group");
+    expect(container.querySelectorAll("[data-graph-edge]")).toHaveLength(1);
   });
 
   it("renders a markdown block", () => {
