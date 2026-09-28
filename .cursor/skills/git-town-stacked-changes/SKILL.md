@@ -9,7 +9,7 @@ description: Implements features as Git Town stacked branches so each layer ship
 
 - Work should land as **multiple PRs** instead of one large branch.
 - The user mentions **Git Town**, **stacked changes**, **stacked PRs**, or **dependent branches**.
-- **Follow-up after `/prd-to-tickets`:** tickets exist under `~/.cursor/plans/tickets/` (or an override path) and implementation should mirror **ticket order and dependencies**.
+- **Follow-up after `/prd-to-tickets`:** tickets exist under the plans `tickets/` directory (`~/.cursor/plans/tickets/` or `~/.claude/plans/tickets/`, or an override path) and implementation should mirror **ticket order and dependencies**.
 
 Official reference: [Stacked changes (Git Town)](https://www.git-town.com/stacked-changes.html).
 

@@ -596,7 +596,7 @@ ALTER TABLE "X" ADD COLUMN "y" text;
     ).toBe(true);
   });
 
-  it("warns when a newly added file exports a function without a preceding JSDoc block", async () => {
+  it("does not ask for JSDoc on newly added exports", async () => {
     // Setup
     const listChangedFiles = async () => [
       { status: "A", filePath: "packages/x/src/new-fn.ts" },
@@ -608,35 +608,6 @@ ALTER TABLE "X" ADD COLUMN "y" text;
            import { foo } from "./new-fn";
            describe("foo", () => { it("works", () => { expect(foo()).toBe(1); }); });`
         : "export function foo() { return 1; }\n";
-
-    // Act
-    const result = await runCursorPrReview(
-      { listChangedFiles, readTextFile },
-      { baseRef: "origin/main", headRef: "HEAD" },
-    );
-
-    // Assert
-    expect(
-      result.findings.some(
-        (f) =>
-          f.ruleId === "typescript-javascript-standards" &&
-          f.message.includes("JSDoc"),
-      ),
-    ).toBe(true);
-  });
-
-  it("does not warn when a newly added file includes JSDoc before exported functions", async () => {
-    // Setup
-    const listChangedFiles = async () => [
-      { status: "A", filePath: "packages/x/src/doc-fn.ts" },
-      { status: "A", filePath: "packages/x/src/doc-fn.test.ts" },
-    ];
-    const readTextFile = async (filePath: string) =>
-      filePath.endsWith("doc-fn.test.ts")
-        ? `import { describe, it, expect } from "vitest";
-           import { foo } from "./doc-fn";
-           describe("foo", () => { it("works", () => { expect(foo()).toBe(1); }); });`
-        : "/** Test fn */\nexport function foo() { return 1; }\n";
 
     // Act
     const result = await runCursorPrReview(

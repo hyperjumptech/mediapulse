@@ -24,7 +24,7 @@ All stateful and effectful logic must live in **custom hooks**. The component sh
 
 - **Forbidden in a component:** `useState`, `useEffect`, `useReducer`, `useRef` (when used for mutable state that triggers logic), or any custom hook that is only a thin wrapper around a single `useState`/`useEffect` that could be moved into a dedicated hook.
 - **Allowed in a component:** `useContext`, `useMemo`/`useCallback` for render optimization only, and **calls to custom hooks** that encapsulate state/effects.
-- **Custom hook:** Create a hook (e.g. `useStepEditorPanelState`, `useSearch`) that owns all related `useState`/`useEffect` and returns the state and setters the component needs. Co-locate the hook in the same file as the component, or in a dedicated `use-*.ts` file. Add JSDoc and unit tests (100% coverage).
+- **Custom hook:** Create a hook (e.g. `useStepEditorPanelState`, `useSearch`) that owns all related `useState`/`useEffect` and returns the state and setters the component needs. Put the hook in a dedicated `hooks/use-*.ts` file (the cursor-review check scans `.tsx` files, so a hook defined next to the component still fails CI). Add unit tests (100% coverage).
 
 ## Stable component identity (factories & slot components)
 

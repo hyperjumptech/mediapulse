@@ -40,18 +40,17 @@ File names must be **kebab-case** (exceptions: Next.js routing files like `page.
 - Keep functions **small, modular, and composable** — each function does one thing.
 - Prefer **dependency injection** over mocking. Accept collaborators as parameters.
 - Every function must have **100% test coverage**.
-- Every function must have a **JSDoc comment** describing what it does, its parameters, and its return value. This lets devs see the signature and purpose by hovering in the IDE.
+- **No code comments.** Do not add JSDoc blocks or inline `//` comments. Name functions, parameters and variables so the code explains itself; put the reasoning behind a change in the commit message or PR body.
 
 ```typescript
-// ❌ BAD — no docs, hard to test, tightly coupled
+// ❌ BAD — hard to test, tightly coupled
 async function getActiveUsers() {
   const db = new Database();
   const users = await db.query("SELECT * FROM users WHERE active = true");
   return users;
 }
 
-// ✅ GOOD — documented, injectable, testable, composable
-/** Fetches all active users from the database. */
+// ✅ GOOD — injectable, testable, composable, self-describing
 async function getActiveUsers(db: DatabaseClient): Promise<User[]> {
   return db.query("SELECT * FROM users WHERE active = true");
 }

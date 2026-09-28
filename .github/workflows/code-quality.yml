@@ -74,6 +74,7 @@ jobs:
       - name: Code quality
         run: |
           set -eu
+          pnpm run check:agent-config
           pnpm --filter @workspace/cursor-pr-review-tests test
           pnpm run format:check:changed -- \
             --base "${{ needs.changes.outputs.turbo_base_sha }}" \
@@ -143,6 +144,7 @@ jobs:
           TURBO_SCM_BASE: ${{ needs.changes.outputs.turbo_base_sha }}
         run: |
           set -eu
+          pnpm run check:agent-config
           if [ "${{ needs.changes.outputs.turbo_scope }}" = "affected" ]; then
             pnpm exec turbo run build lint type:check test:coverage --affected
             pnpm run merge-workspace-coverage

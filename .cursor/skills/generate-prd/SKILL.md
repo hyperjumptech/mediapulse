@@ -1,6 +1,6 @@
 ---
 name: generate-prd
-description: Drafts and refines Product Requirements Documents (PRDs) using a 100-point quality rubric. **Solidifies requirements through interactive Q&A first** (AskQuestion or numbered questions)—does not leave a large “open questions” or `[TBD]` graveyard in lieu of asking. **By default, saves the finished PRD to `~/.cursor/plans/`** (same directory as Cursor-generated plans) as a `.prd.md` file, then replies in chat. **Final PRD prose is humanized** per the humanizer skill (`.cursor/skills/humanizer/SKILL.md`). Use when writing or improving a PRD, product requirements, feature spec, or when the user asks for PRD quality, scoring, or acceptance criteria.
+description: Drafts and refines Product Requirements Documents (PRDs) using a 100-point quality rubric. **Solidifies requirements through interactive Q&A first** (a structured question tool or numbered questions)—does not leave a large “open questions” or `[TBD]` graveyard in lieu of asking. **By default, saves the finished PRD to the tool's plans directory** (`~/.cursor/plans/` or `~/.claude/plans/`) as a `.prd.md` file, then replies in chat. **Final PRD prose is humanized** per the humanizer skill (`.cursor/skills/humanizer/SKILL.md`). Use when writing or improving a PRD, product requirements, feature spec, or when the user asks for PRD quality, scoring, or acceptance criteria.
 ---
 
 # Generate a High-Quality PRD
@@ -141,7 +141,7 @@ Use this outline unless the user specifies another format. Fill every section th
 
 ### How to ask
 
-- If the **AskQuestion tool** is available, use it for multiple-choice or pick-one decisions (audience, timeline band, integration choice, policy A vs B). Batch related questions in one form when possible.
+- If a structured question tool is available (**AskQuestion** in Cursor, **AskUserQuestion** in Claude Code), use it for multiple-choice or pick-one decisions (audience, timeline band, integration choice, policy A vs B). Batch related questions in one form when possible.
 - Otherwise send **one short message** with **numbered questions**; each question must be answerable in a line or a pick from options.
 - **Order:** Broad first (goal, audience, scope), then specifics that depend on those answers—avoid flooding the user with detailed questions before basics are set.
 
@@ -162,23 +162,23 @@ Use this outline unless the user specifies another format. Fill every section th
 
 ## Default file output (persisted PRDs)
 
-**Unless the user opts out** (“chat only,” “don’t save,” or an explicit path elsewhere), **persist every new or materially updated PRD** to disk so it appears alongside Cursor plan files.
+**Unless the user opts out** (“chat only,” “don’t save,” or an explicit path elsewhere), **persist every new or materially updated PRD** to disk so it appears alongside the tool's plan files.
 
 | Item          | Convention                                                                                                                                                                                                                                                                                                                      |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Directory** | `~/.cursor/plans/` — same location Cursor uses for generated `.plan.md` files (on macOS/Linux: `$HOME/.cursor/plans/`). Create the directory if it does not exist.                                                                                                                                                              |
+| **Directory** | The running tool's plans directory: `~/.cursor/plans/` in Cursor, `~/.claude/plans/` in Claude Code. Create the directory if it does not exist.                                                                                                                                                                                 |
 | **Filename**  | `{kebab-case-initiative-slug}.prd.md` derived from the PRD title (e.g. `agent-data-api-versioning.prd.md`). If that path already exists and the new content is not an in-place revision of that file, append a disambiguator: `-2`, `-3`, … or a short date suffix `-{YYYYMMDD}` — pick one scheme consistently in the session. |
 | **Contents**  | The full markdown PRD (same as what you deliver in chat), including the template’s title block and sections.                                                                                                                                                                                                                    |
 | **Tooling**   | Use the `Write` tool with an **absolute** path (expand `~` to the user’s home directory) so the file is written reliably.                                                                                                                                                                                                       |
 
-**Review-only or incremental edits:** If the user supplied an existing file path, **update that file** when they want it saved. If they did not ask for persistence, **skip** the default save for pure review tasks (see “When not to block”). Otherwise, saving the revised PRD to `~/.cursor/plans/` under the naming rules above is still the default when the outcome is a **full** revised document.
+**Review-only or incremental edits:** If the user supplied an existing file path, **update that file** when they want it saved. If they did not ask for persistence, **skip** the default save for pure review tasks (see “When not to block”). Otherwise, saving the revised PRD to the plans directory under the naming rules above is still the default when the outcome is a **full** revised document.
 
 **Chat reply:** After writing the file, **always** state the **absolute path** to the saved `.prd.md` in the first lines of the reply, then give the **rubric summary** and (as today) the PRD body or a pointer to open the file for very long documents.
 
 ## Agent workflow
 
 1. **Assess gaps:** Compare the user’s request against “Ask before the first full draft.” List **all** material unknowns that would otherwise become **Open questions** or **`[TBD]`** in the doc.
-2. **Ask first (unless review-only or user asked for a strawman):** Use AskQuestion or a numbered message. **Do not** deliver a “complete” PRD in the same turn as the initial request if those gaps are unanswered—unless the user explicitly wants a rough draft with labeled assumptions.
+2. **Ask first (unless review-only or user asked for a strawman):** Use the structured question tool or a numbered message. **Do not** deliver a “complete” PRD in the same turn as the initial request if those gaps are unanswered—unless the user explicitly wants a rough draft with labeled assumptions.
 3. **Minimal inference:** Confirm product or initiative name, audience, timeline, greenfield vs iteration; **ask** if inference would be weak—do not bury weak guesses in §10.
 4. **Draft** using the template; align language to **Clarity** and **User-centric focus** first. Requirements should read as **decided**, with measurable acceptance criteria.
 5. **Add** acceptance criteria under **Testability**; prioritize with **Prioritization**.
@@ -186,7 +186,7 @@ Use this outline unless the user specifies another format. Fill every section th
 7. **Stakeholders:** use named roles when known; if names are unknown, use role titles and list **one** follow-up question to the user rather than a stub in §10.
 8. **Visuals:** suggest 1–3 Mermaid diagrams (flow, sequence, or simple architecture) where they reduce ambiguity; reference wireframes as `[placeholder]` only when no asset exists—**ask** if layout is business-critical and unknown.
 9. **Score** the draft against the rubric (estimate per row, sum to 100). If the total is below 80, list the **top gaps**; if gaps need user input, **ask in chat** before claiming the doc is final—do not only add §10 bullets.
-10. **Persist (default):** Write the complete PRD markdown to `~/.cursor/plans/{slug}.prd.md` per **Default file output** unless the user opted out or the task is review-only without a save request.
+10. **Persist (default):** Write the complete PRD markdown to `<plans directory>/{slug}.prd.md` per **Default file output** unless the user opted out or the task is review-only without a save request.
 11. **Deliver** in chat: lead with the **saved file path**, then the PRD plus a short **rubric summary** (table of scores, total, band, and 3–5 concrete next steps to reach 90+). Next steps should be **implementation or validation**, not “answer the open questions” unless the user chose a strawman.
 
 ## Anti-patterns

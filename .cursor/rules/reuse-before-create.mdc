@@ -11,12 +11,29 @@ alwaysApply: true
 2. **Reuse the existing one** if it fits (same app or shared package). Pass props or adapt the call site; do not copy-paste and rename.
 3. **If the same pattern exists in multiple places** (e.g. several `*-pagination.tsx` or `*-modal.tsx` files with nearly identical logic), **extract or use a single generic component** and migrate all callers to it. Do not add another one-off copy.
 
-## Examples in this repo
+## Shared pieces in the Hermes dashboard
 
-- **Pagination:** Use the shared `ListPagination` from `@/components/list-pagination` (Hermes). It accepts `basePath`, `page`, `pageSize`, `total`, `ariaLabel`, and optional `searchQuery` / `sortBy` / `sortDir`. Do not create new `XyzPagination` components that duplicate prev/next links and query building.
-- **Modals / forms:** If a "create" and "edit" flow are almost the same, use one component with a mode or discriminated props (e.g. `VariableModal` with `variable={null}` for create and `variable={row}` for edit). Do not create separate `AddXModal` and `EditXModal` that duplicate the same form and submit logic.
-- **Tables, search, row actions:** Search for existing table/search/actions patterns in the same app (e.g. under `dashboard/`) and reuse or generalize them instead of writing a new variant from scratch.
-- **Delete-with-confirm in row actions:** Use the shared `DeleteConfirmForm` from `@/components/delete-confirm-form` (Hermes). Pass `FormWithAction`, `confirmMessage`, `bodyField`, and `pending`. Do not duplicate the form + confirm logic in each `*-row-actions.tsx` file.
+Paths are under `apps/hermes/dashboard/`. Primitives (Button, Card, Table, Sheet, Dialog, Sidebar and so on) live in `@workspace/ui` (`packages/shared/ui`); add missing ones with `npx shadcn@latest add <name>` from `apps/hermes/dashboard`, never by hand.
+
+| Need | Use |
+| --- | --- |
+| Page title, description and actions | `components/page-header.tsx` (`PageHeader`) |
+| Key facts on a detail page | `components/summary-grid.tsx` (`SummaryGrid`, `SummaryItem`) |
+| Any date or time | `components/date-time/date-time.tsx` (`DateTime`), formatted in the viewer's zone |
+| List table frame and sortable headers | `components/data-table/data-table-card.tsx`, `components/data-table/sortable-header.tsx` |
+| Pagination | `components/list-pagination.tsx` (`ListPagination`) |
+| Status pills | `components/status-badge.tsx` (`StatusBadge`) |
+| Confirm before a destructive action | `components/confirm-action-dialog.tsx` (`ConfirmActionDialog`) with `hooks/use-confirm-action-dialog.ts` |
+| Create/edit modal state | `components/entity-form-modal-provider.tsx` |
+| Modal form layout | `components/form-dialog.tsx`, `components/submit-button.tsx`, `components/form-error-alert.tsx` |
+| One-time secret display | `components/one-time-secret-reveal.tsx` |
+| Copyable id | `components/copyable-id.tsx` |
+| Execution detail pages | `components/execution-detail/` (`ExecutionDetailView`) |
+| Execution list cells | `components/execution-history-cells.tsx` |
+| Manifest-driven domain detail | `components/detail-blocks/` |
+
+- **Modals / forms:** if create and edit are almost the same, use one component with a mode or discriminated props (for example `variable={null}` for create and `variable={row}` for edit). Do not add separate `AddXModal` and `EditXModal` that duplicate the form and submit logic.
+- **Tables, search, row actions:** search for the existing pattern under `app/dashboard/` and reuse or generalize it before writing a new variant.
 
 ```
 ❌ BAD — duplicate pattern

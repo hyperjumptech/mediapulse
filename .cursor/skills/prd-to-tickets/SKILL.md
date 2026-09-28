@@ -1,6 +1,6 @@
 ---
 name: prd-to-tickets
-description: Breaks a Product Requirements Document (PRD) into actionable implementation tickets (issues) as markdown files with titles, priority, scope, acceptance criteria, and traceability to PRD requirement IDs. Adds deterministic `prd_url` links when the source is resolvable (including `prds` branch links) with a clear unresolved fallback. **By default writes files under `~/.cursor/plans/tickets/`** (override when the user gives another directory). Uses a **representative ticket prefix** (not generic `TICKET-`) and a **shared group slug/label** so related tickets stay filterable. **Ticket summaries and narrative sections are humanized** per the humanizer skill (`.cursor/skills/humanizer/SKILL.md`). When work will ship as stacked PRs with horizontal splits (UI before API), tickets should document feature-flag gating and enabling order. Use when turning a PRD into work items, GitHub issues, Linear-style tasks, sprint tickets, or when the user asks for tickets from a PRD or feature spec.
+description: Breaks a Product Requirements Document (PRD) into actionable implementation tickets (issues) as markdown files with titles, priority, scope, acceptance criteria, and traceability to PRD requirement IDs. Adds deterministic `prd_url` links when the source is resolvable (including `prds` branch links) with a clear unresolved fallback. **By default writes files under the plans `tickets/` directory** (`~/.cursor/plans/tickets/` or `~/.claude/plans/tickets/`) (override when the user gives another directory). Uses a **representative ticket prefix** (not generic `TICKET-`) and a **shared group slug/label** so related tickets stay filterable. **Ticket summaries and narrative sections are humanized** per the humanizer skill (`.cursor/skills/humanizer/SKILL.md`). When work will ship as stacked PRs with horizontal splits (UI before API), tickets should document feature-flag gating and enabling order. Use when turning a PRD into work items, GitHub issues, Linear-style tasks, sprint tickets, or when the user asks for tickets from a PRD or feature spec.
 ---
 
 # PRD → Tickets
@@ -12,13 +12,13 @@ description: Breaks a Product Requirements Document (PRD) into actionable implem
 
 ## Output location
 
-1. **Default directory:** `~/.cursor/plans/tickets/`
+1. **Default directory:** `tickets/` inside the running tool's plans directory (`~/.cursor/plans/tickets/` in Cursor, `~/.claude/plans/tickets/` in Claude Code)
 2. **Override:** If the user names a different folder (absolute or `~/…`), use that instead.
 3. **Create the directory** if it does not exist before writing files.
 
 ## Inputs
 
-- **PRD source:** Path in the repo, path under home (e.g. `~/.cursor/plans/foo.prd.md`), or inline markdown in chat.
+- **PRD source:** Path in the repo, path under home (e.g. `~/.cursor/plans/foo.prd.md` or `~/.claude/plans/foo.prd.md`), or inline markdown in chat.
 - If scope is unclear (whole PRD vs one section), ask once; default to **all P0/P1** items plus **must-have** requirements if the PRD uses priority tags.
 
 ## Prose and voice (humanizer)

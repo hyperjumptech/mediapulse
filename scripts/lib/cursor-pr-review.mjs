@@ -461,57 +461,6 @@ export const parseGitDiffNameStatus = (stdout) => {
 };
 
 /**
- * @param {readonly string[]} lines
- * @param {number} exportLineIdx
- * @returns {boolean}
- */
-const hasPrecedingJsDocBlock = (lines, exportLineIdx) => {
-  let j = exportLineIdx - 1;
-  while (j >= 0 && /^\s*$/.test(lines[j] ?? "")) j--;
-  while (j >= 0 && /^\s*\/\//.test(lines[j] ?? "")) j--;
-  if (j < 0) return false;
-  if (!/\*\/\s*$/.test(lines[j] ?? "")) return false;
-  while (j >= 0) {
-    if (/\/\*\*/.test(lines[j] ?? "")) return true;
-    j--;
-  }
-  return false;
-};
-
-/**
- * @param {string} text
- * @param {string} filePath
- * @returns {readonly CursorPrReviewFinding[]}
- */
-const collectMissingJsDocFindingsForExports = (text, filePath) => {
-  const lines = text.split("\n");
-  /** @type {CursorPrReviewFinding[]} */
-  const out = [];
-
-  const exportLinePatterns = [
-    /^\s*export\s+(async\s+)?function\s+/,
-    /^\s*export\s+default\s+(async\s+)?function\s+/,
-    /^\s*export\s+const\s+\w+\s*=\s*(async\s*)?\(/,
-  ];
-
-  lines.forEach((line, idx) => {
-    const matchesExport = exportLinePatterns.some((re) => re.test(line));
-    if (!matchesExport) return;
-    if (hasPrecedingJsDocBlock(lines, idx)) return;
-    out.push({
-      ruleId: "typescript-javascript-standards",
-      severity: "warning",
-      filePath,
-      line: idx + 1,
-      message:
-        "Exported functions should have a preceding JSDoc block (typescript-javascript-standards).",
-    });
-  });
-
-  return out;
-};
-
-/**
  * @param {string} filePath
  * @param {readonly GitChangedFile[]} changed
  * @param {string} text
@@ -615,7 +564,7 @@ export const runCursorPrReview = async (collaborators, options) => {
     }
   }
 
-  // typescript-javascript-standards: JSDoc + co-located tests (heuristic)
+  // typescript-javascript-standards: co-located tests (heuristic)
   for (const f of changed) {
     if (f.status === "D") continue;
     if (!isReviewableSourceFile(f.filePath)) continue;
@@ -625,10 +574,6 @@ export const runCursorPrReview = async (collaborators, options) => {
       isRuleDisabledInFile(text, "typescript-javascript-standards", f.filePath)
     )
       continue;
-
-    if (f.status === "A") {
-      findings.push(...collectMissingJsDocFindingsForExports(text, f.filePath));
-    }
 
     if (
       f.status === "A" &&

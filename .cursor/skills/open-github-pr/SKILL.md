@@ -144,7 +144,7 @@ Pass **linked issue number(s)** from the verified **`## Related issues`** lines 
 
 ### Launch the monitor (default: background)
 
-Use the **Task** tool with subagent **`pr-check-monitor`** and **`run_in_background: true`** so the opening agent can finish the PR handoff while CI runs.
+Launch the **`pr-check-monitor`** subagent in the background (the **Task** tool in Cursor, the **Agent** tool with `run_in_background: true` in Claude Code) so the opening agent can finish the PR handoff while CI runs.
 
 **Prompt template** (fill in values):
 

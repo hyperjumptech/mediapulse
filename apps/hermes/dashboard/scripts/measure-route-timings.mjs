@@ -1,6 +1,8 @@
 import process from "node:process";
 import { parseArgs } from "node:util";
 
+import { loginToDashboard } from "./dashboard-session.mjs";
+
 const { values } = parseArgs({
   options: {
     "base-url": { type: "string", default: "http://localhost:3001" },
@@ -35,21 +37,6 @@ if (!values.email || !values.password) {
   );
   process.exit(1);
 }
-
-const login = async () => {
-  const response = await fetch(`${baseUrl}/login/action`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: values.email, password: values.password }),
-  });
-  if (!response.ok) {
-    throw new Error(`Login failed with HTTP ${response.status}`);
-  }
-  const setCookieHeaders = response.headers.getSetCookie();
-  const cookiePairs = setCookieHeaders.map((header) => header.split(";")[0]);
-
-  return cookiePairs.join("; ");
-};
 
 const measureOnce = async (route, cookie, mode) => {
   const headers = { cookie };
@@ -102,7 +89,11 @@ const summarize = (samples, key) => {
   };
 };
 
-const cookie = await login();
+const { cookieHeader: cookie } = await loginToDashboard({
+  baseUrl,
+  email: values.email,
+  password: values.password,
+});
 const rows = [];
 
 for (const route of routes) {
