@@ -2,17 +2,20 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  buildExecutionHref,
   getActiveExecutions,
   getExecutionDailySeries,
   getExecutionStatusCounts,
   getExecutionStatusCountsInWindow,
+  getOverviewActivity,
   getRecentFailures,
   getUpcomingSchedules,
+  toExecutionListRow,
   type ExecutionDailySeriesDb,
   type ExecutionStatusCountsDb,
   type HttpTriggerExecutionOverviewRow,
   type ManualPipelineExecutionOverviewRow,
+  type OverviewActivityDb,
+  type OverviewExecution,
   type OverviewExecutionsDb,
   type ScheduleExecutionOverviewRow,
   type UpcomingScheduleRow,
@@ -83,6 +86,9 @@ const scheduleExecutionRow = (
 ): ScheduleExecutionOverviewRow => ({
   id: "schedule-execution-1",
   runStatus: "running",
+  enqueueStatus: "success",
+  succeededInvocationCount: 2,
+  failedInvocationCount: 0,
   executionTime: new Date("2026-09-28T10:00:00.000Z"),
   schedule: {
     id: "schedule-1",
@@ -97,6 +103,9 @@ const httpTriggerExecutionRow = (
 ): HttpTriggerExecutionOverviewRow => ({
   id: "http-trigger-execution-1",
   runStatus: "pending",
+  enqueueStatus: "partial",
+  succeededInvocationCount: 0,
+  failedInvocationCount: 0,
   executionTime: new Date("2026-09-28T11:00:00.000Z"),
   httpTrigger: {
     id: "http-trigger-1",
@@ -111,42 +120,16 @@ const manualPipelineExecutionRow = (
 ): ManualPipelineExecutionOverviewRow => ({
   id: "manual-execution-1",
   runStatus: "running",
+  enqueueStatus: "success",
+  succeededInvocationCount: 1,
+  failedInvocationCount: 1,
   executionTime: new Date("2026-09-28T09:00:00.000Z"),
   pipeline: { id: "pipeline-3", name: "Backfill" },
   ...overrides,
 });
 
-describe("buildExecutionHref", () => {
-  it("builds the schedule execution detail path", () => {
-    // Act
-    const href = buildExecutionHref("schedule", "schedule-1", "execution-1");
-
-    // Assert
-    expect(href).toBe("/dashboard/schedules/schedule-1/executions/execution-1");
-  });
-
-  it("builds the HTTP trigger execution detail path", () => {
-    // Act
-    const href = buildExecutionHref("httpTrigger", "trigger-1", "execution-1");
-
-    // Assert
-    expect(href).toBe(
-      "/dashboard/http-triggers/trigger-1/executions/execution-1",
-    );
-  });
-
-  it("builds the manual pipeline execution detail path", () => {
-    // Act
-    const href = buildExecutionHref("manual", "pipeline-1", "execution-1");
-
-    // Assert
-    expect(href).toBe("/dashboard/pipelines/pipeline-1/executions/execution-1");
-  });
-});
-
 describe("getExecutionStatusCounts", () => {
   it("groups each execution table by run status within the window", async () => {
-    // Setup
     const since = new Date("2026-09-27T12:00:00.000Z");
     const { db, scheduleGroupBy, httpTriggerGroupBy, manualGroupBy } =
       createStatusCountsDb({});
@@ -159,17 +142,14 @@ describe("getExecutionStatusCounts", () => {
       _count: { _all: true },
     };
 
-    // Act
     await getExecutionStatusCounts(since, db);
 
-    // Assert
     expect(scheduleGroupBy).toHaveBeenCalledWith(expectedArgs);
     expect(httpTriggerGroupBy).toHaveBeenCalledWith(expectedArgs);
     expect(manualGroupBy).toHaveBeenCalledWith(expectedArgs);
   });
 
   it("merges the three tables into running, succeeded, failed, and cancelled buckets", async () => {
-    // Setup
     const { db } = createStatusCountsDb({
       schedule: [
         { runStatus: "pending", _count: { _all: 2 } },
@@ -186,10 +166,8 @@ describe("getExecutionStatusCounts", () => {
       ],
     });
 
-    // Act
     const counts = await getExecutionStatusCounts(new Date(), db);
 
-    // Assert
     expect(counts).toEqual({
       total: 31,
       running: 5,
@@ -200,13 +178,10 @@ describe("getExecutionStatusCounts", () => {
   });
 
   it("returns zero counts when no executions ran in the window", async () => {
-    // Setup
     const { db } = createStatusCountsDb({});
 
-    // Act
     const counts = await getExecutionStatusCounts(new Date(), db);
 
-    // Assert
     expect(counts).toEqual({
       total: 0,
       running: 0,
@@ -219,7 +194,6 @@ describe("getExecutionStatusCounts", () => {
 
 describe("getActiveExecutions", () => {
   it("queries pending and running executions newest first from each table", async () => {
-    // Setup
     const { db, scheduleFindMany, httpTriggerFindMany, manualFindMany } =
       createExecutionsDb({});
     const expectedQuery = {
@@ -228,15 +202,16 @@ describe("getActiveExecutions", () => {
       take: 10,
     };
 
-    // Act
     await getActiveExecutions(undefined, db);
 
-    // Assert
     expect(scheduleFindMany).toHaveBeenCalledWith({
       ...expectedQuery,
       select: {
         id: true,
         runStatus: true,
+        enqueueStatus: true,
+        succeededInvocationCount: true,
+        failedInvocationCount: true,
         executionTime: true,
         schedule: {
           select: {
@@ -252,6 +227,9 @@ describe("getActiveExecutions", () => {
       select: {
         id: true,
         runStatus: true,
+        enqueueStatus: true,
+        succeededInvocationCount: true,
+        failedInvocationCount: true,
         executionTime: true,
         httpTrigger: {
           select: {
@@ -267,6 +245,9 @@ describe("getActiveExecutions", () => {
       select: {
         id: true,
         runStatus: true,
+        enqueueStatus: true,
+        succeededInvocationCount: true,
+        failedInvocationCount: true,
         executionTime: true,
         pipeline: { select: { id: true, name: true } },
       },
@@ -274,7 +255,6 @@ describe("getActiveExecutions", () => {
   });
 
   it("merges the tables, sorts by execution time descending, and keeps the limit", async () => {
-    // Setup
     const { db, scheduleFindMany } = createExecutionsDb({
       schedule: [
         scheduleExecutionRow({
@@ -300,10 +280,8 @@ describe("getActiveExecutions", () => {
       ],
     });
 
-    // Act
     const executions = await getActiveExecutions(3, db);
 
-    // Assert
     const executionIds = executions.map((execution) => execution.executionId);
 
     expect(scheduleFindMany).toHaveBeenCalledWith(
@@ -316,18 +294,15 @@ describe("getActiveExecutions", () => {
     ]);
   });
 
-  it("maps each table row to an overview execution with an exact detail link", async () => {
-    // Setup
+  it("maps each table row to an overview execution with its parent and counts", async () => {
     const { db } = createExecutionsDb({
       schedule: [scheduleExecutionRow()],
       httpTrigger: [httpTriggerExecutionRow()],
       manual: [manualPipelineExecutionRow()],
     });
 
-    // Act
     const executions = await getActiveExecutions(10, db);
 
-    // Assert
     expect(executions).toEqual([
       {
         kind: "httpTrigger",
@@ -337,8 +312,10 @@ describe("getActiveExecutions", () => {
         pipelineId: "pipeline-2",
         pipelineName: "Ingest",
         runStatus: "pending",
+        enqueueStatus: "partial",
+        succeededInvocationCount: 0,
+        failedInvocationCount: 0,
         executionTime: new Date("2026-09-28T11:00:00.000Z"),
-        href: "/dashboard/http-triggers/http-trigger-1/executions/http-trigger-execution-1",
       },
       {
         kind: "schedule",
@@ -348,8 +325,10 @@ describe("getActiveExecutions", () => {
         pipelineId: "pipeline-1",
         pipelineName: "Newsletter",
         runStatus: "running",
+        enqueueStatus: "success",
+        succeededInvocationCount: 2,
+        failedInvocationCount: 0,
         executionTime: new Date("2026-09-28T10:00:00.000Z"),
-        href: "/dashboard/schedules/schedule-1/executions/schedule-execution-1",
       },
       {
         kind: "manual",
@@ -359,8 +338,10 @@ describe("getActiveExecutions", () => {
         pipelineId: "pipeline-3",
         pipelineName: "Backfill",
         runStatus: "running",
+        enqueueStatus: "success",
+        succeededInvocationCount: 1,
+        failedInvocationCount: 1,
         executionTime: new Date("2026-09-28T09:00:00.000Z"),
-        href: "/dashboard/pipelines/pipeline-3/executions/manual-execution-1",
       },
     ]);
   });
@@ -368,7 +349,6 @@ describe("getActiveExecutions", () => {
 
 describe("getRecentFailures", () => {
   it("queries failed and partial executions since the given date", async () => {
-    // Setup
     const since = new Date("2026-09-21T12:00:00.000Z");
     const { db, scheduleFindMany, httpTriggerFindMany, manualFindMany } =
       createExecutionsDb({});
@@ -381,10 +361,8 @@ describe("getRecentFailures", () => {
       take: 8,
     };
 
-    // Act
     await getRecentFailures(since, undefined, db);
 
-    // Assert
     expect(scheduleFindMany).toHaveBeenCalledWith(
       expect.objectContaining(expectedQuery),
     );
@@ -397,7 +375,6 @@ describe("getRecentFailures", () => {
   });
 
   it("returns the newest failures across tables up to the limit", async () => {
-    // Setup
     const { db } = createExecutionsDb({
       schedule: [
         scheduleExecutionRow({
@@ -422,10 +399,8 @@ describe("getRecentFailures", () => {
       ],
     });
 
-    // Act
     const executions = await getRecentFailures(new Date(), 2, db);
 
-    // Assert
     const executionSummaries = executions.map((execution) => [
       execution.executionId,
       execution.runStatus,
@@ -440,13 +415,10 @@ describe("getRecentFailures", () => {
 
 describe("getUpcomingSchedules", () => {
   it("queries enabled schedules with a next run time, soonest first", async () => {
-    // Setup
     const { db, scheduleFindMany } = createUpcomingSchedulesDb([]);
 
-    // Act
     await getUpcomingSchedules(undefined, db);
 
-    // Assert
     expect(scheduleFindMany).toHaveBeenCalledWith({
       where: { enabled: true, nextRunAt: { not: null } },
       orderBy: { nextRunAt: "asc" },
@@ -461,7 +433,6 @@ describe("getUpcomingSchedules", () => {
   });
 
   it("returns schedules with their pipeline and drops rows without a next run", async () => {
-    // Setup
     const nextRunAt = new Date("2026-09-28T13:00:00.000Z");
     const { db } = createUpcomingSchedulesDb([
       {
@@ -478,10 +449,8 @@ describe("getUpcomingSchedules", () => {
       },
     ]);
 
-    // Act
     const schedules = await getUpcomingSchedules(5, db);
 
-    // Assert
     expect(schedules).toEqual([
       {
         id: "schedule-1",
@@ -490,6 +459,198 @@ describe("getUpcomingSchedules", () => {
         pipeline: { id: "pipeline-1", name: "Newsletter", isActive: false },
       },
     ]);
+  });
+});
+
+const overviewExecution = (
+  overrides: Partial<OverviewExecution> = {},
+): OverviewExecution => ({
+  kind: "schedule",
+  executionId: "schedule-execution-1",
+  parentId: "schedule-1",
+  parentName: "Morning digest",
+  pipelineId: "pipeline-1",
+  pipelineName: "Newsletter",
+  runStatus: "running",
+  enqueueStatus: "success",
+  succeededInvocationCount: 2,
+  failedInvocationCount: 1,
+  executionTime: new Date("2026-09-28T10:00:00.000Z"),
+  ...overrides,
+});
+
+describe("toExecutionListRow", () => {
+  it("keeps the parent as the source of schedule and HTTP trigger runs", () => {
+    const scheduleRow = toExecutionListRow(overviewExecution());
+    const triggerRow = toExecutionListRow(
+      overviewExecution({
+        kind: "httpTrigger",
+        parentId: "trigger-1",
+        parentName: "Inbound webhook",
+      }),
+    );
+
+    expect(scheduleRow).toEqual({
+      id: "schedule-execution-1",
+      source: "schedule",
+      sourceId: "schedule-1",
+      sourceName: "Morning digest",
+      pipelineName: "Newsletter",
+      executionTime: new Date("2026-09-28T10:00:00.000Z"),
+      runStatus: "running",
+      enqueueStatus: "success",
+      succeededInvocationCount: 2,
+      failedInvocationCount: 1,
+    });
+    expect(triggerRow).toMatchObject({
+      source: "http-trigger",
+      sourceId: "trigger-1",
+      sourceName: "Inbound webhook",
+    });
+  });
+
+  it("names no source for a manual run", () => {
+    const manualRow = toExecutionListRow(
+      overviewExecution({
+        kind: "manual",
+        parentId: "pipeline-3",
+        parentName: "Backfill",
+      }),
+    );
+
+    expect(manualRow).toMatchObject({
+      source: "manual",
+      sourceId: "pipeline-3",
+      sourceName: null,
+    });
+  });
+});
+
+type ExecutionFindManyArgs = { where: { runStatus: { in: string[] } } };
+
+type RowsByList<Row> = { running?: Row[]; failed?: Row[] };
+
+const findManyByRunStatus = <Row>(rowsByList: RowsByList<Row>) =>
+  vi.fn(async ({ where }: ExecutionFindManyArgs) =>
+    where.runStatus.in.includes("running")
+      ? (rowsByList.running ?? [])
+      : (rowsByList.failed ?? []),
+  );
+
+const createActivityDb = (rows: {
+  schedule?: RowsByList<ScheduleExecutionOverviewRow>;
+  httpTrigger?: RowsByList<HttpTriggerExecutionOverviewRow>;
+  upcoming?: UpcomingScheduleRow[];
+  jobs?: Array<Record<string, unknown>>;
+}) => {
+  const scheduleExecutionFindMany = findManyByRunStatus(rows.schedule ?? {});
+  const httpTriggerExecutionFindMany = findManyByRunStatus(
+    rows.httpTrigger ?? {},
+  );
+  const manualExecutionFindMany = findManyByRunStatus({});
+  const scheduleFindMany = vi.fn().mockResolvedValue(rows.upcoming ?? []);
+  const agentJobFindMany = vi.fn().mockResolvedValue(rows.jobs ?? []);
+  const db = {
+    scheduleExecution: { findMany: scheduleExecutionFindMany },
+    httpTriggerExecution: { findMany: httpTriggerExecutionFindMany },
+    manualPipelineExecution: { findMany: manualExecutionFindMany },
+    schedule: { findMany: scheduleFindMany },
+    agentJobExecution: { findMany: agentJobFindMany },
+  } as unknown as OverviewActivityDb;
+
+  return { db, scheduleExecutionFindMany, scheduleFindMany, agentJobFindMany };
+};
+
+const upcomingScheduleRow = (index: number): UpcomingScheduleRow => ({
+  id: `schedule-${index}`,
+  name: `Schedule ${index}`,
+  nextRunAt: new Date(`2026-09-28T1${index}:00:00.000Z`),
+  pipeline: { id: "pipeline-1", name: "Newsletter", isActive: true },
+});
+
+describe("getOverviewActivity", () => {
+  it("returns running and failed runs as list rows labelled from one job query", async () => {
+    const { db, agentJobFindMany } = createActivityDb({
+      schedule: { running: [scheduleExecutionRow()] },
+      httpTrigger: {
+        failed: [
+          httpTriggerExecutionRow({
+            runStatus: "failed",
+            executionTime: new Date("2026-09-27T08:00:00.000Z"),
+          }),
+        ],
+      },
+      jobs: [
+        {
+          scheduleExecutionId: "schedule-execution-1",
+          httpTriggerExecutionId: null,
+          manualExecutionId: null,
+          enqueuedAt: new Date("2026-09-28T10:00:00.000Z"),
+          startedAt: new Date("2026-09-28T10:00:00.000Z"),
+          completedAt: new Date("2026-09-28T10:02:00.000Z"),
+        },
+      ],
+    });
+
+    const activity = await getOverviewActivity(
+      new Date("2026-09-21T12:00:00.000Z"),
+      db,
+    );
+
+    expect(agentJobFindMany).toHaveBeenCalledTimes(1);
+    expect(agentJobFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          OR: [
+            { scheduleExecutionId: { in: ["schedule-execution-1"] } },
+            { httpTriggerExecutionId: { in: ["http-trigger-execution-1"] } },
+          ],
+        },
+      }),
+    );
+    expect(activity.running).toEqual({
+      rows: [
+        expect.objectContaining({
+          id: "schedule-execution-1",
+          source: "schedule",
+          sourceName: "Morning digest",
+          pipelineName: "Newsletter",
+          elapsedLabel: expect.any(String),
+        }),
+      ],
+      hasMore: false,
+    });
+    expect(activity.failed.rows).toEqual([
+      expect.objectContaining({
+        id: "http-trigger-execution-1",
+        source: "http-trigger",
+        runStatus: "failed",
+      }),
+    ]);
+  });
+
+  it("asks each list for one extra row to tell whether more exist", async () => {
+    const { db, scheduleExecutionFindMany, scheduleFindMany } =
+      createActivityDb({
+        upcoming: Array.from({ length: 9 }, (_, index) =>
+          upcomingScheduleRow(index),
+        ),
+      });
+
+    const activity = await getOverviewActivity(new Date(), db);
+
+    expect(scheduleExecutionFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 11 }),
+    );
+    expect(scheduleExecutionFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 9 }),
+    );
+    expect(scheduleFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 9 }),
+    );
+    expect(activity.upcoming.rows).toHaveLength(8);
+    expect(activity.upcoming.hasMore).toBe(true);
+    expect(activity.failed).toEqual({ rows: [], hasMore: false });
   });
 });
 

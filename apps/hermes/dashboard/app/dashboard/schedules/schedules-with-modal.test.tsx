@@ -3,14 +3,12 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { EntityFormModalProvider } from "@/components/entity-form-modal-provider";
-import type { SchedulesPageResult } from "@/lib/schedules";
 
+import type { ScheduleRow } from "./schedules-table";
 import {
   SchedulesWithModal,
   type SchedulesWithModalProps,
 } from "./schedules-with-modal";
-
-type ScheduleRow = SchedulesPageResult["schedules"][number];
 
 const { searchParams } = vi.hoisted(() => ({
   searchParams: { current: "" },
@@ -24,14 +22,6 @@ vi.mock("next/navigation", async (importOriginal) => ({
 afterEach(() => {
   searchParams.current = "";
 });
-
-vi.mock("@/components/list-pagination", () => ({
-  ListPagination: ({ page, total }: { page: number; total: number }) => (
-    <nav data-testid="pagination" data-page={page} data-total={total}>
-      Pagination
-    </nav>
-  ),
-}));
 
 vi.mock("./schedule-form-modal", () => ({
   ScheduleFormModal: ({
@@ -52,23 +42,27 @@ vi.mock("./schedule-form-modal", () => ({
   ),
 }));
 
-vi.mock("./schedules-search", () => ({
-  SchedulesSearch: ({ initialQuery }: { initialQuery?: string }) => (
-    <div data-testid="schedules-search" data-query={initialQuery ?? ""} />
-  ),
-}));
-
 vi.mock("./schedules-table", () => ({
   SchedulesTable: ({
     schedules,
+    urlState,
+    initialColumnVisibility,
     onEdit,
     onCreate,
   }: {
     schedules: Array<{ id: string }>;
+    urlState: { total: number; search?: string };
+    initialColumnVisibility?: Record<string, boolean>;
     onEdit: (scheduleId: string) => void;
     onCreate: () => void;
   }) => (
-    <div data-testid="schedules-table" data-count={schedules.length}>
+    <div
+      data-testid="schedules-table"
+      data-count={schedules.length}
+      data-total={urlState.total}
+      data-search={urlState.search ?? ""}
+      data-visibility={JSON.stringify(initialColumnVisibility ?? {})}
+    >
       <button type="button" onClick={onCreate}>
         Empty state create
       </button>
@@ -100,11 +94,14 @@ const baseProps: SchedulesWithModalProps = {
   schedules: [],
   pipelines: [],
   pipelineValidationById: {},
-  currentPage: 1,
-  pageSize: 15,
-  total: 0,
-  sortBy: "name",
-  sortDir: "asc",
+  urlState: {
+    basePath: "/dashboard/schedules",
+    page: 1,
+    pageSize: 15,
+    total: 0,
+    sortBy: "name",
+    sortDir: "asc",
+  },
 };
 
 const renderWithProvider = (props: Partial<SchedulesWithModalProps> = {}) =>
@@ -115,28 +112,21 @@ const renderWithProvider = (props: Partial<SchedulesWithModalProps> = {}) =>
   );
 
 describe("SchedulesWithModal", () => {
-  it("renders search, table, pagination, and a closed modal", () => {
-    // Act
+  it("hands the table its rows, URL state and column choices next to a closed modal", () => {
     renderWithProvider({
       schedules: [createMockSchedule("1", "Schedule A")],
-      currentPage: 2,
-      total: 30,
-      searchQuery: "daily",
+      urlState: { ...baseProps.urlState, total: 30, search: "daily" },
+      initialColumnVisibility: { repeats: false },
     });
 
-    // Assert
-    expect(screen.getByTestId("schedules-search")).toHaveAttribute(
-      "data-query",
-      "daily",
-    );
-    expect(screen.getByTestId("schedules-table")).toHaveAttribute(
-      "data-count",
-      "1",
-    );
-    expect(screen.getByTestId("pagination")).toHaveAttribute("data-page", "2");
-    expect(screen.getByTestId("pagination")).toHaveAttribute(
-      "data-total",
-      "30",
+    const table = screen.getByTestId("schedules-table");
+
+    expect(table).toHaveAttribute("data-count", "1");
+    expect(table).toHaveAttribute("data-total", "30");
+    expect(table).toHaveAttribute("data-search", "daily");
+    expect(table).toHaveAttribute(
+      "data-visibility",
+      JSON.stringify({ repeats: false }),
     );
     expect(screen.getByTestId("schedule-form-modal")).toHaveAttribute(
       "data-open",
@@ -145,13 +135,10 @@ describe("SchedulesWithModal", () => {
   });
 
   it("opens the create modal when the header link asks for it", () => {
-    // Setup
     searchParams.current = "create=1";
 
-    // Act
     renderWithProvider();
 
-    // Assert
     const modal = screen.getByTestId("schedule-form-modal");
 
     expect(modal).toHaveAttribute("data-open", "true");
@@ -159,30 +146,23 @@ describe("SchedulesWithModal", () => {
   });
 
   it("opens the create modal from the empty state", () => {
-    // Setup
     renderWithProvider();
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Empty state create" }));
 
-    // Assert
-    expect(screen.getByTestId("schedule-form-modal")).toHaveAttribute(
-      "data-mode",
-      "create",
-    );
+    const modal = screen.getByTestId("schedule-form-modal");
+
+    expect(modal).toHaveAttribute("data-open", "true");
+    expect(modal).toHaveAttribute("data-mode", "create");
   });
 
   it("opens the edit modal for the selected row", () => {
-    // Setup
     renderWithProvider({
       schedules: [createMockSchedule("schedule-1", "Schedule A")],
-      total: 1,
     });
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Edit schedule-1" }));
 
-    // Assert
     const modal = screen.getByTestId("schedule-form-modal");
 
     expect(modal).toHaveAttribute("data-open", "true");

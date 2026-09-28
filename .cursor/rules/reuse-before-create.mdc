@@ -18,22 +18,25 @@ Paths are under `apps/hermes/dashboard/`. Primitives (Button, Card, Table, Sheet
 | Need | Use |
 | --- | --- |
 | Page title | Set by the site header from the route. Detail pages publish their entity name with `components/breadcrumb-entity-label.tsx` (`BreadcrumbEntityLabel`) |
-| Page description, badges and actions | `components/page-header.tsx` (`PageHeader`, no heading of its own) |
+| A list page's primary action (Add, New) | The site header renders it from `resolveDashboardPrimaryAction` in `lib/dashboard-routes.ts`. Add the route there; it links to `?create=1` or a create page. Don't add a page description or a second create button |
+| Detail page badges and actions | `components/page-header.tsx` (`PageHeader`, no heading of its own) |
 | KPI cards | `components/stat-card.tsx` (`StatCard`, `StatCardGrid`) |
 | Charts | `@workspace/ui/components/chart`, see `components/execution-activity-chart.tsx` |
-| Create from anywhere | `?create=1` on a list page opens its create modal (`hooks/use-entity-form-modal-state.ts`); add entries to `dashboardQuickCreateItems` |
+| Create from anywhere | `?create=1` opens a page's create dialog (`hooks/use-create-request.ts`, or `hooks/use-entity-form-modal-state.ts` for create/edit modals); Overview's Quick Create lists `dashboardQuickCreateItems` |
 | Key facts on a detail page | `components/summary-grid.tsx` (`SummaryGrid`, `SummaryItem`) |
 | Any date or time | `components/date-time/date-time.tsx` (`DateTime`), formatted in the viewer's zone |
 | List pages (search, sort, column menu, mobile cards, pagination) | `components/data-table/data-table.tsx` (`DataTable`). Columns come from `createDataTableColumnHelper` in `lib/data-table/features.ts`, with `meta` for label, `sortKey`, `hideBelow` and `mobile` role. Read saved columns on the server with `lib/data-table/read-column-visibility.ts`. Keep the table id and default visibility in a plain `*-table-defaults.ts`, because a server section cannot read constants exported from a `"use client"` file |
 | Pagination | Built into `DataTable` through `urlState`. Outside a table, `components/list-pagination.tsx` (`ListPagination`) |
-| Status pills | `components/status-badge.tsx` (`StatusBadge`) |
+| Sorting rows that are all loaded (no URL state) | `DataTable` with `clientSorting={{ initial }}`; columns with `meta.sortKey` sort in place |
+| Row actions | `components/data-table/row-actions-menu.tsx` (`RowActionsMenu`, the vertical-dots menu), text-only items |
+| Status pills | `components/status-badge.tsx` (`StatusBadge` for a status string, `ToneBadge` for a custom label with a tone). Neutral labels are `Badge variant="outline" className="px-1.5 text-muted-foreground"` |
 | Confirm before a destructive action | `components/confirm-action-dialog.tsx` (`ConfirmActionDialog`) with `hooks/use-confirm-action-dialog.ts` |
 | Create/edit modal state | `components/entity-form-modal-provider.tsx` |
 | Modal form layout | `components/form-dialog.tsx`, `components/submit-button.tsx`, `components/form-error-alert.tsx` |
 | One-time secret display | `components/one-time-secret-reveal.tsx` |
 | Copyable id | `components/copyable-id.tsx` |
 | Execution detail pages | `components/execution-detail/` (`ExecutionDetailView`) |
-| Execution list cells | `components/execution-history-cells.tsx` |
+| Execution lists | `components/executions/executions-data-table.tsx` (`ExecutionsDataTable`) with rows from `lib/execution-list.ts` (`pipelineExecutionToListRow`); `omitColumns` drops Pipeline or Source when the page implies it |
 | Manifest-driven domain detail | `components/detail-blocks/` |
 
 - **Modals / forms:** if create and edit are almost the same, use one component with a mode or discriminated props (for example `variable={null}` for create and `variable={row}` for edit). Do not add separate `AddXModal` and `EditXModal` that duplicate the form and submit logic.

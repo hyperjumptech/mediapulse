@@ -1,16 +1,13 @@
 import { Suspense } from "react";
 
-import { ActiveExecutionsSection } from "./overview/active-executions-section";
 import { ExecutionActivitySection } from "./overview/execution-activity-section";
 import { ExecutionStatsSection } from "./overview/execution-stats-section";
-import { OverviewActivityTabs } from "./overview/overview-activity-tabs";
+import { OverviewActivitySection } from "./overview/overview-activity-section";
 import {
   ExecutionActivitySkeleton,
   ExecutionStatsSkeleton,
-  OverviewListSkeleton,
+  OverviewActivitySkeleton,
 } from "./overview/overview-skeletons";
-import { RecentFailuresSection } from "./overview/recent-failures-section";
-import { UpcomingSchedulesSection } from "./overview/upcoming-schedules-section";
 
 const DashboardPage = () => (
   <>
@@ -20,23 +17,9 @@ const DashboardPage = () => (
     <Suspense fallback={<ExecutionActivitySkeleton />}>
       <ExecutionActivitySection />
     </Suspense>
-    <OverviewActivityTabs
-      running={
-        <Suspense fallback={<OverviewListSkeleton />}>
-          <ActiveExecutionsSection />
-        </Suspense>
-      }
-      failed={
-        <Suspense fallback={<OverviewListSkeleton />}>
-          <RecentFailuresSection />
-        </Suspense>
-      }
-      upcoming={
-        <Suspense fallback={<OverviewListSkeleton withBadge={false} />}>
-          <UpcomingSchedulesSection />
-        </Suspense>
-      }
-    />
+    <Suspense fallback={<OverviewActivitySkeleton />}>
+      <OverviewActivitySection />
+    </Suspense>
   </>
 );
 

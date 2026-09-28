@@ -43,15 +43,18 @@ vi.mock("@/lib/compute-execution-elapsed", () => ({
   formatPipelineElapsedLabel: vi.fn().mockReturnValue("—"),
 }));
 
-vi.mock("@/components/schedule-execution-invocations-table", () => ({
-  ScheduleExecutionInvocationsTable: (
-    props: ScheduleExecutionInvocationsTableProps,
-  ) => {
-    invocationsTablePropsMock(props);
+vi.mock(
+  "@/components/execution-detail/execution-invocations-table-section",
+  () => ({
+    ExecutionInvocationsTableSection: (
+      props: ScheduleExecutionInvocationsTableProps,
+    ) => {
+      invocationsTablePropsMock(props);
 
-    return <div data-testid="invocations-stub">Invocations</div>;
-  },
-}));
+      return <div data-testid="invocations-stub">Invocations</div>;
+    },
+  }),
+);
 
 import ScheduleExecutionDetailPage from "./page";
 
@@ -103,13 +106,10 @@ describe("ScheduleExecutionDetailPage", () => {
   });
 
   it("renders enqueue diagnostics region with persisted errors for failed enqueue", async () => {
-    // Setup
     getScheduleExecutionSummaryMock.mockResolvedValue(minimalFailedSummary());
 
-    // Act
     await renderPage();
 
-    // Assert
     const region = await screen.findByRole("region", {
       name: /enqueue diagnostics/i,
     });
@@ -124,16 +124,13 @@ describe("ScheduleExecutionDetailPage", () => {
   });
 
   it("renders the shared header with the schedule name and schedule actions", async () => {
-    // Setup
     getScheduleExecutionSummaryMock.mockResolvedValue({
       ...minimalFailedSummary(),
       pipeline: { id: "pipe-1", name: "Daily digest" },
     } satisfies ScheduleExecutionSummary);
 
-    // Act
     await renderPage();
 
-    // Assert
     expect(screen.getByText(/Test schedule/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Daily digest" })).toHaveAttribute(
       "href",
@@ -151,7 +148,6 @@ describe("ScheduleExecutionDetailPage", () => {
   });
 
   it("passes scalar invocation rows and the schedule payload scope to the table", async () => {
-    // Setup
     getScheduleExecutionSummaryMock.mockResolvedValue({
       ...minimalFailedSummary(),
       invocations: [
@@ -170,10 +166,8 @@ describe("ScheduleExecutionDetailPage", () => {
       ],
     } satisfies ScheduleExecutionSummary);
 
-    // Act
     await renderPage();
 
-    // Assert
     expect(getScheduleExecutionSummaryMock).toHaveBeenCalledWith(
       "sched-1",
       "exec-schedule-1",

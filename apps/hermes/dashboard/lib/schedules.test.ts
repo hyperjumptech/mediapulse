@@ -19,6 +19,9 @@ type MockDb = {
     findFirst: ReturnType<typeof vi.fn>;
     count: ReturnType<typeof vi.fn>;
   };
+  agentJobExecution: {
+    findMany: ReturnType<typeof vi.fn>;
+  };
 };
 
 const createMockDb = (): MockDb => ({
@@ -32,9 +35,11 @@ const createMockDb = (): MockDb => ({
     findFirst: vi.fn(),
     count: vi.fn(),
   },
+  agentJobExecution: {
+    findMany: vi.fn(),
+  },
 });
 
-/** Cast minimal mock to PrismaClientWithSchema for tests. */
 const asDb = (db: MockDb): PrismaClientWithSchema =>
   db as unknown as PrismaClientWithSchema;
 
@@ -311,32 +316,71 @@ describe("getScheduleExecutionsPage", () => {
     );
   });
 
-  it("returns executions, total, page, and pageSize", async () => {
+  it("tags each execution with its schedule and a duration from its jobs", async () => {
     const db = createMockDb();
-    const executions = [
-      {
-        id: "ex-1",
-        executionTime: new Date("2025-01-15T10:00:00Z"),
-        enqueueStatus: "success",
-        runStatus: "succeeded",
-        jobsCreated: 3,
-        jobsEnqueued: 3,
-        succeededInvocationCount: 3,
-        failedInvocationCount: 0,
-        createdAt: new Date("2025-01-15T10:00:01Z"),
-      },
-    ];
-    db.scheduleExecution.findMany.mockResolvedValue(executions);
+    const execution = {
+      id: "ex-1",
+      executionTime: new Date("2025-01-15T10:00:00Z"),
+      enqueueStatus: "success",
+      runStatus: "succeeded",
+      jobsCreated: 3,
+      jobsEnqueued: 3,
+      succeededInvocationCount: 3,
+      failedInvocationCount: 0,
+      createdAt: new Date("2025-01-15T10:00:01Z"),
+    };
+    db.scheduleExecution.findMany.mockResolvedValue([execution]);
     db.scheduleExecution.count.mockResolvedValue(1);
+    db.agentJobExecution.findMany.mockResolvedValue([
+      {
+        scheduleExecutionId: "ex-1",
+        httpTriggerExecutionId: null,
+        manualExecutionId: null,
+        enqueuedAt: new Date("2025-01-15T10:00:00Z"),
+        startedAt: new Date("2025-01-15T10:00:05Z"),
+        completedAt: new Date("2025-01-15T10:02:15Z"),
+      },
+    ]);
 
     const result = await getScheduleExecutionsPage("sched-1", 1, 10, asDb(db));
 
+    expect(db.agentJobExecution.findMany).toHaveBeenCalledTimes(1);
+    expect(db.agentJobExecution.findMany).toHaveBeenCalledWith({
+      where: { OR: [{ scheduleExecutionId: { in: ["ex-1"] } }] },
+      select: {
+        scheduleExecutionId: true,
+        httpTriggerExecutionId: true,
+        manualExecutionId: true,
+        enqueuedAt: true,
+        startedAt: true,
+        completedAt: true,
+      },
+    });
     expect(result).toEqual({
-      executions,
+      executions: [
+        {
+          ...execution,
+          source: "schedule",
+          sourceId: "sched-1",
+          sourceName: null,
+          elapsedLabel: "2m 10s",
+        },
+      ],
       total: 1,
       page: 1,
       pageSize: 10,
     });
+  });
+
+  it("skips the job lookup when the page is empty", async () => {
+    const db = createMockDb();
+    db.scheduleExecution.findMany.mockResolvedValue([]);
+    db.scheduleExecution.count.mockResolvedValue(0);
+
+    const result = await getScheduleExecutionsPage("sched-1", 1, 10, asDb(db));
+
+    expect(db.agentJobExecution.findMany).not.toHaveBeenCalled();
+    expect(result.executions).toEqual([]);
   });
 });
 
@@ -399,14 +443,11 @@ describe("getScheduleExecutionSummary", () => {
   });
 
   it("loads the execution, pipeline, steps and job summaries in one query", async () => {
-    // Setup
     const db = createMockDb();
     db.scheduleExecution.findFirst.mockResolvedValue(summaryRow());
 
-    // Act
     await getScheduleExecutionSummary("sched-1", "exec-1", asDb(db));
 
-    // Assert
     expect(db.scheduleExecution.findFirst).toHaveBeenCalledTimes(1);
     expect(db.schedule.findUnique).not.toHaveBeenCalled();
     expect(db.scheduleExecution.findFirst).toHaveBeenCalledWith({
@@ -464,18 +505,15 @@ describe("getScheduleExecutionSummary", () => {
   });
 
   it("returns scalar invocation rows with a server-computed outcome summary", async () => {
-    // Setup
     const db = createMockDb();
     db.scheduleExecution.findFirst.mockResolvedValue(summaryRow());
 
-    // Act
     const summary = await getScheduleExecutionSummary(
       "sched-1",
       "exec-1",
       asDb(db),
     );
 
-    // Assert
     expect(summary?.pipeline).toEqual({ id: "pipe-1", name: "Pipeline" });
     expect(summary?.schedule).toEqual({ id: "sched-1", name: "Nightly" });
     expect(summary?.stepExecutions.map((step) => step.stepOrder)).toEqual([
@@ -499,18 +537,15 @@ describe("getScheduleExecutionSummary", () => {
   });
 
   it("returns null when the execution does not belong to the schedule", async () => {
-    // Setup
     const db = createMockDb();
     db.scheduleExecution.findFirst.mockResolvedValue(null);
 
-    // Act
     const summary = await getScheduleExecutionSummary(
       "other-schedule",
       "exec-1",
       asDb(db),
     );
 
-    // Assert
     expect(summary).toBeNull();
   });
 });

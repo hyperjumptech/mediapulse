@@ -1,6 +1,12 @@
 import {
   columnVisibilityFeature,
   createColumnHelper,
+  createSortedRowModel,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_basic,
+  sortFn_datetime,
+  sortFn_text,
   tableFeatures,
   type ColumnHelper,
   type RowData,
@@ -27,8 +33,18 @@ export type DataTableColumnMeta = {
 
 export const dataTableFeatures = tableFeatures({
   columnVisibilityFeature,
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
+  sortFns: {
+    alphanumeric: sortFn_alphanumeric,
+    basic: sortFn_basic,
+    datetime: sortFn_datetime,
+    text: sortFn_text,
+  },
   columnMeta: {} as DataTableColumnMeta,
 });
+
+export type DataTableSort = { id: string; desc: boolean };
 
 export type DataTableFeatures = typeof dataTableFeatures;
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const fetchInvocationPayloadActionMock = vi.fn();
@@ -69,13 +69,29 @@ const renderTable = (invocations: ScheduleExecutionInvocationRow[]) =>
     />,
   );
 
-const bodyJobIds = (): string[] => {
-  const rows = screen.getAllByRole("row").slice(1);
+const desktopTable = () => screen.getByRole("table");
 
-  return rows.map((row) => {
-    const firstCell = within(row).getAllByRole("cell")[0];
+const openDetailButton = (agentId: string) =>
+  within(desktopTable()).getByRole("button", {
+    name: `Open invocation details for ${agentId}`,
+  });
 
-    return firstCell?.textContent ?? "";
+const bodyAgentIds = (): string[] =>
+  within(desktopTable())
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => {
+      const agentCell = within(row).getAllByRole("cell")[0];
+
+      return (agentCell?.textContent ?? "").replace(
+        "Open invocation details for ",
+        "",
+      );
+    });
+
+const openMenu = async (trigger: HTMLElement) => {
+  await act(async () => {
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
   });
 };
 
@@ -83,10 +99,10 @@ describe("ScheduleExecutionInvocationsTable", () => {
   afterEach(() => {
     fetchInvocationPayloadActionMock.mockReset();
     fetchAgentActivitiesActionMock.mockReset();
+    document.cookie = "hermes_dt_execution-invocations=; path=/; max-age=0";
   });
 
-  it("loads the clicked job's payload and shows it across the dialog tabs", async () => {
-    // Setup
+  it("loads the clicked invocation's payload and shows it across the dialog tabs", async () => {
     fetchInvocationPayloadActionMock.mockResolvedValue({
       inputMasked: { ticker: "ABC" },
       configMasked: { foo: 1 },
@@ -95,10 +111,8 @@ describe("ScheduleExecutionInvocationsTable", () => {
     });
     renderTable([failedInvocation]);
 
-    // Act
-    fireEvent.click(screen.getByRole("button", { name: "j1" }));
+    fireEvent.click(openDetailButton("my-agent"));
 
-    // Assert
     const dialog = screen.getByTestId("dialog");
 
     expect(
@@ -119,21 +133,16 @@ describe("ScheduleExecutionInvocationsTable", () => {
       jobId: "j1",
     });
 
-    // Act
     fireEvent.mouseDown(within(dialog).getByRole("tab", { name: "Input" }));
 
-    // Assert
     expect(within(dialog).getByText(/"ticker": "ABC"/)).toBeInTheDocument();
 
-    // Act
     fireEvent.mouseDown(within(dialog).getByRole("tab", { name: "Config" }));
 
-    // Assert
     expect(within(dialog).getByText(/"foo": 1/)).toBeInTheDocument();
   });
 
   it("explains a missing config on the Config tab", async () => {
-    // Setup
     fetchInvocationPayloadActionMock.mockResolvedValue({
       inputMasked: { ticker: "ABC" },
       configMasked: null,
@@ -141,40 +150,22 @@ describe("ScheduleExecutionInvocationsTable", () => {
       agentResponse: null,
     });
     renderTable([failedInvocation]);
-    fireEvent.click(screen.getByRole("button", { name: "j1" }));
+    fireEvent.click(openDetailButton("my-agent"));
     const configTab = await screen.findByRole("tab", { name: "Config" });
 
-    // Act
     fireEvent.mouseDown(configTab);
 
-    // Assert
     expect(
       screen.getByText(/No config stored for this invocation/),
     ).toBeVisible();
   });
 
-  it("opens the detail dialog when the row itself is clicked", async () => {
-    // Setup
-    fetchInvocationPayloadActionMock.mockResolvedValue(null);
-    renderTable([failedInvocation]);
-
-    // Act
-    fireEvent.click(screen.getByText("err"));
-
-    // Assert
-    expect(await screen.findByText(/no longer available/i)).toBeInTheDocument();
-    expect(fetchInvocationPayloadActionMock).toHaveBeenCalledTimes(1);
-  });
-
   it("shows error text in the modal when the payload cannot be loaded", async () => {
-    // Setup
     fetchInvocationPayloadActionMock.mockRejectedValue(new Error("boom"));
     renderTable([failedInvocation]);
 
-    // Act
-    fireEvent.click(screen.getByRole("button", { name: "j1" }));
+    fireEvent.click(openDetailButton("my-agent"));
 
-    // Assert
     expect(
       await screen.findByText(/could not load this invocation's details/i),
     ).toBeInTheDocument();
@@ -184,14 +175,13 @@ describe("ScheduleExecutionInvocationsTable", () => {
   });
 
   it("opens the activity dialog without opening the detail dialog", async () => {
-    // Setup
     fetchAgentActivitiesActionMock.mockResolvedValue([]);
     renderTable([failedInvocation]);
 
-    // Act
-    fireEvent.click(screen.getByRole("button", { name: "Activity" }));
+    fireEvent.click(
+      within(desktopTable()).getByRole("button", { name: "Activity" }),
+    );
 
-    // Assert
     expect(await screen.findByText("No activity recorded.")).toBeVisible();
     expect(screen.getByText("Activity for j1…")).toBeVisible();
     expect(fetchAgentActivitiesActionMock).toHaveBeenCalledWith("j1");
@@ -199,17 +189,50 @@ describe("ScheduleExecutionInvocationsTable", () => {
   });
 
   it("renders an empty state when there are no invocations", () => {
-    // Act
     renderTable([]);
 
-    // Assert
     expect(screen.getByText("No invocations")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(fetchInvocationPayloadActionMock).not.toHaveBeenCalled();
   });
 
+  it("shows agent, status, attempts, start, duration and outcome, with the job UUID hidden", () => {
+    renderTable([failedInvocation]);
+
+    const headers = within(desktopTable())
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+
+    expect(headers).toEqual([
+      "Agent",
+      "Status",
+      "Attempts",
+      "Started",
+      "Duration",
+      "Outcome",
+      "Activity",
+    ]);
+  });
+
+  it("shows the job UUID once it is turned on", async () => {
+    renderTable([failedInvocation]);
+
+    await openMenu(screen.getByRole("button", { name: "Customize columns" }));
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("menuitemcheckbox", { name: "Job UUID" }),
+      );
+    });
+
+    expect(
+      within(screen.getByRole("table", { hidden: true })).getByRole("button", {
+        name: "Copy job UUID j1",
+        hidden: true,
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("collapses status into one outcome badge and shows attempts", () => {
-    // Setup
     const invocation: ScheduleExecutionInvocationRow = {
       jobId: "job-a",
       status: "completed",
@@ -222,60 +245,73 @@ describe("ScheduleExecutionInvocationsTable", () => {
       dataQueueMaxAttempts: 5,
     };
 
-    // Act
     renderTable([invocation]);
 
-    // Assert
-    const badge = screen.getByText("success");
+    const table = desktopTable();
+    const badge = within(table).getByText("success");
 
     expect(badge).toHaveAttribute("data-tone", "success");
-    expect(screen.queryByText("Semantic")).not.toBeInTheDocument();
-    expect(screen.getByText("2 / 5")).toBeInTheDocument();
-    expect(screen.getByText("1m")).toBeInTheDocument();
+    expect(within(table).queryByText("Semantic")).not.toBeInTheDocument();
+    expect(within(table).getByText("2 / 5")).toBeInTheDocument();
+    expect(within(table).getByText("1m")).toBeInTheDocument();
   });
 
   it("truncates the outcome summary and keeps the full text in its title", () => {
-    // Setup
     const longSummary = "Partial: 3 of 5 sources failed to fetch in time";
 
-    // Act
     renderTable([{ ...failedInvocation, outcomeSummary: longSummary }]);
 
-    // Assert
-    const summary = screen.getByText(longSummary);
+    const summary = within(desktopTable()).getByText(longSummary);
 
     expect(summary).toHaveClass("truncate");
     expect(summary).toHaveAttribute("title", longSummary);
   });
 
-  it("sorts by started time and toggles the direction", () => {
-    // Setup
+  it("starts in started order with unstarted jobs last and flips from the header menu", async () => {
     const earlier: ScheduleExecutionInvocationRow = {
       ...failedInvocation,
       jobId: "job-earlier",
+      agentId: "agent-earlier",
       startedAtIso: "2025-03-20T09:00:00.000Z",
     };
     const later: ScheduleExecutionInvocationRow = {
       ...failedInvocation,
       jobId: "job-later",
+      agentId: "agent-later",
       startedAtIso: "2025-03-20T11:00:00.000Z",
     };
-    renderTable([later, earlier]);
+    const queued: ScheduleExecutionInvocationRow = {
+      ...failedInvocation,
+      jobId: "job-queued",
+      agentId: "agent-queued",
+      startedAtIso: null,
+      completedAtIso: null,
+    };
+    renderTable([queued, later, earlier]);
 
-    // Assert
-    const startedHeader = screen.getByRole("columnheader", { name: /Started/ });
+    const startedHeader = within(desktopTable()).getByRole("columnheader", {
+      name: "Started",
+    });
 
     expect(startedHeader).toHaveAttribute("aria-sort", "ascending");
-    expect(bodyJobIds()).toEqual(["job-earlier", "job-later"]);
+    expect(bodyAgentIds()).toEqual([
+      "agent-earlier",
+      "agent-later",
+      "agent-queued",
+    ]);
 
-    // Act
-    fireEvent.click(screen.getByRole("button", { name: /Started/ }));
+    await openMenu(
+      within(desktopTable()).getByRole("button", { name: "Started" }),
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("menuitem", { name: "Desc" }));
+    });
 
-    // Assert
     expect(startedHeader).toHaveAttribute("aria-sort", "descending");
-    expect(bodyJobIds()).toEqual(["job-later", "job-earlier"]);
-    expect(
-      screen.getByRole("columnheader", { name: /Completed/ }),
-    ).not.toHaveAttribute("aria-sort");
+    expect(bodyAgentIds()).toEqual([
+      "agent-later",
+      "agent-earlier",
+      "agent-queued",
+    ]);
   });
 });

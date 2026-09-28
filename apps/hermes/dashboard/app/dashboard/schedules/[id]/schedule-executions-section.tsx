@@ -1,8 +1,10 @@
-import { ListPagination } from "@/components/list-pagination";
+import { ExecutionsDataTable } from "@/components/executions/executions-data-table";
+import { readColumnVisibility } from "@/lib/data-table/read-column-visibility";
+import { pipelineExecutionToListRow } from "@/lib/execution-list";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 import { getScheduleExecutionsPage } from "@/lib/schedules";
 
-import { ExecutionsTable } from "./executions-table";
+const SCHEDULE_EXECUTIONS_TABLE_ID = "schedule-executions";
 
 export type ScheduleExecutionsSectionProps = {
   scheduleId: string;
@@ -17,23 +19,32 @@ export const ScheduleExecutionsSection = async ({
   pageSize,
   executionsPage,
 }: ScheduleExecutionsSectionProps) => {
-  const executionsResult = await withDashboardAdmin(
-    executionsPage ?? getScheduleExecutionsPage(scheduleId, page, pageSize),
+  const [executionsResult, savedVisibility] = await Promise.all([
+    withDashboardAdmin(
+      executionsPage ?? getScheduleExecutionsPage(scheduleId, page, pageSize),
+    ),
+    readColumnVisibility(SCHEDULE_EXECUTIONS_TABLE_ID),
+  ]);
+  const rows = executionsResult.executions.map((execution) =>
+    pipelineExecutionToListRow(execution),
   );
 
   return (
-    <div className="flex flex-col gap-3">
-      <ExecutionsTable
-        scheduleId={scheduleId}
-        executions={executionsResult.executions}
-      />
-      <ListPagination
-        basePath={`/dashboard/schedules/${scheduleId}`}
-        page={executionsResult.page}
-        pageSize={executionsResult.pageSize}
-        total={executionsResult.total}
-        ariaLabel="Executions pagination"
-      />
-    </div>
+    <ExecutionsDataTable
+      title="Executions"
+      tableId={SCHEDULE_EXECUTIONS_TABLE_ID}
+      rows={rows}
+      omitColumns={["pipeline", "source"]}
+      urlState={{
+        basePath: `/dashboard/schedules/${scheduleId}`,
+        page: executionsResult.page,
+        pageSize: executionsResult.pageSize,
+        total: executionsResult.total,
+        sortDir: "desc",
+      }}
+      paginationLabel="Schedule executions pagination"
+      emptyDescription="Each time this schedule fires, its run shows up here with job and invocation counts."
+      initialColumnVisibility={savedVisibility}
+    />
   );
 };

@@ -229,37 +229,30 @@ describe("PipelineDetailContent", () => {
   });
 
   it("renders the name, status and description in the header", () => {
-    // Act
     renderPipelineDetail();
 
-    // Assert
     expect(screen.getByText("Test description")).toBeInTheDocument();
     expect(screen.getByText("Enabled")).toHaveAttribute("data-tone", "success");
   });
 
   it("omits the description when the pipeline has none", () => {
-    // Act
     renderPipelineDetail({
       pipeline: createMockPipeline({ description: "   " }),
     });
 
-    // Assert
     expect(screen.queryByText("No description")).not.toBeInTheDocument();
     expect(screen.queryByText("Test description")).not.toBeInTheDocument();
   });
 
   it("shows Disabled when the pipeline is valid but inactive", () => {
-    // Act
     renderPipelineDetail({
       pipeline: createMockPipeline({ isActive: false }),
     });
 
-    // Assert
     expect(screen.getByText("Disabled")).toHaveAttribute("data-tone", "muted");
   });
 
   it("lists validation warnings and disables Run when the pipeline is invalid", () => {
-    // Act
     renderPipelineDetail({
       pipelineValidation: {
         valid: false,
@@ -267,7 +260,6 @@ describe("PipelineDetailContent", () => {
       },
     });
 
-    // Assert
     const alert = screen.getByRole("alert");
 
     expect(screen.getByText("Incomplete")).toBeInTheDocument();
@@ -277,30 +269,23 @@ describe("PipelineDetailContent", () => {
   });
 
   it("shows no validation alert and enables Run for a valid pipeline", () => {
-    // Act
     renderPipelineDetail();
 
-    // Assert
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByTestId("run-pipeline-button")).toBeEnabled();
   });
 
   it("renders the run result once the pipeline has been run", () => {
-    // Setup
     runPipelineState.current = { status: true };
 
-    // Act
     renderPipelineDetail();
 
-    // Assert
     expect(screen.getByTestId("run-pipeline-result")).toBeInTheDocument();
   });
 
   it("summarizes integration, steps, timeout and provenance", () => {
-    // Act
     renderPipelineDetail();
 
-    // Assert
     expect(summaryValue("Integration")).toHaveTextContent("Mediapulse");
     expect(summaryValue("Steps")).toHaveTextContent("1 step");
     expect(summaryValue("Agent timeout")).toHaveTextContent(
@@ -312,7 +297,6 @@ describe("PipelineDetailContent", () => {
   });
 
   it("falls back to the integration id and shows a custom timeout", () => {
-    // Act
     renderPipelineDetail({
       pipeline: createMockPipeline({
         domainIntegrationId: "di-unknown",
@@ -321,7 +305,6 @@ describe("PipelineDetailContent", () => {
       }),
     });
 
-    // Assert
     expect(summaryValue("Integration")).toHaveTextContent("di-unknown");
     expect(summaryValue("Steps")).toHaveTextContent("2 steps");
     expect(summaryValue("Agent timeout")).toHaveTextContent(
@@ -330,10 +313,8 @@ describe("PipelineDetailContent", () => {
   });
 
   it("renders the three editor columns", () => {
-    // Act
     renderPipelineDetail();
 
-    // Assert
     expect(screen.getByTestId("pipeline-available-agents")).toHaveAttribute(
       "data-existing-keys",
       "summarizer@1.0",
@@ -348,10 +329,8 @@ describe("PipelineDetailContent", () => {
   });
 
   it("keeps Save in the selected step card and disabled until a step is selected", () => {
-    // Act
     renderPipelineDetail();
 
-    // Assert
     const card = selectedStepCard();
 
     expect(within(card).getByRole("button", { name: "Save" })).toBeDisabled();
@@ -359,7 +338,6 @@ describe("PipelineDetailContent", () => {
   });
 
   it("loads the selected step into the editor", () => {
-    // Setup
     renderPipelineDetail({
       pipeline: createMockPipeline({
         steps: [
@@ -371,10 +349,8 @@ describe("PipelineDetailContent", () => {
       }),
     });
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Select step-1" }));
 
-    // Assert
     const card = selectedStepCard();
     const panel = within(card).getByTestId("pipeline-step-editor-panel");
 
@@ -387,17 +363,14 @@ describe("PipelineDetailContent", () => {
   });
 
   it("uses an empty input when the saved step input is not an object", () => {
-    // Setup
     renderPipelineDetail({
       pipeline: createMockPipeline({
         steps: [createMockStep({ input: ["unexpected"] })],
       }),
     });
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Select step-1" }));
 
-    // Assert
     expect(screen.getByTestId("pipeline-step-editor-panel")).toHaveAttribute(
       "data-step-input",
       "{}",
@@ -405,15 +378,12 @@ describe("PipelineDetailContent", () => {
   });
 
   it("requires an agent config and contract before saving", async () => {
-    // Setup
     const updateStepFormAction = vi.fn();
     renderPipelineDetail({ updateStepFormAction });
     fireEvent.click(screen.getByRole("button", { name: "Select step-1" }));
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    // Assert
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(
         "Agent config and Agent contract are required.",
@@ -423,7 +393,6 @@ describe("PipelineDetailContent", () => {
   });
 
   it("saves the selected step and shows returned warnings", async () => {
-    // Setup
     const updateStepFormAction = vi.fn().mockResolvedValue({
       status: true,
       data: { validationWarnings: ["Input field topic is unused"] },
@@ -441,10 +410,8 @@ describe("PipelineDetailContent", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Select step-1" }));
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    // Assert
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(
         "Saved with warnings",
@@ -466,7 +433,6 @@ describe("PipelineDetailContent", () => {
   });
 
   it("shows nothing extra after a clean save", async () => {
-    // Setup
     const updateStepFormAction = vi.fn().mockResolvedValue({ status: true });
     renderPipelineDetail({
       updateStepFormAction,
@@ -481,10 +447,8 @@ describe("PipelineDetailContent", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Select step-1" }));
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    // Assert
     await waitFor(() => {
       expect(updateStepFormAction).toHaveBeenCalled();
     });
@@ -498,7 +462,6 @@ describe("PipelineDetailContent", () => {
     [{ status: false, message: "Contract mismatch" }, "Contract mismatch"],
     [null, "Failed to save step"],
   ])("shows the save error for %j", async (stepResult, expectedMessage) => {
-    // Setup
     const updateStepFormAction = vi.fn().mockResolvedValue(stepResult);
     renderPipelineDetail({
       updateStepFormAction,
@@ -513,10 +476,8 @@ describe("PipelineDetailContent", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Select step-1" }));
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    // Assert
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent("Step not saved");
     });
@@ -524,31 +485,22 @@ describe("PipelineDetailContent", () => {
   });
 
   it("opens the edit modal from the header", () => {
-    // Setup
     renderPipelineDetail();
     const modal = screen.getByTestId("pipeline-form-modal");
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Edit pipeline" }));
 
-    // Assert
     expect(modal).toHaveAttribute("data-open", "true");
     expect(modal).toHaveAttribute("data-edit-pipeline-id", "pipeline-123");
   });
 
-  it("renders the executions section under the Executions heading", () => {
-    // Act
+  it("renders the executions section in its own section", () => {
     renderPipelineDetail();
 
-    // Assert
-    const heading = screen.getByRole("heading", {
-      level: 2,
-      name: "Executions",
-    });
-    const section = heading.closest("section") as HTMLElement;
+    const section = screen
+      .getByTestId("executions-section")
+      .closest("section") as HTMLElement;
 
-    expect(
-      within(section).getByTestId("executions-section"),
-    ).toBeInTheDocument();
+    expect(section).toBeInTheDocument();
   });
 });

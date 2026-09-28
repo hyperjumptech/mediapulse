@@ -30,14 +30,20 @@ import type { ColumnVisibility } from "@/lib/data-table/column-visibility";
 import type {
   DataTableBreakpoint,
   DataTableColumns,
+  DataTableSort,
 } from "@/lib/data-table/features";
 import {
   buildClearSearchHref,
+  buildSortHref,
   type ListUrlState,
 } from "@/lib/data-table/list-url-state";
 
 import { DataTableCard } from "./data-table-card";
-import { DataTableColumnHeader } from "./data-table-column-header";
+import {
+  DataTableColumnHeader,
+  type ColumnSortDirection,
+  type ColumnSortTargets,
+} from "./data-table-column-header";
 import { DataTableMobileList } from "./data-table-mobile-list";
 import { DataTableSearch } from "./data-table-search";
 import { DataTableViewOptions } from "./data-table-view-options";
@@ -55,6 +61,7 @@ export type DataTableProps<Row extends RowData> = {
   rows: Row[];
   getRowId: (row: Row) => string;
   urlState?: ListUrlState;
+  clientSorting?: { initial?: DataTableSort };
   paginationLabel?: string;
   search?: { label: string; placeholder: string };
   toolbarActions?: ReactNode;
@@ -70,15 +77,54 @@ const HIDE_BELOW_CLASS: Record<DataTableBreakpoint, string> = {
   xl: "hidden xl:table-cell",
 };
 
-const ariaSortFor = (
-  urlState: ListUrlState | undefined,
+type HeaderSort = {
+  activeDirection: ColumnSortDirection | null;
+  targets: ColumnSortTargets;
+};
+
+type SortableColumn = {
+  getIsSorted: () => false | ColumnSortDirection;
+  toggleSorting: (desc?: boolean) => void;
+};
+
+const headerSortFor = (
+  column: SortableColumn,
   sortKey: string | undefined,
-) => {
-  if (!urlState || !sortKey || urlState.sortBy !== sortKey) {
+  urlState: ListUrlState | undefined,
+  clientSorting: boolean,
+): HeaderSort | null => {
+  if (!sortKey) {
+    return null;
+  }
+  if (urlState) {
+    return {
+      activeDirection: urlState.sortBy === sortKey ? urlState.sortDir : null,
+      targets: {
+        kind: "link",
+        ascHref: buildSortHref(urlState, sortKey, "asc"),
+        descHref: buildSortHref(urlState, sortKey, "desc"),
+      },
+    };
+  }
+  if (!clientSorting) {
+    return null;
+  }
+
+  return {
+    activeDirection: column.getIsSorted() || null,
+    targets: {
+      kind: "client",
+      onSort: (direction) => column.toggleSorting(direction === "desc"),
+    },
+  };
+};
+
+const ariaSortFor = (headerSort: HeaderSort | null) => {
+  if (!headerSort?.activeDirection) {
     return undefined;
   }
 
-  return urlState.sortDir === "asc" ? "ascending" : "descending";
+  return headerSort.activeDirection === "asc" ? "ascending" : "descending";
 };
 
 const EmptyResults = ({
@@ -134,6 +180,7 @@ export const DataTable = <Row extends RowData>({
   rows,
   getRowId,
   urlState,
+  clientSorting,
   paginationLabel,
   search,
   toolbarActions,
@@ -147,6 +194,7 @@ export const DataTable = <Row extends RowData>({
     rows,
     getRowId,
     initialColumnVisibility,
+    initialSorting: clientSorting?.initial ? [clientSorting.initial] : [],
   });
   const tableRows = table.getRowModel().rows;
   const hasMobileToolbar = Boolean(
@@ -195,13 +243,18 @@ export const DataTable = <Row extends RowData>({
                   >
                     {headerGroup.headers.map((header, index) => {
                       const meta = header.column.columnDef.meta;
-                      const sortKey = meta?.sortKey;
+                      const headerSort = headerSortFor(
+                        header.column,
+                        meta?.sortKey,
+                        urlState,
+                        Boolean(clientSorting),
+                      );
                       const isLast = index === headerGroup.headers.length - 1;
 
                       return (
                         <TableHead
                           key={header.id}
-                          aria-sort={ariaSortFor(urlState, sortKey)}
+                          aria-sort={ariaSortFor(headerSort)}
                           className={cn(
                             index === 0 && "pl-4",
                             isLast && "pr-4",
@@ -210,11 +263,11 @@ export const DataTable = <Row extends RowData>({
                             meta?.headerClassName,
                           )}
                         >
-                          {sortKey && urlState ? (
+                          {headerSort ? (
                             <DataTableColumnHeader
                               label={meta?.label ?? header.column.id}
-                              sortKey={sortKey}
-                              urlState={urlState}
+                              activeDirection={headerSort.activeDirection}
+                              targets={headerSort.targets}
                               onHide={
                                 header.column.getCanHide()
                                   ? () => header.column.toggleVisibility(false)

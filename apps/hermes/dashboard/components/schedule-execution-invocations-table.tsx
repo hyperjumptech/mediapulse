@@ -1,34 +1,23 @@
 "use client";
 
-import type { MouseEvent } from "react";
-import { ArrowDown, ArrowUp, ChevronsUpDown, Workflow } from "lucide-react";
+import { useMemo } from "react";
+import { Workflow } from "lucide-react";
 
 import { Button } from "@workspace/ui/components/button";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@workspace/ui/components/empty";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@workspace/ui/components/table";
+import { cn } from "@workspace/ui/lib/utils";
 
-import { DataTableCard } from "@/components/data-table/data-table-card";
+import { CopyableId } from "@/components/copyable-id";
+import { DataTable } from "@/components/data-table/data-table";
+import { DateTime } from "@/components/date-time/date-time";
 import { InvocationActivityDialog } from "@/components/execution-detail/invocation-activity-dialog";
 import { InvocationDetailDialog } from "@/components/execution-detail/invocation-detail-dialog";
-import { DateTime } from "@/components/date-time/date-time";
 import { StatusBadge } from "@/components/status-badge";
 import {
   computeJobElapsedDisplay,
   formatJobElapsedCell,
 } from "@/lib/compute-execution-elapsed";
+import type { ColumnVisibility } from "@/lib/data-table/column-visibility";
+import { createDataTableColumnHelper } from "@/lib/data-table/features";
 import { formatQueueAttemptsDisplay } from "@/lib/format-queue-attempts-display";
 import { resolveInvocationOutcomeLabel } from "@/lib/invocation-display-status";
 
@@ -39,38 +28,28 @@ import {
   type ScheduleExecutionInvocationRow,
 } from "./use-schedule-execution-invocations-modal";
 import {
-  useScheduleExecutionInvocationsSort,
-  type ScheduleExecutionInvocationSortDir,
-  type ScheduleExecutionInvocationSortField,
-} from "./use-schedule-execution-invocations-sort";
+  INVOCATIONS_DEFAULT_COLUMN_VISIBILITY,
+  INVOCATIONS_TABLE_ID,
+} from "./schedule-execution-invocations-table-defaults";
 
-type ToggleInvocationSortHandler = (
-  field: ScheduleExecutionInvocationSortField,
-) => void;
+type InvocationHandler = (invocation: ScheduleExecutionInvocationRow) => void;
 
-type OpenInvocationDetailHandler = (
-  invocation: ScheduleExecutionInvocationRow,
-) => void;
-
-type OpenInvocationActivityHandler = (jobId: string, outcome: string) => void;
-
-type ButtonClickEvent = MouseEvent<HTMLButtonElement>;
+type InvocationActions = {
+  openDetail: InvocationHandler;
+  openActivity: InvocationHandler;
+};
 
 export type ScheduleExecutionInvocationsTableProps = {
   invocations: ScheduleExecutionInvocationRow[];
   payloadSource: InvocationPayloadSource;
+  initialColumnVisibility?: ColumnVisibility;
 };
 
-const ariaSortFor = (
-  isActive: boolean,
-  sortDirection: ScheduleExecutionInvocationSortDir,
-) => {
-  if (!isActive) {
-    return undefined;
-  }
+const invocationOutcome = (invocation: ScheduleExecutionInvocationRow) =>
+  resolveInvocationOutcomeLabel(invocation.status, invocation.semanticStatus);
 
-  return sortDirection === "asc" ? "ascending" : "descending";
-};
+const parseOptionalIso = (iso: string | null): Date | null =>
+  iso == null ? null : new Date(iso);
 
 const outcomeSummaryClassName = (
   outcome: string,
@@ -79,7 +58,6 @@ const outcomeSummaryClassName = (
   if (outcome === "failure") {
     return "text-destructive dark:text-red-400";
   }
-
   if (outcomeSummary?.includes("Partial")) {
     return "text-amber-700 dark:text-amber-400";
   }
@@ -87,230 +65,195 @@ const outcomeSummaryClassName = (
   return "text-muted-foreground";
 };
 
-const parseOptionalIso = (iso: string | null): Date | null =>
-  iso == null ? null : new Date(iso);
-
-const InvocationSortButton = ({
-  field,
-  label,
-  isActive,
-  sortDirection,
-  onToggle,
-}: {
-  field: ScheduleExecutionInvocationSortField;
-  label: string;
-  isActive: boolean;
-  sortDirection: ScheduleExecutionInvocationSortDir;
-  onToggle: ToggleInvocationSortHandler;
-}) => {
-  const activeIcon = sortDirection === "asc" ? ArrowUp : ArrowDown;
-  const Icon = isActive ? activeIcon : ChevronsUpDown;
-
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      className="-ml-2.5 h-8"
-      onClick={() => onToggle(field)}
-    >
-      {label}
-      <Icon aria-hidden />
-    </Button>
-  );
-};
-
-const InvocationRow = ({
+const InvocationAttempts = ({
   invocation,
-  onOpenDetail,
-  onOpenActivity,
 }: {
   invocation: ScheduleExecutionInvocationRow;
-  onOpenDetail: OpenInvocationDetailHandler;
-  onOpenActivity: OpenInvocationActivityHandler;
 }) => {
-  const outcome = resolveInvocationOutcomeLabel(
-    invocation.status,
-    invocation.semanticStatus,
-  );
-  const startedAt = parseOptionalIso(invocation.startedAtIso);
-  const completedAt = parseOptionalIso(invocation.completedAtIso);
-  const elapsed = computeJobElapsedDisplay(startedAt, completedAt);
-  const durationLabel = formatJobElapsedCell(elapsed);
   const attemptsLabel = formatQueueAttemptsDisplay(
     invocation.dataQueueAttempts,
     invocation.dataQueueMaxAttempts,
   );
+
+  return (
+    <span title="DataQueue processing attempts (current / max)">
+      {attemptsLabel}
+    </span>
+  );
+};
+
+const InvocationDuration = ({
+  invocation,
+}: {
+  invocation: ScheduleExecutionInvocationRow;
+}) => {
+  const startedAt = parseOptionalIso(invocation.startedAtIso);
+  const completedAt = parseOptionalIso(invocation.completedAtIso);
+  const elapsed = computeJobElapsedDisplay(startedAt, completedAt);
+  const durationLabel = formatJobElapsedCell(elapsed);
+
+  return <span suppressHydrationWarning>{durationLabel}</span>;
+};
+
+const InvocationOutcomeSummary = ({
+  invocation,
+}: {
+  invocation: ScheduleExecutionInvocationRow;
+}) => {
   const summaryClassName = outcomeSummaryClassName(
-    outcome,
+    invocationOutcome(invocation),
     invocation.outcomeSummary,
   );
-  const summaryText = invocation.outcomeSummary ?? "—";
-  const summaryTitle = invocation.outcomeSummary ?? undefined;
-
-  const openDetail = () => {
-    onOpenDetail(invocation);
-  };
-
-  const openDetailFromButton = (event: ButtonClickEvent) => {
-    event.stopPropagation();
-    onOpenDetail(invocation);
-  };
-
-  const openActivity = (event: ButtonClickEvent) => {
-    event.stopPropagation();
-    onOpenActivity(invocation.jobId, outcome);
-  };
 
   return (
-    <TableRow className="cursor-pointer" onClick={openDetail}>
-      <TableCell className="pl-4">
+    <span
+      className={cn("block max-w-xs truncate", summaryClassName)}
+      title={invocation.outcomeSummary ?? undefined}
+    >
+      {invocation.outcomeSummary ?? "—"}
+    </span>
+  );
+};
+
+const columnHelper =
+  createDataTableColumnHelper<ScheduleExecutionInvocationRow>();
+
+const createInvocationColumns = ({
+  openDetail,
+  openActivity,
+}: InvocationActions) =>
+  columnHelper.columns([
+    columnHelper.accessor("agentId", {
+      id: "agent",
+      enableHiding: false,
+      sortFn: "text",
+      meta: { label: "Agent", sortKey: "agent", mobile: "title" },
+      cell: ({ row }) => (
         <button
           type="button"
-          onClick={openDetailFromButton}
-          title={invocation.jobId}
-          className="block max-w-40 truncate rounded font-mono text-xs text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          onClick={() => openDetail(row.original)}
+          className="block max-w-56 truncate rounded text-left font-mono text-xs font-medium text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
-          {invocation.jobId}
+          <span className="sr-only">Open invocation details for</span>{" "}
+          {row.original.agentId}
         </button>
-      </TableCell>
-      <TableCell>
-        <code className="font-mono text-xs">{invocation.agentId}</code>
-      </TableCell>
-      <TableCell>
-        <StatusBadge status={outcome} />
-      </TableCell>
-      <TableCell
-        className="hidden text-muted-foreground tabular-nums lg:table-cell"
-        title="DataQueue processing attempts (current / max)"
-      >
-        {attemptsLabel}
-      </TableCell>
-      <TableCell className="text-muted-foreground">
-        <DateTime value={invocation.startedAtIso} />
-      </TableCell>
-      <TableCell className="hidden text-muted-foreground md:table-cell">
-        <DateTime value={invocation.completedAtIso} />
-      </TableCell>
-      <TableCell
-        className="text-muted-foreground tabular-nums"
-        suppressHydrationWarning
-      >
-        {durationLabel}
-      </TableCell>
-      <TableCell className={summaryClassName}>
-        <span className="block max-w-xs truncate" title={summaryTitle}>
-          {summaryText}
-        </span>
-      </TableCell>
-      <TableCell className="pr-2 text-right">
-        <Button type="button" variant="ghost" size="sm" onClick={openActivity}>
+      ),
+    }),
+    columnHelper.accessor(invocationOutcome, {
+      id: "status",
+      sortFn: "text",
+      meta: { label: "Status", sortKey: "status", mobile: "badge" },
+      cell: ({ getValue }) => <StatusBadge status={getValue()} />,
+    }),
+    columnHelper.display({
+      id: "attempts",
+      meta: {
+        label: "Attempts",
+        hideBelow: "lg",
+        cellClassName: "text-muted-foreground tabular-nums",
+      },
+      cell: ({ row }) => <InvocationAttempts invocation={row.original} />,
+    }),
+    columnHelper.accessor(
+      (invocation) => parseOptionalIso(invocation.startedAtIso) ?? undefined,
+      {
+        id: "started",
+        sortFn: "datetime",
+        sortUndefined: "last",
+        meta: {
+          label: "Started",
+          sortKey: "started",
+          cellClassName: "text-muted-foreground",
+        },
+        cell: ({ row }) => <DateTime value={row.original.startedAtIso} />,
+      },
+    ),
+    columnHelper.display({
+      id: "duration",
+      meta: {
+        label: "Duration",
+        cellClassName: "text-muted-foreground tabular-nums",
+      },
+      cell: ({ row }) => <InvocationDuration invocation={row.original} />,
+    }),
+    columnHelper.accessor("outcomeSummary", {
+      id: "outcome",
+      meta: { label: "Outcome" },
+      cell: ({ row }) => <InvocationOutcomeSummary invocation={row.original} />,
+    }),
+    columnHelper.accessor("jobId", {
+      id: "jobId",
+      meta: { label: "Job UUID" },
+      cell: ({ row }) => (
+        <CopyableId
+          value={row.original.jobId}
+          label={`Copy job UUID ${row.original.jobId}`}
+          className="max-w-48"
+        />
+      ),
+    }),
+    columnHelper.display({
+      id: "activity",
+      enableHiding: false,
+      meta: {
+        label: "Activity",
+        mobile: "actions",
+        cellClassName: "pr-2 text-right",
+      },
+      cell: ({ row }) => (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => openActivity(row.original)}
+        >
           Activity
         </Button>
-      </TableCell>
-    </TableRow>
-  );
-};
-
-const InvocationsEmptyState = () => {
-  return (
-    <DataTableCard>
-      <Empty className="gap-4 py-10 md:py-12">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <Workflow aria-hidden className="size-5 text-muted-foreground" />
-          </EmptyMedia>
-          <EmptyTitle className="text-base">No invocations</EmptyTitle>
-          <EmptyDescription>
-            Agent jobs show up here once this execution enqueues them.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    </DataTableCard>
-  );
-};
+      ),
+    }),
+  ]);
 
 export const ScheduleExecutionInvocationsTable = ({
   invocations,
   payloadSource,
+  initialColumnVisibility = INVOCATIONS_DEFAULT_COLUMN_VISIBILITY,
 }: ScheduleExecutionInvocationsTableProps) => {
-  const {
-    sortedRows,
-    sortField,
-    sortDir: sortDirection,
-    toggleSort,
-  } = useScheduleExecutionInvocationsSort(invocations);
   const invocationDetail = useScheduleExecutionInvocationsModal(payloadSource);
   const activity = useAgentActivityModal();
-
-  if (invocations.length === 0) {
-    return <InvocationsEmptyState />;
-  }
-
-  const isStartedSortActive = sortField === "startedAt";
-  const isCompletedSortActive = sortField === "completedAt";
-
-  const openDetail = (invocation: ScheduleExecutionInvocationRow) => {
-    void invocationDetail.openModal(invocation);
-  };
-
-  const openActivity = (jobId: string, outcome: string) => {
-    void activity.openModal(jobId, outcome);
-  };
+  const openDetailModal = invocationDetail.openModal;
+  const openActivityModal = activity.openModal;
+  const columns = useMemo(
+    () =>
+      createInvocationColumns({
+        openDetail: (invocation) => {
+          void openDetailModal(invocation);
+        },
+        openActivity: (invocation) => {
+          void openActivityModal(
+            invocation.jobId,
+            invocationOutcome(invocation),
+          );
+        },
+      }),
+    [openDetailModal, openActivityModal],
+  );
 
   return (
     <>
-      <DataTableCard>
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="pl-4">Job</TableHead>
-              <TableHead>Agent</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="hidden lg:table-cell">Attempts</TableHead>
-              <TableHead
-                aria-sort={ariaSortFor(isStartedSortActive, sortDirection)}
-              >
-                <InvocationSortButton
-                  field="startedAt"
-                  label="Started"
-                  isActive={isStartedSortActive}
-                  sortDirection={sortDirection}
-                  onToggle={toggleSort}
-                />
-              </TableHead>
-              <TableHead
-                className="hidden md:table-cell"
-                aria-sort={ariaSortFor(isCompletedSortActive, sortDirection)}
-              >
-                <InvocationSortButton
-                  field="completedAt"
-                  label="Completed"
-                  isActive={isCompletedSortActive}
-                  sortDirection={sortDirection}
-                  onToggle={toggleSort}
-                />
-              </TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Outcome</TableHead>
-              <TableHead className="pr-2">
-                <span className="sr-only">Actions</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedRows.map((invocation) => (
-              <InvocationRow
-                key={invocation.jobId}
-                invocation={invocation}
-                onOpenDetail={openDetail}
-                onOpenActivity={openActivity}
-              />
-            ))}
-          </TableBody>
-        </Table>
-      </DataTableCard>
-
+      <DataTable
+        tableId={INVOCATIONS_TABLE_ID}
+        columns={columns}
+        rows={invocations}
+        getRowId={(invocation) => invocation.jobId}
+        clientSorting={{ initial: { id: "started", desc: false } }}
+        emptyState={{
+          icon: Workflow,
+          title: "No invocations",
+          description:
+            "Agent jobs show up here once this execution enqueues them.",
+        }}
+        initialColumnVisibility={initialColumnVisibility}
+      />
       <InvocationDetailDialog
         open={invocationDetail.open}
         selected={invocationDetail.selected}

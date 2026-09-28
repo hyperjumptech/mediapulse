@@ -15,12 +15,7 @@ import {
   type HttpTriggersQuery,
 } from "./http-triggers-section";
 
-const SORT_FIELDS: HttpTriggerSortField[] = [
-  "name",
-  "method",
-  "created",
-  "enabled",
-];
+const SORT_FIELDS: HttpTriggerSortField[] = ["name", "method", "enabled"];
 
 const HttpTriggersPage = async ({
   searchParams,

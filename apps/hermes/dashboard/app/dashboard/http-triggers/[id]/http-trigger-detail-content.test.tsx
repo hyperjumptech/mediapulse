@@ -107,10 +107,8 @@ describe("HttpTriggerDetailContent", () => {
   });
 
   it("renders the name, status and description without a back link", () => {
-    // Act
     renderTriggerDetail(createMockTrigger());
 
-    // Assert
     expect(screen.getByText("enabled")).toHaveAttribute("data-tone", "success");
     expect(
       screen.getByText("Called by the CMS on publish"),
@@ -121,12 +119,10 @@ describe("HttpTriggerDetailContent", () => {
   });
 
   it("shows a disabled status and no description when absent", () => {
-    // Act
     renderTriggerDetail(
       createMockTrigger({ enabled: false, description: null }),
     );
 
-    // Assert
     expect(screen.getByText("disabled")).toHaveAttribute("data-tone", "muted");
     expect(
       screen.queryByText("Called by the CMS on publish"),
@@ -134,10 +130,8 @@ describe("HttpTriggerDetailContent", () => {
   });
 
   it("summarizes the pipeline, method, auth and token hint", () => {
-    // Act
     renderTriggerDetail(createMockTrigger());
 
-    // Assert
     expect(
       within(summaryValue("Pipeline")).getByRole("link", { name: "Main" }),
     ).toHaveAttribute("href", "/dashboard/pipelines/p1");
@@ -152,7 +146,6 @@ describe("HttpTriggerDetailContent", () => {
   });
 
   it("humanizes unknown auth types and handles a missing token hint", () => {
-    // Act
     renderTriggerDetail(
       createMockTrigger({
         authType: "SIGNED_REQUEST" as TriggerRow["authType"],
@@ -160,16 +153,13 @@ describe("HttpTriggerDetailContent", () => {
       }),
     );
 
-    // Assert
     expect(summaryValue("Auth")).toHaveTextContent("signed request");
     expect(summaryValue("Token hint")).toHaveTextContent("Not recorded");
   });
 
   it("shows the full invoke URL with a copy button", () => {
-    // Act
     renderTriggerDetail(createMockTrigger());
 
-    // Assert
     const invokeUrl = summaryValue("Invoke URL");
 
     expect(invokeUrl).toHaveTextContent(
@@ -181,10 +171,8 @@ describe("HttpTriggerDetailContent", () => {
   });
 
   it("shows when the trigger last fired and who created it", () => {
-    // Act
     renderTriggerDetail(createMockTrigger());
 
-    // Assert
     expect(summaryValue("Last triggered")).toHaveTextContent(
       "Sep 28, 2026, 11:30 30m ago",
     );
@@ -193,22 +181,17 @@ describe("HttpTriggerDetailContent", () => {
   });
 
   it("shows Never when the trigger has not fired", () => {
-    // Act
     renderTriggerDetail(createMockTrigger({ lastTriggeredAt: null }));
 
-    // Assert
     expect(summaryValue("Last triggered")).toHaveTextContent("Never");
   });
 
   it("copies the cURL command and confirms with a toast", async () => {
-    // Setup
     writeTextMock.mockResolvedValue(undefined);
     renderTriggerDetail(createMockTrigger());
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Copy cURL" }));
 
-    // Assert
     await waitFor(() => {
       expect(toastSuccessMock).toHaveBeenCalledWith("cURL command copied");
     });
@@ -218,14 +201,11 @@ describe("HttpTriggerDetailContent", () => {
   });
 
   it("reports a failed cURL copy with an error toast", async () => {
-    // Setup
     writeTextMock.mockRejectedValue(new Error("denied"));
     renderTriggerDetail(createMockTrigger());
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Copy cURL" }));
 
-    // Assert
     await waitFor(() => {
       expect(toastErrorMock).toHaveBeenCalledWith(
         "Couldn't copy the cURL command",
@@ -235,32 +215,23 @@ describe("HttpTriggerDetailContent", () => {
   });
 
   it("opens the edit modal from the header", () => {
-    // Setup
     renderTriggerDetail(createMockTrigger());
     const modal = screen.getByTestId("http-trigger-form-modal");
 
-    // Act
     fireEvent.click(screen.getByRole("button", { name: "Edit HTTP trigger" }));
 
-    // Assert
     expect(modal).toHaveAttribute("data-open", "true");
     expect(modal).toHaveAttribute("data-mode", "edit");
     expect(modal).toHaveAttribute("data-edit-id", "trigger-1");
   });
 
-  it("renders the executions section under the Executions heading", () => {
-    // Act
+  it("renders the executions section in its own section", () => {
     renderTriggerDetail(createMockTrigger());
 
-    // Assert
-    const heading = screen.getByRole("heading", {
-      level: 2,
-      name: "Executions",
-    });
-    const section = heading.closest("section") as HTMLElement;
+    const section = screen
+      .getByTestId("executions-section")
+      .closest("section") as HTMLElement;
 
-    expect(
-      within(section).getByTestId("executions-section"),
-    ).toBeInTheDocument();
+    expect(section).toBeInTheDocument();
   });
 });

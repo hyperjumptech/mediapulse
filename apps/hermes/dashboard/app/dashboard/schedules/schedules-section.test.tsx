@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const getSchedulesPageMock = vi.fn();
 const getPipelineOptionsWithValidationMock = vi.fn();
+const readColumnVisibilityMock = vi.fn();
 
 vi.mock("@/lib/require-dashboard-admin", () => ({
   withDashboardAdmin: <Value,>(load: Promise<Value>) => load,
@@ -18,24 +19,32 @@ vi.mock("@/lib/pipeline-options", () => ({
     getPipelineOptionsWithValidationMock(),
 }));
 
+vi.mock("@/lib/data-table/read-column-visibility", () => ({
+  readColumnVisibility: (...args: unknown[]) =>
+    readColumnVisibilityMock(...args),
+}));
+
 vi.mock("./schedules-with-modal", () => ({
   SchedulesWithModal: ({
     schedules,
     pipelines,
     pipelineValidationById,
-    searchQuery,
+    urlState,
+    initialColumnVisibility,
   }: {
     schedules: Array<{ id: string }>;
     pipelines: Array<{ id: string }>;
     pipelineValidationById: Record<string, { valid: boolean }>;
-    searchQuery?: string;
+    urlState: Record<string, unknown>;
+    initialColumnVisibility: Record<string, boolean>;
   }) => (
     <div
       data-testid="schedules-with-modal"
       data-schedules-count={schedules.length}
       data-pipelines-count={pipelines.length}
       data-validation-keys={Object.keys(pipelineValidationById).join(",")}
-      data-search={searchQuery ?? ""}
+      data-url-state={JSON.stringify(urlState)}
+      data-visibility={JSON.stringify(initialColumnVisibility)}
     />
   ),
 }));
@@ -54,14 +63,14 @@ describe("SchedulesSection", () => {
   afterEach(() => {
     getSchedulesPageMock.mockReset();
     getPipelineOptionsWithValidationMock.mockReset();
+    readColumnVisibilityMock.mockReset();
   });
 
-  it("renders schedules and pipelines from the loaders", async () => {
-    // Setup
+  it("hands the table its rows, pipelines, URL state and saved column choices", async () => {
     getSchedulesPageMock.mockResolvedValue({
       schedules: [{ id: "1", name: "Daily" }],
-      total: 1,
-      page: 1,
+      total: 31,
+      page: 2,
       pageSize: 15,
     });
     getPipelineOptionsWithValidationMock.mockResolvedValue({
@@ -74,23 +83,38 @@ describe("SchedulesSection", () => {
         "pipeline-2": { valid: false, warnings: ["Step 1: invalid"] },
       },
     });
+    readColumnVisibilityMock.mockResolvedValue({ repeats: false });
 
-    // Act
-    render(await SchedulesSection(baseQuery));
+    render(await SchedulesSection({ ...baseQuery, page: 2, search: "daily" }));
 
-    // Assert
-    const table = screen.getByTestId("schedules-with-modal");
+    const section = screen.getByTestId("schedules-with-modal");
 
-    expect(table).toHaveAttribute("data-schedules-count", "1");
-    expect(table).toHaveAttribute("data-pipelines-count", "2");
-    expect(table).toHaveAttribute(
+    expect(readColumnVisibilityMock).toHaveBeenCalledWith("schedules");
+    expect(section).toHaveAttribute("data-schedules-count", "1");
+    expect(section).toHaveAttribute("data-pipelines-count", "2");
+    expect(section).toHaveAttribute(
       "data-validation-keys",
       "pipeline-1,pipeline-2",
+    );
+    expect(section).toHaveAttribute(
+      "data-url-state",
+      JSON.stringify({
+        basePath: "/dashboard/schedules",
+        page: 2,
+        pageSize: 15,
+        total: 31,
+        search: "daily",
+        sortBy: "name",
+        sortDir: "asc",
+      }),
+    );
+    expect(section).toHaveAttribute(
+      "data-visibility",
+      JSON.stringify({ repeats: false }),
     );
   });
 
   it("forwards search and sort to getSchedulesPage", async () => {
-    // Setup
     getSchedulesPageMock.mockResolvedValue({
       schedules: [],
       total: 0,
@@ -101,8 +125,8 @@ describe("SchedulesSection", () => {
       pipelines: [],
       pipelineValidationById: {},
     });
+    readColumnVisibilityMock.mockResolvedValue({});
 
-    // Act
     render(
       await SchedulesSection({
         page: 2,
@@ -113,15 +137,10 @@ describe("SchedulesSection", () => {
       }),
     );
 
-    // Assert
     expect(getSchedulesPageMock).toHaveBeenCalledWith(2, 10, {
       search: "daily",
       sortBy: "nextRunAt",
       sortDir: "desc",
     });
-    expect(screen.getByTestId("schedules-with-modal")).toHaveAttribute(
-      "data-search",
-      "daily",
-    );
   });
 });

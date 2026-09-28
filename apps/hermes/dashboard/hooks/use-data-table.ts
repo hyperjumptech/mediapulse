@@ -10,6 +10,7 @@ import {
 import {
   dataTableFeatures,
   type DataTableColumns,
+  type DataTableSort,
 } from "@/lib/data-table/features";
 
 type Updater<Value> = Value | ((previous: Value) => Value);
@@ -29,6 +30,7 @@ export type UseDataTableOptions<Row extends RowData> = {
   rows: Row[];
   getRowId: (row: Row) => string;
   initialColumnVisibility?: ColumnVisibility;
+  initialSorting?: DataTableSort[];
 };
 
 export const useDataTable = <Row extends RowData>({
@@ -37,9 +39,17 @@ export const useDataTable = <Row extends RowData>({
   rows,
   getRowId,
   initialColumnVisibility = {},
+  initialSorting = [],
 }: UseDataTableOptions<Row>) => {
   const [columnVisibility, setColumnVisibilityState] =
     useState<ColumnVisibility>(initialColumnVisibility);
+  const [sorting, setSortingState] = useState<DataTableSort[]>(initialSorting);
+
+  const setSorting = useCallback((updater: Updater<DataTableSort[]>) => {
+    setSortingState((previous) =>
+      typeof updater === "function" ? updater(previous) : updater,
+    );
+  }, []);
 
   const setColumnVisibility = useCallback(
     (updater: Updater<ColumnVisibility>) => {
@@ -58,8 +68,9 @@ export const useDataTable = <Row extends RowData>({
     features: dataTableFeatures,
     data: rows,
     columns,
-    state: { columnVisibility },
+    state: { columnVisibility, sorting },
     getRowId: (row) => getRowId(row),
     onColumnVisibilityChange: setColumnVisibility,
+    onSortingChange: setSorting,
   });
 };

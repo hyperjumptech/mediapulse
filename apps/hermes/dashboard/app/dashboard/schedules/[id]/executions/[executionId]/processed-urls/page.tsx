@@ -5,21 +5,20 @@ import {
 } from "@workspace/ui/components/alert";
 import { CircleAlert } from "lucide-react";
 
-import { DataTableCard } from "@/components/data-table/data-table-card";
-import { ListPagination } from "@/components/list-pagination";
+import { readColumnVisibility } from "@/lib/data-table/read-column-visibility";
 import {
   fetchProcessedUrlsForExecution,
   type FetchProcessedUrlsParams,
   type ProcessedUrlsListResponse,
 } from "@/lib/domain-dashboard";
+import { parseListPagination } from "@/lib/list-page-params";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 import {
-  ProcessedUrlsEmptyState,
   ProcessedUrlsFilters,
-  ProcessedUrlsTable,
   type ProcessedUrlFilterGroup,
-} from "./processed-urls-sections";
+} from "./processed-urls-filters";
+import { ProcessedUrlsTable } from "./processed-urls-table";
 
 type PageProps = {
   params: Promise<{ id: string; executionId: string }>;
@@ -36,6 +35,8 @@ type ProcessedUrlFilters = {
 };
 
 const PAGE_SIZE = 50;
+
+const PROCESSED_URLS_TABLE_ID = "processed-urls";
 
 const FILTER_DEFINITIONS: ReadonlyArray<{
   key: ProcessedUrlFilterKey;
@@ -81,9 +82,11 @@ const buildFilterHref = (
   basePath: string,
   filters: ProcessedUrlFilters,
   updates: ProcessedUrlFilters,
+  pageSize: number,
 ): string => {
   const searchParams = new URLSearchParams();
-  const merged = { ...filters, page: "1", ...updates };
+  const size = pageSize === PAGE_SIZE ? undefined : String(pageSize);
+  const merged = { ...filters, page: "1", size, ...updates };
   for (const [key, value] of Object.entries(merged)) {
     if (value) {
       searchParams.set(key, value);
@@ -97,6 +100,7 @@ const buildFilterHref = (
 const buildFilterGroups = (
   basePath: string,
   filters: ProcessedUrlFilters,
+  pageSize: number,
 ): ProcessedUrlFilterGroup[] =>
   FILTER_DEFINITIONS.map((definition) => {
     const activeValue = filters[definition.key] ?? "";
@@ -105,7 +109,7 @@ const buildFilterGroups = (
 
       return {
         label: value || "All",
-        href: buildFilterHref(basePath, filters, update),
+        href: buildFilterHref(basePath, filters, update, pageSize),
         isActive: activeValue === value,
       };
     });
@@ -143,8 +147,13 @@ export default async function ProcessedUrlsPage({
   const { id: scheduleId, executionId } = await params;
   const resolvedSearchParams = await searchParams;
 
-  const requestedPage = firstValue(resolvedSearchParams.page) ?? "1";
-  const page = Math.max(1, Number.parseInt(requestedPage, 10) || 1);
+  const { page, pageSize } = parseListPagination(
+    {
+      page: firstValue(resolvedSearchParams.page),
+      size: firstValue(resolvedSearchParams.size),
+    },
+    PAGE_SIZE,
+  );
   const filters: ProcessedUrlFilters = {
     tickerId: firstValue(resolvedSearchParams.tickerId),
     agent: firstValue(resolvedSearchParams.agent),
@@ -152,48 +161,48 @@ export default async function ProcessedUrlsPage({
     gateStatus: firstValue(resolvedSearchParams.gateStatus),
   };
 
-  const { data, fetchError } = await withDashboardAdmin(
-    loadProcessedUrls({
-      scheduleExecutionId: executionId,
-      page,
-      pageSize: PAGE_SIZE,
-      ...filters,
-    }),
-  );
+  const [{ data, fetchError }, savedVisibility] = await Promise.all([
+    withDashboardAdmin(
+      loadProcessedUrls({
+        scheduleExecutionId: executionId,
+        page,
+        pageSize,
+        ...filters,
+      }),
+    ),
+    readColumnVisibility(PROCESSED_URLS_TABLE_ID),
+  ]);
 
   const basePath = `/dashboard/schedules/${scheduleId}/executions/${executionId}/processed-urls`;
-  const filterGroups = buildFilterGroups(basePath, filters);
+  const filterGroups = buildFilterGroups(basePath, filters, pageSize);
+  const filterControls = <ProcessedUrlsFilters groups={filterGroups} />;
   const hasActiveFilters = Object.values(filters).some(Boolean);
-  const paginationParams = toPaginationParams(filters);
-  const isEmpty = data != null && data.total === 0;
+
+  if (!data) {
+    return (
+      <div className="flex flex-col gap-6">
+        {filterControls}
+        {fetchError ? <ProcessedUrlsLoadError message={fetchError} /> : null}
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      <ProcessedUrlsFilters groups={filterGroups} />
-      {fetchError ? <ProcessedUrlsLoadError message={fetchError} /> : null}
-      {isEmpty ? (
-        <DataTableCard>
-          <ProcessedUrlsEmptyState
-            hasActiveFilters={hasActiveFilters}
-            clearFiltersHref={basePath}
-          />
-        </DataTableCard>
-      ) : null}
-      {data && !isEmpty ? (
-        <div className="flex flex-col gap-4">
-          <DataTableCard>
-            <ProcessedUrlsTable items={data.items} />
-          </DataTableCard>
-          <ListPagination
-            basePath={basePath}
-            page={page}
-            pageSize={PAGE_SIZE}
-            total={data.total}
-            ariaLabel="Processed URLs pagination"
-            extraParams={paginationParams}
-          />
-        </div>
-      ) : null}
-    </div>
+    <ProcessedUrlsTable
+      tableId={PROCESSED_URLS_TABLE_ID}
+      items={data.items}
+      urlState={{
+        basePath,
+        page: data.page,
+        pageSize: data.pageSize,
+        total: data.total,
+        sortDir: "desc",
+        extra: toPaginationParams(filters),
+      }}
+      filters={filterControls}
+      hasActiveFilters={hasActiveFilters}
+      clearFiltersHref={basePath}
+      initialColumnVisibility={savedVisibility}
+    />
   );
 }

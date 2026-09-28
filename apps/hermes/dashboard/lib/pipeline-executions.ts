@@ -37,7 +37,6 @@ export type PipelineExecutionRow = {
   succeededInvocationCount: number;
   failedInvocationCount: number;
   createdAt: Date;
-  /** Wall-clock elapsed label for this execution (derived from job rows). */
   elapsedLabel: string;
 };
 
@@ -246,15 +245,6 @@ const loadManualExecutionsForPipeline = async (
   return { rows, total };
 };
 
-/**
- * Loads a unified execution history for a pipeline across schedule, HTTP trigger, and manual sources.
- *
- * @param pipelineId - Pipeline id.
- * @param page - 1-based page number.
- * @param pageSize - Requested page size.
- * @param db - Prisma client dependency.
- * @returns Merged and paginated execution rows sorted by execution time descending.
- */
 export const getPipelineExecutionsPage = async (
   pipelineId: string,
   page: number,
@@ -280,7 +270,7 @@ export const getPipelineExecutionsPage = async (
   ].sort(compareNewestExecutionFirst);
   const start = (clampedPage - 1) * pageSize;
   const pageRows = merged.slice(start, start + pageSize);
-  const executionsWithElapsed = await attachPipelineExecutionElapsedLabels(
+  const executionsWithElapsed = await attachExecutionElapsedLabels(
     pageRows,
     db,
   );
@@ -297,13 +287,6 @@ export const getPipelineExecutionsPage = async (
   };
 };
 
-/**
- * Groups agent jobs by execution id for pipeline execution list rows.
- *
- * @param rows - One page of merged execution rows (no id collisions across sources).
- * @param jobs - Job rows from Prisma for those executions only.
- * @returns Map from `source:id` to invocation inputs for {@link computePipelineWallElapsed}.
- */
 const groupJobsByPipelineExecutionRow = (
   rows: Array<Pick<PipelineExecutionRow, "id" | "source" | "runStatus">>,
   jobs: Array<{
@@ -358,17 +341,17 @@ const groupJobsByPipelineExecutionRow = (
   return map;
 };
 
-/**
- * Fetches job timestamps for the current page and attaches formatted elapsed labels.
- *
- * @param slice - Paginated execution rows (still without elapsed).
- * @param db - Prisma client.
- * @returns Rows including {@link PipelineExecutionRow.elapsedLabel}.
- */
-const attachPipelineExecutionElapsedLabels = async (
-  slice: Array<Omit<PipelineExecutionRow, "elapsedLabel">>,
-  db: Db,
-): Promise<PipelineExecutionRow[]> => {
+type ElapsedLabelSourceRow = Pick<
+  PipelineExecutionRow,
+  "id" | "source" | "runStatus"
+>;
+
+export const attachExecutionElapsedLabels = async <
+  Row extends ElapsedLabelSourceRow,
+>(
+  slice: Row[],
+  db: { agentJobExecution: Pick<Db["agentJobExecution"], "findMany"> },
+): Promise<Array<Row & { elapsedLabel: string }>> => {
   const now = new Date();
   if (slice.length === 0) {
     return [];
@@ -456,11 +439,6 @@ const deriveManualInvocationCountsFromJobs = (
   return { succeededInvocationCount, failedInvocationCount };
 };
 
-/**
- * Recomputes per-step counts and rollups from `agent_job_execution` rows so the manual
- * execution detail header and steps table stay accurate while the dashboard run-pipeline
- * handler is still in progress (parent row counters are only finalized after all jobs).
- */
 const deriveManualStepExecutionsFromJobs = <
   T extends {
     pipelineStepId: string;
@@ -553,14 +531,6 @@ export type ManualPipelineExecutionDetail = {
   }>;
 };
 
-/**
- * Loads a manual pipeline execution with per-step rollups and invocation rows.
- *
- * @param pipelineId - Pipeline id.
- * @param executionId - Manual execution id.
- * @param db - Prisma client dependency.
- * @returns Manual execution detail or null if not found.
- */
 export const getManualPipelineExecutionDetail = async (
   pipelineId: string,
   executionId: string,

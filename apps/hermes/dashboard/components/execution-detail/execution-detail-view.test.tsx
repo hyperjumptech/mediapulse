@@ -16,8 +16,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 
-vi.mock("@/components/schedule-execution-invocations-table", () => ({
-  ScheduleExecutionInvocationsTable: (
+vi.mock("./execution-invocations-table-section", () => ({
+  ExecutionInvocationsTableSection: (
     props: ScheduleExecutionInvocationsTableProps,
   ) => {
     invocationsTablePropsMock(props);
@@ -125,10 +125,8 @@ describe("ExecutionDetailView", () => {
   });
 
   it("renders the header with run status, source, pipeline link and execution id", () => {
-    // Act
     renderView(buildViewModel());
 
-    // Assert
     const pipelineLink = screen.getByRole("link", { name: "Daily digest" });
 
     expect(screen.getByText(/Morning run/)).toBeInTheDocument();
@@ -141,10 +139,8 @@ describe("ExecutionDetailView", () => {
   });
 
   it("renders the summary stats from the view model", () => {
-    // Act
     renderView(buildViewModel({ failedInvocationCount: 2 }));
 
-    // Assert
     const failedCount = within(statCard("Invocations")).getByText("2");
 
     expect(within(statCard("Run status")).getByText("succeeded")).toBeVisible();
@@ -162,10 +158,8 @@ describe("ExecutionDetailView", () => {
   });
 
   it("keeps the failed invocation count muted when nothing failed", () => {
-    // Act
     renderView(buildViewModel());
 
-    // Assert
     const failedCount = within(statCard("Invocations")).getByText("0");
 
     expect(failedCount).toHaveAttribute("data-failed", "false");
@@ -173,25 +167,21 @@ describe("ExecutionDetailView", () => {
   });
 
   it("reveals the invocation transport detail in a tooltip", async () => {
-    // Setup
     renderView(buildViewModel());
     const trigger = screen.getByRole("button", {
       name: "About invocation transport",
     });
 
-    // Act
     await act(async () => {
       fireEvent.focus(trigger);
     });
 
-    // Assert
     expect(screen.getByRole("tooltip")).toHaveTextContent(
       "Scheduled runs enqueue jobs on DataQueue.",
     );
   });
 
   it("shows the cancel button and processed URLs link when they apply", () => {
-    // Act
     renderView(
       buildViewModel({
         runStatus: "running",
@@ -201,7 +191,6 @@ describe("ExecutionDetailView", () => {
       }),
     );
 
-    // Assert
     expect(screen.getByRole("button", { name: "Cancel run" })).toBeVisible();
     expect(
       screen.getByRole("link", { name: "Processed URLs" }),
@@ -212,10 +201,8 @@ describe("ExecutionDetailView", () => {
   });
 
   it("omits the header actions for a finished run without processed URLs", () => {
-    // Act
     const { container } = renderView(buildViewModel());
 
-    // Assert
     expect(
       screen.queryByRole("button", { name: "Cancel run" }),
     ).not.toBeInTheDocument();
@@ -228,10 +215,8 @@ describe("ExecutionDetailView", () => {
   });
 
   it("renders pipeline steps with agent version and rollup status", () => {
-    // Act
     renderView(buildViewModel());
 
-    // Assert
     const section = screen.getByRole("region", { name: "Pipeline steps" });
     const row = within(section).getAllByRole("row")[1];
 
@@ -254,10 +239,8 @@ describe("ExecutionDetailView", () => {
   });
 
   it("shows empty states and hides diagnostics when there is nothing to show", () => {
-    // Act
     renderView(buildViewModel({ steps: [] }));
 
-    // Assert
     expect(screen.getByText("No pipeline steps ran")).toBeVisible();
     expect(
       screen.queryByRole("region", { name: /enqueue diagnostics/i }),
@@ -268,7 +251,6 @@ describe("ExecutionDetailView", () => {
   });
 
   it("renders enqueue diagnostics for a failed enqueue", () => {
-    // Act
     renderView(
       buildViewModel({
         enqueueStatus: "failed",
@@ -278,14 +260,12 @@ describe("ExecutionDetailView", () => {
       }),
     );
 
-    // Assert
     const region = screen.getByRole("region", { name: /enqueue diagnostics/i });
 
     expect(within(region).getByText("ENQUEUE_BOOM")).toBeVisible();
   });
 
   it("renders the request snapshot and metadata hints when present", () => {
-    // Act
     renderView(
       buildViewModel({
         requestSnapshotJson: '{\n  "method": "POST"\n}',
@@ -293,7 +273,6 @@ describe("ExecutionDetailView", () => {
       }),
     );
 
-    // Assert
     const snapshot = screen.getByRole("region", { name: "Request snapshot" });
 
     expect(within(snapshot).getByText(/"method": "POST"/)).toBeVisible();
@@ -301,7 +280,6 @@ describe("ExecutionDetailView", () => {
   });
 
   it("passes invocation rows and the payload scope to the invocations table", () => {
-    // Setup
     const invocations = [
       {
         jobId: "job-1",
@@ -316,10 +294,8 @@ describe("ExecutionDetailView", () => {
       },
     ];
 
-    // Act
     renderView(buildViewModel({ invocations }));
 
-    // Assert
     expect(invocationsTablePropsMock).toHaveBeenCalledWith({
       invocations,
       payloadSource: {
@@ -334,7 +310,6 @@ describe("ExecutionDetailView", () => {
   });
 
   it("publishes the parent name for the breadcrumbs", () => {
-    // Act
     render(
       <BreadcrumbEntityLabelsProvider>
         <TooltipProvider>
@@ -344,7 +319,6 @@ describe("ExecutionDetailView", () => {
       </BreadcrumbEntityLabelsProvider>,
     );
 
-    // Assert
     expect(screen.getByTestId("breadcrumb-labels")).toHaveTextContent(
       '{"sched-1":"Morning run"}',
     );

@@ -43,15 +43,18 @@ vi.mock("@/lib/compute-execution-elapsed", () => ({
   formatPipelineElapsedLabel: vi.fn().mockReturnValue("—"),
 }));
 
-vi.mock("@/components/schedule-execution-invocations-table", () => ({
-  ScheduleExecutionInvocationsTable: (
-    props: ScheduleExecutionInvocationsTableProps,
-  ) => {
-    invocationsTablePropsMock(props);
+vi.mock(
+  "@/components/execution-detail/execution-invocations-table-section",
+  () => ({
+    ExecutionInvocationsTableSection: (
+      props: ScheduleExecutionInvocationsTableProps,
+    ) => {
+      invocationsTablePropsMock(props);
 
-    return <div data-testid="invocations-stub">Invocations</div>;
-  },
-}));
+      return <div data-testid="invocations-stub">Invocations</div>;
+    },
+  }),
+);
 
 import HttpTriggerExecutionDetailPage from "./page";
 
@@ -103,15 +106,12 @@ describe("HttpTriggerExecutionDetailPage", () => {
   });
 
   it("renders enqueue diagnostics region with persisted errors for failed enqueue", async () => {
-    // Setup
     getHttpTriggerExecutionSummaryMock.mockResolvedValue(
       minimalFailedSummary(),
     );
 
-    // Act
     await renderPage();
 
-    // Assert
     const region = await screen.findByRole("region", {
       name: /enqueue diagnostics/i,
     });
@@ -126,15 +126,12 @@ describe("HttpTriggerExecutionDetailPage", () => {
   });
 
   it("renders the trigger name, pipeline link and no processed URLs action", async () => {
-    // Setup
     getHttpTriggerExecutionSummaryMock.mockResolvedValue(
       minimalFailedSummary(),
     );
 
-    // Act
     await renderPage();
 
-    // Assert
     expect(screen.getByText(/Test trigger/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "P" })).toHaveAttribute(
       "href",
@@ -151,22 +148,18 @@ describe("HttpTriggerExecutionDetailPage", () => {
   });
 
   it("renders the stored request snapshot when metadata exists", async () => {
-    // Setup
     const summary = minimalFailedSummary();
     summary.execution.metadata = { method: "POST", path: "/hooks/run" };
     getHttpTriggerExecutionSummaryMock.mockResolvedValue(summary);
 
-    // Act
     await renderPage();
 
-    // Assert
     const snapshot = screen.getByRole("region", { name: "Request snapshot" });
 
     expect(within(snapshot).getByText(/"path": "\/hooks\/run"/)).toBeVisible();
   });
 
   it("passes scalar invocation rows and the httpTrigger payload scope to the table", async () => {
-    // Setup
     getHttpTriggerExecutionSummaryMock.mockResolvedValue({
       ...minimalFailedSummary(),
       invocations: [
@@ -185,10 +178,8 @@ describe("HttpTriggerExecutionDetailPage", () => {
       ],
     } satisfies HttpTriggerExecutionSummary);
 
-    // Act
     await renderPage();
 
-    // Assert
     expect(getHttpTriggerExecutionSummaryMock).toHaveBeenCalledWith(
       "trig-1",
       "exec-http-1",
