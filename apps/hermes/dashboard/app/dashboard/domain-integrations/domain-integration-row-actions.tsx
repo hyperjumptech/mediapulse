@@ -1,19 +1,13 @@
 "use client";
 
-import { MoreHorizontal, Trash2 } from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@workspace/ui/components/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu";
+import { DropdownMenuItem } from "@workspace/ui/components/dropdown-menu";
 
 import { useFormAction } from "@/app/dashboard/domain-integrations/actions/delete/.generated/use-form-action";
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
+import { RowActionsMenu } from "@/components/data-table/row-actions-menu";
 import { useConfirmActionDialog } from "@/hooks/use-confirm-action-dialog";
 
 export type DomainIntegrationRow = {
@@ -48,28 +42,15 @@ export const DomainIntegrationRowActions = ({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
-            aria-label={`Actions for integration ${row.integrationId}`}
-          >
-            <MoreHorizontal />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44">
-          <DropdownMenuItem
-            variant="destructive"
-            disabled={pending}
-            onSelect={requestConfirmation}
-          >
-            <Trash2 />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <RowActionsMenu label={`Actions for integration ${row.integrationId}`}>
+        <DropdownMenuItem
+          variant="destructive"
+          disabled={pending}
+          onSelect={requestConfirmation}
+        >
+          Delete
+        </DropdownMenuItem>
+      </RowActionsMenu>
       <ConfirmActionDialog
         open={open}
         onOpenChange={setOpen}

@@ -88,8 +88,8 @@ describe("ExecutionsTable", () => {
     const runBadge = screen.getByText("running");
     const enqueueBadge = screen.getByText("partial");
 
-    expect(runBadge).toHaveAttribute("data-variant", "info");
-    expect(enqueueBadge).toHaveAttribute("data-variant", "warning");
+    expect(runBadge).toHaveAttribute("data-tone", "progress");
+    expect(enqueueBadge).toHaveAttribute("data-tone", "warning");
     expect(screen.getByTitle("3 created, 2 enqueued")).toHaveTextContent(
       "3 / 2",
     );

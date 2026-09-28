@@ -1,11 +1,8 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  EntityFormModalCreateButton,
-  EntityFormModalProvider,
-} from "@/components/entity-form-modal-provider";
+import { EntityFormModalProvider } from "@/components/entity-form-modal-provider";
 import type { HttpTriggersPageResult } from "@/lib/http-triggers";
 
 import {
@@ -14,6 +11,19 @@ import {
 } from "./http-triggers-with-modal";
 
 type HttpTriggerRow = HttpTriggersPageResult["httpTriggers"][number];
+
+const { searchParams } = vi.hoisted(() => ({
+  searchParams: { current: "" },
+}));
+
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useSearchParams: () => new URLSearchParams(searchParams.current),
+}));
+
+afterEach(() => {
+  searchParams.current = "";
+});
 
 vi.mock("@/components/list-pagination", () => ({
   ListPagination: ({
@@ -112,7 +122,6 @@ const baseProps: HttpTriggersWithModalProps = {
 const renderWithProvider = (props: Partial<HttpTriggersWithModalProps> = {}) =>
   render(
     <EntityFormModalProvider>
-      <EntityFormModalCreateButton label="New HTTP trigger" />
       <HttpTriggersWithModal {...baseProps} {...props} />
     </EntityFormModalProvider>,
   );
@@ -149,12 +158,12 @@ describe("HttpTriggersWithModal", () => {
     expect(modal).toHaveAttribute("data-pipelines-count", "1");
   });
 
-  it("opens the create modal from the page header button", () => {
+  it("opens the create modal when the header link asks for it", () => {
     // Setup
-    renderWithProvider();
+    searchParams.current = "create=1";
 
     // Act
-    fireEvent.click(screen.getByRole("button", { name: "New HTTP trigger" }));
+    renderWithProvider();
 
     // Assert
     const modal = screen.getByTestId("http-trigger-form-modal");

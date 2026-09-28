@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo } from "react";
 import { Braces, Lock, Plus } from "lucide-react";
 
@@ -9,6 +10,7 @@ import { Button } from "@workspace/ui/components/button";
 import { CopyableId } from "@/components/copyable-id";
 import { DataTable } from "@/components/data-table/data-table";
 import { DateTime } from "@/components/date-time/date-time";
+import { CREATE_QUERY_PARAM } from "@/lib/dashboard-routes";
 import type { ColumnVisibility } from "@/lib/data-table/column-visibility";
 import { createDataTableColumnHelper } from "@/lib/data-table/features";
 import type { ListUrlState } from "@/lib/data-table/list-url-state";
@@ -24,6 +26,8 @@ import {
 } from "./variables-table-defaults";
 
 type EditVariableHandler = (variable: VariableRow) => void;
+
+const ADD_VARIABLE_HREF = `/dashboard/variables?${CREATE_QUERY_PARAM}=1`;
 
 const VariableKey = ({
   variable,
@@ -51,7 +55,7 @@ const VariableValue = ({ variable }: { variable: VariableRow }) => {
         >
           {variable.value}
         </span>
-        <Badge variant="muted" className="gap-1">
+        <Badge variant="outline" className="px-1.5 text-muted-foreground">
           <Lock aria-hidden />
           Secret
         </Badge>
@@ -167,7 +171,7 @@ export const VariablesTable = ({
         paginationLabel="Variables list pagination"
         search={{
           label: "Search variables by key",
-          placeholder: "Search by key…",
+          placeholder: "Filter variables…",
         }}
         emptyState={{
           icon: Braces,
@@ -175,15 +179,12 @@ export const VariablesTable = ({
           description:
             "Store values like API URLs and secrets once and reference them from pipelines.",
           action: (
-            <VariableModal
-              variable={null}
-              trigger={
-                <Button variant="outline" size="sm">
-                  <Plus aria-hidden />
-                  Add variable
-                </Button>
-              }
-            />
+            <Button variant="outline" size="sm" asChild>
+              <Link href={ADD_VARIABLE_HREF} scroll={false}>
+                <Plus aria-hidden />
+                Add variable
+              </Link>
+            </Button>
           ),
         }}
         initialColumnVisibility={initialColumnVisibility}

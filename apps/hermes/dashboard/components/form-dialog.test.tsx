@@ -31,6 +31,28 @@ describe("FormDialogContent", () => {
     expect(dialog).not.toHaveAttribute("aria-describedby");
   });
 
+  it("describes the dialog with the header description when asked to", () => {
+    // Act
+    render(
+      <Dialog open>
+        <FormDialogContent hasDescription>
+          <FormDialogHeader
+            title="Create API key"
+            description="Each key acts as the admin who created it."
+          />
+        </FormDialogContent>
+      </Dialog>,
+    );
+
+    // Assert
+    expect(
+      screen.getByRole("dialog", {
+        name: "Create API key",
+        description: "Each key acts as the admin who created it.",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("widens the dialog for long editors", () => {
     // Act
     render(

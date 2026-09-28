@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildClearSearchHref,
+  buildSearchHref,
   buildSortHref,
   type ListUrlState,
 } from "./list-url-state";
@@ -35,6 +36,22 @@ describe("buildSortHref", () => {
       buildSortHref({ ...state, sortBy: undefined, sortDir: "desc" }, "key"),
     ).toBe(
       "/dashboard/variables?page=1&size=25&q=api&sort=key&dir=asc&status=active",
+    );
+  });
+});
+
+describe("buildSortHref with a direction", () => {
+  it("sorts the column the way it is told", () => {
+    expect(buildSortHref(state, "key", "asc")).toBe(
+      "/dashboard/variables?page=1&size=25&q=api&sort=key&dir=asc&status=active",
+    );
+  });
+});
+
+describe("buildSearchHref", () => {
+  it("searches from page 1 and keeps sort, size and filters", () => {
+    expect(buildSearchHref(state, "db")).toBe(
+      "/dashboard/variables?page=1&size=25&q=db&sort=key&dir=asc&status=active",
     );
   });
 });

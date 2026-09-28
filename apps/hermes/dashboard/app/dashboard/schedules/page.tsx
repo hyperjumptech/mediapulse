@@ -1,10 +1,6 @@
 import { Suspense } from "react";
 
-import {
-  EntityFormModalCreateButton,
-  EntityFormModalProvider,
-} from "@/components/entity-form-modal-provider";
-import { PageHeader } from "@/components/page-header";
+import { EntityFormModalProvider } from "@/components/entity-form-modal-provider";
 import { ListBodySkeleton } from "@/components/page-skeletons";
 import {
   parseListPagination,
@@ -38,11 +34,7 @@ const SchedulesPage = async ({
   return (
     <EntityFormModalProvider>
       <div className="flex flex-col gap-6">
-        <PageHeader
-          description="Run pipelines automatically on a cron expression or a fixed interval."
-          actions={<EntityFormModalCreateButton label="New schedule" />}
-        />
-        <Suspense key={JSON.stringify(query)} fallback={<ListBodySkeleton />}>
+        <Suspense fallback={<ListBodySkeleton />}>
           <SchedulesSection {...query} />
         </Suspense>
       </div>

@@ -85,7 +85,7 @@ const ExecutionSource = ({
 
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <Badge variant="outline" className="text-muted-foreground">
+      <Badge variant="outline" className="px-1.5 text-muted-foreground">
         <SourceIcon aria-hidden />
         {label}
       </Badge>

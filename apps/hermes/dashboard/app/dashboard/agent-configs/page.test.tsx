@@ -2,16 +2,6 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("next/link", () => ({
-  default: ({
-    children,
-    href,
-  }: {
-    children: React.ReactNode;
-    href: string;
-  }) => <a href={href}>{children}</a>,
-}));
-
 vi.mock("./agent-configs-section", () => ({
   AgentConfigsSection: (props: Record<string, unknown>) => (
     <div
@@ -30,15 +20,14 @@ const renderedQuery = () =>
   );
 
 describe("AgentConfigsPage", () => {
-  it("renders the header with an add config link", async () => {
+  it("leaves the add config link to the site header", async () => {
     // Act
     render(await AgentConfigsPage({ searchParams: {} }));
 
     // Assert
-    expect(screen.getByRole("link", { name: "Add config" })).toHaveAttribute(
-      "href",
-      "/dashboard/agent-configs/new",
-    );
+    expect(
+      screen.queryByRole("link", { name: "Add config" }),
+    ).not.toBeInTheDocument();
     expect(renderedQuery()).toEqual({
       page: 1,
       pageSize: 15,

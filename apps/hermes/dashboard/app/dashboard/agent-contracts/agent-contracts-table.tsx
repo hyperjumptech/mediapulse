@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo } from "react";
 import { FileText, Plus } from "lucide-react";
 
@@ -7,12 +8,12 @@ import { Button } from "@workspace/ui/components/button";
 
 import { DataTable } from "@/components/data-table/data-table";
 import { DateTime } from "@/components/date-time/date-time";
+import { CREATE_QUERY_PARAM } from "@/lib/dashboard-routes";
 import type { ColumnVisibility } from "@/lib/data-table/column-visibility";
 import { createDataTableColumnHelper } from "@/lib/data-table/features";
 import type { ListUrlState } from "@/lib/data-table/list-url-state";
 import { formatCreatedBy } from "@/lib/format-created-by";
 
-import { AddContractModal } from "./add-contract-modal";
 import {
   AgentContractRowActions,
   type AgentContractRow,
@@ -23,6 +24,8 @@ import {
 } from "./agent-contracts-table-defaults";
 
 type EditContractHandler = (contract: AgentContractRow) => void;
+
+const ADD_CONTRACT_HREF = `/dashboard/agent-contracts?${CREATE_QUERY_PARAM}=1`;
 
 const columnHelper = createDataTableColumnHelper<AgentContractRow>();
 
@@ -125,14 +128,12 @@ export const AgentContractsTable = ({
         title: "No agent contracts yet",
         description: "Write a product brief once and reuse it across agents.",
         action: (
-          <AddContractModal
-            trigger={
-              <Button variant="outline" size="sm">
-                <Plus aria-hidden />
-                Add contract
-              </Button>
-            }
-          />
+          <Button variant="outline" size="sm" asChild>
+            <Link href={ADD_CONTRACT_HREF} scroll={false}>
+              <Plus aria-hidden />
+              Add contract
+            </Link>
+          </Button>
         ),
       }}
       initialColumnVisibility={initialColumnVisibility}

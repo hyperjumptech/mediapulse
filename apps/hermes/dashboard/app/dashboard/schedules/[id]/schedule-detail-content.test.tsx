@@ -116,10 +116,7 @@ describe("ScheduleDetailContent", () => {
     renderScheduleDetail(createMockSchedule());
 
     // Assert
-    expect(screen.getByText("enabled")).toHaveAttribute(
-      "data-variant",
-      "success",
-    );
+    expect(screen.getByText("enabled")).toHaveAttribute("data-tone", "success");
     expect(screen.getByText("Runs every day")).toBeInTheDocument();
   });
 
@@ -128,10 +125,7 @@ describe("ScheduleDetailContent", () => {
     renderScheduleDetail(createMockSchedule({ enabled: false }));
 
     // Assert
-    expect(screen.getByText("disabled")).toHaveAttribute(
-      "data-variant",
-      "muted",
-    );
+    expect(screen.getByText("disabled")).toHaveAttribute("data-tone", "muted");
   });
 
   it("omits the description when the schedule has none", () => {

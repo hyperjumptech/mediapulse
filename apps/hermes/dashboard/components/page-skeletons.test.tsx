@@ -37,6 +37,28 @@ describe("page skeletons", () => {
     ).toHaveLength(8);
   });
 
+  it("starts the list page skeleton at the toolbar, with no header placeholder", () => {
+    // Act
+    const { container } = render(<ListPageSkeleton columns={3} />);
+
+    // Assert
+    const skeletonCells = container.querySelectorAll('[data-slot="skeleton"]');
+    const toolbarAndTableCells = 1 + 3 + 8 * 3;
+
+    expect(skeletonCells).toHaveLength(toolbarAndTableCells);
+  });
+
+  it("draws only the form fields and submit button in the form page skeleton", () => {
+    // Act
+    const { container } = render(<FormPageSkeleton />);
+
+    // Assert
+    const skeletonCells = container.querySelectorAll('[data-slot="skeleton"]');
+    const fieldAndSubmitCells = 4 * 2 + 1;
+
+    expect(skeletonCells).toHaveLength(fieldAndSubmitCells);
+  });
+
   it.each([
     ["list page", <ListPageSkeleton key="list" />],
     ["list body", <ListBodySkeleton key="body" />],

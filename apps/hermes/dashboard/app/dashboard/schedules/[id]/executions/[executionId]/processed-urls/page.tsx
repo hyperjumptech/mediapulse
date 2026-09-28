@@ -7,7 +7,6 @@ import { CircleAlert } from "lucide-react";
 
 import { DataTableCard } from "@/components/data-table/data-table-card";
 import { ListPagination } from "@/components/list-pagination";
-import { PageHeader } from "@/components/page-header";
 import {
   fetchProcessedUrlsForExecution,
   type FetchProcessedUrlsParams,
@@ -170,7 +169,6 @@ export default async function ProcessedUrlsPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader description="Every URL seen by data-collection and page-collection agents in this execution." />
       <ProcessedUrlsFilters groups={filterGroups} />
       {fetchError ? <ProcessedUrlsLoadError message={fetchError} /> : null}
       {isEmpty ? (

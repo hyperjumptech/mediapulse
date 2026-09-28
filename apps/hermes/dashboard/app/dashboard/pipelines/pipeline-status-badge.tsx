@@ -4,7 +4,7 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
 
-import { StatusBadge } from "@/components/status-badge";
+import { ToneBadge, type StatusTone } from "@/components/status-badge";
 import type { PipelineStatus } from "@/lib/pipeline-status";
 
 export type PipelineStatusBadgeProps = {
@@ -14,19 +14,19 @@ export type PipelineStatusBadgeProps = {
 
 const PIPELINE_STATUS_BADGE: Record<
   PipelineStatus,
-  { badgeStatus: string; label: string }
+  { tone: StatusTone; label: string }
 > = {
-  enabled: { badgeStatus: "enabled", label: "Enabled" },
-  disabled: { badgeStatus: "disabled", label: "Disabled" },
-  incomplete: { badgeStatus: "invalid", label: "Incomplete" },
+  enabled: { tone: "success", label: "Enabled" },
+  disabled: { tone: "muted", label: "Disabled" },
+  incomplete: { tone: "warning", label: "Incomplete" },
 };
 
 export const PipelineStatusBadge = ({
   status,
   warnings = [],
 }: PipelineStatusBadgeProps) => {
-  const { badgeStatus, label } = PIPELINE_STATUS_BADGE[status];
-  const badge = <StatusBadge status={badgeStatus} label={label} />;
+  const { tone, label } = PIPELINE_STATUS_BADGE[status];
+  const badge = <ToneBadge tone={tone}>{label}</ToneBadge>;
   const hasWarnings = status === "incomplete" && warnings.length > 0;
 
   if (!hasWarnings) {

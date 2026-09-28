@@ -129,7 +129,10 @@ export const HttpTriggerDetailContent = ({
             </Link>
           </SummaryItem>
           <SummaryItem label="Method">
-            <Badge variant="outline" className="font-mono">
+            <Badge
+              variant="outline"
+              className="px-1.5 font-mono text-muted-foreground"
+            >
               {trigger.method}
             </Badge>
           </SummaryItem>

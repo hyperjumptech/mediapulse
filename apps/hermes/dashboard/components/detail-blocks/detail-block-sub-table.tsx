@@ -12,7 +12,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 
-import { Badge } from "@workspace/ui/components/badge";
 import {
   Table,
   TableBody,
@@ -23,6 +22,7 @@ import {
 } from "@workspace/ui/components/table";
 
 import { DateTime } from "@/components/date-time/date-time";
+import { ToneBadge } from "@/components/status-badge";
 import { toValidDate } from "@/lib/date-time/format-date-time";
 
 import { DetailBlockCopyButton } from "./detail-block-copy-button";
@@ -30,7 +30,7 @@ import { DetailBlockEmptyState } from "./detail-block-empty-state";
 import { DetailBlockSectionHeader } from "./detail-block-section-header";
 import { DetailBlockSubTablePaginator } from "./detail-block-sub-table-paginator";
 import { DetailBlockSubTableRowLimit } from "./detail-block-sub-table-row-limit";
-import { mapBadgeVariant } from "./map-badge-variant";
+import { mapBadgeTone } from "./map-badge-variant";
 
 const truncate = (value: string, limit: number): string =>
   value.length > limit ? `${value.slice(0, limit)}…` : value;
@@ -194,10 +194,6 @@ const renderCellHeading = (
   );
 };
 
-/**
- * Renders one row cell of a sub-table column, wrapping the value in a heading band when the column
- * declares a `headingField` and in a bullet marker when it declares a `bulletField`.
- */
 export const DetailBlockSubTableCell = (props: {
   column: DetailBlockSubTableColumn;
   row: Record<string, unknown>;
@@ -232,11 +228,6 @@ export const DetailBlockSubTableCell = (props: {
   );
 };
 
-/**
- * Renders the value of one sub-table cell. Handles `linkTemplate`, `truncate`, `type: "badge"`
- * (with optional `inconsistentField` marker), `type: "list"` (stacked entries from an array
- * field), and `copyAction`.
- */
 const DetailBlockSubTableCellBody = ({
   column,
   row,
@@ -332,7 +323,7 @@ const DetailBlockSubTableCellBody = ({
     return (
       <span className="flex items-center gap-1">
         {variant ? (
-          <Badge variant={mapBadgeVariant(variant)}>{text}</Badge>
+          <ToneBadge tone={mapBadgeTone(variant)}>{text}</ToneBadge>
         ) : (
           <span>{text}</span>
         )}
@@ -451,11 +442,6 @@ const DetailBlockSubTableCellBody = ({
   );
 };
 
-/**
- * Renders a static (non-paginated) sub-table given pre-sliced rows and the
- * manifest columns. Shared by {@link DetailBlockSubTableView} and the client
- * paginator.
- */
 export const DetailBlockSubTableContent = ({
   columns,
   rows,
@@ -534,15 +520,6 @@ export const DetailBlockSubTableContent = ({
   </div>
 );
 
-/**
- * Renders a `subTable` detail block — columns from the manifest, rows from a
- * named array field on the detail response. Supports an optional caption
- * template, an empty-state string, an optional hidden header, and client-side
- * pagination when `pageSize` is set (and the row count exceeds it).
- *
- * @param props.block - Manifest definition.
- * @param props.data - Detail response object.
- */
 export const DetailBlockSubTableView = ({
   block,
   data,

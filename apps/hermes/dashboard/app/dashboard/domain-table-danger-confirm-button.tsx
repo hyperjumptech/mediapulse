@@ -42,6 +42,7 @@ export const DomainTableDangerConfirmButton = ({
       <Button
         type="button"
         variant="outline"
+        size="sm"
         className="text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/20"
         disabled={isPending}
         onClick={requestConfirmation}

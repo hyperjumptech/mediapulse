@@ -28,17 +28,14 @@ describe("PipelineStatusBadge", () => {
     ["enabled", "Enabled", "success"],
     ["disabled", "Disabled", "muted"],
     ["incomplete", "Incomplete", "warning"],
-  ] as const)(
-    "renders %s as %s with the %s variant",
-    (status, label, variant) => {
-      // Act
-      renderWithTooltips(<PipelineStatusBadge status={status} />);
+  ] as const)("renders %s as %s with the %s tone", (status, label, tone) => {
+    // Act
+    renderWithTooltips(<PipelineStatusBadge status={status} />);
 
-      // Assert
-      expect(screen.getByText(label)).toHaveAttribute("data-variant", variant);
-      expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    },
-  );
+    // Assert
+    expect(screen.getByText(label)).toHaveAttribute("data-tone", tone);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
 
   it("reveals validation warnings in a tooltip for incomplete pipelines", async () => {
     // Setup

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Button } from "@workspace/ui/components/button";
+import { DataTableSearch } from "@/components/data-table/data-table-search";
 import { PageHeader } from "@/components/page-header";
 import { SectionSkeleton } from "@/components/page-skeletons";
 import { DomainCreateModal } from "@/app/dashboard/domain-create-modal";
@@ -11,7 +12,6 @@ import { DomainTableListFilters } from "@/app/dashboard/domain-table-list-filter
 import { DomainTableDangerConfirmButton } from "@/app/dashboard/domain-table-danger-confirm-button";
 import { DomainTableJsonUploadCard } from "@/app/dashboard/domain-table-json-upload-card";
 import { DomainTableRowsSection } from "@/app/dashboard/domain-table-rows-section";
-import { DomainTableSearch } from "@/app/dashboard/domain-table-search";
 import {
   createDomainTableItem,
   deleteDomainTableItem,
@@ -44,19 +44,11 @@ export {
 } from "@/app/dashboard/domain-table-rows-section";
 
 type DomainTablePageProps = {
-  /** Registered domain integration id (URL segment). */
   integrationId: string;
-  /** Manifest path segment for this table (e.g. "tickers"). */
   resource: string;
   searchParams: Promise<DomainTableSearchParams> | DomainTableSearchParams;
 };
 
-/**
- * Shared server-rendered table-v1 page for domain-registered resources.
- *
- * @param props - Integration id, resource path segment, and request search params.
- * @returns Rendered page content.
- */
 export const DomainTablePage = async ({
   integrationId,
   resource,
@@ -103,8 +95,6 @@ export const DomainTablePage = async ({
       id,
       formDataToDomainPayload(formData, updateFields),
     );
-    // Revalidate in place (no redirect) so the client edit modal can close
-    // itself once this action resolves; the list is already on `basePath`.
     revalidatePath(basePath);
   };
 
@@ -195,7 +185,7 @@ export const DomainTablePage = async ({
         />
       ))}
       {canCreate && fullPage ? (
-        <Button asChild>
+        <Button size="sm" asChild>
           <Link href={`${basePath}/new`}>
             <Plus aria-hidden />
             {createLabel}
@@ -214,7 +204,7 @@ export const DomainTablePage = async ({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader description={meta.description} actions={headerActions} />
+      <PageHeader actions={headerActions} />
 
       {jsonImportActions.length > 0 ? (
         <div className="grid gap-3 lg:grid-cols-2">
@@ -229,15 +219,21 @@ export const DomainTablePage = async ({
       ) : null}
 
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <DomainTableSearch
-            basePath={basePath}
-            initialQuery={params.query ?? ""}
-            pageSize={params.pageSize}
-            sortBy={params.sortBy}
-            sortDir={params.sortDir}
-            preserveParams={filterExtraParams}
-            ariaLabel={`Search ${meta.title}`}
+        <div className="flex flex-wrap items-center gap-2">
+          <DataTableSearch
+            tableId={`${integrationId}-${resource}`}
+            urlState={{
+              basePath,
+              page: params.page,
+              pageSize: params.pageSize,
+              total: 0,
+              search: params.query,
+              sortBy: params.sortBy,
+              sortDir: params.sortDir,
+              extra: filterExtraParams,
+            }}
+            label={`Search ${meta.title}`}
+            placeholder={`Filter ${meta.title.toLowerCase()}…`}
           />
           {showListFilters ? (
             <DomainTableListFilters
@@ -250,7 +246,7 @@ export const DomainTablePage = async ({
           ) : null}
         </div>
 
-        <Suspense key={JSON.stringify(params)} fallback={<SectionSkeleton />}>
+        <Suspense fallback={<SectionSkeleton />}>
           <DomainTableRowsSection
             integrationId={integrationId}
             resource={resource}

@@ -1,9 +1,6 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import { Plus } from "lucide-react";
-
-import { Button } from "@workspace/ui/components/button";
 
 import {
   useEntityFormModalState,
@@ -37,15 +34,4 @@ export const useEntityFormModal = (): EntityFormModalController => {
   }
 
   return controller;
-};
-
-export const EntityFormModalCreateButton = ({ label }: { label: string }) => {
-  const { openCreate } = useEntityFormModal();
-
-  return (
-    <Button type="button" onClick={openCreate}>
-      <Plus aria-hidden />
-      {label}
-    </Button>
-  );
 };

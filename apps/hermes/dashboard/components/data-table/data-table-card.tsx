@@ -13,7 +13,7 @@ export const DataTableCard = ({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-lg border bg-card [&_tbody_td]:py-2.5 [&_thead_th]:h-9 [&_thead_th]:text-xs [&_thead_th]:font-medium [&_thead_th]:text-muted-foreground [&_thead_tr]:bg-muted/40",
+        "overflow-hidden rounded-lg border [&_thead]:bg-muted",
         className,
       )}
     >

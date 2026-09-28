@@ -142,6 +142,63 @@ export const dashboardQuickCreateItems: DashboardQuickCreateItem[] = [
   },
 ];
 
+export type DashboardPrimaryAction = {
+  href: string;
+  label: string;
+};
+
+const createOnPage = (path: string) => `${path}?${CREATE_QUERY_PARAM}=1`;
+
+const dashboardPrimaryActions = new Map<string, DashboardPrimaryAction>([
+  [
+    "/dashboard/pipelines",
+    { href: createOnPage("/dashboard/pipelines"), label: "New pipeline" },
+  ],
+  [
+    "/dashboard/schedules",
+    { href: createOnPage("/dashboard/schedules"), label: "New schedule" },
+  ],
+  [
+    "/dashboard/http-triggers",
+    {
+      href: createOnPage("/dashboard/http-triggers"),
+      label: "New HTTP trigger",
+    },
+  ],
+  [
+    "/dashboard/agent-configs",
+    { href: "/dashboard/agent-configs/new", label: "Add config" },
+  ],
+  [
+    "/dashboard/agent-contracts",
+    { href: createOnPage("/dashboard/agent-contracts"), label: "Add contract" },
+  ],
+  [
+    "/dashboard/variables",
+    { href: createOnPage("/dashboard/variables"), label: "Add variable" },
+  ],
+  [
+    "/dashboard/domain-integrations",
+    {
+      href: "/dashboard/domain-integrations/create",
+      label: "New integration",
+    },
+  ],
+  [
+    "/dashboard/api-keys",
+    { href: createOnPage("/dashboard/api-keys"), label: "Create API key" },
+  ],
+  [
+    "/dashboard/admins",
+    { href: createOnPage("/dashboard/admins"), label: "Add admin" },
+  ],
+]);
+
+export const resolveDashboardPrimaryAction = (
+  pathname: string | null,
+): DashboardPrimaryAction | null =>
+  pathname ? (dashboardPrimaryActions.get(pathname) ?? null) : null;
+
 const hermesSectionLabels = new Map<string, string>(
   dashboardNavItems
     .filter((item) => item.href.startsWith(DASHBOARD_SECTION_PREFIX))

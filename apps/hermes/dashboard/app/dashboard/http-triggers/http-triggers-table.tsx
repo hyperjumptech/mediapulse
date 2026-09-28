@@ -99,7 +99,7 @@ const HttpTriggersEmptyState = ({
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
-        <Button type="button" size="sm" onClick={onCreate}>
+        <Button type="button" variant="outline" size="sm" onClick={onCreate}>
           <Plus aria-hidden />
           New HTTP trigger
         </Button>
@@ -202,7 +202,10 @@ export const HttpTriggersTable = ({
                   </Link>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="font-mono">
+                  <Badge
+                    variant="outline"
+                    className="px-1.5 font-mono text-muted-foreground"
+                  >
                     {trigger.method}
                   </Badge>
                 </TableCell>

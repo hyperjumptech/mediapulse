@@ -3,10 +3,15 @@ import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const { searchParams } = vi.hoisted(() => ({
+  searchParams: { current: "" },
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     refresh: vi.fn(),
   }),
+  useSearchParams: () => new URLSearchParams(searchParams.current),
 }));
 
 type MockFormActionState = {
@@ -53,22 +58,37 @@ vi.mock(
 import { CreateApiKeyModal } from "./create-api-key-modal";
 
 const openModal = () => {
-  render(<CreateApiKeyModal trigger={<button type="button">Open</button>} />);
-  fireEvent.click(screen.getByRole("button", { name: "Open" }));
+  searchParams.current = "create=1";
+  render(<CreateApiKeyModal />);
 };
 
 describe("CreateApiKeyModal", () => {
   afterEach(() => {
     useFormActionMock.mockReset();
+    searchParams.current = "";
+    vi.restoreAllMocks();
   });
 
-  it("renders the trigger while closed", () => {
+  it("stays closed and renders no trigger of its own without a create request", () => {
     // Act
-    render(<CreateApiKeyModal trigger={<button type="button">Open</button>} />);
+    render(<CreateApiKeyModal />);
 
     // Assert
-    expect(screen.getByRole("button", { name: "Open" })).toBeInTheDocument();
-    expect(screen.queryByTestId("create-key-form")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("opens from the create URL flag and explains whose access a key carries", () => {
+    // Act
+    openModal();
+
+    // Assert
+    expect(
+      screen.getByRole("dialog", {
+        name: "Create API key",
+        description: "Each key acts as the admin who created it.",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("shows the label field, read-only option and footer actions when opened", () => {
@@ -101,15 +121,20 @@ describe("CreateApiKeyModal", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Label is taken");
   });
 
-  it("closes the dialog when Cancel is clicked", () => {
+  it("closes and drops the create flag from the URL when Cancel is clicked", () => {
     // Setup
+    window.history.replaceState(null, "", "/dashboard/api-keys?create=1");
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
     openModal();
 
     // Act
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     // Assert
+    const nextUrl = String(replaceStateSpy.mock.calls.at(-1)?.[2]);
+
     expect(screen.queryByTestId("create-key-form")).not.toBeInTheDocument();
+    expect(nextUrl).toMatch(/\/dashboard\/api-keys$/);
   });
 
   it("reveals the created key once with a copy warning", () => {

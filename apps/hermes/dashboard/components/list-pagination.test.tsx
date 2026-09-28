@@ -2,6 +2,22 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+const { router } = vi.hoisted(() => ({
+  router: {
+    push: vi.fn(),
+    replace: vi.fn(),
+    refresh: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    prefetch: vi.fn(),
+  },
+}));
+
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => router,
+}));
+
 import { ListPagination, describeVisibleRange } from "./list-pagination";
 
 vi.mock("next/link", () => ({
@@ -76,14 +92,12 @@ describe("ListPagination", () => {
     );
 
     // Assert
-    expect(screen.getByRole("link", { name: "Previous page" })).toHaveAttribute(
-      "rel",
-      "prev",
-    );
-    expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
-      "rel",
-      "next",
-    );
+    expect(
+      screen.getByRole("link", { name: "Go to previous page" }),
+    ).toHaveAttribute("rel", "prev");
+    expect(
+      screen.getByRole("link", { name: "Go to next page" }),
+    ).toHaveAttribute("rel", "next");
   });
 
   it("disables Previous on first page", () => {
@@ -102,10 +116,10 @@ describe("ListPagination", () => {
 
     // Assert
     expect(
-      screen.getByRole("button", { name: "Previous page" }),
+      screen.getByRole("button", { name: "Go to previous page" }),
     ).toBeDisabled();
     expect(
-      screen.queryByRole("link", { name: "Previous page" }),
+      screen.queryByRole("link", { name: "Go to previous page" }),
     ).not.toBeInTheDocument();
   });
 
@@ -124,9 +138,11 @@ describe("ListPagination", () => {
     );
 
     // Assert
-    expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
     expect(
-      screen.queryByRole("link", { name: "Next page" }),
+      screen.getByRole("button", { name: "Go to next page" }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole("link", { name: "Go to next page" }),
     ).not.toBeInTheDocument();
   });
 
@@ -145,7 +161,9 @@ describe("ListPagination", () => {
     );
 
     // Assert
-    expect(screen.getByRole("link", { name: "Previous page" })).toHaveAttribute(
+    expect(
+      screen.getByRole("link", { name: "Go to previous page" }),
+    ).toHaveAttribute(
       "href",
       "/dashboard/mediapulse/tickers?page=2&size=15&sort=symbol&dir=asc",
     );
@@ -166,7 +184,9 @@ describe("ListPagination", () => {
     );
 
     // Assert
-    expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
+    expect(
+      screen.getByRole("link", { name: "Go to next page" }),
+    ).toHaveAttribute(
       "href",
       "/dashboard/mediapulse/tickers?page=2&size=15&sort=symbol&dir=asc",
     );
@@ -188,7 +208,9 @@ describe("ListPagination", () => {
     );
 
     // Assert
-    expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
+    expect(
+      screen.getByRole("link", { name: "Go to next page" }),
+    ).toHaveAttribute(
       "href",
       "/dashboard/mediapulse/tickers?page=2&size=15&q=AAPL&sort=symbol&dir=asc",
     );
@@ -245,10 +267,9 @@ describe("ListPagination", () => {
     );
 
     // Assert
-    expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
-      "href",
-      "/dashboard/schedules/sched-1?page=2&size=10",
-    );
+    expect(
+      screen.getByRole("link", { name: "Go to next page" }),
+    ).toHaveAttribute("href", "/dashboard/schedules/sched-1?page=2&size=10");
   });
 
   it("includes extra params in pagination links", () => {
@@ -265,9 +286,60 @@ describe("ListPagination", () => {
     );
 
     // Assert
-    expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
+    expect(
+      screen.getByRole("link", { name: "Go to next page" }),
+    ).toHaveAttribute(
       "href",
       "/dashboard/mediapulse/search-queries?page=2&size=15&ticker=Apple",
     );
+  });
+
+  it("shows the page count and jumps to the first and last page", () => {
+    render(
+      <ListPagination
+        basePath="/dashboard/variables"
+        page={2}
+        pageSize={15}
+        total={40}
+        ariaLabel="Variables list pagination"
+      />,
+    );
+
+    expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Go to first page" }),
+    ).toHaveAttribute("href", "/dashboard/variables?page=1&size=15");
+    expect(
+      screen.getByRole("link", { name: "Go to last page" }),
+    ).toHaveAttribute("href", "/dashboard/variables?page=3&size=15");
+  });
+
+  it("keeps showing when a larger page size fits everything on one page", () => {
+    render(
+      <ListPagination
+        basePath="/dashboard/variables"
+        page={1}
+        pageSize={50}
+        total={40}
+        ariaLabel="Variables list pagination"
+      />,
+    );
+
+    expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Rows per page")).toBeInTheDocument();
+  });
+
+  it("still pages a short list when the page size is below the smallest option", () => {
+    render(
+      <ListPagination
+        basePath="/dashboard/executions"
+        page={1}
+        pageSize={10}
+        total={12}
+        ariaLabel="Executions pagination"
+      />,
+    );
+
+    expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
   });
 });

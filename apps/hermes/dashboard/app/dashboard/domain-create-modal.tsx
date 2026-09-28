@@ -40,7 +40,7 @@ export const DomainCreateModal = ({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button type="button">
+        <Button type="button" size="sm">
           <Plus aria-hidden />
           {triggerLabel}
         </Button>

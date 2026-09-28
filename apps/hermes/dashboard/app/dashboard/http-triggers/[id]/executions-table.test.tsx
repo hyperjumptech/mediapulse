@@ -64,14 +64,8 @@ describe("HTTP trigger ExecutionsTable", () => {
     // Assert
     const expectedHref = "/dashboard/http-triggers/trigger-1/executions/ex-7";
 
-    expect(screen.getByText("failed")).toHaveAttribute(
-      "data-variant",
-      "destructive",
-    );
-    expect(screen.getByText("success")).toHaveAttribute(
-      "data-variant",
-      "success",
-    );
+    expect(screen.getByText("failed")).toHaveAttribute("data-tone", "failed");
+    expect(screen.getByText("success")).toHaveAttribute("data-tone", "success");
     expect(screen.getByTitle("4 created, 4 enqueued")).toBeInTheDocument();
     expect(screen.getByTitle("3 succeeded, 1 failed")).toBeInTheDocument();
     expect(

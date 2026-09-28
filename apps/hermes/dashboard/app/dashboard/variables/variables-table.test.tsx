@@ -1,50 +1,46 @@
 import React from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { LIST_SEARCH_DEBOUNCE_MS } from "@/hooks/use-list-search";
 import type { VariableRow } from "@/lib/variables";
 
-vi.mock("next/link", () => ({
-  default: ({
-    children,
-    href,
-    className,
-  }: {
-    children: React.ReactNode;
-    href: string;
-    className?: string;
-  }) => (
-    <a href={href} className={className}>
-      {children}
-    </a>
-  ),
+const { router } = vi.hoisted(() => ({
+  router: {
+    push: vi.fn(),
+    replace: vi.fn(),
+    refresh: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    prefetch: vi.fn(),
+  },
+}));
+
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => router,
 }));
 
 vi.mock("./variable-modal", () => ({
   VariableModal: ({
     variable,
-    trigger,
     open,
     onOpenChange,
   }: {
     variable: { key: string } | null;
-    trigger?: React.ReactNode;
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
-  }) =>
-    trigger ? (
-      <div data-testid="create-variable-modal">{trigger}</div>
-    ) : (
-      <div
-        data-testid="edit-variable-modal"
-        data-open={String(open)}
-        data-variable-key={variable?.key ?? ""}
-      >
-        <button type="button" onClick={() => onOpenChange?.(false)}>
-          Close editor
-        </button>
-      </div>
-    ),
+  }) => (
+    <div
+      data-testid="edit-variable-modal"
+      data-open={String(open)}
+      data-variable-key={variable?.key ?? ""}
+    >
+      <button type="button" onClick={() => onOpenChange?.(false)}>
+        Close editor
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock("./variable-row-actions", () => ({
@@ -101,9 +97,20 @@ const renderVariables = (
 
 const table = () => screen.getByRole("table");
 
+const openMenu = async (trigger: HTMLElement) => {
+  await act(async () => {
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+  });
+};
+
 const editModal = () => screen.getByTestId("edit-variable-modal");
 
 describe("VariablesTable", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    router.replace.mockReset();
+  });
+
   it("shows the useful columns and keeps Created by in the column menu", () => {
     renderVariables();
 
@@ -131,11 +138,10 @@ describe("VariablesTable", () => {
 
     expect(screen.getByText("No variables yet")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    expect(
-      within(screen.getByTestId("create-variable-modal")).getByRole("button", {
-        name: "Add variable",
-      }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Add variable" })).toHaveAttribute(
+      "href",
+      "/dashboard/variables?create=1",
+    );
   });
 
   it("offers to clear the search when nothing matches", () => {
@@ -153,7 +159,7 @@ describe("VariablesTable", () => {
 
     expect(screen.getByText("Nothing matches “TOKEN”")).toBeInTheDocument();
     expect(
-      screen.queryByTestId("create-variable-modal"),
+      screen.queryByRole("link", { name: "Add variable" }),
     ).not.toBeInTheDocument();
     expect(clearLinks.map((link) => link.getAttribute("href"))).toContain(
       "/dashboard/variables?page=1&size=20&sort=created&dir=desc",
@@ -183,7 +189,7 @@ describe("VariablesTable", () => {
     expect(within(row).getByText("••••••••")).toBeInTheDocument();
     expect(within(row).getByText("Secret")).toHaveAttribute(
       "data-variant",
-      "muted",
+      "outline",
     );
     expect(
       within(row).queryByRole("button", { name: "Copy value of API_URL" }),
@@ -217,34 +223,61 @@ describe("VariablesTable", () => {
     expect(editModal()).toHaveAttribute("data-variable-key", "API_URL");
   });
 
-  it("builds sort links that toggle the active column and keep the search", () => {
-    renderVariables([createVariable()], {
-      urlState: { ...urlState, search: "API" },
-    });
+  it("marks the sorted column", () => {
+    renderVariables();
 
-    expect(within(table()).getByRole("link", { name: "Key" })).toHaveAttribute(
-      "href",
-      "/dashboard/variables?page=1&size=15&q=API&sort=key&dir=desc",
-    );
     expect(
-      within(table()).getByRole("link", { name: "Created" }),
-    ).toHaveAttribute(
-      "href",
-      "/dashboard/variables?page=1&size=15&q=API&sort=created&dir=asc",
-    );
+      within(table()).getByRole("columnheader", { name: "Key" }),
+    ).toHaveAttribute("aria-sort", "ascending");
+    expect(
+      within(table()).getByRole("columnheader", { name: "Created" }),
+    ).not.toHaveAttribute("aria-sort");
   });
 
-  it("searches variables by key", () => {
+  it.each([
+    ["Key", "key"],
+    ["Created", "created"],
+  ])(
+    "offers both sort directions from the %s header and keeps the search",
+    async (label, sortKey) => {
+      renderVariables([createVariable()], {
+        urlState: { ...urlState, search: "API" },
+      });
+
+      await openMenu(within(table()).getByRole("button", { name: label }));
+
+      expect(screen.getByRole("menuitem", { name: "Asc" })).toHaveAttribute(
+        "href",
+        `/dashboard/variables?page=1&size=15&q=API&sort=${sortKey}&dir=asc`,
+      );
+      expect(screen.getByRole("menuitem", { name: "Desc" })).toHaveAttribute(
+        "href",
+        `/dashboard/variables?page=1&size=15&q=API&sort=${sortKey}&dir=desc`,
+      );
+    },
+  );
+
+  it("searches variables by key as people type", async () => {
+    vi.useFakeTimers();
     renderVariables();
 
     const form = screen.getByRole("search", {
       name: "Search variables by key",
     });
+    const searchbox = within(form).getByRole("searchbox", {
+      name: "Search variables by key",
+    });
 
-    expect(form).toHaveAttribute("action", "/dashboard/variables");
-    expect(form.querySelector('input[name="q"]')).toHaveAttribute(
-      "placeholder",
-      "Search by key…",
+    expect(searchbox).toHaveAttribute("placeholder", "Filter variables…");
+
+    fireEvent.change(searchbox, { target: { value: "API" } });
+    await act(async () => {
+      vi.advanceTimersByTime(LIST_SEARCH_DEBOUNCE_MS);
+    });
+
+    expect(router.replace).toHaveBeenCalledWith(
+      "/dashboard/variables?page=1&size=15&q=API&sort=key&dir=asc",
+      { scroll: false },
     );
   });
 });

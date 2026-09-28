@@ -33,15 +33,14 @@ import type {
 } from "@/lib/data-table/features";
 import {
   buildClearSearchHref,
-  buildSortHref,
   type ListUrlState,
 } from "@/lib/data-table/list-url-state";
 
 import { DataTableCard } from "./data-table-card";
+import { DataTableColumnHeader } from "./data-table-column-header";
 import { DataTableMobileList } from "./data-table-mobile-list";
 import { DataTableSearch } from "./data-table-search";
 import { DataTableViewOptions } from "./data-table-view-options";
-import { SortableHeader } from "./sortable-header";
 
 export type DataTableEmptyState = {
   title: string;
@@ -69,6 +68,17 @@ const HIDE_BELOW_CLASS: Record<DataTableBreakpoint, string> = {
   md: "hidden md:table-cell",
   lg: "hidden lg:table-cell",
   xl: "hidden xl:table-cell",
+};
+
+const ariaSortFor = (
+  urlState: ListUrlState | undefined,
+  sortKey: string | undefined,
+) => {
+  if (!urlState || !sortKey || urlState.sortBy !== sortKey) {
+    return undefined;
+  }
+
+  return urlState.sortDir === "asc" ? "ascending" : "descending";
 };
 
 const EmptyResults = ({
@@ -150,22 +160,19 @@ export const DataTable = <Row extends RowData>({
   return (
     <div className="flex flex-col gap-4">
       {hasToolbar ? (
-        <div
-          className={cn(
-            "flex flex-col gap-3 md:flex-row md:items-center",
-            !hasMobileToolbar && "hidden md:flex",
-          )}
-        >
-          {search && urlState ? (
-            <DataTableSearch
-              tableId={tableId}
-              urlState={urlState}
-              label={search.label}
-              placeholder={search.placeholder}
-            />
-          ) : null}
-          {toolbarFilters}
-          <div className="flex items-center gap-2 md:ml-auto">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {search && urlState ? (
+              <DataTableSearch
+                tableId={tableId}
+                urlState={urlState}
+                label={search.label}
+                placeholder={search.placeholder}
+              />
+            ) : null}
+            {toolbarFilters}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
             {showViewOptions ? <DataTableViewOptions table={table} /> : null}
             {toolbarActions}
           </div>
@@ -189,22 +196,30 @@ export const DataTable = <Row extends RowData>({
                     {headerGroup.headers.map((header, index) => {
                       const meta = header.column.columnDef.meta;
                       const sortKey = meta?.sortKey;
+                      const isLast = index === headerGroup.headers.length - 1;
 
                       return (
                         <TableHead
                           key={header.id}
+                          aria-sort={ariaSortFor(urlState, sortKey)}
                           className={cn(
                             index === 0 && "pl-4",
+                            isLast && "pr-4",
+                            meta?.mobile === "actions" && "w-0",
                             meta?.hideBelow && HIDE_BELOW_CLASS[meta.hideBelow],
                             meta?.headerClassName,
                           )}
                         >
                           {sortKey && urlState ? (
-                            <SortableHeader
+                            <DataTableColumnHeader
                               label={meta?.label ?? header.column.id}
-                              href={buildSortHref(urlState, sortKey)}
-                              isActive={urlState.sortBy === sortKey}
-                              direction={urlState.sortDir}
+                              sortKey={sortKey}
+                              urlState={urlState}
+                              onHide={
+                                header.column.getCanHide()
+                                  ? () => header.column.toggleVisibility(false)
+                                  : undefined
+                              }
                             />
                           ) : meta?.mobile === "actions" ? (
                             <span className="sr-only">{meta.label}</span>
@@ -220,14 +235,16 @@ export const DataTable = <Row extends RowData>({
               <TableBody>
                 {tableRows.map((row) => (
                   <TableRow key={row.id}>
-                    {row.getVisibleCells().map((cell, index) => {
+                    {row.getVisibleCells().map((cell, index, cells) => {
                       const meta = cell.column.columnDef.meta;
+                      const isLast = index === cells.length - 1;
 
                       return (
                         <TableCell
                           key={cell.id}
                           className={cn(
                             index === 0 && "pl-4",
+                            isLast && meta?.mobile !== "actions" && "pr-4",
                             meta?.hideBelow && HIDE_BELOW_CLASS[meta.hideBelow],
                             meta?.cellClassName,
                           )}

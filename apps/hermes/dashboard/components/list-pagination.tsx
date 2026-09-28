@@ -1,26 +1,41 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
+
+import { Label } from "@workspace/ui/components/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/select";
+
+import { usePageSizeNavigation } from "@/hooks/use-page-size-navigation";
+import { DEFAULT_LIST_PAGE_SIZE } from "@/lib/list-page-params";
 
 import { PaginationStepButton } from "./pagination-step-button";
 
 export type ListPaginationProps = {
-  /** Base URL path (e.g. /dashboard/variables). Query string is appended. */
   basePath: string;
   page: number;
   pageSize: number;
   total: number;
-  /** Accessible label for the nav (e.g. "Variables list pagination"). */
   ariaLabel: string;
-  /** Optional search query to preserve in prev/next links. */
   searchQuery?: string;
-  /** Optional sort field to preserve in prev/next links. */
   sortBy?: string;
-  /** Optional sort direction to preserve in prev/next links. */
   sortDir?: string;
-  /** Optional arbitrary query params to preserve in prev/next links. */
   extraParams?: Record<string, string>;
 };
+
+const PAGE_SIZE_OPTIONS = [DEFAULT_LIST_PAGE_SIZE, 30, 50, 100];
+
+const SMALLEST_PAGE_SIZE = DEFAULT_LIST_PAGE_SIZE;
 
 const countFormatter = new Intl.NumberFormat("en-US");
 
@@ -70,6 +85,11 @@ export const describeVisibleRange = (
   return `Showing ${formattedFirstItem}–${formattedLastItem} of ${formattedTotal}`;
 };
 
+const pageSizeOptionsFor = (pageSize: number): number[] =>
+  PAGE_SIZE_OPTIONS.includes(pageSize)
+    ? PAGE_SIZE_OPTIONS
+    : [...PAGE_SIZE_OPTIONS, pageSize].sort((left, right) => left - right);
+
 export const ListPagination = ({
   basePath,
   page,
@@ -81,44 +101,75 @@ export const ListPagination = ({
   sortDir,
   extraParams,
 }: ListPaginationProps) => {
+  const queryOptions = { searchQuery, sortBy, sortDir, extraParams };
+  const hrefFor = (targetPage: number, targetPageSize = pageSize) =>
+    `${basePath}?${buildQueryString(targetPage, targetPageSize, queryOptions)}`;
+  const changePageSize = usePageSizeNavigation((nextPageSize) =>
+    hrefFor(1, nextPageSize),
+  );
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const hasPrevious = page > 1;
   const hasNext = page < totalPages;
-
-  if (totalPages <= 1 && total <= pageSize) {
+  if (totalPages <= 1 && total <= SMALLEST_PAGE_SIZE) {
     return null;
   }
-
-  const queryOptions = { searchQuery, sortBy, sortDir, extraParams };
-  const previousHref = hasPrevious
-    ? `${basePath}?${buildQueryString(page - 1, pageSize, queryOptions)}`
-    : undefined;
-  const nextHref = hasNext
-    ? `${basePath}?${buildQueryString(page + 1, pageSize, queryOptions)}`
-    : undefined;
-  const visibleRange = describeVisibleRange(page, pageSize, total);
+  const pageSizeSelectId = `${basePath.replaceAll("/", "-")}-rows-per-page`;
 
   return (
     <nav
-      className="flex items-center justify-between gap-4"
+      className="flex items-center justify-between px-4"
       aria-label={ariaLabel}
     >
-      <p className="text-sm text-muted-foreground tabular-nums">
-        {visibleRange}
+      <p className="hidden flex-1 text-sm text-muted-foreground tabular-nums lg:flex">
+        {describeVisibleRange(page, pageSize, total)}
       </p>
-      <div className="flex items-center gap-1.5">
-        <PaginationStepButton
-          href={previousHref}
-          label="Previous page"
-          rel="prev"
-          icon={ChevronLeft}
-        />
-        <PaginationStepButton
-          href={nextHref}
-          label="Next page"
-          rel="next"
-          icon={ChevronRight}
-        />
+      <div className="flex w-full items-center gap-8 lg:w-fit">
+        <div className="hidden items-center gap-2 lg:flex">
+          <Label htmlFor={pageSizeSelectId} className="text-sm font-medium">
+            Rows per page
+          </Label>
+          <Select value={String(pageSize)} onValueChange={changePageSize}>
+            <SelectTrigger size="sm" className="w-20" id={pageSizeSelectId}>
+              <SelectValue placeholder={pageSize} />
+            </SelectTrigger>
+            <SelectContent side="top">
+              {pageSizeOptionsFor(pageSize).map((option) => (
+                <SelectItem key={option} value={String(option)}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex w-fit items-center justify-center text-sm font-medium tabular-nums">
+          Page {page} of {totalPages}
+        </div>
+        <div className="ml-auto flex items-center gap-2 lg:ml-0">
+          <PaginationStepButton
+            href={hasPrevious ? hrefFor(1) : undefined}
+            label="Go to first page"
+            icon={ChevronsLeft}
+            className="hidden lg:flex"
+          />
+          <PaginationStepButton
+            href={hasPrevious ? hrefFor(page - 1) : undefined}
+            label="Go to previous page"
+            rel="prev"
+            icon={ChevronLeft}
+          />
+          <PaginationStepButton
+            href={hasNext ? hrefFor(page + 1) : undefined}
+            label="Go to next page"
+            rel="next"
+            icon={ChevronRight}
+          />
+          <PaginationStepButton
+            href={hasNext ? hrefFor(totalPages) : undefined}
+            label="Go to last page"
+            icon={ChevronsRight}
+            className="hidden lg:flex"
+          />
+        </div>
       </div>
     </nav>
   );

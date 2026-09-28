@@ -124,7 +124,7 @@ export const AgentsTable = ({
     paginationLabel="Agents list pagination"
     search={{
       label: "Search agents by ID or description",
-      placeholder: "Search by agent ID or description…",
+      placeholder: "Filter agents…",
     }}
     emptyState={{
       icon: Bot,

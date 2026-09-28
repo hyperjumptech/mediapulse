@@ -84,9 +84,6 @@ const CreatedDomainIntegration = ({
   </Card>
 );
 
-/**
- * Client form: submit integration id + name; on success shows the generated API key once.
- */
 export const CreateDomainIntegrationForm = () => {
   const [state, formAction, pending] = useActionState(
     createDomainIntegrationAction,
@@ -105,6 +102,12 @@ export const CreateDomainIntegrationForm = () => {
 
   return (
     <Card className="max-w-lg">
+      <CardHeader>
+        <CardDescription>
+          Creating an integration generates an API key that your system uses to
+          register with Hermes.
+        </CardDescription>
+      </CardHeader>
       <form action={formAction} className="flex flex-col gap-6">
         <CardContent>
           <FieldGroup>

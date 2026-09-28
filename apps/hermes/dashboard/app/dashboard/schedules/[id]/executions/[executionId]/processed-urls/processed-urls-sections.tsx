@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Link2, SearchX } from "lucide-react";
 
-import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import {
   Empty,
@@ -22,6 +21,11 @@ import {
 import { cn } from "@workspace/ui/lib/utils";
 
 import { DateTime } from "@/components/date-time/date-time";
+import {
+  ToneBadge,
+  statusTone,
+  type StatusTone,
+} from "@/components/status-badge";
 import type { ProcessedUrlItem } from "@/lib/domain-dashboard";
 
 export type ProcessedUrlFilterOption = {
@@ -36,10 +40,10 @@ export type ProcessedUrlFilterGroup = {
   options: ProcessedUrlFilterOption[];
 };
 
-const STATUS_BADGE: Record<string, "success" | "destructive" | "outline"> = {
+const PROCESSED_URL_STATUS_TONES: Record<string, StatusTone> = {
   collected: "success",
-  failed: "destructive",
-  dropped: "outline",
+  failed: "failed",
+  dropped: "muted",
 };
 
 const MAX_URL_LABEL_LENGTH = 80;
@@ -154,7 +158,8 @@ export const ProcessedUrlsEmptyState = ({
 };
 
 const ProcessedUrlRow = ({ item }: { item: ProcessedUrlItem }) => {
-  const statusVariant = STATUS_BADGE[item.status] ?? "outline";
+  const tone =
+    PROCESSED_URL_STATUS_TONES[item.status] ?? statusTone(item.status);
   const reasonText = item.reasonDetail ?? item.reason ?? "—";
   const urlLabel = truncateUrl(item.url);
 
@@ -167,9 +172,9 @@ const ProcessedUrlRow = ({ item }: { item: ProcessedUrlItem }) => {
         {item.agent}
       </TableCell>
       <TableCell>
-        <Badge variant={statusVariant} className="capitalize">
+        <ToneBadge tone={tone} className="capitalize">
           {item.status}
-        </Badge>
+        </ToneBadge>
       </TableCell>
       <TableCell className="max-w-xs text-xs whitespace-normal text-muted-foreground">
         {reasonText}

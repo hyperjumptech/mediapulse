@@ -98,10 +98,7 @@ describe("AgentDetailsContent", () => {
     render(<AgentDetailsContent agent={createMockAgent()} />);
 
     // Assert
-    expect(screen.getByText("active")).toHaveAttribute(
-      "data-variant",
-      "success",
-    );
+    expect(screen.getByText("active")).toHaveAttribute("data-tone", "success");
     expect(screen.getByText("Test description")).toBeInTheDocument();
   });
 
@@ -113,10 +110,7 @@ describe("AgentDetailsContent", () => {
     render(<AgentDetailsContent agent={agent} />);
 
     // Assert
-    expect(screen.getByText("inactive")).toHaveAttribute(
-      "data-variant",
-      "muted",
-    );
+    expect(screen.getByText("inactive")).toHaveAttribute("data-tone", "muted");
     expect(screen.queryByText("Test description")).not.toBeInTheDocument();
   });
 

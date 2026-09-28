@@ -1,24 +1,8 @@
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
-
-vi.mock("next/link", () => ({
-  default: ({
-    children,
-    href,
-    className,
-  }: {
-    children: React.ReactNode;
-    href: string;
-    className?: string;
-  }) => (
-    <a href={href} className={className}>
-      {children}
-    </a>
-  ),
-}));
 
 vi.mock("./agent-config-row-actions", () => ({
   AgentConfigRowActions: ({
@@ -71,6 +55,12 @@ const renderTable = (
   );
 
 const table = () => screen.getByRole("table");
+
+const openMenu = async (trigger: HTMLElement) => {
+  await act(async () => {
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+  });
+};
 
 const headerLabels = () =>
   within(table())
@@ -153,31 +143,51 @@ describe("AgentConfigsTable", () => {
 
     // Assert
     expect(within(table()).getByText("Schema changed")).toHaveAttribute(
-      "data-variant",
+      "data-tone",
       "warning",
     );
   });
 
-  it("builds sort links that toggle the active column", () => {
+  it("marks the sorted column", () => {
     // Act
     renderTable([createConfig()]);
 
     // Assert
     const desktop = within(table());
 
-    expect(desktop.getByRole("link", { name: "Name" })).toHaveAttribute(
-      "href",
-      "/dashboard/agent-configs?page=1&size=15&sort=name&dir=desc",
+    expect(desktop.getByRole("columnheader", { name: "Name" })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
     );
-    expect(desktop.getByRole("link", { name: "Agent" })).toHaveAttribute(
-      "href",
-      "/dashboard/agent-configs?page=1&size=15&sort=agentId&dir=asc",
-    );
-    expect(desktop.getByRole("link", { name: "Created" })).toHaveAttribute(
-      "href",
-      "/dashboard/agent-configs?page=1&size=15&sort=createdAt&dir=asc",
-    );
+    expect(
+      desktop.getByRole("columnheader", { name: "Agent" }),
+    ).not.toHaveAttribute("aria-sort");
   });
+
+  it.each([
+    ["Name", "name"],
+    ["Agent", "agentId"],
+    ["Created", "createdAt"],
+  ])(
+    "offers both sort directions from the %s header",
+    async (label, sortKey) => {
+      // Setup
+      renderTable([createConfig()]);
+
+      // Act
+      await openMenu(within(table()).getByRole("button", { name: label }));
+
+      // Assert
+      expect(screen.getByRole("menuitem", { name: "Asc" })).toHaveAttribute(
+        "href",
+        `/dashboard/agent-configs?page=1&size=15&sort=${sortKey}&dir=asc`,
+      );
+      expect(screen.getByRole("menuitem", { name: "Desc" })).toHaveAttribute(
+        "href",
+        `/dashboard/agent-configs?page=1&size=15&sort=${sortKey}&dir=desc`,
+      );
+    },
+  );
 
   it("paginates from the URL state when there is more than one page", () => {
     // Act

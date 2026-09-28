@@ -181,14 +181,8 @@ describe("PipelineExecutionsTable", () => {
     );
 
     // Assert
-    expect(screen.getByText("partial")).toHaveAttribute(
-      "data-variant",
-      "warning",
-    );
-    expect(screen.getByText("failed")).toHaveAttribute(
-      "data-variant",
-      "destructive",
-    );
+    expect(screen.getByText("partial")).toHaveAttribute("data-tone", "warning");
+    expect(screen.getByText("failed")).toHaveAttribute("data-tone", "failed");
     expect(screen.getByTitle("1 succeeded, 1 failed")).toBeInTheDocument();
     expect(screen.getByText("1m 5s")).toBeInTheDocument();
     expect(

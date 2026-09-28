@@ -1,11 +1,8 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  EntityFormModalCreateButton,
-  EntityFormModalProvider,
-} from "@/components/entity-form-modal-provider";
+import { EntityFormModalProvider } from "@/components/entity-form-modal-provider";
 import type { SchedulesPageResult } from "@/lib/schedules";
 
 import {
@@ -14,6 +11,19 @@ import {
 } from "./schedules-with-modal";
 
 type ScheduleRow = SchedulesPageResult["schedules"][number];
+
+const { searchParams } = vi.hoisted(() => ({
+  searchParams: { current: "" },
+}));
+
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useSearchParams: () => new URLSearchParams(searchParams.current),
+}));
+
+afterEach(() => {
+  searchParams.current = "";
+});
 
 vi.mock("@/components/list-pagination", () => ({
   ListPagination: ({ page, total }: { page: number; total: number }) => (
@@ -100,7 +110,6 @@ const baseProps: SchedulesWithModalProps = {
 const renderWithProvider = (props: Partial<SchedulesWithModalProps> = {}) =>
   render(
     <EntityFormModalProvider>
-      <EntityFormModalCreateButton label="New schedule" />
       <SchedulesWithModal {...baseProps} {...props} />
     </EntityFormModalProvider>,
   );
@@ -135,12 +144,12 @@ describe("SchedulesWithModal", () => {
     );
   });
 
-  it("opens the create modal from the page header button", () => {
+  it("opens the create modal when the header link asks for it", () => {
     // Setup
-    renderWithProvider();
+    searchParams.current = "create=1";
 
     // Act
-    fireEvent.click(screen.getByRole("button", { name: "New schedule" }));
+    renderWithProvider();
 
     // Assert
     const modal = screen.getByTestId("schedule-form-modal");

@@ -1,9 +1,5 @@
 import { Suspense } from "react";
-import { Plus } from "lucide-react";
 
-import { Button } from "@workspace/ui/components/button";
-
-import { PageHeader } from "@/components/page-header";
 import { ListBodySkeleton } from "@/components/page-skeletons";
 import {
   parseListPagination,
@@ -32,23 +28,10 @@ const VariablesPage = async ({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        description="Manage key-value variables for pipelines (secrets are masked)."
-        actions={
-          <VariableModal
-            variable={null}
-            trigger={
-              <Button>
-                <Plus aria-hidden />
-                Add variable
-              </Button>
-            }
-          />
-        }
-      />
-      <Suspense key={JSON.stringify(query)} fallback={<ListBodySkeleton />}>
+      <Suspense fallback={<ListBodySkeleton />}>
         <VariablesSection {...query} />
       </Suspense>
+      <VariableModal variable={null} />
     </div>
   );
 };

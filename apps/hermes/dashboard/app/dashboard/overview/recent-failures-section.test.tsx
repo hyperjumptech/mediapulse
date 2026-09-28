@@ -85,7 +85,7 @@ describe("RecentFailuresSection", () => {
     expect(links[1]).toHaveTextContent("3d ago");
   });
 
-  it("uses a destructive badge for failed runs and a warning badge for partial runs", async () => {
+  it("uses a failed tone for failed runs and a warning tone for partial runs", async () => {
     // Setup
     getRecentFailuresMock.mockResolvedValue([
       failedTriggerExecution,
@@ -96,14 +96,8 @@ describe("RecentFailuresSection", () => {
     render(await RecentFailuresSection());
 
     // Assert
-    expect(screen.getByText("failed")).toHaveAttribute(
-      "data-variant",
-      "destructive",
-    );
-    expect(screen.getByText("partial")).toHaveAttribute(
-      "data-variant",
-      "warning",
-    );
+    expect(screen.getByText("failed")).toHaveAttribute("data-tone", "failed");
+    expect(screen.getByText("partial")).toHaveAttribute("data-tone", "warning");
   });
 
   it("renders an empty state when nothing failed", async () => {

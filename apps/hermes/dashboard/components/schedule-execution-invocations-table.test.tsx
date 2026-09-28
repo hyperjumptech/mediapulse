@@ -228,7 +228,7 @@ describe("ScheduleExecutionInvocationsTable", () => {
     // Assert
     const badge = screen.getByText("success");
 
-    expect(badge).toHaveAttribute("data-variant", "success");
+    expect(badge).toHaveAttribute("data-tone", "success");
     expect(screen.queryByText("Semantic")).not.toBeInTheDocument();
     expect(screen.getByText("2 / 5")).toBeInTheDocument();
     expect(screen.getByText("1m")).toBeInTheDocument();

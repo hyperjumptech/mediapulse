@@ -234,10 +234,7 @@ describe("PipelineDetailContent", () => {
 
     // Assert
     expect(screen.getByText("Test description")).toBeInTheDocument();
-    expect(screen.getByText("Enabled")).toHaveAttribute(
-      "data-variant",
-      "success",
-    );
+    expect(screen.getByText("Enabled")).toHaveAttribute("data-tone", "success");
   });
 
   it("omits the description when the pipeline has none", () => {
@@ -258,10 +255,7 @@ describe("PipelineDetailContent", () => {
     });
 
     // Assert
-    expect(screen.getByText("Disabled")).toHaveAttribute(
-      "data-variant",
-      "muted",
-    );
+    expect(screen.getByText("Disabled")).toHaveAttribute("data-tone", "muted");
   });
 
   it("lists validation warnings and disables Run when the pipeline is invalid", () => {

@@ -11,15 +11,12 @@ import {
   DialogTitle,
 } from "@workspace/ui/components/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
-import { Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
+import { RowActionsMenu } from "@/components/data-table/row-actions-menu";
 import { DomainTableFormFields } from "@/components/domain-table-form-fields";
 import type { DomainTableFormField } from "@/lib/domain-table-form-schema";
 
@@ -34,21 +31,11 @@ export type DomainTableRowActionsProps = {
   deleteAction: (formData: FormData) => Promise<void>;
   showEdit: boolean;
   showDelete: boolean;
-  /** When set, Edit navigates here instead of opening the edit modal. */
   editHref?: string;
-  /** When set with `viewHref`, shows a read-only detail link (manifest `actions.view`). */
   showView?: boolean;
-  /** Target for the View action (typically `${basePath}/${rowId}`). */
   viewHref?: string;
 };
 
-/**
- * Derives a short label for the delete confirmation dialog from row payload.
- *
- * @param row - Table row values.
- * @param rowId - Stable row identifier.
- * @returns Display string for confirm copy.
- */
 export const getDomainTableRowDeleteLabel = (
   row: Record<string, unknown>,
   rowId: string,
@@ -60,12 +47,6 @@ export const getDomainTableRowDeleteLabel = (
   return rowId;
 };
 
-/**
- * Submit button for the edit modal; reflects the pending state of the
- * surrounding form so the user gets feedback while the update runs.
- *
- * @returns Save button that shows a saving state while pending.
- */
 const DomainTableRowEditSubmitButton = () => {
   const { pending } = useFormStatus();
 
@@ -76,12 +57,6 @@ const DomainTableRowEditSubmitButton = () => {
   );
 };
 
-/**
- * Row actions for generic domain table-v1 resources: ellipsis menu with Edit (modal) and Delete.
- *
- * @param props - Row data, field schema, server actions, and visibility flags.
- * @returns Trigger button, optional edit dialog, and delete confirmation.
- */
 export const DomainTableRowActions = ({
   rowId,
   row,
@@ -103,57 +78,34 @@ export const DomainTableRowActions = ({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
-            aria-label={`Actions for ${deleteLabel}`}
+      <RowActionsMenu label={`Actions for ${deleteLabel}`}>
+        {canView && viewHref ? (
+          <DropdownMenuItem asChild>
+            <Link href={viewHref}>View</Link>
+          </DropdownMenuItem>
+        ) : null}
+        {canView && (canEdit || showDelete) ? <DropdownMenuSeparator /> : null}
+        {canEdit && editHref ? (
+          <DropdownMenuItem asChild>
+            <Link href={editHref}>Edit</Link>
+          </DropdownMenuItem>
+        ) : null}
+        {canEdit && !editHref ? (
+          <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+            Edit
+          </DropdownMenuItem>
+        ) : null}
+        {canEdit && showDelete ? <DropdownMenuSeparator /> : null}
+        {showDelete ? (
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={deleteConfirmation.pending}
+            onSelect={deleteConfirmation.requestConfirmation}
           >
-            <MoreHorizontal />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44">
-          {canView && viewHref ? (
-            <DropdownMenuItem asChild>
-              <Link href={viewHref}>
-                <Eye />
-                View
-              </Link>
-            </DropdownMenuItem>
-          ) : null}
-          {canView && (canEdit || showDelete) ? (
-            <DropdownMenuSeparator />
-          ) : null}
-          {canEdit && editHref ? (
-            <DropdownMenuItem asChild>
-              <Link href={editHref}>
-                <Pencil />
-                Edit
-              </Link>
-            </DropdownMenuItem>
-          ) : null}
-          {canEdit && !editHref ? (
-            <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-              <Pencil />
-              Edit
-            </DropdownMenuItem>
-          ) : null}
-          {canEdit && showDelete ? <DropdownMenuSeparator /> : null}
-          {showDelete ? (
-            <DropdownMenuItem
-              variant="destructive"
-              disabled={deleteConfirmation.pending}
-              onSelect={deleteConfirmation.requestConfirmation}
-            >
-              <Trash2 />
-              Delete
-            </DropdownMenuItem>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
+            Delete
+          </DropdownMenuItem>
+        ) : null}
+      </RowActionsMenu>
 
       {showDelete ? (
         <ConfirmActionDialog

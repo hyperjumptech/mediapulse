@@ -47,12 +47,7 @@ export const ListBodySkeleton = ({ columns = 5 }: { columns?: number }) => {
 };
 
 export const ListPageSkeleton = ({ columns = 5 }: { columns?: number }) => {
-  return (
-    <div className="flex flex-col gap-4">
-      <PageHeaderSkeleton />
-      <ListBodySkeleton columns={columns} />
-    </div>
-  );
+  return <ListBodySkeleton columns={columns} />;
 };
 
 export const SectionSkeleton = ({ rows = 6 }: { rows?: number }) => {
@@ -86,7 +81,6 @@ export const DetailPageSkeleton = () => {
 export const FormPageSkeleton = () => {
   return (
     <div className="flex flex-col gap-6" role="status" aria-label="Loading">
-      <PageHeaderSkeleton />
       <div className="flex max-w-2xl flex-col gap-5">
         {range(4).map((field) => (
           <div key={field} className="flex flex-col gap-2">

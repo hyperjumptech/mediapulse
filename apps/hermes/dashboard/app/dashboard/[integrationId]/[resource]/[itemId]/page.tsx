@@ -143,7 +143,6 @@ const ViewDomainTableItemPage = async ({
     formatOptions,
     meta.detailTitleField,
   );
-  const description = meta.description ?? undefined;
   const editHref = resolveEditHref(meta, basePath, itemId);
   const editAction = editHref ? (
     <EditItemAction editHref={editHref} />
@@ -151,7 +150,7 @@ const ViewDomainTableItemPage = async ({
   const header = (
     <>
       <BreadcrumbEntityLabel segment={itemId} label={title} />
-      <PageHeader description={description} actions={editAction} />
+      <PageHeader actions={editAction} />
     </>
   );
 

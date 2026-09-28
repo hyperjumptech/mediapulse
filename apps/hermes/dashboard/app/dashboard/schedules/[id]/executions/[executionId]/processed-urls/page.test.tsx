@@ -84,6 +84,29 @@ describe("ProcessedUrlsPage", () => {
     expect(screen.queryByText(/Back to execution/)).not.toBeInTheDocument();
   });
 
+  it.each([
+    ["collected", "success"],
+    ["failed", "failed"],
+    ["dropped", "muted"],
+  ] as const)("shows a %s URL with the %s tone", async (status, tone) => {
+    // Setup
+    withDashboardAdminMock.mockImplementation((load: Promise<unknown>) => load);
+    fetchProcessedUrlsForExecutionMock.mockResolvedValue({
+      items: [processedUrl({ status })],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    });
+
+    // Act
+    await renderPage();
+
+    // Assert
+    const table = screen.getByRole("table");
+
+    expect(within(table).getByText(status)).toHaveAttribute("data-tone", tone);
+  });
+
   it("marks the active filter and keeps other filters in the filter links", async () => {
     // Setup
     withDashboardAdminMock.mockImplementation((load: Promise<unknown>) => load);
@@ -141,7 +164,7 @@ describe("ProcessedUrlsPage", () => {
       name: "Processed URLs pagination",
     });
     const nextLink = within(pagination).getByRole("link", {
-      name: "Next page",
+      name: "Go to next page",
     });
     const nextHref = new URL(nextLink.getAttribute("href") ?? "", "http://x");
 

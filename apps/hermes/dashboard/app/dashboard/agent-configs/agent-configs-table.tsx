@@ -12,7 +12,7 @@ import {
 
 import { DataTable } from "@/components/data-table/data-table";
 import { DateTime } from "@/components/date-time/date-time";
-import { StatusBadge } from "@/components/status-badge";
+import { ToneBadge } from "@/components/status-badge";
 import type { ColumnVisibility } from "@/lib/data-table/column-visibility";
 import { createDataTableColumnHelper } from "@/lib/data-table/features";
 import type { ListUrlState } from "@/lib/data-table/list-url-state";
@@ -41,7 +41,7 @@ const SchemaStatus = ({ schemaValid }: { schemaValid: boolean }) => {
           tabIndex={0}
           className="inline-flex rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
-          <StatusBadge status="invalid" label="Schema changed" />
+          <ToneBadge tone="warning">Schema changed</ToneBadge>
         </span>
       </TooltipTrigger>
       <TooltipContent className="max-w-64">

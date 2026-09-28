@@ -20,14 +20,14 @@ const renderedQuery = () =>
   );
 
 describe("HttpTriggersPage", () => {
-  it("renders the page header with the new trigger action and the section", async () => {
+  it("renders the section and leaves the new trigger action to the site header", async () => {
     // Act
     render(await HttpTriggersPage({ searchParams: {} }));
 
     // Assert
     expect(
-      screen.getByRole("button", { name: "New HTTP trigger" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "New HTTP trigger" }),
+    ).not.toBeInTheDocument();
     expect(renderedQuery()).toEqual({
       page: 1,
       pageSize: 15,

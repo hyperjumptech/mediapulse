@@ -1,18 +1,13 @@
-import Form from "next/form";
-import Link from "next/link";
-import { Search, X } from "lucide-react";
+"use client";
 
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@workspace/ui/components/input-group";
+import { X } from "lucide-react";
+
+import { Button } from "@workspace/ui/components/button";
+import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 
-import {
-  buildClearSearchHref,
-  type ListUrlState,
-} from "@/lib/data-table/list-url-state";
+import { useListSearch } from "@/hooks/use-list-search";
+import type { ListUrlState } from "@/lib/data-table/list-url-state";
 
 type DataTableSearchProps = {
   tableId: string;
@@ -27,53 +22,45 @@ export const DataTableSearch = ({
   label,
   placeholder,
 }: DataTableSearchProps) => {
+  const { value, setValue, submit, reset, isPending } = useListSearch(urlState);
   const inputId = `${tableId}-search`;
-  const hasActiveSearch = Boolean(urlState.search);
 
   return (
-    <Form
-      action={urlState.basePath}
+    <form
       role="search"
       aria-label={label}
-      className="w-full sm:max-w-sm"
+      className="flex items-center gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        submit();
+      }}
     >
-      <input type="hidden" name="size" value={urlState.pageSize} />
-      {urlState.sortBy ? (
-        <input type="hidden" name="sort" value={urlState.sortBy} />
-      ) : null}
-      <input type="hidden" name="dir" value={urlState.sortDir} />
-      {Object.entries(urlState.extra ?? {}).map(([name, value]) => (
-        <input key={name} type="hidden" name={name} value={value} />
-      ))}
       <Label htmlFor={inputId} className="sr-only">
         {label}
       </Label>
-      <InputGroup className="bg-background">
-        <InputGroupAddon>
-          <Search aria-hidden />
-        </InputGroupAddon>
-        <InputGroupInput
-          id={inputId}
-          type="search"
-          name="q"
-          defaultValue={urlState.search ?? ""}
-          placeholder={placeholder}
-          autoComplete="off"
-          enterKeyHint="search"
-          className="[&::-webkit-search-cancel-button]:appearance-none"
-        />
-        {hasActiveSearch ? (
-          <InputGroupAddon align="inline-end">
-            <Link
-              href={buildClearSearchHref(urlState)}
-              aria-label="Clear search"
-              className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <X aria-hidden className="size-4" />
-            </Link>
-          </InputGroupAddon>
-        ) : null}
-      </InputGroup>
-    </Form>
+      <Input
+        id={inputId}
+        type="search"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        placeholder={placeholder}
+        autoComplete="off"
+        enterKeyHint="search"
+        aria-busy={isPending}
+        className="h-8 w-[150px] lg:w-[250px] [&::-webkit-search-cancel-button]:appearance-none"
+      />
+      {value ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 lg:px-3"
+          onClick={reset}
+        >
+          Reset
+          <X aria-hidden />
+        </Button>
+      ) : null}
+    </form>
   );
 };

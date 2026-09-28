@@ -17,13 +17,11 @@ import {
   API_KEYS_TABLE_ID,
 } from "./api-keys-table-defaults";
 
-const ApiKeyAccessBadge = ({ readOnly }: { readOnly: boolean }) => {
-  if (readOnly) {
-    return <Badge variant="muted">Read-only</Badge>;
-  }
-
-  return <Badge variant="outline">Full</Badge>;
-};
+const ApiKeyAccessBadge = ({ readOnly }: { readOnly: boolean }) => (
+  <Badge variant="outline" className="px-1.5 text-muted-foreground">
+    {readOnly ? "Read-only" : "Full"}
+  </Badge>
+);
 
 const columnHelper = createDataTableColumnHelper<McpApiKeyListRow>();
 

@@ -2,20 +2,16 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@workspace/ui/components/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
 
 import { useFormAction } from "@/app/dashboard/pipelines/actions/delete/.generated/use-form-action";
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
+import { RowActionsMenu } from "@/components/data-table/row-actions-menu";
 import { useConfirmActionDialog } from "@/hooks/use-confirm-action-dialog";
 
 type EditPipelineHandler = (pipelineId: string) => void;
@@ -51,42 +47,25 @@ export const PipelineRowActions = ({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
-            aria-label={`Actions for pipeline ${pipelineName}`}
-          >
-            <MoreHorizontal />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44">
-          {onEdit ? (
-            <DropdownMenuItem onSelect={() => onEdit(pipelineId)}>
-              <Pencil />
-              Edit
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem asChild>
-              <Link href={`/dashboard/pipelines/${pipelineId}`}>
-                <Pencil />
-                Edit
-              </Link>
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            disabled={pending}
-            onSelect={requestConfirmation}
-          >
-            <Trash2 />
-            Delete
+      <RowActionsMenu label={`Actions for pipeline ${pipelineName}`}>
+        {onEdit ? (
+          <DropdownMenuItem onSelect={() => onEdit(pipelineId)}>
+            Edit
           </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        ) : (
+          <DropdownMenuItem asChild>
+            <Link href={`/dashboard/pipelines/${pipelineId}`}>Edit</Link>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          disabled={pending}
+          onSelect={requestConfirmation}
+        >
+          Delete
+        </DropdownMenuItem>
+      </RowActionsMenu>
       <ConfirmActionDialog
         open={open}
         onOpenChange={setOpen}

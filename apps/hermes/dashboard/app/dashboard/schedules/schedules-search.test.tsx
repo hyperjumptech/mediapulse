@@ -63,9 +63,9 @@ describe("SchedulesSearch", () => {
     );
 
     // Assert
-    expect(
-      screen.getByPlaceholderText("Search by name or description…"),
-    ).toHaveValue("daily");
+    expect(screen.getByPlaceholderText("Filter schedules…")).toHaveValue(
+      "daily",
+    );
   });
 
   it("links the clear button to the unfiltered list with the current sort", () => {

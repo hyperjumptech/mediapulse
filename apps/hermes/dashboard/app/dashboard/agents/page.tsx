@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 
-import { PageHeader } from "@/components/page-header";
 import { ListBodySkeleton } from "@/components/page-skeletons";
 import type { AgentSortField } from "@/lib/agents";
 import {
@@ -33,8 +32,7 @@ const AgentsPage = async ({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader description="View and manage registered agents." />
-      <Suspense key={JSON.stringify(query)} fallback={<ListBodySkeleton />}>
+      <Suspense fallback={<ListBodySkeleton />}>
         <AgentsSection {...query} />
       </Suspense>
     </div>

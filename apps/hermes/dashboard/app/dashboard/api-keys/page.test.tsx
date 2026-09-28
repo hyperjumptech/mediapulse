@@ -7,26 +7,32 @@ vi.mock("./api-keys-section", () => ({
 }));
 
 vi.mock("./create-api-key-modal", () => ({
-  CreateApiKeyModal: ({ trigger }: { trigger: React.ReactNode }) => (
-    <div data-testid="create-api-key-modal">{trigger}</div>
+  CreateApiKeyModal: (props: Record<string, unknown>) => (
+    <div
+      data-testid="create-api-key-modal"
+      data-prop-names={Object.keys(props).join(",")}
+    />
   ),
 }));
 
 import ApiKeysPage from "./page";
 
 describe("ApiKeysPage", () => {
-  it("puts the create key trigger in the page header", () => {
+  it("mounts one URL-driven create key modal next to the section", () => {
     // Act
     render(<ApiKeysPage />);
 
     // Assert
-    const headerActions = document.querySelector(
-      '[data-slot="page-header-actions"]',
-    );
-
-    expect(headerActions).toContainElement(
-      screen.getByRole("button", { name: "Create API key" }),
+    expect(screen.getByTestId("create-api-key-modal")).toHaveAttribute(
+      "data-prop-names",
+      "",
     );
     expect(screen.getByTestId("api-keys-section")).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="page-header-actions"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Create API key" }),
+    ).not.toBeInTheDocument();
   });
 });

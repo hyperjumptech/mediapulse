@@ -1,7 +1,7 @@
 "use client";
 
 import type { MouseEvent } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Workflow } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsUpDown, Workflow } from "lucide-react";
 
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -104,18 +104,19 @@ const InvocationSortButton = ({
   onToggle: ToggleInvocationSortHandler;
 }) => {
   const activeIcon = sortDirection === "asc" ? ArrowUp : ArrowDown;
-  const Icon = isActive ? activeIcon : ArrowUpDown;
-  const iconClassName = isActive ? "size-3.5" : "size-3.5 opacity-40";
+  const Icon = isActive ? activeIcon : ChevronsUpDown;
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
+      className="-ml-2.5 h-8"
       onClick={() => onToggle(field)}
-      className="-ml-1 inline-flex items-center gap-1 rounded px-1 py-0.5 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
     >
       {label}
-      <Icon aria-hidden className={iconClassName} />
-    </button>
+      <Icon aria-hidden />
+    </Button>
   );
 };
 

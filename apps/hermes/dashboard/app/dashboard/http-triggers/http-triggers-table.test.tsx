@@ -150,7 +150,7 @@ describe("HttpTriggersTable", () => {
       "outline",
     );
     expect(within(row).getByText("enabled")).toHaveAttribute(
-      "data-variant",
+      "data-tone",
       "success",
     );
     expect(within(row).getByText("5m ago")).toBeInTheDocument();
@@ -172,10 +172,7 @@ describe("HttpTriggersTable", () => {
 
     // Assert
     expect(screen.getByText("Never")).toBeInTheDocument();
-    expect(screen.getByText("disabled")).toHaveAttribute(
-      "data-variant",
-      "muted",
-    );
+    expect(screen.getByText("disabled")).toHaveAttribute("data-tone", "muted");
   });
 
   it("invites creating the first trigger when there are none", () => {

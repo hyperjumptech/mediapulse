@@ -10,24 +10,11 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 
-/** JSON Schema property sub-schema (type, etc.). */
 type PropertySchema = Record<string, unknown>;
 
-/**
- * Returns true if value is a non-array object (possible JSON Schema object).
- *
- * @param v - Value to check.
- * @returns True if object.
- */
 export const isSchemaObject = (v: unknown): v is Record<string, unknown> =>
   v !== null && typeof v === "object" && !Array.isArray(v);
 
-/**
- * Extracts top-level type from a JSON Schema object (type field or "object" default).
- *
- * @param schema - JSON Schema object.
- * @returns Type string for display.
- */
 export const getSchemaType = (schema: Record<string, unknown>): string => {
   const t = schema.type;
   if (typeof t === "string") return t;
@@ -35,12 +22,6 @@ export const getSchemaType = (schema: Record<string, unknown>): string => {
   return "object";
 };
 
-/**
- * Extracts required array from a JSON Schema object.
- *
- * @param schema - JSON Schema object.
- * @returns Array of required property names.
- */
 export const getRequiredProperties = (
   schema: Record<string, unknown>,
 ): string[] => {
@@ -49,12 +30,6 @@ export const getRequiredProperties = (
   return r.filter((x): x is string => typeof x === "string");
 };
 
-/**
- * Extracts properties map from a JSON Schema object.
- *
- * @param schema - JSON Schema object.
- * @returns Record of property name to sub-schema, or empty object.
- */
 export const getProperties = (
   schema: Record<string, unknown>,
 ): Record<string, PropertySchema> => {
@@ -63,12 +38,6 @@ export const getProperties = (
   return p as Record<string, PropertySchema>;
 };
 
-/**
- * Describes a property's type for display (string, number, object, etc.).
- *
- * @param propSchema - Property's schema object.
- * @returns Short type description.
- */
 export const getPropertyTypeLabel = (propSchema: PropertySchema): string => {
   const t = propSchema.type;
   if (typeof t === "string") return t;
@@ -81,16 +50,10 @@ export const getPropertyTypeLabel = (propSchema: PropertySchema): string => {
 };
 
 type JsonSchemaSummaryProps = {
-  /** JSON Schema object from agent registry (inputSchema or configSchema). */
   schema: unknown;
-  /** Optional title above the summary (e.g. "Input schema"). */
   title?: string;
 };
 
-/**
- * Renders a JSON Schema object as a summary: type, required fields, and properties table.
- * Does not render raw JSON. Shows "No schema" or "Invalid schema" for null/invalid values.
- */
 export const JsonSchemaSummary = ({
   schema,
   title,
@@ -166,7 +129,7 @@ export const JsonSchemaSummary = ({
                       {required.includes(name) ? (
                         <Badge
                           variant="outline"
-                          className="text-[10px] font-normal px-1.5 py-0 leading-tight"
+                          className="px-1.5 text-muted-foreground"
                         >
                           required
                         </Badge>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CalendarOff } from "lucide-react";
 
 import { DateTime } from "@/components/date-time/date-time";
-import { StatusBadge } from "@/components/status-badge";
+import { ToneBadge } from "@/components/status-badge";
 import {
   getUpcomingSchedules,
   type UpcomingSchedule,
@@ -23,11 +23,7 @@ const UpcomingScheduleItem = ({ schedule }: { schedule: UpcomingSchedule }) => {
           <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
             <span className="truncate">{schedule.pipeline.name}</span>
             {schedule.pipeline.isActive ? null : (
-              <StatusBadge
-                status="disabled"
-                label="Pipeline disabled"
-                className="normal-case"
-              />
+              <ToneBadge tone="muted">Pipeline disabled</ToneBadge>
             )}
           </span>
         </span>

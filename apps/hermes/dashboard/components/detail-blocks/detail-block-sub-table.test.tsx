@@ -191,9 +191,42 @@ describe("DetailBlockSubTableView", () => {
         data={{ rows: [{ status: "delivered", inconsistent: true }] }}
       />,
     );
-    expect(screen.getByText("delivered")).toBeInTheDocument();
+    expect(screen.getByText("delivered")).toHaveAttribute(
+      "data-tone",
+      "success",
+    );
     expect(screen.getByText("!")).toBeInTheDocument();
   });
+
+  it.each([
+    ["destructive", "failed"],
+    ["muted", "muted"],
+    ["outline", "neutral"],
+    ["not-a-variant", "neutral"],
+  ])(
+    "renders a %s badge variant from a row field with the %s tone",
+    (variant, tone) => {
+      render(
+        <DetailBlockSubTableView
+          block={{
+            type: "subTable",
+            field: "rows",
+            columns: [
+              {
+                field: "status",
+                label: "Status",
+                type: "badge",
+                badgeVariantField: "statusVariant",
+              },
+            ],
+          }}
+          data={{ rows: [{ status: "sent", statusVariant: variant }] }}
+        />,
+      );
+
+      expect(screen.getByText("sent")).toHaveAttribute("data-tone", tone);
+    },
+  );
 
   it("truncates long values and exposes the full text via title", () => {
     const long = "a".repeat(120);
