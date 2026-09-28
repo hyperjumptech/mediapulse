@@ -189,11 +189,13 @@ export const DetailBlockTabsView = ({
                   value={`tab-${index}`}
                 >
                   {tab.label}
+                  {count !== undefined ? " " : null}
                   {count !== undefined ? (
                     <span className="text-muted-foreground ml-1.5 text-xs tabular-nums">
                       {count}
                     </span>
                   ) : null}
+                  {tab.badge ? " " : null}
                   {tab.badge ? (
                     <Badge
                       variant={mapBadgeVariant(tab.badge.variant)}

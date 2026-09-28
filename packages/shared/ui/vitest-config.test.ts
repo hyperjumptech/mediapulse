@@ -13,6 +13,6 @@ describe("vitest.config.ts", () => {
     expect(configSource).toContain('environment: "jsdom"');
     expect(configSource).toContain("./vitest-setup.ts");
     expect(configSource).toContain("vitest-config.test.ts");
-    expect(configSource).toContain("src/hooks/use-sidebar-provider-state.ts");
+    expect(configSource).toContain("src/hooks/**/*.ts");
   });
 });

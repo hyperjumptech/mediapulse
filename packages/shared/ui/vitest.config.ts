@@ -13,7 +13,7 @@ export default defineConfig({
     include: ["src/**/*.test.ts", "src/**/*.test.tsx", "vitest-config.test.ts"],
     coverage: {
       provider: "v8",
-      include: ["src/hooks/use-sidebar-provider-state.ts"],
+      include: ["src/hooks/**/*.ts"],
     },
   },
   plugins: [react(), tsconfigPaths()],
