@@ -10,6 +10,7 @@ import {
   previewDomainExpansion,
   updateDomainTableItem,
 } from "@/lib/domain-dashboard";
+import { requireDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 /**
  * Creates a table row and returns to the list page.
@@ -25,6 +26,7 @@ export const submitDomainTableFullPageCreate = async (
   basePath: string,
   payload: Record<string, unknown>,
 ): Promise<void> => {
+  await requireDashboardAdmin();
   await createDomainTableItem(integrationId, resource, payload);
   revalidatePath(basePath);
   redirect(basePath);
@@ -46,6 +48,7 @@ export const submitDomainTableFullPageUpdate = async (
   basePath: string,
   payload: Record<string, unknown>,
 ): Promise<void> => {
+  await requireDashboardAdmin();
   await updateDomainTableItem(integrationId, resource, id, payload);
   revalidatePath(basePath);
   redirect(basePath);
@@ -62,5 +65,7 @@ export const runDomainTablePreviewExpansion = async (
   integrationId: string,
   expansionString: string,
 ): Promise<PreviewExpansionResponse> => {
+  await requireDashboardAdmin();
+
   return previewDomainExpansion(integrationId, expansionString);
 };

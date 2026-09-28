@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 
 import { DomainTableFullPageEditor } from "@/components/domain-table-full-page-editor";
-import { withAuthProtection } from "@/components/with-auth-protection";
 import { getDomainIntegrationByIntegrationId } from "@/lib/domain-integrations";
 import {
   getDomainTableItemById,
@@ -15,6 +14,10 @@ import {
   parseDomainTableFormFieldsFromJsonSchema,
 } from "@/lib/domain-table-form-schema";
 import type { PipelineUsageSummary } from "@/lib/pipeline-usage";
+import {
+  requireDashboardAdmin,
+  withDashboardAdmin,
+} from "@/lib/require-dashboard-admin";
 
 /**
  * Full-page edit flow for table-v1 resources that set `createNavigation: "full-page"` in the manifest.
@@ -29,7 +32,9 @@ const EditDomainTablePage = async ({
   }>;
 }) => {
   const { integrationId, resource, itemId } = await params;
-  const integration = await getDomainIntegrationByIntegrationId(integrationId);
+  const integration = await withDashboardAdmin(
+    getDomainIntegrationByIntegrationId(integrationId),
+  );
   if (!integration) notFound();
 
   const meta = await getDomainTableMeta(integrationId, resource);
@@ -66,6 +71,7 @@ const EditDomainTablePage = async ({
 
   const updateAction = async (formData: FormData) => {
     "use server";
+    await requireDashboardAdmin();
     const id = String(formData.get("__id") ?? "");
     if (!id) return;
     await submitDomainTableFullPageUpdate(
@@ -99,4 +105,4 @@ const EditDomainTablePage = async ({
   );
 };
 
-export default withAuthProtection(EditDomainTablePage);
+export default EditDomainTablePage;

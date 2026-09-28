@@ -1,33 +1,32 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const cookiesMock = vi.fn();
+const requireDashboardAdminMock = vi.fn();
 
-vi.mock("next/headers", () => ({
-  cookies: () => cookiesMock(),
+vi.mock("@/lib/require-dashboard-admin", () => ({
+  requireDashboardAdmin: () => requireDashboardAdminMock(),
 }));
 
-vi.mock("next/navigation", () => ({
-  redirect: vi.fn(),
-}));
+import DashboardPage from "./page";
+
+const admin = {
+  id: "u1",
+  name: "U",
+  email: "u@example.com",
+  credentialVersion: 0,
+};
 
 describe("DashboardPage", () => {
   afterEach(() => {
-    vi.restoreAllMocks();
-    cookiesMock.mockReset();
+    requireDashboardAdminMock.mockReset();
   });
 
   it("renders dashboard heading when authenticated", async () => {
     // Setup
-    cookiesMock.mockResolvedValue({
-      get: () => ({ value: "true" }),
-    });
-
-    const DashboardPage = (await import("./page")).default;
+    requireDashboardAdminMock.mockResolvedValue(admin);
 
     // Act
-    const component = await DashboardPage({});
-    render(component);
+    render(await DashboardPage());
 
     // Assert
     expect(
@@ -37,15 +36,10 @@ describe("DashboardPage", () => {
 
   it("renders description text when authenticated", async () => {
     // Setup
-    cookiesMock.mockResolvedValue({
-      get: () => ({ value: "true" }),
-    });
-
-    const DashboardPage = (await import("./page")).default;
+    requireDashboardAdminMock.mockResolvedValue(admin);
 
     // Act
-    const component = await DashboardPage({});
-    render(component);
+    render(await DashboardPage());
 
     // Assert
     expect(
@@ -55,19 +49,26 @@ describe("DashboardPage", () => {
 
   it("applies correct styling to heading", async () => {
     // Setup
-    cookiesMock.mockResolvedValue({
-      get: () => ({ value: "true" }),
-    });
-
-    const DashboardPage = (await import("./page")).default;
+    requireDashboardAdminMock.mockResolvedValue(admin);
 
     // Act
-    const component = await DashboardPage({});
-    render(component);
+    render(await DashboardPage());
 
     // Assert
     const heading = screen.getByRole("heading", { name: "Dashboard" });
+
     expect(heading).toHaveClass("text-2xl");
     expect(heading).toHaveClass("font-semibold");
+  });
+
+  it("does not render when the caller is not an active admin", async () => {
+    // Setup
+    requireDashboardAdminMock.mockRejectedValue(new Error("NEXT_REDIRECT"));
+
+    // Act
+    const pending = DashboardPage();
+
+    // Assert
+    await expect(pending).rejects.toThrow("NEXT_REDIRECT");
   });
 });

@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import type { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { verifyDashboardSession } from "@/lib/dashboard-session-token";
 import { touchMcpApiKeyLastUsed, validateApiKey } from "@/lib/mcp-api-keys";
 import { parseBearerToken } from "@/lib/parse-bearer-token";
 
@@ -50,13 +51,13 @@ export const DASHBOARD_UNAUTHORIZED_BODY = { error: "Unauthorized" } as const;
 export const parseDashboardUserFromAuthCookie = (
   raw: string,
 ): DashboardUser | null => {
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    const result = dashboardAuthUserCookieSchema.safeParse(parsed);
-    return result.success ? result.data : null;
-  } catch {
+  const claims = verifyDashboardSession(raw);
+  if (!claims) {
     return null;
   }
+  const result = dashboardAuthUserCookieSchema.safeParse(claims);
+
+  return result.success ? result.data : null;
 };
 
 /**

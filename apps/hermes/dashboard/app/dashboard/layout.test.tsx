@@ -3,27 +3,14 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getDashboardSessionMock = vi.fn();
-const resolveAccessMock = vi.fn();
+const getDashboardAdminMock = vi.fn();
+const getActiveDomainIntegrationsMock = vi.fn();
+const mergeNavViewsMock = vi.fn();
+const redirectMock = vi.fn((path: string) => {
+  throw new Error(`NEXT_REDIRECT:${path}`);
+});
 
-const { getActiveDomainIntegrationsMock } = vi.hoisted(() => ({
-  getActiveDomainIntegrationsMock: vi.fn(),
-}));
-
-const { redirectMock } = vi.hoisted(() => ({
-  redirectMock: vi.fn((path: string) => {
-    void path;
-    throw new Error("NEXT_REDIRECT");
-  }),
-}));
-
-vi.mock("@hermes/env", () => ({
-  env: {
-    ORCHESTRATION_DATABASE_URL: "postgresql://test:test@localhost:5432/test",
-    TEMP_ADMIN_USERNAME: "test",
-    TEMP_ADMIN_PASSWORD: "testtest",
-    HERMES_INTERNAL_API_KEY: "test-key",
-  },
-}));
+let capturedIntegrations: Promise<unknown> | undefined;
 
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => redirectMock(path),
@@ -31,102 +18,146 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/auth-dashboard", () => ({
   getDashboardSession: () => getDashboardSessionMock(),
-  resolveHermesActiveAdminDashboardAccess: () => resolveAccessMock(),
   HERMES_DASHBOARD_CLEAR_SESSION_PATH: "/clear-hermes-dashboard-session",
+}));
+
+vi.mock("@/lib/require-dashboard-admin", () => ({
+  getDashboardAdmin: () => getDashboardAdminMock(),
 }));
 
 vi.mock("@/lib/domain-integrations", () => ({
   getActiveDomainIntegrations: () => getActiveDomainIntegrationsMock(),
 }));
 
+vi.mock("@/lib/merge-domain-integration-nav-pages", () => ({
+  mergeDomainIntegrationNavViews: (integration: unknown) =>
+    mergeNavViewsMock(integration),
+}));
+
 vi.mock("@/components/dashboard-shell", () => ({
   DashboardShell: ({
     children,
     user,
+    domainIntegrations,
   }: {
     children: React.ReactNode;
     user?: { name: string; email: string } | null;
-    domainIntegrations?: unknown;
-  }) => (
-    <div data-testid="dashboard-shell" data-user={user?.name ?? "none"}>
-      {children}
-    </div>
-  ),
+    domainIntegrations: Promise<unknown>;
+  }) => {
+    capturedIntegrations = domainIntegrations;
+
+    return (
+      <div data-testid="dashboard-shell" data-user={user?.name ?? "none"}>
+        {children}
+      </div>
+    );
+  },
 }));
+
+import DashboardLayout from "./layout";
+
+const sessionUser = {
+  id: "u1",
+  name: "Admin",
+  email: "a@b.com",
+  credentialVersion: 0,
+};
+
+const renderLayout = async () => {
+  render(
+    await DashboardLayout({
+      children: <div data-testid="child-content">Child Content</div>,
+    }),
+  );
+};
 
 describe("DashboardLayout", () => {
   beforeEach(() => {
+    capturedIntegrations = undefined;
+    getDashboardSessionMock.mockResolvedValue(sessionUser);
+    getDashboardAdminMock.mockResolvedValue(sessionUser);
     getActiveDomainIntegrationsMock.mockResolvedValue([]);
-    resolveAccessMock.mockResolvedValue({ ok: true });
-    redirectMock.mockImplementation((path: string) => {
-      void path;
-      throw new Error("NEXT_REDIRECT");
-    });
+    mergeNavViewsMock.mockReturnValue([]);
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
-    getDashboardSessionMock.mockReset();
-    resolveAccessMock.mockReset();
-    redirectMock.mockReset();
-    redirectMock.mockImplementation((path: string) => {
-      void path;
-      throw new Error("NEXT_REDIRECT");
-    });
-    getActiveDomainIntegrationsMock.mockReset();
-    getActiveDomainIntegrationsMock.mockResolvedValue([]);
+    vi.clearAllMocks();
   });
 
-  it("renders children inside DashboardShell when access is allowed", async () => {
-    getDashboardSessionMock.mockResolvedValue({
-      id: "u1",
-      name: "Admin",
-      email: "a@b.com",
-    });
-    const DashboardLayout = (await import("./layout")).default;
+  it("renders children inside DashboardShell with the session user", async () => {
+    // Act
+    await renderLayout();
 
-    const component = await DashboardLayout({
-      children: <div data-testid="child-content">Child Content</div>,
-    });
-    render(component);
-
-    expect(screen.getByTestId("dashboard-shell")).toBeInTheDocument();
+    // Assert
+    expect(screen.getByTestId("dashboard-shell")).toHaveAttribute(
+      "data-user",
+      "Admin",
+    );
     expect(screen.getByTestId("child-content")).toBeInTheDocument();
   });
 
-  it("passes user to DashboardShell when session exists", async () => {
-    const user = {
-      id: "u1",
-      name: "Test User",
-      email: "test@example.com",
-    };
-    getDashboardSessionMock.mockResolvedValue(user);
-    const DashboardLayout = (await import("./layout")).default;
+  it("does not wait for the database before rendering the shell", async () => {
+    // Setup
+    getDashboardAdminMock.mockReturnValue(new Promise(() => {}));
 
-    const component = await DashboardLayout({
-      children: <div>Content</div>,
-    });
-    render(component);
+    // Act
+    await renderLayout();
 
-    expect(screen.getByTestId("dashboard-shell")).toHaveAttribute(
-      "data-user",
-      "Test User",
-    );
+    // Assert
+    expect(screen.getByTestId("dashboard-shell")).toBeInTheDocument();
+    expect(getActiveDomainIntegrationsMock).not.toHaveBeenCalled();
   });
 
-  it("redirects to clear-session route when access is denied", async () => {
-    resolveAccessMock.mockResolvedValue({ ok: false });
+  it("streams the integration nav for an active admin", async () => {
+    // Setup
+    getActiveDomainIntegrationsMock.mockResolvedValue([
+      { integrationId: "mediapulse", name: "Mediapulse" },
+    ]);
+    mergeNavViewsMock.mockReturnValue([{ id: "tickers" }]);
+
+    // Act
+    await renderLayout();
+
+    // Assert
+    await expect(capturedIntegrations).resolves.toEqual([
+      {
+        integrationId: "mediapulse",
+        name: "Mediapulse",
+        views: [{ id: "tickers" }],
+      },
+    ]);
+  });
+
+  it("streams an empty nav when the admin check fails", async () => {
+    // Setup
+    getDashboardAdminMock.mockResolvedValue(null);
+
+    // Act
+    await renderLayout();
+
+    // Assert
+    await expect(capturedIntegrations).resolves.toEqual([]);
+    expect(getActiveDomainIntegrationsMock).not.toHaveBeenCalled();
+  });
+
+  it("streams an empty nav when loading integrations fails", async () => {
+    // Setup
+    getActiveDomainIntegrationsMock.mockRejectedValue(new Error("db down"));
+
+    // Act
+    await renderLayout();
+
+    // Assert
+    await expect(capturedIntegrations).resolves.toEqual([]);
+  });
+
+  it("redirects to the clear-session route without a valid session", async () => {
+    // Setup
     getDashboardSessionMock.mockResolvedValue(null);
-    const DashboardLayout = (await import("./layout")).default;
 
-    await expect(
-      DashboardLayout({
-        children: <div>Content</div>,
-      }),
-    ).rejects.toThrow("NEXT_REDIRECT");
-
-    expect(redirectMock).toHaveBeenCalledWith(
-      "/clear-hermes-dashboard-session",
+    // Act & Assert
+    await expect(renderLayout()).rejects.toThrow(
+      "NEXT_REDIRECT:/clear-hermes-dashboard-session",
     );
   });
 });

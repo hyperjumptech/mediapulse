@@ -1,24 +1,11 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const getAgentByIdMock = vi.fn();
-const fetchAgentTabContentsMock = vi.fn();
 const notFoundMock = vi.fn();
-
-vi.mock("@hermes/env", () => ({
-  env: {
-    ORCHESTRATION_DATABASE_URL:
-      "postgresql://postgres:postgres@localhost:5432/hermes?schema=orchestration",
-    TEMP_ADMIN_USERNAME: "test",
-    TEMP_ADMIN_PASSWORD: "testtest",
-    HERMES_INTERNAL_API_KEY: "test-key",
-  },
-}));
-
-vi.mock("next/headers", () => ({
-  cookies: vi.fn(),
-}));
+const sectionState = { suspended: false };
+const pendingTabContents = new Promise<never>(() => undefined);
 
 vi.mock("next/navigation", () => ({
   redirect: vi.fn(),
@@ -28,13 +15,38 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
+vi.mock("@/lib/require-dashboard-admin", () => ({
+  withDashboardAdmin: <Value,>(load: Promise<Value>) => load,
+  requireDashboardAdmin: async () => ({
+    id: "u1",
+    name: "U",
+    email: "u@example.com",
+    credentialVersion: 0,
+  }),
+}));
+
 vi.mock("@/lib/agents", () => ({
   getAgentById: (...args: unknown[]) => getAgentByIdMock(...args),
 }));
 
-vi.mock("@/lib/domain-content-view", () => ({
-  fetchAgentTabContents: (...args: unknown[]) =>
-    fetchAgentTabContentsMock(...args),
+vi.mock("./agent-tab-contents-section", () => ({
+  AgentTabContentsSection: ({
+    agent,
+  }: {
+    agent: { agentId: string; agentVersion: string };
+  }) => {
+    if (sectionState.suspended) {
+      React.use(pendingTabContents);
+    }
+
+    return (
+      <div
+        data-testid="agent-tab-contents-section"
+        data-agent-id={agent.agentId}
+        data-agent-version={agent.agentVersion}
+      />
+    );
+  },
 }));
 
 vi.mock("./agent-details-content", () => ({
@@ -51,12 +63,6 @@ vi.mock("./agent-details-content", () => ({
       Agent details
     </div>
   ),
-}));
-
-vi.mock("@/components/with-auth-protection", () => ({
-  withAuthProtection: <P extends Record<string, unknown>>(
-    Component: (props: P) => React.ReactNode,
-  ) => Component,
 }));
 
 import AgentDetailPage from "./page";
@@ -79,45 +85,63 @@ describe("AgentDetailPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     getAgentByIdMock.mockReset();
-    fetchAgentTabContentsMock.mockReset();
     notFoundMock.mockReset();
+    sectionState.suspended = false;
   });
 
-  it("renders agent details content when agent exists", async () => {
-    const agent = createMockAgent();
-    getAgentByIdMock.mockResolvedValue(agent);
-    fetchAgentTabContentsMock.mockResolvedValue([]);
+  it("renders the agent tab contents section for the loaded agent", async () => {
+    // Setup
+    getAgentByIdMock.mockResolvedValue(createMockAgent());
 
+    // Act
     const component = await AgentDetailPage({
       params: Promise.resolve({ id: "agent-uuid-1" }),
     });
     render(component);
 
-    expect(screen.getByTestId("agent-details-content")).toBeInTheDocument();
+    // Assert
+    const section = screen.getByTestId("agent-tab-contents-section");
+
+    expect(getAgentByIdMock).toHaveBeenCalledWith("agent-uuid-1");
+    expect(section).toHaveAttribute("data-agent-id", "test-agent");
+    expect(section).toHaveAttribute("data-agent-version", "1.0");
   });
 
-  it("calls fetchAgentTabContents for the agent integration", async () => {
+  it("renders the agent details while the tab contents are loading", async () => {
+    // Setup
     getAgentByIdMock.mockResolvedValue(createMockAgent());
-    fetchAgentTabContentsMock.mockResolvedValue([]);
+    sectionState.suspended = true;
 
-    await AgentDetailPage({
-      params: Promise.resolve({ id: "my-agent-id" }),
+    // Act
+    const component = await AgentDetailPage({
+      params: Promise.resolve({ id: "agent-uuid-1" }),
+    });
+    await act(async () => {
+      render(component);
     });
 
-    expect(fetchAgentTabContentsMock).toHaveBeenCalledWith(
-      "acme-local",
+    // Assert
+    expect(screen.getByTestId("agent-details-content")).toHaveAttribute(
+      "data-agent-id",
       "test-agent",
     );
+    expect(
+      screen.queryByTestId("agent-tab-contents-section"),
+    ).not.toBeInTheDocument();
   });
 
   it("calls notFound when agent is missing", async () => {
+    // Setup
     getAgentByIdMock.mockResolvedValue(null);
 
+    // Act
     await expect(
       AgentDetailPage({
         params: Promise.resolve({ id: "missing" }),
       }),
     ).rejects.toThrow("NEXT_NOT_FOUND");
+
+    // Assert
     expect(notFoundMock).toHaveBeenCalled();
   });
 });

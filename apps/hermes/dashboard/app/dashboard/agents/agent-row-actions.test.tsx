@@ -11,6 +11,20 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+vi.mock("next/link", () => ({
+  default: ({
+    children,
+    href,
+  }: {
+    children: React.ReactNode;
+    href: string;
+  }) => (
+    <a href={href} data-next-link="">
+      {children}
+    </a>
+  ),
+}));
+
 const createMockFormWithAction = () => {
   const FormWithAction = ({
     children,
@@ -166,7 +180,7 @@ describe("AgentRowActions", () => {
     expect(screen.getByText("Delete")).toBeInTheDocument();
   });
 
-  it("renders View details as link when onView not provided", async () => {
+  it("renders View details as a client-side link when onView not provided", async () => {
     // Setup
     const mock = await getUseFormActionMock();
     mock.mockReturnValue(createMockUseFormAction());
@@ -178,6 +192,7 @@ describe("AgentRowActions", () => {
     // Assert
     const viewLink = screen.getByRole("link", { name: /View details/i });
     expect(viewLink).toHaveAttribute("href", "/dashboard/agents/agent-123");
+    expect(viewLink).toHaveAttribute("data-next-link");
   });
 
   it("renders View details as button when onView provided", async () => {

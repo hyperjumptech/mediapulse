@@ -1,68 +1,38 @@
+import { Suspense } from "react";
+
 import { PageHeader } from "@/components/page-header";
-import { withAuthProtection } from "@/components/with-auth-protection";
-import { getPipelinesWithSteps } from "@/lib/pipelines";
+import { ListBodySkeleton } from "@/components/page-skeletons";
+import type { HttpTriggerSortField } from "@/lib/http-triggers";
 import {
-  getHttpTriggersPage,
-  type HttpTriggerSortDir,
-  type HttpTriggerSortField,
-} from "@/lib/http-triggers";
+  parseListPagination,
+  parseListSearch,
+  parseListSort,
+  type ListPageSearchParams,
+} from "@/lib/list-page-params";
 
-import { HttpTriggersWithModal } from "./http-triggers-with-modal";
+import {
+  HttpTriggersSection,
+  type HttpTriggersQuery,
+} from "./http-triggers-section";
 
-const DEFAULT_PAGE_SIZE = 15;
 const SORT_FIELDS: HttpTriggerSortField[] = [
   "name",
   "method",
   "created",
   "enabled",
 ];
-const SORT_DIRS: HttpTriggerSortDir[] = ["asc", "desc"];
 
-const parseSort = (
-  sort?: string,
-  dir?: string,
-): { sortBy: HttpTriggerSortField; sortDir: HttpTriggerSortDir } => {
-  const sortBy = SORT_FIELDS.includes(sort as HttpTriggerSortField)
-    ? (sort as HttpTriggerSortField)
-    : "name";
-  const sortDir = SORT_DIRS.includes(dir as HttpTriggerSortDir)
-    ? (dir as HttpTriggerSortDir)
-    : "asc";
-  return { sortBy, sortDir };
-};
-
-/**
- * HTTP triggers list page.
- */
 const HttpTriggersPage = async ({
   searchParams,
 }: {
-  searchParams:
-    | Promise<{
-        page?: string;
-        size?: string;
-        q?: string;
-        sort?: string;
-        dir?: string;
-      }>
-    | { page?: string; size?: string; q?: string; sort?: string; dir?: string };
+  searchParams: Promise<ListPageSearchParams> | ListPageSearchParams;
 }) => {
   const resolved = await Promise.resolve(searchParams);
-  const page = Math.max(1, parseInt(resolved.page ?? "1", 10) || 1);
-  const pageSize = Math.min(
-    100,
-    Math.max(
-      1,
-      parseInt(resolved.size ?? String(DEFAULT_PAGE_SIZE), 10) ||
-        DEFAULT_PAGE_SIZE,
-    ),
-  );
-  const search = resolved.q?.trim() ?? undefined;
-  const { sortBy, sortDir } = parseSort(resolved.sort, resolved.dir);
-  const [triggersResult, pipelines] = await Promise.all([
-    getHttpTriggersPage(page, pageSize, { search, sortBy, sortDir }),
-    getPipelinesWithSteps(),
-  ]);
+  const query: HttpTriggersQuery = {
+    ...parseListPagination(resolved),
+    ...parseListSort(resolved, SORT_FIELDS, "name"),
+    search: parseListSearch(resolved),
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -70,18 +40,11 @@ const HttpTriggersPage = async ({
         title="HTTP Triggers"
         description="Run pipelines on demand through authenticated HTTP endpoints."
       />
-      <HttpTriggersWithModal
-        httpTriggers={triggersResult.httpTriggers}
-        pipelines={pipelines}
-        currentPage={triggersResult.page}
-        pageSize={triggersResult.pageSize}
-        total={triggersResult.total}
-        searchQuery={search}
-        sortBy={sortBy}
-        sortDir={sortDir}
-      />
+      <Suspense key={JSON.stringify(query)} fallback={<ListBodySkeleton />}>
+        <HttpTriggersSection {...query} />
+      </Suspense>
     </div>
   );
 };
 
-export default withAuthProtection(HttpTriggersPage);
+export default HttpTriggersPage;

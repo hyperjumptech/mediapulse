@@ -33,10 +33,20 @@ vi.mock("@/app/dashboard/domain-content-view-page", () => ({
   },
 }));
 
-vi.mock("@/components/with-auth-protection", () => ({
-  withAuthProtection: <P extends Record<string, unknown>>(
-    Component: (props: P) => React.ReactNode,
-  ) => Component,
+vi.mock("@/lib/require-dashboard-admin", () => ({
+  withDashboardAdmin: <Value,>(load: Promise<Value>) => load,
+  requireDashboardAdmin: vi.fn().mockResolvedValue({
+    id: "u1",
+    name: "U",
+    email: "u@example.com",
+    credentialVersion: 0,
+  }),
+  getDashboardAdmin: vi.fn().mockResolvedValue({
+    id: "u1",
+    name: "U",
+    email: "u@example.com",
+    credentialVersion: 0,
+  }),
 }));
 
 import IntegrationDashboardViewPage from "./page";

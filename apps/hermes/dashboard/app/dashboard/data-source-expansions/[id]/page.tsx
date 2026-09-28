@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { withAuthProtection } from "@/components/with-auth-protection";
+import { requireDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 /**
  * Legacy bookmark redirect: `/dashboard/data-source-expansions/[id]` → keyed full-page edit URL.
@@ -9,6 +9,7 @@ const EditDataSourceExpansionPage = async ({
 }: {
   params: Promise<{ id: string }>;
 }) => {
+  await requireDashboardAdmin();
   const { id } = await params;
   const { getDefaultDomainIntegration } =
     await import("@/lib/domain-integrations");
@@ -18,4 +19,4 @@ const EditDataSourceExpansionPage = async ({
   );
 };
 
-export default withAuthProtection(EditDataSourceExpansionPage);
+export default EditDataSourceExpansionPage;

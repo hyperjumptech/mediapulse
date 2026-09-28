@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 
 import { DomainTableFullPageEditor } from "@/components/domain-table-full-page-editor";
-import { withAuthProtection } from "@/components/with-auth-protection";
 import { getDomainIntegrationByIntegrationId } from "@/lib/domain-integrations";
 import { getDomainTableMeta } from "@/lib/domain-dashboard";
 import { submitDomainTableFullPageCreate } from "@/lib/domain-table-full-page-actions";
@@ -9,6 +8,10 @@ import {
   formDataToDomainPayload,
   parseDomainTableFormFieldsFromJsonSchema,
 } from "@/lib/domain-table-form-schema";
+import {
+  requireDashboardAdmin,
+  withDashboardAdmin,
+} from "@/lib/require-dashboard-admin";
 
 /**
  * Full-page create flow for table-v1 resources that set `createNavigation: "full-page"` in the manifest.
@@ -19,7 +22,9 @@ const NewDomainTablePage = async ({
   params: Promise<{ integrationId: string; resource: string }>;
 }) => {
   const { integrationId, resource } = await params;
-  const integration = await getDomainIntegrationByIntegrationId(integrationId);
+  const integration = await withDashboardAdmin(
+    getDomainIntegrationByIntegrationId(integrationId),
+  );
   if (!integration) notFound();
 
   const meta = await getDomainTableMeta(integrationId, resource);
@@ -35,6 +40,7 @@ const NewDomainTablePage = async ({
 
   const createAction = async (formData: FormData) => {
     "use server";
+    await requireDashboardAdmin();
     await submitDomainTableFullPageCreate(
       integrationId,
       resource,
@@ -62,4 +68,4 @@ const NewDomainTablePage = async ({
   );
 };
 
-export default withAuthProtection(NewDomainTablePage);
+export default NewDomainTablePage;

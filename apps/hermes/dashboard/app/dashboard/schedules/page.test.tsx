@@ -1,152 +1,68 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-const getSchedulesPageMock = vi.fn();
-const getPipelinesWithStepsMock = vi.fn();
-
-vi.mock("next/headers", () => ({
-  cookies: vi.fn(),
-}));
-
-vi.mock("next/navigation", () => ({
-  redirect: vi.fn(),
-}));
-
-vi.mock("@/lib/schedules", () => ({
-  getSchedulesPage: (...args: unknown[]) => getSchedulesPageMock(...args),
-}));
-
-vi.mock("@/lib/pipelines", () => ({
-  getPipelinesWithSteps: () => getPipelinesWithStepsMock(),
-}));
-
-vi.mock("@/lib/validate-pipeline", () => ({
-  getPipelinesValidationMap: vi.fn().mockResolvedValue({}),
-}));
-
-vi.mock("@hermes/orchestration-database", () => ({ prisma: {} }));
-
-vi.mock("./schedules-with-modal", () => ({
-  SchedulesWithModal: ({
-    schedules,
-    pipelines,
-  }: {
-    schedules: Array<{ id: string }>;
-    pipelines: Array<{ id: string }>;
-  }) => (
-    <div
-      data-testid="schedules-with-modal"
-      data-schedules-count={schedules.length}
-      data-pipelines-count={pipelines.length}
-    >
-      Schedules
-    </div>
+vi.mock("./schedules-section", () => ({
+  SchedulesSection: (props: Record<string, unknown>) => (
+    <div data-testid="schedules-section" data-query={JSON.stringify(props)} />
   ),
-}));
-
-vi.mock("@/components/with-auth-protection", () => ({
-  withAuthProtection: <P extends Record<string, unknown>>(
-    Component: (props: P) => React.ReactNode,
-  ) => Component,
 }));
 
 import SchedulesPage from "./page";
 
+const renderedQuery = () =>
+  JSON.parse(
+    screen.getByTestId("schedules-section").getAttribute("data-query") ?? "{}",
+  );
+
 describe("SchedulesPage", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-    getSchedulesPageMock.mockReset();
-    getPipelinesWithStepsMock.mockReset();
-  });
-
-  it("renders schedules with modal when authenticated", async () => {
-    // Setup
-    getSchedulesPageMock.mockResolvedValue({
-      schedules: [{ id: "1", name: "Test Schedule" }],
-      total: 1,
-      page: 1,
-      pageSize: 15,
-    });
-    getPipelinesWithStepsMock.mockResolvedValue([
-      { id: "pipeline-1", name: "Pipeline A" },
-    ]);
-
+  it("renders the page header and the schedules section", async () => {
     // Act
-    const component = await SchedulesPage({ searchParams: {} });
-    render(component);
+    render(await SchedulesPage({ searchParams: {} }));
 
     // Assert
-    expect(screen.getByTestId("schedules-with-modal")).toBeInTheDocument();
-    expect(screen.getByTestId("schedules-with-modal")).toHaveAttribute(
-      "data-schedules-count",
-      "1",
-    );
-  });
-
-  it("passes pipelines to schedules with modal", async () => {
-    // Setup
-    getSchedulesPageMock.mockResolvedValue({
-      schedules: [],
-      total: 0,
+    expect(
+      screen.getByRole("heading", { name: "Schedules" }),
+    ).toBeInTheDocument();
+    expect(renderedQuery()).toEqual({
       page: 1,
       pageSize: 15,
+      sortBy: "name",
+      sortDir: "asc",
     });
-    getPipelinesWithStepsMock.mockResolvedValue([
-      { id: "pipeline-1" },
-      { id: "pipeline-2" },
-    ]);
-
-    // Act
-    const component = await SchedulesPage({ searchParams: {} });
-    render(component);
-
-    // Assert
-    expect(screen.getByTestId("schedules-with-modal")).toHaveAttribute(
-      "data-pipelines-count",
-      "2",
-    );
   });
 
-  it("passes search query to getSchedulesPage", async () => {
-    // Setup
-    getSchedulesPageMock.mockResolvedValue({
-      schedules: [],
-      total: 0,
-      page: 1,
-      pageSize: 15,
-    });
-    getPipelinesWithStepsMock.mockResolvedValue([]);
-
+  it("passes search, sort, and pagination to the section", async () => {
     // Act
-    await SchedulesPage({ searchParams: { q: "daily" } });
+    render(
+      await SchedulesPage({
+        searchParams: Promise.resolve({
+          q: " daily ",
+          sort: "nextRunAt",
+          dir: "desc",
+          page: "3",
+          size: "25",
+        }),
+      }),
+    );
 
     // Assert
-    expect(getSchedulesPageMock).toHaveBeenCalledWith(
-      1,
-      15,
-      expect.objectContaining({ search: "daily" }),
-    );
+    expect(renderedQuery()).toEqual({
+      page: 3,
+      pageSize: 25,
+      sortBy: "nextRunAt",
+      sortDir: "desc",
+      search: "daily",
+    });
   });
 
-  it("parses sort parameters correctly", async () => {
-    // Setup
-    getSchedulesPageMock.mockResolvedValue({
-      schedules: [],
-      total: 0,
-      page: 1,
-      pageSize: 15,
-    });
-    getPipelinesWithStepsMock.mockResolvedValue([]);
-
+  it("falls back to defaults for unknown sort fields", async () => {
     // Act
-    await SchedulesPage({ searchParams: { sort: "nextRunAt", dir: "desc" } });
+    render(
+      await SchedulesPage({ searchParams: { sort: "bogus", dir: "sideways" } }),
+    );
 
     // Assert
-    expect(getSchedulesPageMock).toHaveBeenCalledWith(
-      1,
-      15,
-      expect.objectContaining({ sortBy: "nextRunAt", sortDir: "desc" }),
-    );
+    expect(renderedQuery()).toMatchObject({ sortBy: "name", sortDir: "asc" });
   });
 });

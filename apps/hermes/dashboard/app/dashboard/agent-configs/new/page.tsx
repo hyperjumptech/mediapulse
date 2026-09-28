@@ -1,8 +1,8 @@
 import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
 
 import { PageHeader } from "@/components/page-header";
-import { withAuthProtection } from "@/components/with-auth-protection";
 import { getAgentConfigById } from "@/lib/agent-configs";
+import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 import {
   loadExpansionPickerPage,
   loadVariablePickerPage,
@@ -17,14 +17,16 @@ const AddConfigPage = async ({
 }) => {
   const resolved = await Promise.resolve(searchParams);
 
-  const [agentsForDropdown, duplicateSource] = await Promise.all([
-    orchestrationPrisma.agentRegistry.findMany({
-      where: { isActive: true },
-      select: { id: true, agentId: true, agentVersion: true },
-      orderBy: [{ agentId: "asc" }, { agentVersion: "asc" }],
-    }),
-    resolved.duplicate ? getAgentConfigById(resolved.duplicate) : null,
-  ]);
+  const [agentsForDropdown, duplicateSource] = await withDashboardAdmin(
+    Promise.all([
+      orchestrationPrisma.agentRegistry.findMany({
+        where: { isActive: true },
+        select: { id: true, agentId: true, agentVersion: true },
+        orderBy: [{ agentId: "asc" }, { agentVersion: "asc" }],
+      }),
+      resolved.duplicate ? getAgentConfigById(resolved.duplicate) : null,
+    ]),
+  );
 
   const initialData = duplicateSource
     ? {
@@ -57,4 +59,4 @@ const AddConfigPage = async ({
   );
 };
 
-export default withAuthProtection(AddConfigPage);
+export default AddConfigPage;

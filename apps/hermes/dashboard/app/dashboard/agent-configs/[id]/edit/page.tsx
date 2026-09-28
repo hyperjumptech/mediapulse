@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
 
 import { PageHeader } from "@/components/page-header";
-import { withAuthProtection } from "@/components/with-auth-protection";
 import { getAgentConfigById } from "@/lib/agent-configs";
+import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 import {
   loadExpansionPickerPage,
   loadVariablePickerPage,
@@ -19,14 +19,16 @@ const EditConfigPage = async ({
 }) => {
   const { id } = await Promise.resolve(params);
 
-  const [config, agentsForDropdown] = await Promise.all([
-    getAgentConfigById(id),
-    orchestrationPrisma.agentRegistry.findMany({
-      where: { isActive: true },
-      select: { id: true, agentId: true, agentVersion: true },
-      orderBy: [{ agentId: "asc" }, { agentVersion: "asc" }],
-    }),
-  ]);
+  const [config, agentsForDropdown] = await withDashboardAdmin(
+    Promise.all([
+      getAgentConfigById(id),
+      orchestrationPrisma.agentRegistry.findMany({
+        where: { isActive: true },
+        select: { id: true, agentId: true, agentVersion: true },
+        orderBy: [{ agentId: "asc" }, { agentVersion: "asc" }],
+      }),
+    ]),
+  );
 
   if (!config) notFound();
 
@@ -48,4 +50,4 @@ const EditConfigPage = async ({
   );
 };
 
-export default withAuthProtection(EditConfigPage);
+export default EditConfigPage;

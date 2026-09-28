@@ -5,7 +5,6 @@ import { Button } from "@workspace/ui/components/button";
 
 import { DetailBlocksView } from "@/components/detail-blocks";
 import { PageHeader } from "@/components/page-header";
-import { withAuthProtection } from "@/components/with-auth-protection";
 import {
   formatDomainTableCellValue,
   type DomainTableColumnForDisplay,
@@ -16,6 +15,7 @@ import {
   getDomainTableMeta,
 } from "@/lib/domain-dashboard";
 import { DATA_SOURCE_EXPANSIONS_PATH_SEGMENT } from "@/lib/data-source-expansion-template-meta";
+import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 /**
  * Resolves a detail page title. Prefers the manifest's `detailTitleField` (a field on the detail row)
@@ -54,7 +54,9 @@ const ViewDomainTableItemPage = async ({
   }>;
 }) => {
   const { integrationId, resource, itemId } = await params;
-  const integration = await getDomainIntegrationByIntegrationId(integrationId);
+  const integration = await withDashboardAdmin(
+    getDomainIntegrationByIntegrationId(integrationId),
+  );
   if (!integration) notFound();
 
   if (resource === DATA_SOURCE_EXPANSIONS_PATH_SEGMENT) {
@@ -121,4 +123,4 @@ const ViewDomainTableItemPage = async ({
   );
 };
 
-export default withAuthProtection(ViewDomainTableItemPage);
+export default ViewDomainTableItemPage;

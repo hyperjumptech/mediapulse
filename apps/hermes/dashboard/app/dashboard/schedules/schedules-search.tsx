@@ -1,5 +1,6 @@
 "use client";
 
+import Form from "next/form";
 import Link from "next/link";
 import { Search } from "lucide-react";
 
@@ -33,9 +34,8 @@ export const SchedulesSearch = ({
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-      <form
+      <Form
         action="/dashboard/schedules"
-        method="get"
         className="flex w-full max-w-sm flex-col gap-2 sm:flex-row sm:items-center"
         role="search"
         aria-label="Search schedules by name or description"
@@ -64,7 +64,7 @@ export const SchedulesSearch = ({
           </div>
         </div>
         <Button type="submit">Search</Button>
-      </form>
+      </Form>
       {hasActiveSearch && (
         <div className="flex h-9 shrink-0 items-center">
           <Link

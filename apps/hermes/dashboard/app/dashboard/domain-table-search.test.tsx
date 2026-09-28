@@ -3,6 +3,18 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DomainTableSearch } from "./domain-table-search";
 
+vi.mock("next/form", () => ({
+  default: ({
+    children,
+    action,
+    ...props
+  }: React.ComponentProps<"form"> & { action: string }) => (
+    <form data-action={action} {...props}>
+      {children}
+    </form>
+  ),
+}));
+
 vi.mock("next/link", () => ({
   default: ({
     children,
@@ -64,6 +76,31 @@ describe("DomainTableSearch", () => {
     expect(
       screen.queryByRole("button", { name: "Search" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("submits through next/form to the base path with preserved params as hidden inputs", () => {
+    // Act
+    render(
+      <DomainTableSearch
+        basePath="/dashboard/mp/tickers"
+        initialQuery="abc"
+        pageSize={20}
+        sortBy="id"
+        sortDir="desc"
+        preserveParams={{ sector: "energy" }}
+        ariaLabel="Search"
+      />,
+    );
+
+    // Assert
+    const form = screen.getByRole("search");
+    expect(form).toHaveAttribute("data-action", "/dashboard/mp/tickers");
+    expect(form).not.toHaveAttribute("method");
+    expect(form.querySelector('input[name="size"]')).toHaveValue("20");
+    expect(form.querySelector('input[name="dir"]')).toHaveValue("desc");
+    expect(form.querySelector('input[name="sort"]')).toHaveValue("id");
+    expect(form.querySelector('input[name="sector"]')).toHaveValue("energy");
+    expect(form.querySelector('input[name="q"]')).toHaveValue("abc");
   });
 
   it("submits the search form on submit event", () => {

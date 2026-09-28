@@ -2,21 +2,19 @@
 
 import Link from "next/link";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import { format } from "date-fns";
 import { ChevronLeft, GitBranch } from "lucide-react";
 
-import type { getScheduleById, ScheduleExecutionRow } from "@/lib/schedules";
+import type { getScheduleById } from "@/lib/schedules";
 import type { PipelineValidationResult } from "@/lib/validate-pipeline";
 import { formatCreatedBy } from "@/lib/format-created-by";
 
-import { ListPagination } from "@/components/list-pagination";
 import { ScheduleFormModal } from "../schedule-form-modal";
 import type { PipelineOption } from "../schedule-form-fields";
-import { ExecutionsTable } from "./executions-table";
 
 type ScheduleWithPipeline = NonNullable<
   Awaited<ReturnType<typeof getScheduleById>>
@@ -24,10 +22,7 @@ type ScheduleWithPipeline = NonNullable<
 
 export type ScheduleDetailContentProps = {
   schedule: ScheduleWithPipeline;
-  executions: ScheduleExecutionRow[];
-  totalExecutions: number;
-  currentPage: number;
-  pageSize: number;
+  executionsSection: ReactNode;
   pipelines: PipelineOption[];
   pipelineValidationById: Record<string, PipelineValidationResult>;
 };
@@ -55,10 +50,7 @@ const formatNextRunAt = (nextRunAt: Date, timezone: string): string =>
  */
 export const ScheduleDetailContent = ({
   schedule,
-  executions,
-  totalExecutions,
-  currentPage,
-  pageSize,
+  executionsSection,
   pipelines,
   pipelineValidationById,
 }: ScheduleDetailContentProps) => {
@@ -134,16 +126,7 @@ export const ScheduleDetailContent = ({
           <h2 className="mb-2 text-lg font-medium text-foreground">
             Executions
           </h2>
-          <ExecutionsTable scheduleId={schedule.id} executions={executions} />
-          <div className="mt-4">
-            <ListPagination
-              basePath={`/dashboard/schedules/${schedule.id}`}
-              page={currentPage}
-              pageSize={pageSize}
-              total={totalExecutions}
-              ariaLabel="Executions pagination"
-            />
-          </div>
+          {executionsSection}
         </section>
       </div>
       <ScheduleFormModal

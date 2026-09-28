@@ -31,7 +31,6 @@ vi.mock("@/lib/pipelines", () => ({
 
 const getAgentConfigsByAgentKeysMock = vi.fn();
 const getAllAgentContractsMock = vi.fn();
-const getPipelineExecutionsPageMock = vi.fn();
 vi.mock("@/lib/agent-configs", () => ({
   getAgentConfigsByAgentKeys: (...args: unknown[]) =>
     getAgentConfigsByAgentKeysMock(...args),
@@ -40,9 +39,45 @@ vi.mock("@/lib/agent-contracts", () => ({
   getAllAgentContracts: (...args: unknown[]) =>
     getAllAgentContractsMock(...args),
 }));
+vi.mock("@/lib/require-dashboard-admin", () => ({
+  withDashboardAdmin: <Value,>(load: Promise<Value>) => load,
+  requireDashboardAdmin: async () => ({
+    id: "u1",
+    name: "U",
+    email: "u@example.com",
+    credentialVersion: 0,
+  }),
+}));
+
+const getPipelineExecutionsPageMock = vi.fn().mockResolvedValue({
+  executions: [],
+  total: 0,
+  page: 1,
+  pageSize: 15,
+});
+
 vi.mock("@/lib/pipeline-executions", () => ({
   getPipelineExecutionsPage: (...args: unknown[]) =>
     getPipelineExecutionsPageMock(...args),
+}));
+
+vi.mock("./pipeline-executions-section", () => ({
+  PipelineExecutionsSection: ({
+    pipelineId,
+    page,
+    pageSize,
+  }: {
+    pipelineId: string;
+    page: number;
+    pageSize: number;
+  }) => (
+    <div
+      data-testid="pipeline-executions-section"
+      data-pipeline-id={pipelineId}
+      data-page={page}
+      data-page-size={pageSize}
+    />
+  ),
 }));
 
 vi.mock("@/lib/validate-pipeline", () => ({
@@ -63,11 +98,13 @@ vi.mock("./pipeline-detail-content", () => ({
     pipeline,
     agents,
     domainIntegrations,
+    executionsSection,
   }: {
     pipeline: { id: string; name: string };
     agents: Array<{ id: string }>;
     domainIntegrations: Array<{ id: string }>;
     configsByAgentKey?: Record<string, unknown[]>;
+    executionsSection: React.ReactNode;
   }) => (
     <div
       data-testid="pipeline-detail-content"
@@ -76,14 +113,9 @@ vi.mock("./pipeline-detail-content", () => ({
       data-domain-integrations-count={domainIntegrations.length}
     >
       Detail Content
+      {executionsSection}
     </div>
   ),
-}));
-
-vi.mock("@/components/with-auth-protection", () => ({
-  withAuthProtection: <P extends Record<string, unknown>>(
-    Component: (props: P) => React.ReactNode,
-  ) => Component,
 }));
 
 import PipelineDetailPage from "./page";
@@ -96,7 +128,6 @@ describe("PipelineDetailPage", () => {
     getAgentConfigsByAgentKeysMock.mockReset();
     getAllAgentContractsMock.mockReset();
     getAllAgentContractsMock.mockResolvedValue([]);
-    getPipelineExecutionsPageMock.mockReset();
     notFoundMock.mockReset();
     prismaDomainIntegrationFindManyMock.mockReset();
     prismaDomainIntegrationFindManyMock.mockResolvedValue([
@@ -117,12 +148,6 @@ describe("PipelineDetailPage", () => {
     getAgentRegistryListMock.mockResolvedValue([
       { id: "agent-1", agentId: "summarizer", agentVersion: "1.0" },
     ]);
-    getPipelineExecutionsPageMock.mockResolvedValue({
-      executions: [],
-      total: 0,
-      page: 1,
-      pageSize: 15,
-    });
 
     // Act
     const component = await PipelineDetailPage({
@@ -145,6 +170,43 @@ describe("PipelineDetailPage", () => {
       orderBy: [{ isDefault: "desc" }, { integrationId: "asc" }],
       select: { id: true, integrationId: true, name: true },
     });
+    expect(getAgentConfigsByAgentKeysMock).toHaveBeenCalledWith([
+      { agentId: "summarizer", agentVersion: "1.0" },
+    ]);
+  });
+
+  it("renders the executions section with pagination from searchParams", async () => {
+    // Setup
+    getAgentConfigsByAgentKeysMock.mockResolvedValue({});
+    getPipelineWithStepsMock.mockResolvedValue({
+      id: "pipeline-123",
+      domainIntegrationId: "di-1",
+      name: "Test Pipeline",
+      steps: [],
+    });
+    getAgentRegistryListMock.mockResolvedValue([]);
+
+    // Act
+    const component = await PipelineDetailPage({
+      params: Promise.resolve({ id: "pipeline-123" }),
+      searchParams: Promise.resolve({ page: "2", size: "10" }),
+    });
+    render(component);
+
+    // Assert
+    const executionsSection = screen.getByTestId("pipeline-executions-section");
+
+    expect(executionsSection).toHaveAttribute(
+      "data-pipeline-id",
+      "pipeline-123",
+    );
+    expect(executionsSection).toHaveAttribute("data-page", "2");
+    expect(executionsSection).toHaveAttribute("data-page-size", "10");
+    expect(getPipelineExecutionsPageMock).toHaveBeenCalledWith(
+      "pipeline-123",
+      2,
+      10,
+    );
   });
 
   it("passes agents to detail content", async () => {
@@ -161,12 +223,6 @@ describe("PipelineDetailPage", () => {
       { id: "agent-1" },
       { id: "agent-2" },
     ]);
-    getPipelineExecutionsPageMock.mockResolvedValue({
-      executions: [],
-      total: 0,
-      page: 1,
-      pageSize: 15,
-    });
 
     // Act
     const component = await PipelineDetailPage({
@@ -188,12 +244,6 @@ describe("PipelineDetailPage", () => {
     getAllAgentContractsMock.mockResolvedValue([]);
     getPipelineWithStepsMock.mockResolvedValue(null);
     getAgentRegistryListMock.mockResolvedValue([]);
-    getPipelineExecutionsPageMock.mockResolvedValue({
-      executions: [],
-      total: 0,
-      page: 1,
-      pageSize: 15,
-    });
     notFoundMock.mockImplementation(() => {
       throw new Error("NEXT_NOT_FOUND");
     });
@@ -208,5 +258,6 @@ describe("PipelineDetailPage", () => {
 
     // Assert
     expect(notFoundMock).toHaveBeenCalled();
+    expect(getAgentRegistryListMock).not.toHaveBeenCalled();
   });
 });

@@ -2,8 +2,8 @@
 
 import { prisma } from "@hermes/orchestration-database";
 
-import { getDashboardSession } from "@/lib/auth-dashboard";
 import { createPendingDomainIntegration } from "@/lib/domain-integrations";
+import { getDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 export type CreateDomainIntegrationState =
   | { ok: false; error: string }
@@ -25,7 +25,7 @@ export async function createDomainIntegrationAction(
   _prev: CreateDomainIntegrationState | null,
   formData: FormData,
 ): Promise<CreateDomainIntegrationState> {
-  const session = await getDashboardSession();
+  const session = await getDashboardAdmin();
   if (!session) {
     return { ok: false, error: "Unauthorized" };
   }

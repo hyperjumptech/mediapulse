@@ -3,6 +3,18 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SchedulesSearch } from "./schedules-search";
 
+vi.mock("next/form", () => ({
+  default: ({
+    children,
+    action,
+    ...props
+  }: React.ComponentProps<"form"> & { action: string }) => (
+    <form data-action={action} {...props}>
+      {children}
+    </form>
+  ),
+}));
+
 vi.mock("next/link", () => ({
   default: ({
     children,
@@ -170,7 +182,7 @@ describe("SchedulesSearch", () => {
     expect(form.querySelector('input[name="dir"]')).toHaveValue("asc");
   });
 
-  it("sets form action to schedules path", () => {
+  it("submits through next/form to the schedules path without a method override", () => {
     // Act
     render(
       <SchedulesSearch
@@ -183,7 +195,7 @@ describe("SchedulesSearch", () => {
 
     // Assert
     const form = screen.getByRole("search");
-    expect(form).toHaveAttribute("action", "/dashboard/schedules");
-    expect(form).toHaveAttribute("method", "get");
+    expect(form).toHaveAttribute("data-action", "/dashboard/schedules");
+    expect(form).not.toHaveAttribute("method");
   });
 });

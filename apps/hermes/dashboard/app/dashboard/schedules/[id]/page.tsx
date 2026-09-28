@@ -1,45 +1,39 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
-import { withAuthProtection } from "@/components/with-auth-protection";
+import { SectionSkeleton } from "@/components/page-skeletons";
+import {
+  parseListPagination,
+  type ListPageSearchParams,
+} from "@/lib/list-page-params";
 import { getPipelinesWithSteps } from "@/lib/pipelines";
+import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 import { getScheduleById, getScheduleExecutionsPage } from "@/lib/schedules";
 import { getPipelinesValidationMap } from "@/lib/validate-pipeline";
 import { prisma } from "@hermes/orchestration-database";
 
 import { ScheduleDetailContent } from "./schedule-detail-content";
+import { ScheduleExecutionsSection } from "./schedule-executions-section";
 
-const DEFAULT_PAGE_SIZE = 15;
+type ScheduleDetailSearchParams = Pick<ListPageSearchParams, "page" | "size">;
 
-/**
- * Schedule detail page. Loads schedule by id, paginated executions (newest first), and pipelines for the edit modal.
- * Renders schedule header with Edit button, next-run summary, and executions table.
- */
 const ScheduleDetailPage = async ({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
   searchParams:
-    | Promise<{ page?: string; size?: string }>
-    | { page?: string; size?: string };
+    | Promise<ScheduleDetailSearchParams>
+    | ScheduleDetailSearchParams;
 }) => {
   const { id } = await params;
   const resolved = await Promise.resolve(searchParams);
-  const page = Math.max(1, parseInt(resolved.page ?? "1", 10) || 1);
-  const pageSize = Math.min(
-    100,
-    Math.max(
-      1,
-      parseInt(resolved.size ?? String(DEFAULT_PAGE_SIZE), 10) ||
-        DEFAULT_PAGE_SIZE,
-    ),
+  const { page, pageSize } = parseListPagination(resolved);
+  const executionsPage = getScheduleExecutionsPage(id, page, pageSize);
+  void executionsPage.catch(() => undefined);
+  const [schedule, pipelines] = await withDashboardAdmin(
+    Promise.all([getScheduleById(id), getPipelinesWithSteps()]),
   );
-
-  const [schedule, executionsResult, pipelines] = await Promise.all([
-    getScheduleById(id),
-    getScheduleExecutionsPage(id, page, pageSize),
-    getPipelinesWithSteps(),
-  ]);
 
   if (!schedule) {
     notFound();
@@ -53,14 +47,20 @@ const ScheduleDetailPage = async ({
   return (
     <ScheduleDetailContent
       schedule={schedule}
-      executions={executionsResult.executions}
-      totalExecutions={executionsResult.total}
-      currentPage={executionsResult.page}
-      pageSize={executionsResult.pageSize}
+      executionsSection={
+        <Suspense key={`${page}:${pageSize}`} fallback={<SectionSkeleton />}>
+          <ScheduleExecutionsSection
+            scheduleId={schedule.id}
+            page={page}
+            pageSize={pageSize}
+            executionsPage={executionsPage}
+          />
+        </Suspense>
+      }
       pipelines={pipelines}
       pipelineValidationById={pipelineValidationById}
     />
   );
 };
 
-export default withAuthProtection(ScheduleDetailPage);
+export default ScheduleDetailPage;

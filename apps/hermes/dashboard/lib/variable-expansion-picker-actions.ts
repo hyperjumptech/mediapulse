@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { getDefaultDomainIntegration } from "@/lib/domain-integrations";
 import { getDataSourceExpansionsPage } from "@/lib/data-source-expansions";
-import { getDashboardSession } from "@/lib/auth-dashboard";
+import { getDashboardAdmin } from "@/lib/require-dashboard-admin";
 import { getVariablesPage } from "@/lib/variables";
 import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
 
@@ -30,13 +30,11 @@ export type LoadExpansionPickerPageResult = {
 };
 
 type VariablePickerDependencies = {
-  getSession?: typeof getDashboardSession;
   getVariables?: typeof getVariablesPage;
   db?: typeof orchestrationPrisma;
 };
 
 type ExpansionPickerDependencies = {
-  getSession?: typeof getDashboardSession;
   getExpansionsPage?: typeof getDataSourceExpansionsPage;
   getIntegration?: typeof getDefaultDomainIntegration;
 };
@@ -45,19 +43,18 @@ type ExpansionPickerDependencies = {
  * Loads a page of variable keys for the step/config insert picker (authenticated).
  *
  * @param raw - Page, page size, optional search (validated with zod).
- * @param dependencies - Injectable session, DB, and getVariablesPage for tests.
+ * @param dependencies - Injectable DB and getVariablesPage for tests.
  * @returns Variable keys and total count; empty when unauthorized.
  */
 export const loadVariablePickerPage = async (
   raw: unknown,
   dependencies: VariablePickerDependencies = {},
 ): Promise<LoadVariablePickerPageResult> => {
-  const getSession = dependencies.getSession ?? getDashboardSession;
   const getVariables = dependencies.getVariables ?? getVariablesPage;
   const db = dependencies.db ?? orchestrationPrisma;
 
-  const session = await getSession();
-  if (!session) {
+  const admin = await getDashboardAdmin();
+  if (!admin) {
     return { items: [], total: 0 };
   }
 
@@ -90,21 +87,20 @@ export const loadVariablePickerPage = async (
  * Loads a page of data source expansions for the insert picker (authenticated).
  *
  * @param raw - Page, page size, optional search (validated with zod).
- * @param dependencies - Injectable session, domain integration, and getDataSourceExpansionsPage for tests.
+ * @param dependencies - Injectable domain integration and getDataSourceExpansionsPage for tests.
  * @returns Expansion rows and total count; empty when unauthorized or domain unavailable.
  */
 export const loadExpansionPickerPage = async (
   raw: unknown,
   dependencies: ExpansionPickerDependencies = {},
 ): Promise<LoadExpansionPickerPageResult> => {
-  const getSession = dependencies.getSession ?? getDashboardSession;
   const getExpansionsPage =
     dependencies.getExpansionsPage ?? getDataSourceExpansionsPage;
   const getIntegration =
     dependencies.getIntegration ?? getDefaultDomainIntegration;
 
-  const session = await getSession();
-  if (!session) {
+  const admin = await getDashboardAdmin();
+  if (!admin) {
     return { items: [], total: 0 };
   }
 

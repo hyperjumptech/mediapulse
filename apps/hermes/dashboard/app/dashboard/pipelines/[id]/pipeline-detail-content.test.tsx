@@ -77,11 +77,6 @@ vi.mock("./run-pipeline-button", () => ({
     </div>
   ),
 }));
-vi.mock("./pipeline-executions-table", () => ({
-  PipelineExecutionsTable: () => (
-    <div data-testid="pipeline-executions-table" />
-  ),
-}));
 
 vi.mock("../pipeline-form-modal", () => ({
   PipelineFormModal: ({
@@ -168,10 +163,7 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         domainIntegrations={defaultDetailDomainIntegrations}
         {...mockPickerLoaders}
       />,
@@ -197,10 +189,7 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         domainIntegrations={defaultDetailDomainIntegrations}
         {...mockPickerLoaders}
       />,
@@ -217,10 +206,7 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         domainIntegrations={defaultDetailDomainIntegrations}
         {...mockPickerLoaders}
       />,
@@ -240,10 +226,7 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         domainIntegrations={defaultDetailDomainIntegrations}
         {...mockPickerLoaders}
       />,
@@ -267,10 +250,7 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         domainIntegrations={defaultDetailDomainIntegrations}
         {...mockPickerLoaders}
       />,
@@ -288,10 +268,7 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         domainIntegrations={defaultDetailDomainIntegrations}
         {...mockPickerLoaders}
       />,
@@ -311,10 +288,7 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={{ valid: false, warnings: ["Missing agent"] }}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         domainIntegrations={defaultDetailDomainIntegrations}
         {...mockPickerLoaders}
       />,
@@ -327,6 +301,30 @@ describe("PipelineDetailContent", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders the executions section under the Executions heading", () => {
+    render(
+      <PipelineDetailContent
+        pipeline={createMockPipeline()}
+        agents={createMockAgents()}
+        configsByAgentKey={{}}
+        pipelineValidation={createMockPipelineValidation()}
+        executionsSection={<div data-testid="executions-section" />}
+        domainIntegrations={defaultDetailDomainIntegrations}
+        {...mockPickerLoaders}
+      />,
+    );
+
+    const heading = screen.getByRole("heading", {
+      level: 2,
+      name: "Executions",
+    });
+    const section = heading.closest("section") as HTMLElement;
+
+    expect(
+      within(section).getByTestId("executions-section"),
+    ).toBeInTheDocument();
+  });
+
   it("opens edit modal when Edit pipeline is clicked", () => {
     render(
       <PipelineDetailContent
@@ -334,10 +332,7 @@ describe("PipelineDetailContent", () => {
         agents={createMockAgents()}
         configsByAgentKey={{}}
         pipelineValidation={createMockPipelineValidation()}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         domainIntegrations={defaultDetailDomainIntegrations}
         {...mockPickerLoaders}
       />,

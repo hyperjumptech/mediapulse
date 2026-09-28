@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 
 import { DomainContentView } from "@/components/domain-content-view";
-import { withAuthProtection } from "@/components/with-auth-protection";
 import { fetchDomainContentView } from "@/lib/domain-content-view";
 import { getDomainIntegrationByIntegrationId } from "@/lib/domain-integrations";
+import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 /**
  * Renders a sidebar markdown, html, or text view from the domain manifest.
@@ -14,7 +14,9 @@ const DomainContentViewPage = async ({
   params: Promise<{ integrationId: string; resource: string }>;
 }) => {
   const { integrationId, resource } = await params;
-  const integration = await getDomainIntegrationByIntegrationId(integrationId);
+  const integration = await withDashboardAdmin(
+    getDomainIntegrationByIntegrationId(integrationId),
+  );
   if (!integration) {
     notFound();
   }
@@ -46,4 +48,4 @@ const DomainContentViewPage = async ({
   );
 };
 
-export default withAuthProtection(DomainContentViewPage);
+export default DomainContentViewPage;

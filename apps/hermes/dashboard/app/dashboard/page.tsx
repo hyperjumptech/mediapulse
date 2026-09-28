@@ -1,10 +1,12 @@
 import { PageHeader } from "@/components/page-header";
-import { withAuthProtection } from "@/components/with-auth-protection";
+import { requireDashboardAdmin } from "@/lib/require-dashboard-admin";
 
 /**
  * Main dashboard page. Placeholder; use the sidebar to navigate to Pipelines.
  */
-const DashboardPage = () => {
+const DashboardPage = async () => {
+  await requireDashboardAdmin();
+
   return (
     <PageHeader
       title="Dashboard"
@@ -13,4 +15,4 @@ const DashboardPage = () => {
   );
 };
 
-export default withAuthProtection(DashboardPage);
+export default DashboardPage;

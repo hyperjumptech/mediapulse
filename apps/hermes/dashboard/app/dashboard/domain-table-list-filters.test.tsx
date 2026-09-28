@@ -4,6 +4,18 @@ import { describe, expect, it, vi } from "vitest";
 
 import { DomainTableListFilters } from "./domain-table-list-filters";
 
+vi.mock("next/form", () => ({
+  default: ({
+    children,
+    action,
+    ...props
+  }: React.ComponentProps<"form"> & { action: string }) => (
+    <form data-action={action} {...props}>
+      {children}
+    </form>
+  ),
+}));
+
 vi.mock("next/link", () => ({
   default: ({
     children,
@@ -51,6 +63,39 @@ describe("DomainTableListFilters", () => {
     expect(screen.getByLabelText("Type")).toBeTruthy();
     expect(screen.getByRole("option", { name: "Company" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "Person" })).toBeTruthy();
+  });
+
+  it("submits through next/form to the base path with preserved params as hidden inputs", () => {
+    // Act
+    render(
+      <DomainTableListFilters
+        basePath="/dashboard/mediapulse/entities"
+        listFilters={[
+          {
+            key: "typeId",
+            label: "Type",
+            ui: "select",
+            optionsMetaKey: "entityTypeOptions",
+          },
+        ]}
+        filterOptions={{
+          entityTypeOptions: [{ value: "type-1", label: "Company" }],
+        }}
+        filterValues={{}}
+        preserveParams={{ sort: "name", dir: "asc", q: "acme" }}
+      />,
+    );
+
+    // Assert
+    const form = screen.getByRole("search", { name: "Filter list" });
+    expect(form).toHaveAttribute(
+      "data-action",
+      "/dashboard/mediapulse/entities",
+    );
+    expect(form).not.toHaveAttribute("method");
+    expect(form.querySelector('input[name="sort"]')).toHaveValue("name");
+    expect(form.querySelector('input[name="dir"]')).toHaveValue("asc");
+    expect(form.querySelector('input[name="q"]')).toHaveValue("acme");
   });
 
   it("returns null when no filters are declared", () => {

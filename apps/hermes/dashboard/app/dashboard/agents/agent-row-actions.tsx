@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -72,10 +73,10 @@ export const AgentRowActions = ({
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem asChild>
-            <a href={`/dashboard/agents/${agent.id}`}>
+            <Link href={`/dashboard/agents/${agent.id}`}>
               <Eye className="mr-2 size-4" />
               View details
-            </a>
+            </Link>
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />

@@ -10,6 +10,11 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
+import {
+  DASHBOARD_SESSION_MAX_AGE_SECONDS,
+  signDashboardSession,
+} from "@/lib/dashboard-session-token";
+
 const bodyValidator = z.object({
   email: z.string().email(),
   password: z.string().min(4),
@@ -60,6 +65,7 @@ type SessionCookieStore = {
 type PersistAdminSessionDependencies = {
   getCookieStore?: () => Promise<SessionCookieStore>;
   createSessionToken?: () => string;
+  signSession?: (claims: AuthenticatedAdmin) => string;
 };
 
 type LoginHandlerDependencies = {
@@ -92,7 +98,7 @@ export const createSessionCookieOptions = (): SessionCookieOptions => {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24,
+    maxAge: DASHBOARD_SESSION_MAX_AGE_SECONDS,
   };
 };
 
@@ -102,6 +108,7 @@ export const createSessionCookieOptions = (): SessionCookieOptions => {
 export const createPersistAdminSession = ({
   getCookieStore = cookies,
   createSessionToken: createToken = createSessionToken,
+  signSession = signDashboardSession,
 }: PersistAdminSessionDependencies = {}) => {
   /**
    * Persists session cookie and user payload (id, name, email, credentialVersion) for the authenticated admin.
@@ -112,7 +119,7 @@ export const createPersistAdminSession = ({
     cookieStore.set("auth-token", createToken(), opts);
     cookieStore.set(
       "auth-user",
-      JSON.stringify({
+      signSession({
         name: admin.name,
         email: admin.email,
         id: admin.id,

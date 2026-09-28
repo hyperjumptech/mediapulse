@@ -8,6 +8,8 @@ import {
   type DetailBlockSubTableListItem,
 } from "@hermes/domain-contract";
 
+import Link from "next/link";
+import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { Badge } from "@workspace/ui/components/badge";
@@ -100,6 +102,52 @@ const withoutLink = (
   return next;
 };
 
+const isInternalHref = (href: string): boolean =>
+  href.startsWith("/") && !href.startsWith("//");
+
+const DetailBlockSubTableLink = ({
+  href,
+  external,
+  className,
+  title,
+  children,
+}: {
+  href: string;
+  external: boolean;
+  className?: string;
+  title?: string;
+  children: ReactNode;
+}) => {
+  const target = external ? "_blank" : undefined;
+  const rel = external ? "noopener noreferrer" : undefined;
+
+  if (isInternalHref(href)) {
+    return (
+      <Link
+        href={href}
+        target={target}
+        rel={rel}
+        className={className}
+        title={title}
+      >
+        {children}
+      </Link>
+    );
+  }
+
+  return (
+    <a
+      href={href}
+      target={target}
+      rel={rel}
+      className={className}
+      title={title}
+    >
+      {children}
+    </a>
+  );
+};
+
 const renderCellHeading = (
   column: DetailBlockSubTableColumn,
   row: Record<string, unknown>,
@@ -121,14 +169,13 @@ const renderCellHeading = (
   return (
     <div className="bg-muted/50 text-foreground -mx-2 -mt-2 border-b px-2 py-2 font-semibold">
       {url && headingText !== "—" ? (
-        <a
+        <DetailBlockSubTableLink
           href={url}
-          target={column.linkExternal === true ? "_blank" : undefined}
-          rel={column.linkExternal === true ? "noopener noreferrer" : undefined}
+          external={column.linkExternal === true}
           className="underline-offset-4 hover:underline"
         >
           {headingText}
-        </a>
+        </DetailBlockSubTableLink>
       ) : (
         headingText
       )}
@@ -311,17 +358,16 @@ const DetailBlockSubTableCellBody = ({
       : undefined;
   const node =
     url && text !== "—" ? (
-      <a
+      <DetailBlockSubTableLink
         href={url}
-        target={column.linkExternal === true ? "_blank" : undefined}
-        rel={column.linkExternal === true ? "noopener noreferrer" : undefined}
+        external={column.linkExternal === true}
         className={["text-primary underline underline-offset-4", nowrapClass]
           .filter(Boolean)
           .join(" ")}
         title={text.length > truncated.length ? text : undefined}
       >
         {truncated}
-      </a>
+      </DetailBlockSubTableLink>
     ) : (
       <span
         className={
@@ -376,16 +422,13 @@ const DetailBlockSubTableCellBody = ({
       {primary}
       {descriptionText ? (
         descriptionUrl ? (
-          <a
+          <DetailBlockSubTableLink
             href={descriptionUrl}
-            target={column.linkExternal === true ? "_blank" : undefined}
-            rel={
-              column.linkExternal === true ? "noopener noreferrer" : undefined
-            }
+            external={column.linkExternal === true}
             className="text-primary text-sm font-normal underline underline-offset-4"
           >
             {descriptionText}
-          </a>
+          </DetailBlockSubTableLink>
         ) : (
           <span className="text-muted-foreground text-sm font-normal">
             {descriptionText}

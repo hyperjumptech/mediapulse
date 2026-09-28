@@ -1,5 +1,6 @@
 "use client";
 
+import Form from "next/form";
 import Link from "next/link";
 import type {
   TableV1ListFilterDefinition,
@@ -65,9 +66,8 @@ export const DomainTableListFilters = ({
 
   return (
     <div className="flex flex-col gap-3">
-      <form
+      <Form
         action={basePath}
-        method="get"
         className="flex w-full max-w-4xl flex-wrap items-end gap-3"
         role="search"
         aria-label="Filter list"
@@ -154,7 +154,7 @@ export const DomainTableListFilters = ({
         <Button type="submit" size="sm">
           Filter
         </Button>
-      </form>
+      </Form>
       {hasActiveFilters ? (
         <Link
           href={clearHref}

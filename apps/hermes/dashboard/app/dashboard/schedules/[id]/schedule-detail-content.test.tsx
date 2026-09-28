@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   ScheduleDetailContent,
@@ -43,31 +43,6 @@ vi.mock("../schedule-form-modal", () => ({
       data-open={open}
       data-mode={mode}
       data-edit-id={editScheduleId ?? "none"}
-    />
-  ),
-}));
-
-vi.mock("./executions-table", () => ({
-  ExecutionsTable: ({ executions }: { executions: unknown[] }) => (
-    <div data-testid="executions-table" data-count={executions.length} />
-  ),
-}));
-
-vi.mock("@/components/list-pagination", () => ({
-  ListPagination: ({
-    basePath,
-    page,
-    total,
-  }: {
-    basePath: string;
-    page: number;
-    total: number;
-  }) => (
-    <nav
-      data-testid="executions-pagination"
-      data-base-path={basePath}
-      data-page={page}
-      data-total={total}
     />
   ),
 }));
@@ -128,28 +103,12 @@ const createMockSchedule = (
   };
 };
 
-const createMockExecution = () => ({
-  id: "ex-1",
-  executionTime: new Date("2025-01-15T10:00:00Z"),
-  enqueueStatus: "success",
-  runStatus: "succeeded",
-  jobsCreated: 2,
-  jobsEnqueued: 2,
-  succeededInvocationCount: 2,
-  failedInvocationCount: 0,
-  errors: null,
-  createdAt: new Date(),
-});
-
 describe("ScheduleDetailContent", () => {
   it("renders back link to schedules list", () => {
     render(
       <ScheduleDetailContent
         schedule={createMockSchedule()}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         pipelines={[]}
         pipelineValidationById={{}}
       />,
@@ -163,10 +122,7 @@ describe("ScheduleDetailContent", () => {
     render(
       <ScheduleDetailContent
         schedule={createMockSchedule()}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         pipelines={[]}
         pipelineValidationById={{}}
       />,
@@ -181,10 +137,7 @@ describe("ScheduleDetailContent", () => {
     render(
       <ScheduleDetailContent
         schedule={createMockSchedule()}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         pipelines={[]}
         pipelineValidationById={{}}
       />,
@@ -197,10 +150,7 @@ describe("ScheduleDetailContent", () => {
     render(
       <ScheduleDetailContent
         schedule={createMockSchedule({ enabled: true })}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         pipelines={[]}
         pipelineValidationById={{}}
       />,
@@ -215,10 +165,7 @@ describe("ScheduleDetailContent", () => {
     render(
       <ScheduleDetailContent
         schedule={createMockSchedule({ enabled: false })}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         pipelines={[]}
         pipelineValidationById={{}}
       />,
@@ -238,10 +185,7 @@ describe("ScheduleDetailContent", () => {
           nextRunAt,
           timezone: "UTC",
         })}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         pipelines={[]}
         pipelineValidationById={{}}
       />,
@@ -259,10 +203,7 @@ describe("ScheduleDetailContent", () => {
           enabled: true,
           nextRunAt: null,
         })}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         pipelines={[]}
         pipelineValidationById={{}}
       />,
@@ -277,10 +218,7 @@ describe("ScheduleDetailContent", () => {
           enabled: false,
           nextRunAt: new Date(),
         })}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         pipelines={[]}
         pipelineValidationById={{}}
       />,
@@ -292,10 +230,7 @@ describe("ScheduleDetailContent", () => {
     render(
       <ScheduleDetailContent
         schedule={createMockSchedule()}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         pipelines={[]}
         pipelineValidationById={{}}
       />,
@@ -309,10 +244,7 @@ describe("ScheduleDetailContent", () => {
     render(
       <ScheduleDetailContent
         schedule={createMockSchedule()}
-        executions={[]}
-        totalExecutions={0}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         pipelines={[]}
         pipelineValidationById={{}}
       />,
@@ -325,24 +257,20 @@ describe("ScheduleDetailContent", () => {
     expect(modal).toHaveAttribute("data-edit-id", "sched-1");
   });
 
-  it("renders Executions section with table and pagination", () => {
-    const executions = [createMockExecution()];
+  it("renders the executions section under the Executions heading", () => {
     render(
       <ScheduleDetailContent
         schedule={createMockSchedule()}
-        executions={executions}
-        totalExecutions={1}
-        currentPage={1}
-        pageSize={15}
+        executionsSection={<div data-testid="executions-section" />}
         pipelines={[]}
         pipelineValidationById={{}}
       />,
     );
-    expect(screen.getByText("Executions")).toBeInTheDocument();
-    expect(screen.getByTestId("executions-table")).toHaveAttribute(
-      "data-count",
-      "1",
-    );
-    expect(screen.getByTestId("executions-pagination")).toBeInTheDocument();
+    const heading = screen.getByRole("heading", { name: "Executions" });
+    const section = heading.closest("section") as HTMLElement;
+
+    expect(
+      within(section).getByTestId("executions-section"),
+    ).toBeInTheDocument();
   });
 });

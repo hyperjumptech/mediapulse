@@ -1,7 +1,20 @@
+import type { ComponentProps } from "react";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { CreatedDateRangeFilter } from "./created-date-range-filter";
+
+vi.mock("next/form", () => ({
+  default: ({
+    children,
+    action,
+    ...props
+  }: ComponentProps<"form"> & { action: string }) => (
+    <form data-action={action} {...props}>
+      {children}
+    </form>
+  ),
+}));
 
 describe("CreatedDateRangeFilter", () => {
   it("renders from and to date inputs with active values", () => {
@@ -17,9 +30,10 @@ describe("CreatedDateRangeFilter", () => {
     expect(screen.getByLabelText("From date")).toHaveValue("2026-05-01");
     expect(screen.getByLabelText("To date")).toHaveValue("2026-05-31");
     expect(screen.getByRole("search")).toHaveAttribute(
-      "action",
+      "data-action",
       "/dashboard/mediapulse/newsletters",
     );
+    expect(screen.getByRole("search")).not.toHaveAttribute("method");
     expect(screen.getByRole("link", { name: "Clear dates" })).toHaveAttribute(
       "href",
       "/dashboard/mediapulse/newsletters?sort=createdAt&dir=desc",

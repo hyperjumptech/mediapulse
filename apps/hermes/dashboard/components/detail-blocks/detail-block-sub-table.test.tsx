@@ -1,9 +1,22 @@
 /** @vitest-environment jsdom */
 
+import type { ComponentProps } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { DetailBlockSubTableView } from "./detail-block-sub-table";
+
+vi.mock("next/link", () => ({
+  default: ({
+    children,
+    href,
+    ...props
+  }: ComponentProps<"a"> & { href: string }) => (
+    <a href={href} data-next-link="" {...props}>
+      {children}
+    </a>
+  ),
+}));
 
 describe("DetailBlockSubTableView", () => {
   it("renders rows and a linkColumn", () => {
@@ -580,5 +593,175 @@ describe("DetailBlockSubTableView", () => {
     expect(screen.getByText("supporting text").className).toContain(
       "text-muted-foreground",
     );
+  });
+
+  it("renders internal link templates as client-side links", () => {
+    // Act
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          columns: [
+            {
+              field: "title",
+              label: "Title",
+              type: "text",
+              linkTemplate: "/dashboard/mediapulse/articles/{id}",
+            },
+          ],
+        }}
+        data={{ rows: [{ id: "article-1", title: "Alpha" }] }}
+      />,
+    );
+
+    // Assert
+    const link = screen.getByRole("link", { name: "Alpha" });
+    expect(link).toHaveAttribute(
+      "href",
+      "/dashboard/mediapulse/articles/article-1",
+    );
+    expect(link).toHaveAttribute("data-next-link");
+    expect(link).not.toHaveAttribute("target");
+  });
+
+  it("keeps external link templates as plain anchors opening in a new tab", () => {
+    // Act
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          columns: [
+            {
+              field: "title",
+              label: "Title",
+              type: "text",
+              linkTemplate: "{url}",
+              linkExternal: true,
+            },
+          ],
+        }}
+        data={{ rows: [{ title: "Alpha", url: "https://example.com/a" }] }}
+      />,
+    );
+
+    // Assert
+    const link = screen.getByRole("link", { name: "Alpha" });
+    expect(link).toHaveAttribute("href", "https://example.com/a");
+    expect(link).not.toHaveAttribute("data-next-link");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("treats protocol-relative link templates as external anchors", () => {
+    // Act
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          columns: [
+            {
+              field: "title",
+              label: "Title",
+              type: "text",
+              linkTemplate: "//example.com/{id}",
+            },
+          ],
+        }}
+        data={{ rows: [{ id: "a", title: "Alpha" }] }}
+      />,
+    );
+
+    // Assert
+    const link = screen.getByRole("link", { name: "Alpha" });
+    expect(link).toHaveAttribute("href", "//example.com/a");
+    expect(link).not.toHaveAttribute("data-next-link");
+  });
+
+  it("renders internal heading and description links as client-side links", () => {
+    // Act
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          hideHeader: true,
+          columns: [
+            {
+              field: "sectionScores",
+              label: "Article",
+              type: "list",
+              headingField: "title",
+              linkTemplate: "/dashboard/mediapulse/articles/{id}",
+              listItem: { field: "scoreLine" },
+            },
+            {
+              field: "label",
+              label: "Source",
+              type: "text",
+              descriptionField: "sourceName",
+              descriptionLinkTemplate:
+                "/dashboard/mediapulse/data-sources/{sourceId}",
+            },
+          ],
+        }}
+        data={{
+          rows: [
+            {
+              id: "article-1",
+              title: "Alpha",
+              sectionScores: [{ scoreLine: "0.40 - Industry Pulse" }],
+              label: "Collected",
+              sourceName: "Bisnis",
+              sourceId: "source-1",
+            },
+          ],
+        }}
+      />,
+    );
+
+    // Assert
+    const headingLink = screen.getByRole("link", { name: "Alpha" });
+    const descriptionLink = screen.getByRole("link", { name: "Bisnis" });
+    expect(headingLink).toHaveAttribute(
+      "href",
+      "/dashboard/mediapulse/articles/article-1",
+    );
+    expect(headingLink).toHaveAttribute("data-next-link");
+    expect(descriptionLink).toHaveAttribute(
+      "href",
+      "/dashboard/mediapulse/data-sources/source-1",
+    );
+    expect(descriptionLink).toHaveAttribute("data-next-link");
+  });
+
+  it("keeps an internal link opening in a new tab when linkExternal is set", () => {
+    // Act
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          columns: [
+            {
+              field: "title",
+              label: "Title",
+              type: "text",
+              linkTemplate: "/dashboard/mediapulse/articles/{id}",
+              linkExternal: true,
+            },
+          ],
+        }}
+        data={{ rows: [{ id: "article-1", title: "Alpha" }] }}
+      />,
+    );
+
+    // Assert
+    const link = screen.getByRole("link", { name: "Alpha" });
+    expect(link).toHaveAttribute("data-next-link");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 });
