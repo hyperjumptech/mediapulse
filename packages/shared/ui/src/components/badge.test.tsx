@@ -38,4 +38,10 @@ describe("Badge", () => {
     const badge = screen.getByText("Warning");
     expect(badge).toBeInTheDocument();
   });
+
+  it.each(["info", "muted"] as const)("renders %s variant", (variant) => {
+    render(<Badge variant={variant}>{variant}</Badge>);
+    const badge = screen.getByText(variant);
+    expect(badge).toHaveAttribute("data-variant", variant);
+  });
 });
