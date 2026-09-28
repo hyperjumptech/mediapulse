@@ -1,7 +1,3 @@
-/**
- * Hermes `resource-table` manifest slice for newsletter feedback and the exported `*HermesPathSegment` for routing.
- */
-
 import type { DashboardViewInput, DetailBlock } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
@@ -12,17 +8,20 @@ import {
 import {
   columnsFor,
   rowFieldKeysFor,
+  type ManifestColumnBadgeTones,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
 
-/** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const feedbackHermesPathSegment = "feedback" as const;
 
-/**
- * `keyValue` block describing the reply metadata: sender, classification, and
- * link rows back to the correlated newsletter and Mediapulse user. Missing
- * template variables (e.g. an uncorrelated reply) fall back to plain text.
- */
+export const feedbackSentimentBadgeTones = {
+  Positive: "success",
+  Negative: "failed",
+  Mixed: "warning",
+  Neutral: "neutral",
+  "—": "muted",
+} as const satisfies ManifestColumnBadgeTones;
+
 const feedbackMetadataBlock = {
   type: "keyValue",
   label: "Metadata",
@@ -50,10 +49,6 @@ const feedbackMetadataBlock = {
   ],
 } satisfies DetailBlock;
 
-/**
- * `markdown` block bound to the raw reply body. Long bodies clamp at 4,000
- * characters with a "show full" expander once they exceed 10,000 characters.
- */
 const feedbackBodyBlock = {
   type: "markdown",
   label: "Reply body",
@@ -63,7 +58,6 @@ const feedbackBodyBlock = {
   copyAction: true,
 } satisfies DetailBlock;
 
-/** Hermes `resource-table` manifest page for newsletter feedback (read-only list + detail). */
 export const feedbackDashboardPage = {
   id: feedbackHermesPathSegment,
   label: "Feedback",
@@ -76,10 +70,22 @@ export const feedbackDashboardPage = {
   order: 65,
   columns: columnsFor<ListItem>()([
     { key: "senderEmail", label: "From", type: "text" },
-    { key: "subject", label: "Subject", type: "text" },
-    { key: "sentiment", label: "Sentiment", type: "text" },
+    { key: "subject", label: "Subject", type: "text", mobile: "subtitle" },
+    {
+      key: "sentiment",
+      label: "Sentiment",
+      type: "text",
+      format: "badge",
+      badgeTones: feedbackSentimentBadgeTones,
+      mobile: "badge",
+    },
     { key: "category", label: "Category", type: "text" },
-    { key: "receivedAt", label: "Received", type: "date-time" },
+    {
+      key: "receivedAt",
+      label: "Received",
+      type: "date-time",
+      format: "date-time",
+    },
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()(["senderEmail", "subject"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["receivedAt", "senderEmail"]),

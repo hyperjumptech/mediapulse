@@ -17,9 +17,12 @@ import {
 
 import { hasActiveDomainTableFilters } from "@/lib/domain-table-list-params";
 
-const FILTER_LABEL_CLASS = "text-xs font-normal text-muted-foreground";
+const FILTER_FIELD_CLASS = "flex items-center gap-1.5";
 
-const FILTER_FIELD_CLASS = "flex flex-col gap-1.5";
+const FILTER_LABEL_CLASS =
+  "text-xs font-normal whitespace-nowrap text-muted-foreground";
+
+const FILTER_SELECT_CLASS = "w-40 bg-background";
 
 type DomainTableListFiltersProps = {
   basePath: string;
@@ -29,13 +32,6 @@ type DomainTableListFiltersProps = {
   preserveParams: Record<string, string>;
 };
 
-/**
- * Resolves select options for a manifest filter from static options or meta `filterOptions`.
- *
- * @param filter - Manifest filter definition.
- * @param filterOptions - Dynamic options from table-v1 meta.
- * @returns Options for a `select` filter control.
- */
 const resolveSelectOptions = (
   filter: TableV1ListFilterDefinition,
   filterOptions: Record<string, TableV1SelectOption[]>,
@@ -63,6 +59,15 @@ const buildClearFiltersHref = (
   return queryString.length > 0 ? `${basePath}?${queryString}` : basePath;
 };
 
+const allOptionLabel = (filter: TableV1ListFilterDefinition): string => {
+  const placeholder = filter.placeholderAll?.trim();
+  if (!placeholder || placeholder.toLowerCase() === "all") {
+    return `${filter.label}: All`;
+  }
+
+  return placeholder;
+};
+
 const DomainTableListFilterControl = ({
   filter,
   filterOptions,
@@ -77,17 +82,18 @@ const DomainTableListFilterControl = ({
 
     return (
       <div className={FILTER_FIELD_CLASS}>
-        <Label htmlFor={`filter-${filter.key}`} className={FILTER_LABEL_CLASS}>
+        <Label htmlFor={`filter-${filter.key}`} className="sr-only">
           {filter.label}
         </Label>
         <NativeSelect
           id={`filter-${filter.key}`}
           name={filter.key}
+          size="sm"
           defaultValue={filterValues[filter.key] ?? ""}
-          className="min-w-40 bg-background"
+          className={FILTER_SELECT_CLASS}
         >
           <NativeSelectOption value="">
-            {filter.placeholderAll ?? "All"}
+            {allOptionLabel(filter)}
           </NativeSelectOption>
           {options.map((option) => (
             <NativeSelectOption key={option.value} value={option.value}>
@@ -102,16 +108,17 @@ const DomainTableListFilterControl = ({
   if (filter.ui === "boolean-select") {
     return (
       <div className={FILTER_FIELD_CLASS}>
-        <Label htmlFor={`filter-${filter.key}`} className={FILTER_LABEL_CLASS}>
+        <Label htmlFor={`filter-${filter.key}`} className="sr-only">
           {filter.label}
         </Label>
         <NativeSelect
           id={`filter-${filter.key}`}
           name={filter.key}
+          size="sm"
           defaultValue={filterValues[filter.key] ?? ""}
-          className="min-w-28 bg-background"
+          className="w-36 bg-background"
         >
-          <NativeSelectOption value="">All</NativeSelectOption>
+          <NativeSelectOption value="">{`${filter.label}: All`}</NativeSelectOption>
           <NativeSelectOption value="true">Yes</NativeSelectOption>
           <NativeSelectOption value="false">No</NativeSelectOption>
         </NativeSelect>
@@ -123,32 +130,34 @@ const DomainTableListFilterControl = ({
   const toKey = filter.rangeParams?.to ?? "to";
 
   return (
-    <>
-      <div className={FILTER_FIELD_CLASS}>
-        <Label htmlFor={`filter-${fromKey}`} className={FILTER_LABEL_CLASS}>
-          From date
-        </Label>
-        <Input
-          id={`filter-${fromKey}`}
-          type="date"
-          name={fromKey}
-          defaultValue={filterValues[fromKey] ?? ""}
-          className="w-auto bg-background"
-        />
-      </div>
-      <div className={FILTER_FIELD_CLASS}>
-        <Label htmlFor={`filter-${toKey}`} className={FILTER_LABEL_CLASS}>
-          To date
-        </Label>
-        <Input
-          id={`filter-${toKey}`}
-          type="date"
-          name={toKey}
-          defaultValue={filterValues[toKey] ?? ""}
-          className="w-auto bg-background"
-        />
-      </div>
-    </>
+    <div role="group" aria-label={filter.label} className={FILTER_FIELD_CLASS}>
+      <span aria-hidden className={FILTER_LABEL_CLASS}>
+        {filter.label}
+      </span>
+      <Label htmlFor={`filter-${fromKey}`} className="sr-only">
+        {`${filter.label} from`}
+      </Label>
+      <Input
+        id={`filter-${fromKey}`}
+        type="date"
+        name={fromKey}
+        defaultValue={filterValues[fromKey] ?? ""}
+        className="h-8 w-36 bg-background"
+      />
+      <span aria-hidden className="text-xs text-muted-foreground">
+        –
+      </span>
+      <Label htmlFor={`filter-${toKey}`} className="sr-only">
+        {`${filter.label} to`}
+      </Label>
+      <Input
+        id={`filter-${toKey}`}
+        type="date"
+        name={toKey}
+        defaultValue={filterValues[toKey] ?? ""}
+        className="h-8 w-36 bg-background"
+      />
+    </div>
   );
 };
 
@@ -169,7 +178,7 @@ export const DomainTableListFilters = ({
   return (
     <Form
       action={basePath}
-      className="flex flex-wrap items-end gap-3"
+      className="flex min-w-0 flex-wrap items-center gap-2"
       role="search"
       aria-label="Filter list"
     >
@@ -184,17 +193,16 @@ export const DomainTableListFilters = ({
           filterValues={filterValues}
         />
       ))}
-      <Button type="submit" variant="secondary">
+      <Button type="submit" variant="outline" size="sm">
         Apply
       </Button>
       {hasActiveFilters ? (
-        <Link
-          href={clearHref}
-          className="inline-flex h-9 items-center gap-1 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <X aria-hidden className="size-4" />
-          Clear filters
-        </Link>
+        <Button variant="ghost" size="sm" className="h-8 px-2 lg:px-3" asChild>
+          <Link href={clearHref}>
+            Clear filters
+            <X aria-hidden />
+          </Link>
+        </Button>
       ) : null}
     </Form>
   );

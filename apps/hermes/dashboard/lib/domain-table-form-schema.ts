@@ -143,6 +143,16 @@ export const parseJsonObjectRow = (value: unknown): Record<string, unknown> => {
   return {};
 };
 
+const FALSE_LIKE_STRINGS = new Set(["", "false", "no", "0", "off"]);
+
+const isTruthyFieldValue = (raw: unknown): boolean => {
+  if (typeof raw === "string") {
+    return !FALSE_LIKE_STRINGS.has(raw.trim().toLowerCase());
+  }
+
+  return Boolean(raw);
+};
+
 /**
  * Returns a display default for edit forms (native input `defaultValue` / `defaultChecked`).
  *
@@ -157,7 +167,7 @@ export const getDomainTableFieldEditDefault = (
   const raw = row[field.key];
   switch (field.kind) {
     case "boolean":
-      return Boolean(raw);
+      return isTruthyFieldValue(raw);
     case "number": {
       if (raw === null || raw === undefined) return "";
       if (typeof raw === "number" && !Number.isNaN(raw)) return String(raw);

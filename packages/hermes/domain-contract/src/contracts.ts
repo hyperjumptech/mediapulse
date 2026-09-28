@@ -1,6 +1,10 @@
 import { z } from "zod";
 
 import {
+  dashboardColumnBreakpointSchema,
+  dashboardColumnFormatSchema,
+  dashboardColumnMobileRoleSchema,
+  dashboardColumnToneSchema,
   dashboardManifestSchema,
   dashboardPageActionsSchema,
   dashboardPageColumnSchema,
@@ -64,6 +68,10 @@ import {
 } from "./dashboard-views";
 
 export {
+  dashboardColumnBreakpointSchema,
+  dashboardColumnFormatSchema,
+  dashboardColumnMobileRoleSchema,
+  dashboardColumnToneSchema,
   dashboardManifestSchema,
   dashboardPageActionsSchema,
   dashboardPageColumnSchema,
@@ -247,6 +255,9 @@ export type DashboardPageCreateNavigation = z.infer<
   typeof dashboardPageCreateNavigationSchema
 >;
 export type DashboardPagePreview = z.infer<typeof dashboardPagePreviewSchema>;
+export type DashboardPageColumn = z.infer<typeof dashboardPageColumnSchema>;
+export type DashboardColumnFormat = z.infer<typeof dashboardColumnFormatSchema>;
+export type DashboardColumnTone = z.infer<typeof dashboardColumnToneSchema>;
 export type DashboardPageCustomActionUi = z.infer<
   typeof dashboardPageCustomActionUiSchema
 >;

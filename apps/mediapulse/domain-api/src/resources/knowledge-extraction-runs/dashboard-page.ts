@@ -1,4 +1,9 @@
-import type { DashboardViewInput, DetailBlock } from "@hermes/domain-contract";
+import type {
+  DashboardColumnTone,
+  DashboardViewInput,
+  DetailBlock,
+} from "@hermes/domain-contract";
+import type { DataCollectionRunStatus } from "@mediapulse/database";
 
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
@@ -14,6 +19,13 @@ import type { ListItem } from "./list-mapper";
 
 export const knowledgeExtractionRunsHermesPathSegment =
   "knowledge-extraction-runs" as const;
+
+export const extractionRunStatusBadgeTones = {
+  running: "progress",
+  success: "success",
+  partial_success: "warning",
+  failed: "failed",
+} as const satisfies Record<DataCollectionRunStatus, DashboardColumnTone>;
 
 const overviewBlock = {
   type: "panel",
@@ -76,14 +88,50 @@ export const knowledgeExtractionRunsDashboardPage = {
   order: 45,
   columns: columnsFor<ListItem>()([
     { key: "tickerSymbol", label: "Issuer", type: "text" },
-    { key: "status", label: "Status", type: "text" },
-    { key: "considered", label: "Read", type: "text" },
-    { key: "entitiesCreated", label: "Entities", type: "text" },
-    { key: "mentionsWritten", label: "Mentions", type: "text" },
-    { key: "kindsCreated", label: "New kinds", type: "text" },
+    {
+      key: "status",
+      label: "Status",
+      type: "text",
+      format: "badge",
+      badgeTones: extractionRunStatusBadgeTones,
+      mobile: "badge",
+    },
+    { key: "considered", label: "Read", type: "text", format: "number" },
+    {
+      key: "entitiesCreated",
+      label: "Entities",
+      type: "text",
+      format: "number",
+    },
+    {
+      key: "mentionsWritten",
+      label: "Mentions",
+      type: "text",
+      format: "number",
+    },
+    {
+      key: "kindsCreated",
+      label: "New kinds",
+      type: "text",
+      format: "number",
+      hideBelow: "lg",
+      mobile: "hidden",
+    },
     { key: "rejectionRate", label: "Refused", type: "text" },
-    { key: "durationLabel", label: "Duration", type: "text" },
-    { key: "startedAt", label: "Started", type: "date-time" },
+    {
+      key: "durationLabel",
+      label: "Duration",
+      type: "text",
+      hideBelow: "md",
+      mobile: "hidden",
+    },
+    {
+      key: "startedAt",
+      label: "Started",
+      type: "date-time",
+      format: "date-time",
+      mobile: "subtitle",
+    },
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()(["tickerSymbol"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["startedAt"]),

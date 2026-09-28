@@ -1,7 +1,3 @@
-/**
- * Hermes `table-v1` manifest slice for Mediapulse end users and exported `*HermesPathSegment` for routing.
- */
-
 import type { DashboardViewInput, DetailBlock } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
@@ -18,10 +14,8 @@ import {
   mediapulseUserUpdateFormJsonSchema,
 } from "./write-body-schemas";
 
-/** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const mediapulseUsersHermesPathSegment = "mediapulse-users" as const;
 
-/** User profile fields shown above the subscriptions sub-table on the detail page. */
 const mediapulseUsersMetadataBlock = {
   type: "keyValue",
   label: "User",
@@ -35,7 +29,6 @@ const mediapulseUsersMetadataBlock = {
   ],
 } satisfies DetailBlock;
 
-/** Per-ticker subscription rows bound to `subscriptions` on the detail payload. */
 const mediapulseUsersSubscriptionsBlock = {
   type: "subTable",
   label: "Subscriptions",
@@ -56,7 +49,6 @@ const mediapulseUsersSubscriptionsBlock = {
   ],
 } satisfies DetailBlock;
 
-/** Hermes `table-v1` manifest page for Mediapulse end users. */
 export const mediapulseUsersDashboardPage = {
   id: mediapulseUsersHermesPathSegment,
   label: "Mediapulse Users",
@@ -69,10 +61,15 @@ export const mediapulseUsersDashboardPage = {
   order: 15,
   columns: columnsFor<ListItem>()([
     { key: "email", label: "Email", type: "text" },
-    { key: "name", label: "Name", type: "text" },
-    { key: "enabled", label: "Enabled", type: "text" },
+    { key: "name", label: "Name", type: "text", mobile: "subtitle" },
+    { key: "enabled", label: "Enabled", type: "text", format: "boolean" },
     { key: "languages", label: "Language", type: "text" },
-    { key: "createdAt", label: "Created", type: "date-time" },
+    {
+      key: "createdAt",
+      label: "Created",
+      type: "date-time",
+      format: "date-time",
+    },
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()(["email", "name"]),
   sortableFields: rowFieldKeysFor<ListItem>()([

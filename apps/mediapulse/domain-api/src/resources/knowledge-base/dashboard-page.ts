@@ -189,11 +189,27 @@ export const knowledgeBaseDashboardPage = {
   order: 44,
   columns: columnsFor<ListItem>()([
     { key: "symbol", label: "Ticker", type: "text" },
-    { key: "name", label: "Issuer", type: "text" },
-    { key: "entityCount", label: "Entities", type: "text" },
-    { key: "relationCount", label: "Relations", type: "text" },
-    { key: "articleCount", label: "Articles", type: "text" },
-    { key: "lastSeenAt", label: "Last seen", type: "date-time" },
+    {
+      key: "name",
+      label: "Issuer",
+      type: "text",
+      hideBelow: "md",
+      mobile: "subtitle",
+    },
+    { key: "entityCount", label: "Entities", type: "text", format: "number" },
+    {
+      key: "relationCount",
+      label: "Relations",
+      type: "text",
+      format: "number",
+    },
+    { key: "articleCount", label: "Articles", type: "text", format: "number" },
+    {
+      key: "lastSeenAt",
+      label: "Last seen",
+      type: "date-time",
+      format: "date-time",
+    },
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()(["symbol", "name"]),
   sortableFields: rowFieldKeysFor<ListItem>()([

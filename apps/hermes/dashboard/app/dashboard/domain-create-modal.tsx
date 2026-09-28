@@ -1,7 +1,5 @@
 "use client";
 
-import { Plus } from "lucide-react";
-
 import { Button } from "@workspace/ui/components/button";
 import {
   Dialog,
@@ -9,7 +7,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@workspace/ui/components/dialog";
 import { FieldGroup } from "@workspace/ui/components/field";
 import { DomainTableFormFields } from "@/components/domain-table-form-fields";
@@ -17,42 +14,35 @@ import { FormDialogFooter } from "@/components/form-dialog";
 import { FormStatusSubmitButton } from "@/components/submit-button";
 import type { DomainTableFormField } from "@/lib/domain-table-form-schema";
 
+import { useDomainCreateModal } from "./use-domain-create-modal";
+
 type DomainCreateModalProps = {
   fields: DomainTableFormField[];
   createAction: (formData: FormData) => Promise<void>;
-  /** Label for the button that opens the dialog (e.g. "Add variable"). */
-  triggerLabel?: string;
+  title?: string;
 };
 
-/**
- * Renders a "Create new" button that opens a modal with dynamic form fields.
- *
- * @param props - Create form schema fields and server action handler.
- * @returns Trigger button with a dialog-backed create form.
- */
 export const DomainCreateModal = ({
   fields,
   createAction,
-  triggerLabel = "Create new",
+  title = "Create new",
 }: DomainCreateModalProps) => {
-  if (fields.length === 0) return null;
+  const { open, setOpen, submit } = useDomainCreateModal(createAction);
+
+  if (fields.length === 0) {
+    return null;
+  }
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button type="button" size="sm">
-          <Plus aria-hidden />
-          {triggerLabel}
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
         className="grid max-h-[min(90vh,880px)] w-full max-w-2xl grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-2xl"
         aria-describedby={undefined}
       >
         <DialogHeader className="shrink-0 border-b px-6 py-4 pr-12">
-          <DialogTitle>Create new</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <form action={createAction} className="flex min-h-0 flex-col">
+        <form action={submit} className="flex min-h-0 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 py-5">
             <FieldGroup>
               <DomainTableFormFields fields={fields} />

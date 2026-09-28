@@ -40,7 +40,7 @@ export const mapRowToDetailItem = (row: DetailRow) => {
     tickerId: row.tickerId,
     tickerSymbol: row.ticker.symbol,
     tickerName: row.ticker.name,
-    isActive: row.isActive ? "Yes" : "No",
+    isActive: row.isActive,
     generatedAt: row.generatedAt.toISOString(),
     generationSource: row.generationSource,
     agentJobId: row.agentJobId ?? "",

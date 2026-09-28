@@ -1,7 +1,3 @@
-/**
- * Hermes `table-v1` manifest for collected data sources (read-only list + view detail) and path segment.
- */
-
 import type { DashboardViewInput, DetailBlock } from "@hermes/domain-contract";
 import { hermesDashboardManifestApiPrefix } from "../../hermes-dashboard/hermes-dashboard-path-helpers";
 import {
@@ -13,12 +9,18 @@ import {
 import {
   columnsFor,
   rowFieldKeysFor,
+  type ManifestColumnBadgeTones,
 } from "../../hermes-dashboard/templates/table-v1/manifest-field-helpers";
 import type { ListItem } from "./list-mapper";
 import { dataSourcesCustomActionsForManifest } from "./custom-actions";
+import { COLLECTION_GATE_STATUS_LABEL } from "./collection-gate-status";
 
-/** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const dataSourcesHermesPathSegment = "data-sources" as const;
+
+const collectionGateBadgeTones = {
+  [COLLECTION_GATE_STATUS_LABEL.passed]: "success",
+  [COLLECTION_GATE_STATUS_LABEL.failed]: "failed",
+} satisfies ManifestColumnBadgeTones;
 
 const dataSourcesGateBlock = {
   type: "keyValue",
@@ -57,7 +59,6 @@ const dataSourcesCuratedSourceBlock = {
   ],
 } satisfies DetailBlock;
 
-/** Hermes `table-v1` manifest for collected data sources. */
 export const dataSourcesDashboardPage = {
   id: dataSourcesHermesPathSegment,
   label: "Data Sources",
@@ -70,18 +71,37 @@ export const dataSourcesDashboardPage = {
   order: 35,
   columns: columnsFor<ListItem>()([
     { key: "tickerSymbol", label: "Ticker", type: "text" },
-    { key: "title", label: "Title", type: "text" },
-    { key: "url", label: "URL", type: "text" },
-    { key: "searchQueryText", label: "Search query", type: "text" },
+    { key: "title", label: "Title", type: "text", mobile: "subtitle" },
+    {
+      key: "url",
+      label: "URL",
+      type: "text",
+      hideBelow: "lg",
+      mobile: "hidden",
+    },
+    {
+      key: "searchQueryText",
+      label: "Search query",
+      type: "text",
+      hideBelow: "lg",
+      mobile: "hidden",
+    },
     { key: "collectionSourceLabel", label: "Collected by", type: "text" },
     {
       key: "collectionGateStatusLabel",
       label: "Gate",
       type: "text",
+      format: "badge",
+      badgeTones: collectionGateBadgeTones,
+      mobile: "hidden",
+      defaultHidden: true,
     },
-    { key: "contentPreview", label: "Preview", type: "text" },
-    { key: "contentLength", label: "Chars", type: "text" },
-    { key: "createdAt", label: "Created", type: "date-time" },
+    {
+      key: "createdAt",
+      label: "Created",
+      type: "date-time",
+      format: "date-time",
+    },
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()([
     "title",

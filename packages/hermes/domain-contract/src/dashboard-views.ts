@@ -16,13 +16,47 @@ export const dashboardViewKindSchema = z.enum([
 /** @deprecated Use {@link dashboardViewKindSchema} — accepts legacy `table-v1` during migration. */
 export const dashboardTemplateSchema = z.enum(["table-v1", "resource-table"]);
 
-/**
- * Schema for a column in a resource-table view.
- */
+export const dashboardColumnFormatSchema = z.enum([
+  "text",
+  "date-time",
+  "date",
+  "number",
+  "duration-ms",
+  "boolean",
+  "badge",
+]);
+
+export const dashboardColumnToneSchema = z.enum([
+  "success",
+  "progress",
+  "failed",
+  "warning",
+  "muted",
+  "neutral",
+]);
+
+export const dashboardColumnBreakpointSchema = z.enum(["sm", "md", "lg", "xl"]);
+
+export const dashboardColumnMobileRoleSchema = z.enum([
+  "title",
+  "subtitle",
+  "badge",
+  "field",
+  "hidden",
+]);
+
 export const dashboardPageColumnSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   type: z.enum(["text", "date-time"]).default("text"),
+  format: dashboardColumnFormatSchema.optional().catch(undefined),
+  badgeTones: z
+    .record(z.string(), dashboardColumnToneSchema)
+    .optional()
+    .catch(undefined),
+  hideBelow: dashboardColumnBreakpointSchema.optional().catch(undefined),
+  mobile: dashboardColumnMobileRoleSchema.optional().catch(undefined),
+  defaultHidden: z.boolean().optional().catch(undefined),
 });
 
 /**

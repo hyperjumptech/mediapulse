@@ -11,23 +11,10 @@ import {
 import { newslettersCustomActionsForManifest } from "./custom-actions";
 import type { ListItem } from "./list-mapper";
 
-/** URL path segment for this resource under `/v1/hermes-dashboard/`. */
 export const newslettersHermesPathSegment = "newsletters" as const;
 
-/**
- * Threshold (in hours) above which the active SearchQuerySet section gets a
- * `stale set` badge. Lives in one place so the manifest and any future test
- * fixtures stay in sync.
- */
 export const NEWSLETTER_STALE_SET_HOURS = 24 as const;
 
-/**
- * `panel` grouping the delivery stage into one card: KPI cards (the delivery agent and version, when
- * it ran, its outcome, and delivered-of-total) above Recipients and Email Preview tabs. Recipients
- * lists each subscriber's exact per-run outcome; each Email Preview tab renders the sent email in
- * one language. The `id` tab is present only when this newsletter has an Indonesian
- * `NewsletterTranslation`. All figures come from the exact `DeliveryRun` behind this newsletter.
- */
 const newslettersDeliveryStageBlock = {
   type: "panel",
   label: "Delivery Stage",
@@ -99,11 +86,6 @@ const newslettersDeliveryStageBlock = {
   ],
 } satisfies DetailBlock;
 
-/**
- * `panel` grouping the query-analysis stage into one card: KPI cards (agent + version, when it ran,
- * the LLM model, and token spend from the set's columns and `strategySnapshot.llmUsage`) above a
- * results table snapshotting the queries in the active set, each with its intent beneath.
- */
 const newslettersQueryStageBlock = {
   type: "panel",
   label: "Query Generation Stage",
@@ -151,13 +133,6 @@ const newslettersQueryStageBlock = {
   ],
 } satisfies DetailBlock;
 
-/**
- * `panel` grouping the source-collection stage into one card: KPI cards (when the runs ran, the
- * search credits they spent with a per-provider breakdown, and the collected/dropped counts) above a
- * Collected/Dropped tab pair. Collected lists each cited source with its versioned agent and query;
- * Dropped lists the URLs those same runs dropped or failed, with the reason. All figures come from
- * this newsletter's exact citation join traced to the collection runs behind those sources.
- */
 const newslettersSourceStageBlock = {
   type: "panel",
   label: "Source Collection Stage",
@@ -249,14 +224,6 @@ const newslettersSourceStageBlock = {
   ],
 } satisfies DetailBlock;
 
-/**
- * `panel` grouping the source-analysis stage into one card: KPI cards (when the analysis runs ran,
- * the LLM model, the token spend with a per-input/output breakdown, and the assigned/rejected counts)
- * above an Assigned/Rejected tab pair. Assigned lists each cited source with its analysis section,
- * fit score, and reason; Rejected lists the sources those same runs rejected for this ticker. All
- * figures come from this newsletter's exact citation join traced to the article-analysis runs behind
- * those sources.
- */
 const newslettersSourceAnalysisStageBlock = {
   type: "panel",
   label: "Source Analysis Stage",
@@ -350,12 +317,6 @@ const newslettersSourceAnalysisStageBlock = {
   ],
 } satisfies DetailBlock;
 
-/**
- * `panel` grouping the content-generation stage into one card: KPI cards (the writing agent and
- * version, when it ran, the LLM model, and its token spend) above a Structure table. The table lists
- * each newsletter section the agent filled with the number of items it wrote and the citations that
- * landed in it, read from this newsletter and the exact content-generation run that produced it.
- */
 const newslettersContentGenerationStageBlock = {
   type: "panel",
   label: "Content Generation Stage",
@@ -398,12 +359,6 @@ const newslettersContentGenerationStageBlock = {
   ],
 } satisfies DetailBlock;
 
-/**
- * `keyValue` block linking each delivery row back to the Hermes execution
- * surface. Missing template variables fall back to plain text (see
- * `renderUrlTemplate` in `@hermes/domain-contract`), which is what the
- * detail page does when ids on the response are `null`.
- */
 const newslettersHermesLinksBlock = {
   type: "keyValue",
   label: "Hermes execution links",
@@ -449,7 +404,6 @@ const newslettersHermesLinksBlock = {
   ],
 } satisfies DetailBlock;
 
-/** Hermes `table-v1` manifest for the read-only newsletters list + detail. */
 export const newslettersDashboardPage = {
   id: newslettersHermesPathSegment,
   label: "Newsletters",
@@ -460,9 +414,19 @@ export const newslettersDashboardPage = {
   order: 60,
   columns: columnsFor<ListItem>()([
     { key: "tickerSymbol", label: "Ticker", type: "text" },
-    { key: "subject", label: "Subject", type: "text" },
-    { key: "createdAt", label: "Created", type: "date-time" },
-    { key: "deliveryDelivered", label: "Delivery", type: "text" },
+    { key: "subject", label: "Subject", type: "text", mobile: "subtitle" },
+    {
+      key: "deliveryDelivered",
+      label: "Delivered",
+      type: "text",
+      format: "number",
+    },
+    {
+      key: "createdAt",
+      label: "Created",
+      type: "date-time",
+      format: "date-time",
+    },
   ]),
   searchableFields: rowFieldKeysFor<ListItem>()(["subject"]),
   sortableFields: rowFieldKeysFor<ListItem>()(["createdAt", "subject"]),

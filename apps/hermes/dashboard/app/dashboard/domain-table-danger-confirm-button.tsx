@@ -46,9 +46,10 @@ export const DomainTableDangerConfirmButton = ({
         className="text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/20"
         disabled={isPending}
         onClick={requestConfirmation}
+        aria-label={action.label}
       >
         <Trash2 aria-hidden />
-        {action.label}
+        <span className="hidden lg:inline">{action.label}</span>
       </Button>
       <ConfirmActionDialog
         open={open}
