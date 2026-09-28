@@ -1,21 +1,23 @@
 "use client";
 
 import Link from "next/link";
-
 import { useState, type ReactNode } from "react";
+import { Pencil } from "lucide-react";
 
-import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
-import { format } from "date-fns";
-import { ChevronLeft, GitBranch } from "lucide-react";
 
 import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
+import { PageHeader } from "@/components/page-header";
+import { RelativeTime } from "@/components/relative-time";
+import { StatusBadge } from "@/components/status-badge";
+import { SummaryGrid, SummaryItem } from "@/components/summary-grid";
+import { formatCreatedBy } from "@/lib/format-created-by";
 import type { getScheduleById } from "@/lib/schedules";
 import type { PipelineValidationResult } from "@/lib/validate-pipeline";
-import { formatCreatedBy } from "@/lib/format-created-by";
 
-import { ScheduleFormModal } from "../schedule-form-modal";
+import { describeScheduleCadence } from "../describe-schedule-cadence";
 import type { PipelineOption } from "../schedule-form-fields";
+import { ScheduleFormModal } from "../schedule-form-modal";
 
 type ScheduleWithPipeline = NonNullable<
   Awaited<ReturnType<typeof getScheduleById>>
@@ -28,104 +30,152 @@ export type ScheduleDetailContentProps = {
   pipelineValidationById: Record<string, PipelineValidationResult>;
 };
 
-/**
- * Encapsulates schedule detail edit modal state.
- */
-const useScheduleDetailContentState = () => {
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  return { editModalOpen, setEditModalOpen };
+const SCHEDULE_TIMESTAMP_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
+  dateStyle: "medium",
+  timeStyle: "short",
 };
 
-/**
- * Formats `nextRunAt` for display in the schedule header (local time string + IANA timezone label).
- *
- * @param nextRunAt - Upcoming run instant from the schedule row.
- * @param timezone - Schedule timezone name (e.g. `America/New_York`).
- * @returns Formatted date/time and timezone for screen readers and UI.
- */
-const formatNextRunAt = (nextRunAt: Date, timezone: string): string =>
-  `${format(nextRunAt, "LLL d, yyyy HH:mm:ss")} (${timezone})`;
+const useScheduleDetailContentState = () => {
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const openEditModal = () => setEditModalOpen(true);
 
-/**
- * Client wrapper for schedule detail: back link, header with Edit schedule button, executions table, and pagination.
- */
+  return { editModalOpen, setEditModalOpen, openEditModal };
+};
+
+const formatInScheduleTimezone = (date: Date, timezone: string): string => {
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      ...SCHEDULE_TIMESTAMP_FORMAT_OPTIONS,
+      timeZone: timezone,
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat("en-US", {
+      ...SCHEDULE_TIMESTAMP_FORMAT_OPTIONS,
+      timeZone: "UTC",
+    }).format(date);
+  }
+};
+
+const describeMissedRuns = (missedRunCount: number) =>
+  missedRunCount === 1
+    ? "Skipped 1 missed run"
+    : `Skipped ${missedRunCount} missed runs`;
+
+const ScheduleCadenceValue = ({
+  schedule,
+}: {
+  schedule: ScheduleWithPipeline;
+}) => {
+  const cadence = describeScheduleCadence(schedule);
+
+  if (cadence.isCronExpression) {
+    return <code className="font-mono text-xs">{cadence.label}</code>;
+  }
+
+  return <span>{cadence.label}</span>;
+};
+
+const NextRunValue = ({ schedule }: { schedule: ScheduleWithPipeline }) => {
+  if (!schedule.enabled) {
+    return <span className="text-muted-foreground">Not while disabled</span>;
+  }
+  if (!schedule.nextRunAt) {
+    return <span className="text-muted-foreground">None scheduled</span>;
+  }
+  const absoluteLabel = formatInScheduleTimezone(
+    schedule.nextRunAt,
+    schedule.timezone,
+  );
+
+  return (
+    <span className="flex flex-col">
+      <RelativeTime value={schedule.nextRunAt} className="font-medium" />
+      <span className="text-xs text-muted-foreground tabular-nums">
+        {absoluteLabel}
+      </span>
+    </span>
+  );
+};
+
+const LastRecoveredValue = ({
+  lastRecoveredAt,
+  lastMissedRunCount,
+}: {
+  lastRecoveredAt: Date;
+  lastMissedRunCount: number | null;
+}) => {
+  const missedRunsLabel =
+    lastMissedRunCount != null ? describeMissedRuns(lastMissedRunCount) : null;
+
+  return (
+    <span className="flex flex-col">
+      <RelativeTime value={lastRecoveredAt} />
+      {missedRunsLabel ? (
+        <span className="text-xs text-muted-foreground">{missedRunsLabel}</span>
+      ) : null}
+    </span>
+  );
+};
+
 export const ScheduleDetailContent = ({
   schedule,
   executionsSection,
   pipelines,
   pipelineValidationById,
 }: ScheduleDetailContentProps) => {
-  const { editModalOpen, setEditModalOpen } = useScheduleDetailContentState();
+  const { editModalOpen, setEditModalOpen, openEditModal } =
+    useScheduleDetailContentState();
+  const enabledStatus = schedule.enabled ? "enabled" : "disabled";
+  const pipelineHref = `/dashboard/pipelines/${schedule.pipeline.id}`;
+  const createdBy = formatCreatedBy(schedule.createdBy, schedule.createdById);
+  const description = schedule.description ?? undefined;
 
   return (
     <>
       <BreadcrumbEntityLabel segment={schedule.id} label={schedule.name} />
       <div className="flex flex-col gap-6">
-        <div>
-          <Link
-            href="/dashboard/schedules"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ChevronLeft className="size-4" />
-            Back to schedules
-          </Link>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold text-foreground">
-                {schedule.name}
-              </h1>
-              <Badge
-                variant={schedule.enabled ? "success" : "secondary"}
-                aria-label={
-                  schedule.enabled
-                    ? "This schedule is enabled"
-                    : "This schedule is disabled"
-                }
-              >
-                {schedule.enabled ? "Enabled" : "Disabled"}
-              </Badge>
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-muted-foreground">
-              <Link
-                href={`/dashboard/pipelines/${schedule.pipeline.id}`}
-                className="inline-flex items-center gap-1 underline-offset-4 hover:text-foreground hover:underline"
-              >
-                <GitBranch className="size-4 shrink-0" aria-hidden />
-                {schedule.pipeline.name}
-              </Link>
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Next run: </span>
-              {schedule.enabled ? (
-                schedule.nextRunAt ? (
-                  <time dateTime={schedule.nextRunAt.toISOString()}>
-                    {formatNextRunAt(schedule.nextRunAt, schedule.timezone)}
-                  </time>
-                ) : (
-                  <span>None scheduled</span>
-                )
-              ) : (
-                <span>Not while disabled</span>
-              )}
-            </p>
-            <p className="text-muted-foreground">
-              {schedule.description ??
-                "View executions and edit schedule settings."}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Created by: </span>
-              {formatCreatedBy(schedule.createdBy, schedule.createdById)}
-            </p>
-          </div>
-          <Button variant="outline" onClick={() => setEditModalOpen(true)}>
-            Edit schedule
-          </Button>
-        </div>
-
-        <section>
-          <h2 className="mb-2 text-lg font-medium text-foreground">
+        <PageHeader
+          title={schedule.name}
+          badges={<StatusBadge status={enabledStatus} />}
+          description={description}
+          actions={
+            <Button type="button" variant="outline" onClick={openEditModal}>
+              <Pencil aria-hidden />
+              Edit schedule
+            </Button>
+          }
+        />
+        <SummaryGrid>
+          <SummaryItem label="Pipeline">
+            <Link
+              href={pipelineHref}
+              className="font-medium underline-offset-4 hover:underline"
+            >
+              {schedule.pipeline.name}
+            </Link>
+          </SummaryItem>
+          <SummaryItem label="Repeats">
+            <ScheduleCadenceValue schedule={schedule} />
+          </SummaryItem>
+          <SummaryItem label="Timezone">{schedule.timezone}</SummaryItem>
+          <SummaryItem label="Next run">
+            <NextRunValue schedule={schedule} />
+          </SummaryItem>
+          <SummaryItem label="Created">
+            <RelativeTime value={schedule.createdAt} />
+          </SummaryItem>
+          <SummaryItem label="Created by">{createdBy}</SummaryItem>
+          {schedule.lastRecoveredAt ? (
+            <SummaryItem label="Last recovered">
+              <LastRecoveredValue
+                lastRecoveredAt={schedule.lastRecoveredAt}
+                lastMissedRunCount={schedule.lastMissedRunCount}
+              />
+            </SummaryItem>
+          ) : null}
+        </SummaryGrid>
+        <section className="flex flex-col gap-3">
+          <h2 className="text-base font-semibold text-foreground">
             Executions
           </h2>
           {executionsSection}

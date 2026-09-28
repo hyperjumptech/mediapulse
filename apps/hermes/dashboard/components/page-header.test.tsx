@@ -94,4 +94,50 @@ describe("PageHeader", () => {
       container.querySelector('[data-slot="page-header-actions"]'),
     ).toBeNull();
   });
+
+  it("renders badges beside the title outside the heading", () => {
+    // Act
+    render(
+      <PageHeader
+        title="Daily digest"
+        badges={<span data-testid="status-badge">Enabled</span>}
+      />,
+    );
+
+    // Assert
+    const heading = screen.getByRole("heading", { level: 1 });
+    const badge = screen.getByTestId("status-badge");
+
+    expect(heading).toHaveTextContent("Daily digest");
+    expect(heading).not.toContainElement(badge);
+    expect(badge.parentElement).toHaveAttribute(
+      "data-slot",
+      "page-header-badges",
+    );
+  });
+
+  it("omits the badges slot without badges", () => {
+    // Act
+    const { container } = render(<PageHeader title="Test Page" />);
+
+    // Assert
+    expect(
+      container.querySelector('[data-slot="page-header-badges"]'),
+    ).toBeNull();
+  });
+
+  it("renders a rich title node inside the heading", () => {
+    // Act
+    render(
+      <PageHeader title={<span className="font-mono">summarizer@1.0</span>} />,
+    );
+
+    // Assert
+    const heading = screen.getByRole("heading", {
+      level: 1,
+      name: "summarizer@1.0",
+    });
+
+    expect(heading.querySelector(".font-mono")).not.toBeNull();
+  });
 });

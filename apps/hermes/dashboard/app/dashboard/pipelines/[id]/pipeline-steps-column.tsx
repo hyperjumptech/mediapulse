@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 
 import { Button } from "@workspace/ui/components/button";
+import { cn } from "@workspace/ui/lib/utils";
 
 import { useFormAction as useRemoveStepFormAction } from "@/app/dashboard/pipelines/actions/remove-step/.generated/use-form-action";
 import { useFormAction as useReorderStepsFormAction } from "@/app/dashboard/pipelines/actions/reorder-steps/.generated/use-form-action";
-
 import type { AgentConfigSummary } from "@/lib/agent-configs";
+
+import { PipelineColumnCard } from "./pipeline-column-card";
 
 type Step = {
   id: string;
@@ -26,35 +29,36 @@ type Agent = {
   description: string | null;
 };
 
+type SelectStepHandler = (stepId: string | null) => void;
+
+type MoveDirection = "up" | "down";
+
 export type PipelineStepsColumnProps = {
   pipelineId: string;
   steps: Step[];
   agentDescriptions: Agent[];
   selectedStepId: string | null;
-  onSelectStep: (stepId: string | null) => void;
-  /** Reserved for future use (e.g. show saved config name per step). */
+  onSelectStep: SelectStepHandler;
   configsByAgentKey?: Record<string, AgentConfigSummary[]>;
 };
 
-/**
- * Builds the step order array after moving the step at fromIndex one position up (negative) or down (positive).
- */
 const reorderedStepIds = (
   steps: Step[],
   fromIndex: number,
-  direction: "up" | "down",
+  direction: MoveDirection,
 ): string[] => {
+  const stepIds = steps.map((step) => step.id);
   const toIndex = direction === "up" ? fromIndex - 1 : fromIndex + 1;
-  if (toIndex < 0 || toIndex >= steps.length) return steps.map((s) => s.id);
-  const ids = steps.map((s) => s.id);
-  [ids[fromIndex], ids[toIndex]] = [ids[toIndex]!, ids[fromIndex]!];
-  return ids;
-};
+  const movingStepId = stepIds[fromIndex];
+  const displacedStepId = stepIds[toIndex];
+  if (movingStepId === undefined || displacedStepId === undefined) {
+    return stepIds;
+  }
+  stepIds[fromIndex] = displacedStepId;
+  stepIds[toIndex] = movingStepId;
 
-/**
- * Encapsulates remove/reorder form actions and clears the selection after a step is removed.
- */
-type SelectStepHandler = (stepId: string | null) => void;
+  return stepIds;
+};
 
 const usePipelineStepsColumnState = (onSelectStep: SelectStepHandler) => {
   const {
@@ -76,9 +80,14 @@ const usePipelineStepsColumnState = (onSelectStep: SelectStepHandler) => {
   return { RemoveForm, ReorderForm, pending };
 };
 
-/**
- * Renders the pipeline steps list with select, delete, and reorder (up/down) actions.
- */
+const StepCountBadge = ({ stepCount }: { stepCount: number }) => {
+  return (
+    <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
+      {stepCount}
+    </span>
+  );
+};
+
 export const PipelineStepsColumn = ({
   pipelineId,
   steps,
@@ -87,69 +96,87 @@ export const PipelineStepsColumn = ({
   onSelectStep,
 }: PipelineStepsColumnProps) => {
   const agentByKey = useMemo(() => {
-    const m = new Map<string, Agent>();
-    for (const a of agentDescriptions) {
-      m.set(`${a.agentId}@${a.agentVersion}`, a);
+    const agentsByKey = new Map<string, Agent>();
+    for (const agent of agentDescriptions) {
+      agentsByKey.set(`${agent.agentId}@${agent.agentVersion}`, agent);
     }
-    return m;
+
+    return agentsByKey;
   }, [agentDescriptions]);
 
   const { RemoveForm, ReorderForm, pending } =
     usePipelineStepsColumnState(onSelectStep);
+  const title = (
+    <>
+      Steps
+      <StepCountBadge stepCount={steps.length} />
+    </>
+  );
 
   if (steps.length === 0) {
     return (
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium text-foreground">Pipeline steps</h3>
+      <PipelineColumnCard title={title}>
         <p className="text-sm text-muted-foreground">
-          No steps yet. Add an agent from the left column.
+          No steps yet. Add an agent from Available agents to start the
+          pipeline.
         </p>
-      </div>
+      </PipelineColumnCard>
     );
   }
 
   return (
-    <div className="space-y-2">
-      <h3 className="text-sm font-medium text-foreground">Pipeline steps</h3>
-      <p className="text-xs text-muted-foreground">
-        Select a step to edit input and config in the right column.
-      </p>
-      <ul className="space-y-1.5">
+    <PipelineColumnCard
+      title={title}
+      description="Select a step to edit its input, config and contract."
+    >
+      <ol className="flex flex-col gap-1.5">
         {steps.map((step, index) => {
-          const description =
-            agentByKey.get(`${step.agentId}@${step.agentVersion}`)
-              ?.description ?? null;
+          const agentKey = `${step.agentId}@${step.agentVersion}`;
+          const description = agentByKey.get(agentKey)?.description ?? null;
           const isSelected = selectedStepId === step.id;
-          const moveUpStepIds = reorderedStepIds(steps, index, "up");
-          const moveDownStepIds = reorderedStepIds(steps, index, "down");
+          const moveUpStepIds = JSON.stringify(
+            reorderedStepIds(steps, index, "up"),
+          );
+          const moveDownStepIds = JSON.stringify(
+            reorderedStepIds(steps, index, "down"),
+          );
           const canMoveUp = index > 0;
           const canMoveDown = index < steps.length - 1;
+          const stepPosition = step.order + 1;
 
           return (
             <li
               key={step.id}
-              className={`flex items-start gap-2 rounded-md border p-2 ${
-                isSelected ? "ring-2 ring-primary" : ""
-              }`}
+              data-selected={isSelected}
+              className={cn(
+                "flex items-center gap-2 rounded-md border bg-background px-2 py-2 transition-colors",
+                isSelected
+                  ? "border-primary ring-1 ring-primary"
+                  : "hover:bg-muted/50",
+              )}
             >
-              <span className="text-muted-foreground font-mono text-xs w-5">
-                {step.order + 1}.
+              <span
+                aria-hidden
+                className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted font-mono text-xs text-muted-foreground tabular-nums"
+              >
+                {stepPosition}
               </span>
               <button
                 type="button"
+                aria-pressed={isSelected}
                 onClick={() => onSelectStep(isSelected ? null : step.id)}
-                className="min-w-0 flex-1 text-left hover:underline"
+                className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-sm text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
-                <span className="block truncate text-sm font-medium">
-                  {step.agentId}@{step.agentVersion}
+                <span className="truncate font-mono text-sm font-medium">
+                  {agentKey}
                 </span>
                 {description ? (
-                  <span className="mt-0.5 block truncate text-xs font-normal text-muted-foreground">
-                    — {description}
+                  <span className="truncate text-xs text-muted-foreground">
+                    {description}
                   </span>
                 ) : null}
               </button>
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex shrink-0 items-center">
                 {canMoveUp ? (
                   <ReorderForm className="inline">
                     <input
@@ -161,18 +188,18 @@ export const PipelineStepsColumn = ({
                     <input
                       type="hidden"
                       name="body.stepIds"
-                      value={JSON.stringify(moveUpStepIds)}
+                      value={moveUpStepIds}
                       readOnly
                     />
                     <Button
                       type="submit"
                       variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
+                      size="icon-sm"
+                      className="size-7 text-muted-foreground hover:text-foreground"
                       disabled={pending}
                       aria-label="Move step up"
                     >
-                      ↑
+                      <ArrowUp aria-hidden />
                     </Button>
                   </ReorderForm>
                 ) : null}
@@ -187,18 +214,18 @@ export const PipelineStepsColumn = ({
                     <input
                       type="hidden"
                       name="body.stepIds"
-                      value={JSON.stringify(moveDownStepIds)}
+                      value={moveDownStepIds}
                       readOnly
                     />
                     <Button
                       type="submit"
                       variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
+                      size="icon-sm"
+                      className="size-7 text-muted-foreground hover:text-foreground"
                       disabled={pending}
                       aria-label="Move step down"
                     >
-                      ↓
+                      <ArrowDown aria-hidden />
                     </Button>
                   </ReorderForm>
                 ) : null}
@@ -218,19 +245,19 @@ export const PipelineStepsColumn = ({
                   <Button
                     type="submit"
                     variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
+                    size="icon-sm"
+                    className="size-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     disabled={pending}
-                    aria-label={`Remove step ${step.agentId}@${step.agentVersion}`}
+                    aria-label={`Remove step ${agentKey}`}
                   >
-                    Remove
+                    <Trash2 aria-hidden />
                   </Button>
                 </RemoveForm>
               </div>
             </li>
           );
         })}
-      </ul>
-    </div>
+      </ol>
+    </PipelineColumnCard>
   );
 };

@@ -2,12 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog";
+import { Dialog } from "@workspace/ui/components/dialog";
 
 import { getScheduleForEdit } from "@/app/dashboard/schedules/actions/get-for-edit";
 import { useFormAction as useCreateFormAction } from "@/app/dashboard/schedules/actions/create/.generated/use-form-action";
@@ -21,6 +16,16 @@ import {
 } from "./schedule-form-fields";
 import type { ScheduleForEdit } from "@/app/dashboard/schedules/actions/get-for-edit";
 import { useCloseOnSuccessfulSubmit } from "@/app/dashboard/hooks/use-close-on-successful-submit";
+import {
+  FormDialogBody,
+  FormDialogCancelButton,
+  FormDialogContent,
+  FormDialogFooter,
+  FormDialogHeader,
+  FormDialogMessage,
+  formDialogFormClassName,
+} from "@/components/form-dialog";
+import { SubmitButton } from "@/components/submit-button";
 
 export type ScheduleFormModalProps = {
   open: boolean;
@@ -116,13 +121,9 @@ const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
 
   const Form = isEdit ? UpdateForm : CreateForm;
   const title = isEdit ? "Edit schedule" : "Create schedule";
-  const submitLabel = pending
-    ? isEdit
-      ? "Saving…"
-      : "Creating…"
-    : isEdit
-      ? "Save changes"
-      : "Create schedule";
+  const submitLabel = isEdit ? "Save changes" : "Create schedule";
+  const pendingLabel = isEdit ? "Saving…" : "Creating…";
+  const closeModal = useCallback(() => onOpenChange(false), [onOpenChange]);
 
   const defaultStartAt =
     schedule && schedule !== "loading" ? toDatetimeLocal(schedule.startAt) : "";
@@ -174,6 +175,8 @@ const useScheduleFormModalState = (props: ScheduleFormModalProps) => {
     pending,
     errorMessage,
     submitLabel,
+    pendingLabel,
+    closeModal,
     formFieldsProps,
     isLoadingEdit,
     notFound,
@@ -195,6 +198,8 @@ export const ScheduleFormModal = (props: ScheduleFormModalProps) => {
     pending,
     errorMessage,
     submitLabel,
+    pendingLabel,
+    closeModal,
     formFieldsProps,
     isLoadingEdit,
     notFound,
@@ -205,32 +210,35 @@ export const ScheduleFormModal = (props: ScheduleFormModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] w-full max-w-2xl overflow-y-hidden p-0">
-        <div className="flex max-h-[85vh] min-h-80 flex-col overflow-y-hidden px-6 pt-10 pb-6">
-          <DialogHeader className="shrink-0 pb-4">
-            <DialogTitle>{title}</DialogTitle>
-          </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto py-4 px-1">
-            {isLoadingEdit ? (
-              <p className="text-muted-foreground">Loading schedule…</p>
-            ) : notFound ? (
-              <p className="text-muted-foreground">Schedule not found.</p>
-            ) : canShowForm && formFieldsProps ? (
-              <Form className="flex flex-col gap-4">
-                <ScheduleFormFields
-                  namePrefix="body"
-                  pending={pending}
-                  errorMessage={errorMessage}
-                  submitLabel={submitLabel}
-                  pipelines={pipelines}
-                  pipelineValidationById={pipelineValidationById}
-                  {...formFieldsProps}
-                />
-              </Form>
-            ) : null}
-          </div>
-        </div>
-      </DialogContent>
+      <FormDialogContent>
+        <FormDialogHeader title={title} />
+        {isLoadingEdit ? (
+          <FormDialogMessage loading>Loading schedule…</FormDialogMessage>
+        ) : notFound ? (
+          <FormDialogMessage>Schedule not found.</FormDialogMessage>
+        ) : canShowForm && formFieldsProps ? (
+          <Form className={formDialogFormClassName}>
+            <FormDialogBody>
+              <ScheduleFormFields
+                namePrefix="body"
+                pending={pending}
+                pipelines={pipelines}
+                pipelineValidationById={pipelineValidationById}
+                {...formFieldsProps}
+              />
+            </FormDialogBody>
+            <FormDialogFooter errorMessage={errorMessage}>
+              <FormDialogCancelButton
+                onCancel={closeModal}
+                disabled={pending}
+              />
+              <SubmitButton pending={pending} pendingLabel={pendingLabel}>
+                {submitLabel}
+              </SubmitButton>
+            </FormDialogFooter>
+          </Form>
+        ) : null}
+      </FormDialogContent>
     </Dialog>
   );
 };

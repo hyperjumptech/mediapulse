@@ -5,9 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useFormAction } from "@/app/dashboard/agent-contracts/actions/update/.generated/use-form-action";
 import { useCloseOnSuccessfulSubmit } from "@/app/dashboard/hooks/use-close-on-successful-submit";
 
+import type { AgentContractFormState } from "./agent-contract-form-fields";
 import type { AgentContractRow } from "./agent-contract-row-actions";
 
-const initialFormState = {
+type OpenChangeHandler = (open: boolean) => void;
+
+const initialFormState: AgentContractFormState = {
   name: "",
   description: "",
   brief: "",
@@ -17,9 +20,10 @@ const initialFormState = {
 export const useEditContractModalState = (
   contract: AgentContractRow | null,
   open: boolean,
-  onOpenChange: (open: boolean) => void,
+  onOpenChange: OpenChangeHandler,
 ) => {
-  const [formState, setFormState] = useState(initialFormState);
+  const [formState, setFormState] =
+    useState<AgentContractFormState>(initialFormState);
   const { FormWithAction, state, pending } = useFormAction();
 
   const errorMessage = useMemo(() => {

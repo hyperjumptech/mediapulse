@@ -2,10 +2,17 @@
 
 import Link from "next/link";
 
-import { Button } from "@workspace/ui/components/button";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
-import { cn } from "@workspace/ui/lib/utils";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@workspace/ui/components/native-select";
 
 import { FormBooleanCheckboxField } from "@/components/form-boolean-checkbox-field";
 import { usePipelineTimeoutInputDefaultValue } from "@/hooks/use-pipeline-timeout-input-default-value";
@@ -17,8 +24,6 @@ export type PipelineFormFieldsProps = {
   /** Name prefix for form fields, e.g. "body" for body.name */
   namePrefix?: string;
   pending: boolean;
-  errorMessage: string | null;
-  submitLabel: string;
   defaultName: string;
   defaultDescription: string;
   defaultIsActive: boolean;
@@ -26,17 +31,11 @@ export type PipelineFormFieldsProps = {
   defaultTimeoutMs?: number;
   /** When set, renders hidden pipelineId for update action */
   pipelineId?: string;
-  /** Domain integrations for the pipeline owner `<select>` (same order as create fallback). */
+  /** Domain integrations for the pipeline owner picker (same order as create fallback). */
   domainIntegrations: PipelineDomainIntegrationOption[];
   /** Selected integration id for edit, or omit on create to default to first option. */
   defaultDomainIntegrationId?: string;
 };
-
-const selectClassName = cn(
-  "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow]",
-  "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-  "disabled:pointer-events-none disabled:opacity-50",
-);
 
 /**
  * Shared pipeline form fields: domain integration, name, description, optional agent request timeout, isActive.
@@ -45,8 +44,6 @@ const selectClassName = cn(
 export const PipelineFormFields = ({
   namePrefix = "body",
   pending,
-  errorMessage,
-  submitLabel,
   defaultName,
   defaultDescription,
   defaultIsActive,
@@ -65,7 +62,7 @@ export const PipelineFormFields = ({
     defaultDomainIntegrationId ?? domainIntegrations[0]?.id ?? "";
 
   return (
-    <>
+    <FieldGroup>
       {pipelineId != null ? (
         <input
           type="hidden"
@@ -74,8 +71,10 @@ export const PipelineFormFields = ({
           readOnly
         />
       ) : null}
-      <div className="grid gap-2">
-        <Label htmlFor={`${pre}domainIntegrationId`}>Domain integration</Label>
+      <Field>
+        <FieldLabel htmlFor={`${pre}domainIntegrationId`}>
+          Domain integration
+        </FieldLabel>
         {domainIntegrations.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No domain integration configured.{" "}
@@ -88,28 +87,27 @@ export const PipelineFormFields = ({
             before creating pipelines.
           </p>
         ) : (
-          <select
+          <NativeSelect
             id={`${pre}domainIntegrationId`}
             name={`${pre}domainIntegrationId`}
-            className={selectClassName}
             defaultValue={selectDefaultValue}
             disabled={pending}
             required
           >
             {domainIntegrations.map((row) => (
-              <option key={row.id} value={row.id}>
+              <NativeSelectOption key={row.id} value={row.id}>
                 {row.integrationId} — {row.name}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
         )}
-        <p className="text-xs text-muted-foreground">
+        <FieldDescription>
           Pipelines are scoped to one integration (JWT mint, agent registry, and
           step expansion). Must match where agents are registered.
-        </p>
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor={`${pre}name`}>Name</Label>
+        </FieldDescription>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={`${pre}name`}>Name</FieldLabel>
         <Input
           id={`${pre}name`}
           name={`${pre}name`}
@@ -119,9 +117,9 @@ export const PipelineFormFields = ({
           defaultValue={defaultName}
           disabled={pending}
         />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor={`${pre}description`}>Description</Label>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={`${pre}description`}>Description</FieldLabel>
         <Input
           id={`${pre}description`}
           name={`${pre}description`}
@@ -130,9 +128,11 @@ export const PipelineFormFields = ({
           defaultValue={defaultDescription}
           disabled={pending}
         />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor={`${pre}timeout`}>Agent request timeout (ms)</Label>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={`${pre}timeout`}>
+          Agent request timeout (ms)
+        </FieldLabel>
         <Input
           id={`${pre}timeout`}
           name={`${pre}timeout`}
@@ -143,17 +143,13 @@ export const PipelineFormFields = ({
           disabled={pending}
           onInput={onTimeoutInput}
         />
-        <p className="text-xs text-muted-foreground">
+        <FieldDescription>
           Optional. Leave empty for the Hermes default (5 minutes).
-        </p>
-        <p
-          className="text-xs text-muted-foreground"
-          aria-live="polite"
-          role="status"
-        >
+        </FieldDescription>
+        <FieldDescription aria-live="polite" role="status">
           {timeoutPreviewText}
-        </p>
-      </div>
+        </FieldDescription>
+      </Field>
       <FormBooleanCheckboxField
         name={`${pre}isActive`}
         id={`${pre}isActive`}
@@ -161,17 +157,6 @@ export const PipelineFormFields = ({
         disabled={pending}
         label="Active"
       />
-      {errorMessage ? (
-        <p className="text-sm text-destructive" role="alert">
-          {errorMessage}
-        </p>
-      ) : null}
-      <Button
-        type="submit"
-        disabled={pending || domainIntegrations.length === 0}
-      >
-        {submitLabel}
-      </Button>
-    </>
+    </FieldGroup>
   );
 };

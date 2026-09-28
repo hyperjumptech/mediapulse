@@ -2,10 +2,19 @@
 
 import type { ReactNode } from "react";
 
-import { Label } from "@workspace/ui/components/label";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+} from "@workspace/ui/components/field";
 import { cn } from "@workspace/ui/lib/utils";
 
-const defaultCheckboxClassName = "size-4 rounded border border-input";
+export const nativeCheckboxClassName = cn(
+  "peer size-4 shrink-0 cursor-pointer rounded-[4px] border border-input accent-primary shadow-xs outline-none",
+  "focus-visible:ring-[3px] focus-visible:ring-ring/50",
+  "disabled:cursor-not-allowed disabled:opacity-50",
+);
 
 export type FormBooleanCheckboxFieldProps = {
   /** Shared `name` on the hidden input and checkbox (e.g. `body.isActive`). */
@@ -24,6 +33,7 @@ export type FormBooleanCheckboxFieldProps = {
   disabled?: boolean;
   /** Visible label text or element. */
   label: ReactNode;
+  description?: ReactNode;
   /** Optional classes on the label (e.g. cursor, font size). */
   labelClassName?: string;
   /** Merged with the default checkbox sizing / border classes. */
@@ -42,11 +52,22 @@ export const FormBooleanCheckboxField = ({
   checkedSubmitValue = "true",
   disabled = false,
   label,
+  description,
   labelClassName,
   checkboxClassName,
 }: FormBooleanCheckboxFieldProps) => {
+  const labelElement = (
+    <FieldLabel
+      htmlFor={id}
+      className={cn("cursor-pointer font-normal", labelClassName)}
+    >
+      {label}
+    </FieldLabel>
+  );
+  const checkboxAlignmentClassName = description ? "mt-0.5" : undefined;
+
   return (
-    <div className="flex items-center gap-2">
+    <Field orientation="horizontal" data-disabled={disabled || undefined}>
       <input type="hidden" name={name} value="false" readOnly />
       <input
         id={id}
@@ -55,11 +76,20 @@ export const FormBooleanCheckboxField = ({
         value={checkedSubmitValue}
         defaultChecked={defaultChecked}
         disabled={disabled}
-        className={cn(defaultCheckboxClassName, checkboxClassName)}
+        className={cn(
+          nativeCheckboxClassName,
+          checkboxAlignmentClassName,
+          checkboxClassName,
+        )}
       />
-      <Label htmlFor={id} className={labelClassName}>
-        {label}
-      </Label>
-    </div>
+      {description ? (
+        <FieldContent>
+          {labelElement}
+          <FieldDescription>{description}</FieldDescription>
+        </FieldContent>
+      ) : (
+        labelElement
+      )}
+    </Field>
   );
 };

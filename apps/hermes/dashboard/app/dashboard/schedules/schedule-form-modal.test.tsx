@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { ScheduleFormModal } from "./schedule-form-modal";
 
@@ -72,22 +72,8 @@ vi.mock("@workspace/ui/components/dialog", () => ({
 }));
 
 vi.mock("./schedule-form-fields", () => ({
-  ScheduleFormFields: ({
-    pending,
-    errorMessage,
-    submitLabel,
-  }: {
-    pending: boolean;
-    errorMessage: string | null;
-    submitLabel: string;
-  }) => (
-    <div
-      data-testid="schedule-form-fields"
-      data-pending={pending}
-      data-error={errorMessage}
-    >
-      <button type="submit">{submitLabel}</button>
-    </div>
+  ScheduleFormFields: ({ pending }: { pending: boolean }) => (
+    <div data-testid="schedule-form-fields" data-pending={pending} />
   ),
 }));
 
@@ -252,5 +238,77 @@ describe("ScheduleFormModal", () => {
     // Assert
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(routerRefreshMock).not.toHaveBeenCalled();
+  });
+
+  it("shows the pending label on a disabled submit button while saving", async () => {
+    // Setup
+    const mock = await getCreateUseFormActionMock();
+    mock.mockReturnValue(createMockUseFormAction({ pending: true }));
+
+    // Act
+    render(
+      <ScheduleFormModal
+        open={true}
+        onOpenChange={vi.fn()}
+        mode="create"
+        editScheduleId={null}
+        pipelines={createMockPipelines()}
+        pipelineValidationById={{}}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByRole("button", { name: "Creating…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+  });
+
+  it("shows the action error as an alert in the footer", async () => {
+    // Setup
+    const mock = await getCreateUseFormActionMock();
+    mock.mockReturnValue(
+      createMockUseFormAction({
+        state: { status: false, message: "Invalid cron expression" },
+      }),
+    );
+
+    // Act
+    render(
+      <ScheduleFormModal
+        open={true}
+        onOpenChange={vi.fn()}
+        mode="create"
+        editScheduleId={null}
+        pipelines={createMockPipelines()}
+        pipelineValidationById={{}}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Invalid cron expression",
+    );
+  });
+
+  it("closes the modal when Cancel is clicked", async () => {
+    // Setup
+    const onOpenChange = vi.fn();
+    const mock = await getCreateUseFormActionMock();
+    mock.mockReturnValue(createMockUseFormAction());
+    render(
+      <ScheduleFormModal
+        open={true}
+        onOpenChange={onOpenChange}
+        mode="create"
+        editScheduleId={null}
+        pipelines={createMockPipelines()}
+        pipelineValidationById={{}}
+      />,
+    );
+
+    // Act
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    // Assert
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

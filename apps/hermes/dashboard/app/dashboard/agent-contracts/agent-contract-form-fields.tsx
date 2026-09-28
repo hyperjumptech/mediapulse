@@ -1,16 +1,10 @@
 "use client";
 
-import type { ChangeEvent } from "react";
+import type { Dispatch, SetStateAction } from "react";
 
-import { cn } from "@workspace/ui/lib/utils";
+import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
-
-const BRIEF_TEXTAREA_CLASS = cn(
-  "w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow]",
-  "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-  "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
-);
+import { Textarea } from "@workspace/ui/components/textarea";
 
 type AgentContractFormFieldsProps = {
   name: string;
@@ -36,60 +30,113 @@ export const AgentContractFormFields = ({
   disabled = false,
 }: AgentContractFormFieldsProps) => {
   return (
-    <>
-      <div className="grid gap-2">
-        <Label htmlFor="contract-name">Name</Label>
-        <Input
-          id="contract-name"
-          value={name}
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            onNameChange(e.target.value)
-          }
-          placeholder="e.g. Weekly newsletter brief"
-          disabled={disabled}
-          required
-        />
+    <FieldGroup>
+      <div className="grid gap-7 sm:grid-cols-[minmax(0,1fr)_8rem] sm:gap-4">
+        <Field>
+          <FieldLabel htmlFor="contract-name">Name</FieldLabel>
+          <Input
+            id="contract-name"
+            value={name}
+            onChange={(event) => onNameChange(event.target.value)}
+            placeholder="e.g. Weekly newsletter brief"
+            disabled={disabled}
+            required
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="contract-version">Version</FieldLabel>
+          <Input
+            id="contract-version"
+            value={version}
+            onChange={(event) => onVersionChange(event.target.value)}
+            placeholder="e.g. 1.0"
+            disabled={disabled}
+            required
+          />
+        </Field>
       </div>
-      <div className="grid gap-2">
-        <Label htmlFor="contract-description">Description</Label>
+      <Field>
+        <FieldLabel htmlFor="contract-description">Description</FieldLabel>
         <Input
           id="contract-description"
           value={description}
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            onDescriptionChange(e.target.value)
-          }
+          onChange={(event) => onDescriptionChange(event.target.value)}
           placeholder="Optional short description"
           disabled={disabled}
         />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="contract-version">Version</Label>
-        <Input
-          id="contract-version"
-          value={version}
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            onVersionChange(e.target.value)
-          }
-          placeholder="e.g. 1.0"
-          disabled={disabled}
-          required
-        />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="contract-brief">Brief</Label>
-        <textarea
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="contract-brief">Brief</FieldLabel>
+        <Textarea
           id="contract-brief"
           value={brief}
-          onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
-            onBriefChange(e.target.value)
-          }
+          onChange={(event) => onBriefChange(event.target.value)}
           placeholder="Describe the end product: its purpose, sections, audience, and tone. Agents will receive this as context."
           rows={10}
           disabled={disabled}
           required
-          className={BRIEF_TEXTAREA_CLASS}
+          className="min-h-48"
         />
-      </div>
-    </>
+      </Field>
+    </FieldGroup>
   );
 };
+
+export type AgentContractFormState = {
+  name: string;
+  description: string;
+  brief: string;
+  version: string;
+};
+
+type AgentContractFormContentProps = {
+  formState: AgentContractFormState;
+  setFormState: Dispatch<SetStateAction<AgentContractFormState>>;
+  disabled: boolean;
+};
+
+export const isAgentContractFormIncomplete = (
+  formState: AgentContractFormState,
+): boolean => !formState.name || !formState.brief || !formState.version;
+
+export const AgentContractFormContent = ({
+  formState,
+  setFormState,
+  disabled,
+}: AgentContractFormContentProps) => (
+  <>
+    <input type="hidden" name="body.name" value={formState.name} readOnly />
+    <input
+      type="hidden"
+      name="body.description"
+      value={formState.description}
+      readOnly
+    />
+    <input type="hidden" name="body.brief" value={formState.brief} readOnly />
+    <input
+      type="hidden"
+      name="body.version"
+      value={formState.version}
+      readOnly
+    />
+    <AgentContractFormFields
+      name={formState.name}
+      description={formState.description}
+      brief={formState.brief}
+      version={formState.version}
+      onNameChange={(value) =>
+        setFormState((previous) => ({ ...previous, name: value }))
+      }
+      onDescriptionChange={(value) =>
+        setFormState((previous) => ({ ...previous, description: value }))
+      }
+      onBriefChange={(value) =>
+        setFormState((previous) => ({ ...previous, brief: value }))
+      }
+      onVersionChange={(value) =>
+        setFormState((previous) => ({ ...previous, version: value }))
+      }
+      disabled={disabled}
+    />
+  </>
+);

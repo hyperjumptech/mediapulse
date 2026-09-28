@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   ScheduleFormFields,
@@ -8,18 +8,6 @@ import {
   getSupportedIanaTimeZones,
   getTimezoneUtcOffsetLabel,
 } from "./schedule-form-fields";
-
-vi.mock("@workspace/ui/components/button", () => ({
-  Button: ({
-    children,
-    type,
-    disabled,
-  }: React.PropsWithChildren<{ type?: string; disabled?: boolean }>) => (
-    <button type={type as "submit"} disabled={disabled}>
-      {children}
-    </button>
-  ),
-}));
 
 vi.mock("@workspace/ui/components/input", () => ({
   Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => (
@@ -177,8 +165,6 @@ describe("ScheduleFormFields", () => {
     render(
       <ScheduleFormFields
         pending={false}
-        errorMessage={null}
-        submitLabel="Create"
         pipelines={createMockPipelines()}
         defaultName=""
         defaultDescription=""
@@ -199,8 +185,6 @@ describe("ScheduleFormFields", () => {
     render(
       <ScheduleFormFields
         pending={false}
-        errorMessage={null}
-        submitLabel="Create"
         pipelines={createMockPipelines()}
         defaultName=""
         defaultDescription=""
@@ -221,8 +205,6 @@ describe("ScheduleFormFields", () => {
     render(
       <ScheduleFormFields
         pending={false}
-        errorMessage={null}
-        submitLabel="Create"
         pipelines={createMockPipelines()}
         defaultName=""
         defaultDescription=""
@@ -250,8 +232,6 @@ describe("ScheduleFormFields", () => {
     render(
       <ScheduleFormFields
         pending={false}
-        errorMessage={null}
-        submitLabel="Create"
         pipelines={createMockPipelines()}
         defaultName=""
         defaultDescription=""
@@ -276,8 +256,6 @@ describe("ScheduleFormFields", () => {
     render(
       <ScheduleFormFields
         pending={false}
-        errorMessage={null}
-        submitLabel="Create"
         pipelines={createMockPipelines()}
         pipelineValidationById={{
           "pipeline-1": { valid: true, warnings: [] },
@@ -324,8 +302,6 @@ describe("ScheduleFormFields", () => {
     render(
       <ScheduleFormFields
         pending={false}
-        errorMessage={null}
-        submitLabel="Create"
         pipelines={pipelines}
         pipelineValidationById={pipelineValidationById}
         defaultName=""
@@ -371,8 +347,6 @@ describe("ScheduleFormFields", () => {
     render(
       <ScheduleFormFields
         pending={false}
-        errorMessage={null}
-        submitLabel="Create"
         pipelines={createMockPipelines()}
         defaultName=""
         defaultDescription=""
@@ -393,8 +367,6 @@ describe("ScheduleFormFields", () => {
     render(
       <ScheduleFormFields
         pending={false}
-        errorMessage={null}
-        submitLabel="Create"
         pipelines={createMockPipelines()}
         defaultName=""
         defaultDescription=""
@@ -415,8 +387,6 @@ describe("ScheduleFormFields", () => {
     render(
       <ScheduleFormFields
         pending={false}
-        errorMessage={null}
-        submitLabel="Create"
         pipelines={createMockPipelines()}
         defaultName=""
         defaultDescription=""
@@ -432,37 +402,11 @@ describe("ScheduleFormFields", () => {
     expect(screen.getByLabelText("Enabled")).toBeInTheDocument();
   });
 
-  it("renders submit button with provided label", () => {
-    // Act
-    render(
-      <ScheduleFormFields
-        pending={false}
-        errorMessage={null}
-        submitLabel="Create schedule"
-        pipelines={createMockPipelines()}
-        defaultName=""
-        defaultDescription=""
-        defaultRepeat="repeating"
-        defaultTimezone="UTC"
-        defaultPipelineId=""
-        defaultPriority={0}
-        defaultEnabled={true}
-      />,
-    );
-
-    // Assert
-    expect(
-      screen.getByRole("button", { name: "Create schedule" }),
-    ).toBeInTheDocument();
-  });
-
-  it("disables submit button when pending", () => {
+  it("disables the inputs when pending", () => {
     // Act
     render(
       <ScheduleFormFields
         pending={true}
-        errorMessage={null}
-        submitLabel="Creating..."
         pipelines={createMockPipelines()}
         defaultName=""
         defaultDescription=""
@@ -475,16 +419,17 @@ describe("ScheduleFormFields", () => {
     );
 
     // Assert
-    expect(screen.getByRole("button", { name: "Creating..." })).toBeDisabled();
+    expect(screen.getByLabelText("Name")).toBeDisabled();
+    expect(screen.getByLabelText("Timezone")).toBeDisabled();
+    expect(screen.getByLabelText("Pipeline")).toBeDisabled();
+    expect(screen.getByLabelText("Enabled")).toBeDisabled();
   });
 
-  it("displays error message when provided", () => {
+  it("renders no submit button so the modal footer owns the actions", () => {
     // Act
     render(
       <ScheduleFormFields
         pending={false}
-        errorMessage="Invalid cron expression"
-        submitLabel="Create"
         pipelines={createMockPipelines()}
         defaultName=""
         defaultDescription=""
@@ -497,9 +442,7 @@ describe("ScheduleFormFields", () => {
     );
 
     // Assert
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Invalid cron expression",
-    );
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("renders hidden scheduleId when provided", () => {
@@ -507,8 +450,6 @@ describe("ScheduleFormFields", () => {
     const { container } = render(
       <ScheduleFormFields
         pending={false}
-        errorMessage={null}
-        submitLabel="Save"
         pipelines={createMockPipelines()}
         defaultName=""
         defaultDescription=""
@@ -533,8 +474,6 @@ describe("ScheduleFormFields", () => {
     render(
       <ScheduleFormFields
         pending={false}
-        errorMessage={null}
-        submitLabel="Save"
         pipelines={createMockPipelines()}
         defaultName="Daily Run"
         defaultDescription="Runs daily at midnight"
@@ -552,5 +491,91 @@ describe("ScheduleFormFields", () => {
       "Runs daily at midnight",
     );
     expect(screen.getByLabelText("Enabled")).not.toBeChecked();
+  });
+
+  it("shows the start time field when repeat is once", () => {
+    // Setup
+    render(
+      <ScheduleFormFields
+        pending={false}
+        pipelines={createMockPipelines()}
+        defaultName=""
+        defaultDescription=""
+        defaultRepeat="repeating"
+        defaultTimezone="UTC"
+        defaultPipelineId=""
+        defaultPriority={0}
+        defaultEnabled={true}
+      />,
+    );
+
+    // Act
+    fireEvent.change(screen.getByLabelText("Repeat"), {
+      target: { value: "once" },
+    });
+
+    // Assert
+    expect(screen.getByLabelText("Start at (optional)")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Schedule")).not.toBeInTheDocument();
+  });
+
+  it("posts the interval in milliseconds when the interval schedule is chosen", () => {
+    // Setup
+    const { container } = render(
+      <ScheduleFormFields
+        pending={false}
+        pipelines={createMockPipelines()}
+        defaultName=""
+        defaultDescription=""
+        defaultRepeat="repeating"
+        defaultTimezone="UTC"
+        defaultPipelineId=""
+        defaultPriority={0}
+        defaultEnabled={true}
+      />,
+    );
+
+    // Act
+    fireEvent.change(screen.getByLabelText("Schedule"), {
+      target: { value: "interval" },
+    });
+    fireEvent.change(screen.getByLabelText("Interval (minutes)"), {
+      target: { value: "15" },
+    });
+
+    // Assert
+    const intervalInput = container.querySelector(
+      'input[name="body.interval"]',
+    );
+
+    expect(intervalInput).toHaveValue("900000");
+  });
+
+  it("shows the cron expression input when the cron schedule is chosen", () => {
+    // Setup
+    render(
+      <ScheduleFormFields
+        pending={false}
+        pipelines={createMockPipelines()}
+        defaultName=""
+        defaultDescription=""
+        defaultRepeat="repeating"
+        defaultTimezone="UTC"
+        defaultPipelineId=""
+        defaultPriority={0}
+        defaultEnabled={true}
+      />,
+    );
+
+    // Act
+    fireEvent.change(screen.getByLabelText("Schedule"), {
+      target: { value: "cron" },
+    });
+    fireEvent.change(screen.getByLabelText("Cron expression"), {
+      target: { value: "0 6 * * *" },
+    });
+
+    // Assert
+    expect(screen.getByLabelText("Cron expression")).toHaveValue("0 6 * * *");
   });
 });

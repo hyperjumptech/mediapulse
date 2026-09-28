@@ -72,10 +72,16 @@ const givenPipelineSources = (options: {
   httpTriggerIds: string[];
 }) => {
   scheduleFindManyMock.mockResolvedValue(
-    options.scheduleIds.map((scheduleId) => ({ id: scheduleId })),
+    options.scheduleIds.map((scheduleId) => ({
+      id: scheduleId,
+      name: `Schedule ${scheduleId}`,
+    })),
   );
   httpTriggerFindManyMock.mockResolvedValue(
-    options.httpTriggerIds.map((httpTriggerId) => ({ id: httpTriggerId })),
+    options.httpTriggerIds.map((httpTriggerId) => ({
+      id: httpTriggerId,
+      name: `Trigger ${httpTriggerId}`,
+    })),
   );
 };
 
@@ -143,6 +149,11 @@ describe("getPipelineExecutionsPage", () => {
       "pipe-1",
       "trigger-1",
       "sch-1",
+    ]);
+    expect(result.executions.map((item) => item.sourceName)).toEqual([
+      null,
+      "Trigger trigger-1",
+      "Schedule sch-1",
     ]);
     expect(result.executions.map((item) => item.elapsedLabel)).toEqual([
       "—",
@@ -218,11 +229,11 @@ describe("getPipelineExecutionsPage", () => {
     // Assert
     expect(scheduleFindManyMock).toHaveBeenCalledWith({
       where: { pipelineId: "pipe-1" },
-      select: { id: true },
+      select: { id: true, name: true },
     });
     expect(httpTriggerFindManyMock).toHaveBeenCalledWith({
       where: { pipelineId: "pipe-1" },
-      select: { id: true },
+      select: { id: true, name: true },
     });
     expect(scheduleExecutionFindManyMock).toHaveBeenCalledTimes(2);
     expect(scheduleExecutionFindManyMock).toHaveBeenCalledWith({

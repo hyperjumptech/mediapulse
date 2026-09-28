@@ -121,6 +121,64 @@ describe("PipelineStepEditorPanel", () => {
         "Select a step in the pipeline to edit its input and config.",
       ),
     ).toBeInTheDocument();
+    expect(screen.queryByText("Agent input & config")).not.toBeInTheDocument();
+  });
+
+  it("shows the selected step identity at the top without its own heading", () => {
+    render(
+      <PipelineStepEditorPanel
+        selectedStep={selectedStep}
+        stepInput={{}}
+        onStepInputChange={() => {}}
+        configsForAgent={[]}
+        stepAgentConfigId=""
+        onStepAgentConfigIdChange={() => {}}
+        {...noopContractProps}
+        {...noopLoaders}
+      />,
+    );
+
+    expect(screen.getByText("Step 1")).toBeInTheDocument();
+    expect(screen.getByText("summarizer@1.0")).toBeInTheDocument();
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+  });
+
+  it("Contract tab lists contracts with version and description", () => {
+    const onStepAgentContractIdChange = vi.fn();
+
+    render(
+      <PipelineStepEditorPanel
+        selectedStep={selectedStep}
+        stepInput={{}}
+        onStepInputChange={() => {}}
+        configsForAgent={[]}
+        stepAgentConfigId=""
+        onStepAgentConfigIdChange={() => {}}
+        allContracts={[
+          {
+            id: "contract-1",
+            name: "Brief",
+            version: "1.0",
+            description: "Weekly",
+          },
+        ]}
+        stepAgentContractId=""
+        onStepAgentContractIdChange={onStepAgentContractIdChange}
+        {...noopLoaders}
+      />,
+    );
+
+    const picker = screen.getByRole("combobox", {
+      name: "Choose an agent contract",
+    });
+
+    expect(
+      screen.getByRole("option", { name: "Brief v1.0 — Weekly" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(picker, { target: { value: "contract-1" } });
+
+    expect(onStepAgentContractIdChange).toHaveBeenCalledWith("contract-1");
   });
 
   it("Config tab shows empty state with link when no configs for agent", () => {

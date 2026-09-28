@@ -15,10 +15,13 @@ import {
 } from "@/lib/enqueue-diagnostics";
 import { maskSecretsInJson } from "@/lib/mask-json-secrets";
 
+export type EnqueueDiagnosticsTone = "warning" | "destructive";
+
 export type EnqueueDiagnosticsPanelViewModel =
   | { status: "hidden" }
   | {
       status: "invalid";
+      tone: EnqueueDiagnosticsTone;
       panelClass: string;
       payloadPreview: string;
       copyJson: string;
@@ -26,21 +29,23 @@ export type EnqueueDiagnosticsPanelViewModel =
     }
   | {
       status: "empty";
+      tone: EnqueueDiagnosticsTone;
       panelClass: string;
       correlation?: HermesEnqueueCorrelation;
     }
   | {
       status: "entries";
+      tone: EnqueueDiagnosticsTone;
       panelClass: string;
       entries: EnqueueDiagnosticEntry[];
       copyJson: string;
       correlation?: HermesEnqueueCorrelation;
     };
 
-const panelClassForPartial = (isPartial: boolean): string =>
-  isPartial
-    ? "rounded-md border border-amber-600/40 bg-amber-500/5 p-4 text-foreground"
-    : "rounded-md border border-destructive/40 bg-destructive/5 p-4 text-foreground";
+const PANEL_CLASS_BY_TONE: Record<EnqueueDiagnosticsTone, string> = {
+  warning: "border-warning/40 bg-warning/5",
+  destructive: "border-destructive/40 bg-destructive/5",
+};
 
 const maskedDiagnosticsExportJson = (
   errorsValue: unknown,
@@ -51,6 +56,7 @@ const maskedDiagnosticsExportJson = (
     payload.hermesEnqueueCorrelation = correlation;
   }
   payload.errors = errorsValue;
+
   return safeJsonStringify(payload);
 };
 
@@ -69,7 +75,9 @@ export const useEnqueueDiagnosticsPanelViewModel = (
       return { status: "hidden" };
     }
 
-    const panelClass = panelClassForPartial(enqueueStatus === "partial");
+    const tone: EnqueueDiagnosticsTone =
+      enqueueStatus === "partial" ? "warning" : "destructive";
+    const panelClass = PANEL_CLASS_BY_TONE[tone];
     const correlation = parseHermesEnqueueCorrelationFromMetadata(
       maskSecretsInJson(metadata),
     );
@@ -78,8 +86,10 @@ export const useEnqueueDiagnosticsPanelViewModel = (
 
     if (normalized.kind === "invalid") {
       const errorsForExport = maskSecretsInJson(normalized.raw);
+
       return {
         status: "invalid",
+        tone,
         panelClass,
         payloadPreview: safeJsonStringify(errorsForExport),
         copyJson: maskedDiagnosticsExportJson(errorsForExport, correlation),
@@ -94,6 +104,7 @@ export const useEnqueueDiagnosticsPanelViewModel = (
     if (sorted.length === 0) {
       return {
         status: "empty",
+        tone,
         panelClass,
         ...(correlation ? { correlation } : {}),
       };
@@ -101,6 +112,7 @@ export const useEnqueueDiagnosticsPanelViewModel = (
 
     return {
       status: "entries",
+      tone,
       panelClass,
       entries: sorted,
       copyJson: maskedDiagnosticsExportJson(sorted, correlation),

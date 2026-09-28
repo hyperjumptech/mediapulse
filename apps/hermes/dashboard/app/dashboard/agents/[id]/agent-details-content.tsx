@@ -1,12 +1,16 @@
 "use client";
 
-import { format } from "date-fns";
+import { CircleAlert } from "lucide-react";
 
 import type {
   ContentViewResponse,
   DashboardView,
 } from "@hermes/domain-contract";
-import { Badge } from "@workspace/ui/components/badge";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@workspace/ui/components/alert";
 import {
   Tabs,
   TabsContent,
@@ -15,84 +19,120 @@ import {
 } from "@workspace/ui/components/tabs";
 
 import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
+import { CopyableId } from "@/components/copyable-id";
 import { DomainContentView } from "@/components/domain-content-view";
-import { EndpointDisplay } from "../endpoint-display";
-import { JsonPretty } from "../json-pretty";
-import { AgentUnregisterButton } from "./agent-unregister-button";
+import { PageHeader } from "@/components/page-header";
+import { RelativeTime } from "@/components/relative-time";
+import { StatusBadge } from "@/components/status-badge";
+import { SummaryGrid, SummaryItem } from "@/components/summary-grid";
 import type { AgentDetail } from "@/lib/agents";
 
-const ROW_CLASS =
-  "flex items-center justify-between gap-8 py-4 px-6 sm:px-7 border-b border-border/60 last:border-b-0 first:pt-6 last:pb-6";
-const LABEL_CLASS =
-  "shrink-0 text-xs text-muted-foreground font-medium uppercase tracking-wide";
-const VALUE_CLASS =
-  "min-w-0 flex-1 text-sm font-medium text-foreground text-right";
+import { EndpointDisplay, endpointToRecord } from "../endpoint-display";
+import { JsonPretty } from "../json-pretty";
+import { AgentUnregisterButton } from "./agent-unregister-button";
 
 type AgentTabContent = {
   view: DashboardView;
   content: ContentViewResponse;
 };
 
+type DomainAgentTabContent = AgentTabContent & {
+  view: Extract<DashboardView, { kind: "markdown" | "html" | "text" }>;
+};
+
 type AgentDetailsContentProps = {
-  /** Agent from getAgentById (registry row with domain integration id). */
   agent: AgentDetail;
-  /** Domain manifest agent-tab views fetched from the integration API. */
   agentTabContents?: AgentTabContent[];
   agentTabContentsError?: string;
 };
 
-/**
- * Renders agent details with dynamic domain tabs, schema, and info sections.
- */
+const isDomainAgentTabContent = (
+  entry: AgentTabContent,
+): entry is DomainAgentTabContent =>
+  entry.view.kind === "markdown" ||
+  entry.view.kind === "html" ||
+  entry.view.kind === "text";
+
+const readEndpointUrl = (endpoint: unknown): string | null => {
+  const endpointUrl = endpointToRecord(endpoint)?.url;
+
+  return typeof endpointUrl === "string" && endpointUrl.trim() !== ""
+    ? endpointUrl
+    : null;
+};
+
+const TAB_TRIGGER_CLASS_NAME = "flex-none px-3";
+
 export const AgentDetailsContent = ({
   agent,
   agentTabContents = [],
   agentTabContentsError,
 }: AgentDetailsContentProps) => {
-  const domainTabs = agentTabContents.filter(
-    (
-      entry,
-    ): entry is AgentTabContent & {
-      view: Extract<DashboardView, { kind: "markdown" | "html" | "text" }>;
-    } =>
-      entry.view.kind === "markdown" ||
-      entry.view.kind === "html" ||
-      entry.view.kind === "text",
-  );
-
-  const tabCount = domainTabs.length + 2;
-  const tabColsClass =
-    tabCount >= 4
-      ? "grid-cols-4"
-      : tabCount === 3
-        ? "grid-cols-3"
-        : "grid-cols-2";
+  const domainTabs = agentTabContents.filter(isDomainAgentTabContent);
   const defaultTab = domainTabs[0]?.view.id ?? "schema";
   const agentLabel = `${agent.agentId}@${agent.agentVersion}`;
+  const activeStatus = agent.isActive ? "active" : "inactive";
+  const endpointUrl = readEndpointUrl(agent.endpoint);
+  const description = agent.description ?? undefined;
 
   return (
     <div className="flex flex-col gap-6">
       <BreadcrumbEntityLabel segment={agent.id} label={agentLabel} />
-      <h1 className="text-xl font-semibold text-foreground">
-        Agent details: {agent.agentId}@{agent.agentVersion}
-      </h1>
+      <PageHeader
+        title={<span className="font-mono tracking-normal">{agentLabel}</span>}
+        badges={<StatusBadge status={activeStatus} />}
+        description={description}
+        actions={
+          <AgentUnregisterButton agentId={agent.id} agentLabel={agentLabel} />
+        }
+      />
+      <SummaryGrid>
+        <SummaryItem label="Integration">
+          <span className="font-mono text-xs">
+            {agent.domainIntegration.integrationId}
+          </span>
+        </SummaryItem>
+        <SummaryItem label="Endpoint URL" wide>
+          {endpointUrl ? (
+            <CopyableId value={endpointUrl} label="Copy endpoint URL" />
+          ) : (
+            <span className="text-muted-foreground">No endpoint</span>
+          )}
+        </SummaryItem>
+        <SummaryItem label="Created">
+          <RelativeTime value={agent.createdAt} />
+        </SummaryItem>
+        <SummaryItem label="Updated">
+          <RelativeTime value={agent.updatedAt} />
+        </SummaryItem>
+      </SummaryGrid>
       {agentTabContentsError ? (
-        <p className="text-sm text-destructive" role="alert">
-          {agentTabContentsError}
-        </p>
+        <Alert variant="destructive">
+          <CircleAlert aria-hidden />
+          <AlertTitle>Integration tabs unavailable</AlertTitle>
+          <AlertDescription>{agentTabContentsError}</AlertDescription>
+        </Alert>
       ) : null}
-      <Tabs defaultValue={defaultTab} className="w-full">
-        <TabsList className={`grid w-full ${tabColsClass}`}>
+      <Tabs defaultValue={defaultTab} className="w-full gap-4">
+        <TabsList variant="line" className="w-full justify-start border-b">
           {domainTabs.map(({ view }) => (
-            <TabsTrigger key={view.id} value={view.id}>
+            <TabsTrigger
+              key={view.id}
+              value={view.id}
+              className={TAB_TRIGGER_CLASS_NAME}
+            >
               {view.tabLabel ?? view.label}
             </TabsTrigger>
           ))}
-          <TabsTrigger value="schema">Schema</TabsTrigger>
-          <TabsTrigger value="general">Info</TabsTrigger>
+          <TabsTrigger value="schema" className={TAB_TRIGGER_CLASS_NAME}>
+            Schema
+          </TabsTrigger>
+          <TabsTrigger value="general" className={TAB_TRIGGER_CLASS_NAME}>
+            Info
+          </TabsTrigger>
         </TabsList>
         {domainTabs.map(({ view, content }) => (
-          <TabsContent key={view.id} value={view.id} className="pt-6">
+          <TabsContent key={view.id} value={view.id}>
             <DomainContentView
               kind={view.kind}
               body={content.body}
@@ -100,89 +140,29 @@ export const AgentDetailsContent = ({
             />
           </TabsContent>
         ))}
-        <TabsContent value="schema" className="space-y-8 pt-6">
+        <TabsContent value="schema" className="grid gap-6 lg:grid-cols-2">
           <JsonPretty value={agent.inputSchema} title="Input schema" />
           <JsonPretty value={agent.configSchema} title="Config schema" />
         </TabsContent>
-        <TabsContent value="general" className="space-y-8 pt-6">
-          <section className="min-h-0">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-5">
-              Details
-            </h2>
-            <div className="rounded-lg bg-muted/25 border border-border/50 overflow-hidden">
-              <div className={ROW_CLASS}>
-                <span className={LABEL_CLASS}>Agent ID</span>
-                <span className={VALUE_CLASS}>{agent.agentId}</span>
-              </div>
-              <div className={ROW_CLASS}>
-                <span className={LABEL_CLASS}>Version</span>
-                <span className={VALUE_CLASS}>{agent.agentVersion}</span>
-              </div>
-              <div className={ROW_CLASS}>
-                <span className={LABEL_CLASS}>Description</span>
-                <span className="min-w-0 flex-1 text-sm text-muted-foreground normal-case font-normal text-right">
-                  {agent.description ?? "—"}
-                </span>
-              </div>
-              <div className={ROW_CLASS}>
-                <span className={LABEL_CLASS}>Active</span>
-                <span className="min-w-0 flex-1 flex justify-end">
-                  <Badge
-                    variant={agent.isActive ? "default" : "secondary"}
-                    className="font-normal"
-                  >
-                    {agent.isActive ? "Yes" : "No"}
-                  </Badge>
-                </span>
-              </div>
-              <div className={ROW_CLASS}>
-                <span className={LABEL_CLASS}>Created</span>
-                <span className="min-w-0 flex-1 text-sm text-muted-foreground normal-case font-normal text-right">
-                  {format(agent.createdAt, "LLL d, yyyy")}
-                </span>
-              </div>
-              <div className={ROW_CLASS}>
-                <span className={LABEL_CLASS}>Last updated</span>
-                <span className="min-w-0 flex-1 text-sm text-muted-foreground normal-case font-normal text-right">
-                  {format(agent.updatedAt, "LLL d, yyyy")}
-                </span>
-              </div>
-              <div className={ROW_CLASS}>
-                <span className={LABEL_CLASS}>Domain integration id</span>
-                <span
-                  className={`${VALUE_CLASS} font-mono text-xs sm:text-sm break-all`}
-                >
-                  {agent.domainIntegration.integrationId}
-                </span>
-              </div>
-            </div>
+        <TabsContent value="general" className="flex flex-col gap-6">
+          <section className="flex flex-col gap-3">
+            <h2 className="text-sm font-semibold text-foreground">Details</h2>
+            <SummaryGrid className="lg:grid-cols-3">
+              <SummaryItem label="Agent ID">
+                <span className="font-mono">{agent.agentId}</span>
+              </SummaryItem>
+              <SummaryItem label="Version">
+                <span className="font-mono">{agent.agentVersion}</span>
+              </SummaryItem>
+              <SummaryItem label="Registry ID">
+                <CopyableId value={agent.id} label="Copy registry ID" />
+              </SummaryItem>
+            </SummaryGrid>
           </section>
-          <section className="min-h-0">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-5">
-              Endpoint
-            </h2>
-            <div className="rounded-lg bg-muted/25 border border-border/50 overflow-hidden">
+          <section className="flex flex-col gap-3">
+            <h2 className="text-sm font-semibold text-foreground">Endpoint</h2>
+            <div className="overflow-hidden rounded-lg border bg-card">
               <EndpointDisplay endpoint={agent.endpoint} />
-            </div>
-          </section>
-          <section className="min-h-0">
-            <h2 className="text-xs font-semibold text-destructive uppercase tracking-wider mb-5">
-              Danger zone
-            </h2>
-            <div className="flex items-center justify-between gap-8 rounded-lg border border-destructive/40 bg-destructive/5 px-6 py-4">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">
-                  Unregister this agent
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Removes {agent.agentId}@{agent.agentVersion} from the
-                  registry. This cannot be undone.
-                </p>
-              </div>
-              <AgentUnregisterButton
-                agentId={agent.id}
-                agentLabel={`${agent.agentId}@${agent.agentVersion}`}
-              />
             </div>
           </section>
         </TabsContent>

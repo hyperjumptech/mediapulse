@@ -1,5 +1,5 @@
-import { DetailPageSkeleton } from "@/components/page-skeletons";
+import { ExecutionDetailSkeleton } from "@/components/execution-detail/execution-detail-skeleton";
 
 export default function Loading() {
-  return <DetailPageSkeleton />;
+  return <ExecutionDetailSkeleton />;
 }

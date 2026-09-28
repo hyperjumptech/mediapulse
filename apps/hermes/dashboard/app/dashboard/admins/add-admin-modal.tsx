@@ -2,19 +2,20 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Button } from "@workspace/ui/components/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@workspace/ui/components/dialog";
+import { Dialog, DialogTrigger } from "@workspace/ui/components/dialog";
+import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
 
 import { useFormAction } from "@/app/dashboard/admins/actions/create/.generated/use-form-action";
+import {
+  FormDialogBody,
+  FormDialogCancelButton,
+  FormDialogContent,
+  FormDialogFooter,
+  FormDialogHeader,
+  formDialogFormClassName,
+} from "@/components/form-dialog";
+import { SubmitButton } from "@/components/submit-button";
 
 type AddAdminModalProps = {
   trigger?: React.ReactNode;
@@ -68,54 +69,60 @@ export const AddAdminModal = ({ trigger }: AddAdminModalProps) => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Add admin</DialogTitle>
-        </DialogHeader>
-        <FormWithAction className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="add-admin-name">Name</Label>
-            <Input
-              id="add-admin-name"
-              name="body.name"
-              type="text"
-              required
-              autoComplete="name"
+      <FormDialogContent>
+        <FormDialogHeader title="Add admin" />
+        <FormWithAction className={formDialogFormClassName}>
+          <FormDialogBody>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="add-admin-name">Name</FieldLabel>
+                <Input
+                  id="add-admin-name"
+                  name="body.name"
+                  type="text"
+                  required
+                  autoComplete="name"
+                  disabled={pending}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="add-admin-email">Email</FieldLabel>
+                <Input
+                  id="add-admin-email"
+                  name="body.email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  disabled={pending}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="add-admin-password">
+                  Initial password
+                </FieldLabel>
+                <Input
+                  id="add-admin-password"
+                  name="body.password"
+                  type="password"
+                  required
+                  minLength={4}
+                  autoComplete="new-password"
+                  disabled={pending}
+                />
+              </Field>
+            </FieldGroup>
+          </FormDialogBody>
+          <FormDialogFooter errorMessage={errorMessage}>
+            <FormDialogCancelButton
+              onCancel={() => setOpen(false)}
+              disabled={pending}
             />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="add-admin-email">Email</Label>
-            <Input
-              id="add-admin-email"
-              name="body.email"
-              type="email"
-              required
-              autoComplete="email"
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="add-admin-password">Initial password</Label>
-            <Input
-              id="add-admin-password"
-              name="body.password"
-              type="password"
-              required
-              minLength={4}
-              autoComplete="new-password"
-            />
-          </div>
-          {errorMessage ? (
-            <p className="text-sm text-destructive" role="alert">
-              {errorMessage}
-            </p>
-          ) : null}
-          <DialogFooter>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Creating…" : "Create admin"}
-            </Button>
-          </DialogFooter>
+            <SubmitButton pending={pending} pendingLabel="Creating…">
+              Create admin
+            </SubmitButton>
+          </FormDialogFooter>
         </FormWithAction>
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   );
 };

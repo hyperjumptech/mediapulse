@@ -1,7 +1,14 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
-import { LogoutForm } from "./logout-form";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu";
+
+import { LogoutForm, LogoutMenuItem } from "./logout-form";
 
 const replaceMock = vi.fn();
 
@@ -139,5 +146,101 @@ describe("LogoutForm", () => {
 
     // Assert
     expect(replaceMock).toHaveBeenCalledWith("/login");
+  });
+});
+
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+const renderLogoutMenuItem = () =>
+  render(
+    <DropdownMenu open>
+      <DropdownMenuTrigger>Account</DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <LogoutMenuItem />
+      </DropdownMenuContent>
+    </DropdownMenu>,
+  );
+
+describe("LogoutMenuItem", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    replaceMock.mockReset();
+  });
+
+  it("renders a keyboard reachable log out menu item", async () => {
+    // Setup
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+    const useFormActionMock = await getUseFormActionMock();
+    useFormActionMock.mockReturnValue(createMockUseFormAction());
+
+    // Act
+    renderLogoutMenuItem();
+
+    // Assert
+    expect(screen.getByRole("menuitem", { name: "Log out" })).toHaveAttribute(
+      "type",
+      "submit",
+    );
+  });
+
+  it("submits the logout form on Enter and keeps the menu open", async () => {
+    // Setup
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+    const useFormActionMock = await getUseFormActionMock();
+    useFormActionMock.mockReturnValue(createMockUseFormAction());
+    renderLogoutMenuItem();
+    const submitListener = vi.fn((event: Event) => event.preventDefault());
+    screen
+      .getByTestId("logout-form")
+      .addEventListener("submit", submitListener);
+    const logoutItem = screen.getByRole("menuitem", { name: "Log out" });
+
+    // Act
+    await act(async () => {
+      logoutItem.focus();
+      fireEvent.keyDown(logoutItem, { key: "Enter" });
+    });
+
+    // Assert
+    expect(submitListener).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+  });
+
+  it("shows a disabled pending item while logging out", async () => {
+    // Setup
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+    const useFormActionMock = await getUseFormActionMock();
+    useFormActionMock.mockReturnValue(
+      createMockUseFormAction({ pending: true }),
+    );
+
+    // Act
+    renderLogoutMenuItem();
+
+    // Assert
+    expect(
+      screen.getByRole("menuitem", { name: "Logging out…" }),
+    ).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("shows the logout error inside the menu", async () => {
+    // Setup
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+    const useFormActionMock = await getUseFormActionMock();
+    useFormActionMock.mockReturnValue(
+      createMockUseFormAction({
+        state: { status: false, message: "Unable to log out" },
+      }),
+    );
+
+    // Act
+    renderLogoutMenuItem();
+
+    // Assert
+    expect(screen.getByRole("alert")).toHaveTextContent("Unable to log out");
   });
 });

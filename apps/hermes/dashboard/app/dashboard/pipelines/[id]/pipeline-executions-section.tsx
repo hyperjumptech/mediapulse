@@ -22,20 +22,18 @@ export const PipelineExecutionsSection = async ({
   );
 
   return (
-    <>
+    <div className="flex flex-col gap-3">
       <PipelineExecutionsTable
         pipelineId={pipelineId}
         executions={executionsResult.executions}
       />
-      <div className="mt-4">
-        <ListPagination
-          basePath={`/dashboard/pipelines/${pipelineId}`}
-          page={executionsResult.page}
-          pageSize={executionsResult.pageSize}
-          total={executionsResult.total}
-          ariaLabel="Pipeline executions pagination"
-        />
-      </div>
-    </>
+      <ListPagination
+        basePath={`/dashboard/pipelines/${pipelineId}`}
+        page={executionsResult.page}
+        pageSize={executionsResult.pageSize}
+        total={executionsResult.total}
+        ariaLabel="Pipeline executions pagination"
+      />
+    </div>
   );
 };

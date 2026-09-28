@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { PipelineFormModal } from "./pipeline-form-modal";
 
@@ -72,22 +72,8 @@ vi.mock("@workspace/ui/components/dialog", () => ({
 }));
 
 vi.mock("./pipeline-form-fields", () => ({
-  PipelineFormFields: ({
-    pending,
-    errorMessage,
-    submitLabel,
-  }: {
-    pending: boolean;
-    errorMessage: string | null;
-    submitLabel: string;
-  }) => (
-    <div
-      data-testid="pipeline-form-fields"
-      data-pending={pending}
-      data-error={errorMessage}
-    >
-      <button type="submit">{submitLabel}</button>
-    </div>
+  PipelineFormFields: ({ pending }: { pending: boolean }) => (
+    <div data-testid="pipeline-form-fields" data-pending={pending} />
   ),
 }));
 
@@ -213,5 +199,75 @@ describe("PipelineFormModal", () => {
     // Assert
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(routerRefreshMock).not.toHaveBeenCalled();
+  });
+
+  it("disables the submit button when no domain integration exists", async () => {
+    // Setup
+    const mock = await getCreateUseFormActionMock();
+    mock.mockReturnValue(createMockUseFormAction());
+
+    // Act
+    render(
+      <PipelineFormModal
+        open={true}
+        onOpenChange={vi.fn()}
+        mode="create"
+        editPipelineId={null}
+        domainIntegrations={[]}
+      />,
+    );
+
+    // Assert
+    expect(
+      screen.getByRole("button", { name: "Create pipeline" }),
+    ).toBeDisabled();
+  });
+
+  it("shows the pending label and the action error", async () => {
+    // Setup
+    const mock = await getCreateUseFormActionMock();
+    mock.mockReturnValue(
+      createMockUseFormAction({
+        state: { status: false, message: "Name is required" },
+        pending: true,
+      }),
+    );
+
+    // Act
+    render(
+      <PipelineFormModal
+        open={true}
+        onOpenChange={vi.fn()}
+        mode="create"
+        editPipelineId={null}
+        domainIntegrations={domainIntegrationsFixture}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByRole("button", { name: "Creating…" })).toBeDisabled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Name is required");
+  });
+
+  it("closes the modal when Cancel is clicked", async () => {
+    // Setup
+    const onOpenChange = vi.fn();
+    const mock = await getCreateUseFormActionMock();
+    mock.mockReturnValue(createMockUseFormAction());
+    render(
+      <PipelineFormModal
+        open={true}
+        onOpenChange={onOpenChange}
+        mode="create"
+        editPipelineId={null}
+        domainIntegrations={domainIntegrationsFixture}
+      />,
+    );
+
+    // Act
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    // Assert
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

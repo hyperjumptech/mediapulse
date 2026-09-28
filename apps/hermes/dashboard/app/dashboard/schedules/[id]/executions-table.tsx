@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 import {
   Table,
   TableBody,
@@ -10,9 +8,17 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
-import { format } from "date-fns";
 
+import { DataTableCard } from "@/components/data-table/data-table-card";
+import {
+  ExecutionInvocationCounts,
+  ExecutionJobCounts,
+  ExecutionTimeLink,
+  ExecutionsEmptyState,
+  ViewExecutionLink,
+} from "@/components/execution-history-cells";
 import { HermesExecutionCancelButton } from "@/components/hermes-execution-cancel-button";
+import { StatusBadge } from "@/components/status-badge";
 import type { ScheduleExecutionRow } from "@/lib/schedules";
 
 type ExecutionsTableProps = {
@@ -20,104 +26,89 @@ type ExecutionsTableProps = {
   executions: ScheduleExecutionRow[];
 };
 
-/**
- * Builds the dashboard path for a single schedule execution detail view.
- *
- * @param scheduleId - Owning schedule id.
- * @param executionId - Schedule execution row id.
- * @returns Absolute app path for the execution detail page.
- */
 const executionDetailHref = (scheduleId: string, executionId: string) =>
   `/dashboard/schedules/${scheduleId}/executions/${executionId}`;
 
-/**
- * Renders the schedule executions list: enqueue/run status, job counts, and links to execution detail.
- */
 export const ExecutionsTable = ({
   scheduleId,
   executions,
 }: ExecutionsTableProps) => {
+  if (executions.length === 0) {
+    return (
+      <DataTableCard>
+        <ExecutionsEmptyState description="Each time this schedule fires, its run shows up here with job and invocation counts." />
+      </DataTableCard>
+    );
+  }
+
   return (
-    <div className="rounded-md border">
+    <DataTableCard>
       <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow className="border-muted hover:bg-transparent">
-            <TableHead className="w-[180px]">Execution time</TableHead>
-            <TableHead className="w-[100px]">Enqueue</TableHead>
-            <TableHead className="w-[100px]">Run</TableHead>
-            <TableHead className="w-[90px]">Jobs</TableHead>
-            <TableHead className="min-w-[140px] whitespace-normal">
-              Invocations (success / fail)
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="pl-4">Started</TableHead>
+            <TableHead>Run</TableHead>
+            <TableHead className="hidden sm:table-cell">Enqueue</TableHead>
+            <TableHead className="hidden text-right md:table-cell">
+              Jobs
             </TableHead>
-            <TableHead className="w-[90px]">Detail</TableHead>
-            <TableHead className="w-[120px]">Actions</TableHead>
+            <TableHead className="text-right">Invocations</TableHead>
+            <TableHead className="pr-2">
+              <span className="sr-only">Actions</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {executions.length === 0 ? (
-            <TableRow>
-              <TableCell
-                colSpan={7}
-                className="text-center text-muted-foreground"
-              >
-                No executions yet.
-              </TableCell>
-            </TableRow>
-          ) : (
-            executions.map((execution) => {
-              const detailHref = executionDetailHref(scheduleId, execution.id);
-              const timeLabel = format(
-                execution.executionTime,
-                "LLL d, yyyy HH:mm:ss",
-              );
-              return (
-                <TableRow key={execution.id}>
-                  <TableCell className="text-sm">
-                    <Link
-                      href={detailHref}
-                      className="text-primary underline-offset-4 hover:underline"
-                      aria-label={`Open execution detail for ${timeLabel}`}
-                    >
-                      {timeLabel}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-sm capitalize">
-                    {execution.enqueueStatus}
-                  </TableCell>
-                  <TableCell className="text-sm capitalize">
-                    {execution.runStatus}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {execution.jobsCreated} / {execution.jobsEnqueued}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {execution.succeededInvocationCount} /{" "}
-                    {execution.failedInvocationCount}
-                  </TableCell>
-                  <TableCell>
-                    <Link
-                      href={detailHref}
-                      className="text-sm text-primary underline-offset-4 hover:underline"
-                    >
-                      View
-                    </Link>
-                  </TableCell>
-                  <TableCell>
+          {executions.map((execution) => {
+            const detailHref = executionDetailHref(scheduleId, execution.id);
+            const cancelTarget = {
+              kind: "schedule" as const,
+              scheduleId,
+              scheduleExecutionId: execution.id,
+            };
+
+            return (
+              <TableRow key={execution.id}>
+                <TableCell className="pl-4">
+                  <ExecutionTimeLink
+                    href={detailHref}
+                    executionTime={execution.executionTime}
+                  />
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={execution.runStatus} />
+                </TableCell>
+                <TableCell className="hidden sm:table-cell">
+                  <StatusBadge status={execution.enqueueStatus} />
+                </TableCell>
+                <TableCell className="hidden text-right md:table-cell">
+                  <ExecutionJobCounts
+                    jobsCreated={execution.jobsCreated}
+                    jobsEnqueued={execution.jobsEnqueued}
+                  />
+                </TableCell>
+                <TableCell className="text-right">
+                  <ExecutionInvocationCounts
+                    succeededInvocationCount={
+                      execution.succeededInvocationCount
+                    }
+                    failedInvocationCount={execution.failedInvocationCount}
+                  />
+                </TableCell>
+                <TableCell className="pr-2">
+                  <div className="flex items-center justify-end gap-1">
                     <HermesExecutionCancelButton
-                      target={{
-                        kind: "schedule",
-                        scheduleId,
-                        scheduleExecutionId: execution.id,
-                      }}
+                      target={cancelTarget}
                       runStatus={execution.runStatus}
                     />
-                  </TableCell>
-                </TableRow>
-              );
-            })
-          )}
+                    <ViewExecutionLink href={detailHref} />
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
-    </div>
+    </DataTableCard>
   );
 };

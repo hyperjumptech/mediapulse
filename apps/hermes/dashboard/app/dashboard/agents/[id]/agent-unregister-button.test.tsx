@@ -54,6 +54,22 @@ describe("AgentUnregisterButton", () => {
     toastErrorMock.mockReset();
   });
 
+  it("renders a quiet outline trigger tinted as destructive", () => {
+    // Setup
+    mockFormAction();
+
+    // Act
+    render(
+      <AgentUnregisterButton agentId="agent-123" agentLabel="summarizer@2.0" />,
+    );
+
+    // Assert
+    const trigger = screen.getByRole("button", { name: "Unregister agent" });
+
+    expect(trigger).toHaveAttribute("data-variant", "outline");
+    expect(trigger).toHaveClass("text-destructive");
+  });
+
   it("opens a confirmation dialog instead of using the native confirm", () => {
     // Setup
     mockFormAction();

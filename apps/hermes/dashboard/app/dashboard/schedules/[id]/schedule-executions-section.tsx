@@ -22,20 +22,18 @@ export const ScheduleExecutionsSection = async ({
   );
 
   return (
-    <>
+    <div className="flex flex-col gap-3">
       <ExecutionsTable
         scheduleId={scheduleId}
         executions={executionsResult.executions}
       />
-      <div className="mt-4">
-        <ListPagination
-          basePath={`/dashboard/schedules/${scheduleId}`}
-          page={executionsResult.page}
-          pageSize={executionsResult.pageSize}
-          total={executionsResult.total}
-          ariaLabel="Executions pagination"
-        />
-      </div>
-    </>
+      <ListPagination
+        basePath={`/dashboard/schedules/${scheduleId}`}
+        page={executionsResult.page}
+        pageSize={executionsResult.pageSize}
+        total={executionsResult.total}
+        ariaLabel="Executions pagination"
+      />
+    </div>
   );
 };

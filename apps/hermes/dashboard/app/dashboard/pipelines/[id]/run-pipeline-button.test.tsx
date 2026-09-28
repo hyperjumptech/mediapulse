@@ -1,190 +1,159 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, renderHook, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
-import { RunPipelineButton } from "./run-pipeline-button";
 
-const routerRefreshMock = vi.fn();
-
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({
-    refresh: routerRefreshMock,
-  }),
-}));
-
-const createMockFormWithAction = () => {
-  const FormWithAction = ({
-    children,
-    className,
-  }: {
-    children: React.ReactNode;
-    className?: string;
-  }) => (
-    <form data-testid="run-pipeline-form" className={className}>
-      {children}
-    </form>
-  );
-  FormWithAction.displayName = "FormWithAction";
-  return FormWithAction;
-};
-
-const createMockUseFormAction = (overrides?: {
-  state?: {
-    status: boolean;
-    message?: string;
-    data?: {
-      invocationsRun?: number;
-      executionId?: string;
-      runStatus?: "running" | "succeeded" | "partial" | "failed" | "cancelled";
-      failedInvocationCount?: number;
-    };
-  } | null;
-  pending?: boolean;
-}) => ({
-  FormWithAction: createMockFormWithAction(),
-  state: overrides?.state ?? null,
-  pending: overrides?.pending ?? false,
-});
+import {
+  RunPipelineButton,
+  RunPipelineResult,
+  useRunPipeline,
+  type RunPipelineAction,
+} from "./run-pipeline-button";
 
 vi.mock(
   "@/app/dashboard/pipelines/actions/run-pipeline/.generated/use-form-action",
   () => ({
-    useFormAction: vi.fn(() => createMockUseFormAction()),
+    useFormAction: vi.fn(),
   }),
 );
 
-vi.mock("@workspace/ui/components/button", () => ({
-  Button: ({
-    children,
-    type,
-    disabled,
-  }: React.PropsWithChildren<{ type?: string; disabled?: boolean }>) => (
-    <button type={type as "submit"} disabled={disabled}>
-      {children}
-    </button>
-  ),
-}));
+const MockFormWithAction = ({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <form data-testid="run-pipeline-form" className={className}>
+    {children}
+  </form>
+);
+
+type RunPipelineState = RunPipelineAction["state"];
+
+const createRunPipelineAction = (overrides?: {
+  state?: RunPipelineState;
+  pending?: boolean;
+}): RunPipelineAction =>
+  ({
+    FormWithAction: MockFormWithAction,
+    state: overrides?.state ?? null,
+    pending: overrides?.pending ?? false,
+  }) as RunPipelineAction;
+
+const createSuccessState = (
+  data: Partial<{
+    invocationsRun: number;
+    executionId: string;
+    runStatus: "running" | "succeeded" | "partial" | "failed" | "cancelled";
+    failedInvocationCount: number;
+  }>,
+): RunPipelineState =>
+  ({
+    status: true,
+    statusCode: 200,
+    data: {
+      ok: true,
+      invocationsRun: 1,
+      executionId: "00000000-0000-4000-8000-000000000001",
+      runStatus: "succeeded",
+      failedInvocationCount: 0,
+      ...data,
+    },
+  }) as RunPipelineState;
 
 const getUseFormActionMock = async () => {
-  const mod =
+  const generatedModule =
     await import("@/app/dashboard/pipelines/actions/run-pipeline/.generated/use-form-action");
-  return mod.useFormAction as Mock;
+
+  return generatedModule.useFormAction as Mock;
 };
 
 describe("RunPipelineButton", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-    routerRefreshMock.mockReset();
-  });
-
-  it("renders Run pipeline button", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
-
-    // Act
-    render(<RunPipelineButton pipelineId="pipeline-123" />);
-
-    // Assert
-    expect(
-      screen.getByRole("button", { name: /Run pipeline/i }),
-    ).toBeInTheDocument();
-  });
-
-  it("renders hidden input with pipeline id", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
-
-    // Act
-    render(<RunPipelineButton pipelineId="pipeline-123" />);
-
-    // Assert
-    const form = screen.getByTestId("run-pipeline-form");
-    const hiddenInput = form.querySelector('input[name="body.pipelineId"]');
-    expect(hiddenInput).toHaveValue("pipeline-123");
-  });
-
-  it("merges className onto the outer wrapper", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction());
-
+  it("submits the pipeline id through the run form", () => {
     // Act
     render(
       <RunPipelineButton
         pipelineId="pipeline-123"
-        className="toolbar-run-cluster"
+        runPipelineAction={createRunPipelineAction()}
       />,
     );
 
     // Assert
     const form = screen.getByTestId("run-pipeline-form");
-    const outer = form.parentElement?.parentElement;
-    expect(outer).toBeTruthy();
-    expect(outer).toHaveClass("toolbar-run-cluster", "w-full", "min-w-0");
+    const hiddenInput = form.querySelector('input[name="body.pipelineId"]');
+
+    expect(hiddenInput).toHaveValue("pipeline-123");
+    expect(screen.getByRole("button", { name: "Run pipeline" })).toBeEnabled();
   });
 
-  it("shows Running label when pending", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction({ pending: true }));
-
+  it("shows a Running label and disables the button while pending", () => {
     // Act
-    render(<RunPipelineButton pipelineId="pipeline-123" />);
-
-    // Assert
-    expect(
-      screen.getByRole("button", { name: /Running…/i }),
-    ).toBeInTheDocument();
-  });
-
-  it("disables button when pending", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(createMockUseFormAction({ pending: true }));
-
-    // Act
-    render(<RunPipelineButton pipelineId="pipeline-123" />);
-
-    // Assert
-    expect(screen.getByRole("button")).toBeDisabled();
-  });
-
-  it("displays error message on failure", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(
-      createMockUseFormAction({
-        state: { status: false, message: "Pipeline is inactive" },
-      }),
+    render(
+      <RunPipelineButton
+        pipelineId="pipeline-123"
+        runPipelineAction={createRunPipelineAction({ pending: true })}
+      />,
     );
 
-    // Act
-    render(<RunPipelineButton pipelineId="pipeline-123" />);
-
     // Assert
-    expect(screen.getByText("Pipeline is inactive")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Running…" })).toBeDisabled();
   });
 
-  it("displays success message with invocation count", async () => {
-    // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(
-      createMockUseFormAction({
-        state: {
-          status: true,
-          data: {
-            invocationsRun: 5,
-            runStatus: "succeeded",
-            failedInvocationCount: 0,
-            executionId: "00000000-0000-4000-8000-000000000005",
-          },
-        },
-      }),
+  it("disables the button when the pipeline cannot run", () => {
+    // Act
+    render(
+      <RunPipelineButton
+        pipelineId="pipeline-123"
+        disabled
+        runPipelineAction={createRunPipelineAction()}
+      />,
     );
 
+    // Assert
+    expect(screen.getByRole("button", { name: "Run pipeline" })).toBeDisabled();
+  });
+});
+
+describe("RunPipelineResult", () => {
+  it("renders nothing before the pipeline runs", () => {
     // Act
-    render(<RunPipelineButton pipelineId="pipeline-123" />);
+    const { container } = render(
+      <RunPipelineResult pipelineId="pipeline-123" state={null} />,
+    );
+
+    // Assert
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("shows the error message when the run fails", () => {
+    // Setup
+    const state = {
+      status: false,
+      statusCode: 400,
+      message: "Pipeline is inactive",
+    } as RunPipelineState;
+
+    // Act
+    render(<RunPipelineResult pipelineId="pipeline-123" state={state} />);
+
+    // Assert
+    const alert = screen.getByRole("alert");
+
+    expect(alert).toHaveTextContent("Couldn't run the pipeline");
+    expect(alert).toHaveTextContent("Pipeline is inactive");
+  });
+
+  it("describes a finished run with its status and execution link", () => {
+    // Setup
+    const state = createSuccessState({
+      invocationsRun: 5,
+      runStatus: "succeeded",
+      failedInvocationCount: 0,
+      executionId: "00000000-0000-4000-8000-000000000005",
+    });
+
+    // Act
+    render(<RunPipelineResult pipelineId="pipeline-123" state={state} />);
 
     // Assert
     expect(screen.getByText(/Ran 5 invocations/)).toBeInTheDocument();
@@ -197,55 +166,35 @@ describe("RunPipelineButton", () => {
     );
   });
 
-  it("displays singular invocation message for 1 invocation", async () => {
+  it("uses the singular for a single invocation", () => {
     // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(
-      createMockUseFormAction({
-        state: {
-          status: true,
-          data: {
-            invocationsRun: 1,
-            runStatus: "partial",
-            failedInvocationCount: 1,
-            executionId: "00000000-0000-4000-8000-000000000001",
-          },
-        },
-      }),
-    );
+    const state = createSuccessState({
+      invocationsRun: 1,
+      runStatus: "partial",
+      failedInvocationCount: 1,
+    });
 
     // Act
-    render(<RunPipelineButton pipelineId="pipeline-123" />);
+    render(<RunPipelineResult pipelineId="pipeline-123" state={state} />);
 
     // Assert
-    expect(screen.getByText(/Ran 1 invocation/)).toBeInTheDocument();
+    expect(screen.getByText(/Ran 1 invocation\./)).toBeInTheDocument();
     expect(screen.getByText(/Status partial, 1 failed/)).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Open execution" }),
-    ).toHaveAttribute(
-      "href",
-      "/dashboard/pipelines/pipeline-123/executions/00000000-0000-4000-8000-000000000001",
-    );
   });
 
-  it("shows queued message when runStatus is running", async () => {
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(
-      createMockUseFormAction({
-        state: {
-          status: true,
-          data: {
-            invocationsRun: 2,
-            runStatus: "running",
-            failedInvocationCount: 0,
-            executionId: "00000000-0000-4000-8000-000000000002",
-          },
-        },
-      }),
-    );
+  it("describes a queued run with a link to follow it live", () => {
+    // Setup
+    const state = createSuccessState({
+      invocationsRun: 2,
+      runStatus: "running",
+      executionId: "00000000-0000-4000-8000-000000000002",
+    });
 
-    render(<RunPipelineButton pipelineId="pipeline-123" />);
+    // Act
+    render(<RunPipelineResult pipelineId="pipeline-123" state={state} />);
 
+    // Assert
+    expect(screen.getByText("Pipeline queued")).toBeInTheDocument();
     expect(
       screen.getByText(/Queued 2 invocations on the worker queue/),
     ).toBeInTheDocument();
@@ -256,31 +205,76 @@ describe("RunPipelineButton", () => {
       "/dashboard/pipelines/pipeline-123/executions/00000000-0000-4000-8000-000000000002",
     );
   });
+});
 
-  it("shows the queued result without calling router.refresh on success", async () => {
+describe("useRunPipeline", () => {
+  afterEach(async () => {
+    const useFormActionMock = await getUseFormActionMock();
+    useFormActionMock.mockReset();
+    vi.restoreAllMocks();
+  });
+
+  it("returns the generated run action", async () => {
     // Setup
-    const mock = await getUseFormActionMock();
-    mock.mockReturnValue(
-      createMockUseFormAction({
-        state: {
-          status: true,
-          data: {
-            invocationsRun: 2,
-            runStatus: "running",
-            failedInvocationCount: 0,
-            executionId: "00000000-0000-4000-8000-000000000002",
-          },
-        },
-      }),
+    const useFormActionMock = await getUseFormActionMock();
+    const runPipelineAction = createRunPipelineAction();
+    useFormActionMock.mockReturnValue(runPipelineAction);
+
+    // Act
+    const { result } = renderHook(() => useRunPipeline());
+
+    // Assert
+    expect(result.current).toBe(runPipelineAction);
+  });
+
+  it("guards against leaving the page only while the run is pending", async () => {
+    // Setup
+    const useFormActionMock = await getUseFormActionMock();
+    const addEventListenerSpy = vi.spyOn(window, "addEventListener");
+    const removeEventListenerSpy = vi.spyOn(window, "removeEventListener");
+    useFormActionMock.mockReturnValue(
+      createRunPipelineAction({ pending: true }),
     );
 
     // Act
-    render(<RunPipelineButton pipelineId="pipeline-123" />);
+    const { rerender } = renderHook(() => useRunPipeline());
+    useFormActionMock.mockReturnValue(createRunPipelineAction());
+    rerender();
 
     // Assert
-    expect(
-      screen.getByText(/Queued 2 invocations on the worker queue/),
-    ).toBeInTheDocument();
-    expect(routerRefreshMock).not.toHaveBeenCalled();
+    const beforeUnloadCalls = addEventListenerSpy.mock.calls.filter(
+      ([eventName]) => eventName === "beforeunload",
+    );
+    const beforeUnloadHandler = beforeUnloadCalls[0]?.[1] as (
+      event: BeforeUnloadEvent,
+    ) => void;
+    const unloadEvent = new Event("beforeunload", {
+      cancelable: true,
+    }) as BeforeUnloadEvent;
+    beforeUnloadHandler(unloadEvent);
+
+    expect(beforeUnloadCalls).toHaveLength(1);
+    expect(unloadEvent.defaultPrevented).toBe(true);
+    expect(removeEventListenerSpy).toHaveBeenCalledWith(
+      "beforeunload",
+      beforeUnloadHandler,
+    );
+  });
+
+  it("does not guard navigation when idle", async () => {
+    // Setup
+    const useFormActionMock = await getUseFormActionMock();
+    const addEventListenerSpy = vi.spyOn(window, "addEventListener");
+    useFormActionMock.mockReturnValue(createRunPipelineAction());
+
+    // Act
+    renderHook(() => useRunPipeline());
+
+    // Assert
+    const beforeUnloadCalls = addEventListenerSpy.mock.calls.filter(
+      ([eventName]) => eventName === "beforeunload",
+    );
+
+    expect(beforeUnloadCalls).toHaveLength(0);
   });
 });

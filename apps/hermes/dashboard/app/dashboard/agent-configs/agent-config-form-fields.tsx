@@ -2,11 +2,22 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSeparator,
+  FieldSet,
+} from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
-import { Separator } from "@workspace/ui/components/separator";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@workspace/ui/components/native-select";
+import { Spinner } from "@workspace/ui/components/spinner";
 import { SchemaForm, type JsonSchema } from "@workspace/json-schema-form";
-import { cn } from "@workspace/ui/lib/utils";
 
 import {
   createVariableExpansionStringField,
@@ -25,10 +36,10 @@ type AgentConfigFormFieldsProps = {
   agentKey: string;
   config: Record<string, unknown>;
   agents: AgentForDropdown[];
-  onNameChange: (v: string) => void;
-  onDescriptionChange: (v: string) => void;
+  onNameChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
   onAgentChange: (agentKey: string) => void;
-  onConfigChange: (v: Record<string, unknown>) => void;
+  onConfigChange: (value: Record<string, unknown>) => void;
   pickerLoaders: VariableExpansionStringFieldLoaders;
   disabled?: boolean;
   nameId?: string;
@@ -115,73 +126,90 @@ export const AgentConfigFormFields = ({
   );
 
   const handleAgentChange = useCallback(
-    (v: string) => {
-      onAgentChange(v);
+    (nextAgentKey: string) => {
+      onAgentChange(nextAgentKey);
       onConfigChange({});
     },
     [onAgentChange, onConfigChange],
   );
 
   return (
-    <div className="grid gap-6">
-      <div className="grid gap-4 rounded-md border border-border/80 bg-muted/20 p-3">
-        <div className="grid gap-1.5">
-          <Label htmlFor={nameId}>Name</Label>
-          <Input
-            id={nameId}
-            value={name}
-            onChange={(e) => onNameChange(e.target.value)}
-            disabled={disabled}
-            placeholder="My config"
-          />
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor={descriptionId}>Description (optional)</Label>
-          <Input
-            id={descriptionId}
-            value={description}
-            onChange={(e) => onDescriptionChange(e.target.value)}
-            disabled={disabled}
-            placeholder="Brief description"
-          />
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor={agentSelectId}>Agent</Label>
-          <select
-            id={agentSelectId}
-            value={agentKey}
-            onChange={(e) => handleAgentChange(e.target.value)}
-            disabled={disabled}
-            className={cn(
-              "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+    <FieldGroup>
+      <FieldSet>
+        <FieldLegend>Details</FieldLegend>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor={nameId}>Name</FieldLabel>
+            <Input
+              id={nameId}
+              value={name}
+              onChange={(event) => onNameChange(event.target.value)}
+              disabled={disabled}
+              placeholder="My config"
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={descriptionId}>
+              Description (optional)
+            </FieldLabel>
+            <Input
+              id={descriptionId}
+              value={description}
+              onChange={(event) => onDescriptionChange(event.target.value)}
+              disabled={disabled}
+              placeholder="Brief description"
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={agentSelectId}>Agent</FieldLabel>
+            <NativeSelect
+              id={agentSelectId}
+              value={agentKey}
+              onChange={(event) => handleAgentChange(event.target.value)}
+              disabled={disabled}
+            >
+              <NativeSelectOption value="">Select an agent…</NativeSelectOption>
+              {agents.map((agent) => (
+                <NativeSelectOption
+                  key={agent.id}
+                  value={`${agent.agentId}@${agent.agentVersion}`}
+                >
+                  {agent.agentId}@{agent.agentVersion}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </Field>
+        </FieldGroup>
+      </FieldSet>
+      {agentKey ? (
+        <>
+          <FieldSeparator />
+          <FieldSet>
+            <FieldLegend>Configuration</FieldLegend>
+            <FieldDescription>
+              Values saved with this preset for {agentKey}.
+            </FieldDescription>
+            {schemaLoading ? (
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Spinner aria-hidden="true" />
+                Loading schema…
+              </p>
+            ) : isObjectSchema ? (
+              <SchemaForm
+                schema={configSchema as JsonSchema}
+                value={config}
+                onChange={onConfigChange}
+                disabled={disabled}
+                components={{ StringField: stringFieldComponent }}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                This agent has no config schema. Config will be saved as empty.
+              </p>
             )}
-          >
-            <option value="">Select an agent…</option>
-            {agents.map((a) => (
-              <option key={a.id} value={`${a.agentId}@${a.agentVersion}`}>
-                {a.agentId}@{a.agentVersion}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-      {agentKey ? <Separator /> : null}
-      {schemaLoading ? (
-        <p className="text-muted-foreground text-sm">Loading schema…</p>
-      ) : isObjectSchema ? (
-        <SchemaForm
-          schema={configSchema as JsonSchema}
-          value={config}
-          onChange={onConfigChange}
-          disabled={disabled}
-          components={{ StringField: stringFieldComponent }}
-        />
-      ) : agentKey ? (
-        <p className="text-muted-foreground text-sm">
-          This agent has no config schema. Config will be saved as empty.
-        </p>
+          </FieldSet>
+        </>
       ) : null}
-    </div>
+    </FieldGroup>
   );
 };

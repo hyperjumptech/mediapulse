@@ -31,6 +31,27 @@ describe("useEnqueueDiagnosticsPanelViewModel", () => {
     expect(parsed.hermesEnqueueCorrelation).toBeUndefined();
   });
 
+  it.each([
+    ["failed", "destructive"],
+    ["partial", "warning"],
+  ] as const)(
+    "uses the %s enqueue status to pick a %s tone",
+    (enqueueStatus, tone) => {
+      // Act
+      const { result } = renderHook(() =>
+        useEnqueueDiagnosticsPanelViewModel(enqueueStatus, []),
+      );
+
+      // Assert
+      expect(result.current).toMatchObject({ status: "empty", tone });
+      if (result.current.status === "hidden") {
+        throw new Error("expected a visible panel");
+      }
+
+      expect(result.current.panelClass).toContain(tone);
+    },
+  );
+
   it("returns empty when errors array is empty", () => {
     const { result } = renderHook(() =>
       useEnqueueDiagnosticsPanelViewModel("failed", []),

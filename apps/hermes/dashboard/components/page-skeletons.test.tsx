@@ -22,6 +22,21 @@ describe("page skeletons", () => {
     expect(skeletonCells).toHaveLength(4 * 4);
   });
 
+  it("shapes the detail skeleton like a summary grid of label and value pairs", () => {
+    // Act
+    const { container } = render(<DetailPageSkeleton />);
+
+    // Assert
+    const summarySkeleton = container.querySelector(
+      '[data-slot="summary-grid-skeleton"]',
+    );
+
+    expect(summarySkeleton).toHaveClass("grid-cols-2", "lg:grid-cols-4");
+    expect(
+      summarySkeleton?.querySelectorAll('[data-slot="skeleton"]'),
+    ).toHaveLength(8);
+  });
+
   it.each([
     ["list page", <ListPageSkeleton key="list" />],
     ["list body", <ListBodySkeleton key="body" />],

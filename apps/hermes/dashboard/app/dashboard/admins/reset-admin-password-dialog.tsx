@@ -1,26 +1,39 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useState, type FormEvent } from "react";
 
-import { Button } from "@workspace/ui/components/button";
+import { Dialog } from "@workspace/ui/components/dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog";
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@workspace/ui/components/field";
 import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
 
 import { useFormAction } from "@/app/dashboard/admins/actions/reset-password/.generated/use-form-action";
 import type { HermesAdminListRow } from "@/lib/hermes-admins-page";
 import { useCloseOnSuccessfulSubmit } from "@/app/dashboard/hooks/use-close-on-successful-submit";
+import {
+  FormDialogBody,
+  FormDialogCancelButton,
+  FormDialogContent,
+  FormDialogFooter,
+  FormDialogHeader,
+  formDialogFormClassName,
+} from "@/components/form-dialog";
+import { SubmitButton } from "@/components/submit-button";
 
 type ResetAdminPasswordDialogProps = {
   admin: HermesAdminListRow;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+};
+
+const readFormFieldValue = (form: HTMLFormElement, fieldName: string) => {
+  const field = form.elements.namedItem(fieldName);
+
+  return field instanceof HTMLInputElement ? field.value : undefined;
 };
 
 /**
@@ -31,6 +44,7 @@ const useResetAdminPasswordDialogState = ({
   onOpenChange,
 }: Pick<ResetAdminPasswordDialogProps, "open" | "onOpenChange">) => {
   const { FormWithAction, state, pending } = useFormAction();
+  const [passwordMismatch, setPasswordMismatch] = useState(false);
 
   const errorMessage = useMemo(
     () => (state && state.status === false ? String(state.message) : null),
@@ -47,10 +61,40 @@ const useResetAdminPasswordDialogState = ({
     },
   });
 
+  const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
+    const form = event.currentTarget;
+    const newPassword = readFormFieldValue(form, "body.newPassword");
+    const confirmPassword = readFormFieldValue(form, "confirmPassword");
+    const passwordsMatch = newPassword === confirmPassword;
+
+    setPasswordMismatch(!passwordsMatch);
+    if (!passwordsMatch) {
+      event.preventDefault();
+    }
+  }, []);
+
+  const clearPasswordMismatch = useCallback(() => {
+    setPasswordMismatch(false);
+  }, []);
+
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen) {
+        setPasswordMismatch(false);
+      }
+      onOpenChange(nextOpen);
+    },
+    [onOpenChange],
+  );
+
   return {
     FormWithAction,
     pending,
     errorMessage,
+    passwordMismatch,
+    handleSubmit,
+    clearPasswordMismatch,
+    handleOpenChange,
   };
 };
 
@@ -62,68 +106,74 @@ export const ResetAdminPasswordDialog = ({
   open,
   onOpenChange,
 }: ResetAdminPasswordDialogProps) => {
-  const { FormWithAction, pending, errorMessage } =
-    useResetAdminPasswordDialogState({ open, onOpenChange });
+  const {
+    FormWithAction,
+    pending,
+    errorMessage,
+    passwordMismatch,
+    handleSubmit,
+    clearPasswordMismatch,
+    handleOpenChange,
+  } = useResetAdminPasswordDialogState({ open, onOpenChange });
+  const newPasswordId = `new-password-${admin.id}`;
+  const confirmPasswordId = `confirm-password-${admin.id}`;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Reset password</DialogTitle>
-        </DialogHeader>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <FormDialogContent>
+        <FormDialogHeader title="Reset password" />
         <FormWithAction
-          className="flex flex-col gap-4"
-          onSubmit={(e) => {
-            const form = e.currentTarget;
-            const pwd = (
-              form.elements.namedItem("body.newPassword") as HTMLInputElement
-            )?.value;
-            const confirm = (
-              form.elements.namedItem("confirmPassword") as HTMLInputElement
-            )?.value;
-            if (pwd !== confirm) {
-              e.preventDefault();
-              alert("Passwords do not match");
-            }
-          }}
+          className={formDialogFormClassName}
+          onSubmit={handleSubmit}
         >
           <input type="hidden" name="body.id" value={admin.id} readOnly />
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={`new-password-${admin.id}`}>New password</Label>
-            <Input
-              id={`new-password-${admin.id}`}
-              name="body.newPassword"
-              type="password"
-              required
-              minLength={4}
-              autoComplete="new-password"
+          <FormDialogBody>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor={newPasswordId}>New password</FieldLabel>
+                <Input
+                  id={newPasswordId}
+                  name="body.newPassword"
+                  type="password"
+                  required
+                  minLength={4}
+                  autoComplete="new-password"
+                  onChange={clearPasswordMismatch}
+                  disabled={pending}
+                />
+              </Field>
+              <Field data-invalid={passwordMismatch || undefined}>
+                <FieldLabel htmlFor={confirmPasswordId}>
+                  Confirm password
+                </FieldLabel>
+                <Input
+                  id={confirmPasswordId}
+                  name="confirmPassword"
+                  type="password"
+                  required
+                  minLength={4}
+                  autoComplete="new-password"
+                  aria-invalid={passwordMismatch || undefined}
+                  onChange={clearPasswordMismatch}
+                  disabled={pending}
+                />
+                {passwordMismatch ? (
+                  <FieldError>Passwords do not match</FieldError>
+                ) : null}
+              </Field>
+            </FieldGroup>
+          </FormDialogBody>
+          <FormDialogFooter errorMessage={errorMessage}>
+            <FormDialogCancelButton
+              onCancel={() => handleOpenChange(false)}
+              disabled={pending}
             />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={`confirm-password-${admin.id}`}>
-              Confirm password
-            </Label>
-            <Input
-              id={`confirm-password-${admin.id}`}
-              name="confirmPassword"
-              type="password"
-              required
-              minLength={4}
-              autoComplete="new-password"
-            />
-          </div>
-          {errorMessage ? (
-            <p className="text-sm text-destructive" role="alert">
-              {errorMessage}
-            </p>
-          ) : null}
-          <DialogFooter>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Save password"}
-            </Button>
-          </DialogFooter>
+            <SubmitButton pending={pending} pendingLabel="Saving…">
+              Save password
+            </SubmitButton>
+          </FormDialogFooter>
         </FormWithAction>
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   );
 };

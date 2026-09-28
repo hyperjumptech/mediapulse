@@ -2,14 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog";
+import { Dialog } from "@workspace/ui/components/dialog";
 import type { PipelineOption } from "../schedules/schedule-form-fields";
 import { useCloseOnSuccessfulSubmit } from "@/app/dashboard/hooks/use-close-on-successful-submit";
+import {
+  FormDialogBody,
+  FormDialogCancelButton,
+  FormDialogContent,
+  FormDialogFooter,
+  FormDialogHeader,
+  FormDialogMessage,
+  formDialogFormClassName,
+} from "@/components/form-dialog";
+import { SubmitButton } from "@/components/submit-button";
 import {
   getHttpTriggerForEdit,
   type HttpTriggerForEdit,
@@ -90,19 +95,20 @@ const useHttpTriggerFormModalState = ({
     return null;
   }, [state]);
 
+  const closeModal = useCallback(() => onOpenChange(false), [onOpenChange]);
+  const loadedTrigger =
+    httpTrigger && httpTrigger !== "loading" ? httpTrigger : null;
+
   return {
     Form,
     isEdit,
     pending,
     errorMessage,
     httpTrigger,
-    submitLabel: pending
-      ? isEdit
-        ? "Saving..."
-        : "Creating..."
-      : isEdit
-        ? "Save changes"
-        : "Create HTTP trigger",
+    loadedTrigger,
+    closeModal,
+    submitLabel: isEdit ? "Save changes" : "Create HTTP trigger",
+    pendingLabel: isEdit ? "Saving..." : "Creating...",
     title: isEdit ? "Edit HTTP trigger" : "Create HTTP trigger",
   };
 };
@@ -118,71 +124,49 @@ export const HttpTriggerFormModal = (props: HttpTriggerFormModalProps) => {
     pending,
     errorMessage,
     httpTrigger,
+    loadedTrigger,
+    closeModal,
     submitLabel,
+    pendingLabel,
     title,
   } = useHttpTriggerFormModalState(props);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] w-full max-w-2xl overflow-y-hidden p-0">
-        <div className="flex max-h-[85vh] min-h-80 flex-col overflow-y-hidden px-6 pt-10 pb-6">
-          <DialogHeader className="shrink-0 pb-4">
-            <DialogTitle>{title}</DialogTitle>
-          </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto py-4 px-1">
-            {isEdit && httpTrigger === "loading" ? (
-              <p className="text-muted-foreground">Loading trigger...</p>
-            ) : isEdit && httpTrigger === null ? (
-              <p className="text-muted-foreground">HTTP trigger not found.</p>
-            ) : (
-              <Form className="flex flex-col gap-4">
-                <HttpTriggerFormFields
-                  pending={pending}
-                  errorMessage={errorMessage}
-                  submitLabel={submitLabel}
-                  pipelines={pipelines}
-                  defaultName={
-                    httpTrigger && httpTrigger !== "loading"
-                      ? httpTrigger.name
-                      : ""
-                  }
-                  defaultDescription={
-                    httpTrigger && httpTrigger !== "loading"
-                      ? (httpTrigger.description ?? "")
-                      : ""
-                  }
-                  defaultPipelineId={
-                    httpTrigger && httpTrigger !== "loading"
-                      ? httpTrigger.pipelineId
-                      : ""
-                  }
-                  defaultEnabled={
-                    httpTrigger && httpTrigger !== "loading"
-                      ? httpTrigger.enabled
-                      : true
-                  }
-                  defaultMethod={
-                    httpTrigger && httpTrigger !== "loading"
-                      ? httpTrigger.method
-                      : "POST"
-                  }
-                  defaultTokenHint={
-                    httpTrigger && httpTrigger !== "loading"
-                      ? httpTrigger.tokenHint
-                      : null
-                  }
-                  httpTriggerId={
-                    httpTrigger && httpTrigger !== "loading"
-                      ? httpTrigger.id
-                      : undefined
-                  }
-                  isEdit={isEdit}
-                />
-              </Form>
-            )}
-          </div>
-        </div>
-      </DialogContent>
+      <FormDialogContent>
+        <FormDialogHeader title={title} />
+        {isEdit && httpTrigger === "loading" ? (
+          <FormDialogMessage loading>Loading trigger...</FormDialogMessage>
+        ) : isEdit && httpTrigger === null ? (
+          <FormDialogMessage>HTTP trigger not found.</FormDialogMessage>
+        ) : (
+          <Form className={formDialogFormClassName}>
+            <FormDialogBody>
+              <HttpTriggerFormFields
+                pending={pending}
+                pipelines={pipelines}
+                defaultName={loadedTrigger?.name ?? ""}
+                defaultDescription={loadedTrigger?.description ?? ""}
+                defaultPipelineId={loadedTrigger?.pipelineId ?? ""}
+                defaultEnabled={loadedTrigger?.enabled ?? true}
+                defaultMethod={loadedTrigger?.method ?? "POST"}
+                defaultTokenHint={loadedTrigger?.tokenHint ?? null}
+                httpTriggerId={loadedTrigger?.id}
+                isEdit={isEdit}
+              />
+            </FormDialogBody>
+            <FormDialogFooter errorMessage={errorMessage}>
+              <FormDialogCancelButton
+                onCancel={closeModal}
+                disabled={pending}
+              />
+              <SubmitButton pending={pending} pendingLabel={pendingLabel}>
+                {submitLabel}
+              </SubmitButton>
+            </FormDialogFooter>
+          </Form>
+        )}
+      </FormDialogContent>
     </Dialog>
   );
 };

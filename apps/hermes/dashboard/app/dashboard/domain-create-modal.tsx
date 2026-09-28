@@ -5,12 +5,16 @@ import { Plus } from "lucide-react";
 import { Button } from "@workspace/ui/components/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@workspace/ui/components/dialog";
+import { FieldGroup } from "@workspace/ui/components/field";
 import { DomainTableFormFields } from "@/components/domain-table-form-fields";
+import { FormDialogFooter } from "@/components/form-dialog";
+import { FormStatusSubmitButton } from "@/components/submit-button";
 import type { DomainTableFormField } from "@/lib/domain-table-form-schema";
 
 type DomainCreateModalProps = {
@@ -48,14 +52,23 @@ export const DomainCreateModal = ({
         <DialogHeader className="shrink-0 border-b px-6 py-4 pr-12">
           <DialogTitle>Create new</DialogTitle>
         </DialogHeader>
-        <div className="min-h-0 overflow-y-auto overscroll-y-contain px-6 py-4">
-          <form action={createAction} className="grid gap-3">
-            <DomainTableFormFields fields={fields} />
-            <div>
-              <Button type="submit">Create</Button>
-            </div>
-          </form>
-        </div>
+        <form action={createAction} className="flex min-h-0 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 py-5">
+            <FieldGroup>
+              <DomainTableFormFields fields={fields} />
+            </FieldGroup>
+          </div>
+          <FormDialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="ghost">
+                Cancel
+              </Button>
+            </DialogClose>
+            <FormStatusSubmitButton pendingLabel="Creating…">
+              Create
+            </FormStatusSubmitButton>
+          </FormDialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

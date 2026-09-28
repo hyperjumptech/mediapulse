@@ -1,8 +1,18 @@
 "use client";
 
-import { Copy } from "lucide-react";
+import type { ReactNode } from "react";
+import { CircleX, Copy, TriangleAlert } from "lucide-react";
 
 import { Button } from "@workspace/ui/components/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card";
+import { cn } from "@workspace/ui/lib/utils";
 import type { HermesEnqueueCorrelation } from "@hermes/scheduler/enqueue-diagnostics-correlation";
 
 import type { EnqueueDiagnosticEntry } from "@/lib/enqueue-diagnostics";
@@ -11,7 +21,10 @@ import {
   useClipboardCopyFeedback,
   useKeyedClipboardCopyFeedback,
 } from "./use-enqueue-diagnostics-clipboard";
-import { useEnqueueDiagnosticsPanelViewModel } from "./use-enqueue-diagnostics-panel";
+import {
+  useEnqueueDiagnosticsPanelViewModel,
+  type EnqueueDiagnosticsTone,
+} from "./use-enqueue-diagnostics-panel";
 
 export type EnqueueDiagnosticsPanelProps = {
   enqueueStatus: string;
@@ -36,6 +49,7 @@ const optionalMeta = (
   if (entry.pipelineStepId) {
     rows.push({ label: "Pipeline step", value: entry.pipelineStepId });
   }
+
   return rows;
 };
 
@@ -47,7 +61,7 @@ const CorrelationSubsectionInner = ({
   const { copiedKey, copyForKey } = useKeyedClipboardCopyFeedback();
 
   return (
-    <div className="mt-4 rounded-md border border-border/80 bg-muted/40 p-3">
+    <div className="rounded-md border bg-background/60 p-3">
       <h3 className="text-sm font-medium text-foreground">Correlation</h3>
       <p className="mt-1 text-xs text-muted-foreground">
         Copy into logs or support tickets to match this enqueue attempt.
@@ -91,7 +105,7 @@ const CopyDiagnosticsJsonButton = ({ copyJson }: { copyJson: string }) => {
       type="button"
       variant="outline"
       size="sm"
-      className="shrink-0 gap-1.5 self-start sm:self-auto"
+      className="shrink-0 gap-1.5"
       onClick={() => void copy()}
       aria-label="Copy enqueue diagnostics JSON"
     >
@@ -101,19 +115,74 @@ const CopyDiagnosticsJsonButton = ({ copyJson }: { copyJson: string }) => {
   );
 };
 
+const TONE_ICON = {
+  warning: TriangleAlert,
+  destructive: CircleX,
+} as const;
+
+const TONE_ICON_CLASS_NAME: Record<EnqueueDiagnosticsTone, string> = {
+  warning: "text-warning",
+  destructive: "text-destructive dark:text-red-400",
+};
+
+const TONE_DESCRIPTION: Record<EnqueueDiagnosticsTone, string> = {
+  warning: "Some jobs could not be enqueued for this execution.",
+  destructive: "Jobs could not be enqueued for this execution.",
+};
+
 const EnqueueDiagnosticsSectionHeader = ({
+  tone,
   copyJson,
 }: {
+  tone: EnqueueDiagnosticsTone;
   copyJson?: string;
+}) => {
+  const ToneIcon = TONE_ICON[tone];
+  const hasCopyJson = copyJson != null && copyJson !== "";
+
+  return (
+    <CardHeader className="gap-1 px-5">
+      <CardTitle className="flex items-center gap-2">
+        <ToneIcon
+          aria-hidden
+          className={cn("size-4 shrink-0", TONE_ICON_CLASS_NAME[tone])}
+        />
+        <h2
+          id="enqueue-diagnostics-heading"
+          className="text-base font-semibold"
+        >
+          Enqueue diagnostics
+        </h2>
+      </CardTitle>
+      <CardDescription>{TONE_DESCRIPTION[tone]}</CardDescription>
+      {hasCopyJson ? (
+        <CardAction>
+          <CopyDiagnosticsJsonButton copyJson={copyJson} />
+        </CardAction>
+      ) : null}
+    </CardHeader>
+  );
+};
+
+const EnqueueDiagnosticsCard = ({
+  panelClass,
+  header,
+  children,
+}: {
+  panelClass: string;
+  header: ReactNode;
+  children: ReactNode;
 }) => (
-  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-    <h2 id="enqueue-diagnostics-heading" className="text-lg font-medium">
-      Enqueue diagnostics
-    </h2>
-    {copyJson != null && copyJson !== "" ? (
-      <CopyDiagnosticsJsonButton copyJson={copyJson} />
-    ) : null}
-  </div>
+  <Card
+    role="region"
+    aria-labelledby="enqueue-diagnostics-heading"
+    className={cn("min-w-0 gap-4 py-5 shadow-none", panelClass)}
+  >
+    {header}
+    <CardContent className="flex min-w-0 flex-col gap-4 px-5">
+      {children}
+    </CardContent>
+  </Card>
 );
 
 const CorrelationSubsection = ({
@@ -137,6 +206,7 @@ const CorrelationSubsection = ({
     });
   }
   if (rows.length === 0) return null;
+
   return <CorrelationSubsectionInner rows={rows} />;
 };
 
@@ -161,76 +231,81 @@ export const EnqueueDiagnosticsPanel = ({
     return null;
   }
 
-  const { panelClass } = view;
+  const { panelClass, tone } = view;
 
   if (view.status === "invalid") {
     return (
-      <section
-        className={panelClass}
-        role="region"
-        aria-labelledby="enqueue-diagnostics-heading"
+      <EnqueueDiagnosticsCard
+        panelClass={panelClass}
+        header={
+          <EnqueueDiagnosticsSectionHeader
+            tone={tone}
+            copyJson={view.copyJson}
+          />
+        }
       >
-        <EnqueueDiagnosticsSectionHeader copyJson={view.copyJson} />
         {view.correlation ? (
           <CorrelationSubsection correlation={view.correlation} />
         ) : null}
-        <p className="mt-2 text-sm font-medium text-destructive">
-          Invalid error payload
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {
-            "This execution's errors JSON is not an array of objects. If this persists, file a bug with the raw payload below."
-          }
-        </p>
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-medium text-destructive">
+            Invalid error payload
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {
+              "This execution's errors JSON is not an array of objects. If this persists, file a bug with the raw payload below."
+            }
+          </p>
+        </div>
         <pre
-          className="mt-3 max-h-48 overflow-auto rounded-md border bg-muted p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap wrap-break-word text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="max-h-48 overflow-auto rounded-md border bg-muted p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap wrap-break-word text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           tabIndex={0}
         >
           {view.payloadPreview}
         </pre>
-      </section>
+      </EnqueueDiagnosticsCard>
     );
   }
 
   if (view.status === "empty") {
     return (
-      <section
-        className={panelClass}
-        role="region"
-        aria-labelledby="enqueue-diagnostics-heading"
+      <EnqueueDiagnosticsCard
+        panelClass={panelClass}
+        header={<EnqueueDiagnosticsSectionHeader tone={tone} />}
       >
-        <EnqueueDiagnosticsSectionHeader />
         {view.correlation ? (
           <CorrelationSubsection correlation={view.correlation} />
         ) : null}
-        <p className="mt-2 text-sm text-foreground">
-          No detailed enqueue error was recorded for this execution.
-        </p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          This can happen for older rows, if the worker crashed before
-          persisting diagnostics, or for platform issues. Check Hermes server
-          logs around the execution time for the underlying failure.
-        </p>
-      </section>
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-foreground">
+            No detailed enqueue error was recorded for this execution.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            This can happen for older rows, if the worker crashed before
+            persisting diagnostics, or for platform issues. Check Hermes server
+            logs around the execution time for the underlying failure.
+          </p>
+        </div>
+      </EnqueueDiagnosticsCard>
     );
   }
 
   const { entries: sorted } = view;
 
   return (
-    <section
-      className={panelClass}
-      role="region"
-      aria-labelledby="enqueue-diagnostics-heading"
+    <EnqueueDiagnosticsCard
+      panelClass={panelClass}
+      header={
+        <EnqueueDiagnosticsSectionHeader tone={tone} copyJson={view.copyJson} />
+      }
     >
-      <EnqueueDiagnosticsSectionHeader copyJson={view.copyJson} />
       {view.correlation ? (
         <CorrelationSubsection correlation={view.correlation} />
       ) : null}
-      <ol className="mt-4 list-none space-y-4 p-0">
+      <ol className="list-none space-y-3 p-0">
         {sorted.map((entry, index) => (
           <li key={`${displayTimestamp(entry)}-${index}`}>
-            <article className="rounded-md border bg-background/80 p-3 text-sm shadow-sm">
+            <article className="rounded-md border bg-background/80 p-3 text-sm">
               <p className="text-xs text-muted-foreground">
                 {displayTimestamp(entry)}
               </p>
@@ -268,6 +343,6 @@ export const EnqueueDiagnosticsPanel = ({
           </li>
         ))}
       </ol>
-    </section>
+    </EnqueueDiagnosticsCard>
   );
 };

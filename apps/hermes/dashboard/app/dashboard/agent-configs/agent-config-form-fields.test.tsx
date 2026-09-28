@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AgentConfigFormFields } from "./agent-config-form-fields";
@@ -62,5 +62,78 @@ describe("AgentConfigFormFields", () => {
         }),
       }),
     );
+  });
+
+  it("clears the config when a different agent is picked", () => {
+    // Setup
+    const onAgentChange = vi.fn();
+    const onConfigChange = vi.fn();
+    render(
+      <AgentConfigFormFields
+        name=""
+        description=""
+        agentKey=""
+        config={{}}
+        agents={[{ id: "a1", agentId: "summarizer", agentVersion: "1.0.0" }]}
+        onNameChange={() => {}}
+        onDescriptionChange={() => {}}
+        onAgentChange={onAgentChange}
+        onConfigChange={onConfigChange}
+        pickerLoaders={{
+          loadVariablesPage: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+          loadExpansionsPage: vi
+            .fn()
+            .mockResolvedValue({ items: [], total: 0 }),
+        }}
+      />,
+    );
+
+    expect(screen.queryByText("Configuration")).not.toBeInTheDocument();
+
+    // Act
+    fireEvent.change(screen.getByLabelText("Agent"), {
+      target: { value: "summarizer@1.0.0" },
+    });
+
+    // Assert
+    expect(onAgentChange).toHaveBeenCalledWith("summarizer@1.0.0");
+    expect(onConfigChange).toHaveBeenCalledWith({});
+  });
+
+  it("explains when the agent has no config schema", async () => {
+    // Setup
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    } as Response);
+
+    // Act
+    render(
+      <AgentConfigFormFields
+        name="Config A"
+        description=""
+        agentKey="summarizer@1.0.0"
+        config={{}}
+        agents={[{ id: "a1", agentId: "summarizer", agentVersion: "1.0.0" }]}
+        onNameChange={() => {}}
+        onDescriptionChange={() => {}}
+        onAgentChange={() => {}}
+        onConfigChange={() => {}}
+        pickerLoaders={{
+          loadVariablesPage: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+          loadExpansionsPage: vi
+            .fn()
+            .mockResolvedValue({ items: [], total: 0 }),
+        }}
+      />,
+    );
+
+    // Assert
+    expect(
+      await screen.findByText(
+        "This agent has no config schema. Config will be saved as empty.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Configuration")).toBeInTheDocument();
   });
 });

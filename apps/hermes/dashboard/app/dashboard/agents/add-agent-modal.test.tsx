@@ -86,25 +86,12 @@ vi.mock("@workspace/ui/components/button", () => ({
 }));
 
 vi.mock("./agent-form-fields", () => ({
-  AgentFormFields: ({
-    mode,
-    pending,
-    errorMessage,
-    submitLabel,
-  }: {
-    mode: string;
-    pending: boolean;
-    errorMessage: string | null;
-    submitLabel: string;
-  }) => (
+  AgentFormFields: ({ mode, pending }: { mode: string; pending: boolean }) => (
     <div
       data-testid="agent-form-fields"
       data-mode={mode}
       data-pending={pending}
-      data-error={errorMessage}
-    >
-      <button type="submit">{submitLabel}</button>
-    </div>
+    />
   ),
 }));
 
@@ -171,9 +158,8 @@ describe("AddAgentModal", () => {
     render(<AddAgentModal />);
 
     // Assert
-    expect(
-      screen.getByRole("button", { name: "Creating…" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Creating…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
   });
 
   it("shows Create agent label when not pending", async () => {
@@ -203,8 +189,7 @@ describe("AddAgentModal", () => {
     render(<AddAgentModal />);
 
     // Assert
-    expect(screen.getByTestId("agent-form-fields")).toHaveAttribute(
-      "data-error",
+    expect(screen.getByRole("alert")).toHaveTextContent(
       "Agent ID already exists",
     );
   });

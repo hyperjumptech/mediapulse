@@ -1,5 +1,7 @@
 import { useCallback, useState } from "react";
 
+import { isHermesExecutionCancellable } from "@/lib/hermes-execution-cancellable";
+
 /** Identifies which Hermes execution type is being cancelled and its ids. */
 export type CancelTarget =
   | { kind: "schedule"; scheduleId: string; scheduleExecutionId: string }
@@ -61,7 +63,7 @@ export const useHermesExecutionCancelButton = (
   refresh: () => void,
 ): UseHermesExecutionCancelButtonResult => {
   const [isLoading, setIsLoading] = useState(false);
-  const canCancel = runStatus === "pending" || runStatus === "running";
+  const canCancel = isHermesExecutionCancellable(runStatus);
 
   const requestCancel = useCallback(() => {
     void (async () => {

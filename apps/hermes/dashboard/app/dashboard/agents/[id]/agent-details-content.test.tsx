@@ -1,41 +1,25 @@
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { AgentDetailsContent } from "./agent-details-content";
 
-vi.mock("@workspace/ui/components/tabs", () => ({
-  Tabs: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="tabs">{children}</div>
-  ),
-  TabsList: ({ children }: React.PropsWithChildren) => (
-    <div data-testid="tabs-list">{children}</div>
-  ),
-  TabsTrigger: ({
-    children,
-    value,
-  }: React.PropsWithChildren<{ value: string }>) => (
-    <button data-testid={`tab-trigger-${value}`} type="button">
-      {children}
-    </button>
-  ),
-  TabsContent: ({
-    children,
-    value,
-  }: React.PropsWithChildren<{ value: string }>) => (
-    <div data-testid={`tab-content-${value}`}>{children}</div>
-  ),
-}));
+vi.mock("../endpoint-display", async (importOriginal) => {
+  const endpointDisplayModule =
+    await importOriginal<typeof import("../endpoint-display")>();
 
-vi.mock("../endpoint-display", () => ({
-  EndpointDisplay: ({ endpoint }: { endpoint: unknown }) => (
-    <div
-      data-testid="endpoint-display"
-      data-endpoint={JSON.stringify(endpoint)}
-    >
-      Endpoint
-    </div>
-  ),
-}));
+  return {
+    ...endpointDisplayModule,
+    EndpointDisplay: ({ endpoint }: { endpoint: unknown }) => (
+      <div
+        data-testid="endpoint-display"
+        data-endpoint={JSON.stringify(endpoint)}
+      >
+        Endpoint
+      </div>
+    ),
+  };
+});
 
 vi.mock("../json-pretty", () => ({
   JsonPretty: ({ value, title }: { value: unknown; title?: string }) => (
@@ -46,8 +30,18 @@ vi.mock("../json-pretty", () => ({
 }));
 
 vi.mock("./agent-unregister-button", () => ({
-  AgentUnregisterButton: ({ agentLabel }: { agentLabel: string }) => (
-    <button data-testid="unregister-agent" type="button">
+  AgentUnregisterButton: ({
+    agentId,
+    agentLabel,
+  }: {
+    agentId: string;
+    agentLabel: string;
+  }) => (
+    <button
+      data-testid="unregister-agent"
+      data-agent-id={agentId}
+      type="button"
+    >
       Unregister {agentLabel}
     </button>
   ),
@@ -59,186 +53,231 @@ const createMockAgent = () => ({
   agentId: "test-agent",
   agentVersion: "1.0",
   description: "Test description",
-  endpoint: { url: "https://api.example.com", method: "POST" },
+  endpoint: { url: "https://api.example.com/run", method: "POST" },
   inputSchema: { type: "object", properties: {} },
   configSchema: { type: "object" },
   isActive: true,
-  createdAt: new Date("2024-01-15"),
-  updatedAt: new Date("2024-01-15"),
+  createdAt: new Date("2026-09-25T12:00:00Z"),
+  updatedAt: new Date("2026-09-28T11:00:00Z"),
   domainIntegration: {
     integrationId: "acme-local",
   },
 });
 
+const insightsTabContent = {
+  view: {
+    id: "operator-agent-insights",
+    label: "Insights",
+    tabLabel: "Insights",
+    kind: "html" as const,
+    placement: "agent-tab" as const,
+    apiPrefix: "/v1/hermes-dashboard/content/agent-insights",
+    order: 10,
+  },
+  content: { body: "<p>Insights body</p>", title: "Insights" },
+};
+
+const summaryValue = (label: string) => {
+  const term = screen.getAllByText(label, { selector: "dt" })[0];
+
+  return term?.nextElementSibling as HTMLElement;
+};
+
 describe("AgentDetailsContent", () => {
-  it("renders page title with agent id and version", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-28T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("renders the agent key as a monospace title with status and description", () => {
+    // Act
+    render(<AgentDetailsContent agent={createMockAgent()} />);
+
+    // Assert
+    const heading = screen.getByRole("heading", {
+      level: 1,
+      name: "test-agent@1.0",
+    });
+
+    expect(heading.querySelector(".font-mono")).not.toBeNull();
+    expect(screen.getByText("active")).toHaveAttribute(
+      "data-variant",
+      "success",
+    );
+    expect(screen.getByText("Test description")).toBeInTheDocument();
+  });
+
+  it("shows an inactive status and no description when absent", () => {
     // Setup
-    const agent = createMockAgent();
+    const agent = { ...createMockAgent(), isActive: false, description: null };
 
     // Act
     render(<AgentDetailsContent agent={agent} />);
 
     // Assert
+    expect(screen.getByText("inactive")).toHaveAttribute(
+      "data-variant",
+      "muted",
+    );
+    expect(screen.queryByText("Test description")).not.toBeInTheDocument();
+  });
+
+  it("offers unregister as the header action", () => {
+    // Act
+    render(<AgentDetailsContent agent={createMockAgent()} />);
+
+    // Assert
+    const unregisterButton = screen.getByTestId("unregister-agent");
+
+    expect(unregisterButton).toHaveTextContent("Unregister test-agent@1.0");
+    expect(unregisterButton).toHaveAttribute("data-agent-id", "agent-123");
+    expect(unregisterButton.parentElement).toHaveAttribute(
+      "data-slot",
+      "page-header-actions",
+    );
+  });
+
+  it("summarizes integration, endpoint and timestamps", () => {
+    // Act
+    render(<AgentDetailsContent agent={createMockAgent()} />);
+
+    // Assert
+    const endpoint = summaryValue("Endpoint URL");
+
+    expect(summaryValue("Integration")).toHaveTextContent("acme-local");
+    expect(endpoint).toHaveTextContent("https://api.example.com/run");
     expect(
-      screen.getByRole("heading", { name: /Agent details: test-agent@1\.0/ }),
+      within(endpoint).getByRole("button", { name: "Copy endpoint URL" }),
     ).toBeInTheDocument();
+    expect(summaryValue("Created")).toHaveTextContent("3d ago");
+    expect(summaryValue("Updated")).toHaveTextContent("1h ago");
   });
 
-  it("renders Schema and Info tabs without insights", () => {
+  it("shows No endpoint when the endpoint has no URL", () => {
     // Setup
-    const agent = createMockAgent();
+    const agent = { ...createMockAgent(), endpoint: { method: "POST" } };
 
     // Act
     render(<AgentDetailsContent agent={agent} />);
 
     // Assert
-    expect(screen.getByTestId("tab-trigger-schema")).toHaveTextContent(
-      "Schema",
-    );
-    expect(screen.getByTestId("tab-trigger-general")).toHaveTextContent("Info");
-    expect(
-      screen.queryByTestId("tab-trigger-input-schema"),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByTestId("tab-trigger-config-schema"),
-    ).not.toBeInTheDocument();
+    expect(summaryValue("Endpoint URL")).toHaveTextContent("No endpoint");
   });
 
-  it("tab order is Insights, Schema, Info when domain tabs present", () => {
-    const agent = createMockAgent();
-    const agentTabContents = [
-      {
-        view: {
-          id: "operator-agent-insights",
-          label: "Insights",
-          tabLabel: "Insights",
-          kind: "html" as const,
-          placement: "agent-tab" as const,
-          apiPrefix: "/v1/hermes-dashboard/content/agent-insights",
-          order: 10,
-        },
-        content: { body: "<p>Insights</p>", title: "Insights" },
-      },
-    ];
+  it("uses line tabs with Schema and Info when there are no domain tabs", () => {
+    // Act
+    render(<AgentDetailsContent agent={createMockAgent()} />);
 
+    // Assert
+    const tabList = screen.getByRole("tablist");
+    const tabLabels = within(tabList)
+      .getAllByRole("tab")
+      .map((tab) => tab.textContent);
+
+    expect(tabList).toHaveAttribute("data-variant", "line");
+    expect(tabLabels).toEqual(["Schema", "Info"]);
+    expect(screen.getByRole("tab", { name: "Schema" })).toHaveAttribute(
+      "data-state",
+      "active",
+    );
+  });
+
+  it("puts domain tabs first and opens the first one by default", () => {
+    // Act
     render(
-      <AgentDetailsContent agent={agent} agentTabContents={agentTabContents} />,
+      <AgentDetailsContent
+        agent={createMockAgent()}
+        agentTabContents={[insightsTabContent]}
+      />,
     );
 
+    // Assert
+    const tabLabels = within(screen.getByRole("tablist"))
+      .getAllByRole("tab")
+      .map((tab) => tab.textContent);
+
+    expect(tabLabels).toEqual(["Insights", "Schema", "Info"]);
+    expect(screen.getByRole("tab", { name: "Insights" })).toHaveAttribute(
+      "data-state",
+      "active",
+    );
     expect(
-      screen.getByTestId("tab-trigger-operator-agent-insights"),
-    ).toHaveTextContent("Insights");
-
-    const list = screen.getByTestId("tabs-list");
-    const triggers = within(list).getAllByRole("button");
-    const labels = triggers.map((button) => button.textContent);
-
-    expect(labels).toEqual(["Insights", "Schema", "Info"]);
+      screen.getByRole("tabpanel").querySelector("iframe"),
+    ).toHaveAttribute("srcdoc", "<p>Insights body</p>");
   });
 
-  it("defaults to Schema tab when no insights", () => {
+  it("ignores domain tabs whose view kind cannot render as content", () => {
     // Setup
-    const agent = createMockAgent();
-
-    // Act
-    render(<AgentDetailsContent agent={agent} />);
-
-    // Assert: Tabs rendered with defaultValue="schema"
-    // The mock Tabs just renders children, so we check via the Tabs mock passing defaultValue
-    // We verify the schema content is present (both JsonPretty blocks in schema tab)
-    const schemaContent = screen.getByTestId("tab-content-schema");
-
-    expect(schemaContent).toBeInTheDocument();
-  });
-
-  it("merged Schema tab contains both input and config schema blocks", () => {
-    // Setup
-    const agent = createMockAgent();
-
-    // Act
-    render(<AgentDetailsContent agent={agent} />);
-
-    // Assert: both JsonPretty rendered in the schema tab
-    const schemaContent = screen.getByTestId("tab-content-schema");
-    const jsonBlocks = within(schemaContent).getAllByTestId("json-pretty");
-
-    expect(jsonBlocks).toHaveLength(2);
-    expect(jsonBlocks[0]).toHaveAttribute("data-title", "Input schema");
-    expect(jsonBlocks[1]).toHaveAttribute("data-title", "Config schema");
-  });
-
-  it("renders Details section with Agent ID, Version, Description, Active, Created, Last updated in Info tab", () => {
-    // Setup: use distinct updatedAt so Last updated value is unique in the document
-    const agent = {
-      ...createMockAgent(),
-      updatedAt: new Date("2024-02-20"),
+    const tableTab = {
+      ...insightsTabContent,
+      view: {
+        ...insightsTabContent.view,
+        id: "agent-table",
+        kind: "table-v1" as const,
+      },
     };
-
-    // Act
-    render(<AgentDetailsContent agent={agent} />);
-
-    // Assert
-    const detailsHeading = screen.getByRole("heading", { name: "Details" });
-    const detailsSection = detailsHeading.parentElement;
-    expect(detailsSection).toBeTruthy();
-    const details = within(detailsSection as HTMLElement);
-
-    expect(details.getByText("Agent ID")).toBeInTheDocument();
-    expect(details.getByText("test-agent")).toBeInTheDocument();
-    expect(details.getByText("Version")).toBeInTheDocument();
-    expect(details.getByText("1.0")).toBeInTheDocument();
-    expect(details.getByText("Description")).toBeInTheDocument();
-    expect(details.getByText("Test description")).toBeInTheDocument();
-    expect(details.getByText("Active")).toBeInTheDocument();
-    expect(details.getByText("Yes")).toBeInTheDocument();
-    expect(details.getByText("Created")).toBeInTheDocument();
-    expect(details.getByText("Last updated")).toBeInTheDocument();
-    expect(details.getByText("Feb 20, 2024")).toBeInTheDocument();
-    expect(details.getByText("Domain integration id")).toBeInTheDocument();
-    expect(details.getByText("acme-local")).toBeInTheDocument();
-  });
-
-  it("renders Endpoint section via EndpointDisplay in Info tab", () => {
-    // Setup
-    const agent = createMockAgent();
-
-    // Act
-    render(<AgentDetailsContent agent={agent} />);
-
-    // Assert
-    expect(screen.getByTestId("endpoint-display")).toBeInTheDocument();
-  });
-
-  it("shows dash for null description", () => {
-    // Setup
-    const agent = { ...createMockAgent(), description: null };
-
-    // Act
-    render(<AgentDetailsContent agent={agent} />);
-
-    // Assert
-    expect(screen.getByText("—")).toBeInTheDocument();
-  });
-
-  it("shows No badge when agent is inactive", () => {
-    // Setup
-    const agent = { ...createMockAgent(), isActive: false };
-
-    // Act
-    render(<AgentDetailsContent agent={agent} />);
-
-    // Assert
-    expect(screen.getByText("No")).toBeInTheDocument();
-  });
-
-  it("renders the tab contents error below the heading", () => {
-    // Setup
-    const agent = createMockAgent();
 
     // Act
     render(
       <AgentDetailsContent
-        agent={agent}
+        agent={createMockAgent()}
+        agentTabContents={[tableTab as unknown as typeof insightsTabContent]}
+      />,
+    );
+
+    // Assert
+    expect(
+      within(screen.getByRole("tablist"))
+        .getAllByRole("tab")
+        .map((tab) => tab.textContent),
+    ).toEqual(["Schema", "Info"]);
+  });
+
+  it("renders both schemas in the Schema tab", () => {
+    // Act
+    render(<AgentDetailsContent agent={createMockAgent()} />);
+
+    // Assert
+    const schemaPanel = screen.getByRole("tabpanel");
+    const jsonBlocks = within(schemaPanel).getAllByTestId("json-pretty");
+
+    expect(jsonBlocks.map((block) => block.dataset.title)).toEqual([
+      "Input schema",
+      "Config schema",
+    ]);
+  });
+
+  it("shows registry details and the endpoint in the Info tab", () => {
+    // Setup
+    render(<AgentDetailsContent agent={createMockAgent()} />);
+
+    // Act
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Info" }));
+
+    // Assert
+    const infoPanel = screen.getByRole("tabpanel");
+
+    expect(
+      within(infoPanel).getByRole("heading", { name: "Details" }),
+    ).toBeInTheDocument();
+    expect(within(infoPanel).getByText("test-agent")).toBeInTheDocument();
+    expect(within(infoPanel).getByText("1.0")).toBeInTheDocument();
+    expect(within(infoPanel).getByText("agent-123")).toBeInTheDocument();
+    expect(within(infoPanel).getByTestId("endpoint-display")).toHaveAttribute(
+      "data-endpoint",
+      JSON.stringify({ url: "https://api.example.com/run", method: "POST" }),
+    );
+  });
+
+  it("renders the tab contents error as an alert above the tabs", () => {
+    // Act
+    render(
+      <AgentDetailsContent
+        agent={createMockAgent()}
         agentTabContentsError="Could not load integration tabs for this agent."
       />,
     );
@@ -247,53 +286,16 @@ describe("AgentDetailsContent", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Could not load integration tabs for this agent.",
     );
-    expect(screen.getByTestId("tab-trigger-schema")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Schema" })).toBeInTheDocument();
   });
 
   it("renders no error alert when the tab contents loaded", () => {
-    // Setup
-    const agent = createMockAgent();
-
     // Act
-    render(<AgentDetailsContent agent={agent} agentTabContents={[]} />);
+    render(
+      <AgentDetailsContent agent={createMockAgent()} agentTabContents={[]} />,
+    );
 
     // Assert
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("domain tab is hidden when agentTabContents is empty", () => {
-    const agent = createMockAgent();
-
-    render(<AgentDetailsContent agent={agent} agentTabContents={[]} />);
-
-    expect(
-      screen.queryByTestId("tab-trigger-operator-agent-insights"),
-    ).not.toBeInTheDocument();
-  });
-
-  it("domain tab appears when agentTabContents is provided", () => {
-    const agent = createMockAgent();
-    const agentTabContents = [
-      {
-        view: {
-          id: "operator-agent-insights",
-          label: "Insights",
-          tabLabel: "Insights",
-          kind: "html" as const,
-          placement: "agent-tab" as const,
-          apiPrefix: "/v1/hermes-dashboard/content/agent-insights",
-          order: 10,
-        },
-        content: { body: "<p>Insights</p>", title: "Insights" },
-      },
-    ];
-
-    render(
-      <AgentDetailsContent agent={agent} agentTabContents={agentTabContents} />,
-    );
-
-    expect(
-      screen.getByTestId("tab-trigger-operator-agent-insights"),
-    ).toHaveTextContent("Insights");
   });
 });
