@@ -423,6 +423,7 @@ model Ticker {
   dataSources     DataSource[]
   newsletters     Newsletter[]
   userTickers     UserTicker[]
+  day1NewsletterDispatches Day1NewsletterDispatch[]
 
   storylineTickers       StorylineTicker[]
   dataCollectionRuns     DataCollectionRun[]
@@ -504,13 +505,48 @@ model UserTicker {
   createdAt               DateTime  @default(now()) @map("created_at")
   updatedAt               DateTime  @updatedAt @map("updated_at")
 
-  user                MediapulseUser                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ticker              Ticker                         @relation(fields: [tickerId], references: [id], onDelete: Cascade)
-  deliveryCheckpoints NewsletterDeliveryCheckpoint[]
-  feedback            NewsletterFeedback[]
+  user                     MediapulseUser                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticker                   Ticker                         @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+  deliveryCheckpoints      NewsletterDeliveryCheckpoint[]
+  feedback                 NewsletterFeedback[]
+  day1NewsletterDispatches Day1NewsletterDispatch[]
 
   @@unique([userId, tickerId, language])
   @@map("user_ticker")
+}
+
+enum Day1DispatchKind {
+  bootstrap
+  latest_issue
+  none
+}
+
+enum Day1DispatchStatus {
+  dispatching
+  fired
+  failed
+  skipped
+}
+
+model Day1NewsletterDispatch {
+  id                String             @id @default(uuid())
+  userTickerId      String             @map("user_ticker_id")
+  tickerId          String             @map("ticker_id")
+  language          Language
+  kind              Day1DispatchKind
+  status            Day1DispatchStatus
+  reason            String?
+  hermesExecutionId String?            @map("hermes_execution_id")
+  error             String?
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  userTicker UserTicker @relation(fields: [userTickerId], references: [id], onDelete: Cascade)
+  ticker     Ticker     @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+
+  @@index([tickerId, kind, createdAt])
+  @@index([userTickerId])
+  @@map("day1_newsletter_dispatch")
 }
 
 /// Newsletter delivery language for a subscription (en = English, id = Indonesian).

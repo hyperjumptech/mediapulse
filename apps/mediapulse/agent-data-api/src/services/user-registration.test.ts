@@ -1,6 +1,10 @@
 /** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("./day1-newsletter-dispatch-default.js", () => ({
+  notifySubscriptionActivated: vi.fn(),
+}));
+
 vi.mock("@mediapulse/database", () => ({
   prisma: {
     ticker: { findUnique: vi.fn() },
@@ -525,6 +529,155 @@ describe("processConfirmSubscription", () => {
         registrationConfirmedAt: expect.any(Date),
         enabled: true,
       },
+    });
+  });
+});
+
+describe("subscription activation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const registerWith = async (
+    existing: ReturnType<typeof makeUserTicker> | null,
+    confirmed: boolean,
+  ) => {
+    const { prisma } = await import("@mediapulse/database");
+    vi.mocked(prisma.ticker.findUnique).mockResolvedValue(TICKER);
+    vi.mocked(prisma.mediapulseUser.upsert).mockResolvedValue(USER);
+    vi.mocked(prisma.userTicker.findUnique).mockResolvedValue(
+      existing as never,
+    );
+    vi.mocked(prisma.userTicker.create).mockResolvedValue(
+      makeUserTicker({ id: "ut-new" }) as never,
+    );
+    vi.mocked(prisma.userTicker.update).mockResolvedValue(
+      makeUserTicker() as never,
+    );
+    const onSubscriptionActivated = vi.fn();
+    const { processRegistration } = await import("./user-registration.js");
+    await processRegistration(
+      { email: USER.email, tickerSymbol: "BBCA", confirmed },
+      { onSubscriptionActivated },
+    );
+
+    return onSubscriptionActivated;
+  };
+
+  it("activates a new subscription created as confirmed", async () => {
+    const onSubscriptionActivated = await registerWith(null, true);
+
+    expect(onSubscriptionActivated).toHaveBeenCalledWith({
+      userTickerId: "ut-new",
+    });
+  });
+
+  it("does not activate a new unconfirmed subscription", async () => {
+    const onSubscriptionActivated = await registerWith(null, false);
+
+    expect(onSubscriptionActivated).not.toHaveBeenCalled();
+  });
+
+  it("activates a confirmed subscription that is re-enabled after an unsubscribe", async () => {
+    const onSubscriptionActivated = await registerWith(
+      makeUserTicker({ enabled: false, registrationConfirmedAt: new Date() }),
+      false,
+    );
+
+    expect(onSubscriptionActivated).toHaveBeenCalledWith({
+      userTickerId: "ut-uuid-1",
+    });
+  });
+
+  it("activates an unconfirmed subscription confirmed during registration", async () => {
+    const onSubscriptionActivated = await registerWith(
+      makeUserTicker({ registrationConfirmedAt: null }),
+      true,
+    );
+
+    expect(onSubscriptionActivated).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not activate a subscription that is already active", async () => {
+    const onSubscriptionActivated = await registerWith(makeUserTicker(), true);
+
+    expect(onSubscriptionActivated).not.toHaveBeenCalled();
+  });
+
+  it("does not activate a re-enabled subscription that was never confirmed", async () => {
+    const onSubscriptionActivated = await registerWith(
+      makeUserTicker({ enabled: false, registrationConfirmedAt: null }),
+      false,
+    );
+
+    expect(onSubscriptionActivated).not.toHaveBeenCalled();
+  });
+
+  it("activates on the first confirmation and not on a retried one", async () => {
+    const { prisma } = await import("@mediapulse/database");
+    vi.mocked(prisma.userTicker.update).mockResolvedValue(
+      makeUserTicker() as never,
+    );
+    vi.mocked(prisma.userTicker.findUnique)
+      .mockResolvedValueOnce(
+        makeUserTicker({ registrationConfirmedAt: null }) as never,
+      )
+      .mockResolvedValueOnce(makeUserTicker() as never);
+    const onSubscriptionActivated = vi.fn();
+    const { confirmRegistration } = await import("./user-registration.js");
+
+    await confirmRegistration(
+      { userTickerId: "ut-uuid-1" },
+      { onSubscriptionActivated },
+    );
+    await confirmRegistration(
+      { userTickerId: "ut-uuid-1" },
+      { onSubscriptionActivated },
+    );
+
+    expect(onSubscriptionActivated).toHaveBeenCalledTimes(1);
+    expect(onSubscriptionActivated).toHaveBeenCalledWith({
+      userTickerId: "ut-uuid-1",
+    });
+  });
+
+  it("activates when a web signup is confirmed through its email link", async () => {
+    const { createRegistrationConfirmToken } = await import("@workspace/utils");
+    const secret = "activation-secret";
+    const token = createRegistrationConfirmToken({
+      userTickerId: "11111111-1111-4111-a111-111111111111",
+      tickerSymbol: "BBCA",
+      secret,
+    });
+    const { prisma } = await import("@mediapulse/database");
+    vi.mocked(prisma.userTicker.findUnique)
+      .mockResolvedValueOnce({
+        ...makeUserTicker({ registrationConfirmedAt: null }),
+        ticker: { symbol: "BBCA" },
+        user: { email: "alice@example.com" },
+      } as never)
+      .mockResolvedValueOnce(
+        makeUserTicker({ registrationConfirmedAt: null }) as never,
+      );
+    vi.mocked(prisma.userTicker.update).mockResolvedValue(
+      makeUserTicker() as never,
+    );
+    const onSubscriptionActivated = vi.fn();
+    const { processConfirmSubscription } =
+      await import("./user-registration.js");
+
+    await processConfirmSubscription(
+      { token, secret },
+      { onSubscriptionActivated },
+    );
+
+    expect(onSubscriptionActivated).toHaveBeenCalledWith({
+      userTickerId: "11111111-1111-4111-a111-111111111111",
     });
   });
 });
