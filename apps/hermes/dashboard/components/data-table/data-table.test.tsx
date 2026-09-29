@@ -391,7 +391,8 @@ describe("DataTable", () => {
     expect(card.getByText("Apple")).not.toHaveClass("truncate");
     expect(colourValue).toHaveClass("wrap-anywhere");
     expect(colourValue?.parentElement).toHaveClass("col-span-2");
-    expect(stockValue).toHaveClass("truncate");
+    expect(stockValue).toHaveClass("wrap-break-word");
+    expect(stockValue).not.toHaveClass("truncate");
     expect(stockValue?.parentElement).not.toHaveClass("col-span-2");
   });
 });

@@ -1,5 +1,5 @@
 import React from "react";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
@@ -40,20 +40,15 @@ const buildViewModel = (
 ): ExecutionDetailViewModel => ({
   executionId: "exec-123",
   parent: { kind: "schedule", id: "sched-1", name: "Morning run" },
-  sourceLabel: "Morning run",
+  sourceLabel: null,
   pipeline: { id: "pipe-1", name: "Daily digest" },
   runStatus: "succeeded",
   enqueueStatus: "success",
   executionTimeIso: "2026-09-28T10:00:00.000Z",
   elapsedLabel: "4s",
-  jobsCreated: 3,
-  jobsEnqueued: 2,
   succeededInvocationCount: 5,
   failedInvocationCount: 0,
-  transport: {
-    headline: "Hermes worker + DataQueue",
-    detail: "Scheduled runs enqueue jobs on DataQueue.",
-  },
+  expectedInvocationCount: 6,
   metadataHints: [],
   requestSnapshotJson: null,
   enqueueErrors: [],
@@ -95,7 +90,7 @@ const renderView = (viewModel: ExecutionDetailViewModel) =>
 
 const statCard = (label: string): HTMLElement => {
   const term = screen.getByText(label, { selector: "dt span" });
-  const card = term.closest("[data-slot='card']");
+  const card = term.closest("[data-slot='stat-tile']");
 
   if (!(card instanceof HTMLElement)) {
     throw new Error(`No stat card for ${label}`);
@@ -124,61 +119,45 @@ describe("ExecutionDetailView", () => {
     invocationsTablePropsMock.mockReset();
   });
 
-  it("renders the header with run status, source, pipeline link and execution id", () => {
+  it("renders the header with run status, pipeline link and execution id", () => {
     renderView(buildViewModel());
 
     const pipelineLink = screen.getByRole("link", { name: "Daily digest" });
 
-    expect(screen.getByText(/Morning run/)).toBeInTheDocument();
     expect(pipelineLink).toHaveAttribute("href", "/dashboard/pipelines/pipe-1");
     expect(screen.getByText("exec-123")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Copy execution ID" }),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/Back to/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Morning run")).not.toBeInTheDocument();
   });
 
-  it("renders the summary stats from the view model", () => {
+  it("names a manual run in the header", () => {
+    renderView(buildViewModel({ sourceLabel: "Manual run", pipeline: null }));
+
+    expect(screen.getByText("Manual run")).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Daily digest" })).toBeNull();
+  });
+
+  it("shows when it started, how long it took and how many invocations passed or failed", () => {
     renderView(buildViewModel({ failedInvocationCount: 2 }));
 
-    const failedCount = within(statCard("Invocations")).getByText("2");
-
-    expect(within(statCard("Run status")).getByText("succeeded")).toBeVisible();
-    expect(
-      within(statCard("Enqueue status")).getByText("success"),
-    ).toBeVisible();
-    expect(within(statCard("Started")).getByText("Elapsed 4s")).toBeVisible();
-    expect(statCard("Jobs")).toHaveTextContent("3 / 2");
-    expect(statCard("Invocations")).toHaveTextContent("5 / 2");
-    expect(failedCount).toHaveAttribute("data-failed", "true");
-    expect(failedCount).toHaveClass("text-destructive");
-    expect(statCard("Invocation transport")).toHaveTextContent(
-      "Hermes worker + DataQueue",
+    expect(statCard("Duration")).toHaveTextContent("4s");
+    expect(statCard("Succeeded")).toHaveTextContent("5of 6 expected");
+    expect(within(statCard("Failed")).getByText("2")).toHaveClass(
+      "text-destructive",
     );
+    expect(screen.queryByText("Run status")).not.toBeInTheDocument();
+    expect(screen.queryByText("Invocation transport")).not.toBeInTheDocument();
   });
 
   it("keeps the failed invocation count muted when nothing failed", () => {
     renderView(buildViewModel());
 
-    const failedCount = within(statCard("Invocations")).getByText("0");
+    const failedCount = within(statCard("Failed")).getByText("0");
 
-    expect(failedCount).toHaveAttribute("data-failed", "false");
+    expect(failedCount).toHaveClass("text-muted-foreground");
     expect(failedCount).not.toHaveClass("text-destructive");
-  });
-
-  it("reveals the invocation transport detail in a tooltip", async () => {
-    renderView(buildViewModel());
-    const trigger = screen.getByRole("button", {
-      name: "About invocation transport",
-    });
-
-    await act(async () => {
-      fireEvent.focus(trigger);
-    });
-
-    expect(screen.getByRole("tooltip")).toHaveTextContent(
-      "Scheduled runs enqueue jobs on DataQueue.",
-    );
   });
 
   it("shows the cancel button and processed URLs link when they apply", () => {
@@ -232,9 +211,8 @@ describe("ExecutionDetailView", () => {
       "1",
       "summarizer@1.2.0",
       "partial",
-      "3",
+      "3 / 4",
       "1",
-      "4",
     ]);
   });
 
@@ -274,12 +252,11 @@ describe("ExecutionDetailView", () => {
     );
 
     const snapshot = screen.getByRole("region", { name: "Request snapshot" });
-    const snapshotJson = within(snapshot).getByRole("region", { name: "JSON" });
 
     expect(within(snapshot).getByText(/"method": "POST"/)).toBeVisible();
-    expect(snapshotJson).toHaveClass("max-h-[32rem]");
+    expect(snapshot).toHaveClass("max-h-[32rem]");
     expect(
-      within(snapshot).getByRole("button", { name: "Copy JSON" }),
+      screen.getByRole("button", { name: "Copy request snapshot" }),
     ).toBeVisible();
     expect(screen.getByText("Request id: req-9")).toBeVisible();
   });
@@ -309,9 +286,6 @@ describe("ExecutionDetailView", () => {
         executionId: "exec-123",
       },
     });
-    expect(
-      screen.getByRole("region", { name: "Invocations" }),
-    ).toHaveTextContent("1");
   });
 
   it("publishes the parent name for the breadcrumbs", () => {

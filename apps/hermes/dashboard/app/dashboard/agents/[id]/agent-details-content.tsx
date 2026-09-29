@@ -6,6 +6,7 @@ import type {
   ContentViewResponse,
   DashboardView,
 } from "@hermes/domain-contract";
+import { Badge } from "@workspace/ui/components/badge";
 import {
   Alert,
   AlertDescription,
@@ -61,6 +62,16 @@ const readEndpointUrl = (endpoint: unknown): string | null => {
     : null;
 };
 
+const SUMMARIZED_ENDPOINT_KEYS = new Set(["url", "method"]);
+
+const readEndpointMethod = (endpoint: unknown): string | null => {
+  const endpointMethod = endpointToRecord(endpoint)?.method;
+
+  return typeof endpointMethod === "string" && endpointMethod.trim() !== ""
+    ? endpointMethod
+    : null;
+};
+
 const readEndpointDetailsWithoutUrl = (
   endpoint: unknown,
 ): Record<string, unknown> | null => {
@@ -71,7 +82,7 @@ const readEndpointDetailsWithoutUrl = (
   }
 
   const endpointEntriesWithoutUrl = Object.entries(endpointRecord).filter(
-    ([key]) => key !== "url",
+    ([key]) => !SUMMARIZED_ENDPOINT_KEYS.has(key),
   );
   const endpointDetails = Object.fromEntries(endpointEntriesWithoutUrl);
 
@@ -79,6 +90,13 @@ const readEndpointDetailsWithoutUrl = (
 };
 
 const TAB_TRIGGER_CLASS_NAME = "flex-none px-3";
+
+const AgentSchemas = ({ agent }: { agent: AgentDetail }) => (
+  <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2">
+    <JsonBlock value={agent.inputSchema} title="Input schema" />
+    <JsonBlock value={agent.configSchema} title="Config schema" />
+  </div>
+);
 
 export const AgentDetailsContent = ({
   agent,
@@ -90,8 +108,10 @@ export const AgentDetailsContent = ({
   const agentLabel = `${agent.agentId}@${agent.agentVersion}`;
   const activeStatus = agent.isActive ? "active" : "inactive";
   const endpointUrl = readEndpointUrl(agent.endpoint);
+  const endpointMethod = readEndpointMethod(agent.endpoint);
   const endpointDetails = readEndpointDetailsWithoutUrl(agent.endpoint);
   const description = agent.description ?? undefined;
+  const hasTabs = domainTabs.length > 0 || endpointDetails !== null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -105,22 +125,27 @@ export const AgentDetailsContent = ({
       />
       <SummaryGrid>
         <SummaryItem label="Integration">
-          <span className="font-mono text-xs">
-            {agent.domainIntegration.integrationId}
-          </span>
+          {agent.domainIntegration.name}
+        </SummaryItem>
+        <SummaryItem label="Updated">
+          <DateTime value={agent.updatedAt} variant="both" style="datetime" />
         </SummaryItem>
         <SummaryItem label="Endpoint URL" wide>
           {endpointUrl ? (
-            <CopyableId value={endpointUrl} label="Copy endpoint URL" />
+            <span className="flex min-w-0 items-center gap-2">
+              {endpointMethod ? (
+                <Badge
+                  variant="outline"
+                  className="px-1.5 font-mono text-muted-foreground"
+                >
+                  {endpointMethod}
+                </Badge>
+              ) : null}
+              <CopyableId value={endpointUrl} label="Copy endpoint URL" />
+            </span>
           ) : (
             <span className="text-muted-foreground">No endpoint</span>
           )}
-        </SummaryItem>
-        <SummaryItem label="Created">
-          <DateTime value={agent.createdAt} style="datetime" />
-        </SummaryItem>
-        <SummaryItem label="Updated">
-          <DateTime value={agent.updatedAt} style="datetime" />
         </SummaryItem>
       </SummaryGrid>
       {agentTabContentsError ? (
@@ -130,61 +155,50 @@ export const AgentDetailsContent = ({
           <AlertDescription>{agentTabContentsError}</AlertDescription>
         </Alert>
       ) : null}
-      <Tabs defaultValue={defaultTab} className="w-full gap-4">
-        <TabsList variant="line" className="w-full justify-start border-b">
-          {domainTabs.map(({ view }) => (
-            <TabsTrigger
-              key={view.id}
-              value={view.id}
-              className={TAB_TRIGGER_CLASS_NAME}
-            >
-              {view.tabLabel ?? view.label}
+      {hasTabs ? (
+        <Tabs defaultValue={defaultTab} className="w-full gap-4">
+          <TabsList variant="line" className="w-full justify-start border-b">
+            {domainTabs.map(({ view }) => (
+              <TabsTrigger
+                key={view.id}
+                value={view.id}
+                className={TAB_TRIGGER_CLASS_NAME}
+              >
+                {view.tabLabel ?? view.label}
+              </TabsTrigger>
+            ))}
+            <TabsTrigger value="schema" className={TAB_TRIGGER_CLASS_NAME}>
+              Schema
             </TabsTrigger>
-          ))}
-          <TabsTrigger value="schema" className={TAB_TRIGGER_CLASS_NAME}>
-            Schema
-          </TabsTrigger>
-          <TabsTrigger value="general" className={TAB_TRIGGER_CLASS_NAME}>
-            Info
-          </TabsTrigger>
-        </TabsList>
-        {domainTabs.map(({ view, content }) => (
-          <TabsContent key={view.id} value={view.id}>
-            <DomainContentView
-              kind={view.kind}
-              body={content.body}
-              title={content.title}
-            />
-          </TabsContent>
-        ))}
-        <TabsContent
-          value="schema"
-          className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2"
-        >
-          <JsonBlock value={agent.inputSchema} title="Input schema" />
-          <JsonBlock value={agent.configSchema} title="Config schema" />
-        </TabsContent>
-        <TabsContent value="general" className="flex min-w-0 flex-col gap-6">
-          <section className="flex flex-col gap-3">
-            <h2 className="text-sm font-semibold text-foreground">Details</h2>
-            <SummaryGrid>
-              <SummaryItem label="Registry ID" wide>
-                <CopyableId value={agent.id} label="Copy registry ID" />
-              </SummaryItem>
-            </SummaryGrid>
-          </section>
-          {endpointDetails ? (
-            <section className="flex flex-col gap-3">
-              <h2 className="text-sm font-semibold text-foreground">
+            {endpointDetails ? (
+              <TabsTrigger value="endpoint" className={TAB_TRIGGER_CLASS_NAME}>
                 Endpoint
-              </h2>
+              </TabsTrigger>
+            ) : null}
+          </TabsList>
+          {domainTabs.map(({ view, content }) => (
+            <TabsContent key={view.id} value={view.id}>
+              <DomainContentView
+                kind={view.kind}
+                body={content.body}
+                title={content.title}
+              />
+            </TabsContent>
+          ))}
+          <TabsContent value="schema" className="min-w-0">
+            <AgentSchemas agent={agent} />
+          </TabsContent>
+          {endpointDetails ? (
+            <TabsContent value="endpoint" className="min-w-0">
               <div className="overflow-hidden rounded-lg border bg-card">
                 <EndpointDisplay endpoint={endpointDetails} />
               </div>
-            </section>
+            </TabsContent>
           ) : null}
-        </TabsContent>
-      </Tabs>
+        </Tabs>
+      ) : (
+        <AgentSchemas agent={agent} />
+      )}
     </div>
   );
 };

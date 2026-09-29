@@ -18,14 +18,10 @@ export const mediapulseUsersHermesPathSegment = "mediapulse-users" as const;
 
 const mediapulseUsersMetadataBlock = {
   type: "keyValue",
-  label: "User",
   rows: [
-    { field: "id", label: "User id", copyAction: true },
-    { field: "email", label: "Email", copyAction: true },
     { field: "name", label: "Name" },
     { field: "enabled", label: "Enabled" },
     { field: "createdAt", label: "Created", format: "date-time" },
-    { field: "updatedAt", label: "Updated", format: "date-time" },
   ],
 } satisfies DetailBlock;
 

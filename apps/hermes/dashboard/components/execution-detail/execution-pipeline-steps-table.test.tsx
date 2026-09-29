@@ -33,6 +33,32 @@ const mobileCards = () => {
 };
 
 describe("ExecutionPipelineStepsTable", () => {
+  it("titles the section with the step count", () => {
+    render(<ExecutionPipelineStepsTable steps={[buildStep()]} />);
+
+    expect(
+      screen.getByRole("heading", { name: "Pipeline steps" }).parentElement,
+    ).toHaveTextContent("Pipeline steps1");
+  });
+
+  it("numbers steps from one in the order they ran", () => {
+    render(
+      <ExecutionPipelineStepsTable
+        steps={[
+          buildStep({ stepOrder: 0 }),
+          buildStep({ pipelineStepId: "step-2", stepOrder: 1 }),
+        ]}
+      />,
+    );
+
+    const positions = desktopTable()
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => within(row).getAllByRole("cell")[0]?.textContent);
+
+    expect(positions).toEqual(["1", "2"]);
+  });
+
   it("renders one desktop row per step with its counts", () => {
     render(<ExecutionPipelineStepsTable steps={[buildStep()]} />);
 
@@ -44,21 +70,13 @@ describe("ExecutionPipelineStepsTable", () => {
       .getAllByRole("cell")
       .map((cell) => cell.textContent);
 
-    expect(headers).toEqual([
-      "Order",
-      "Agent",
-      "Rollup",
-      "OK",
-      "Failed",
-      "Expected",
-    ]);
+    expect(headers).toEqual(["#", "Agent", "Status", "Succeeded", "Failed"]);
     expect(cellTexts).toEqual([
       "1",
       "summarizer@1.2.0",
       "partial",
-      "3",
+      "3 / 4",
       "1",
-      "4",
     ]);
   });
 
@@ -101,7 +119,7 @@ describe("ExecutionPipelineStepsTable", () => {
 
     expect(cardQueries.getByText("summarizer@1.2.0")).toBeInTheDocument();
     expect(cardQueries.getByText("partial")).toBeInTheDocument();
-    expect(labels).toEqual(["Order", "OK", "Failed", "Expected"]);
+    expect(labels).toEqual(["Succeeded", "Failed"]);
   });
 
   it("explains when no pipeline steps ran", () => {
@@ -109,9 +127,7 @@ describe("ExecutionPipelineStepsTable", () => {
 
     expect(screen.getByText("No pipeline steps ran")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Nothing was enqueued for this execution, so no step rollups were recorded.",
-      ),
+      screen.getByText("Nothing was enqueued for this execution."),
     ).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });

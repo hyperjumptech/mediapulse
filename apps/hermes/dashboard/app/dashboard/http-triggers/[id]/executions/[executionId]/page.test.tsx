@@ -115,24 +115,16 @@ describe("HttpTriggerExecutionDetailPage", () => {
     const region = await screen.findByRole("region", {
       name: /enqueue diagnostics/i,
     });
-    const enqueueStatusCard = screen
-      .getByText("Enqueue status", { selector: "dt span" })
-      .closest("[data-slot='card']");
-
     expect(within(region).getByText(ROUTE_ENQUEUE_ERROR_MESSAGE)).toBeVisible();
-    expect(enqueueStatusCard).toHaveTextContent("failed");
-    expect(screen.getByText("Invocation transport")).toBeInTheDocument();
-    expect(screen.getByText("Hermes worker + DataQueue")).toBeInTheDocument();
   });
 
-  it("renders the trigger name, pipeline link and no processed URLs action", async () => {
+  it("renders the pipeline link and no processed URLs action", async () => {
     getHttpTriggerExecutionSummaryMock.mockResolvedValue(
       minimalFailedSummary(),
     );
 
     await renderPage();
 
-    expect(screen.getByText(/Test trigger/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "P" })).toHaveAttribute(
       "href",
       "/dashboard/pipelines/pipe-1",

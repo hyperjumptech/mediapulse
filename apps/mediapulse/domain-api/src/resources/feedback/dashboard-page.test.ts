@@ -48,4 +48,14 @@ describe("feedbackDashboardPage", () => {
 
     expect(tonedLabels.sort()).toEqual(labels.sort());
   });
+
+  it("titles the detail page with the subject and leaves the id off", () => {
+    const [details] = feedbackDashboardPage.detailBlocks;
+    const fields =
+      details?.type === "keyValue" ? details.rows.map((row) => row.field) : [];
+
+    expect(feedbackDashboardPage.detailTitleField).toBe("subject");
+    expect(fields).not.toContain("id");
+    expect(fields).not.toContain("subject");
+  });
 });

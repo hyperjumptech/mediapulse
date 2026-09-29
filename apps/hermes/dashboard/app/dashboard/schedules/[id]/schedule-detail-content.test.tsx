@@ -138,13 +138,11 @@ describe("ScheduleDetailContent", () => {
     expect(pipelineLink).toHaveAttribute("href", "/dashboard/pipelines/p1");
   });
 
-  it("shows a cron cadence in monospace and the timezone", () => {
+  it("puts a common cron cadence into words next to the time zone", () => {
     renderScheduleDetail(createMockSchedule({ timezone: "Asia/Jakarta" }));
 
-    const cadence = within(summaryValue("Repeats")).getByText("0 6 * * *");
-
-    expect(cadence.tagName).toBe("CODE");
-    expect(summaryValue("Timezone")).toHaveTextContent("Asia/Jakarta");
+    expect(summaryValue("Repeats")).toHaveTextContent("Daily at 06:00");
+    expect(summaryValue("Time zone")).toHaveTextContent("Asia/Jakarta");
   });
 
   it("describes interval cadences in words", () => {
@@ -199,11 +197,11 @@ describe("ScheduleDetailContent", () => {
     expect(summaryValue("Next run")).toHaveTextContent("Not while disabled");
   });
 
-  it("shows when and by whom the schedule was created", () => {
+  it("leaves out who created the schedule and when", () => {
     renderScheduleDetail(createMockSchedule());
 
-    expect(summaryValue("Created")).toHaveTextContent("Sep 25, 2026, 12:00");
-    expect(summaryValue("Created by")).toHaveTextContent("Kevin");
+    expect(screen.queryByText("Created by")).not.toBeInTheDocument();
+    expect(screen.queryByText("Created")).not.toBeInTheDocument();
   });
 
   it("hides the recovery summary when the schedule never recovered", () => {

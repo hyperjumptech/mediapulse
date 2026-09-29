@@ -142,11 +142,11 @@ describe("SchedulesTable", () => {
   it("shows custom cron expressions in monospace with the schedule timezone", () => {
     renderTable({
       schedules: [
-        createMockSchedule({ interval: null, cronExpression: "0 7 * * 1-5" }),
+        createMockSchedule({ interval: null, cronExpression: "0 7 1 * *" }),
       ],
     });
 
-    const cron = within(table()).getByText("0 7 * * 1-5");
+    const cron = within(table()).getByText("0 7 1 * *");
 
     expect(cron.tagName).toBe("CODE");
     expect(cron).toHaveAttribute("title", "Cron in Asia/Jakarta");

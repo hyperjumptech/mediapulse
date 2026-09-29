@@ -20,6 +20,7 @@ export const ExecutionInvocationsTableSection = async (
 
   return (
     <ScheduleExecutionInvocationsTable
+      title="Invocations"
       {...props}
       initialColumnVisibility={mergeColumnVisibility(
         INVOCATIONS_DEFAULT_COLUMN_VISIBILITY,

@@ -6,6 +6,7 @@ import {
 } from "@workspace/ui/components/alert";
 import { CircleAlert } from "lucide-react";
 
+import { mergeColumnVisibility } from "@/lib/data-table/column-visibility";
 import { readColumnVisibility } from "@/lib/data-table/read-column-visibility";
 import {
   fetchProcessedUrlsForExecution,
@@ -21,6 +22,10 @@ import {
   type ProcessedUrlFilterGroup,
 } from "./processed-urls-filters";
 import { ProcessedUrlsTable } from "./processed-urls-table";
+import {
+  PROCESSED_URLS_DEFAULT_COLUMN_VISIBILITY,
+  PROCESSED_URLS_TABLE_ID,
+} from "./processed-urls-table-defaults";
 
 type PageProps = {
   params: Promise<{ id: string; executionId: string }>;
@@ -49,8 +54,6 @@ type ProcessedUrlsPageData = {
 };
 
 const PAGE_SIZE = 50;
-
-const PROCESSED_URLS_TABLE_ID = "processed-urls";
 
 const OUTCOME_FILTER_DEFINITIONS: readonly ProcessedUrlFilterDefinition[] = [
   {
@@ -252,7 +255,10 @@ export default async function ProcessedUrlsPage({
       filters={filterControls}
       hasActiveFilters={hasActiveFilters}
       clearFiltersHref={basePath}
-      initialColumnVisibility={savedVisibility}
+      initialColumnVisibility={mergeColumnVisibility(
+        PROCESSED_URLS_DEFAULT_COLUMN_VISIBILITY,
+        savedVisibility,
+      )}
     />
   );
 }

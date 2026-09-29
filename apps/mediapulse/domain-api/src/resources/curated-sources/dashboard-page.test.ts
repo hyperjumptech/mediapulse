@@ -43,4 +43,18 @@ describe("curatedSourcesDashboardPage", () => {
     expect(columnByKey("enabled")).not.toHaveProperty("badgeTones");
     expect(columnByKey("maxItems")?.format).toBe("number");
   });
+
+  it("leaves the id, the name it is titled by and the created time off the detail page", () => {
+    const [details] = curatedSourcesDashboardPage.detailBlocks;
+    const fields =
+      details?.type === "keyValue" ? details.rows.map((row) => row.field) : [];
+
+    expect(fields).toEqual([
+      "listingUrl",
+      "linkType",
+      "enabled",
+      "maxItems",
+      "updatedAt",
+    ]);
+  });
 });

@@ -18,10 +18,7 @@ export const curatedSourcesHermesPathSegment = "curated-sources" as const;
 
 const curatedSourcesMetadataBlock = {
   type: "keyValue",
-  label: "Metadata",
   rows: [
-    { field: "id", label: "Source id", copyAction: true },
-    { field: "name", label: "Name" },
     {
       field: "listingUrl",
       label: "Listing URL",
@@ -31,7 +28,6 @@ const curatedSourcesMetadataBlock = {
     { field: "linkType", label: "Link type", format: "text" },
     { field: "enabled", label: "Enabled", format: "text" },
     { field: "maxItems", label: "Max items", format: "text" },
-    { field: "createdAt", label: "Created", format: "date-time" },
     { field: "updatedAt", label: "Updated", format: "date-time" },
   ],
 } satisfies DetailBlock;

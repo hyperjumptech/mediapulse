@@ -129,7 +129,7 @@ describe("HttpTriggerDetailContent", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("summarizes the pipeline, method, auth and token hint", () => {
+  it("summarizes the pipeline, method and token hint", () => {
     renderTriggerDetail(createMockTrigger());
 
     expect(
@@ -139,22 +139,16 @@ describe("HttpTriggerDetailContent", () => {
       "data-variant",
       "outline",
     );
-    expect(summaryValue("Auth")).toHaveTextContent("Bearer token");
     expect(
       within(summaryValue("Token hint")).getByText("...wxyz").tagName,
     ).toBe("CODE");
   });
 
-  it("humanizes unknown auth types and handles a missing token hint", () => {
-    renderTriggerDetail(
-      createMockTrigger({
-        authType: "SIGNED_REQUEST" as TriggerRow["authType"],
-        tokenHint: null,
-      }),
-    );
+  it("leaves out the auth type and a token hint that was never recorded", () => {
+    renderTriggerDetail(createMockTrigger({ tokenHint: null }));
 
-    expect(summaryValue("Auth")).toHaveTextContent("signed request");
-    expect(summaryValue("Token hint")).toHaveTextContent("Not recorded");
+    expect(screen.queryByText("Auth")).not.toBeInTheDocument();
+    expect(screen.queryByText("Token hint")).not.toBeInTheDocument();
   });
 
   it("shows the full invoke URL with a copy button", () => {
@@ -170,14 +164,13 @@ describe("HttpTriggerDetailContent", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows when the trigger last fired and who created it", () => {
+  it("shows when the trigger last fired and not who created it", () => {
     renderTriggerDetail(createMockTrigger());
 
     expect(summaryValue("Last triggered")).toHaveTextContent(
       "Sep 28, 2026, 11:30 30m ago",
     );
-    expect(summaryValue("Created")).toHaveTextContent("Sep 25, 2026, 12:00");
-    expect(summaryValue("Created by")).toHaveTextContent("Kevin");
+    expect(screen.queryByText("Created by")).not.toBeInTheDocument();
   });
 
   it("shows Never when the trigger has not fired", () => {

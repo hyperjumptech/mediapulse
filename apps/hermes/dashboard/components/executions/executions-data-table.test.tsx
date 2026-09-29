@@ -131,7 +131,7 @@ describe("ExecutionsDataTable", () => {
       name: "Customize columns",
     });
 
-    expect(heading.parentElement?.nextElementSibling).toBe(
+    expect(heading.parentElement?.parentElement?.nextElementSibling).toBe(
       columnsButton.parentElement,
     );
   });

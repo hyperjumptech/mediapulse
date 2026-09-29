@@ -94,7 +94,12 @@ const MobileRow = <Data extends RowData>({
                 <dt className="text-xs text-muted-foreground">
                   {cell.column.columnDef.meta?.label ?? cell.column.id}
                 </dt>
-                <dd className={cn("min-w-0", overflowClassName(wraps))}>
+                <dd
+                  className={cn(
+                    "min-w-0",
+                    wraps ? "wrap-anywhere" : "wrap-break-word",
+                  )}
+                >
                   <FlexRender cell={cell} />
                 </dd>
               </div>

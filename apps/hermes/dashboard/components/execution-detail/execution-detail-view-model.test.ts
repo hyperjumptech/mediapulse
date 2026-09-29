@@ -64,31 +64,27 @@ const baseSummary = (): ExecutionDetailSummary => ({
 });
 
 describe("buildExecutionDetailViewModel", () => {
-  it("builds a schedule execution with its processed URLs link and DataQueue transport", () => {
-    // Setup
+  it("builds a schedule execution with its processed URLs link", () => {
     const summary = baseSummary();
 
-    // Act
     const viewModel = buildExecutionDetailViewModel({
       parent: { kind: "schedule", id: "sched-1", name: "Morning run" },
       executionId: "exec-1",
       summary,
     });
 
-    // Assert
     expect(viewModel).toMatchObject({
       executionId: "exec-1",
       parent: { kind: "schedule", id: "sched-1", name: "Morning run" },
-      sourceLabel: "Morning run",
+      sourceLabel: null,
       pipeline: { id: "pipe-1", name: "Daily digest" },
       runStatus: "succeeded",
       enqueueStatus: "success",
       executionTimeIso: "2026-09-28T10:00:00.000Z",
       elapsedLabel: "4s",
-      jobsCreated: 2,
-      jobsEnqueued: 2,
       succeededInvocationCount: 1,
       failedInvocationCount: 1,
+      expectedInvocationCount: 2,
       metadataHints: [],
       requestSnapshotJson: null,
       canCancel: false,
@@ -105,19 +101,16 @@ describe("buildExecutionDetailViewModel", () => {
       processedUrlsHref:
         "/dashboard/schedules/sched-1/executions/exec-1/processed-urls",
     });
-    expect(viewModel.transport.headline).toBe("Hermes worker + DataQueue");
     expect(viewModel.steps).toEqual(summary.stepExecutions);
   });
 
   it("maps invocations to scalar rows with ISO timestamps", () => {
-    // Act
     const viewModel = buildExecutionDetailViewModel({
       parent: { kind: "schedule", id: "sched-1", name: "Morning run" },
       executionId: "exec-1",
       summary: baseSummary(),
     });
 
-    // Assert
     expect(viewModel.invocations).toEqual([
       {
         jobId: "job-1",
@@ -145,7 +138,6 @@ describe("buildExecutionDetailViewModel", () => {
   });
 
   it("exposes the masked request snapshot for HTTP trigger executions", () => {
-    // Setup
     const summary = baseSummary();
     summary.execution.runStatus = "running";
     summary.execution.metadata = {
@@ -153,15 +145,13 @@ describe("buildExecutionDetailViewModel", () => {
       headers: { authorization: "Bearer secret-token" },
     };
 
-    // Act
     const viewModel = buildExecutionDetailViewModel({
       parent: { kind: "httpTrigger", id: "trig-1", name: "Webhook" },
       executionId: "exec-1",
       summary,
     });
 
-    // Assert
-    expect(viewModel.sourceLabel).toBe("Webhook");
+    expect(viewModel.sourceLabel).toBeNull();
     expect(viewModel.canCancel).toBe(true);
     expect(viewModel.cancelTarget).toEqual({
       kind: "httpTrigger",
@@ -176,24 +166,21 @@ describe("buildExecutionDetailViewModel", () => {
   });
 
   it("labels manual runs and surfaces their metadata hints", () => {
-    // Setup
     const summary = baseSummary();
     summary.execution.runStatus = "pending";
     summary.execution.metadata = { source: "dashboard" };
 
-    // Act
     const viewModel = buildExecutionDetailViewModel({
       parent: { kind: "manual", id: "pipe-1", name: "Daily digest" },
       executionId: "exec-1",
       summary,
     });
 
-    // Assert
     expect(viewModel.sourceLabel).toBe("Manual run");
     expect(viewModel.metadataHints).toEqual([
       "Started from: Dashboard (Run pipeline)",
     ]);
-    expect(viewModel.transport.headline).toBe("Dashboard HTTP (no DataQueue)");
+    expect(viewModel.pipeline).toBeNull();
     expect(viewModel.requestSnapshotJson).toBeNull();
     expect(viewModel.processedUrlsHref).toBeNull();
     expect(viewModel.canCancel).toBe(true);
@@ -210,19 +197,16 @@ describe("buildExecutionDetailViewModel", () => {
   });
 
   it("masks secrets in enqueue errors before they reach the view", () => {
-    // Setup
     const summary = baseSummary();
     summary.execution.enqueueStatus = "failed";
     summary.execution.errors = { nested: { apiKey: "must-not-leak" } };
 
-    // Act
     const viewModel = buildExecutionDetailViewModel({
       parent: { kind: "schedule", id: "sched-1", name: "Morning run" },
       executionId: "exec-1",
       summary,
     });
 
-    // Assert
     const serializedErrors = JSON.stringify(viewModel.enqueueErrors);
 
     expect(serializedErrors).toContain(SECRET_MASK);
@@ -230,17 +214,14 @@ describe("buildExecutionDetailViewModel", () => {
   });
 
   it("keeps a missing pipeline as null", () => {
-    // Setup
     const summary = { ...baseSummary(), pipeline: null };
 
-    // Act
     const viewModel = buildExecutionDetailViewModel({
       parent: { kind: "schedule", id: "sched-1", name: "Morning run" },
       executionId: "exec-1",
       summary,
     });
 
-    // Assert
     expect(viewModel.pipeline).toBeNull();
   });
 });

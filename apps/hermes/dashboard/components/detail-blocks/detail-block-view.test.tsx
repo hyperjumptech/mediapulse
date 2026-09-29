@@ -174,4 +174,50 @@ describe("DetailBlocksView", () => {
     expect(screen.getByText("alpha")).toBeInTheDocument();
     expect(screen.getByText("beta")).toBeInTheDocument();
   });
+
+  it("leaves out empty blocks and says so when nothing is left", () => {
+    render(
+      <DetailBlocksView
+        blocks={[
+          {
+            type: "keyValue",
+            label: "Collection gate",
+            rows: [{ field: "gateStatus", label: "Status" }],
+          },
+          { type: "markdown", label: "Notes", field: "notes" },
+        ]}
+        data={{ gateStatus: null, notes: "" }}
+      />,
+    );
+
+    expect(screen.queryByText("Collection gate")).not.toBeInTheDocument();
+    expect(screen.queryByText("Notes")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("This item has no values to show."),
+    ).toBeInTheDocument();
+  });
+
+  it("drops a panel whose children are all empty", () => {
+    render(
+      <DetailBlocksView
+        blocks={[
+          {
+            type: "panel",
+            label: "Run",
+            blocks: [
+              {
+                type: "keyValue",
+                rows: [{ field: "reason", label: "Reason" }],
+              },
+            ],
+          },
+          { type: "markdown", field: "body" },
+        ]}
+        data={{ reason: null, body: "Kept" }}
+      />,
+    );
+
+    expect(screen.queryByText("Run")).not.toBeInTheDocument();
+    expect(screen.getByText("Kept")).toBeInTheDocument();
+  });
 });

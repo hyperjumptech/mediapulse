@@ -54,4 +54,24 @@ describe("dataSourcesDashboardPage", () => {
       defaultHidden: true,
     });
   });
+
+  it("titles the detail page with the article and shows where it came from first", () => {
+    const [overview, ...rest] = dataSourcesDashboardPage.detailBlocks;
+    const overviewFields =
+      overview?.type === "keyValue"
+        ? overview.rows.map((row) => row.field)
+        : [];
+
+    expect(dataSourcesDashboardPage.detailTitleField).toBe("title");
+    expect(overviewFields).toEqual([
+      "url",
+      "tickerSymbol",
+      "searchQueryText",
+      "collectionSourceLabel",
+      "createdAt",
+    ]);
+    expect(
+      rest.map((block) => ("label" in block ? block.label : undefined)),
+    ).toEqual(["Collection gate", "Curated source", "Content"]);
+  });
 });

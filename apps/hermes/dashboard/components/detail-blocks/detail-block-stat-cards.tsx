@@ -7,8 +7,6 @@ import {
 } from "@hermes/domain-contract";
 import { CircleHelp } from "lucide-react";
 
-import { Card } from "@workspace/ui/components/card";
-import { cn } from "@workspace/ui/lib/utils";
 import {
   Tooltip,
   TooltipContent,
@@ -16,6 +14,7 @@ import {
 } from "@workspace/ui/components/tooltip";
 
 import { DateTime } from "@/components/date-time/date-time";
+import { StatTile, StatTileGrid } from "@/components/stat-card";
 import { toValidDate } from "@/lib/date-time/format-date-time";
 
 import { DetailBlockSectionHeader } from "./detail-block-section-header";
@@ -64,7 +63,7 @@ export const DetailBlockStatCardsView = ({
       sectionRule={block.sectionRule}
       data={data}
     />
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <StatTileGrid>
       {block.cards.map((card, index) => {
         const tooltipText = card.tooltipField
           ? asOptionalText(resolvePath(data, card.tooltipField))
@@ -76,40 +75,35 @@ export const DetailBlockStatCardsView = ({
           typeof colorVariant === "string"
             ? VALUE_COLOR_BY_VARIANT[colorVariant]
             : undefined;
+
         return (
-          <Card
+          <StatTile
             key={`${card.label}-${String(index)}`}
-            className="min-w-0 gap-1 p-4 shadow-none"
-          >
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              {card.label}
-              {tooltipText ? (
+            label={card.label}
+            labelAddon={
+              tooltipText ? (
                 <Tooltip>
                   <TooltipTrigger
                     type="button"
                     aria-label={`${card.label} breakdown`}
-                    className="cursor-help text-muted-foreground/70 hover:text-foreground"
+                    className="shrink-0 cursor-help text-muted-foreground/70 hover:text-foreground"
                   >
                     <CircleHelp className="size-3.5" />
                   </TooltipTrigger>
                   <TooltipContent>{tooltipText}</TooltipContent>
                 </Tooltip>
-              ) : null}
-            </span>
-            <span
-              className={cn(
-                "min-w-0 text-lg font-semibold break-words",
-                colorClass ?? "text-foreground",
-              )}
-            >
+              ) : undefined
+            }
+            value={
               <StatCardValue
                 card={card}
                 value={resolvePath(data, card.field)}
               />
-            </span>
-          </Card>
+            }
+            valueClassName={colorClass}
+          />
         );
       })}
-    </div>
+    </StatTileGrid>
   </section>
 );

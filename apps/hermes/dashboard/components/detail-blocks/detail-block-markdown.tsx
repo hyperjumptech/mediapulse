@@ -36,6 +36,16 @@ export const DetailBlockMarkdownView = ({
     clampedState,
   );
   const blocks = parseMarkdownBody(text);
+  if (body.trim().length === 0) {
+    return null;
+  }
+  const copyAction =
+    block.copyAction === true ? (
+      <DetailBlockCopyButton
+        value={body}
+        label={`Copy ${block.label ?? "markdown"} body`}
+      />
+    ) : undefined;
 
   return (
     <section className="flex min-w-0 flex-col gap-4">
@@ -43,6 +53,7 @@ export const DetailBlockMarkdownView = ({
         label={block.label}
         sectionRule={block.sectionRule}
         data={data}
+        actions={copyAction}
       />
       <div className="prose-sm max-w-3xl space-y-3 text-sm break-words">
         {blocks.map((parsed, index) => {
@@ -78,19 +89,13 @@ export const DetailBlockMarkdownView = ({
           );
         })}
       </div>
-      <div className="flex items-center gap-2">
-        {showExpander ? (
+      {showExpander ? (
+        <div>
           <Button type="button" variant="outline" size="sm" onClick={toggle}>
             {expanded ? "Show less" : "Show full"}
           </Button>
-        ) : null}
-        {block.copyAction === true && body.length > 0 ? (
-          <DetailBlockCopyButton
-            value={body}
-            label={`Copy ${block.label ?? "markdown"} body`}
-          />
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </section>
   );
 };

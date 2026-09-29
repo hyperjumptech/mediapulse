@@ -13,33 +13,15 @@ import type {
   ExecutionDetailViewModel,
 } from "./execution-detail-view-model";
 
-const ExecutionSourceDescription = ({
-  sourceLabel,
-  pipeline,
-}: {
-  sourceLabel: string;
-  pipeline: ExecutionDetailPipeline | null;
-}) => {
-  if (!pipeline) {
-    return <>{sourceLabel}</>;
-  }
-
-  const pipelineHref = `/dashboard/pipelines/${pipeline.id}`;
-
-  return (
-    <>
-      {sourceLabel}
-      {" · "}
-      <Link
-        href={pipelineHref}
-        className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline"
-      >
-        <GitBranch aria-hidden className="size-3.5 shrink-0" />
-        {pipeline.name}
-      </Link>
-    </>
-  );
-};
+const PipelineLink = ({ pipeline }: { pipeline: ExecutionDetailPipeline }) => (
+  <Link
+    href={`/dashboard/pipelines/${pipeline.id}`}
+    className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline"
+  >
+    <GitBranch aria-hidden className="size-3.5 shrink-0" />
+    {pipeline.name}
+  </Link>
+);
 
 const ExecutionDetailActions = ({
   viewModel,
@@ -68,20 +50,6 @@ const ExecutionDetailActions = ({
   );
 };
 
-const ExecutionMetadataHints = ({ hints }: { hints: string[] }) => {
-  if (hints.length === 0) {
-    return null;
-  }
-
-  return (
-    <ul className="flex flex-wrap items-center gap-x-4 gap-y-1">
-      {hints.map((hint) => (
-        <li key={hint}>{hint}</li>
-      ))}
-    </ul>
-  );
-};
-
 export const ExecutionDetailHeader = ({
   viewModel,
 }: {
@@ -95,21 +63,23 @@ export const ExecutionDetailHeader = ({
   ) : undefined;
 
   return (
-    <div className="flex flex-col gap-2">
-      <PageHeader
-        badges={<StatusBadge status={runStatus} />}
-        description={
-          <ExecutionSourceDescription
-            sourceLabel={sourceLabel}
-            pipeline={pipeline}
-          />
-        }
-        actions={actions}
-      />
-      <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <CopyableId value={executionId} label="Copy execution ID" />
-        <ExecutionMetadataHints hints={metadataHints} />
-      </div>
-    </div>
+    <PageHeader
+      badges={
+        <>
+          <StatusBadge status={runStatus} />
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            {sourceLabel ? <span>{sourceLabel}</span> : null}
+            {pipeline ? <PipelineLink pipeline={pipeline} /> : null}
+            {metadataHints.map((hint) => (
+              <span key={hint} className="text-xs">
+                {hint}
+              </span>
+            ))}
+            <CopyableId value={executionId} label="Copy execution ID" />
+          </div>
+        </>
+      }
+      actions={actions}
+    />
   );
 };

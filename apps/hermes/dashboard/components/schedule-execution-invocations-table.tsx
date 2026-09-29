@@ -3,11 +3,12 @@
 import { useMemo } from "react";
 import { Workflow } from "lucide-react";
 
-import { Button } from "@workspace/ui/components/button";
+import { DropdownMenuItem } from "@workspace/ui/components/dropdown-menu";
 import { cn } from "@workspace/ui/lib/utils";
 
 import { CopyableId } from "@/components/copyable-id";
 import { DataTable } from "@/components/data-table/data-table";
+import { RowActionsMenu } from "@/components/data-table/row-actions-menu";
 import { DateTime } from "@/components/date-time/date-time";
 import { InvocationActivityDialog } from "@/components/execution-detail/invocation-activity-dialog";
 import { InvocationDetailDialog } from "@/components/execution-detail/invocation-detail-dialog";
@@ -41,6 +42,7 @@ type InvocationActions = {
 
 export type ScheduleExecutionInvocationsTableProps = {
   invocations: ScheduleExecutionInvocationRow[];
+  title?: string;
   payloadSource: InvocationPayloadSource;
   initialColumnVisibility?: ColumnVisibility;
 };
@@ -193,28 +195,25 @@ const createInvocationColumns = ({
       ),
     }),
     columnHelper.display({
-      id: "activity",
+      id: "actions",
       enableHiding: false,
-      meta: {
-        label: "Activity",
-        mobile: "actions",
-        cellClassName: "pr-2 text-right",
-      },
+      meta: { label: "Actions", mobile: "actions" },
       cell: ({ row }) => (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => openActivity(row.original)}
-        >
-          Activity
-        </Button>
+        <RowActionsMenu label="Invocation actions">
+          <DropdownMenuItem onSelect={() => openDetail(row.original)}>
+            View details
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => openActivity(row.original)}>
+            View activity
+          </DropdownMenuItem>
+        </RowActionsMenu>
       ),
     }),
   ]);
 
 export const ScheduleExecutionInvocationsTable = ({
   invocations,
+  title,
   payloadSource,
   initialColumnVisibility = INVOCATIONS_DEFAULT_COLUMN_VISIBILITY,
 }: ScheduleExecutionInvocationsTableProps) => {
@@ -242,6 +241,8 @@ export const ScheduleExecutionInvocationsTable = ({
     <>
       <DataTable
         tableId={INVOCATIONS_TABLE_ID}
+        title={title}
+        count={title ? invocations.length : undefined}
         columns={columns}
         rows={invocations}
         getRowId={(invocation) => invocation.jobId}

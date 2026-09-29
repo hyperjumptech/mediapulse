@@ -113,17 +113,10 @@ describe("ScheduleExecutionDetailPage", () => {
     const region = await screen.findByRole("region", {
       name: /enqueue diagnostics/i,
     });
-    const enqueueStatusCard = screen
-      .getByText("Enqueue status", { selector: "dt span" })
-      .closest("[data-slot='card']");
-
     expect(within(region).getByText(ROUTE_ENQUEUE_ERROR_MESSAGE)).toBeVisible();
-    expect(enqueueStatusCard).toHaveTextContent("failed");
-    expect(screen.getByText("Invocation transport")).toBeInTheDocument();
-    expect(screen.getByText("Hermes worker + DataQueue")).toBeInTheDocument();
   });
 
-  it("renders the shared header with the schedule name and schedule actions", async () => {
+  it("renders the shared header with the pipeline link and schedule actions", async () => {
     getScheduleExecutionSummaryMock.mockResolvedValue({
       ...minimalFailedSummary(),
       pipeline: { id: "pipe-1", name: "Daily digest" },
@@ -131,7 +124,6 @@ describe("ScheduleExecutionDetailPage", () => {
 
     await renderPage();
 
-    expect(screen.getByText(/Test schedule/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Daily digest" })).toHaveAttribute(
       "href",
       "/dashboard/pipelines/pipe-1",

@@ -101,20 +101,20 @@ describe("ProcessedUrlsPage", () => {
     });
     expect(within(table).getByText("ACME")).toBeInTheDocument();
     expect(
-      within(table).getByRole("link", { name: "https://example.com/article" }),
+      within(table).getByRole("link", { name: "example.com/article" }),
     ).toHaveAttribute("href", "https://example.com/article");
     expect(headers).toEqual([
       "Account",
-      "Agent",
+      "URL",
       "Status",
       "Reason",
-      "URL",
+      "Agent",
       "Time",
     ]);
     expect(screen.queryByText(/Back to execution/)).not.toBeInTheDocument();
   });
 
-  it("falls back to a Subject column with dashes when the domain sends no subject", async () => {
+  it("leaves out the subject column when the domain sends no subject", async () => {
     withDashboardAdminMock.mockImplementation((load: Promise<unknown>) => load);
     fetchProcessedUrlsForExecutionMock.mockResolvedValue({
       items: [processedUrl({ subject: undefined })],
@@ -126,11 +126,10 @@ describe("ProcessedUrlsPage", () => {
     await renderPage();
 
     const table = screen.getByRole("table");
-    const subjectHeader = within(table).getAllByRole("columnheader")[0];
-    const firstCell = within(table).getAllByRole("cell")[0];
+    const firstHeader = within(table).getAllByRole("columnheader")[0];
 
-    expect(subjectHeader).toHaveTextContent("Subject");
-    expect(firstCell).toHaveTextContent("—");
+    expect(firstHeader).toHaveTextContent("URL");
+    expect(within(table).queryByText("Subject")).not.toBeInTheDocument();
   });
 
   it("forwards the subject filter and treats it as an active filter", async () => {

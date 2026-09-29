@@ -7,6 +7,7 @@ export const agentDomainIntegrationIdInclude = {
   domainIntegration: {
     select: {
       integrationId: true,
+      name: true,
     },
   },
 } satisfies Prisma.AgentRegistryInclude;

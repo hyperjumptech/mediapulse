@@ -283,17 +283,16 @@ describe("PipelineDetailContent", () => {
     expect(screen.getByTestId("run-pipeline-result")).toBeInTheDocument();
   });
 
-  it("summarizes integration, steps, timeout and provenance", () => {
+  it("summarizes integration, timeout and last update", () => {
     renderPipelineDetail();
 
     expect(summaryValue("Integration")).toHaveTextContent("Mediapulse");
-    expect(summaryValue("Steps")).toHaveTextContent("1 step");
     expect(summaryValue("Agent timeout")).toHaveTextContent(
       "5 minutes (default)",
     );
     expect(summaryValue("Updated")).toHaveTextContent("Sep 28, 2026, 10:00");
-    expect(summaryValue("Created")).toHaveTextContent("Sep 25, 2026, 12:00");
-    expect(summaryValue("Created by")).toHaveTextContent("Kevin");
+    expect(screen.queryByText("Steps", { selector: "dt" })).toBeNull();
+    expect(screen.queryByText("Created by")).not.toBeInTheDocument();
   });
 
   it("falls back to the integration id and shows a custom timeout", () => {
@@ -306,7 +305,6 @@ describe("PipelineDetailContent", () => {
     });
 
     expect(summaryValue("Integration")).toHaveTextContent("di-unknown");
-    expect(summaryValue("Steps")).toHaveTextContent("2 steps");
     expect(summaryValue("Agent timeout")).toHaveTextContent(
       "1 minute 30 seconds",
     );

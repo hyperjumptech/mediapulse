@@ -261,21 +261,40 @@ describe("DetailBlockKeyValueView", () => {
     );
   });
 
-  it("omits the copy button when the value is empty", () => {
+  it("leaves out rows without a value", () => {
     render(
       <DetailBlockKeyValueView
         block={{
           type: "keyValue",
           rows: [
             { field: "executionId", label: "Execution", copyAction: true },
+            { field: "reason", label: "Reason" },
+            { field: "enabled", label: "Enabled" },
           ],
         }}
-        data={{ executionId: null }}
+        data={{ executionId: null, reason: "  ", enabled: false }}
       />,
     );
 
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.queryByText("Execution")).not.toBeInTheDocument();
+    expect(screen.queryByText("Reason")).not.toBeInTheDocument();
+    expect(screen.getByText("No")).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("renders nothing, heading included, when no row has a value", () => {
+    const { container } = render(
+      <DetailBlockKeyValueView
+        block={{
+          type: "keyValue",
+          label: "Curated source",
+          rows: [{ field: "curatedSourceName", label: "Name" }],
+        }}
+        data={{ curatedSourceName: null }}
+      />,
+    );
+
+    expect(container).toBeEmptyDOMElement();
   });
 
   it("formats a number row with grouping separators", () => {

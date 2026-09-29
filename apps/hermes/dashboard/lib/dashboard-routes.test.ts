@@ -611,6 +611,7 @@ describe("resolveDomainViewPrimaryAction", () => {
     { name: "an unknown integration", pathname: "/dashboard/other/items" },
     { name: "an item page", pathname: "/dashboard/acme/items/item-1" },
     { name: "the new item page", pathname: "/dashboard/acme/items/new" },
+    { name: "an item edit page", pathname: "/dashboard/acme/items/i-1/edit" },
     { name: "the integration root", pathname: "/dashboard/acme" },
     { name: "a Hermes detail page", pathname: "/dashboard/pipelines/items" },
     { name: "a path outside the dashboard", pathname: "/acme/items/x" },
@@ -618,6 +619,44 @@ describe("resolveDomainViewPrimaryAction", () => {
     const action = resolveDomainViewPrimaryAction(
       pathname,
       integrationWith({}),
+    );
+
+    expect(action).toBeNull();
+  });
+
+  const updateSchema = {
+    type: "object",
+    properties: { title: { type: "string", title: "Title" } },
+  };
+
+  it("offers Edit on an item page when the view edits on a full page", () => {
+    const action = resolveDomainViewPrimaryAction(
+      "/dashboard/acme/items/row%201",
+      integrationWith({ createNavigation: "full-page", updateSchema }),
+    );
+
+    expect(action).toEqual({
+      href: "/dashboard/acme/items/row%201/edit",
+      label: "Edit",
+      intent: "edit",
+    });
+  });
+
+  it.each([
+    ["the editor is a modal", { createNavigation: "modal" as const }],
+    [
+      "updates are not allowed",
+      { actions: { create: true, update: false, delete: true, view: true } },
+    ],
+    ["the update schema has no fields", { updateSchema: {} }],
+  ])("offers no Edit when %s", (_reason, overrides) => {
+    const action = resolveDomainViewPrimaryAction(
+      "/dashboard/acme/items/row-1",
+      integrationWith({
+        createNavigation: "full-page",
+        updateSchema,
+        ...overrides,
+      }),
     );
 
     expect(action).toBeNull();

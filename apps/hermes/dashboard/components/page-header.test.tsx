@@ -34,6 +34,25 @@ describe("PageHeader", () => {
     ).toHaveTextContent("Enabled");
   });
 
+  it("puts the actions on the badge row and the description under it", () => {
+    const { container } = render(
+      <PageHeader
+        badges={<span>Enabled</span>}
+        description="Runs every night."
+        actions={<button type="button">Edit</button>}
+      />,
+    );
+    const badges = container.querySelector('[data-slot="page-header-badges"]');
+    const actions = container.querySelector(
+      '[data-slot="page-header-actions"]',
+    );
+
+    expect(badges?.parentElement).toBe(actions?.parentElement);
+    expect(badges?.parentElement).not.toContainElement(
+      screen.getByText("Runs every night."),
+    );
+  });
+
   it("renders nothing when it has nothing to show", () => {
     const { container } = render(<PageHeader />);
 
