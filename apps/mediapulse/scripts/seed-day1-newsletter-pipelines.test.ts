@@ -354,6 +354,64 @@ describe("seedDay1NewsletterPipelines", () => {
     ]);
   });
 
+  it("composes a combined newsletter and delivery source into the full chain", async () => {
+    const combinedPipeline: FixturePipeline = {
+      id: "p-newsletter",
+      name: "Newsletter Creation & Delivery",
+      timeout: 900_000,
+      steps: [
+        {
+          agentId: "content-generation",
+          input: { tickerId: TICKER_EXPANSION },
+        },
+        { agentId: "delivery", input: { tickerId: TICKER_EXPANSION } },
+      ],
+    };
+    const pipelines = [...nightlyPipelines().slice(0, 3), combinedPipeline];
+    const { db } = buildDb({ pipelines });
+
+    const result = await seedDay1NewsletterPipelines(
+      baseOptions({
+        bootstrapSources: [
+          "Query Analysis",
+          "Data Collection",
+          "Article Analysis",
+          "Newsletter Creation & Delivery",
+        ],
+        latestIssueSources: [],
+      }),
+      db as never,
+    );
+    const [bootstrap] = result.plans;
+
+    expect(bootstrap?.composedSteps.map((step) => step.agentId)).toEqual([
+      "query-analysis",
+      "data-collection",
+      "article-analysis",
+      "content-generation",
+      "delivery",
+    ]);
+  });
+
+  it("skips a day 1 pipeline that has no source pipelines", async () => {
+    const { db } = buildDb();
+
+    const result = await seedDay1NewsletterPipelines(
+      baseOptions({ apply: true, latestIssueSources: [] }),
+      db as never,
+    );
+
+    expect(result.plans.map((plan) => plan.definition.pipelineName)).toEqual([
+      "Day 1 Newsletter",
+    ]);
+    expect(result.skippedPipelineNames).toEqual(["Day 1 Latest Issue"]);
+    expect(result.triggers.map((trigger) => trigger.eventName)).toEqual([
+      "day1.full-chain",
+    ]);
+    expect(db.pipeline.create).toHaveBeenCalledTimes(1);
+    expect(db.httpTrigger.create).toHaveBeenCalledTimes(1);
+  });
+
   it("updates an existing day 1 pipeline and trigger in place", async () => {
     const pipelines = [
       ...nightlyPipelines(),
@@ -425,5 +483,15 @@ describe("parseSeedDay1Args", () => {
       ],
       latestIssueSources: ["Newsletter Delivery"],
     });
+  });
+
+  it("drops the latest issue sources with --skip-latest-issue", () => {
+    const options = parseSeedDay1Args([
+      "--latest-sources",
+      "Newsletter Delivery",
+      "--skip-latest-issue",
+    ]);
+
+    expect(options.latestIssueSources).toEqual([]);
   });
 });

@@ -111,6 +111,7 @@ export type AppliedDay1Trigger = {
 export type SeedDay1Result = {
   applied: boolean;
   plans: PlannedDay1Pipeline[];
+  skippedPipelineNames: string[];
   triggers: AppliedDay1Trigger[];
 };
 
@@ -382,7 +383,13 @@ export const seedDay1NewsletterPipelines = async (
     select: { id: true, name: true, domainIntegrationId: true, timeout: true },
     orderBy: { name: "asc" },
   });
-  const definitions = buildDay1PipelineDefinitions(options);
+  const allDefinitions = buildDay1PipelineDefinitions(options);
+  const definitions = allDefinitions.filter(
+    (definition) => definition.sourceNames.length > 0,
+  );
+  const skippedPipelineNames = allDefinitions
+    .filter((definition) => definition.sourceNames.length === 0)
+    .map((definition) => definition.pipelineName);
   const plans: PlannedDay1Pipeline[] = [];
   for (const definition of definitions) {
     const plan = await planDay1Pipeline(targetDb, allPipelines, definition);
@@ -390,7 +397,7 @@ export const seedDay1NewsletterPipelines = async (
     plans.push(plan);
   }
   if (!options.apply) {
-    return { applied: false, plans, triggers: [] };
+    return { applied: false, plans, skippedPipelineNames, triggers: [] };
   }
 
   const triggers: AppliedDay1Trigger[] = [];
@@ -399,7 +406,7 @@ export const seedDay1NewsletterPipelines = async (
     triggers.push(await writeDay1Trigger(targetDb, plan, pipelineId, options));
   }
 
-  return { applied: true, plans, triggers };
+  return { applied: true, plans, skippedPipelineNames, triggers };
 };
 
 const readListFlag = (
@@ -428,11 +435,9 @@ export const parseSeedDay1Args = (argv: string[]): SeedDay1Options => ({
     "--bootstrap-sources",
     DEFAULT_BOOTSTRAP_SOURCES,
   ),
-  latestIssueSources: readListFlag(
-    argv,
-    "--latest-sources",
-    DEFAULT_LATEST_ISSUE_SOURCES,
-  ),
+  latestIssueSources: argv.includes("--skip-latest-issue")
+    ? []
+    : readListFlag(argv, "--latest-sources", DEFAULT_LATEST_ISSUE_SOURCES),
 });
 
 const __filename = fileURLToPath(import.meta.url);
@@ -473,6 +478,9 @@ const main = async (): Promise<void> => {
   const result = await seedDay1NewsletterPipelines(options);
   for (const plan of result.plans) {
     printPlan(plan);
+  }
+  for (const pipelineName of result.skippedPipelineNames) {
+    console.log(`\n${pipelineName} (skipped, no source pipelines)`);
   }
   if (!result.applied) {
     console.log("\nDry run. Pass --apply to write.");
