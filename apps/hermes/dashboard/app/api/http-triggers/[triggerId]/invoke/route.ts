@@ -14,6 +14,7 @@ import {
 } from "@/lib/collect-http-trigger-request-snapshot";
 import { getHermesJobQueue } from "@/lib/hermes-job-queue";
 import { verifyHttpTriggerToken } from "@/lib/http-trigger-auth";
+import { readHttpTriggerRunParams } from "@/lib/read-http-trigger-run-params";
 
 const parseBearerToken = (authorization: string | null): string | null => {
   if (!authorization) return null;
@@ -85,6 +86,14 @@ const handleInvoke = async (
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const runParamsResult = await readHttpTriggerRunParams(request);
+  if (!runParamsResult.success) {
+    return NextResponse.json(
+      { error: `Invalid run params: ${runParamsResult.error}` },
+      { status: 400 },
+    );
+  }
+
   const requestSnapshot = await collectHttpTriggerRequestSnapshot(request);
 
   const headerRequestId = request.headers.get("x-request-id")?.trim();
@@ -113,6 +122,7 @@ const handleInvoke = async (
           ? trigger.pipeline.executionConfig
           : undefined,
       metadata: metadataWithCorrelation,
+      runParams: runParamsResult.params ?? undefined,
     },
     select: { id: true },
   });

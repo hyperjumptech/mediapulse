@@ -25,6 +25,10 @@ Whitespace inside the braces is trimmed (`{{ KEY }}` resolves the same as `{{KEY
 
 Substitution walks **all string values** in step `input` and `config` JSON recursively. If a key is missing from the variables table, the placeholder is **left unchanged** so you can spot unresolved references in logs or payloads.
 
+## Run parameters
+
+Placeholders that start with `params.` are **run parameters**, not variables. They are filled from the `params` object sent with an [HTTP trigger](/hermes/orchestration/http-triggers) call or a manual run, and are resolved before variables. Variable keys that start with `params.` are rejected so the two can never collide.
+
 ## Runtime behavior
 
 Whenever Hermes **plans** a pipeline run—[scheduled](/hermes/orchestration/schedules), via an [HTTP trigger](/hermes/orchestration/http-triggers), or **Run pipeline** from the dashboard—it loads variables from the orchestration database, resolves `{{KEY}}` in step `input` and `config` (decrypting secrets with the internal key above), then continues with schema validation and job creation. Scheduled and trigger paths enqueue work for **hermes-worker**; a manual dashboard run plans with the same substitution, then invokes agents inline from the dashboard process.

@@ -47,6 +47,22 @@ describe("createCreateVariableHandler", () => {
     expect(db.variable.create).not.toHaveBeenCalled();
   });
 
+  it("rejects keys reserved for run parameters", async () => {
+    const db = {
+      variable: { findUnique: vi.fn(), create: vi.fn() },
+    };
+    const handler = createCreateVariableHandler({ db: db as never });
+
+    const result = await handler({
+      ...baseData,
+      body: { ...baseData.body, key: "params.itemId" },
+    } as never);
+
+    expect(result.status).toBe(false);
+    expect((result as { message?: string }).message).toContain("reserved");
+    expect(db.variable.create).not.toHaveBeenCalled();
+  });
+
   it("creates variable and returns id", async () => {
     const createMock = vi.fn().mockResolvedValue({
       id: "00000000-0000-4000-8000-000000000001",

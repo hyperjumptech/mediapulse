@@ -335,6 +335,7 @@ export const getHttpTriggerExecutionSummary = async (
     where: { id: executionId, httpTriggerId },
     select: {
       ...executionSummarySelect,
+      runParams: true,
       httpTrigger: {
         select: {
           id: true,

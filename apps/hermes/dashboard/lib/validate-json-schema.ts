@@ -29,6 +29,8 @@ ajv.addKeyword({ keyword: "propertyOrder" });
 
 const VARIABLE_PLACEHOLDER_REGEX = /\{\{[^{}]+\}\}/;
 
+const EXACT_RUN_PARAM_PLACEHOLDER_REGEX = /^\{\{\s*params\.[^{}]+\}\}$/;
+
 const PLACEHOLDER_DEFERRED_KEYWORDS = new Set(["format", "pattern"]);
 
 const VALIDATOR_CACHE_CAPACITY = 256;
@@ -137,13 +139,18 @@ function isDeferredPlaceholderError(
   error: ErrorObject,
   data: unknown,
 ): boolean {
+  const value = resolveInstancePath(data, error.instancePath);
+  if (typeof value !== "string") {
+    return false;
+  }
+  if (EXACT_RUN_PARAM_PLACEHOLDER_REGEX.test(value)) {
+    return true;
+  }
   if (!PLACEHOLDER_DEFERRED_KEYWORDS.has(error.keyword)) {
     return false;
   }
 
-  const value = resolveInstancePath(data, error.instancePath);
-
-  return typeof value === "string" && VARIABLE_PLACEHOLDER_REGEX.test(value);
+  return VARIABLE_PLACEHOLDER_REGEX.test(value);
 }
 
 /**

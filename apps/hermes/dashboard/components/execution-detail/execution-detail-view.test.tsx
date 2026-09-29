@@ -51,6 +51,7 @@ const buildViewModel = (
   expectedInvocationCount: 6,
   metadataHints: [],
   requestSnapshotJson: null,
+  runParamsJson: null,
   enqueueErrors: [],
   enqueueMetadata: null,
   steps: [
@@ -259,6 +260,16 @@ describe("ExecutionDetailView", () => {
       screen.getByRole("button", { name: "Copy request snapshot" }),
     ).toBeVisible();
     expect(screen.getByText("Request id: req-9")).toBeVisible();
+  });
+
+  it("renders run parameters when present", () => {
+    renderView(buildViewModel({ runParamsJson: '{\n  "itemId": "abc"\n}' }));
+
+    const runParameters = screen.getByRole("region", {
+      name: "Run parameters",
+    });
+
+    expect(within(runParameters).getByText(/"itemId": "abc"/)).toBeVisible();
   });
 
   it("passes invocation rows and the payload scope to the invocations table", () => {

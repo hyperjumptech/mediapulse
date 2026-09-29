@@ -14,6 +14,7 @@ import type {
   InvocationSummary,
   StepExecutionSummary,
 } from "@/lib/execution-summary";
+import { maskSecretsInJson } from "@/lib/json-secret-mask";
 import { maskExecutionSummaryForDisplay } from "@/lib/mask-json-secrets";
 
 export type ExecutionDetailKind = InvocationPayloadSource["kind"];
@@ -50,6 +51,7 @@ export type ExecutionDetailViewModel = {
   expectedInvocationCount: number;
   metadataHints: string[];
   requestSnapshotJson: string | null;
+  runParamsJson: string | null;
   enqueueErrors: unknown;
   enqueueMetadata: unknown;
   steps: StepExecutionSummary[];
@@ -140,6 +142,18 @@ const buildRequestSnapshotJson = (
   return JSON.stringify(metadata, null, 2);
 };
 
+const buildRunParamsJson = (runParams: unknown): string | null => {
+  const hasRunParams =
+    runParams != null &&
+    typeof runParams === "object" &&
+    Object.keys(runParams).length > 0;
+  if (!hasRunParams) {
+    return null;
+  }
+
+  return JSON.stringify(maskSecretsInJson(runParams), null, 2);
+};
+
 const toInvocationRow = (
   invocation: InvocationSummary,
 ): ScheduleExecutionInvocationRow => ({
@@ -182,6 +196,7 @@ export const buildExecutionDetailViewModel = ({
     ),
     metadataHints: buildMetadataHints(parent, execution.metadata),
     requestSnapshotJson: buildRequestSnapshotJson(parent, execution.metadata),
+    runParamsJson: buildRunParamsJson(execution.runParams),
     enqueueErrors: execution.errors,
     enqueueMetadata: execution.metadata,
     steps: maskedSummary.stepExecutions,

@@ -47,7 +47,10 @@ const mockDashboardUser = {
   email: "a@b.com",
 } as const;
 
-const request = (body: { pipelineId: string }) =>
+const request = (body: {
+  pipelineId: string;
+  params?: Record<string, string | number | boolean>;
+}) =>
   ({
     body,
     params: {},
@@ -313,6 +316,49 @@ describe("createRunPipelineHandler", () => {
     expect(
       createCall.data.metadata?.[HERMES_ENQUEUE_CORRELATION_METADATA_KEY],
     ).toEqual({ requestId: "dashboard-run-req-7" });
+  });
+
+  it("substitutes run params into step input and stores them on the execution", async () => {
+    const enqueueMock = vi.fn().mockResolvedValue(undefined);
+    const stubs = createExecutionPersistenceStubs();
+    const pipeline = createPipelineWithSteps();
+    pipeline.steps[0]!.input = { id: "{{params.itemId}}" };
+    const registryAgent = {
+      agentId: "ag1",
+      agentVersion: "1.0.0",
+      domainIntegrationId: "di-1",
+      endpoint: { url: "https://agent.example/run", method: "POST" },
+      inputSchema: null,
+      configSchema: null,
+      isActive: true,
+    };
+    const handler = createRunPipelineHandler({
+      expandStepInputs: async (ctx) => [ctx.input],
+      enqueueManualAgentInvocations: enqueueMock,
+      db: {
+        ...stubs,
+        pipeline: { findUnique: vi.fn().mockResolvedValue(pipeline) },
+        variable: { findMany: vi.fn().mockResolvedValue([]) },
+        agentRegistry: {
+          findFirst: vi.fn().mockResolvedValue(registryAgent),
+          findMany: vi.fn().mockResolvedValue([registryAgent]),
+        },
+        agentConfig: { findFirst: vi.fn().mockResolvedValue(null) },
+      } as never,
+    });
+
+    const result = await handler(
+      request({ pipelineId: "p-1", params: { itemId: "item-9" } }),
+    );
+
+    expect(result.status).toBe(true);
+    const createCall = stubs.manualPipelineExecution.create.mock
+      .calls[0]?.[0] as { data: { runParams?: unknown } };
+    expect(createCall.data.runParams).toEqual({ itemId: "item-9" });
+    const batch = enqueueMock.mock.calls[0]?.[0] as Array<{
+      payload: { body: { input: Record<string, unknown> } };
+    }>;
+    expect(batch[0]?.payload.body.input).toEqual({ id: "item-9" });
   });
 
   it("enqueues one invoke_agent job and returns running status", async () => {

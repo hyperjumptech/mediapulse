@@ -6,6 +6,7 @@ import {
   HandlerFunc,
   successResponse,
 } from "route-action-gen/lib";
+import { isReservedVariableKey } from "@hermes/scheduler/run-params";
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
@@ -14,6 +15,9 @@ import {
   encryptSecretVariableForPayload,
   toStoredVariableValue,
 } from "@/lib/variables";
+
+const RESERVED_VARIABLE_KEY_MESSAGE =
+  'Variable keys starting with "params." are reserved for run parameters';
 
 const bodyValidator = z.object({
   key: z.string().min(1, "Key is required"),
@@ -58,6 +62,9 @@ export const createCreateVariableHandler = ({
   return async (data) => {
     const userId = data.user.id;
     const { key, value, note, isSecret } = data.body;
+    if (isReservedVariableKey(key)) {
+      return errorResponse(RESERVED_VARIABLE_KEY_MESSAGE);
+    }
     const noteValue =
       note != null && String(note).trim().length > 0
         ? String(note).trim()

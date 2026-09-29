@@ -20,6 +20,7 @@ import {
   type ExpandStepInputs,
 } from "@hermes/scheduler";
 import { mergeHermesEnqueueCorrelationIntoMetadata } from "@hermes/scheduler/enqueue-diagnostics-correlation";
+import { RunParamsSchema } from "@hermes/scheduler/run-params";
 import { batchDepRef } from "@nicnocquee/dataqueue";
 import {
   createRequestValidator,
@@ -37,6 +38,7 @@ import { validatePipeline } from "@/lib/validate-pipeline";
 
 const bodyValidator = z.object({
   pipelineId: z.guid(),
+  params: RunParamsSchema.optional(),
 });
 
 /** Prefix for server logs when debugging Run pipeline in Docker or `pnpm dev` output. */
@@ -318,6 +320,8 @@ export const createRunPipelineHandler = ({
         pipeline.executionConfig,
         null,
       );
+      const runParams = data.body.params ?? {};
+      const hasRunParams = Object.keys(runParams).length > 0;
       const planning = await planPipelineInvocations({
         db,
         pipeline: {
@@ -330,6 +334,7 @@ export const createRunPipelineHandler = ({
         variableSecretMasterKey: env.HERMES_INTERNAL_API_KEY,
         variableSecretFallbackMasterKey: env.HERMES_INTERNAL_API_KEY_PREVIOUS,
         requireHttpsAgentEndpoints: false,
+        runParams,
       });
       const executionTime = now();
       const waveList = planning.waveList.map((wave) =>
@@ -395,6 +400,7 @@ export const createRunPipelineHandler = ({
           jobsCreated,
           jobsEnqueued: 0,
           errors: initialExecutionErrors,
+          runParams: hasRunParams ? runParams : undefined,
           metadata: mergeHermesEnqueueCorrelationIntoMetadata(
             {
               source: "dashboard",

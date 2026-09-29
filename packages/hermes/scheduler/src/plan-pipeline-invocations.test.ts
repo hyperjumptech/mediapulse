@@ -117,3 +117,74 @@ describe("planPipelineInvocations — contract injection", () => {
     }
   });
 });
+
+describe("planPipelineInvocations — run parameters", () => {
+  it("substitutes run parameters into step input with their original type", async () => {
+    const db = createDb();
+    const step = {
+      ...baseStep,
+      input: { itemId: "{{params.itemId}}", limit: "{{params.limit}}" },
+    };
+    const result = await planPipelineInvocations({
+      db: db as never,
+      pipeline: { ...basePipeline, steps: [step] },
+      sourceId: "src-1",
+      expandStepInputs,
+      runParams: { itemId: "abc", limit: 3 },
+    });
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.waveList[0]![0]!.input).toEqual({ itemId: "abc", limit: 3 });
+  });
+
+  it("substitutes run parameters into step config", async () => {
+    const db = createDb();
+    const step = { ...baseStep, config: { mode: "{{params.mode}}" } };
+    const result = await planPipelineInvocations({
+      db: db as never,
+      pipeline: { ...basePipeline, steps: [step] },
+      sourceId: "src-1",
+      expandStepInputs,
+      runParams: { mode: "fast" },
+    });
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.waveList[0]![0]!.config).toEqual({ mode: "fast" });
+  });
+
+  it("reports a planning error and skips the step when a run parameter is missing", async () => {
+    const db = createDb();
+    const step = { ...baseStep, input: { itemId: "{{params.itemId}}" } };
+    const result = await planPipelineInvocations({
+      db: db as never,
+      pipeline: { ...basePipeline, steps: [step] },
+      sourceId: "src-1",
+      expandStepInputs,
+    });
+
+    expect(result.waveList).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({
+      phase: "planning",
+      pipelineStepId: "step-1",
+      message: 'Run parameter "itemId" is not set for agent-a@1.0.0',
+    });
+  });
+
+  it("does not let a variable named like a run parameter fill the placeholder", async () => {
+    const db = createDb();
+    db.variable.findMany.mockResolvedValue([
+      { key: "params.itemId", value: "from-variable", isSecret: false },
+    ]);
+    const step = { ...baseStep, input: { itemId: "{{params.itemId}}" } };
+    const result = await planPipelineInvocations({
+      db: db as never,
+      pipeline: { ...basePipeline, steps: [step] },
+      sourceId: "src-1",
+      expandStepInputs,
+    });
+
+    expect(result.waveList).toHaveLength(0);
+    expect(result.errors[0]?.message).toContain('Run parameter "itemId"');
+  });
+});

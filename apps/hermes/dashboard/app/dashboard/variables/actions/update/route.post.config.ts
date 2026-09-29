@@ -6,6 +6,7 @@ import {
   HandlerFunc,
   successResponse,
 } from "route-action-gen/lib";
+import { isReservedVariableKey } from "@hermes/scheduler/run-params";
 import { z } from "zod";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
@@ -15,6 +16,9 @@ import {
   fromStoredSecretVariableValue,
   SECRET_MASK,
 } from "@/lib/variables";
+
+const RESERVED_VARIABLE_KEY_MESSAGE =
+  'Variable keys starting with "params." are reserved for run parameters';
 
 const bodyValidator = z.object({
   id: z.guid(),
@@ -60,6 +64,9 @@ export const createUpdateVariableHandler = ({
 }: UpdateVariableHandlerDependencies = {}): UpdateVariableHandler => {
   return async (data) => {
     const { id, key, value, note, isSecret } = data.body;
+    if (key !== undefined && isReservedVariableKey(key)) {
+      return errorResponse(RESERVED_VARIABLE_KEY_MESSAGE);
+    }
 
     const existing = await db.variable.findUnique({
       where: { id },
