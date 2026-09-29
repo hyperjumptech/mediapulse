@@ -10,6 +10,19 @@ import type {
   UserRegistrationUnsubscribeResponse,
 } from "@workspace/agent-data-api-contract";
 
+import type { Day1Activation } from "./day1-newsletter-dispatch.js";
+import { notifySubscriptionActivated } from "./day1-newsletter-dispatch-default.js";
+
+export type UserRegistrationDeps = {
+  onSubscriptionActivated?: (activation: Day1Activation) => void;
+};
+
+const isActiveSubscription = (subscription: {
+  enabled: boolean;
+  registrationConfirmedAt: Date | null;
+}): boolean =>
+  subscription.enabled && subscription.registrationConfirmedAt !== null;
+
 /**
  * Processes a new or returning user registration for a given ticker.
  * Creates or updates the user and their subscription, then returns outcome flags
@@ -23,19 +36,24 @@ import type {
  * @returns `isNewSubscription` – true when a confirmation email should be sent.
  * @returns `subscriptionChanged` – true when the subscription state was modified.
  */
-export async function processRegistration({
-  email,
-  tickerSymbol,
-  name,
-  language = "en",
-  confirmed,
-}: {
-  email: string;
-  tickerSymbol: string;
-  name?: string | null;
-  language?: UserRegistrationLanguage;
-  confirmed?: boolean;
-}) {
+export async function processRegistration(
+  {
+    email,
+    tickerSymbol,
+    name,
+    language = "en",
+    confirmed,
+  }: {
+    email: string;
+    tickerSymbol: string;
+    name?: string | null;
+    language?: UserRegistrationLanguage;
+    confirmed?: boolean;
+  },
+  {
+    onSubscriptionActivated = notifySubscriptionActivated,
+  }: UserRegistrationDeps = {},
+) {
   const normalizedSymbol = tickerSymbol.trim().toUpperCase();
 
   const ticker = await mediapulsePrisma.ticker.findUnique({
@@ -72,6 +90,7 @@ export async function processRegistration({
   let userTickerId: string;
   let isNewSubscription: boolean;
   let subscriptionChanged: boolean;
+  let activated: boolean;
 
   const registrationConfirmedAt = confirmed ? new Date() : null;
 
@@ -81,6 +100,13 @@ export async function processRegistration({
     subscriptionChanged = !existingSubscription.enabled;
     // It's conceptually needed if never confirmed, or if it was re-enabled
     isNewSubscription = existingSubscription.registrationConfirmedAt === null;
+
+    const confirmsNow = Boolean(
+      confirmed && !existingSubscription.registrationConfirmedAt,
+    );
+    activated =
+      !isActiveSubscription(existingSubscription) &&
+      (existingSubscription.registrationConfirmedAt !== null || confirmsNow);
 
     if (
       !existingSubscription.enabled ||
@@ -110,6 +136,11 @@ export async function processRegistration({
     userTickerId = newSubscription.id;
     subscriptionChanged = true;
     isNewSubscription = true;
+    activated = Boolean(confirmed);
+  }
+
+  if (activated) {
+    onSubscriptionActivated({ userTickerId });
   }
 
   return {
@@ -124,11 +155,20 @@ export async function processRegistration({
  * Confirms a user's subscription by recording the confirmation timestamp
  * and ensuring the subscription remains enabled.
  */
-export async function confirmRegistration({
-  userTickerId,
-}: {
-  userTickerId: string;
-}) {
+export async function confirmRegistration(
+  {
+    userTickerId,
+  }: {
+    userTickerId: string;
+  },
+  {
+    onSubscriptionActivated = notifySubscriptionActivated,
+  }: UserRegistrationDeps = {},
+) {
+  const existingSubscription = await mediapulsePrisma.userTicker.findUnique({
+    where: { id: userTickerId },
+    select: { enabled: true, registrationConfirmedAt: true },
+  });
   await mediapulsePrisma.userTicker.update({
     where: { id: userTickerId },
     data: {
@@ -136,6 +176,12 @@ export async function confirmRegistration({
       enabled: true,
     },
   });
+  const wasActive =
+    existingSubscription != null && isActiveSubscription(existingSubscription);
+  if (!wasActive) {
+    onSubscriptionActivated({ userTickerId });
+  }
+
   return { success: true };
 }
 
@@ -146,24 +192,30 @@ export async function confirmRegistration({
  * @param params - Signup fields from the public registration form.
  * @returns Outcome flags for the server-side confirm email flow.
  */
-export async function processWebSignup({
-  email,
-  tickerSymbol,
-  name,
-  language = "en",
-}: {
-  email: string;
-  tickerSymbol: string;
-  name?: string | null;
-  language?: UserRegistrationLanguage;
-}) {
-  const result = await processRegistration({
+export async function processWebSignup(
+  {
     email,
     tickerSymbol,
     name,
-    language,
-    confirmed: false,
-  });
+    language = "en",
+  }: {
+    email: string;
+    tickerSymbol: string;
+    name?: string | null;
+    language?: UserRegistrationLanguage;
+  },
+  deps: UserRegistrationDeps = {},
+) {
+  const result = await processRegistration(
+    {
+      email,
+      tickerSymbol,
+      name,
+      language,
+      confirmed: false,
+    },
+    deps,
+  );
 
   return {
     ok: true as const,
@@ -181,13 +233,16 @@ export async function processWebSignup({
  * @param params.secret - Shared HMAC secret.
  * @returns Normalized confirmation outcome for API callers.
  */
-export async function processConfirmSubscription({
-  token,
-  secret,
-}: {
-  token: string;
-  secret: string;
-}): Promise<UserRegistrationConfirmSubscriptionResponse> {
+export async function processConfirmSubscription(
+  {
+    token,
+    secret,
+  }: {
+    token: string;
+    secret: string;
+  },
+  deps: UserRegistrationDeps = {},
+): Promise<UserRegistrationConfirmSubscriptionResponse> {
   const result = verifyRegistrationConfirmToken(token, secret);
   if (!result.valid) {
     if (result.reason === "expired") {
@@ -210,7 +265,7 @@ export async function processConfirmSubscription({
     return { status: "already_confirmed", displaySymbol };
   }
 
-  await confirmRegistration({ userTickerId: result.userTickerId });
+  await confirmRegistration({ userTickerId: result.userTickerId }, deps);
 
   return {
     status: "confirmed",

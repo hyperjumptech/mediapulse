@@ -40,6 +40,25 @@ Because MediaPulse supports login-less registration over email, the flow works l
 5. The agent parses the desired ticker. Waitlist / Unknown tickers trigger an outbound email.
 6. On successful registration for a known ticker, the agent sends a Resend confirmation email plus `user-registration-confirm` for mail-app signups; the web path confirms via the link and sends the same welcome email from the Next.js app.
 
+### Day-1 newsletter
+
+When a subscription becomes active (confirmed and enabled for the first time, or re-enabled after an unsubscribe), **agent-data-api** asks Hermes for a same-day issue instead of leaving the subscriber to wait for the next morning run. Both signup paths go through the same service functions, so both trigger it.
+
+The decision is made per ticker, under a Postgres advisory lock so two confirmations for the same ticker can't race:
+
+| Ticker state | What runs |
+| --- | --- |
+| Latest issue at most `MEDIAPULSE_DAY1_LATEST_ISSUE_MAX_AGE_HOURS` old (36 by default), in the subscriber's language | **Day 1 Latest Issue**: delivery only. Checkpoints keep existing subscribers from getting it twice. |
+| Latest issue fresh, but not translated into the subscriber's language | Nothing. The next nightly run covers it. |
+| No issue yet, or a stale issue and no other active subscribers | **Day 1 Newsletter**: query-analysis, data-collection, article-analysis, content-generation and delivery for that ticker. |
+| Stale issue while other subscribers are active | Nothing. A mid-day issue would reach the existing subscribers too, so the nightly run keeps the ticker. |
+| A Day 1 Newsletter run already started for the ticker within `MEDIAPULSE_DAY1_BOOTSTRAP_DEDUPE_MINUTES` (120) | Nothing. That run's delivery step picks the new subscriber up. |
+| The same subscription already dispatched within that window (a repeated or concurrent confirmation) | Nothing. |
+
+Every decision is stored in `day1_newsletter_dispatch` with its kind, status (`dispatching`, `fired`, `failed`, `skipped`), skip reason, Hermes execution id or error. The trigger call is fire-and-forget with a `MEDIAPULSE_DAY1_TRIGGER_TIMEOUT_MS` timeout and is never retried, and a failure never affects registration.
+
+The feature is off until the four `MEDIAPULSE_DAY1_*_TRIGGER_ID` / `_TOKEN` variables are set. `pnpm --filter @mediapulse/scripts seed-day1-newsletter --apply` creates both Hermes pipelines and triggers and prints those values once. A thin ticker may still produce no issue on day 1: content-generation needs at least two articles across two sections.
+
 ### Inbox hygiene (archiving + retries)
 
 - **Archive on completion**: When a message is fully handled (including unparseable/invalid cases), the agent archives it to keep the inbox clear.
