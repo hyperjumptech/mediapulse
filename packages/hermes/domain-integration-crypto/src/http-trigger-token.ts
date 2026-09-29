@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 /**
  * Returns a stable SHA-256 hex hash for an HTTP trigger bearer token.
@@ -37,3 +37,6 @@ export const verifyHttpTriggerToken = (
   if (provided.length !== expected.length) return false;
   return timingSafeEqual(provided, expected);
 };
+
+export const generateHttpTriggerToken = (): string =>
+  randomBytes(32).toString("base64url");

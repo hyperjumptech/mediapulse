@@ -1182,9 +1182,15 @@ importers:
 
   apps/mediapulse/scripts:
     dependencies:
+      '@hermes/domain-integration-crypto':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/domain-integration-crypto
       '@hermes/orchestration-database':
         specifier: workspace:*
         version: link:../../../packages/hermes/orchestration-database
+      '@hermes/scheduler':
+        specifier: workspace:*
+        version: link:../../../packages/hermes/scheduler
       '@mediapulse/database':
         specifier: workspace:*
         version: link:../../../packages/mediapulse/database
