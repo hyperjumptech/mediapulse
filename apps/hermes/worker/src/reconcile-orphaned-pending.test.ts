@@ -43,14 +43,24 @@ const mockFindMany = vi.fn();
 const mockUpdate = vi.fn();
 const mockFindUnique = vi.fn();
 const mockFindFirst = vi.fn();
+const mockStepExecutionFindFirst = vi.fn();
 
 const makeDb = () =>
   ({
     agentJobExecution: { findMany: mockFindMany, update: mockUpdate },
     pipelineStep: { findUnique: mockFindUnique, findFirst: mockFindFirst },
-    scheduleStepExecution: { findUnique: mockFindUnique },
-    httpTriggerStepExecution: { findUnique: mockFindUnique },
-    manualPipelineStepExecution: { findUnique: mockFindUnique },
+    scheduleStepExecution: {
+      findUnique: mockFindUnique,
+      findFirst: mockStepExecutionFindFirst,
+    },
+    httpTriggerStepExecution: {
+      findUnique: mockFindUnique,
+      findFirst: mockStepExecutionFindFirst,
+    },
+    manualPipelineStepExecution: {
+      findUnique: mockFindUnique,
+      findFirst: mockStepExecutionFindFirst,
+    },
     scheduleExecution: { findUnique: mockFindUnique },
     httpTriggerExecution: { findUnique: mockFindUnique },
     manualPipelineExecution: { findUnique: mockFindUnique },
@@ -94,6 +104,7 @@ describe("reconcileOrphanedPendingExecutions", () => {
     mockUpdate.mockReset();
     mockFindUnique.mockReset();
     mockFindFirst.mockReset();
+    mockStepExecutionFindFirst.mockReset();
     vi.mocked(applyInvocationCompletion).mockClear();
   });
 
@@ -286,6 +297,7 @@ describe("reconcileOrphanedPendingExecutions", () => {
 
       // pipelineStep.findUnique for current step order
       mockFindUnique
+        .mockResolvedValueOnce({ position: null })
         .mockResolvedValueOnce({ order: 2 }) // thisStep
         // predecessorStep found via findFirst
         // scheduleStepExecution for predecessor
@@ -311,6 +323,60 @@ describe("reconcileOrphanedPendingExecutions", () => {
       expect(updateCall![1]).toEqual([99]);
     });
 
+    it("finds the predecessor by step position inside the execution", async () => {
+      const row = makePendingRow({
+        scheduleExecutionId: null,
+        httpTriggerExecutionId: "hte-1",
+        pipelineStepId: "inlined-step",
+        pipelineId: "root-pipeline",
+      });
+      mockFindMany.mockResolvedValue([row]);
+      const poolQuery = vi
+        .fn()
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 99,
+              status: "cancelled",
+              pending_reason: cascadePendingReason,
+              next_attempt_at: null,
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ rows: [{ id: 99 }] });
+      mockFindUnique
+        .mockResolvedValueOnce({ position: 4 })
+        .mockResolvedValueOnce({
+          rollupStatus: ScheduleStepRollupStatus.success,
+        });
+      mockStepExecutionFindFirst.mockResolvedValueOnce({
+        pipelineStepId: "previous-inlined-step",
+      });
+
+      const result = await reconcileOrphanedPendingExecutions({
+        db: makeDb(),
+        dataQueuePool: { query: poolQuery },
+        logger: makeLogger(),
+      });
+
+      expect(result).toEqual({ reEnqueued: 1, settled: 0 });
+      expect(mockStepExecutionFindFirst).toHaveBeenCalledWith({
+        where: { httpTriggerExecutionId: "hte-1", position: { lt: 4 } },
+        orderBy: { position: "desc" },
+        select: { pipelineStepId: true },
+      });
+      expect(mockFindFirst).not.toHaveBeenCalled();
+      expect(mockFindUnique).toHaveBeenLastCalledWith({
+        where: {
+          httpTriggerExecutionId_pipelineStepId: {
+            httpTriggerExecutionId: "hte-1",
+            pipelineStepId: "previous-inlined-step",
+          },
+        },
+        select: { rollupStatus: true },
+      });
+    });
+
     it("settles as cancelled when predecessor step failed", async () => {
       const row = makePendingRow();
       mockFindMany.mockResolvedValue([row]);
@@ -328,6 +394,7 @@ describe("reconcileOrphanedPendingExecutions", () => {
       const pool = { query: poolQuery };
 
       mockFindUnique
+        .mockResolvedValueOnce({ position: null })
         .mockResolvedValueOnce({ order: 2 }) // thisStep
         .mockResolvedValueOnce({
           rollupStatus: ScheduleStepRollupStatus.failed,
@@ -370,6 +437,7 @@ describe("reconcileOrphanedPendingExecutions", () => {
       const pool = { query: poolQuery };
 
       mockFindUnique
+        .mockResolvedValueOnce({ position: null })
         .mockResolvedValueOnce({ order: 2 }) // thisStep
         .mockResolvedValueOnce({
           rollupStatus: ScheduleStepRollupStatus.pending,
@@ -402,7 +470,9 @@ describe("reconcileOrphanedPendingExecutions", () => {
       });
       const pool = { query: poolQuery };
 
-      mockFindUnique.mockResolvedValueOnce({ order: 1 }); // thisStep = wave 1
+      mockFindUnique
+        .mockResolvedValueOnce({ position: null })
+        .mockResolvedValueOnce({ order: 1 }); // thisStep = wave 1
       mockFindFirst.mockResolvedValueOnce(null); // no predecessor
 
       const result = await reconcileOrphanedPendingExecutions({
@@ -508,6 +578,7 @@ describe("reconcileOrphanedPendingExecutions", () => {
       })
       .mockResolvedValueOnce({ rows: [{ id: 555 }] }); // UPDATE succeeded
 
+    mockFindUnique.mockResolvedValueOnce({ position: null });
     mockFindUnique.mockResolvedValueOnce({ order: 3 }); // delivery is step 3
     mockFindFirst.mockResolvedValueOnce({ id: "content-gen-step" }); // predecessor = content-gen
     mockFindUnique.mockResolvedValueOnce({

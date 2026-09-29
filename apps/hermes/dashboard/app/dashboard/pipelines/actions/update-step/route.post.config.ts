@@ -108,6 +108,11 @@ export const createUpdateStepHandler = ({
     if (!step) {
       return errorResponse("Step not found");
     }
+    if (step.kind !== "agent") {
+      return errorResponse(
+        "This step runs another pipeline. Edit that pipeline instead.",
+      );
+    }
 
     const agent = await db.agentRegistry.findFirst({
       where: { agentId, agentVersion, isActive: true },

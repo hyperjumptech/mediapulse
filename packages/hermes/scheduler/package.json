@@ -10,7 +10,9 @@
     "./enqueue-diagnostics-correlation": "./src/enqueue-diagnostics-correlation.ts",
     "./execution-config": "./src/execution-config.ts",
     "./schedule-rollup": "./src/schedule-rollup.ts",
-    "./run-params": "./src/run-params.ts"
+    "./run-params": "./src/run-params.ts",
+    "./resolve-pipeline-composition": "./src/resolve-pipeline-composition.ts",
+    "./load-composition-pipeline": "./src/load-composition-pipeline.ts"
   },
   "scripts": {
     "lint": "eslint \"src/**/*.ts\"",

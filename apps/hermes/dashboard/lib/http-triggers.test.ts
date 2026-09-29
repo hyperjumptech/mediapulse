@@ -52,6 +52,7 @@ const summaryRow = () => ({
   failedInvocationCount: 0,
   errors: null,
   metadata: { request: { method: "POST" } },
+  runParams: { itemId: "item-1" },
   createdAt: new Date("2026-04-21T12:00:00.000Z"),
   httpTrigger: {
     id: "trigger-1",
@@ -61,11 +62,18 @@ const summaryRow = () => ({
   httpTriggerStepExecutions: [
     {
       pipelineStepId: "step-1",
+      position: 0,
       expectedInvocationCount: 1,
       succeededCount: 1,
       failedCount: 0,
       rollupStatus: "success",
-      pipelineStep: { order: 0, agentId: "agent-a", agentVersion: "1.0.0" },
+      pipelineStep: {
+        order: 0,
+        agentId: "agent-a",
+        agentVersion: "1.0.0",
+        pipelineId: "pipe-1",
+        pipeline: { name: "Pipeline" },
+      },
     },
   ],
   agentJobExecutions: [
@@ -186,11 +194,31 @@ describe("getHttpTriggerExecutionSummary", () => {
       expect.objectContaining({
         where: { id: "exec-1", httpTriggerId: "trigger-1" },
         select: expect.objectContaining({
+          runParams: true,
           httpTrigger: {
             select: {
               id: true,
               name: true,
               pipeline: { select: { id: true, name: true } },
+            },
+          },
+          httpTriggerStepExecutions: {
+            select: {
+              pipelineStepId: true,
+              position: true,
+              expectedInvocationCount: true,
+              succeededCount: true,
+              failedCount: true,
+              rollupStatus: true,
+              pipelineStep: {
+                select: {
+                  order: true,
+                  agentId: true,
+                  agentVersion: true,
+                  pipelineId: true,
+                  pipeline: { select: { name: true } },
+                },
+              },
             },
           },
           agentJobExecutions: {
@@ -229,12 +257,14 @@ describe("getHttpTriggerExecutionSummary", () => {
     expect(summary?.execution.metadata).toEqual({
       request: { method: "POST" },
     });
+    expect(summary?.execution.runParams).toEqual({ itemId: "item-1" });
     expect(summary?.stepExecutions).toEqual([
       {
         pipelineStepId: "step-1",
         stepOrder: 0,
         agentId: "agent-a",
         agentVersion: "1.0.0",
+        sourcePipelineName: null,
         expectedInvocationCount: 1,
         succeededCount: 1,
         failedCount: 0,

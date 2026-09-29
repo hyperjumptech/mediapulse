@@ -122,6 +122,7 @@ describe("createUpdatePipelineHandler", () => {
       },
       agentRegistry: { findFirst },
       pipelineStep: {
+        count: vi.fn().mockResolvedValue(0),
         deleteMany: deleteManyMock,
         create: createMock,
       },
@@ -193,6 +194,7 @@ describe("createUpdatePipelineHandler", () => {
         findFirst: vi.fn().mockResolvedValue(null),
       },
       pipelineStep: {
+        count: vi.fn().mockResolvedValue(0),
         deleteMany: vi.fn(),
         create: vi.fn(),
       },
@@ -248,7 +250,10 @@ describe("createUpdatePipelineHandler", () => {
           .mockResolvedValue({ domainIntegrationId: CURRENT_DOMAIN_ID }),
         update: updateMock,
       },
-      pipelineStep: { findMany: findManySteps },
+      pipelineStep: {
+        findMany: findManySteps,
+        count: vi.fn().mockResolvedValue(0),
+      },
       agentRegistry: { findFirst },
     };
     const updateHandler = createUpdatePipelineHandler({
@@ -265,7 +270,7 @@ describe("createUpdatePipelineHandler", () => {
       user: mockDashboardUser,
     } as never);
     expect(findManySteps).toHaveBeenCalledWith({
-      where: { pipelineId: "p-1" },
+      where: { pipelineId: "p-1", kind: "agent" },
       select: { agentId: true, agentVersion: true },
     });
     expect(findFirst).toHaveBeenCalledWith({
@@ -292,6 +297,7 @@ describe("createUpdatePipelineHandler", () => {
         update: vi.fn(),
       },
       pipelineStep: {
+        count: vi.fn().mockResolvedValue(0),
         findMany: vi
           .fn()
           .mockResolvedValue([{ agentId: "ag1", agentVersion: "1" }]),
@@ -317,6 +323,76 @@ describe("createUpdatePipelineHandler", () => {
     expect((result as { message?: string }).message).toContain(
       "not registered for this domain integration",
     );
+  });
+
+  it("refuses to replace steps when the pipeline has steps that run other pipelines", async () => {
+    const deleteMany = vi.fn();
+    const db = {
+      pipeline: {
+        findUnique: vi
+          .fn()
+          .mockResolvedValue({ domainIntegrationId: CURRENT_DOMAIN_ID }),
+        update: vi.fn(),
+      },
+      pipelineStep: {
+        count: vi.fn().mockResolvedValue(1),
+        deleteMany,
+      },
+      agentRegistry: { findFirst: vi.fn() },
+    };
+    const updateHandler = createUpdatePipelineHandler({ db: db as never });
+
+    const result = await updateHandler({
+      body: {
+        pipelineId: "p-1",
+        steps: [{ agentId: "ag1", agentVersion: "1" }],
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    expect(result.status).toBe(false);
+    expect((result as { message?: string }).message).toContain(
+      "run other pipelines",
+    );
+    expect(deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses to switch domain while pipeline steps link this pipeline to others", async () => {
+    const updateMock = vi.fn();
+    const count = vi.fn().mockResolvedValue(2);
+    const db = {
+      pipeline: {
+        findUnique: vi
+          .fn()
+          .mockResolvedValue({ domainIntegrationId: CURRENT_DOMAIN_ID }),
+        update: updateMock,
+      },
+      pipelineStep: { count, findMany: vi.fn() },
+      agentRegistry: { findFirst: vi.fn() },
+    };
+    const updateHandler = createUpdatePipelineHandler({ db: db as never });
+
+    const result = await updateHandler({
+      body: { pipelineId: "p-1", domainIntegrationId: OTHER_DOMAIN_ID },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    expect(result.status).toBe(false);
+    expect(count).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { pipelineId: "p-1", kind: "pipeline" },
+          { targetPipelineId: "p-1" },
+        ],
+      },
+    });
+    expect(updateMock).not.toHaveBeenCalled();
   });
 });
 

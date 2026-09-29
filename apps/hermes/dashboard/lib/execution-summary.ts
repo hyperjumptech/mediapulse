@@ -19,12 +19,19 @@ export const executionSummarySelect = {
 
 export const stepExecutionSummarySelect = {
   pipelineStepId: true,
+  position: true,
   expectedInvocationCount: true,
   succeededCount: true,
   failedCount: true,
   rollupStatus: true,
   pipelineStep: {
-    select: { order: true, agentId: true, agentVersion: true },
+    select: {
+      order: true,
+      agentId: true,
+      agentVersion: true,
+      pipelineId: true,
+      pipeline: { select: { name: true } },
+    },
   },
 } as const;
 
@@ -63,6 +70,7 @@ export type StepExecutionSummary = {
   stepOrder: number;
   agentId: string;
   agentVersion: string;
+  sourcePipelineName: string | null;
   expectedInvocationCount: number;
   succeededCount: number;
   failedCount: number;
@@ -84,11 +92,18 @@ export type InvocationSummary = {
 
 type StepExecutionSummarySource = {
   pipelineStepId: string;
+  position: number | null;
   expectedInvocationCount: number;
   succeededCount: number;
   failedCount: number;
   rollupStatus: string;
-  pipelineStep: { order: number; agentId: string; agentVersion: string };
+  pipelineStep: {
+    order: number;
+    agentId: string | null;
+    agentVersion: string | null;
+    pipelineId: string;
+    pipeline: { name: string };
+  };
 };
 
 type InvocationSummarySource = Omit<InvocationSummary, "outcomeSummary"> & {
@@ -114,20 +129,35 @@ export const toExecutionSummary = (
   createdAt: execution.createdAt,
 });
 
+const toStepExecutionSummary = (
+  stepExecution: StepExecutionSummarySource,
+  runPipelineId: string | null,
+): StepExecutionSummary => {
+  const { pipelineStep } = stepExecution;
+  const isInlinedStep =
+    runPipelineId != null && pipelineStep.pipelineId !== runPipelineId;
+
+  return {
+    pipelineStepId: stepExecution.pipelineStepId,
+    stepOrder: stepExecution.position ?? pipelineStep.order,
+    agentId: pipelineStep.agentId ?? "",
+    agentVersion: pipelineStep.agentVersion ?? "",
+    sourcePipelineName: isInlinedStep ? pipelineStep.pipeline.name : null,
+    expectedInvocationCount: stepExecution.expectedInvocationCount,
+    succeededCount: stepExecution.succeededCount,
+    failedCount: stepExecution.failedCount,
+    rollupStatus: stepExecution.rollupStatus,
+  };
+};
+
 export const toStepExecutionSummaries = (
   stepExecutions: StepExecutionSummarySource[],
+  runPipelineId: string | null,
 ): StepExecutionSummary[] =>
   stepExecutions
-    .map((stepExecution) => ({
-      pipelineStepId: stepExecution.pipelineStepId,
-      stepOrder: stepExecution.pipelineStep.order,
-      agentId: stepExecution.pipelineStep.agentId,
-      agentVersion: stepExecution.pipelineStep.agentVersion,
-      expectedInvocationCount: stepExecution.expectedInvocationCount,
-      succeededCount: stepExecution.succeededCount,
-      failedCount: stepExecution.failedCount,
-      rollupStatus: stepExecution.rollupStatus,
-    }))
+    .map((stepExecution) =>
+      toStepExecutionSummary(stepExecution, runPipelineId),
+    )
     .sort((left, right) => left.stepOrder - right.stepOrder);
 
 export const toInvocationSummary = (

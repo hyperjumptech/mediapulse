@@ -14,7 +14,7 @@ import {
   diagnosticFromCaughtError,
   type EnqueueDiagnosticEntry,
 } from "./enqueue-diagnostics";
-import { planPipelineInvocations } from "./plan-pipeline-invocations";
+import { composeAndPlanPipelineRun } from "./compose-and-plan-pipeline-run";
 import {
   buildPairingIndex,
   resolvePairedDependencies,
@@ -190,13 +190,16 @@ export const executeSchedule = async (
     return;
   }
 
-  const planningResult = await planPipelineInvocations({
+  const planningResult = await composeAndPlanPipelineRun({
     db,
-    pipeline: {
+    root: {
       id: schedule.pipelineId,
+      name: schedule.pipeline.name,
+      timeout: schedule.pipeline.timeout,
       domainIntegrationId: schedule.pipeline.domainIntegrationId,
       steps,
     },
+    defaultTimeoutMs,
     sourceId: schedule.id,
     expandStepInputs,
     variableSecretMasterKey,
@@ -244,11 +247,13 @@ export const executeSchedule = async (
   }
 
   const stepExpected = new Map<string, number>();
+  const stepPosition = new Map<string, number>();
   for (const j of plannedJobs) {
     stepExpected.set(
       j.pipelineStepId,
       (stepExpected.get(j.pipelineStepId) ?? 0) + 1,
     );
+    stepPosition.set(j.pipelineStepId, j.position);
   }
 
   const enqueueItems: EnqueueInvokeAgentItem[] = [];
@@ -278,7 +283,7 @@ export const executeSchedule = async (
             config: job.config,
             ...(job.contract !== undefined ? { contract: job.contract } : {}),
           },
-          timeoutMs: schedule.pipeline.timeout ?? defaultTimeoutMs,
+          timeoutMs: job.timeoutMs,
           priority: schedule.priority,
         },
         dependsOnBatchIndices: useSequentialDeps
@@ -321,6 +326,7 @@ export const executeSchedule = async (
       data: Array.from(stepExpected, ([pipelineStepId, count]) => ({
         scheduleExecutionId: se.id,
         pipelineStepId,
+        position: stepPosition.get(pipelineStepId),
         expectedInvocationCount: count,
         succeededCount: 0,
         failedCount: 0,

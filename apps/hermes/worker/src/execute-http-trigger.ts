@@ -8,10 +8,10 @@ import {
   type PrismaClient,
 } from "@hermes/orchestration-database";
 import {
+  composeAndPlanPipelineRun,
   diagnosticFromCaughtError,
   mergeExecutionConfig,
   parseRunParams,
-  planPipelineInvocations,
   redactSecretValues,
   type EnqueueDiagnosticEntry,
   type ExpandStepInputs,
@@ -116,13 +116,16 @@ export const executeHttpTrigger = async (
     return;
   }
 
-  const planningResult = await planPipelineInvocations({
+  const planningResult = await composeAndPlanPipelineRun({
     db,
-    pipeline: {
+    root: {
       id: pipeline.id,
+      name: pipeline.name,
+      timeout: pipeline.timeout,
       domainIntegrationId: pipeline.domainIntegrationId,
       steps,
     },
+    defaultTimeoutMs,
     sourceId: trigger.id,
     expandStepInputs,
     variableSecretMasterKey,
@@ -156,11 +159,13 @@ export const executeHttpTrigger = async (
   }
 
   const stepExpected = new Map<string, number>();
+  const stepPosition = new Map<string, number>();
   for (const job of plannedJobs) {
     stepExpected.set(
       job.pipelineStepId,
       (stepExpected.get(job.pipelineStepId) ?? 0) + 1,
     );
+    stepPosition.set(job.pipelineStepId, job.position);
   }
   const enqueueItems: Array<{
     payload: JobPayloadMap["invoke_agent"];
@@ -190,7 +195,7 @@ export const executeHttpTrigger = async (
             config: job.config,
             ...(job.contract !== undefined ? { contract: job.contract } : {}),
           },
-          timeoutMs: pipeline.timeout ?? defaultTimeoutMs,
+          timeoutMs: job.timeoutMs,
           priority: 0,
         },
         dependsOnBatchIndices: useSequentialDeps
@@ -221,6 +226,7 @@ export const executeHttpTrigger = async (
         ([pipelineStepId, expectedInvocationCount]) => ({
           httpTriggerExecutionId,
           pipelineStepId,
+          position: stepPosition.get(pipelineStepId),
           expectedInvocationCount,
           rollupStatus: ScheduleStepRollupStatus.pending,
         }),

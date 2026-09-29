@@ -9,6 +9,7 @@ import {
   toInvocationSummary,
   toStepExecutionSummaries,
   type ExecutionSummary,
+  type StepExecutionSummary,
   type InvocationSummary,
 } from "./execution-summary";
 import {
@@ -186,16 +187,7 @@ export type HttpTriggerExecutionDetail = {
   }>;
   pipeline: { id: string; name: string } | null;
   trigger: { id: string; name: string };
-  stepExecutions: Array<{
-    pipelineStepId: string;
-    stepOrder: number;
-    agentId: string;
-    agentVersion: string;
-    expectedInvocationCount: number;
-    succeededCount: number;
-    failedCount: number;
-    rollupStatus: string;
-  }>;
+  stepExecutions: StepExecutionSummary[];
   invocations: Array<{
     jobId: string;
     status: string;
@@ -229,18 +221,7 @@ export const getHttpTriggerExecutionDetail = async (
           pipelineId: true,
         },
       },
-      httpTriggerStepExecutions: {
-        include: {
-          pipelineStep: {
-            select: {
-              id: true,
-              order: true,
-              agentId: true,
-              agentVersion: true,
-            },
-          },
-        },
-      },
+      httpTriggerStepExecutions: { select: stepExecutionSummarySelect },
       agentJobExecutions: {
         orderBy: { enqueuedAt: "asc" },
         select: {
@@ -287,18 +268,10 @@ export const getHttpTriggerExecutionDetail = async (
       id: row.httpTrigger.id,
       name: row.httpTrigger.name,
     },
-    stepExecutions: row.httpTriggerStepExecutions
-      .map((item) => ({
-        pipelineStepId: item.pipelineStepId,
-        stepOrder: item.pipelineStep.order,
-        agentId: item.pipelineStep.agentId,
-        agentVersion: item.pipelineStep.agentVersion,
-        expectedInvocationCount: item.expectedInvocationCount,
-        succeededCount: item.succeededCount,
-        failedCount: item.failedCount,
-        rollupStatus: item.rollupStatus,
-      }))
-      .sort((left, right) => left.stepOrder - right.stepOrder),
+    stepExecutions: toStepExecutionSummaries(
+      row.httpTriggerStepExecutions,
+      row.httpTrigger.pipelineId,
+    ),
     invocations: row.agentJobExecutions.map((job) => ({
       jobId: job.jobId,
       status: job.status,
@@ -359,7 +332,10 @@ export const getHttpTriggerExecutionSummary = async (
     execution: toExecutionSummary(row),
     pipeline: row.httpTrigger.pipeline,
     trigger: { id: row.httpTrigger.id, name: row.httpTrigger.name },
-    stepExecutions: toStepExecutionSummaries(row.httpTriggerStepExecutions),
+    stepExecutions: toStepExecutionSummaries(
+      row.httpTriggerStepExecutions,
+      row.httpTrigger.pipeline.id,
+    ),
     invocations: row.agentJobExecutions.map(toInvocationSummary),
   };
 };

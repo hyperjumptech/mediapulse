@@ -55,6 +55,15 @@ import {
 type PipelineWithSteps = NonNullable<
   Awaited<ReturnType<typeof getPipelineWithSteps>>
 >;
+type PipelineStep = PipelineWithSteps["steps"][number];
+type AgentPipelineStep = PipelineStep & {
+  agentId: string;
+  agentVersion: string;
+};
+
+const isAgentPipelineStep = (step: PipelineStep): step is AgentPipelineStep =>
+  step.kind === "agent" && step.agentId != null && step.agentVersion != null;
+
 type AgentRegistryEntry = Awaited<
   ReturnType<typeof getAgentRegistryList>
 >[number];
@@ -108,7 +117,7 @@ const readStepSaveOutcome = (stepResult: unknown): StepSaveOutcome => {
 
 const buildUpdateStepFormData = (
   pipelineId: string,
-  step: PipelineWithSteps["steps"][number],
+  step: AgentPipelineStep,
   stepAgentConfigId: string,
   stepAgentContractId: string,
   stepInput: Record<string, unknown>,
@@ -143,14 +152,19 @@ const usePipelineDetailState = (
   const [saveWarnings, setSaveWarnings] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
+  const agentSteps = useMemo(
+    () => pipeline.steps.filter(isAgentPipelineStep),
+    [pipeline.steps],
+  );
+
   const selectedStep = useMemo(
-    () => pipeline.steps.find((step) => step.id === selectedStepId) ?? null,
-    [pipeline.steps, selectedStepId],
+    () => agentSteps.find((step) => step.id === selectedStepId) ?? null,
+    [agentSteps, selectedStepId],
   );
 
   const existingStepAgentKeys = useMemo(
-    () => pipeline.steps.map((step) => `${step.agentId}@${step.agentVersion}`),
-    [pipeline.steps],
+    () => agentSteps.map((step) => `${step.agentId}@${step.agentVersion}`),
+    [agentSteps],
   );
 
   useEffect(() => {

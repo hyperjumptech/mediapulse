@@ -30,6 +30,7 @@ export async function GET(
   const seen = new Set<string>();
   const orConditions: { agentId: string; agentVersion: string }[] = [];
   for (const s of pipeline.steps) {
+    if (s.agentId == null || s.agentVersion == null) continue;
     const key = `${s.agentId}\0${s.agentVersion}`;
     if (!seen.has(key)) {
       seen.add(key);
@@ -53,6 +54,8 @@ export async function GET(
   const steps = pipeline.steps.map((step) => {
     const agent = agentByKey.get(`${step.agentId}:${step.agentVersion}`);
     return {
+      kind: step.kind,
+      targetPipelineId: step.targetPipelineId,
       agentId: step.agentId,
       agentVersion: step.agentVersion,
       inputSchema: agent?.inputSchema ?? null,

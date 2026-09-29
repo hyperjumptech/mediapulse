@@ -48,7 +48,7 @@ vi.mock("@hermes/scheduler", async () => {
   const { parseRunParams } =
     await import("../../../../packages/hermes/scheduler/src/run-params");
   return {
-    planPipelineInvocations: vi.fn(),
+    composeAndPlanPipelineRun: vi.fn(),
     mergeExecutionConfig,
     diagnosticFromCaughtError,
     parseRunParams,
@@ -61,7 +61,7 @@ import { executeHttpTrigger } from "./execute-http-trigger";
 
 describe("executeHttpTrigger", () => {
   beforeEach(() => {
-    vi.mocked(scheduler.planPipelineInvocations).mockResolvedValue({
+    vi.mocked(scheduler.composeAndPlanPipelineRun).mockResolvedValue({
       waveList: [
         [
           {
@@ -71,11 +71,14 @@ describe("executeHttpTrigger", () => {
             endpointUrl: "https://agent.example/run",
             input: {},
             config: {},
+            position: 0,
+            timeoutMs: 90_000,
           },
         ],
       ],
       errors: [],
       secretValues: [],
+      composedSteps: [],
     });
   });
 
@@ -159,7 +162,7 @@ describe("executeHttpTrigger", () => {
     expect(agentJobExecutionUpdate).toHaveBeenCalled();
   });
 
-  it("uses pipeline.timeout for invoke_agent payload when set", async () => {
+  it("uses the planned per-step timeout for the invoke_agent payload", async () => {
     const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
     const $transaction = vi.fn(async (fn: (tx: unknown) => Promise<void>) => {
       const tx = {
@@ -222,13 +225,14 @@ describe("executeHttpTrigger", () => {
   });
 
   const createDbWithRunParams = (runParams: unknown) => {
+    const stepExecutionCreateMany = vi.fn().mockResolvedValue({ count: 0 });
     const $transaction = vi.fn(async (fn: (tx: unknown) => Promise<void>) => {
       const tx = {
         httpTriggerExecution: {
           update: vi.fn().mockResolvedValue(undefined),
         },
         httpTriggerStepExecution: {
-          createMany: vi.fn().mockResolvedValue({ count: 0 }),
+          createMany: stepExecutionCreateMany,
         },
         agentJobExecution: {
           createMany: vi.fn().mockResolvedValue({ count: 0 }),
@@ -270,8 +274,53 @@ describe("executeHttpTrigger", () => {
       $transaction,
     };
 
-    return { db, httpTriggerExecutionUpdate };
+    return { db, httpTriggerExecutionUpdate, stepExecutionCreateMany };
   };
+
+  it("records each step's composed position on its step execution row", async () => {
+    vi.mocked(scheduler.composeAndPlanPipelineRun).mockResolvedValueOnce({
+      waveList: [
+        [
+          {
+            pipelineStepId: "child-step",
+            agentId: "agent-b",
+            agentVersion: "1.0.0",
+            endpointUrl: "https://agent.example/run",
+            input: {},
+            config: {},
+            position: 3,
+            timeoutMs: 900_000,
+          },
+        ],
+      ],
+      errors: [],
+      secretValues: [],
+      composedSteps: [],
+    });
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
+    const { db, stepExecutionCreateMany } = createDbWithRunParams({
+      itemId: "abc",
+    });
+
+    await executeHttpTrigger("exec-1", {
+      db: db as never,
+      enqueueAgentInvocations,
+    });
+
+    expect(stepExecutionCreateMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          pipelineStepId: "child-step",
+          position: 3,
+          expectedInvocationCount: 1,
+        }),
+      ],
+    });
+    const [items] = enqueueAgentInvocations.mock.calls[0] as [
+      Array<{ payload: { timeoutMs: number } }>,
+    ];
+    expect(items[0]?.payload.timeoutMs).toBe(900_000);
+  });
 
   it("passes stored run parameters to planning", async () => {
     const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
@@ -282,13 +331,17 @@ describe("executeHttpTrigger", () => {
       enqueueAgentInvocations,
     });
 
-    expect(scheduler.planPipelineInvocations).toHaveBeenCalledWith(
-      expect.objectContaining({ runParams: { itemId: "abc" } }),
+    expect(scheduler.composeAndPlanPipelineRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runParams: { itemId: "abc" },
+        defaultTimeoutMs: 300_000,
+        root: expect.objectContaining({ id: "pipe-1", timeout: null }),
+      }),
     );
   });
 
   it("fails the execution without planning when stored run parameters are invalid", async () => {
-    vi.mocked(scheduler.planPipelineInvocations).mockClear();
+    vi.mocked(scheduler.composeAndPlanPipelineRun).mockClear();
     const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
     const { db, httpTriggerExecutionUpdate } = createDbWithRunParams({
       itemId: { nested: true },
@@ -299,7 +352,7 @@ describe("executeHttpTrigger", () => {
       enqueueAgentInvocations,
     });
 
-    expect(scheduler.planPipelineInvocations).not.toHaveBeenCalled();
+    expect(scheduler.composeAndPlanPipelineRun).not.toHaveBeenCalled();
     expect(enqueueAgentInvocations).not.toHaveBeenCalled();
     expect(httpTriggerExecutionUpdate).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -83,8 +83,11 @@ describe("GET /api/pipelines/[pipelineId]", () => {
         {
           id: "s1",
           order: 0,
+          kind: "agent",
           agentId: "collector",
           agentVersion: "1",
+          targetPipelineId: null,
+          targetPipeline: null,
           pipelineId,
           agentConfigId: null,
           agentContractId: null,

@@ -23,8 +23,34 @@ export {
 export {
   planPipelineInvocations,
   type PlannedInvocation,
+  type PlanPipelineInvocationsArgs,
   type PlanPipelineInvocationsResult,
 } from "./plan-pipeline-invocations";
+export {
+  composeAndPlanPipelineRun,
+  type ComposeAndPlanPipelineRunArgs,
+  type ComposeAndPlanPipelineRunResult,
+  type ComposedPlannedInvocation,
+} from "./compose-and-plan-pipeline-run";
+export {
+  DEFAULT_MAX_COMPOSITION_DEPTH,
+  pipelineUsesComposition,
+  resolvePipelineComposition,
+  type ComposedAgentStep,
+  type CompositionError,
+  type CompositionInclusion,
+  type CompositionPipeline,
+  type CompositionPipelineStep,
+  type CompositionSourcePipeline,
+  type CompositionStepKind,
+  type LoadCompositionPipeline,
+  type ResolvePipelineCompositionArgs,
+  type ResolvePipelineCompositionResult,
+} from "./resolve-pipeline-composition";
+export {
+  createCompositionPipelineLoader,
+  type LoadCompositionPipelineDb,
+} from "./load-composition-pipeline";
 export {
   mergeExecutionConfig,
   parseEffectiveExecutionConfig,

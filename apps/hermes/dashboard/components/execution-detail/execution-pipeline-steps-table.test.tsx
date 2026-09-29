@@ -12,6 +12,7 @@ const buildStep = (
   stepOrder: 1,
   agentId: "summarizer",
   agentVersion: "1.2.0",
+  sourcePipelineName: null,
   expectedInvocationCount: 4,
   succeededCount: 3,
   failedCount: 1,
@@ -138,5 +139,17 @@ describe("ExecutionPipelineStepsTable", () => {
     expect(
       screen.queryByRole("button", { name: "Customize columns" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("prefixes steps inlined from another pipeline with that pipeline's name", () => {
+    render(
+      <ExecutionPipelineStepsTable
+        steps={[buildStep({ sourcePipelineName: "Data Collection" })]}
+      />,
+    );
+
+    expect(
+      desktopTable().getByText("Data Collection › summarizer@1.2.0"),
+    ).toBeVisible();
   });
 });

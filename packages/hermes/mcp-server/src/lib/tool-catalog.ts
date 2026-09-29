@@ -176,7 +176,7 @@ export const HERMES_READ_TOOL_SPECS: HermesReadToolSpec[] = [
     name: "hermes_get_pipeline",
     title: "Get pipeline",
     description:
-      "One pipeline with its ordered steps, including each step's agent, input, and config.",
+      "One pipeline with its ordered steps. An agent step has its agent, input, and config. A pipeline step (kind pipeline) has targetPipelineId and input overrides merged into every step of that pipeline at run time.",
     method: "GET",
     pathTemplate: "/api/pipelines/{pipelineId}",
     inputSchema: { pipelineId: guidField("Pipeline id") },
@@ -185,7 +185,7 @@ export const HERMES_READ_TOOL_SPECS: HermesReadToolSpec[] = [
     name: "hermes_get_pipeline_schemas",
     title: "Get pipeline step schemas",
     description:
-      "Input and config JSON schemas of the agent behind each pipeline step.",
+      "Input and config JSON schemas of the agent behind each agent step. Pipeline steps return kind pipeline, their targetPipelineId, and null schemas.",
     method: "GET",
     pathTemplate: "/api/pipelines/{pipelineId}/schemas",
     inputSchema: { pipelineId: guidField("Pipeline id") },

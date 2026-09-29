@@ -1,4 +1,10 @@
 import type { Prisma, PrismaClient } from "@hermes/orchestration-database";
+import { createCompositionPipelineLoader } from "@hermes/scheduler/load-composition-pipeline";
+import {
+  resolvePipelineComposition,
+  type CompositionPipeline,
+  type LoadCompositionPipeline,
+} from "@hermes/scheduler/resolve-pipeline-composition";
 
 import { validateDataSourceExpressions } from "@/lib/step-input-expansion";
 
@@ -10,20 +16,25 @@ export type { PipelineStatus } from "./pipeline-status";
 export { getPipelineStatus, getPipelineStatusMap } from "./pipeline-status";
 export type { PipelineValidationResult } from "./pipeline-status";
 
+type PipelineValidationStepRecord = {
+  id?: string;
+  order?: number;
+  kind?: "agent" | "pipeline";
+  agentId: string | null;
+  agentVersion: string | null;
+  targetPipelineId?: string | null;
+  agentConfigId: string | null;
+  agentContractId?: string | null;
+  input: unknown;
+  config: unknown;
+};
+
 type PipelineWithSteps = {
   id: string;
   name: string;
   domainIntegrationId: string;
-  steps: Array<{
-    id: string;
-    order: number;
-    agentId: string;
-    agentVersion: string;
-    agentConfigId: string | null;
-    agentContractId: string | null;
-    input: unknown;
-    config: unknown;
-  }>;
+  timeout?: number | null;
+  steps: PipelineValidationStepRecord[];
 };
 
 type PipelineValidationStep = {
@@ -36,25 +47,42 @@ type PipelineValidationStep = {
 
 export type PipelineValidationInput = {
   id: string;
+  name?: string;
   domainIntegrationId: string;
-  steps: PipelineValidationStep[];
+  timeout?: number | null;
+  steps: PipelineValidationStepRecord[];
 };
 
 export type PipelineValidationDb = {
   agentRegistry: Pick<PrismaClient["agentRegistry"], "findMany">;
   agentConfig: Pick<PrismaClient["agentConfig"], "findMany">;
+  pipeline: Pick<PrismaClient["pipeline"], "findUnique">;
 };
 
 export const pipelineValidationStepsArgs = {
   orderBy: { order: "asc" },
   select: {
+    id: true,
+    order: true,
+    kind: true,
     agentId: true,
     agentVersion: true,
+    targetPipelineId: true,
     agentConfigId: true,
     input: true,
     config: true,
   },
 } satisfies Prisma.Pipeline$stepsArgs;
+
+type AgentValidationEntry = {
+  label: string;
+  step: PipelineValidationStep;
+};
+
+type PipelineValidationPlan = {
+  entries: AgentValidationEntry[];
+  warnings: string[];
+};
 
 const registryAgentSchemasSelect = {
   agentId: true,
@@ -102,8 +130,136 @@ const toPlainObject = (value: unknown): Record<string, unknown> =>
     ? (value as Record<string, unknown>)
     : {};
 
+const agentStepLabel = (
+  stepNumber: number,
+  agentId: string,
+  agentVersion: string,
+): string => `Step ${stepNumber} (${agentId}@${agentVersion})`;
+
+const planDirectSteps = (
+  pipeline: PipelineValidationInput,
+): PipelineValidationPlan => {
+  const entries: AgentValidationEntry[] = [];
+  const warnings: string[] = [];
+  for (const [stepIndex, step] of pipeline.steps.entries()) {
+    if (!step) continue;
+    const stepNumber = stepIndex + 1;
+    if (step.agentId == null || step.agentVersion == null) {
+      warnings.push(`Step ${stepNumber}: no agent selected`);
+      continue;
+    }
+    entries.push({
+      label: agentStepLabel(stepNumber, step.agentId, step.agentVersion),
+      step: {
+        agentId: step.agentId,
+        agentVersion: step.agentVersion,
+        agentConfigId: step.agentConfigId,
+        input: step.input,
+        config: step.config,
+      },
+    });
+  }
+
+  return { entries, warnings };
+};
+
+const compositionStepId = (
+  pipeline: PipelineValidationInput,
+  step: PipelineValidationStepRecord,
+  stepIndex: number,
+): string => step.id ?? `${pipeline.id}:${stepIndex}`;
+
+const toCompositionPipeline = (
+  pipeline: PipelineValidationInput,
+): CompositionPipeline => ({
+  id: pipeline.id,
+  name: pipeline.name ?? pipeline.id,
+  timeout: pipeline.timeout ?? null,
+  domainIntegrationId: pipeline.domainIntegrationId,
+  steps: pipeline.steps.flatMap((step, stepIndex) => {
+    if (!step) return [];
+
+    return [
+      {
+        id: compositionStepId(pipeline, step, stepIndex),
+        order: step.order ?? stepIndex,
+        kind: step.kind ?? "agent",
+        agentId: step.agentId,
+        agentVersion: step.agentVersion,
+        targetPipelineId: step.targetPipelineId ?? null,
+        input: step.input,
+        config: step.config,
+        agentConfigId: step.agentConfigId,
+      },
+    ];
+  }),
+});
+
+const planComposedSteps = async (
+  pipeline: PipelineValidationInput,
+  loadPipeline: LoadCompositionPipeline,
+): Promise<PipelineValidationPlan> => {
+  const root = toCompositionPipeline(pipeline);
+  const rootStepNumberById = new Map(
+    pipeline.steps.flatMap((step, stepIndex) =>
+      step
+        ? [
+            [
+              compositionStepId(pipeline, step, stepIndex),
+              stepIndex + 1,
+            ] as const,
+          ]
+        : [],
+    ),
+  );
+  const composition = await resolvePipelineComposition({
+    root,
+    loadPipeline,
+  });
+  const warnings = composition.errors.map((error) => error.message);
+  const entries = composition.steps.map((step) => {
+    const rootStepId = step.includedVia[0]?.pipelineStepId ?? step.id;
+    const stepNumber = rootStepNumberById.get(rootStepId) ?? step.position + 1;
+    const agentLabel = `${step.agentId}@${step.agentVersion}`;
+    const label =
+      step.includedVia.length > 0
+        ? `Step ${stepNumber} (pipeline ${step.sourcePipeline.name}) › ${agentLabel}`
+        : agentStepLabel(stepNumber, step.agentId, step.agentVersion);
+
+    return {
+      label,
+      step: {
+        agentId: step.agentId,
+        agentVersion: step.agentVersion,
+        agentConfigId: step.agentConfigId,
+        input: step.input,
+        config: step.config,
+      },
+    };
+  });
+
+  return { entries, warnings };
+};
+
+const planPipelineValidation = async (
+  pipeline: PipelineValidationInput,
+  loadPipeline: LoadCompositionPipeline,
+): Promise<PipelineValidationPlan> => {
+  const usesComposition = pipeline.steps.some(
+    (step) => step?.kind === "pipeline",
+  );
+  if (!usesComposition) {
+    return planDirectSteps(pipeline);
+  }
+
+  return planComposedSteps(pipeline, loadPipeline);
+};
+
 const collectValidationLookupKeys = (
-  pipelines: PipelineValidationInput[],
+  pipelines: Array<{
+    domainIntegrationId: string;
+    plan: PipelineValidationPlan;
+  }>,
 ): {
   registryAgentIdentities: RegistryAgentIdentity[];
   agentConfigIds: string[];
@@ -111,8 +267,7 @@ const collectValidationLookupKeys = (
   const registryAgentIdentitiesByKey = new Map<string, RegistryAgentIdentity>();
   const agentConfigIds = new Set<string>();
   for (const pipeline of pipelines) {
-    for (const step of pipeline.steps) {
-      if (!step) continue;
+    for (const { step } of pipeline.plan.entries) {
       const identity = {
         domainIntegrationId: pipeline.domainIntegrationId,
         agentId: step.agentId,
@@ -162,7 +317,10 @@ const findSavedAgentConfigs = async (
 };
 
 const loadValidationLookups = async (
-  pipelines: PipelineValidationInput[],
+  pipelines: Array<{
+    domainIntegrationId: string;
+    plan: PipelineValidationPlan;
+  }>,
   db: PipelineValidationDb,
 ): Promise<PipelineValidationLookups> => {
   const { registryAgentIdentities, agentConfigIds } =
@@ -251,16 +409,15 @@ const collectStepWarnings = (
 };
 
 const validatePipelineWithLookups = (
-  pipeline: PipelineValidationInput,
+  domainIntegrationId: string,
+  plan: PipelineValidationPlan,
   lookups: PipelineValidationLookups,
 ): PipelineValidationResult => {
-  const warnings: string[] = [];
-  for (const [stepIndex, step] of pipeline.steps.entries()) {
-    if (!step) continue;
-    const stepLabel = `Step ${stepIndex + 1} (${step.agentId}@${step.agentVersion})`;
+  const warnings: string[] = [...plan.warnings];
+  for (const { label: stepLabel, step } of plan.entries) {
     const registryAgent = lookups.registryAgentsByKey.get(
       registryAgentKey({
-        domainIntegrationId: pipeline.domainIntegrationId,
+        domainIntegrationId,
         agentId: step.agentId,
         agentVersion: step.agentVersion,
       }),
@@ -296,9 +453,18 @@ export async function validatePipeline(
   pipeline: PipelineWithSteps,
   db: PipelineValidationDb,
 ): Promise<PipelineValidationResult> {
-  const lookups = await loadValidationLookups([pipeline], db);
+  const plan = await planPipelineValidation(
+    pipeline,
+    createCompositionPipelineLoader(db),
+  );
+  const planned = [{ domainIntegrationId: pipeline.domainIntegrationId, plan }];
+  const lookups = await loadValidationLookups(planned, db);
 
-  return validatePipelineWithLookups(pipeline, lookups);
+  return validatePipelineWithLookups(
+    pipeline.domainIntegrationId,
+    plan,
+    lookups,
+  );
 }
 
 /**
@@ -313,9 +479,21 @@ export async function getPipelinesValidationMap(
   pipelines: PipelineValidationInput[],
   db: PipelineValidationDb,
 ): Promise<Record<string, PipelineValidationResult>> {
-  const lookups = await loadValidationLookups(pipelines, db);
-  const entries = pipelines.map((pipeline) => {
-    const validation = validatePipelineWithLookups(pipeline, lookups);
+  const loadPipeline = createCompositionPipelineLoader(db);
+  const planned = await Promise.all(
+    pipelines.map(async (pipeline) => ({
+      id: pipeline.id,
+      domainIntegrationId: pipeline.domainIntegrationId,
+      plan: await planPipelineValidation(pipeline, loadPipeline),
+    })),
+  );
+  const lookups = await loadValidationLookups(planned, db);
+  const entries = planned.map((pipeline) => {
+    const validation = validatePipelineWithLookups(
+      pipeline.domainIntegrationId,
+      pipeline.plan,
+      lookups,
+    );
 
     return [pipeline.id, validation] as const;
   });

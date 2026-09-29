@@ -410,19 +410,33 @@ describe("getScheduleExecutionSummary", () => {
     scheduleStepExecutions: [
       {
         pipelineStepId: "step-2",
+        position: 1,
         expectedInvocationCount: 1,
         succeededCount: 0,
         failedCount: 1,
         rollupStatus: "failed",
-        pipelineStep: { order: 1, agentId: "agent-b", agentVersion: "1.0.0" },
+        pipelineStep: {
+          order: 0,
+          agentId: "agent-b",
+          agentVersion: "1.0.0",
+          pipelineId: "pipe-child",
+          pipeline: { name: "Child" },
+        },
       },
       {
         pipelineStepId: "step-1",
+        position: 0,
         expectedInvocationCount: 1,
         succeededCount: 1,
         failedCount: 0,
         rollupStatus: "success",
-        pipelineStep: { order: 0, agentId: "agent-a", agentVersion: "1.0.0" },
+        pipelineStep: {
+          order: 0,
+          agentId: "agent-a",
+          agentVersion: "1.0.0",
+          pipelineId: "pipe-1",
+          pipeline: { name: "Pipeline" },
+        },
       },
     ],
     agentJobExecutions: [
@@ -475,12 +489,19 @@ describe("getScheduleExecutionSummary", () => {
         scheduleStepExecutions: {
           select: {
             pipelineStepId: true,
+            position: true,
             expectedInvocationCount: true,
             succeededCount: true,
             failedCount: true,
             rollupStatus: true,
             pipelineStep: {
-              select: { order: true, agentId: true, agentVersion: true },
+              select: {
+                order: true,
+                agentId: true,
+                agentVersion: true,
+                pipelineId: true,
+                pipeline: { select: { name: true } },
+              },
             },
           },
         },
@@ -516,8 +537,29 @@ describe("getScheduleExecutionSummary", () => {
 
     expect(summary?.pipeline).toEqual({ id: "pipe-1", name: "Pipeline" });
     expect(summary?.schedule).toEqual({ id: "sched-1", name: "Nightly" });
-    expect(summary?.stepExecutions.map((step) => step.stepOrder)).toEqual([
-      0, 1,
+    expect(summary?.stepExecutions).toEqual([
+      {
+        pipelineStepId: "step-1",
+        stepOrder: 0,
+        agentId: "agent-a",
+        agentVersion: "1.0.0",
+        sourcePipelineName: null,
+        expectedInvocationCount: 1,
+        succeededCount: 1,
+        failedCount: 0,
+        rollupStatus: "success",
+      },
+      {
+        pipelineStepId: "step-2",
+        stepOrder: 1,
+        agentId: "agent-b",
+        agentVersion: "1.0.0",
+        sourcePipelineName: "Child",
+        expectedInvocationCount: 1,
+        succeededCount: 0,
+        failedCount: 1,
+        rollupStatus: "failed",
+      },
     ]);
     expect(summary?.invocations).toEqual([
       {

@@ -229,7 +229,8 @@ model Pipeline {
 
   domainIntegration DomainIntegration         @relation(fields: [domainIntegrationId], references: [id], onDelete: Restrict)
   createdBy         User?                     @relation("PipelineCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  steps             PipelineStep[]
+  steps             PipelineStep[]            @relation("PipelineSteps")
+  includedBySteps   PipelineStep[]            @relation("PipelineStepTargets")
   schedules         Schedule[]
   httpTriggers      HttpTrigger[]
   manualExecutions  ManualPipelineExecution[]
@@ -445,6 +446,7 @@ model HttpTriggerStepExecution {
   id                      String                   @id @default(uuid())
   httpTriggerExecutionId  String                   @map("http_trigger_execution_id")
   pipelineStepId          String                   @map("pipeline_step_id")
+  position                Int?
   expectedInvocationCount Int                      @map("expected_invocation_count")
   succeededCount          Int                      @default(0) @map("succeeded_count")
   failedCount             Int                      @default(0) @map("failed_count")
@@ -489,6 +491,7 @@ model ManualPipelineStepExecution {
   id                      String                   @id @default(uuid())
   manualExecutionId       String                   @map("manual_execution_id")
   pipelineStepId          String                   @map("pipeline_step_id")
+  position                Int?
   expectedInvocationCount Int                      @map("expected_invocation_count")
   succeededCount          Int                      @default(0) @map("succeeded_count")
   failedCount             Int                      @default(0) @map("failed_count")
@@ -503,12 +506,19 @@ model ManualPipelineStepExecution {
   @@map("manual_pipeline_step_execution")
 }
 
+enum PipelineStepKind {
+  agent
+  pipeline
+}
+
 model PipelineStep {
-  id            String   @id @default(uuid())
-  order         Int
-  agentId       String   @map("agent_id")
-  agentVersion  String   @map("agent_version")
-  pipelineId    String   @map("pipeline_id")
+  id               String           @id @default(uuid())
+  order            Int
+  kind             PipelineStepKind @default(agent)
+  agentId          String?          @map("agent_id")
+  agentVersion     String?          @map("agent_version")
+  targetPipelineId String?          @map("target_pipeline_id")
+  pipelineId       String           @map("pipeline_id")
   agentConfigId    String?  @map("agent_config_id")
   agentContractId  String?  @map("agent_contract_id")
   input            Json?    @default("{}")
@@ -518,7 +528,8 @@ model PipelineStep {
   createdById      String?  @map("created_by_id")
 
   createdBy                    User?                         @relation("PipelineStepCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  pipeline                     Pipeline                      @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  pipeline                     Pipeline                      @relation("PipelineSteps", fields: [pipelineId], references: [id], onDelete: Cascade)
+  targetPipeline               Pipeline?                     @relation("PipelineStepTargets", fields: [targetPipelineId], references: [id], onDelete: Restrict)
   agentConfig                  AgentConfig?                  @relation(fields: [agentConfigId], references: [id], onDelete: SetNull)
   agentContract                AgentContract?                @relation(fields: [agentContractId], references: [id], onDelete: SetNull)
   scheduleStepExecutions       ScheduleStepExecution[]
@@ -526,6 +537,7 @@ model PipelineStep {
   manualPipelineStepExecutions ManualPipelineStepExecution[]
 
   @@unique([pipelineId, order])
+  @@index([targetPipelineId])
   @@map("pipeline_step")
 }
 
@@ -534,6 +546,7 @@ model ScheduleStepExecution {
   id                      String                   @id @default(uuid())
   scheduleExecutionId     String                   @map("schedule_execution_id")
   pipelineStepId          String                   @map("pipeline_step_id")
+  position                Int?
   expectedInvocationCount Int                      @map("expected_invocation_count")
   succeededCount          Int                      @default(0) @map("succeeded_count")
   failedCount             Int                      @default(0) @map("failed_count")
