@@ -1,10 +1,13 @@
 import type { Prisma, PrismaClient } from "@mediapulse/database";
 
-import type { InvokeHermesHttpTrigger } from "./hermes-http-trigger-client.js";
+import type { SendHermesDomainEvent } from "./hermes-domain-event-client.js";
 
 export const DEFAULT_DAY1_TRIGGER_TIMEOUT_MS = 5_000;
 export const DEFAULT_DAY1_LATEST_ISSUE_MAX_AGE_HOURS = 36;
 export const DEFAULT_DAY1_BOOTSTRAP_DEDUPE_MINUTES = 120;
+
+export const DAY1_FULL_CHAIN_EVENT = "day1.full-chain";
+export const DAY1_LATEST_ISSUE_EVENT = "day1.latest-issue";
 
 const HOUR_MS = 3_600_000;
 const MINUTE_MS = 60_000;
@@ -15,6 +18,7 @@ export type Day1Language = "en" | "id";
 
 export type Day1SkipReason =
   | "already_dispatched"
+  | "not_configured"
   | "missing_translation"
   | "nightly_owns_ticker"
   | "bootstrap_in_flight";
@@ -32,24 +36,13 @@ export type Day1DispatchState = {
   recentSubscriptionDispatchCount: number;
 };
 
-export type Day1TriggerTarget = {
-  triggerId: string;
-  token: string;
-};
-
 export type Day1DispatcherConfig = {
-  bootstrapTrigger: Day1TriggerTarget;
-  latestIssueTrigger: Day1TriggerTarget;
-  triggerTimeoutMs: number;
+  eventTimeoutMs: number;
   latestIssueMaxAgeHours: number;
   bootstrapDedupeMinutes: number;
 };
 
 export type Day1DispatcherEnv = {
-  MEDIAPULSE_DAY1_BOOTSTRAP_TRIGGER_ID?: string;
-  MEDIAPULSE_DAY1_BOOTSTRAP_TRIGGER_TOKEN?: string;
-  MEDIAPULSE_DAY1_LATEST_ISSUE_TRIGGER_ID?: string;
-  MEDIAPULSE_DAY1_LATEST_ISSUE_TRIGGER_TOKEN?: string;
   MEDIAPULSE_DAY1_TRIGGER_TIMEOUT_MS?: number;
   MEDIAPULSE_DAY1_LATEST_ISSUE_MAX_AGE_HOURS?: number;
   MEDIAPULSE_DAY1_BOOTSTRAP_DEDUPE_MINUTES?: number;
@@ -66,7 +59,7 @@ export type Day1DispatchOutcome =
       status: "fired";
       dispatchId: string;
       kind: "bootstrap" | "latest_issue";
-      executionId: string | null;
+      executionId: string;
     }
   | {
       status: "failed";
@@ -86,7 +79,7 @@ export type Day1DispatcherDb = Pick<
 
 export type CreateDay1DispatcherDeps = {
   db: Day1DispatcherDb;
-  invokeTrigger: InvokeHermesHttpTrigger;
+  sendEvent: SendHermesDomainEvent;
   config: Day1DispatcherConfig;
   now?: () => Date;
 };
@@ -137,59 +130,25 @@ export const decideDay1Dispatch = (
     : { kind: "bootstrap" };
 };
 
-const nonEmpty = (value: string | undefined): string | null => {
-  const trimmed = value?.trim() ?? "";
-
-  return trimmed === "" ? null : trimmed;
-};
-
 const positiveOr = (value: number | undefined, fallback: number): number =>
   value != null && Number.isFinite(value) && value > 0 ? value : fallback;
 
 export const readDay1DispatcherConfig = (
   source: Day1DispatcherEnv,
-): Day1DispatcherConfig | null => {
-  const bootstrapTriggerId = nonEmpty(
-    source.MEDIAPULSE_DAY1_BOOTSTRAP_TRIGGER_ID,
-  );
-  const bootstrapToken = nonEmpty(
-    source.MEDIAPULSE_DAY1_BOOTSTRAP_TRIGGER_TOKEN,
-  );
-  const latestIssueTriggerId = nonEmpty(
-    source.MEDIAPULSE_DAY1_LATEST_ISSUE_TRIGGER_ID,
-  );
-  const latestIssueToken = nonEmpty(
-    source.MEDIAPULSE_DAY1_LATEST_ISSUE_TRIGGER_TOKEN,
-  );
-  if (
-    bootstrapTriggerId === null ||
-    bootstrapToken === null ||
-    latestIssueTriggerId === null ||
-    latestIssueToken === null
-  ) {
-    return null;
-  }
-
-  return {
-    bootstrapTrigger: { triggerId: bootstrapTriggerId, token: bootstrapToken },
-    latestIssueTrigger: {
-      triggerId: latestIssueTriggerId,
-      token: latestIssueToken,
-    },
-    triggerTimeoutMs: positiveOr(
-      source.MEDIAPULSE_DAY1_TRIGGER_TIMEOUT_MS,
-      DEFAULT_DAY1_TRIGGER_TIMEOUT_MS,
-    ),
-    latestIssueMaxAgeHours: positiveOr(
-      source.MEDIAPULSE_DAY1_LATEST_ISSUE_MAX_AGE_HOURS,
-      DEFAULT_DAY1_LATEST_ISSUE_MAX_AGE_HOURS,
-    ),
-    bootstrapDedupeMinutes: positiveOr(
-      source.MEDIAPULSE_DAY1_BOOTSTRAP_DEDUPE_MINUTES,
-      DEFAULT_DAY1_BOOTSTRAP_DEDUPE_MINUTES,
-    ),
-  };
-};
+): Day1DispatcherConfig => ({
+  eventTimeoutMs: positiveOr(
+    source.MEDIAPULSE_DAY1_TRIGGER_TIMEOUT_MS,
+    DEFAULT_DAY1_TRIGGER_TIMEOUT_MS,
+  ),
+  latestIssueMaxAgeHours: positiveOr(
+    source.MEDIAPULSE_DAY1_LATEST_ISSUE_MAX_AGE_HOURS,
+    DEFAULT_DAY1_LATEST_ISSUE_MAX_AGE_HOURS,
+  ),
+  bootstrapDedupeMinutes: positiveOr(
+    source.MEDIAPULSE_DAY1_BOOTSTRAP_DEDUPE_MINUTES,
+    DEFAULT_DAY1_BOOTSTRAP_DEDUPE_MINUTES,
+  ),
+});
 
 const findActiveSubscription = async (
   db: Day1DispatcherDb,
@@ -286,7 +245,7 @@ const loadDispatchState = async (
 
 export const createDay1NewsletterDispatcher = ({
   db,
-  invokeTrigger,
+  sendEvent,
   config,
   now = () => new Date(),
 }: CreateDay1DispatcherDeps): Day1Dispatcher => {
@@ -327,17 +286,25 @@ export const createDay1NewsletterDispatcher = ({
     if (decision.kind === "none") {
       return { status: "skipped", dispatchId, reason: decision.reason };
     }
-    const trigger =
+    const event =
       decision.kind === "bootstrap"
-        ? config.bootstrapTrigger
-        : config.latestIssueTrigger;
+        ? DAY1_FULL_CHAIN_EVENT
+        : DAY1_LATEST_ISSUE_EVENT;
     try {
-      const { executionId } = await invokeTrigger({
-        triggerId: trigger.triggerId,
-        token: trigger.token,
+      const { executionIds } = await sendEvent({
+        event,
         params: { tickerId: subscription.tickerId },
         requestId: `day1:${subscription.id}:${dispatchId}`,
       });
+      const [executionId] = executionIds;
+      if (executionId === undefined) {
+        await db.day1NewsletterDispatch.update({
+          where: { id: dispatchId },
+          data: { status: "skipped", reason: "not_configured" },
+        });
+
+        return { status: "skipped", dispatchId, reason: "not_configured" };
+      }
       await db.day1NewsletterDispatch.update({
         where: { id: dispatchId },
         data: { status: "fired", hermesExecutionId: executionId },

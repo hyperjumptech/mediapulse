@@ -2,11 +2,6 @@ import { config } from "dotenv";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import {
-  createTokenHint,
-  generateHttpTriggerToken,
-  hashHttpTriggerToken,
-} from "@hermes/domain-integration-crypto";
 import type { Prisma } from "@hermes/orchestration-database";
 import type { PrismaClientWithSchema } from "@hermes/orchestration-database/client";
 import { createCompositionPipelineLoader } from "@hermes/scheduler/load-composition-pipeline";
@@ -40,11 +35,14 @@ export const DEFAULT_BOOTSTRAP_SOURCES = [
 
 export const DEFAULT_LATEST_ISSUE_SOURCES = ["Delivery"];
 
+export const DAY1_FULL_CHAIN_EVENT = "day1.full-chain";
+export const DAY1_LATEST_ISSUE_EVENT = "day1.latest-issue";
+
 export type Day1PipelineDefinition = {
   pipelineName: string;
   description: string;
   triggerName: string;
-  envPrefix: string;
+  eventName: string;
   sourceNames: string[];
   expectedAgentIds: readonly string[];
 };
@@ -58,7 +56,7 @@ export const buildDay1PipelineDefinitions = (sources: {
     description:
       "Runs the whole newsletter chain for one ticker right after its first subscription is confirmed.",
     triggerName: "Day 1 Newsletter",
-    envPrefix: "MEDIAPULSE_DAY1_BOOTSTRAP",
+    eventName: DAY1_FULL_CHAIN_EVENT,
     sourceNames: sources.bootstrapSources,
     expectedAgentIds: BOOTSTRAP_AGENT_IDS,
   },
@@ -67,7 +65,7 @@ export const buildDay1PipelineDefinitions = (sources: {
     description:
       "Sends a ticker's latest issue to subscribers who have not received it, right after a subscription is confirmed.",
     triggerName: "Day 1 Latest Issue",
-    envPrefix: "MEDIAPULSE_DAY1_LATEST_ISSUE",
+    eventName: DAY1_LATEST_ISSUE_EVENT,
     sourceNames: sources.latestIssueSources,
     expectedAgentIds: LATEST_ISSUE_AGENT_IDS,
   },
@@ -82,10 +80,8 @@ export type SeedDay1Options = {
   apply: boolean;
   bootstrapSources: string[];
   latestIssueSources: string[];
-  rotateTokens: boolean;
   allowExtraAgents: boolean;
   disabled: boolean;
-  generateToken?: () => string;
 };
 
 type SourcePipeline = {
@@ -109,8 +105,7 @@ export type AppliedDay1Trigger = {
   pipelineId: string;
   triggerId: string;
   triggerName: string;
-  envPrefix: string;
-  token: string | null;
+  eventName: string;
 };
 
 export type SeedDay1Result = {
@@ -334,11 +329,6 @@ const writeDay1Pipeline = async (
   return pipeline.id;
 };
 
-const tokenFields = (token: string) => ({
-  tokenHash: hashHttpTriggerToken(token),
-  tokenHint: createTokenHint(token),
-});
-
 const writeDay1Trigger = async (
   db: SeedDay1Db,
   plan: PlannedDay1Pipeline,
@@ -346,7 +336,6 @@ const writeDay1Trigger = async (
   options: SeedDay1Options,
 ): Promise<AppliedDay1Trigger> => {
   const { definition } = plan;
-  const generateToken = options.generateToken ?? generateHttpTriggerToken;
   const existingTrigger = await db.httpTrigger.findFirst({
     where: { name: definition.triggerName, pipelineId },
     select: { id: true },
@@ -357,38 +346,30 @@ const writeDay1Trigger = async (
     pipelineId,
     enabled: !options.disabled,
     method: "POST" as const,
-    authType: "BEARER_TOKEN" as const,
+    authType: "DOMAIN_EVENT" as const,
+    eventName: definition.eventName,
+    tokenHash: null,
+    tokenHint: null,
   };
-  const applied = {
+  const trigger =
+    existingTrigger === null
+      ? await db.httpTrigger.create({
+          data: triggerData,
+          select: { id: true },
+        })
+      : await db.httpTrigger.update({
+          where: { id: existingTrigger.id },
+          data: triggerData,
+          select: { id: true },
+        });
+
+  return {
     pipelineName: definition.pipelineName,
     pipelineId,
+    triggerId: trigger.id,
     triggerName: definition.triggerName,
-    envPrefix: definition.envPrefix,
+    eventName: definition.eventName,
   };
-  if (existingTrigger === null) {
-    const token = generateToken();
-    const created = await db.httpTrigger.create({
-      data: { ...triggerData, ...tokenFields(token) },
-      select: { id: true },
-    });
-
-    return { ...applied, triggerId: created.id, token };
-  }
-  if (!options.rotateTokens) {
-    await db.httpTrigger.update({
-      where: { id: existingTrigger.id },
-      data: triggerData,
-    });
-
-    return { ...applied, triggerId: existingTrigger.id, token: null };
-  }
-  const token = generateToken();
-  await db.httpTrigger.update({
-    where: { id: existingTrigger.id },
-    data: { ...triggerData, ...tokenFields(token) },
-  });
-
-  return { ...applied, triggerId: existingTrigger.id, token };
 };
 
 export const seedDay1NewsletterPipelines = async (
@@ -440,7 +421,6 @@ const readListFlag = (
 
 export const parseSeedDay1Args = (argv: string[]): SeedDay1Options => ({
   apply: argv.includes("--apply"),
-  rotateTokens: argv.includes("--rotate-tokens"),
   allowExtraAgents: argv.includes("--allow-extra-agents"),
   disabled: argv.includes("--disabled"),
   bootstrapSources: readListFlag(
@@ -482,15 +462,8 @@ const printPlan = (plan: PlannedDay1Pipeline): void => {
 };
 
 const printTrigger = (trigger: AppliedDay1Trigger): void => {
-  console.log(`\n${trigger.triggerName}: trigger ${trigger.triggerId}`);
-  console.log(`${trigger.envPrefix}_TRIGGER_ID=${trigger.triggerId}`);
-  if (trigger.token === null) {
-    console.log("Token unchanged. Pass --rotate-tokens to issue a new one.");
-    return;
-  }
-  console.log(`${trigger.envPrefix}_TRIGGER_TOKEN=${trigger.token}`);
   console.log(
-    `curl -X POST "$HERMES_API_URL/api/http-triggers/${trigger.triggerId}/invoke" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"params":{"tickerId":"<ticker id>"}}'`,
+    `${trigger.triggerName}: trigger ${trigger.triggerId} runs "${trigger.pipelineName}" on event ${trigger.eventName}`,
   );
 };
 
@@ -509,7 +482,9 @@ const main = async (): Promise<void> => {
   for (const trigger of result.triggers) {
     printTrigger(trigger);
   }
-  console.log("\nTokens are shown once. Store them as agent-data-api secrets.");
+  console.log(
+    "\nagent-data-api sends these events when a subscription becomes active. Nothing else to configure.",
+  );
 };
 
 const isCliEntry = process.argv[1]

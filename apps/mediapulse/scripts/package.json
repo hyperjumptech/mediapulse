@@ -15,7 +15,6 @@
     "seed-day1-dispatch-fixtures": "tsx seed-day1-dispatch-fixtures.ts"
   },
   "dependencies": {
-    "@hermes/domain-integration-crypto": "workspace:*",
     "@hermes/orchestration-database": "workspace:*",
     "@hermes/scheduler": "workspace:*",
     "@mediapulse/database": "workspace:*",

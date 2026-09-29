@@ -28,6 +28,7 @@ export const DAY1_DISPATCH_STATUS_LABELS = {
 
 const DAY1_SKIP_REASON_LABELS: Record<string, string> = {
   already_dispatched: "Already dispatched for this subscription",
+  not_configured: "No Hermes trigger listens for this day-1 event yet",
   missing_translation: "Latest issue has no translation for this language",
   nightly_owns_ticker:
     "Stale issue and other subscribers, nightly run covers it",

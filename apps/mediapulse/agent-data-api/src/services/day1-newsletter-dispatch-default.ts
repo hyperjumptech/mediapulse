@@ -8,26 +8,24 @@ import {
   type Day1Activation,
   type Day1Dispatcher,
 } from "./day1-newsletter-dispatch.js";
-import { createHermesHttpTriggerClient } from "./hermes-http-trigger-client.js";
+import { createHermesDomainEventClient } from "./hermes-domain-event-client.js";
 
-let defaultDispatcher: Day1Dispatcher | null | undefined;
+let defaultDispatcher: Day1Dispatcher | undefined;
 
-const getDefaultDispatcher = (): Day1Dispatcher | null => {
+const getDefaultDispatcher = (): Day1Dispatcher => {
   if (defaultDispatcher !== undefined) {
     return defaultDispatcher;
   }
   const config = readDay1DispatcherConfig(env);
-  defaultDispatcher =
-    config === null
-      ? null
-      : createDay1NewsletterDispatcher({
-          db: mediapulsePrisma,
-          invokeTrigger: createHermesHttpTriggerClient({
-            baseUrl: env.HERMES_API_URL,
-            timeoutMs: config.triggerTimeoutMs,
-          }),
-          config,
-        });
+  defaultDispatcher = createDay1NewsletterDispatcher({
+    db: mediapulsePrisma,
+    sendEvent: createHermesDomainEventClient({
+      baseUrl: env.HERMES_API_URL,
+      apiKey: env.DOMAIN_INTEGRATION_API_KEY,
+      timeoutMs: config.eventTimeoutMs,
+    }),
+    config,
+  });
 
   return defaultDispatcher;
 };
@@ -35,11 +33,7 @@ const getDefaultDispatcher = (): Day1Dispatcher | null => {
 export const notifySubscriptionActivated = (
   activation: Day1Activation,
 ): void => {
-  const dispatcher = getDefaultDispatcher();
-  if (dispatcher === null) {
-    return;
-  }
-  void dispatcher(activation)
+  void getDefaultDispatcher()(activation)
     .then((outcome) => {
       logger.info(
         { userTickerId: activation.userTickerId, ...outcome },
