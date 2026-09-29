@@ -98,57 +98,33 @@ describe("decideDay1Dispatch", () => {
 });
 
 describe("readDay1DispatcherConfig", () => {
-  const fullEnv = {
-    MEDIAPULSE_DAY1_BOOTSTRAP_TRIGGER_ID: "boot-id",
-    MEDIAPULSE_DAY1_BOOTSTRAP_TRIGGER_TOKEN: "boot-token",
-    MEDIAPULSE_DAY1_LATEST_ISSUE_TRIGGER_ID: "latest-id",
-    MEDIAPULSE_DAY1_LATEST_ISSUE_TRIGGER_TOKEN: "latest-token",
-  };
-
-  it("applies defaults when the numeric settings are unset or not positive", () => {
-    const config = readDay1DispatcherConfig({
-      ...fullEnv,
-      MEDIAPULSE_DAY1_TRIGGER_TIMEOUT_MS: 0,
-    });
-
-    expect(config).toEqual({
-      bootstrapTrigger: { triggerId: "boot-id", token: "boot-token" },
-      latestIssueTrigger: { triggerId: "latest-id", token: "latest-token" },
-      triggerTimeoutMs: 5_000,
+  it("applies defaults when the settings are unset or not positive", () => {
+    expect(
+      readDay1DispatcherConfig({ MEDIAPULSE_DAY1_TRIGGER_TIMEOUT_MS: 0 }),
+    ).toEqual({
+      eventTimeoutMs: 5_000,
       latestIssueMaxAgeHours: 36,
       bootstrapDedupeMinutes: 120,
     });
   });
 
-  it("uses configured numeric settings", () => {
-    const config = readDay1DispatcherConfig({
-      ...fullEnv,
-      MEDIAPULSE_DAY1_TRIGGER_TIMEOUT_MS: 2_000,
-      MEDIAPULSE_DAY1_LATEST_ISSUE_MAX_AGE_HOURS: 24,
-      MEDIAPULSE_DAY1_BOOTSTRAP_DEDUPE_MINUTES: 30,
-    });
-
-    expect(config).toMatchObject({
-      triggerTimeoutMs: 2_000,
+  it("uses configured settings", () => {
+    expect(
+      readDay1DispatcherConfig({
+        MEDIAPULSE_DAY1_TRIGGER_TIMEOUT_MS: 2_000,
+        MEDIAPULSE_DAY1_LATEST_ISSUE_MAX_AGE_HOURS: 24,
+        MEDIAPULSE_DAY1_BOOTSTRAP_DEDUPE_MINUTES: 30,
+      }),
+    ).toEqual({
+      eventTimeoutMs: 2_000,
       latestIssueMaxAgeHours: 24,
       bootstrapDedupeMinutes: 30,
     });
   });
-
-  it.each([
-    "MEDIAPULSE_DAY1_BOOTSTRAP_TRIGGER_ID",
-    "MEDIAPULSE_DAY1_BOOTSTRAP_TRIGGER_TOKEN",
-    "MEDIAPULSE_DAY1_LATEST_ISSUE_TRIGGER_ID",
-    "MEDIAPULSE_DAY1_LATEST_ISSUE_TRIGGER_TOKEN",
-  ])("turns the feature off when %s is empty", (key) => {
-    expect(readDay1DispatcherConfig({ ...fullEnv, [key]: " " })).toBeNull();
-  });
 });
 
 const CONFIG: Day1DispatcherConfig = {
-  bootstrapTrigger: { triggerId: "boot-id", token: "boot-token" },
-  latestIssueTrigger: { triggerId: "latest-id", token: "latest-token" },
-  triggerTimeoutMs: 5_000,
+  eventTimeoutMs: 5_000,
   latestIssueMaxAgeHours: 36,
   bootstrapDedupeMinutes: 120,
 };
@@ -201,10 +177,10 @@ describe("createDay1NewsletterDispatcher", () => {
     const { db } = buildDb({
       subscription: activeSubscription({ user: { enabled: false } }),
     });
-    const invokeTrigger = vi.fn();
+    const sendEvent = vi.fn();
     const dispatch = createDay1NewsletterDispatcher({
       db: db as never,
-      invokeTrigger,
+      sendEvent,
       config: CONFIG,
       now: () => NOW,
     });
@@ -213,15 +189,15 @@ describe("createDay1NewsletterDispatcher", () => {
 
     expect(outcome).toEqual({ status: "not_active" });
     expect(db.$transaction).not.toHaveBeenCalled();
-    expect(invokeTrigger).not.toHaveBeenCalled();
+    expect(sendEvent).not.toHaveBeenCalled();
   });
 
   it("fires the bootstrap trigger for a ticker without any issue", async () => {
     const { db, tx } = buildDb();
-    const invokeTrigger = vi.fn().mockResolvedValue({ executionId: "exec-9" });
+    const sendEvent = vi.fn().mockResolvedValue({ executionIds: ["exec-9"] });
     const dispatch = createDay1NewsletterDispatcher({
       db: db as never,
-      invokeTrigger,
+      sendEvent,
       config: CONFIG,
       now: () => NOW,
     });
@@ -254,9 +230,8 @@ describe("createDay1NewsletterDispatcher", () => {
       },
       select: { id: true },
     });
-    expect(invokeTrigger).toHaveBeenCalledWith({
-      triggerId: "boot-id",
-      token: "boot-token",
+    expect(sendEvent).toHaveBeenCalledWith({
+      event: "day1.full-chain",
       params: { tickerId: "ticker-1" },
       requestId: "day1:ut-1:dispatch-1",
     });
@@ -270,10 +245,10 @@ describe("createDay1NewsletterDispatcher", () => {
     const { db } = buildDb({
       latestNewsletter: { createdAt: hoursAgo(3), translations: [] },
     });
-    const invokeTrigger = vi.fn().mockResolvedValue({ executionId: null });
+    const sendEvent = vi.fn().mockResolvedValue({ executionIds: ["exec-4"] });
     const dispatch = createDay1NewsletterDispatcher({
       db: db as never,
-      invokeTrigger,
+      sendEvent,
       config: CONFIG,
       now: () => NOW,
     });
@@ -281,11 +256,8 @@ describe("createDay1NewsletterDispatcher", () => {
     const outcome = await dispatch({ userTickerId: "ut-1" });
 
     expect(outcome).toMatchObject({ status: "fired", kind: "latest_issue" });
-    expect(invokeTrigger).toHaveBeenCalledWith(
-      expect.objectContaining({
-        triggerId: "latest-id",
-        token: "latest-token",
-      }),
+    expect(sendEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "day1.latest-issue" }),
     );
   });
 
@@ -294,10 +266,10 @@ describe("createDay1NewsletterDispatcher", () => {
       subscription: activeSubscription({ language: "id" }),
       latestNewsletter: { createdAt: hoursAgo(3), translations: [] },
     });
-    const invokeTrigger = vi.fn();
+    const sendEvent = vi.fn();
     const dispatch = createDay1NewsletterDispatcher({
       db: db as never,
-      invokeTrigger,
+      sendEvent,
       config: CONFIG,
       now: () => NOW,
     });
@@ -317,18 +289,20 @@ describe("createDay1NewsletterDispatcher", () => {
       }),
       select: { id: true },
     });
-    expect(invokeTrigger).not.toHaveBeenCalled();
+    expect(sendEvent).not.toHaveBeenCalled();
     expect(db.day1NewsletterDispatch.update).not.toHaveBeenCalled();
   });
 
   it("marks the dispatch failed and does not throw when Hermes rejects the call", async () => {
     const { db } = buildDb();
-    const invokeTrigger = vi
+    const sendEvent = vi
       .fn()
-      .mockRejectedValue(new Error("Hermes trigger boot-id answered 401"));
+      .mockRejectedValue(
+        new Error("Hermes answered 401 to event day1.full-chain"),
+      );
     const dispatch = createDay1NewsletterDispatcher({
       db: db as never,
-      invokeTrigger,
+      sendEvent,
       config: CONFIG,
       now: () => NOW,
     });
@@ -339,11 +313,14 @@ describe("createDay1NewsletterDispatcher", () => {
       status: "failed",
       dispatchId: "dispatch-1",
       kind: "bootstrap",
-      error: "Hermes trigger boot-id answered 401",
+      error: "Hermes answered 401 to event day1.full-chain",
     });
     expect(db.day1NewsletterDispatch.update).toHaveBeenCalledWith({
       where: { id: "dispatch-1" },
-      data: { status: "failed", error: "Hermes trigger boot-id answered 401" },
+      data: {
+        status: "failed",
+        error: "Hermes answered 401 to event day1.full-chain",
+      },
     });
   });
 
@@ -352,10 +329,10 @@ describe("createDay1NewsletterDispatcher", () => {
     tx.day1NewsletterDispatch.count
       .mockResolvedValueOnce(0)
       .mockResolvedValueOnce(1);
-    const invokeTrigger = vi.fn();
+    const sendEvent = vi.fn();
     const dispatch = createDay1NewsletterDispatcher({
       db: db as never,
-      invokeTrigger,
+      sendEvent,
       config: CONFIG,
       now: () => NOW,
     });
@@ -373,7 +350,30 @@ describe("createDay1NewsletterDispatcher", () => {
         createdAt: { gte: new Date(NOW.getTime() - 120 * 60_000) },
       },
     });
-    expect(invokeTrigger).not.toHaveBeenCalled();
+    expect(sendEvent).not.toHaveBeenCalled();
+  });
+
+  it("records not configured when no Hermes trigger listens for the event", async () => {
+    const { db } = buildDb();
+    const sendEvent = vi.fn().mockResolvedValue({ executionIds: [] });
+    const dispatch = createDay1NewsletterDispatcher({
+      db: db as never,
+      sendEvent,
+      config: CONFIG,
+      now: () => NOW,
+    });
+
+    const outcome = await dispatch({ userTickerId: "ut-1" });
+
+    expect(outcome).toEqual({
+      status: "skipped",
+      dispatchId: "dispatch-1",
+      reason: "not_configured",
+    });
+    expect(db.day1NewsletterDispatch.update).toHaveBeenCalledWith({
+      where: { id: "dispatch-1" },
+      data: { status: "skipped", reason: "not_configured" },
+    });
   });
 
   it("counts only other confirmed and enabled subscribers of the ticker", async () => {
@@ -383,7 +383,7 @@ describe("createDay1NewsletterDispatcher", () => {
     });
     const dispatch = createDay1NewsletterDispatcher({
       db: db as never,
-      invokeTrigger: vi.fn(),
+      sendEvent: vi.fn(),
       config: CONFIG,
       now: () => NOW,
     });

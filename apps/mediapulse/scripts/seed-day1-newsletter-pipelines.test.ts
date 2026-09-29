@@ -1,6 +1,5 @@
 /** @vitest-environment node */
 import { describe, expect, it, vi } from "vitest";
-import { hashHttpTriggerToken } from "@hermes/domain-integration-crypto";
 
 import {
   DEFAULT_BOOTSTRAP_SOURCES,
@@ -147,7 +146,9 @@ const buildDb = ({
       create: vi.fn(async ({ data }: { data: { name: string } }) => ({
         id: `trigger-${data.name}`,
       })),
-      update: vi.fn().mockResolvedValue({}),
+      update: vi.fn(async ({ where }: { where: { id: string } }) => ({
+        id: where.id,
+      })),
     },
     agentRegistry: {
       findFirst: vi.fn().mockResolvedValue({ inputSchema }),
@@ -163,7 +164,6 @@ const baseOptions = (
   apply: false,
   bootstrapSources: DEFAULT_BOOTSTRAP_SOURCES,
   latestIssueSources: DEFAULT_LATEST_ISSUE_SOURCES,
-  rotateTokens: false,
   allowExtraAgents: false,
   disabled: false,
   ...overrides,
@@ -286,13 +286,11 @@ describe("seedDay1NewsletterPipelines", () => {
     ).rejects.toThrow('"Delivery" belongs to a different domain integration');
   });
 
-  it("writes pipeline steps and triggers with hashed tokens on apply", async () => {
+  it("writes pipeline steps and event triggers on apply", async () => {
     const { db } = buildDb();
-    const tokens = ["token-bootstrap-0001", "token-latest-0002"];
-    const generateToken = vi.fn(() => tokens.shift() ?? "unexpected");
 
     const result = await seedDay1NewsletterPipelines(
-      baseOptions({ apply: true, generateToken }),
+      baseOptions({ apply: true }),
       db as never,
     );
 
@@ -330,10 +328,11 @@ describe("seedDay1NewsletterPipelines", () => {
       data: expect.objectContaining({
         name: "Day 1 Newsletter",
         pipelineId: "new-Day 1 Newsletter",
-        method: "POST",
         enabled: true,
-        tokenHash: hashHttpTriggerToken("token-bootstrap-0001"),
-        tokenHint: "...0001",
+        authType: "DOMAIN_EVENT",
+        eventName: "day1.full-chain",
+        tokenHash: null,
+        tokenHint: null,
       }),
       select: { id: true },
     });
@@ -343,21 +342,19 @@ describe("seedDay1NewsletterPipelines", () => {
         pipelineId: "new-Day 1 Newsletter",
         triggerId: "trigger-Day 1 Newsletter",
         triggerName: "Day 1 Newsletter",
-        envPrefix: "MEDIAPULSE_DAY1_BOOTSTRAP",
-        token: "token-bootstrap-0001",
+        eventName: "day1.full-chain",
       },
       {
         pipelineName: "Day 1 Latest Issue",
         pipelineId: "new-Day 1 Latest Issue",
         triggerId: "trigger-Day 1 Latest Issue",
         triggerName: "Day 1 Latest Issue",
-        envPrefix: "MEDIAPULSE_DAY1_LATEST_ISSUE",
-        token: "token-latest-0002",
+        eventName: "day1.latest-issue",
       },
     ]);
   });
 
-  it("updates an existing day 1 pipeline in place and keeps trigger tokens", async () => {
+  it("updates an existing day 1 pipeline and trigger in place", async () => {
     const pipelines = [
       ...nightlyPipelines(),
       { id: "p-day1", name: "Day 1 Newsletter", timeout: null, steps: [] },
@@ -369,54 +366,29 @@ describe("seedDay1NewsletterPipelines", () => {
         "Day 1 Latest Issue": "trigger-existing-latest",
       },
     });
-    const generateToken = vi.fn(() => "never-used");
 
     const result = await seedDay1NewsletterPipelines(
-      baseOptions({ apply: true, generateToken }),
+      baseOptions({ apply: true, disabled: true }),
       db as never,
     );
 
     expect(db.pipeline.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "p-day1" } }),
     );
-    expect(generateToken).not.toHaveBeenCalled();
-    expect(db.httpTrigger.update).toHaveBeenCalledWith({
-      where: { id: "trigger-existing" },
-      data: expect.not.objectContaining({ tokenHash: expect.anything() }),
-    });
-    expect(result.triggers.map((trigger) => trigger.token)).toEqual([
-      null,
-      null,
-    ]);
-  });
-
-  it("issues new tokens for existing triggers when asked to rotate", async () => {
-    const { db } = buildDb({
-      existingTriggers: {
-        "Day 1 Newsletter": "trigger-existing",
-        "Day 1 Latest Issue": "trigger-existing-latest",
-      },
-    });
-
-    const result = await seedDay1NewsletterPipelines(
-      baseOptions({
-        apply: true,
-        rotateTokens: true,
-        disabled: true,
-        generateToken: () => "rotated-token-9999",
-      }),
-      db as never,
-    );
-
+    expect(db.httpTrigger.create).not.toHaveBeenCalled();
     expect(db.httpTrigger.update).toHaveBeenCalledWith({
       where: { id: "trigger-existing" },
       data: expect.objectContaining({
         enabled: false,
-        tokenHash: hashHttpTriggerToken("rotated-token-9999"),
-        tokenHint: "...9999",
+        authType: "DOMAIN_EVENT",
+        eventName: "day1.full-chain",
       }),
+      select: { id: true },
     });
-    expect(result.triggers[0]?.token).toBe("rotated-token-9999");
+    expect(result.triggers.map((trigger) => trigger.triggerId)).toEqual([
+      "trigger-existing",
+      "trigger-existing-latest",
+    ]);
   });
 });
 
@@ -424,7 +396,6 @@ describe("parseSeedDay1Args", () => {
   it("defaults to a dry run over the default source names", () => {
     expect(parseSeedDay1Args([])).toEqual({
       apply: false,
-      rotateTokens: false,
       allowExtraAgents: false,
       disabled: false,
       bootstrapSources: DEFAULT_BOOTSTRAP_SOURCES,
@@ -435,7 +406,6 @@ describe("parseSeedDay1Args", () => {
   it("reads flags and comma separated source lists", () => {
     const options = parseSeedDay1Args([
       "--apply",
-      "--rotate-tokens",
       "--disabled",
       "--allow-extra-agents",
       "--bootstrap-sources",
@@ -446,7 +416,6 @@ describe("parseSeedDay1Args", () => {
 
     expect(options).toEqual({
       apply: true,
-      rotateTokens: true,
       allowExtraAgents: true,
       disabled: true,
       bootstrapSources: [

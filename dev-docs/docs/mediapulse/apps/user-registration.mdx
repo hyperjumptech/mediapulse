@@ -55,9 +55,9 @@ The decision is made per ticker, under a Postgres advisory lock so two confirmat
 | A Day 1 Newsletter run already started for the ticker within `MEDIAPULSE_DAY1_BOOTSTRAP_DEDUPE_MINUTES` (120) | Nothing. That run's delivery step picks the new subscriber up. |
 | The same subscription already dispatched within that window (a repeated or concurrent confirmation) | Nothing. |
 
-Every decision is stored in `day1_newsletter_dispatch` with its kind, status (`dispatching`, `fired`, `failed`, `skipped`), skip reason, Hermes execution id or error. The trigger call is fire-and-forget with a `MEDIAPULSE_DAY1_TRIGGER_TIMEOUT_MS` timeout and is never retried, and a failure never affects registration.
+Every decision is stored in `day1_newsletter_dispatch` with its kind, status (`dispatching`, `fired`, `failed`, `skipped`), skip reason, Hermes execution id or error, and is shown on the Hermes **Day 1 Dispatches** page. The event call is fire-and-forget with a `MEDIAPULSE_DAY1_TRIGGER_TIMEOUT_MS` timeout and is never retried, and a failure never affects registration.
 
-The feature is off until the four `MEDIAPULSE_DAY1_*_TRIGGER_ID` / `_TOKEN` variables are set. `pnpm --filter @mediapulse/scripts seed-day1-newsletter --apply` creates both Hermes pipelines and triggers and prints those values once. A thin ticker may still produce no issue on day 1: content-generation needs at least two articles across two sections.
+Which pipelines run is configured in Hermes, not in Mediapulse. agent-data-api sends Hermes the `day1.full-chain` or `day1.latest-issue` event with the ticker as the `tickerId` run parameter, using `HERMES_API_URL` and `DOMAIN_INTEGRATION_API_KEY`. In Hermes, an HTTP trigger started by that event runs the chosen pipeline. Until one exists, dispatches are recorded as skipped with "No Hermes trigger listens for this day-1 event yet", and disabling the trigger switches day-1 off. `pnpm --filter @mediapulse/scripts seed-day1-newsletter --apply` creates both pipelines and event triggers. A thin ticker may still produce no issue on day 1: content-generation needs at least two articles across two sections.
 
 ### Inbox hygiene (archiving + retries)
 
