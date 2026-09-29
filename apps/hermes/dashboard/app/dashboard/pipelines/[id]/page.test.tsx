@@ -80,6 +80,10 @@ vi.mock("./pipeline-executions-section", () => ({
   ),
 }));
 
+vi.mock("@/lib/pipeline-run-param-keys", () => ({
+  getPipelineRunParamKeys: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock("@/lib/validate-pipeline", () => ({
   validatePipeline: vi.fn().mockResolvedValue({ valid: true, warnings: [] }),
 }));

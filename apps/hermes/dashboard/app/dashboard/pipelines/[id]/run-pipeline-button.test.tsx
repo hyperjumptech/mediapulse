@@ -1,5 +1,11 @@
 import React from "react";
-import { render, renderHook, screen } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import {
@@ -111,6 +117,72 @@ describe("RunPipelineButton", () => {
 
     // Assert
     expect(screen.getByRole("button", { name: "Run pipeline" })).toBeDisabled();
+  });
+});
+
+describe("RunPipelineButton with run parameters", () => {
+  it("asks for each run parameter before running", () => {
+    render(
+      <RunPipelineButton
+        pipelineId="pipeline-123"
+        runPipelineAction={createRunPipelineAction()}
+        runParamKeys={["itemId", "mode"]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Run pipeline" });
+    const itemIdInput = within(dialog).getByLabelText("itemId");
+    expect(itemIdInput).toHaveAttribute("name", "body.params.itemId");
+    expect(itemIdInput).toBeRequired();
+    expect(within(dialog).getByLabelText("mode")).toHaveAttribute(
+      "name",
+      "body.params.mode",
+    );
+    const form = within(dialog).getByTestId("run-pipeline-form");
+    expect(form.querySelector('input[name="body.pipelineId"]')).toHaveAttribute(
+      "value",
+      "pipeline-123",
+    );
+    expect(within(dialog).getByRole("button", { name: "Run" })).toBeEnabled();
+  });
+
+  it("shows the run error inside the dialog", () => {
+    render(
+      <RunPipelineButton
+        pipelineId="pipeline-123"
+        runPipelineAction={createRunPipelineAction({
+          state: {
+            status: false,
+            message: 'Pipeline is invalid: Run parameter "itemId" is not set',
+          } as RunPipelineState,
+        })}
+        runParamKeys={["itemId"]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+
+    expect(
+      within(screen.getByRole("dialog")).getByText(
+        'Pipeline is invalid: Run parameter "itemId" is not set',
+      ),
+    ).toBeVisible();
+  });
+
+  it("keeps the dialog closed while the pipeline cannot run", () => {
+    render(
+      <RunPipelineButton
+        pipelineId="pipeline-123"
+        disabled
+        runPipelineAction={createRunPipelineAction()}
+        runParamKeys={["itemId"]}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Run pipeline" })).toBeDisabled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
 
