@@ -8,7 +8,12 @@ import {
   parseListPagination,
   type ListPageSearchParams,
 } from "@/lib/list-page-params";
-import { getAgentRegistryList, getPipelineWithSteps } from "@/lib/pipelines";
+import { includedPipelineStepLabels } from "@/lib/check-pipeline-steps-composition";
+import {
+  getAgentRegistryList,
+  getComposablePipelineOptions,
+  getPipelineWithSteps,
+} from "@/lib/pipelines";
 import { getPipelineExecutionsPage } from "@/lib/pipeline-executions";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 import {
@@ -53,10 +58,21 @@ const PipelineDetailPage = async ({
     notFound();
   }
 
-  const [agents, validation, runParamKeys] = await Promise.all([
+  const [
+    agents,
+    validation,
+    runParamKeys,
+    composablePipelines,
+    includedStepLabelsByStepId,
+  ] = await Promise.all([
     getAgentRegistryList(orchestrationPrisma, pipeline.domainIntegrationId),
     validatePipeline(pipeline, orchestrationPrisma),
     getPipelineRunParamKeys(pipeline.id, orchestrationPrisma),
+    getComposablePipelineOptions(pipeline, orchestrationPrisma),
+    includedPipelineStepLabels({
+      db: orchestrationPrisma,
+      pipelineId: pipeline.id,
+    }),
   ]);
   const agentKeys = agents.map((agent) => ({
     agentId: agent.agentId,
@@ -73,6 +89,8 @@ const PipelineDetailPage = async ({
       allContracts={allContracts}
       pipelineValidation={validation}
       runParamKeys={runParamKeys}
+      composablePipelines={composablePipelines}
+      includedStepLabelsByStepId={includedStepLabelsByStepId}
       executionsSection={
         <Suspense key={`${page}:${pageSize}`} fallback={<SectionSkeleton />}>
           <PipelineExecutionsSection

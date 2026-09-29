@@ -27,6 +27,11 @@ vi.mock("@/lib/pipelines", () => ({
   getPipelineWithSteps: (...args: unknown[]) =>
     getPipelineWithStepsMock(...args),
   getAgentRegistryList: () => getAgentRegistryListMock(),
+  getComposablePipelineOptions: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/lib/check-pipeline-steps-composition", () => ({
+  includedPipelineStepLabels: vi.fn().mockResolvedValue({}),
 }));
 
 const getAgentConfigsByAgentKeysMock = vi.fn();

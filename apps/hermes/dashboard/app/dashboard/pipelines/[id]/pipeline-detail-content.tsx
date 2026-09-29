@@ -37,15 +37,18 @@ import type {
   getAgentRegistryList,
   getPipelineWithSteps,
 } from "@/lib/pipelines";
+import type { ComposablePipelineOption } from "@/lib/pipelines";
 import type { PipelineValidationResult } from "@/lib/validate-pipeline";
 
 import { PipelineFormModal } from "../pipeline-form-modal";
 import { PipelineStatusBadge } from "../pipeline-status-badge";
 import type { PipelineDomainIntegrationOption } from "../pipelines-with-modal";
 import { PipelineAvailableAgents } from "./pipeline-available-agents";
+import { PipelineAvailablePipelines } from "./pipeline-available-pipelines";
 import { PipelineColumnCard } from "./pipeline-column-card";
 import { PipelineStepEditorPanel } from "./pipeline-step-editor-panel";
 import { PipelineStepsColumn } from "./pipeline-steps-column";
+import { PipelineStepTargetEditor } from "./pipeline-step-target-editor";
 import {
   RunPipelineButton,
   RunPipelineResult,
@@ -83,6 +86,8 @@ export type PipelineDetailContentProps = {
   allContracts: AgentContractSummary[];
   pipelineValidation: PipelineValidationResult;
   runParamKeys?: string[];
+  composablePipelines?: ComposablePipelineOption[];
+  includedStepLabelsByStepId?: Record<string, string[]>;
   executionsSection: ReactNode;
   loadVariablePickerPage: LoadVariablePickerPage;
   loadExpansionPickerPage: LoadExpansionPickerPage;
@@ -168,6 +173,14 @@ const usePipelineDetailState = (
     [agentSteps],
   );
 
+  const selectedPipelineStep = useMemo(
+    () =>
+      pipeline.steps.find(
+        (step) => step.id === selectedStepId && step.kind === "pipeline",
+      ) ?? null,
+    [pipeline.steps, selectedStepId],
+  );
+
   useEffect(() => {
     if (!selectedStep) {
       setStepInput({});
@@ -234,6 +247,7 @@ const usePipelineDetailState = (
     saveWarnings,
     saving,
     selectedStep,
+    selectedPipelineStep,
     existingStepAgentKeys,
     handleSave,
   };
@@ -305,6 +319,8 @@ export const PipelineDetailContent = ({
   allContracts,
   pipelineValidation,
   runParamKeys = [],
+  composablePipelines = [],
+  includedStepLabelsByStepId = {},
   executionsSection,
   loadVariablePickerPage,
   loadExpansionPickerPage,
@@ -323,6 +339,7 @@ export const PipelineDetailContent = ({
     saveWarnings,
     saving,
     selectedStep,
+    selectedPipelineStep,
     existingStepAgentKeys,
     handleSave,
   } = usePipelineDetailState(pipeline, updateStepFormAction);
@@ -402,11 +419,17 @@ export const PipelineDetailContent = ({
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)]">
-        <PipelineAvailableAgents
-          pipelineId={pipeline.id}
-          agents={agents}
-          existingStepAgentKeys={existingStepAgentKeys}
-        />
+        <div className="flex min-w-0 flex-col gap-4">
+          <PipelineAvailableAgents
+            pipelineId={pipeline.id}
+            agents={agents}
+            existingStepAgentKeys={existingStepAgentKeys}
+          />
+          <PipelineAvailablePipelines
+            pipelineId={pipeline.id}
+            pipelines={composablePipelines}
+          />
+        </div>
         <PipelineStepsColumn
           pipelineId={pipeline.id}
           steps={pipeline.steps}
@@ -415,36 +438,50 @@ export const PipelineDetailContent = ({
           onSelectStep={setSelectedStepId}
           configsByAgentKey={configsByAgentKey}
         />
-        <PipelineColumnCard
-          title="Selected step"
-          description={selectedStepDescription}
-          action={
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSave}
-              disabled={saving || selectedStep == null}
-            >
-              {saveLabel}
-            </Button>
-          }
-        >
-          <StepSaveFeedback saveError={saveError} saveWarnings={saveWarnings} />
-          <PipelineStepEditorPanel
-            selectedStep={selectedStep}
-            stepInput={stepInput}
-            onStepInputChange={setStepInput}
-            configsForAgent={configsForSelectedAgent}
-            stepAgentConfigId={stepAgentConfigId}
-            onStepAgentConfigIdChange={setStepAgentConfigId}
-            allContracts={allContracts}
-            stepAgentContractId={stepAgentContractId}
-            onStepAgentContractIdChange={setStepAgentContractId}
-            disabled={saving}
-            loadVariablePickerPage={loadVariablePickerPage}
-            loadExpansionPickerPage={loadExpansionPickerPage}
+        {selectedPipelineStep ? (
+          <PipelineStepTargetEditor
+            pipelineId={pipeline.id}
+            step={selectedPipelineStep}
+            pipelines={composablePipelines}
+            includedStepLabels={
+              includedStepLabelsByStepId[selectedPipelineStep.id] ?? []
+            }
           />
-        </PipelineColumnCard>
+        ) : (
+          <PipelineColumnCard
+            title="Selected step"
+            description={selectedStepDescription}
+            action={
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSave}
+                disabled={saving || selectedStep == null}
+              >
+                {saveLabel}
+              </Button>
+            }
+          >
+            <StepSaveFeedback
+              saveError={saveError}
+              saveWarnings={saveWarnings}
+            />
+            <PipelineStepEditorPanel
+              selectedStep={selectedStep}
+              stepInput={stepInput}
+              onStepInputChange={setStepInput}
+              configsForAgent={configsForSelectedAgent}
+              stepAgentConfigId={stepAgentConfigId}
+              onStepAgentConfigIdChange={setStepAgentConfigId}
+              allContracts={allContracts}
+              stepAgentContractId={stepAgentContractId}
+              onStepAgentContractIdChange={setStepAgentContractId}
+              disabled={saving}
+              loadVariablePickerPage={loadVariablePickerPage}
+              loadExpansionPickerPage={loadExpansionPickerPage}
+            />
+          </PipelineColumnCard>
+        )}
       </div>
 
       <section>{executionsSection}</section>

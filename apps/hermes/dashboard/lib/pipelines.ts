@@ -40,3 +40,25 @@ export const getAgentRegistryList = async (
 
   return db.agentRegistry.findMany(findManyArgs);
 };
+
+export type ComposablePipelineOption = {
+  id: string;
+  name: string;
+  description: string | null;
+};
+
+export const getComposablePipelineOptions = async (
+  pipeline: { id: string; domainIntegrationId: string },
+  db: Db = prisma,
+): Promise<ComposablePipelineOption[]> => {
+  const findManyArgs = {
+    where: {
+      domainIntegrationId: pipeline.domainIntegrationId,
+      id: { not: pipeline.id },
+    },
+    select: { id: true, name: true, description: true },
+    orderBy: { name: "asc" },
+  } satisfies Prisma.PipelineFindManyArgs;
+
+  return db.pipeline.findMany(findManyArgs);
+};
