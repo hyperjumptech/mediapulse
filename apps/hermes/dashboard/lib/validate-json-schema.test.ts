@@ -186,6 +186,33 @@ describe("validateWithJsonSchema", () => {
     }
   });
 
+  it("defers every schema check for a value that is exactly a run parameter placeholder", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        limit: { type: "number", minimum: 1 },
+        itemId: { type: "string", format: "uuid" },
+      },
+      required: ["limit", "itemId"],
+    };
+    const data = { limit: "{{params.limit}}", itemId: "{{ params.itemId }}" };
+
+    const result = validateWithJsonSchema(schema, data);
+
+    expect(result.valid).toBe(true);
+  });
+
+  it("still rejects a type mismatch on a plain variable placeholder", () => {
+    const schema = {
+      type: "object",
+      properties: { limit: { type: "number" } },
+    };
+
+    const result = validateWithJsonSchema(schema, { limit: "{{LIMIT}}" });
+
+    expect(result.valid).toBe(false);
+  });
+
   describe("compiled validator cache", () => {
     afterEach(() => {
       vi.restoreAllMocks();

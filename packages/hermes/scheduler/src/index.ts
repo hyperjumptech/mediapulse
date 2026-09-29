@@ -69,6 +69,20 @@ export {
   substituteInString,
 } from "./substitute-variables";
 export {
+  findRunParamKeys,
+  isReservedVariableKey,
+  parseRunParams,
+  substituteRunParams,
+  RunParamsSchema,
+  RUN_PARAMS_MAX_KEYS,
+  RUN_PARAMS_MAX_SERIALIZED_BYTES,
+  RUN_PARAMS_MAX_STRING_LENGTH,
+  RUN_PARAMS_PLACEHOLDER_PREFIX,
+  type ParseRunParamsResult,
+  type RunParamValue,
+  type RunParams,
+} from "./run-params";
+export {
   collectSecretValues,
   redactSecretValues,
   REDACTED_PLACEHOLDER,

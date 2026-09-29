@@ -54,6 +54,7 @@ export type ExecutionSummary = {
   failedInvocationCount: number;
   errors: unknown;
   metadata: unknown | null;
+  runParams?: unknown | null;
   createdAt: Date;
 };
 
@@ -109,6 +110,7 @@ export const toExecutionSummary = (
   failedInvocationCount: execution.failedInvocationCount,
   errors: execution.errors,
   metadata: execution.metadata,
+  runParams: execution.runParams ?? null,
   createdAt: execution.createdAt,
 });
 

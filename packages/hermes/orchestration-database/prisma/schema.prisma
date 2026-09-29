@@ -428,6 +428,7 @@ model HttpTriggerExecution {
   failedInvocationCount    Int                   @default(0) @map("failed_invocation_count")
   errors                   Json?
   metadata                 Json?
+  runParams                Json?                 @map("run_params")
   cancelledAt              DateTime?             @map("cancelled_at")
   createdAt                DateTime              @default(now()) @map("created_at")
 
@@ -471,6 +472,7 @@ model ManualPipelineExecution {
   failedInvocationCount    Int                   @default(0) @map("failed_invocation_count")
   errors                   Json?
   metadata                 Json?
+  runParams                Json?                 @map("run_params")
   cancelledAt              DateTime?             @map("cancelled_at")
   createdAt                DateTime              @default(now()) @map("created_at")
 

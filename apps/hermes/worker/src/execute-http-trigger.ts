@@ -10,6 +10,7 @@ import {
 import {
   diagnosticFromCaughtError,
   mergeExecutionConfig,
+  parseRunParams,
   planPipelineInvocations,
   redactSecretValues,
   type EnqueueDiagnosticEntry,
@@ -96,6 +97,25 @@ export const executeHttpTrigger = async (
     return;
   }
 
+  const runParamsResult = parseRunParams(execution.runParams);
+  if (!runParamsResult.success) {
+    await db.httpTriggerExecution.update({
+      where: { id: httpTriggerExecutionId },
+      data: {
+        enqueueStatus: ScheduleEnqueueStatus.failed,
+        runStatus: ScheduleRunStatus.failed,
+        errors: [
+          {
+            message: `Invalid run parameters: ${runParamsResult.error}`,
+            timestamp: new Date().toISOString(),
+            phase: "planning",
+          },
+        ],
+      },
+    });
+    return;
+  }
+
   const planningResult = await planPipelineInvocations({
     db,
     pipeline: {
@@ -108,6 +128,7 @@ export const executeHttpTrigger = async (
     variableSecretMasterKey,
     variableSecretFallbackMasterKey,
     requireHttpsAgentEndpoints: false,
+    runParams: runParamsResult.params,
   });
   errors.push(...planningResult.errors);
   const waveList = planningResult.waveList.map((wave) =>

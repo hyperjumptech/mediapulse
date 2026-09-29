@@ -282,4 +282,78 @@ describe("http trigger invoke route", () => {
       }),
     );
   });
+
+  const mockValidTrigger = () => {
+    const addJob = vi.fn().mockResolvedValue(7);
+    vi.mocked(getHermesJobQueue).mockReturnValue({ addJob } as never);
+    vi.mocked(prisma.httpTrigger.findUnique).mockResolvedValue({
+      id: "t1",
+      method: "POST",
+      enabled: true,
+      tokenHash: hashHttpTriggerToken("secret"),
+      pipeline: { executionConfig: null },
+    } as never);
+    vi.mocked(prisma.httpTriggerExecution.create).mockResolvedValue({
+      id: "e-params",
+    } as never);
+    vi.mocked(prisma.httpTriggerExecution.update).mockResolvedValue(
+      {} as never,
+    );
+    vi.mocked(prisma.httpTrigger.update).mockResolvedValue({} as never);
+
+    return { addJob };
+  };
+
+  it("persists run params from a JSON body", async () => {
+    mockValidTrigger();
+
+    const response = await POST(
+      new Request("http://localhost", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer secret",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ params: { itemId: "abc" } }),
+      }),
+      { params: Promise.resolve({ triggerId: "t1" }) },
+    );
+
+    expect(response.status).toBe(202);
+    expect(prisma.httpTriggerExecution.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          runParams: { itemId: "abc" },
+          metadata: expect.objectContaining({
+            body: expect.objectContaining({
+              json: { params: { itemId: "abc" } },
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("returns 400 without creating an execution when run params are invalid", async () => {
+    vi.mocked(prisma.httpTriggerExecution.create).mockClear();
+    const { addJob } = mockValidTrigger();
+
+    const response = await POST(
+      new Request("http://localhost", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer secret",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ params: { itemId: ["a"] } }),
+      }),
+      { params: Promise.resolve({ triggerId: "t1" }) },
+    );
+    const json = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(400);
+    expect(json.error).toContain("Invalid run params");
+    expect(prisma.httpTriggerExecution.create).not.toHaveBeenCalled();
+    expect(addJob).not.toHaveBeenCalled();
+  });
 });

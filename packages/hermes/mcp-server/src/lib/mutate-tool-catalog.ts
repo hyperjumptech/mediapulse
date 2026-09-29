@@ -122,6 +122,12 @@ export const HERMES_MUTATE_TOOL_SPECS: HermesMutateToolSpec[] = [
     annotations: RUN_ANNOTATIONS,
     inputSchema: {
       pipelineId: z.guid().describe("Pipeline id"),
+      params: z
+        .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+        .optional()
+        .describe(
+          "Run parameters that fill {{params.<name>}} placeholders in step input and config.",
+        ),
       ...confirmField,
     },
   },

@@ -87,6 +87,7 @@ describe("buildExecutionDetailViewModel", () => {
       expectedInvocationCount: 2,
       metadataHints: [],
       requestSnapshotJson: null,
+      runParamsJson: null,
       canCancel: false,
       cancelTarget: {
         kind: "schedule",
@@ -163,6 +164,34 @@ describe("buildExecutionDetailViewModel", () => {
     expect(viewModel.requestSnapshotJson).toContain('"method": "POST"');
     expect(viewModel.requestSnapshotJson).toContain(SECRET_MASK);
     expect(viewModel.requestSnapshotJson).not.toContain("secret-token");
+  });
+
+  it("exposes masked run parameters when the run has any", () => {
+    const summary = baseSummary();
+    summary.execution.runParams = { itemId: "abc", apiKey: "secret-value" };
+
+    const viewModel = buildExecutionDetailViewModel({
+      parent: { kind: "httpTrigger", id: "trig-1", name: "Webhook" },
+      executionId: "exec-1",
+      summary,
+    });
+
+    expect(viewModel.runParamsJson).toContain('"itemId": "abc"');
+    expect(viewModel.runParamsJson).toContain(SECRET_MASK);
+    expect(viewModel.runParamsJson).not.toContain("secret-value");
+  });
+
+  it("omits run parameters when the run has none", () => {
+    const summary = baseSummary();
+    summary.execution.runParams = {};
+
+    const viewModel = buildExecutionDetailViewModel({
+      parent: { kind: "manual", id: "pipe-1", name: "Daily digest" },
+      executionId: "exec-1",
+      summary,
+    });
+
+    expect(viewModel.runParamsJson).toBeNull();
   });
 
   it("labels manual runs and surfaces their metadata hints", () => {

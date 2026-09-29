@@ -19,6 +19,7 @@ export const ExecutionDetailView = ({
     enqueueErrors,
     enqueueMetadata,
     requestSnapshotJson,
+    runParamsJson,
     steps,
     invocations,
     payloadSource,
@@ -34,6 +35,9 @@ export const ExecutionDetailView = ({
         errors={enqueueErrors}
         metadata={enqueueMetadata}
       />
+      {runParamsJson != null ? (
+        <JsonBlock value={runParamsJson} title="Run parameters" />
+      ) : null}
       {requestSnapshotJson != null ? (
         <JsonBlock
           value={requestSnapshotJson}

@@ -654,6 +654,7 @@ export const getManualPipelineExecutionSummary = async (
     where: { id: executionId, pipelineId },
     select: {
       ...executionSummarySelect,
+      runParams: true,
       pipeline: { select: { id: true, name: true } },
       manualPipelineStepExecutions: { select: stepExecutionSummarySelect },
       agentJobExecutions: {

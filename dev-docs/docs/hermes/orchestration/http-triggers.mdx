@@ -26,6 +26,28 @@ Multiple HTTP triggers can point to the same pipeline.
 4. Hermes returns **`202 Accepted`** with JSON `{ status: "accepted", executionId }` (wrong method → **405**, disabled trigger → **409**, bad/missing token → **401**, unknown id → **404**).
 5. Worker picks up the `execute_http_trigger` DataQueue job and runs the pipeline asynchronously (same planning and variable substitution as schedules).
 
+## Run parameters
+
+A caller can pass values for a single run by sending a JSON body with a `params` object:
+
+```bash
+curl -X POST "{dashboardOrigin}/api/http-triggers/:triggerId/invoke" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"params":{"itemId":"abc-123"}}'
+```
+
+Step `input` and `config` reference them as `{{params.itemId}}`. A string that is exactly one placeholder takes the parameter's type, so `"{{params.limit}}"` becomes the number `5` when the caller sends `"limit": 5`. A placeholder inside a longer string is replaced with the value as text.
+
+Rules:
+
+- `params` is a flat object of at most 32 keys. Keys start with a letter and contain only letters, digits and underscores.
+- Values are strings (up to 2048 characters), numbers or booleans. The whole object must serialize to at most 16 KiB.
+- An invalid `params` object returns **400** and no execution is created. A body without `params` works as before.
+- A step that references a parameter the run did not receive fails planning with `Run parameter "itemId" is not set`, so an agent never sees an unresolved placeholder.
+
+The parameters are stored on the execution and shown in a **Run parameters** panel on the execution detail page. The dashboard run-pipeline action and the `hermes_mutate_run_pipeline` MCP tool accept the same `params` object.
+
 ## Execution history
 
 The dashboard includes:

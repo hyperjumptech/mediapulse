@@ -7,6 +7,11 @@ import {
 import { AgentEndpointSchema } from "./invoke-agent";
 import { substituteVariables } from "./substitute-variables";
 import { collectSecretValues } from "./redact-secret-values";
+import {
+  findRunParamKeys,
+  substituteRunParams,
+  type RunParams,
+} from "./run-params";
 import { validateWithJsonSchema } from "./validate-json-schema";
 import type { ExpandStepInputs } from "./execute-schedule";
 import type { EnqueueDiagnosticEntry } from "./enqueue-diagnostics";
@@ -53,6 +58,7 @@ type PlanPipelineInvocationsArgs = {
   variableSecretMasterKey?: string;
   variableSecretFallbackMasterKey?: string;
   requireHttpsAgentEndpoints?: boolean;
+  runParams?: RunParams;
 };
 
 /**
@@ -85,6 +91,7 @@ export const planPipelineInvocations = async ({
   variableSecretMasterKey,
   variableSecretFallbackMasterKey,
   requireHttpsAgentEndpoints = false,
+  runParams = {},
 }: PlanPipelineInvocationsArgs): Promise<PlanPipelineInvocationsResult> => {
   const errors: EnqueueDiagnosticEntry[] = [];
   const variables = await db.variable.findMany({
@@ -184,26 +191,7 @@ export const planPipelineInvocations = async ({
       !Array.isArray(step.input)
         ? (step.input as Record<string, unknown>)
         : {};
-    const inputSubstituted = substituteVariables(
-      rawInput,
-      variableMap,
-    ) as Record<string, unknown>;
-    const inputSchema =
-      agent.inputSchema != null && typeof agent.inputSchema === "object"
-        ? (agent.inputSchema as Record<string, unknown>)
-        : null;
-    if (inputSchema) {
-      const result = validateWithJsonSchema(inputSchema, inputSubstituted);
-      if (!result.valid) {
-        errors.push({
-          message: `Step input invalid for ${step.agentId}@${step.agentVersion}: ${result.errors.join("; ")}`,
-          timestamp: new Date().toISOString(),
-          phase: "planning",
-          pipelineStepId: step.id,
-        });
-        continue;
-      }
-    }
+    const inputWithRunParams = substituteRunParams(rawInput, runParams);
 
     let stepConfig: Record<string, unknown>;
     if (step.agentConfigId != null && step.agentConfig != null) {
@@ -222,10 +210,47 @@ export const planPipelineInvocations = async ({
           ? (step.config as Record<string, unknown>)
           : {};
     }
-    stepConfig = substituteVariables(stepConfig, variableMap) as Record<
-      string,
-      unknown
-    >;
+    const configWithRunParams = substituteRunParams(stepConfig, runParams);
+    const unresolvedRunParamKeys = findRunParamKeys([
+      inputWithRunParams,
+      configWithRunParams,
+    ]);
+    if (unresolvedRunParamKeys.length > 0) {
+      const quotedKeys = unresolvedRunParamKeys
+        .map((key) => `"${key}"`)
+        .join(", ");
+      errors.push({
+        message: `Run parameter ${quotedKeys} is not set for ${step.agentId}@${step.agentVersion}`,
+        timestamp: new Date().toISOString(),
+        phase: "planning",
+        pipelineStepId: step.id,
+      });
+      continue;
+    }
+    const inputSubstituted = substituteVariables(
+      inputWithRunParams,
+      variableMap,
+    ) as Record<string, unknown>;
+    stepConfig = substituteVariables(
+      configWithRunParams,
+      variableMap,
+    ) as Record<string, unknown>;
+    const inputSchema =
+      agent.inputSchema != null && typeof agent.inputSchema === "object"
+        ? (agent.inputSchema as Record<string, unknown>)
+        : null;
+    if (inputSchema) {
+      const result = validateWithJsonSchema(inputSchema, inputSubstituted);
+      if (!result.valid) {
+        errors.push({
+          message: `Step input invalid for ${step.agentId}@${step.agentVersion}: ${result.errors.join("; ")}`,
+          timestamp: new Date().toISOString(),
+          phase: "planning",
+          pipelineStepId: step.id,
+        });
+        continue;
+      }
+    }
     const configSchema =
       agent.configSchema != null && typeof agent.configSchema === "object"
         ? (agent.configSchema as Record<string, unknown>)

@@ -9,7 +9,8 @@
     ".": "./src/index.ts",
     "./enqueue-diagnostics-correlation": "./src/enqueue-diagnostics-correlation.ts",
     "./execution-config": "./src/execution-config.ts",
-    "./schedule-rollup": "./src/schedule-rollup.ts"
+    "./schedule-rollup": "./src/schedule-rollup.ts",
+    "./run-params": "./src/run-params.ts"
   },
   "scripts": {
     "lint": "eslint \"src/**/*.ts\"",

@@ -40,6 +40,25 @@ describe("createUpdateVariableHandler", () => {
     expect((result as { message?: string }).message).toBe("Variable not found");
   });
 
+  it("rejects renaming a variable to a key reserved for run parameters", async () => {
+    const db = {
+      variable: { findUnique: vi.fn(), update: vi.fn() },
+    };
+    const handler = createUpdateVariableHandler({ db: db as never });
+
+    const result = await handler({
+      body: { id: "var-1", key: "params.itemId" },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    expect(result.status).toBe(false);
+    expect((result as { message?: string }).message).toContain("reserved");
+    expect(db.variable.update).not.toHaveBeenCalled();
+  });
+
   it("does not update value when new value is SECRET_MASK", async () => {
     const updateMock = vi.fn().mockResolvedValue(undefined);
     const db = {
