@@ -15,6 +15,7 @@ import {
   loadExpansionPickerPage,
   loadVariablePickerPage,
 } from "@/lib/variable-expansion-picker-actions";
+import { getPipelineRunParamKeys } from "@/lib/pipeline-run-param-keys";
 import { validatePipeline } from "@/lib/validate-pipeline";
 import { prisma as orchestrationPrisma } from "@hermes/orchestration-database";
 
@@ -52,9 +53,10 @@ const PipelineDetailPage = async ({
     notFound();
   }
 
-  const [agents, validation] = await Promise.all([
+  const [agents, validation, runParamKeys] = await Promise.all([
     getAgentRegistryList(orchestrationPrisma, pipeline.domainIntegrationId),
     validatePipeline(pipeline, orchestrationPrisma),
+    getPipelineRunParamKeys(pipeline.id, orchestrationPrisma),
   ]);
   const agentKeys = agents.map((agent) => ({
     agentId: agent.agentId,
@@ -70,6 +72,7 @@ const PipelineDetailPage = async ({
       configsByAgentKey={configsByAgentKey}
       allContracts={allContracts}
       pipelineValidation={validation}
+      runParamKeys={runParamKeys}
       executionsSection={
         <Suspense key={`${page}:${pageSize}`} fallback={<SectionSkeleton />}>
           <PipelineExecutionsSection

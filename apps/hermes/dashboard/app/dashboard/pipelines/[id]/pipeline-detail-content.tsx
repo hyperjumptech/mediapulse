@@ -82,6 +82,7 @@ export type PipelineDetailContentProps = {
   configsByAgentKey: Record<string, AgentConfigSummary[]>;
   allContracts: AgentContractSummary[];
   pipelineValidation: PipelineValidationResult;
+  runParamKeys?: string[];
   executionsSection: ReactNode;
   loadVariablePickerPage: LoadVariablePickerPage;
   loadExpansionPickerPage: LoadExpansionPickerPage;
@@ -303,6 +304,7 @@ export const PipelineDetailContent = ({
   configsByAgentKey,
   allContracts,
   pipelineValidation,
+  runParamKeys = [],
   executionsSection,
   loadVariablePickerPage,
   loadExpansionPickerPage,
@@ -364,6 +366,7 @@ export const PipelineDetailContent = ({
             <RunPipelineButton
               pipelineId={pipeline.id}
               disabled={!pipelineValidation.valid}
+              runParamKeys={runParamKeys}
               runPipelineAction={runPipelineAction}
             />
           </>
