@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo } from "react";
-import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Trash2, Workflow } from "lucide-react";
 
 import { Button } from "@workspace/ui/components/button";
 import { cn } from "@workspace/ui/lib/utils";
@@ -15,8 +16,10 @@ import { PipelineColumnCard } from "./pipeline-column-card";
 type Step = {
   id: string;
   order: number;
-  agentId: string;
-  agentVersion: string;
+  kind?: "agent" | "pipeline";
+  agentId: string | null;
+  agentVersion: string | null;
+  targetPipeline?: { id: string; name: string } | null;
   agentConfigId?: string | null;
   input?: unknown;
   config?: unknown;
@@ -80,6 +83,41 @@ const usePipelineStepsColumnState = (onSelectStep: SelectStepHandler) => {
   return { RemoveForm, ReorderForm, pending };
 };
 
+const PipelineStepLabel = ({
+  targetPipeline,
+}: {
+  targetPipeline: { id: string; name: string } | null | undefined;
+}) => {
+  if (!targetPipeline) {
+    return (
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 text-sm text-muted-foreground">
+        <Workflow aria-hidden className="size-4 shrink-0" />
+        Pipeline not found
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+        <Workflow
+          aria-hidden
+          className="size-4 shrink-0 text-muted-foreground"
+        />
+        <Link
+          href={`/dashboard/pipelines/${targetPipeline.id}`}
+          className="truncate underline-offset-4 hover:underline"
+        >
+          {targetPipeline.name}
+        </Link>
+      </span>
+      <span className="truncate text-xs text-muted-foreground">
+        Runs every step of this pipeline
+      </span>
+    </span>
+  );
+};
+
 const StepCountBadge = ({ stepCount }: { stepCount: number }) => {
   return (
     <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
@@ -131,7 +169,11 @@ export const PipelineStepsColumn = ({
     >
       <ol className="flex flex-col gap-1.5">
         {steps.map((step, index) => {
+          const isPipelineStep = step.kind === "pipeline";
           const agentKey = `${step.agentId}@${step.agentVersion}`;
+          const stepLabel = isPipelineStep
+            ? (step.targetPipeline?.name ?? "pipeline")
+            : agentKey;
           const description = agentByKey.get(agentKey)?.description ?? null;
           const isSelected = selectedStepId === step.id;
           const moveUpStepIds = JSON.stringify(
@@ -161,21 +203,25 @@ export const PipelineStepsColumn = ({
               >
                 {stepPosition}
               </span>
-              <button
-                type="button"
-                aria-pressed={isSelected}
-                onClick={() => onSelectStep(isSelected ? null : step.id)}
-                className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-sm text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              >
-                <span className="truncate font-mono text-sm font-medium">
-                  {agentKey}
-                </span>
-                {description ? (
-                  <span className="truncate text-xs text-muted-foreground">
-                    {description}
+              {isPipelineStep ? (
+                <PipelineStepLabel targetPipeline={step.targetPipeline} />
+              ) : (
+                <button
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => onSelectStep(isSelected ? null : step.id)}
+                  className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-sm text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                >
+                  <span className="truncate font-mono text-sm font-medium">
+                    {agentKey}
                   </span>
-                ) : null}
-              </button>
+                  {description ? (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {description}
+                    </span>
+                  ) : null}
+                </button>
+              )}
               <div className="flex shrink-0 items-center">
                 {canMoveUp ? (
                   <ReorderForm className="inline">
@@ -248,7 +294,7 @@ export const PipelineStepsColumn = ({
                     size="icon-sm"
                     className="size-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     disabled={pending}
-                    aria-label={`Remove step ${agentKey}`}
+                    aria-label={`Remove step ${stepLabel}`}
                   >
                     <Trash2 aria-hidden />
                   </Button>

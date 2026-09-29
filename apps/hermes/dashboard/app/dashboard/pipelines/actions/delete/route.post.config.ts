@@ -1,6 +1,7 @@
 import { prisma } from "@hermes/orchestration-database";
 import {
   createRequestValidator,
+  errorResponse,
   HandlerFunc,
   successResponse,
 } from "route-action-gen/lib";
@@ -42,6 +43,19 @@ export const createDeletePipelineHandler = ({
   db = prisma,
 }: DeletePipelineHandlerDependencies = {}): DeletePipelineHandler => {
   return async (data) => {
+    const referencingSteps = await db.pipelineStep.findMany({
+      where: { targetPipelineId: data.body.pipelineId },
+      select: { pipeline: { select: { name: true } } },
+    });
+    if (referencingSteps.length > 0) {
+      const pipelineNames = [
+        ...new Set(referencingSteps.map((step) => step.pipeline.name)),
+      ].join(", ");
+
+      return errorResponse(
+        `Used as a step in: ${pipelineNames}. Remove those steps first.`,
+      );
+    }
     await db.pipeline.delete({
       where: { id: data.body.pipelineId },
     });

@@ -68,8 +68,16 @@ async function assertStepsCompatibleWithDomainIntegration(
   pipelineId: string,
   domainIntegrationId: string,
 ): Promise<string | undefined> {
+  const linkedPipelineStepCount = await db.pipelineStep.count({
+    where: {
+      OR: [{ pipelineId, kind: "pipeline" }, { targetPipelineId: pipelineId }],
+    },
+  });
+  if (linkedPipelineStepCount > 0) {
+    return "This pipeline runs another pipeline or is run by one. Remove those pipeline steps before switching domain.";
+  }
   const existingSteps = await db.pipelineStep.findMany({
-    where: { pipelineId },
+    where: { pipelineId, kind: "agent" },
     select: { agentId: true, agentVersion: true },
   });
   const agentKeys = [
@@ -108,6 +116,12 @@ async function syncPipelineSteps(
   steps: Array<{ agentId: string; agentVersion: string }>,
   domainIntegrationId: string,
 ): Promise<string | undefined> {
+  const pipelineStepCount = await db.pipelineStep.count({
+    where: { pipelineId, kind: "pipeline" },
+  });
+  if (pipelineStepCount > 0) {
+    return "This pipeline has steps that run other pipelines, so its steps can't be replaced in one go. Edit them one at a time.";
+  }
   const agentKeys = [
     ...new Set(steps.map((s) => `${s.agentId}@${s.agentVersion}`)),
   ];

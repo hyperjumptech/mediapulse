@@ -45,15 +45,17 @@ describe("getManualPipelineExecutionDetail", () => {
       manualPipelineStepExecutions: [
         {
           pipelineStepId: stepId,
+          position: 0,
           expectedInvocationCount: 2,
           succeededCount: 0,
           failedCount: 0,
           rollupStatus: "running",
           pipelineStep: {
-            id: stepId,
             order: 0,
             agentId: "article-analysis",
             agentVersion: "1.0.0",
+            pipelineId: "pipe-1",
+            pipeline: { name: "P" },
           },
         },
       ],
@@ -102,6 +104,7 @@ describe("getManualPipelineExecutionDetail", () => {
     expect(step?.succeededCount).toBe(0);
     expect(step?.failedCount).toBe(1);
     expect(step?.rollupStatus).toBe("running");
+    expect(step?.sourcePipelineName).toBeNull();
   });
 
   it("computes terminal step rollup when all jobs finished", async () => {
@@ -128,15 +131,17 @@ describe("getManualPipelineExecutionDetail", () => {
       manualPipelineStepExecutions: [
         {
           pipelineStepId: stepId,
+          position: 0,
           expectedInvocationCount: 2,
           succeededCount: 2,
           failedCount: 0,
           rollupStatus: "success",
           pipelineStep: {
-            id: stepId,
             order: 0,
             agentId: "a",
             agentVersion: "1.0.0",
+            pipelineId: "pipe-1",
+            pipeline: { name: "P" },
           },
         },
       ],
@@ -207,11 +212,13 @@ describe("getManualPipelineExecutionSummary", () => {
     failedInvocationCount: 0,
     errors: null,
     metadata: { source: "dashboard" },
+    runParams: { itemId: "item-1" },
     createdAt: new Date("2026-04-21T12:00:00.000Z"),
     pipeline: { id: "pipe-1", name: "P" },
     manualPipelineStepExecutions: [
       {
         pipelineStepId: stepId,
+        position: 0,
         expectedInvocationCount: 2,
         succeededCount: 0,
         failedCount: 0,
@@ -220,6 +227,8 @@ describe("getManualPipelineExecutionSummary", () => {
           order: 0,
           agentId: "article-analysis",
           agentVersion: "1.0.0",
+          pipelineId: "pipe-1",
+          pipeline: { name: "P" },
         },
       },
     ],
@@ -267,7 +276,27 @@ describe("getManualPipelineExecutionSummary", () => {
       expect.objectContaining({
         where: { id: "exec-1", pipelineId: "pipe-1" },
         select: expect.objectContaining({
+          runParams: true,
           pipeline: { select: { id: true, name: true } },
+          manualPipelineStepExecutions: {
+            select: {
+              pipelineStepId: true,
+              position: true,
+              expectedInvocationCount: true,
+              succeededCount: true,
+              failedCount: true,
+              rollupStatus: true,
+              pipelineStep: {
+                select: {
+                  order: true,
+                  agentId: true,
+                  agentVersion: true,
+                  pipelineId: true,
+                  pipeline: { select: { name: true } },
+                },
+              },
+            },
+          },
           agentJobExecutions: {
             orderBy: { enqueuedAt: "asc" },
             select: {
@@ -300,9 +329,11 @@ describe("getManualPipelineExecutionSummary", () => {
     // Assert
     expect(summary?.execution.succeededInvocationCount).toBe(0);
     expect(summary?.execution.failedInvocationCount).toBe(1);
+    expect(summary?.execution.runParams).toEqual({ itemId: "item-1" });
     expect(summary?.stepExecutions[0]).toMatchObject({
       pipelineStepId: stepId,
       stepOrder: 0,
+      sourcePipelineName: null,
       succeededCount: 0,
       failedCount: 1,
       rollupStatus: "running",

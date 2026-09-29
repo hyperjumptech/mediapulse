@@ -15,6 +15,7 @@ import {
   toInvocationSummary,
   toStepExecutionSummaries,
   type ExecutionSummary,
+  type StepExecutionSummary,
   type InvocationSummary,
 } from "./execution-summary";
 
@@ -503,16 +504,7 @@ export type ManualPipelineExecutionDetail = {
     createdAt: Date;
   };
   pipeline: { id: string; name: string };
-  stepExecutions: Array<{
-    pipelineStepId: string;
-    stepOrder: number;
-    agentId: string;
-    agentVersion: string;
-    expectedInvocationCount: number;
-    succeededCount: number;
-    failedCount: number;
-    rollupStatus: string;
-  }>;
+  stepExecutions: StepExecutionSummary[];
   invocations: Array<{
     jobId: string;
     status: string;
@@ -540,18 +532,7 @@ export const getManualPipelineExecutionDetail = async (
     where: { id: executionId, pipelineId },
     include: {
       pipeline: { select: { id: true, name: true } },
-      manualPipelineStepExecutions: {
-        include: {
-          pipelineStep: {
-            select: {
-              id: true,
-              order: true,
-              agentId: true,
-              agentVersion: true,
-            },
-          },
-        },
-      },
+      manualPipelineStepExecutions: { select: stepExecutionSummarySelect },
       agentJobExecutions: {
         orderBy: { enqueuedAt: "asc" },
         select: {
@@ -582,18 +563,10 @@ export const getManualPipelineExecutionDetail = async (
   const { succeededInvocationCount, failedInvocationCount } =
     deriveManualInvocationCountsFromJobs(jobRows);
 
-  const stepExecutionsBase = row.manualPipelineStepExecutions
-    .map((item) => ({
-      pipelineStepId: item.pipelineStepId,
-      stepOrder: item.pipelineStep.order,
-      agentId: item.pipelineStep.agentId,
-      agentVersion: item.pipelineStep.agentVersion,
-      expectedInvocationCount: item.expectedInvocationCount,
-      succeededCount: item.succeededCount,
-      failedCount: item.failedCount,
-      rollupStatus: item.rollupStatus,
-    }))
-    .sort((left, right) => left.stepOrder - right.stepOrder);
+  const stepExecutionsBase = toStepExecutionSummaries(
+    row.manualPipelineStepExecutions,
+    row.pipeline.id,
+  );
 
   const stepExecutions = deriveManualStepExecutionsFromJobs(
     stepExecutionsBase,
@@ -673,7 +646,7 @@ export const getManualPipelineExecutionSummary = async (
   const { succeededInvocationCount, failedInvocationCount } =
     deriveManualInvocationCountsFromJobs(row.agentJobExecutions);
   const stepExecutions = deriveManualStepExecutionsFromJobs(
-    toStepExecutionSummaries(row.manualPipelineStepExecutions),
+    toStepExecutionSummaries(row.manualPipelineStepExecutions, row.pipeline.id),
     row.agentJobExecutions,
     executionConfig.stepRollupPolicy,
   );

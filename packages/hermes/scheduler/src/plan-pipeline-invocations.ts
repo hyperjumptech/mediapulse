@@ -50,7 +50,7 @@ type PipelineForPlanning = {
   steps: PipelineStepForPlanning[];
 };
 
-type PlanPipelineInvocationsArgs = {
+export type PlanPipelineInvocationsArgs = {
   db: PrismaClient;
   pipeline: PipelineForPlanning;
   sourceId: string;

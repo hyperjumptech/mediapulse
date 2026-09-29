@@ -44,6 +44,7 @@ describe("createUpdateStepHandler", () => {
       pipelineStep: {
         findFirst: vi.fn().mockResolvedValue({
           id: "s-1",
+          kind: "agent",
           pipelineId: "p-1",
           order: 0,
           agentId: "ag0",
@@ -79,6 +80,7 @@ describe("createUpdateStepHandler", () => {
       pipelineStep: {
         findFirst: vi.fn().mockResolvedValue({
           id: "s-1",
+          kind: "agent",
           pipelineId: "p-1",
           order: 0,
           agentId: "ag0",
@@ -133,6 +135,7 @@ describe("createUpdateStepHandler", () => {
       pipelineStep: {
         findFirst: vi.fn().mockResolvedValue({
           id: "s-1",
+          kind: "agent",
           pipelineId: "p-1",
           order: 0,
           agentId: "ag0",
@@ -196,6 +199,47 @@ describe("createUpdateStepHandler", () => {
       },
     });
   });
+
+  it("refuses to edit a step that runs another pipeline", async () => {
+    const update = vi.fn();
+    const db = {
+      pipelineStep: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "s-1",
+          kind: "pipeline",
+          pipelineId: "p-1",
+          order: 0,
+          agentId: null,
+          agentVersion: null,
+          targetPipelineId: "p-2",
+        }),
+        update,
+      },
+      agentRegistry: { findFirst: vi.fn() },
+    };
+    const handler = createUpdateStepHandler({ db: db as never });
+
+    const result = await handler({
+      body: {
+        pipelineId: "p-1",
+        stepId: "s-1",
+        agentId: "ag1",
+        agentVersion: "1",
+        input: {},
+        config: {},
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    expect(result.status).toBe(false);
+    expect((result as { message?: string }).message).toContain(
+      "runs another pipeline",
+    );
+    expect(update).not.toHaveBeenCalled();
+  });
 });
 
 describe("handler", () => {
@@ -208,6 +252,7 @@ describe("handler", () => {
       pipelineStep: {
         findFirst: vi.fn().mockResolvedValue({
           id: "s-1",
+          kind: "agent",
           pipelineId: "p-1",
           order: 0,
           agentId: "ag0",

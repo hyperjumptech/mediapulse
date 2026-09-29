@@ -9,6 +9,7 @@ import {
   toInvocationSummary,
   toStepExecutionSummaries,
   type ExecutionSummary,
+  type StepExecutionSummary,
   type InvocationSummary,
 } from "./execution-summary";
 import {
@@ -188,16 +189,7 @@ export type ScheduleExecutionDetail = {
   };
   pipeline: { id: string; name: string } | null;
   schedule: { id: string; name: string };
-  stepExecutions: Array<{
-    pipelineStepId: string;
-    stepOrder: number;
-    agentId: string;
-    agentVersion: string;
-    expectedInvocationCount: number;
-    succeededCount: number;
-    failedCount: number;
-    rollupStatus: string;
-  }>;
+  stepExecutions: StepExecutionSummary[];
   invocations: Array<{
     jobId: string;
     status: string;
@@ -225,18 +217,7 @@ export const getScheduleExecutionDetail = async (
     where: { id: executionId, scheduleId },
     include: {
       schedule: { select: { id: true, name: true, pipelineId: true } },
-      scheduleStepExecutions: {
-        include: {
-          pipelineStep: {
-            select: {
-              id: true,
-              order: true,
-              agentId: true,
-              agentVersion: true,
-            },
-          },
-        },
-      },
+      scheduleStepExecutions: { select: stepExecutionSummarySelect },
       agentJobExecutions: {
         orderBy: { enqueuedAt: "asc" },
         select: {
@@ -265,18 +246,10 @@ export const getScheduleExecutionDetail = async (
     select: { id: true, name: true },
   });
 
-  const stepExecutions = row.scheduleStepExecutions
-    .map((se) => ({
-      pipelineStepId: se.pipelineStepId,
-      stepOrder: se.pipelineStep.order,
-      agentId: se.pipelineStep.agentId,
-      agentVersion: se.pipelineStep.agentVersion,
-      expectedInvocationCount: se.expectedInvocationCount,
-      succeededCount: se.succeededCount,
-      failedCount: se.failedCount,
-      rollupStatus: se.rollupStatus,
-    }))
-    .sort((a, b) => a.stepOrder - b.stepOrder);
+  const stepExecutions = toStepExecutionSummaries(
+    row.scheduleStepExecutions,
+    row.schedule.pipelineId,
+  );
 
   return {
     execution: {
@@ -355,7 +328,10 @@ export const getScheduleExecutionSummary = async (
     execution: toExecutionSummary(row),
     pipeline: row.schedule.pipeline,
     schedule: { id: row.schedule.id, name: row.schedule.name },
-    stepExecutions: toStepExecutionSummaries(row.scheduleStepExecutions),
+    stepExecutions: toStepExecutionSummaries(
+      row.scheduleStepExecutions,
+      row.schedule.pipeline?.id ?? null,
+    ),
     invocations: row.agentJobExecutions.map(toInvocationSummary),
   };
 };

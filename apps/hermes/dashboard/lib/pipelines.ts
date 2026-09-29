@@ -17,7 +17,10 @@ export const getPipelineWithSteps = async (
   return db.pipeline.findUnique({
     where: { id: pipelineId },
     include: {
-      steps: { orderBy: { order: "asc" } },
+      steps: {
+        orderBy: { order: "asc" },
+        include: { targetPipeline: { select: { id: true, name: true } } },
+      },
       createdBy: { select: { id: true, name: true, email: true } },
     },
   });

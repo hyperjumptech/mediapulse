@@ -102,8 +102,12 @@ describe("getPipelineOptionsWithValidation", () => {
         steps: {
           orderBy: { order: "asc" },
           select: {
+            id: true,
+            order: true,
+            kind: true,
             agentId: true,
             agentVersion: true,
+            targetPipelineId: true,
             agentConfigId: true,
             input: true,
             config: true,

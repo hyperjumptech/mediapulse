@@ -361,6 +361,92 @@ describe("createRunPipelineHandler", () => {
     expect(batch[0]?.payload.body.input).toEqual({ id: "item-9" });
   });
 
+  it("runs a pipeline whose step includes another pipeline", async () => {
+    const enqueueMock = vi.fn().mockResolvedValue(undefined);
+    const stubs = createExecutionPersistenceStubs();
+    const rootPipeline = {
+      ...createPipelineWithSteps(),
+      timeout: null,
+      steps: [
+        {
+          id: "include-child",
+          order: 0,
+          kind: "pipeline",
+          agentId: null,
+          agentVersion: null,
+          targetPipelineId: "p-child",
+          agentConfigId: null,
+          agentContractId: null,
+          input: { id: "{{params.itemId}}" },
+          config: {},
+          agentConfig: null,
+        },
+      ],
+    };
+    const childPipeline = {
+      ...createPipelineWithSteps(),
+      id: "p-child",
+      name: "Child",
+      timeout: 900_000,
+    };
+    const findUnique = vi.fn(async ({ where }: { where: { id: string } }) =>
+      where.id === "p-child" ? childPipeline : rootPipeline,
+    );
+    const registryAgent = {
+      agentId: "ag1",
+      agentVersion: "1.0.0",
+      domainIntegrationId: "di-1",
+      endpoint: { url: "https://agent.example/run", method: "POST" },
+      inputSchema: null,
+      configSchema: null,
+      isActive: true,
+    };
+    const handler = createRunPipelineHandler({
+      expandStepInputs: async (ctx) => [ctx.input],
+      enqueueManualAgentInvocations: enqueueMock,
+      db: {
+        ...stubs,
+        pipeline: { findUnique },
+        variable: { findMany: vi.fn().mockResolvedValue([]) },
+        agentRegistry: {
+          findFirst: vi.fn().mockResolvedValue(registryAgent),
+          findMany: vi.fn().mockResolvedValue([registryAgent]),
+        },
+        agentConfig: { findFirst: vi.fn().mockResolvedValue(null) },
+      } as never,
+    });
+
+    const result = await handler(
+      request({ pipelineId: "p-1", params: { itemId: "item-3" } }),
+    );
+
+    expect(result.status).toBe(true);
+    expect(result).toMatchObject({ data: { ok: true, invocationsRun: 1 } });
+    const batch = enqueueMock.mock.calls[0]?.[0] as Array<{
+      payload: {
+        pipelineId: string;
+        pipelineStepId: string;
+        timeoutMs: number;
+        body: { input: Record<string, unknown> };
+      };
+    }>;
+    expect(batch[0]?.payload).toMatchObject({
+      pipelineId: "p-1",
+      pipelineStepId: "s1",
+      timeoutMs: 900_000,
+      body: { input: { id: "item-3" } },
+    });
+    expect(stubs.manualPipelineStepExecution.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          pipelineStepId: "s1",
+          position: 0,
+          expectedInvocationCount: 1,
+        }),
+      ],
+    });
+  });
+
   it("enqueues one invoke_agent job and returns running status", async () => {
     const enqueueMock = vi.fn().mockResolvedValue(undefined);
     const handler = createRunPipelineHandler({

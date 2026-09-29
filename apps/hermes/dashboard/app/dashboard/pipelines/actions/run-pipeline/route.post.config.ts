@@ -10,9 +10,9 @@ import {
   ScheduleStepRollupStatus,
 } from "@hermes/orchestration-database";
 import {
+  composeAndPlanPipelineRun,
   diagnosticFromCaughtError,
   mergeExecutionConfig,
-  planPipelineInvocations,
   redactSecretValues,
   resolveInvokeAgentJobTimeoutMs,
   type EnqueueDiagnosticEntry,
@@ -287,11 +287,14 @@ export const createRunPipelineHandler = ({
           id: pipeline.id,
           name: pipeline.name,
           domainIntegrationId: pipeline.domainIntegrationId,
+          timeout: pipeline.timeout,
           steps: pipeline.steps.map((step) => ({
             id: step.id,
             order: step.order,
+            kind: step.kind,
             agentId: step.agentId,
             agentVersion: step.agentVersion,
+            targetPipelineId: step.targetPipelineId,
             agentConfigId: step.agentConfigId,
             agentContractId: step.agentContractId,
             input: step.input,
@@ -313,22 +316,22 @@ export const createRunPipelineHandler = ({
         return errorResponse(`Pipeline is invalid: ${warningText}`);
       }
 
-      const invokeRequestTimeoutMs =
-        pipeline.timeout ?? MANUAL_INVOKE_AGENT_REQUEST_TIMEOUT_MS;
-
       const effectiveExecutionConfig = mergeExecutionConfig(
         pipeline.executionConfig,
         null,
       );
       const runParams = data.body.params ?? {};
       const hasRunParams = Object.keys(runParams).length > 0;
-      const planning = await planPipelineInvocations({
+      const planning = await composeAndPlanPipelineRun({
         db,
-        pipeline: {
+        root: {
           id: pipeline.id,
+          name: pipeline.name,
+          timeout: pipeline.timeout,
           domainIntegrationId: pipeline.domainIntegrationId,
           steps: pipeline.steps,
         },
+        defaultTimeoutMs: MANUAL_INVOKE_AGENT_REQUEST_TIMEOUT_MS,
         sourceId: pipeline.id,
         expandStepInputs,
         variableSecretMasterKey: env.HERMES_INTERNAL_API_KEY,
@@ -422,11 +425,12 @@ export const createRunPipelineHandler = ({
       }
 
       await db.manualPipelineStepExecution.createMany({
-        data: pipeline.steps.map((step) => {
+        data: planning.composedSteps.map((step) => {
           const expectedInvocationCount = stepExpected.get(step.id) ?? 0;
           return {
             manualExecutionId: execution.id,
             pipelineStepId: step.id,
+            position: step.position,
             expectedInvocationCount,
             rollupStatus:
               expectedInvocationCount > 0
@@ -456,7 +460,7 @@ export const createRunPipelineHandler = ({
           effectiveExecutionConfig.stepOrder === "sequential" &&
           lastWaveIndices.length > 0;
         for (const job of wave) {
-          const step = pipeline.steps.find(
+          const step = planning.composedSteps.find(
             (item) => item.id === job.pipelineStepId,
           );
           if (!step) {
@@ -497,7 +501,7 @@ export const createRunPipelineHandler = ({
                   ? { contract: job.contract }
                   : {}),
               },
-              timeoutMs: invokeRequestTimeoutMs,
+              timeoutMs: job.timeoutMs,
               priority: 0,
             },
             dependsOnBatchIndices: useSequentialDeps

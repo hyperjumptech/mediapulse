@@ -9,10 +9,33 @@ A **pipeline** is a named workflow scoped to one [domain integration](/hermes/in
 ## What defines a pipeline
 
 - **Domain integration**: Every pipeline belongs to exactly one integration. Step agents must be registered for that same integration.
-- **Steps**: Ordered by `order`. Each step references `agentId`, `agentVersion`, optional saved **agent config**, and JSON `input` / `config` (see [step input syntax](/hermes/packages/hermes-step-input-syntax)).
+- **Steps**: Ordered by `order`. An **agent step** references `agentId`, `agentVersion`, optional saved **agent config**, and JSON `input` / `config` (see [step input syntax](/hermes/packages/hermes-step-input-syntax)). A **pipeline step** runs another pipeline (see [Pipeline steps](#pipeline-steps)).
 - **Active**: When `isActive` is off, the pipeline is treated as disabled for scheduling and similar flows (see [pipeline status](#pipeline-status) below).
 - **Description & metadata**: Optional fields for operators; execution-specific options can use `executionConfig` where the product supports it.
 - **Agent request timeout** (optional, milliseconds): Upper bound for each agent HTTP POST during a run. Applies to **Run pipeline**, **schedules**, and **HTTP triggers** for this pipeline. When unset, Hermes uses a five-minute default.
+
+## Pipeline steps
+
+A pipeline step points at another pipeline in the same domain integration. When a run is planned, Hermes replaces the step with that pipeline's steps, in order, so one run executes both pipelines back to back. Nested pipeline steps are expanded the same way, up to three levels deep.
+
+The step's `input` holds **overrides**. Each key is merged into the input of every inlined step, replacing the value that step saved. With nesting, the outermost override wins. A common use is scoping a pipeline to one item for a single run:
+
+```json
+{ "itemId": "{{params.itemId}}" }
+```
+
+Each inlined step keeps its own saved config, contract and its own pipeline's agent request timeout. The run keeps one execution record, and its detail page labels inlined steps with the pipeline they came from, for example `Collection › collector@1.2.0`.
+
+Planning fails, and the run records the reason, when:
+
+- the target pipeline is missing or belongs to another domain integration,
+- the pipelines form a cycle,
+- nesting goes deeper than three levels,
+- or the same step would be reached twice, for example by including one pipeline in two places.
+
+A pipeline that another pipeline uses as a step can't be deleted until those steps are removed. The target pipeline's own **Active** flag is ignored when it is included. Only the pipeline being run decides.
+
+Pipeline steps are created through the orchestration database for now. The pipeline detail page shows them read-only with a link to the target.
 
 ## Editing and running
 

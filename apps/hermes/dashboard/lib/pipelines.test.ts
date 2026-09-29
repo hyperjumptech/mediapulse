@@ -49,7 +49,10 @@ describe("getPipelineWithSteps", () => {
     expect(db.pipeline.findUnique).toHaveBeenCalledWith({
       where: { id: "pid-1" },
       include: {
-        steps: { orderBy: { order: "asc" } },
+        steps: {
+          orderBy: { order: "asc" },
+          include: { targetPipeline: { select: { id: true, name: true } } },
+        },
         createdBy: { select: { id: true, name: true, email: true } },
       },
     });

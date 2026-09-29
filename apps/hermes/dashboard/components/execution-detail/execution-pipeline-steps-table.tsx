@@ -12,8 +12,14 @@ const PIPELINE_STEPS_TABLE_ID = "execution-pipeline-steps";
 const NUMBER_HEADER_CLASS_NAME = "w-24 text-right";
 const NUMBER_CELL_CLASS_NAME = "text-right tabular-nums";
 
-const agentLabelFor = (step: StepExecutionSummary) =>
-  `${step.agentId}@${step.agentVersion}`;
+const agentLabelFor = (step: StepExecutionSummary) => {
+  const agentLabel = `${step.agentId}@${step.agentVersion}`;
+  if (step.sourcePipelineName == null) {
+    return agentLabel;
+  }
+
+  return `${step.sourcePipelineName} › ${agentLabel}`;
+};
 
 const FailedCount = ({ count }: { count: number }) => {
   const className =

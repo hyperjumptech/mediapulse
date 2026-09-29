@@ -29,6 +29,7 @@ const baseSummary = (): ExecutionDetailSummary => ({
       stepOrder: 1,
       agentId: "summarizer",
       agentVersion: "1.2.0",
+      sourcePipelineName: null,
       expectedInvocationCount: 2,
       succeededCount: 1,
       failedCount: 1,

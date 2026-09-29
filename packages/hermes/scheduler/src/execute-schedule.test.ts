@@ -69,6 +69,8 @@ const createMockSchedule = (overrides?: Partial<DueSchedule>): DueSchedule =>
         {
           id: "step1",
           order: 0,
+          kind: "agent",
+          targetPipelineId: null,
           agentId: "agent-a",
           agentVersion: "1.0.0",
           pipelineId: "p1",
@@ -210,6 +212,8 @@ describe("executeSchedule", () => {
           {
             id: "step1",
             order: 0,
+            kind: "agent",
+            targetPipelineId: null,
             agentId: "agent-a",
             agentVersion: "1.0.0",
             pipelineId: "p1",
@@ -268,6 +272,8 @@ describe("executeSchedule", () => {
           {
             id: "step1",
             order: 0,
+            kind: "agent",
+            targetPipelineId: null,
             agentId: "agent-a",
             agentVersion: "1.0.0",
             pipelineId: "p1",
@@ -318,6 +324,8 @@ describe("executeSchedule", () => {
           {
             id: "step1",
             order: 0,
+            kind: "agent",
+            targetPipelineId: null,
             agentId: "agent-a",
             agentVersion: "1.0.0",
             pipelineId: "p1",
@@ -380,6 +388,8 @@ describe("executeSchedule", () => {
           {
             id: "step1",
             order: 0,
+            kind: "agent",
+            targetPipelineId: null,
             agentId: "agent-a",
             agentVersion: "1.0.0",
             pipelineId: "p1",
@@ -634,6 +644,8 @@ describe("executeSchedule", () => {
           {
             id: "step1",
             order: 0,
+            kind: "agent",
+            targetPipelineId: null,
             agentId: "agent-a",
             agentVersion: "1.0.0",
             pipelineId: "p1",
@@ -776,8 +788,10 @@ describe("executeSchedule", () => {
       ({
         id,
         order,
+        kind: "agent",
         agentId,
         agentVersion: "1.0.0",
+        targetPipelineId: null,
         pipelineId: "p1",
         input: { tickerId: "db:userTicker:tickerId" },
         config: {},
@@ -920,6 +934,131 @@ describe("executeSchedule", () => {
         existingRunStatus: "running",
       }),
       "executeSchedule: skipping tick — prior execution is still non-terminal",
+    );
+  });
+
+  it("runs the steps of an included pipeline with its timeout and records their positions", async () => {
+    const now = new Date();
+    const stepExecutionCreateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const db = createMockDb();
+    db.$transaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({
+        scheduleExecution: {
+          create: vi.fn().mockResolvedValue({ id: "se-1" }),
+        },
+        scheduleStepExecution: { createMany: stepExecutionCreateMany },
+        agentJobExecution: {
+          createMany: vi.fn().mockResolvedValue({ count: 0 }),
+        },
+      }),
+    );
+    const childPipeline = {
+      id: "child",
+      name: "Child",
+      timeout: 900_000,
+      domainIntegrationId: "di-1",
+      steps: [
+        {
+          id: "child-step",
+          order: 0,
+          kind: "agent" as const,
+          agentId: "agent-a",
+          agentVersion: "1.0.0",
+          targetPipelineId: null,
+          input: { itemId: "db:item:id" },
+          config: {},
+          agentConfigId: null,
+          agentConfig: null,
+          agentContractId: null,
+          agentContract: null,
+        },
+      ],
+    };
+    const findUnique = vi.fn().mockResolvedValue(childPipeline);
+    const schedule = createMockSchedule();
+    schedule.pipeline.steps = [
+      schedule.pipeline.steps[0]!,
+      {
+        ...schedule.pipeline.steps[0]!,
+        id: "include-child",
+        order: 1,
+        kind: "pipeline",
+        agentId: null,
+        agentVersion: null,
+        targetPipelineId: "child",
+        input: { itemId: "item-1" },
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
+
+    await executeSchedule(schedule, {
+      db: {
+        ...db,
+        pipeline: { findUnique },
+      } as unknown as ExecuteScheduleDeps["db"],
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      enqueueAgentInvocations,
+      defaultTimeoutMs: 300_000,
+    });
+
+    const [items] = enqueueAgentInvocations.mock.calls[0] as [
+      EnqueueInvokeAgentItem[],
+    ];
+    expect(items.map((item) => item.payload.pipelineStepId)).toEqual([
+      "step1",
+      "child-step",
+    ]);
+    expect(items.map((item) => item.payload.timeoutMs)).toEqual([
+      300_000, 900_000,
+    ]);
+    expect(items[1]?.payload.body.input).toEqual({ itemId: "item-1" });
+    expect(items[1]?.payload.pipelineId).toBe("p1");
+    expect(stepExecutionCreateMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ pipelineStepId: "step1", position: 0 }),
+        expect.objectContaining({ pipelineStepId: "child-step", position: 1 }),
+      ],
+    });
+  });
+
+  it("records a failed run without enqueueing when the composition is invalid", async () => {
+    const db = createMockDb();
+    const schedule = createMockSchedule();
+    schedule.pipeline.steps = [
+      {
+        ...schedule.pipeline.steps[0]!,
+        kind: "pipeline",
+        agentId: null,
+        agentVersion: null,
+        targetPipelineId: "missing",
+      },
+    ];
+    const enqueueAgentInvocations = vi.fn().mockResolvedValue(undefined);
+
+    await executeSchedule(schedule, {
+      db: {
+        ...db,
+        pipeline: { findUnique: vi.fn().mockResolvedValue(null) },
+      } as unknown as ExecuteScheduleDeps["db"],
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      enqueueAgentInvocations,
+    });
+
+    expect(enqueueAgentInvocations).not.toHaveBeenCalled();
+    expect(db.scheduleExecution.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          runStatus: "failed",
+          jobsCreated: 0,
+          errors: [
+            expect.objectContaining({
+              message: expect.stringContaining("no longer exists"),
+            }),
+          ],
+        }),
+      }),
     );
   });
 });

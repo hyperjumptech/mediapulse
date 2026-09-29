@@ -104,6 +104,128 @@ async function resetCascadeCancelledJobToPending(
   return result.rows.length > 0;
 }
 
+type StepExecutionPosition = { position: number | null };
+
+type PredecessorStep = { id: string };
+
+async function findStepExecutionPosition(
+  db: PrismaClient,
+  row: PendingOrphanRow,
+  executionKind: ExecutionKind,
+  pipelineStepId: string,
+): Promise<StepExecutionPosition | null> {
+  if (executionKind === "schedule" && row.scheduleExecutionId) {
+    return db.scheduleStepExecution.findUnique({
+      where: {
+        scheduleExecutionId_pipelineStepId: {
+          scheduleExecutionId: row.scheduleExecutionId,
+          pipelineStepId,
+        },
+      },
+      select: { position: true },
+    });
+  }
+  if (executionKind === "httpTrigger" && row.httpTriggerExecutionId) {
+    return db.httpTriggerStepExecution.findUnique({
+      where: {
+        httpTriggerExecutionId_pipelineStepId: {
+          httpTriggerExecutionId: row.httpTriggerExecutionId,
+          pipelineStepId,
+        },
+      },
+      select: { position: true },
+    });
+  }
+  if (executionKind === "manual" && row.manualExecutionId) {
+    return db.manualPipelineStepExecution.findUnique({
+      where: {
+        manualExecutionId_pipelineStepId: {
+          manualExecutionId: row.manualExecutionId,
+          pipelineStepId,
+        },
+      },
+      select: { position: true },
+    });
+  }
+
+  return null;
+}
+
+async function findPredecessorByPosition(
+  db: PrismaClient,
+  row: PendingOrphanRow,
+  executionKind: ExecutionKind,
+  position: number,
+): Promise<PredecessorStep | null> {
+  const where = { position: { lt: position } };
+  const orderBy = { position: "desc" } as const;
+  const select = { pipelineStepId: true } as const;
+  let predecessor: { pipelineStepId: string } | null = null;
+  if (executionKind === "schedule" && row.scheduleExecutionId) {
+    predecessor = await db.scheduleStepExecution.findFirst({
+      where: { scheduleExecutionId: row.scheduleExecutionId, ...where },
+      orderBy,
+      select,
+    });
+  } else if (executionKind === "httpTrigger" && row.httpTriggerExecutionId) {
+    predecessor = await db.httpTriggerStepExecution.findFirst({
+      where: { httpTriggerExecutionId: row.httpTriggerExecutionId, ...where },
+      orderBy,
+      select,
+    });
+  } else if (executionKind === "manual" && row.manualExecutionId) {
+    predecessor = await db.manualPipelineStepExecution.findFirst({
+      where: { manualExecutionId: row.manualExecutionId, ...where },
+      orderBy,
+      select,
+    });
+  }
+
+  return predecessor ? { id: predecessor.pipelineStepId } : null;
+}
+
+async function findPredecessorByStepOrder(
+  db: PrismaClient,
+  pipelineId: string,
+  pipelineStepId: string,
+): Promise<PredecessorStep | null> {
+  const thisStep = await db.pipelineStep.findUnique({
+    where: { id: pipelineStepId },
+    select: { order: true },
+  });
+  if (!thisStep) return null;
+
+  return db.pipelineStep.findFirst({
+    where: { pipelineId, order: { lt: thisStep.order } },
+    orderBy: { order: "desc" },
+    select: { id: true },
+  });
+}
+
+async function findPredecessorStep(
+  db: PrismaClient,
+  row: PendingOrphanRow,
+  executionKind: ExecutionKind,
+): Promise<PredecessorStep | null> {
+  if (!row.pipelineStepId || !row.pipelineId) return null;
+  const stepExecution = await findStepExecutionPosition(
+    db,
+    row,
+    executionKind,
+    row.pipelineStepId,
+  );
+  if (stepExecution?.position != null) {
+    return findPredecessorByPosition(
+      db,
+      row,
+      executionKind,
+      stepExecution.position,
+    );
+  }
+
+  return findPredecessorByStepOrder(db, row.pipelineId, row.pipelineStepId);
+}
+
 /**
  * Returns true when the immediate predecessor step's rollup status allows the
  * current step to proceed. For `partial`, consults `continueSequentialAfterPartial`
@@ -116,17 +238,7 @@ async function predecessorStepAllowsContinuation(
 ): Promise<boolean> {
   if (!row.pipelineStepId || !row.pipelineId) return false;
 
-  const thisStep = await db.pipelineStep.findUnique({
-    where: { id: row.pipelineStepId },
-    select: { order: true },
-  });
-  if (!thisStep) return false;
-
-  const predecessorStep = await db.pipelineStep.findFirst({
-    where: { pipelineId: row.pipelineId, order: { lt: thisStep.order } },
-    orderBy: { order: "desc" },
-    select: { id: true },
-  });
+  const predecessorStep = await findPredecessorStep(db, row, executionKind);
   if (!predecessorStep) return false; // First wave — cannot be cascade-cancelled from an upstream dep
 
   let predecessorRollup: ScheduleStepRollupStatus | null = null;

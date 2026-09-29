@@ -78,6 +78,7 @@ const createRegistryAgent = (
 const createDb = () => ({
   agentRegistry: { findMany: vi.fn().mockResolvedValue([]) },
   agentConfig: { findMany: vi.fn().mockResolvedValue([]) },
+  pipeline: { findUnique: vi.fn().mockResolvedValue(null) },
 });
 
 const asValidationDb = (
@@ -496,6 +497,112 @@ describe("validatePipeline", () => {
       },
     });
     expect(db.agentConfig.findMany).not.toHaveBeenCalled();
+  });
+
+  it("validates the agent steps of an included pipeline and labels them with the including step", async () => {
+    // Setup
+    const inputSchema = { type: "object", required: ["query"] };
+    const pipeline = createPipeline({
+      steps: [
+        createStep(),
+        createStep({
+          id: "s2",
+          order: 1,
+          kind: "pipeline",
+          agentId: null,
+          agentVersion: null,
+          targetPipelineId: "child",
+          input: { itemId: "{{params.itemId}}" },
+        }),
+      ],
+    });
+    const db = createDb();
+    db.pipeline.findUnique.mockResolvedValue({
+      id: "child",
+      name: "Child",
+      timeout: null,
+      domainIntegrationId: "di-1",
+      steps: [
+        {
+          id: "child-s1",
+          order: 0,
+          kind: "agent",
+          agentId: "child-agent",
+          agentVersion: "1.0.0",
+          targetPipelineId: null,
+          agentConfigId: null,
+          input: {},
+          config: {},
+        },
+      ],
+    });
+    db.agentRegistry.findMany.mockResolvedValue([
+      createRegistryAgent(),
+      createRegistryAgent({ agentId: "child-agent", inputSchema }),
+    ]);
+    validateDataSourceExpressionsMock.mockReturnValue({ valid: true });
+    collectEmptyRequiredStringErrorsMock.mockReturnValue([]);
+    validateWithJsonSchemaMock.mockReturnValue({
+      valid: false,
+      errors: ["/ query is required"],
+    });
+
+    // Act
+    const result = await validatePipeline(pipeline, asValidationDb(db));
+
+    // Assert
+    expect(result).toEqual({
+      valid: false,
+      warnings: [
+        "Step 2 (pipeline Child) › child-agent@1.0.0 input: / query is required",
+      ],
+    });
+    expect(db.pipeline.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "child" } }),
+    );
+    expect(db.agentRegistry.findMany.mock.calls[0]?.[0].where.OR).toEqual([
+      {
+        domainIntegrationId: "di-1",
+        agentId: "agent-a",
+        agentVersion: "1.0.0",
+      },
+      {
+        domainIntegrationId: "di-1",
+        agentId: "child-agent",
+        agentVersion: "1.0.0",
+      },
+    ]);
+    expect(validateWithJsonSchemaMock).toHaveBeenCalledWith(inputSchema, {
+      itemId: "{{params.itemId}}",
+    });
+  });
+
+  it("reports a composition error as a warning when an included pipeline no longer exists", async () => {
+    // Setup
+    const pipeline = createPipeline({
+      steps: [
+        createStep(),
+        createStep({
+          id: "s2",
+          order: 1,
+          kind: "pipeline",
+          agentId: null,
+          agentVersion: null,
+          targetPipelineId: "deleted-pipeline",
+        }),
+      ],
+    });
+    const db = createDb();
+    db.pipeline.findUnique.mockResolvedValue(null);
+
+    // Act
+    const result = await validatePipeline(pipeline, asValidationDb(db));
+
+    // Assert
+    expect(result).toEqual({
+      valid: false,
+      warnings: [expect.stringContaining("no longer exists")],
+    });
   });
 });
 
