@@ -11,7 +11,10 @@ import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutatio
 import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { getPipelineWithSteps } from "@/lib/pipelines";
 import { getPipelineStatus, validatePipeline } from "@/lib/validate-pipeline";
-import { createTokenHint, hashHttpTriggerToken } from "@/lib/http-trigger-auth";
+import {
+  createTokenHint,
+  hashHttpTriggerToken,
+} from "@hermes/domain-integration-crypto";
 
 /** Parsed and validated HTTP trigger update form body (also used in tests). */
 export const httpTriggerUpdateBodySchema = z.object({

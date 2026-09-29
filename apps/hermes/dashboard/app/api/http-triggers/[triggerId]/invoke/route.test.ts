@@ -26,7 +26,7 @@ vi.mock("@hermes/orchestration-database", () => ({
 import { GET, POST } from "./route";
 import { getHermesJobQueue } from "@/lib/hermes-job-queue";
 import { prisma } from "@hermes/orchestration-database";
-import { hashHttpTriggerToken } from "@/lib/http-trigger-auth";
+import { hashHttpTriggerToken } from "@hermes/domain-integration-crypto";
 
 describe("http trigger invoke route", () => {
   afterEach(() => {

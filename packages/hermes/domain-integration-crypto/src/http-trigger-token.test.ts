@@ -3,11 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createTokenHint,
+  generateHttpTriggerToken,
   hashHttpTriggerToken,
   verifyHttpTriggerToken,
-} from "./http-trigger-auth";
+} from "./http-trigger-token";
 
-describe("http-trigger-auth", () => {
+describe("http-trigger-token", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -58,5 +59,16 @@ describe("http-trigger-auth", () => {
 
     // Assert
     expect(ok).toBe(false);
+  });
+
+  it("generates distinct url-safe tokens that verify against their own hash", () => {
+    const first = generateHttpTriggerToken();
+    const second = generateHttpTriggerToken();
+
+    expect(first).not.toBe(second);
+    expect(first).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(verifyHttpTriggerToken(first, hashHttpTriggerToken(first))).toBe(
+      true,
+    );
   });
 });

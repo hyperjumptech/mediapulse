@@ -13,3 +13,9 @@ export {
   isEncryptedSecretVariablePayload,
   type EncryptedSecretVariablePayload,
 } from "./encrypt-secret-variable-value";
+export {
+  createTokenHint,
+  generateHttpTriggerToken,
+  hashHttpTriggerToken,
+  verifyHttpTriggerToken,
+} from "./http-trigger-token";

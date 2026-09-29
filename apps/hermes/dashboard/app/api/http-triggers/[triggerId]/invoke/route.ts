@@ -13,7 +13,7 @@ import {
   toHttpTriggerExecutionMetadata,
 } from "@/lib/collect-http-trigger-request-snapshot";
 import { getHermesJobQueue } from "@/lib/hermes-job-queue";
-import { verifyHttpTriggerToken } from "@/lib/http-trigger-auth";
+import { verifyHttpTriggerToken } from "@hermes/domain-integration-crypto";
 import { readHttpTriggerRunParams } from "@/lib/read-http-trigger-run-params";
 
 const parseBearerToken = (authorization: string | null): string | null => {
