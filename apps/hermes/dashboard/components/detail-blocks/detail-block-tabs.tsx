@@ -167,7 +167,7 @@ export const DetailBlockTabsView = ({
         className="min-w-0 gap-4"
       >
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-          <TabsList className="max-w-full justify-start overflow-x-auto">
+          <TabsList className="max-w-full justify-start overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {visibleTabs.map((tab, index) => {
               const count = tabCount(data, tab.countField);
 

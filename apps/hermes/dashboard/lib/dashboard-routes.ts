@@ -14,6 +14,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { parseDomainTableFormFieldsFromJsonSchema } from "./domain-table-form-schema";
+
 export type DashboardNavItem = {
   href: string;
   label: string;
@@ -61,6 +63,7 @@ const EXECUTIONS_SEGMENT = "executions";
 const EXECUTION_LABEL = "Execution";
 const DOMAIN_ITEM_LABEL = "Detail";
 const DOMAIN_ITEM_NEW_SEGMENT = "new";
+const DOMAIN_ITEM_EDIT_SEGMENT = "edit";
 const HERMES_CREATE_SEGMENTS = new Set(["new", "create"]);
 
 export const dashboardNavGroups: DashboardNavGroup[] = [
@@ -145,6 +148,7 @@ export const dashboardQuickCreateItems: DashboardQuickCreateItem[] = [
 export type DashboardPrimaryAction = {
   href: string;
   label: string;
+  intent?: "edit";
 };
 
 const createOnPage = (path: string) => `${path}?${CREATE_QUERY_PARAM}=1`;
@@ -274,17 +278,58 @@ const hasCreateSchemaProperties = (
   return Object.keys(properties).length > 0;
 };
 
+const resolveDomainCreateAction = (
+  view: DashboardView,
+  basePath: string,
+): DashboardPrimaryAction | null => {
+  if (
+    view.kind !== "resource-table" ||
+    !view.actions.create ||
+    !hasCreateSchemaProperties(view.createSchema)
+  ) {
+    return null;
+  }
+  const href =
+    view.createNavigation === "full-page"
+      ? `${basePath}/${DOMAIN_ITEM_NEW_SEGMENT}`
+      : createOnPage(basePath);
+
+  return { href, label: `Add ${view.label}` };
+};
+
+const resolveDomainEditAction = (
+  view: DashboardView,
+  itemPath: string,
+): DashboardPrimaryAction | null => {
+  if (
+    view.kind !== "resource-table" ||
+    view.createNavigation !== "full-page" ||
+    !view.actions.update ||
+    parseDomainTableFormFieldsFromJsonSchema(view.updateSchema).length === 0
+  ) {
+    return null;
+  }
+
+  return {
+    href: `${itemPath}/${DOMAIN_ITEM_EDIT_SEGMENT}`,
+    label: "Edit",
+    intent: "edit",
+  };
+};
+
 export const resolveDomainViewPrimaryAction = (
   pathname: string | null,
   domainIntegrations: readonly DomainIntegrationNav[],
 ): DashboardPrimaryAction | null => {
   const segments = (pathname ?? "").split("/").filter(Boolean);
   const [rootSegment, integrationSegment, resourceSegment, ...rest] = segments;
+  const [itemSegment, ...itemRest] = rest;
   if (
     rootSegment !== DASHBOARD_ROOT_SEGMENT ||
     !integrationSegment ||
     !resourceSegment ||
-    rest.length > 0 ||
+    itemRest.length > 0 ||
+    itemSegment === DOMAIN_ITEM_NEW_SEGMENT ||
     hermesSectionLabels.has(integrationSegment)
   ) {
     return null;
@@ -297,20 +342,14 @@ export const resolveDomainViewPrimaryAction = (
   const view = integration?.views.find(
     (candidate) => candidate.pathSegment === resource,
   );
-  if (
-    view?.kind !== "resource-table" ||
-    !view.actions.create ||
-    !hasCreateSchemaProperties(view.createSchema)
-  ) {
+  if (!view) {
     return null;
   }
   const basePath = `${DASHBOARD_ROOT_PATH}/${integrationSegment}/${resourceSegment}`;
-  const href =
-    view.createNavigation === "full-page"
-      ? `${basePath}/${DOMAIN_ITEM_NEW_SEGMENT}`
-      : createOnPage(basePath);
 
-  return { href, label: `Add ${view.label}` };
+  return itemSegment
+    ? resolveDomainEditAction(view, `${basePath}/${itemSegment}`)
+    : resolveDomainCreateAction(view, basePath);
 };
 
 export const resolveDashboardPrimaryAction = (

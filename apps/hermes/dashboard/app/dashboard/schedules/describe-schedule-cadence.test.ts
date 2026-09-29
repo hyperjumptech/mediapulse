@@ -8,14 +8,12 @@ const HOUR = 60 * MINUTE;
 
 describe("describeScheduleCadence", () => {
   it("describes one-off schedules", () => {
-    // Act
     const cadence = describeScheduleCadence({
       repeat: "once",
       interval: HOUR,
       cronExpression: null,
     });
 
-    // Assert
     expect(cadence).toEqual({ label: "Once", isCronExpression: false });
   });
 
@@ -28,53 +26,66 @@ describe("describeScheduleCadence", () => {
     [90 * MINUTE, "Every 90m"],
     [10_000, "Every 1m"],
   ])("describes a %d ms interval as %s", (interval, expected) => {
-    // Act
     const cadence = describeScheduleCadence({
       repeat: "repeating",
       interval,
       cronExpression: null,
     });
 
-    // Assert
     expect(cadence).toEqual({ label: expected, isCronExpression: false });
   });
 
   it("names the midnight cron preset", () => {
-    // Act
     const cadence = describeScheduleCadence({
       repeat: "repeating",
       interval: null,
       cronExpression: " 0 0 * * * ",
     });
 
-    // Assert
     expect(cadence).toEqual({
       label: "Daily at midnight",
       isCronExpression: false,
     });
   });
 
-  it("returns custom cron expressions verbatim", () => {
-    // Act
+  it.each([
+    ["0 2 * * *", "Daily at 02:00"],
+    ["30 7 * * 1-5", "Weekdays at 07:30"],
+    ["15 9 * * 1", "Every Mon at 09:15"],
+    ["5 * * * *", "Hourly at :05"],
+  ])("puts the common cron %s into words", (cronExpression, label) => {
     const cadence = describeScheduleCadence({
       repeat: "repeating",
       interval: null,
-      cronExpression: "0 7 * * 1-5",
+      cronExpression,
     });
 
-    // Assert
-    expect(cadence).toEqual({ label: "0 7 * * 1-5", isCronExpression: true });
+    expect(cadence).toEqual({ label, isCronExpression: false });
   });
 
+  it.each(["0 7 1 * *", "*/15 * * * *", "0 25 * * *", "0 7 * * 1,3"])(
+    "returns the cron %s verbatim when it has no plain wording",
+    (cronExpression) => {
+      const cadence = describeScheduleCadence({
+        repeat: "repeating",
+        interval: null,
+        cronExpression,
+      });
+
+      expect(cadence).toEqual({
+        label: cronExpression,
+        isCronExpression: true,
+      });
+    },
+  );
+
   it("falls back when a repeating schedule has no interval or cron", () => {
-    // Act
     const cadence = describeScheduleCadence({
       repeat: "repeating",
       interval: 0,
       cronExpression: "  ",
     });
 
-    // Assert
     expect(cadence).toEqual({ label: "Repeating", isCronExpression: false });
   });
 });

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   evaluateDetailBlockRule,
   parseDetailBlockRule,
@@ -12,16 +13,18 @@ export const DetailBlockSectionHeader = ({
   label,
   sectionRule,
   data,
+  actions,
 }: {
   label?: string;
   sectionRule?: DetailBlockSectionRule;
   data: unknown;
+  actions?: ReactNode;
 }) => {
   const matches = sectionRule
     ? evaluateSectionRuleSafely(sectionRule, data)
     : false;
   const showLabel = typeof label === "string" && label.length > 0;
-  if (!showLabel && !matches) return null;
+  if (!showLabel && !matches && !actions) return null;
 
   return (
     <div
@@ -37,6 +40,9 @@ export const DetailBlockSectionHeader = ({
         <ToneBadge tone={mapBadgeTone(sectionRule.badge)}>
           {sectionRule.label}
         </ToneBadge>
+      ) : null}
+      {actions ? (
+        <div className="ml-auto flex items-center gap-1">{actions}</div>
       ) : null}
     </div>
   );

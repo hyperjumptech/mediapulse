@@ -22,6 +22,30 @@ const collectionGateBadgeTones = {
   [COLLECTION_GATE_STATUS_LABEL.failed]: "failed",
 } satisfies ManifestColumnBadgeTones;
 
+const dataSourcesOverviewBlock = {
+  type: "keyValue",
+  rows: [
+    {
+      field: "url",
+      label: "URL",
+      linkTemplate: "{url}",
+      copyAction: true,
+    },
+    { field: "tickerSymbol", label: "Ticker" },
+    { field: "searchQueryText", label: "Search query" },
+    { field: "collectionSourceLabel", label: "Collected by" },
+    { field: "createdAt", label: "Collected", format: "date-time" },
+  ],
+} satisfies DetailBlock;
+
+const dataSourcesContentBlock = {
+  type: "markdown",
+  label: "Content",
+  field: "content",
+  clampChars: 1200,
+  copyAction: true,
+} satisfies DetailBlock;
+
 const dataSourcesGateBlock = {
   type: "keyValue",
   label: "Collection gate",
@@ -127,5 +151,11 @@ export const dataSourcesDashboardPage = {
   ],
   actions: { create: false, update: false, delete: false, view: true },
   customActions: dataSourcesCustomActionsForManifest,
-  detailBlocks: [dataSourcesGateBlock, dataSourcesCuratedSourceBlock],
+  detailTitleField: "title",
+  detailBlocks: [
+    dataSourcesOverviewBlock,
+    dataSourcesGateBlock,
+    dataSourcesCuratedSourceBlock,
+    dataSourcesContentBlock,
+  ],
 } satisfies DashboardViewInput;

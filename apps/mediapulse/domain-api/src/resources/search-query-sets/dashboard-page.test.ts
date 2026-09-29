@@ -21,6 +21,20 @@ describe("searchQuerySetsDashboardPage", () => {
     );
   });
 
+  it("leaves ids and row timestamps off the detail page", () => {
+    const [details] = searchQuerySetsDashboardPage.detailBlocks ?? [];
+    const fields =
+      details?.type === "keyValue" ? details.rows.map((row) => row.field) : [];
+
+    expect(fields).toEqual([
+      "tickerName",
+      "isActive",
+      "generatedAt",
+      "generationSource",
+      "agentJobId",
+    ]);
+  });
+
   it("includes a queries subTable block", () => {
     const block = searchQuerySetsDashboardPage.detailBlocks?.find(
       (entry) => entry.type === "subTable" && entry.field === "queries",

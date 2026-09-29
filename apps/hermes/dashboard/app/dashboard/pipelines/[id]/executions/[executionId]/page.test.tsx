@@ -116,16 +116,7 @@ describe("PipelineExecutionDetailPage (manual execution)", () => {
     const region = await screen.findByRole("region", {
       name: /enqueue diagnostics/i,
     });
-    const enqueueStatusCard = screen
-      .getByText("Enqueue status", { selector: "dt span" })
-      .closest("[data-slot='card']");
-
     expect(within(region).getByText(ROUTE_ENQUEUE_ERROR_MESSAGE)).toBeVisible();
-    expect(enqueueStatusCard).toHaveTextContent("failed");
-    expect(screen.getByText("Invocation transport")).toBeInTheDocument();
-    expect(
-      screen.getByText("Dashboard HTTP (no DataQueue)"),
-    ).toBeInTheDocument();
   });
 
   it("describes a manual run with its full execution id and metadata hints", async () => {
@@ -135,11 +126,10 @@ describe("PipelineExecutionDetailPage (manual execution)", () => {
 
     await renderPage();
 
-    expect(screen.getByText(/Manual run/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Test pipeline" })).toHaveAttribute(
-      "href",
-      "/dashboard/pipelines/pipe-1",
-    );
+    expect(screen.getByText("Manual run")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Test pipeline" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText(EXECUTION_ID)).toBeInTheDocument();
     expect(
       screen.getByText("Started from: Dashboard (Run pipeline)"),

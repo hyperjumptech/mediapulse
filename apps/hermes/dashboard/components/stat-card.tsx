@@ -82,3 +82,50 @@ export const StatCardGrid = ({ children }: { children: ReactNode }) => (
     {children}
   </div>
 );
+
+export type StatTileProps = {
+  label: string;
+  value: ReactNode;
+  caption?: ReactNode;
+  labelAddon?: ReactNode;
+  valueClassName?: string;
+};
+
+export const StatTile = ({
+  label,
+  value,
+  caption,
+  labelAddon,
+  valueClassName,
+}: StatTileProps) => (
+  <Card data-slot="stat-tile" className="min-w-0 gap-1 px-4 py-3 shadow-none">
+    <dt className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+      <span className="truncate">{label}</span>
+      {labelAddon}
+    </dt>
+    <dd className="flex min-w-0 flex-col gap-0.5">
+      <span
+        className={cn(
+          "text-lg leading-snug font-semibold break-words text-foreground tabular-nums",
+          valueClassName,
+        )}
+      >
+        {value}
+      </span>
+      {caption ? (
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {caption}
+        </span>
+      ) : null}
+    </dd>
+  </Card>
+);
+
+export const StatTileGrid = ({ children }: { children: ReactNode }) => (
+  <dl
+    data-slot="stat-tile-grid"
+    className="grid grid-cols-2 gap-3 @3xl/main:grid-cols-4"
+  >
+    {children}
+  </dl>
+);

@@ -36,29 +36,15 @@ describe("mediapulseUsersDashboardPage", () => {
     expect(columnByKey("name")?.mobile).toBe("subtitle");
   });
 
-  it("declares user metadata and subscriptions detail blocks", () => {
-    const labels = mediapulseUsersDashboardPage.detailBlocks?.map(
-      (block) => block.label,
-    );
+  it("shows the user's name, status and sign-up date above their subscriptions", () => {
+    const [user, subscriptionsBlock] =
+      mediapulseUsersDashboardPage.detailBlocks ?? [];
+    const userFields =
+      user?.type === "keyValue" ? user.rows.map((row) => row.field) : [];
 
-    expect(labels).toEqual(["User", "Subscriptions"]);
-
-    const user = mediapulseUsersDashboardPage.detailBlocks?.find(
-      (block) => block.label === "User",
-    );
-
-    expect(user).toMatchObject({
-      type: "keyValue",
-      rows: expect.arrayContaining([
-        { field: "id", label: "User id", copyAction: true },
-      ]),
-    });
-
-    const subscriptions = mediapulseUsersDashboardPage.detailBlocks?.find(
-      (block) => block.label === "Subscriptions",
-    );
-
-    expect(subscriptions).toMatchObject({
+    expect(userFields).toEqual(["name", "enabled", "createdAt"]);
+    expect(subscriptionsBlock).toMatchObject({
+      label: "Subscriptions",
       type: "subTable",
       field: "subscriptions",
       emptyState: "No ticker subscriptions.",

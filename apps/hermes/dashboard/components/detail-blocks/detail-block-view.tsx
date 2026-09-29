@@ -2,6 +2,7 @@ import type { DetailBlock } from "@hermes/domain-contract";
 
 import { Card } from "@workspace/ui/components/card";
 
+import { detailBlockHasContent } from "./detail-block-content";
 import { DetailBlockSectionHeader } from "./detail-block-section-header";
 import { DetailBlockGraphView } from "./detail-block-graph";
 import { DetailBlockHtmlPreviewView } from "./detail-block-html-preview";
@@ -37,6 +38,13 @@ export const DetailBlockView = ({
     return <DetailBlockGraphView block={block} data={data} />;
   }
   if (block.type === "panel") {
+    const childrenWithContent = block.blocks.filter((child) =>
+      detailBlockHasContent(child, data),
+    );
+    if (childrenWithContent.length === 0) {
+      return null;
+    }
+
     return (
       <Card className="min-w-0 gap-4 p-4 shadow-none">
         <DetailBlockSectionHeader
@@ -45,7 +53,7 @@ export const DetailBlockView = ({
           data={data}
         />
         <div className="flex min-w-0 flex-col gap-6">
-          {block.blocks.map((child, index) => (
+          {childrenWithContent.map((child, index) => (
             <DetailBlockView
               key={`${child.type}-${String(index)}`}
               block={child}
@@ -69,14 +77,27 @@ export const DetailBlocksView = ({
 }: {
   blocks: readonly DetailBlock[];
   data: unknown;
-}) => (
-  <div className="flex min-w-0 flex-col gap-6">
-    {blocks.map((block, index) => (
-      <DetailBlockView
-        key={`${block.type}-${index}`}
-        block={block}
-        data={data}
-      />
-    ))}
-  </div>
-);
+}) => {
+  const blocksWithContent = blocks.filter((block) =>
+    detailBlockHasContent(block, data),
+  );
+  if (blocksWithContent.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        This item has no values to show.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex min-w-0 flex-col gap-6">
+      {blocksWithContent.map((block, index) => (
+        <DetailBlockView
+          key={`${block.type}-${index}`}
+          block={block}
+          data={data}
+        />
+      ))}
+    </div>
+  );
+};

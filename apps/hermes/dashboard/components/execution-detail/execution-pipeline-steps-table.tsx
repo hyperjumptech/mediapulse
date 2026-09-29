@@ -9,6 +9,9 @@ import type { StepExecutionSummary } from "@/lib/execution-summary";
 
 const PIPELINE_STEPS_TABLE_ID = "execution-pipeline-steps";
 
+const NUMBER_HEADER_CLASS_NAME = "w-24 text-right";
+const NUMBER_CELL_CLASS_NAME = "text-right tabular-nums";
+
 const agentLabelFor = (step: StepExecutionSummary) =>
   `${step.agentId}@${step.agentVersion}`;
 
@@ -21,19 +24,32 @@ const FailedCount = ({ count }: { count: number }) => {
   return <span className={className}>{count}</span>;
 };
 
+const SucceededOfExpected = ({
+  succeededCount,
+  expectedInvocationCount,
+}: {
+  succeededCount: number;
+  expectedInvocationCount: number;
+}) => (
+  <span>
+    {succeededCount}
+    <span className="text-muted-foreground"> / {expectedInvocationCount}</span>
+  </span>
+);
+
 const columnHelper = createDataTableColumnHelper<StepExecutionSummary>();
 
 const columns = columnHelper.columns([
-  columnHelper.accessor("stepOrder", {
-    id: "order",
+  columnHelper.display({
+    id: "position",
     enableHiding: false,
     meta: {
-      label: "Order",
-      mobile: "field",
-      headerClassName: "w-16",
+      label: "#",
+      mobile: "hidden",
+      headerClassName: "w-12",
       cellClassName: "text-muted-foreground tabular-nums",
     },
-    cell: ({ row }) => row.original.stepOrder,
+    cell: ({ row }) => row.index + 1,
   }),
   columnHelper.accessor(agentLabelFor, {
     id: "agent",
@@ -44,21 +60,26 @@ const columns = columnHelper.columns([
     ),
   }),
   columnHelper.accessor("rollupStatus", {
-    id: "rollup",
+    id: "status",
     enableHiding: false,
-    meta: { label: "Rollup", mobile: "badge" },
+    meta: { label: "Status", mobile: "badge", headerClassName: "w-32" },
     cell: ({ row }) => <StatusBadge status={row.original.rollupStatus} />,
   }),
   columnHelper.accessor("succeededCount", {
     id: "succeeded",
     enableHiding: false,
     meta: {
-      label: "OK",
+      label: "Succeeded",
       mobile: "field",
-      headerClassName: "text-right",
-      cellClassName: "text-right tabular-nums",
+      headerClassName: NUMBER_HEADER_CLASS_NAME,
+      cellClassName: NUMBER_CELL_CLASS_NAME,
     },
-    cell: ({ row }) => row.original.succeededCount,
+    cell: ({ row }) => (
+      <SucceededOfExpected
+        succeededCount={row.original.succeededCount}
+        expectedInvocationCount={row.original.expectedInvocationCount}
+      />
+    ),
   }),
   columnHelper.accessor("failedCount", {
     id: "failed",
@@ -66,21 +87,10 @@ const columns = columnHelper.columns([
     meta: {
       label: "Failed",
       mobile: "field",
-      headerClassName: "text-right",
-      cellClassName: "text-right tabular-nums",
+      headerClassName: NUMBER_HEADER_CLASS_NAME,
+      cellClassName: NUMBER_CELL_CLASS_NAME,
     },
     cell: ({ row }) => <FailedCount count={row.original.failedCount} />,
-  }),
-  columnHelper.accessor("expectedInvocationCount", {
-    id: "expected",
-    enableHiding: false,
-    meta: {
-      label: "Expected",
-      mobile: "field",
-      headerClassName: "text-right",
-      cellClassName: "text-right text-muted-foreground tabular-nums",
-    },
-    cell: ({ row }) => row.original.expectedInvocationCount,
   }),
 ]);
 
@@ -91,14 +101,15 @@ export const ExecutionPipelineStepsTable = ({
 }) => (
   <DataTable
     tableId={PIPELINE_STEPS_TABLE_ID}
+    title="Pipeline steps"
+    count={steps.length}
     columns={columns}
     rows={steps}
     getRowId={(step) => step.pipelineStepId}
     emptyState={{
       icon: ListOrdered,
       title: "No pipeline steps ran",
-      description:
-        "Nothing was enqueued for this execution, so no step rollups were recorded.",
+      description: "Nothing was enqueued for this execution.",
     }}
   />
 );

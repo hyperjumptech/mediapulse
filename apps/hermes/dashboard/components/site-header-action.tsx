@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, use } from "react";
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 
 import { Button } from "@workspace/ui/components/button";
 
@@ -34,11 +34,12 @@ const PrimaryAction = ({
   if (!action) {
     return null;
   }
+  const ActionIcon = action.intent === "edit" ? Pencil : Plus;
 
   return (
     <Button size="sm" asChild>
       <Link href={action.href} scroll={false} aria-label={action.label}>
-        <Plus aria-hidden />
+        <ActionIcon aria-hidden />
         <span className="hidden sm:inline">{action.label}</span>
       </Link>
     </Button>

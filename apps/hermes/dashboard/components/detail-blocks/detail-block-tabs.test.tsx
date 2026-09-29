@@ -274,7 +274,11 @@ describe("DetailBlockTabsView", () => {
 
     const tabList = screen.getByRole("tablist");
 
-    expect(tabList).toHaveClass("max-w-full", "overflow-x-auto");
+    expect(tabList).toHaveClass(
+      "max-w-full",
+      "overflow-x-auto",
+      "overflow-y-hidden",
+    );
     expect(tabList.parentElement).toHaveClass("flex-wrap");
   });
 

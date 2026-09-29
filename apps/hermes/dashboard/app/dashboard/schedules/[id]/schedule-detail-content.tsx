@@ -13,7 +13,6 @@ import { StatusBadge } from "@/components/status-badge";
 import { useDateTime } from "@/hooks/use-date-time";
 import { isValidTimeZone } from "@/lib/date-time/time-zone";
 import { SummaryGrid, SummaryItem } from "@/components/summary-grid";
-import { formatCreatedBy } from "@/lib/format-created-by";
 import type { getScheduleById } from "@/lib/schedules";
 import type { PipelineValidationResult } from "@/lib/validate-pipeline";
 
@@ -120,7 +119,6 @@ export const ScheduleDetailContent = ({
     useScheduleDetailContentState();
   const enabledStatus = schedule.enabled ? "enabled" : "disabled";
   const pipelineHref = `/dashboard/pipelines/${schedule.pipeline.id}`;
-  const createdBy = formatCreatedBy(schedule.createdBy, schedule.createdById);
   const description = schedule.description ?? undefined;
 
   return (
@@ -149,14 +147,10 @@ export const ScheduleDetailContent = ({
           <SummaryItem label="Repeats">
             <ScheduleCadenceValue schedule={schedule} />
           </SummaryItem>
-          <SummaryItem label="Timezone">{schedule.timezone}</SummaryItem>
+          <SummaryItem label="Time zone">{schedule.timezone}</SummaryItem>
           <SummaryItem label="Next run">
             <NextRunValue schedule={schedule} />
           </SummaryItem>
-          <SummaryItem label="Created">
-            <DateTime value={schedule.createdAt} style="datetime" />
-          </SummaryItem>
-          <SummaryItem label="Created by">{createdBy}</SummaryItem>
           {schedule.lastRecoveredAt ? (
             <SummaryItem label="Last recovered">
               <LastRecoveredValue

@@ -1,12 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil } from "lucide-react";
-
-import { Button } from "@workspace/ui/components/button";
 
 import { DetailBlocksView } from "@/components/detail-blocks";
 import { BreadcrumbEntityLabel } from "@/components/breadcrumb-entity-label";
-import { PageHeader } from "@/components/page-header";
 import { SummaryGrid, SummaryItem } from "@/components/summary-grid";
 import { getDomainIntegrationByIntegrationId } from "@/lib/domain-integrations";
 import {
@@ -20,11 +15,8 @@ import {
   type DomainTableCellFormatOptions,
   type DomainTableColumn,
 } from "@/lib/domain-table-columns";
-import { parseDomainTableFormFieldsFromJsonSchema } from "@/lib/domain-table-form-schema";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 import { isUnbrokenText } from "@/lib/unbroken-text";
-
-type DomainTableMeta = Awaited<ReturnType<typeof getDomainTableMeta>>;
 
 type DetailField = {
   key: string;
@@ -56,23 +48,6 @@ const resolveDomainTableDetailTitle = (
   return value.trim().length > 0 ? value : "Detail";
 };
 
-const resolveEditHref = (
-  meta: DomainTableMeta,
-  basePath: string,
-  itemId: string,
-): string | null => {
-  const isFullPageEditor = meta.createNavigation === "full-page";
-  const updateFields = parseDomainTableFormFieldsFromJsonSchema(
-    meta.updateSchema,
-  );
-  const canEdit = Boolean(meta.actions.update) && updateFields.length > 0;
-  if (!isFullPageEditor || !canEdit) {
-    return null;
-  }
-
-  return `${basePath}/${encodeURIComponent(itemId)}/edit`;
-};
-
 const collectDetailFields = (
   columns: DomainTableColumn[],
   row: Record<string, unknown>,
@@ -92,17 +67,6 @@ const collectDetailFields = (
 
     return [{ key: column.key, label: column.label, display, isLong }];
   });
-
-const EditItemAction = ({ editHref }: { editHref: string }) => {
-  return (
-    <Button variant="outline" asChild>
-      <Link href={editHref}>
-        <Pencil aria-hidden />
-        Edit
-      </Link>
-    </Button>
-  );
-};
 
 const ViewDomainTableItemPage = async ({
   params,
@@ -135,7 +99,6 @@ const ViewDomainTableItemPage = async ({
     now: new Date(renderedAt),
     style: "datetime",
   };
-  const basePath = `/dashboard/${integrationId}/${resource}`;
   const detailBlocks = meta.detailBlocks;
   const blockData = { ...row, integrationId, resource, itemId };
   const title = resolveDomainTableDetailTitle(
@@ -144,16 +107,7 @@ const ViewDomainTableItemPage = async ({
     formatOptions,
     meta.detailTitleField,
   );
-  const editHref = resolveEditHref(meta, basePath, itemId);
-  const editAction = editHref ? (
-    <EditItemAction editHref={editHref} />
-  ) : undefined;
-  const header = (
-    <>
-      <BreadcrumbEntityLabel segment={itemId} label={title} />
-      <PageHeader actions={editAction} />
-    </>
-  );
+  const header = <BreadcrumbEntityLabel segment={itemId} label={title} />;
 
   if (detailBlocks && detailBlocks.length > 0) {
     return (

@@ -24,11 +24,8 @@ export const feedbackSentimentBadgeTones = {
 
 const feedbackMetadataBlock = {
   type: "keyValue",
-  label: "Metadata",
   rows: [
-    { field: "id", label: "Feedback id", copyAction: true },
     { field: "senderEmail", label: "From", copyAction: true },
-    { field: "subject", label: "Subject" },
     { field: "receivedAt", label: "Received", format: "date-time" },
     { field: "sentiment", label: "Sentiment" },
     { field: "category", label: "Category" },
@@ -96,5 +93,6 @@ export const feedbackDashboardPage = {
     feedbackReceivedAtDateRangeListFilter,
   ],
   actions: { create: false, update: false, delete: false, view: true },
+  detailTitleField: "subject",
   detailBlocks: [feedbackMetadataBlock, feedbackBodyBlock],
 } satisfies DashboardViewInput;

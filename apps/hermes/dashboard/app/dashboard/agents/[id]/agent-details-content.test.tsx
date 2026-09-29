@@ -65,6 +65,7 @@ const createMockAgent = () => ({
   updatedAt: new Date("2026-09-28T11:00:00Z"),
   domainIntegration: {
     integrationId: "acme-local",
+    name: "Acme",
   },
 });
 
@@ -126,17 +127,17 @@ describe("AgentDetailsContent", () => {
     );
   });
 
-  it("summarizes integration, endpoint and timestamps", () => {
+  it("summarizes integration, endpoint and last update", () => {
     render(<AgentDetailsContent agent={createMockAgent()} />);
 
     const endpoint = summaryValue("Endpoint URL");
 
-    expect(summaryValue("Integration")).toHaveTextContent("acme-local");
-    expect(endpoint).toHaveTextContent("https://api.example.com/run");
+    expect(summaryValue("Integration")).toHaveTextContent("Acme");
+    expect(endpoint).toHaveTextContent("POSThttps://api.example.com/run");
     expect(
       within(endpoint).getByRole("button", { name: "Copy endpoint URL" }),
     ).toBeInTheDocument();
-    expect(summaryValue("Created")).toHaveTextContent("Sep 25, 2026, 12:00");
+    expect(screen.queryByText("Created")).not.toBeInTheDocument();
     expect(summaryValue("Updated")).toHaveTextContent("Sep 28, 2026, 11:00");
   });
 
@@ -148,19 +149,23 @@ describe("AgentDetailsContent", () => {
     expect(summaryValue("Endpoint URL")).toHaveTextContent("No endpoint");
   });
 
-  it("uses line tabs with Schema and Info when there are no domain tabs", () => {
+  it("shows the schemas without tabs when there is nothing else to switch to", () => {
     render(<AgentDetailsContent agent={createMockAgent()} />);
 
-    const tabList = screen.getByRole("tablist");
-    const tabLabels = within(tabList)
-      .getAllByRole("tab")
-      .map((tab) => tab.textContent);
+    const jsonBlocks = screen.getAllByTestId("json-block");
 
-    expect(tabList).toHaveAttribute("data-variant", "line");
-    expect(tabLabels).toEqual(["Schema", "Info"]);
-    expect(screen.getByRole("tab", { name: "Schema" })).toHaveAttribute(
-      "data-state",
-      "active",
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(jsonBlocks.map((block) => block.dataset.title)).toEqual([
+      "Input schema",
+      "Config schema",
+    ]);
+    expect(jsonBlocks.map((block) => block.dataset.value)).toEqual([
+      JSON.stringify({ type: "object", properties: {} }),
+      JSON.stringify({ type: "object" }),
+    ]);
+    expect(jsonBlocks[0]?.parentElement).toHaveClass(
+      "grid-cols-1",
+      "lg:grid-cols-2",
     );
   });
 
@@ -176,7 +181,7 @@ describe("AgentDetailsContent", () => {
       .getAllByRole("tab")
       .map((tab) => tab.textContent);
 
-    expect(tabLabels).toEqual(["Insights", "Schema", "Info"]);
+    expect(tabLabels).toEqual(["Insights", "Schema"]);
     expect(screen.getByRole("tab", { name: "Insights" })).toHaveAttribute(
       "data-state",
       "active",
@@ -203,74 +208,28 @@ describe("AgentDetailsContent", () => {
       />,
     );
 
-    expect(
-      within(screen.getByRole("tablist"))
-        .getAllByRole("tab")
-        .map((tab) => tab.textContent),
-    ).toEqual(["Schema", "Info"]);
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
   });
 
-  it("renders both schemas in the Schema tab", () => {
-    render(<AgentDetailsContent agent={createMockAgent()} />);
-
-    const schemaPanel = screen.getByRole("tabpanel");
-    const jsonBlocks = within(schemaPanel).getAllByTestId("json-block");
-
-    expect(jsonBlocks.map((block) => block.dataset.title)).toEqual([
-      "Input schema",
-      "Config schema",
-    ]);
-    expect(jsonBlocks.map((block) => block.dataset.value)).toEqual([
-      JSON.stringify({ type: "object", properties: {} }),
-      JSON.stringify({ type: "object" }),
-    ]);
-  });
-
-  it("stacks the schemas on small screens and puts them side by side on large ones", () => {
-    render(<AgentDetailsContent agent={createMockAgent()} />);
-
-    expect(screen.getByRole("tabpanel")).toHaveClass(
-      "grid-cols-1",
-      "lg:grid-cols-2",
-    );
-  });
-
-  it("shows only the registry ID and endpoint extras in the Info tab", () => {
-    render(<AgentDetailsContent agent={createMockAgent()} />);
-
-    fireEvent.mouseDown(screen.getByRole("tab", { name: "Info" }));
-
-    const infoPanel = screen.getByRole("tabpanel");
-
-    expect(within(infoPanel).getByText("agent-123")).toBeInTheDocument();
-    expect(
-      within(infoPanel).getByRole("button", { name: "Copy registry ID" }),
-    ).toBeInTheDocument();
-    expect(within(infoPanel).getByTestId("endpoint-display")).toHaveAttribute(
-      "data-endpoint",
-      JSON.stringify({ method: "POST" }),
-    );
-    expect(within(infoPanel).queryByText("Agent ID")).not.toBeInTheDocument();
-    expect(within(infoPanel).queryByText("Version")).not.toBeInTheDocument();
-    expect(within(infoPanel).queryByText("test-agent")).not.toBeInTheDocument();
-  });
-
-  it("drops the Info tab endpoint section when the summary already shows everything", () => {
+  it("adds an Endpoint tab only for endpoint settings beyond the URL and method", () => {
     const agent = {
       ...createMockAgent(),
-      endpoint: { url: "https://api.example.com/run" },
+      endpoint: {
+        url: "https://api.example.com/run",
+        method: "POST",
+        headers: { "x-team": "ops" },
+      },
     };
     render(<AgentDetailsContent agent={agent} />);
 
-    fireEvent.mouseDown(screen.getByRole("tab", { name: "Info" }));
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Endpoint" }));
 
-    const infoPanel = screen.getByRole("tabpanel");
-
-    expect(within(infoPanel).getByText("agent-123")).toBeInTheDocument();
     expect(
-      within(infoPanel).queryByTestId("endpoint-display"),
-    ).not.toBeInTheDocument();
-    expect(within(infoPanel).queryByText("Endpoint")).not.toBeInTheDocument();
+      within(screen.getByRole("tabpanel")).getByTestId("endpoint-display"),
+    ).toHaveAttribute(
+      "data-endpoint",
+      JSON.stringify({ headers: { "x-team": "ops" } }),
+    );
   });
 
   it("renders the tab contents error as an alert above the tabs", () => {
@@ -284,7 +243,7 @@ describe("AgentDetailsContent", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Could not load integration tabs for this agent.",
     );
-    expect(screen.getByRole("tab", { name: "Schema" })).toBeInTheDocument();
+    expect(screen.getAllByTestId("json-block")).toHaveLength(2);
   });
 
   it("renders no error alert when the tab contents loaded", () => {

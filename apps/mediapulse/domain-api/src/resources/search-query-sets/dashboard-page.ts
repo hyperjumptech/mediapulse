@@ -15,22 +15,12 @@ export const searchQuerySetsHermesPathSegment = "search-query-sets" as const;
 
 const searchQuerySetsMetadataBlock = {
   type: "keyValue",
-  label: "Metadata",
   rows: [
-    { field: "id", label: "Set id", copyAction: true },
-    {
-      field: "tickerSymbol",
-      label: "Ticker",
-      linkTemplate: "/dashboard/{integrationId}/tickers/{tickerId}",
-      copyAction: true,
-    },
     { field: "tickerName", label: "Ticker name" },
     { field: "isActive", label: "Active", format: "text" },
     { field: "generatedAt", label: "Generated", format: "date-time" },
     { field: "generationSource", label: "Generation source" },
     { field: "agentJobId", label: "Hermes job id", copyAction: true },
-    { field: "createdAt", label: "Created", format: "date-time" },
-    { field: "updatedAt", label: "Updated", format: "date-time" },
   ],
 } satisfies DetailBlock;
 

@@ -184,9 +184,14 @@ describe("ScheduleExecutionInvocationsTable", () => {
     fetchAgentActivitiesActionMock.mockResolvedValue([]);
     renderTable([failedInvocation]);
 
-    fireEvent.click(
-      within(desktopTable()).getByRole("button", { name: "Activity" }),
+    await openMenu(
+      within(desktopTable()).getByRole("button", {
+        name: "Invocation actions",
+      }),
     );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("menuitem", { name: "View activity" }));
+    });
 
     expect(await screen.findByText("No activity recorded.")).toBeVisible();
     expect(screen.getByText("Activity for j1…")).toBeVisible();
@@ -216,7 +221,7 @@ describe("ScheduleExecutionInvocationsTable", () => {
       "Started",
       "Duration",
       "Outcome",
-      "Activity",
+      "Actions",
     ]);
   });
 

@@ -10,6 +10,7 @@ import { SummaryGrid, SummaryItem } from "@/components/summary-grid";
 import { toValidDate } from "@/lib/date-time/format-date-time";
 import { isUnbrokenText } from "@/lib/unbroken-text";
 
+import { keyValueRowHasValue } from "./detail-block-content";
 import { DetailBlockCopyButton } from "./detail-block-copy-button";
 import { DetailBlockSectionHeader } from "./detail-block-section-header";
 
@@ -105,6 +106,13 @@ export const DetailBlockKeyValueView = ({
   block: DetailBlockKeyValue;
   data: unknown;
 }) => {
+  const rowsWithValues = block.rows.filter((row) =>
+    keyValueRowHasValue(row, data),
+  );
+  if (rowsWithValues.length === 0) {
+    return null;
+  }
+
   return (
     <section className="flex min-w-0 flex-col gap-4">
       <DetailBlockSectionHeader
@@ -113,7 +121,7 @@ export const DetailBlockKeyValueView = ({
         data={data}
       />
       <SummaryGrid variant="plain" className="max-w-3xl">
-        {block.rows.map((row) => (
+        {rowsWithValues.map((row) => (
           <DetailBlockKeyValueRowView
             key={`${row.field}:${row.label}`}
             row={row}

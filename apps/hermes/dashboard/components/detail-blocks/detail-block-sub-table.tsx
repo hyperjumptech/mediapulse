@@ -464,6 +464,15 @@ const mobileRoleFor = (
   return index === titleIndex ? "title" : "field";
 };
 
+const wrapsTextOnDesktop = (column: DetailBlockSubTableColumn): boolean =>
+  column.noWrap !== true && (column.type === "text" || column.type === "list");
+
+const spansFullWidthOnMobile = (column: DetailBlockSubTableColumn): boolean =>
+  column.type === "list" ||
+  column.descriptionField !== undefined ||
+  column.overlineField !== undefined ||
+  column.linkTemplate !== undefined;
+
 const buildSubTableColumns = (
   columns: readonly DetailBlockSubTableColumn[],
   rowContext: unknown,
@@ -478,8 +487,11 @@ const buildSubTableColumns = (
         meta: {
           label: column.label,
           mobile: mobileRoleFor(column, index, titleIndex),
-          mobileWrap: true,
+          mobileWrap: index === titleIndex || spansFullWidthOnMobile(column),
           minWidth: column.minWidth,
+          cellClassName: wrapsTextOnDesktop(column)
+            ? "whitespace-normal"
+            : undefined,
         },
         cell: ({ row }) => (
           <DetailBlockSubTableCell

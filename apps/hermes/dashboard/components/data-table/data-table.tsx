@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { FlexRender, type RowData } from "@tanstack/react-table";
 import { SearchX, type LucideIcon } from "lucide-react";
 
@@ -70,6 +70,8 @@ export type DataTableProps<Row extends RowData> = {
   initialColumnVisibility?: ColumnVisibility;
   hideHeader?: boolean;
   getSectionHeading?: (row: Row) => string | null;
+  title?: string;
+  count?: number;
 };
 
 const HIDE_BELOW_CLASS: Record<DataTableBreakpoint, string> = {
@@ -146,16 +148,44 @@ const SectionHeadingRow = ({
   </TableRow>
 );
 
+const countFormatter = new Intl.NumberFormat("en-US");
+
+const DataTableTitle = ({
+  id,
+  title,
+  count,
+}: {
+  id: string;
+  title: string;
+  count?: number;
+}) => (
+  <div className="flex items-baseline gap-2">
+    <h2 id={id} className="text-base font-semibold text-foreground">
+      {title}
+    </h2>
+    {count !== undefined ? (
+      <span className="text-sm text-muted-foreground tabular-nums">
+        {countFormatter.format(count)}
+      </span>
+    ) : null}
+  </div>
+);
+
 const EmptyResults = ({
   emptyState,
   urlState,
+  compact,
 }: {
   emptyState: DataTableEmptyState;
   urlState?: ListUrlState;
+  compact: boolean;
 }) => {
+  const emptyClassName = compact
+    ? "gap-2 py-6 md:py-6"
+    : "gap-4 py-12 md:py-16";
   if (urlState?.search) {
     return (
-      <Empty className="gap-4 py-12 md:py-16">
+      <Empty className={emptyClassName}>
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <SearchX aria-hidden className="size-5 text-muted-foreground" />
@@ -176,11 +206,13 @@ const EmptyResults = ({
   const Icon = emptyState.icon;
 
   return (
-    <Empty className="gap-4 py-12 md:py-16">
+    <Empty className={emptyClassName}>
       <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <Icon aria-hidden className="size-5 text-muted-foreground" />
-        </EmptyMedia>
+        {compact ? null : (
+          <EmptyMedia variant="icon">
+            <Icon aria-hidden className="size-5 text-muted-foreground" />
+          </EmptyMedia>
+        )}
         <EmptyTitle className="text-base">{emptyState.title}</EmptyTitle>
         {emptyState.description ? (
           <EmptyDescription>{emptyState.description}</EmptyDescription>
@@ -208,6 +240,8 @@ export const DataTable = <Row extends RowData>({
   initialColumnVisibility,
   hideHeader = false,
   getSectionHeading,
+  title,
+  count,
 }: DataTableProps<Row>) => {
   const table = useDataTable({
     tableId,
@@ -218,19 +252,27 @@ export const DataTable = <Row extends RowData>({
     initialSorting: clientSorting?.initial ? [clientSorting.initial] : [],
   });
   const tableRows = table.getRowModel().rows;
+  const titleId = useId();
+  const Root = title ? "section" : "div";
   const hasMobileToolbar = Boolean(
     (search && urlState) || toolbarFilters || toolbarActions,
   );
   const showViewOptions =
     tableRows.length > 0 &&
     table.getAllColumns().some((column) => column.getCanHide());
-  const hasToolbar = hasMobileToolbar || showViewOptions;
+  const hasToolbar = hasMobileToolbar || showViewOptions || Boolean(title);
 
   return (
-    <div className="flex flex-col gap-4">
+    <Root
+      aria-labelledby={title ? titleId : undefined}
+      className="flex min-w-0 flex-col gap-4"
+    >
       {hasToolbar ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-1 flex-wrap items-center gap-2">
+            {title ? (
+              <DataTableTitle id={titleId} title={title} count={count} />
+            ) : null}
             {search && urlState ? (
               <DataTableSearch
                 tableId={tableId}
@@ -250,7 +292,11 @@ export const DataTable = <Row extends RowData>({
 
       {tableRows.length === 0 ? (
         <DataTableCard>
-          <EmptyResults emptyState={emptyState} urlState={urlState} />
+          <EmptyResults
+            emptyState={emptyState}
+            urlState={urlState}
+            compact={Boolean(title)}
+          />
         </DataTableCard>
       ) : (
         <>
@@ -374,6 +420,6 @@ export const DataTable = <Row extends RowData>({
           extraParams={urlState.extra}
         />
       ) : null}
-    </div>
+    </Root>
   );
 };

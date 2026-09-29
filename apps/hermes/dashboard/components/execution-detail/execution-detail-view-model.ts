@@ -8,12 +8,7 @@ import {
   formatPipelineElapsedLabel,
 } from "@/lib/compute-execution-elapsed";
 import { isHermesExecutionCancellable } from "@/lib/hermes-execution-cancellable";
-import {
-  formatManualExecutionMetadataHints,
-  getHermesExecutionInvokeTransportBlurb,
-  type HermesExecutionDetailPageKind,
-  type HermesExecutionInvokeTransportBlurb,
-} from "@/lib/hermes-execution-invoke-transport";
+import { formatManualExecutionMetadataHints } from "@/lib/manual-execution-metadata-hints";
 import type {
   ExecutionSummary,
   InvocationSummary,
@@ -44,17 +39,15 @@ export type ExecutionDetailSummary = {
 export type ExecutionDetailViewModel = {
   executionId: string;
   parent: ExecutionDetailParent;
-  sourceLabel: string;
+  sourceLabel: string | null;
   pipeline: ExecutionDetailPipeline | null;
   runStatus: string;
   enqueueStatus: string;
   executionTimeIso: string;
   elapsedLabel: string;
-  jobsCreated: number;
-  jobsEnqueued: number;
   succeededInvocationCount: number;
   failedInvocationCount: number;
-  transport: HermesExecutionInvokeTransportBlurb;
+  expectedInvocationCount: number;
   metadataHints: string[];
   requestSnapshotJson: string | null;
   enqueueErrors: unknown;
@@ -74,15 +67,6 @@ export type BuildExecutionDetailViewModelInput = {
 };
 
 const MANUAL_RUN_SOURCE_LABEL = "Manual run";
-
-const TRANSPORT_KIND_BY_EXECUTION_KIND: Record<
-  ExecutionDetailKind,
-  HermesExecutionDetailPageKind
-> = {
-  schedule: "schedule",
-  httpTrigger: "http-trigger",
-  manual: "manual-pipeline",
-};
 
 const buildCancelTarget = (
   parent: ExecutionDetailParent,
@@ -111,8 +95,17 @@ const buildCancelTarget = (
   };
 };
 
-const buildSourceLabel = (parent: ExecutionDetailParent): string =>
-  parent.kind === "manual" ? MANUAL_RUN_SOURCE_LABEL : parent.name;
+const buildSourceLabel = (parent: ExecutionDetailParent): string | null =>
+  parent.kind === "manual" ? MANUAL_RUN_SOURCE_LABEL : null;
+
+const pipelineOtherThanParent = (
+  parent: ExecutionDetailParent,
+  pipeline: ExecutionDetailPipeline | null,
+): ExecutionDetailPipeline | null =>
+  parent.kind === "manual" && pipeline?.id === parent.id ? null : pipeline;
+
+const sumExpectedInvocations = (steps: StepExecutionSummary[]): number =>
+  steps.reduce((total, step) => total + step.expectedInvocationCount, 0);
 
 const buildProcessedUrlsHref = (
   parent: ExecutionDetailParent,
@@ -172,22 +165,21 @@ export const buildExecutionDetailViewModel = ({
   );
   const maskedSummary = maskExecutionSummaryForDisplay(summary);
   const { execution } = maskedSummary;
-  const transportKind = TRANSPORT_KIND_BY_EXECUTION_KIND[parent.kind];
 
   return {
     executionId,
     parent,
     sourceLabel: buildSourceLabel(parent),
-    pipeline: maskedSummary.pipeline,
+    pipeline: pipelineOtherThanParent(parent, maskedSummary.pipeline),
     runStatus: execution.runStatus,
     enqueueStatus: execution.enqueueStatus,
     executionTimeIso: execution.executionTime.toISOString(),
     elapsedLabel: formatPipelineElapsedLabel(pipelineElapsed),
-    jobsCreated: execution.jobsCreated,
-    jobsEnqueued: execution.jobsEnqueued,
     succeededInvocationCount: execution.succeededInvocationCount,
     failedInvocationCount: execution.failedInvocationCount,
-    transport: getHermesExecutionInvokeTransportBlurb(transportKind),
+    expectedInvocationCount: sumExpectedInvocations(
+      maskedSummary.stepExecutions,
+    ),
     metadataHints: buildMetadataHints(parent, execution.metadata),
     requestSnapshotJson: buildRequestSnapshotJson(parent, execution.metadata),
     enqueueErrors: execution.errors,

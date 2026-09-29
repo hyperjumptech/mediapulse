@@ -892,7 +892,7 @@ describe("DetailBlockSubTableView", () => {
     expect(card.getByText("collected")).toHaveAttribute("data-tone", "success");
   });
 
-  it("wraps phone card values across the full card width instead of cutting them off", () => {
+  it("wraps phone card values instead of cutting them off", () => {
     render(
       <DetailBlockSubTableView
         block={{
@@ -901,6 +901,13 @@ describe("DetailBlockSubTableView", () => {
           columns: [
             { field: "title", label: "Article", type: "text" },
             { field: "reason", label: "Reason", type: "text" },
+            { field: "kind", label: "Kind", type: "text" },
+            {
+              field: "names",
+              label: "Names",
+              type: "text",
+              descriptionField: "namesDetail",
+            },
           ],
         }}
         data={{
@@ -908,6 +915,9 @@ describe("DetailBlockSubTableView", () => {
             {
               title: "Alpha",
               reason: "https://example.com/a/very/long/path/that/never/breaks",
+              kind: "Regulator",
+              names: "BPOM",
+              namesDetail: "Badan Pengawas Obat dan Makanan",
             },
           ],
         }}
@@ -916,13 +926,39 @@ describe("DetailBlockSubTableView", () => {
 
     const card = within(within(mobileCards()).getByRole("listitem"));
     const titleWrapper = card.getByText("Alpha").closest("div");
-    const reasonValue = card.getByRole("definition");
+    const [reasonValue, kindValue, namesValue] =
+      card.getAllByRole("definition");
 
     expect(titleWrapper).toHaveClass("wrap-anywhere");
     expect(titleWrapper).not.toHaveClass("truncate");
-    expect(reasonValue).toHaveClass("wrap-anywhere");
+    expect(reasonValue).toHaveClass("wrap-break-word");
     expect(reasonValue).not.toHaveClass("truncate");
-    expect(reasonValue.parentElement).toHaveClass("col-span-2");
+    expect(kindValue?.parentElement).not.toHaveClass("col-span-2");
+    expect(namesValue).toHaveClass("wrap-anywhere");
+    expect(namesValue?.parentElement).toHaveClass("col-span-2");
+  });
+
+  it("lets text columns wrap on wide screens while numbers and dates stay on one line", () => {
+    render(
+      <DetailBlockSubTableView
+        block={{
+          type: "subTable",
+          field: "rows",
+          columns: [
+            { field: "entity", label: "Entity", type: "text" },
+            { field: "articles", label: "Articles", type: "number" },
+            { field: "code", label: "Code", type: "text", noWrap: true },
+          ],
+        }}
+        data={{ rows: [{ entity: "BPOM", articles: 16, code: "X-1" }] }}
+      />,
+    );
+
+    const cells = within(screen.getByRole("table")).getAllByRole("cell");
+
+    expect(cells[0]).toHaveClass("whitespace-normal");
+    expect(cells[1]).not.toHaveClass("whitespace-normal");
+    expect(cells[2]).not.toHaveClass("whitespace-normal");
   });
 
   it("renders section-header rows as headings between the phone cards", () => {

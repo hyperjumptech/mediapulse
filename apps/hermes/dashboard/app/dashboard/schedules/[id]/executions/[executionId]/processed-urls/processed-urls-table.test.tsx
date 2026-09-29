@@ -71,13 +71,38 @@ describe("ProcessedUrlsTable", () => {
     expect(firstHeader).toHaveTextContent("Subject");
   });
 
-  it("shows a dash for rows without a subject", () => {
+  it("shows a dash for a row without a subject", () => {
+    const table = renderTable([
+      processedUrl({ id: "outcome-1" }),
+      processedUrl({ id: "outcome-2", subject: null }),
+    ]);
+
+    expect(columnValues(table, 0)).toEqual(["ACME", "—"]);
+  });
+
+  it("drops the subject column when no row has a subject", () => {
     const table = renderTable([
       processedUrl({ id: "outcome-1", subject: null }),
       processedUrl({ id: "outcome-2", subject: undefined }),
     ]);
 
-    expect(columnValues(table, 0)).toEqual(["—", "—"]);
+    const headers = within(table)
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+
+    expect(headers).toEqual(["URL", "Status", "Reason", "Agent", "Time"]);
+  });
+
+  it("shows the URL on one line without its scheme and keeps the full URL", () => {
+    const table = renderTable([processedUrl()]);
+
+    const link = within(table).getByRole("link", {
+      name: "example.com/article",
+    });
+
+    expect(link).toHaveAttribute("href", "https://example.com/article");
+    expect(link).toHaveAttribute("title", "https://example.com/article");
+    expect(link).toHaveClass("truncate");
   });
 
   it("shows the reason detail before the reason token", () => {

@@ -6,6 +6,10 @@ type PageHeaderProps = {
   badges?: ReactNode;
 };
 
+const Description = ({ children }: { children: ReactNode }) => (
+  <p className="max-w-3xl text-sm text-muted-foreground">{children}</p>
+);
+
 export const PageHeader = ({
   description,
   actions,
@@ -14,32 +18,33 @@ export const PageHeader = ({
   if (!description && !actions && !badges) {
     return null;
   }
+  const leading = badges ? (
+    <div
+      data-slot="page-header-badges"
+      className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2"
+    >
+      {badges}
+    </div>
+  ) : description ? (
+    <Description>{description}</Description>
+  ) : (
+    <span />
+  );
 
   return (
-    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div className="flex min-w-0 flex-col gap-2">
-        {badges ? (
+    <div data-slot="page-header" className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        {leading}
+        {actions ? (
           <div
-            data-slot="page-header-badges"
-            className="flex flex-wrap items-center gap-2"
+            data-slot="page-header-actions"
+            className="flex shrink-0 flex-wrap items-center gap-2"
           >
-            {badges}
+            {actions}
           </div>
         ) : null}
-        {description ? (
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            {description}
-          </p>
-        ) : null}
       </div>
-      {actions ? (
-        <div
-          data-slot="page-header-actions"
-          className="flex shrink-0 flex-wrap items-center gap-2"
-        >
-          {actions}
-        </div>
-      ) : null}
+      {badges && description ? <Description>{description}</Description> : null}
     </div>
   );
 };

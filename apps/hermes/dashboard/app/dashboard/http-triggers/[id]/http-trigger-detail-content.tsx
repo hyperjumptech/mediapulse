@@ -14,7 +14,6 @@ import { PageHeader } from "@/components/page-header";
 import { DateTime } from "@/components/date-time/date-time";
 import { StatusBadge } from "@/components/status-badge";
 import { SummaryGrid, SummaryItem } from "@/components/summary-grid";
-import { formatCreatedBy } from "@/lib/format-created-by";
 import {
   buildHttpTriggerInvokeCurlCommand,
   type HttpTriggerInvokeMethod,
@@ -27,13 +26,6 @@ import { HttpTriggerFormModal } from "../http-trigger-form-modal";
 type TriggerWithPipeline = NonNullable<
   Awaited<ReturnType<typeof getHttpTriggerById>>
 >;
-
-const AUTH_TYPE_LABELS: Record<string, string> = {
-  BEARER_TOKEN: "Bearer token",
-};
-
-const describeAuthType = (authType: string) =>
-  AUTH_TYPE_LABELS[authType] ?? authType.toLowerCase().replaceAll("_", " ");
 
 const useHttpTriggerDetailState = (
   triggerId: string,
@@ -91,8 +83,6 @@ export const HttpTriggerDetailContent = ({
   const invokeUrl = `${siteOrigin}${invokePath}`;
   const enabledStatus = trigger.enabled ? "enabled" : "disabled";
   const pipelineHref = `/dashboard/pipelines/${trigger.pipeline.id}`;
-  const createdBy = formatCreatedBy(trigger.createdBy, trigger.createdById);
-  const authTypeLabel = describeAuthType(trigger.authType);
   const description = trigger.description ?? undefined;
 
   return (
@@ -136,17 +126,6 @@ export const HttpTriggerDetailContent = ({
               {trigger.method}
             </Badge>
           </SummaryItem>
-          <SummaryItem label="Auth">{authTypeLabel}</SummaryItem>
-          <SummaryItem label="Token hint">
-            {trigger.tokenHint ? (
-              <code className="font-mono text-xs">{trigger.tokenHint}</code>
-            ) : (
-              <span className="text-muted-foreground">Not recorded</span>
-            )}
-          </SummaryItem>
-          <SummaryItem label="Invoke URL" wide>
-            <CopyableId value={invokeUrl} label="Copy invoke URL" />
-          </SummaryItem>
           <SummaryItem label="Last triggered">
             {trigger.lastTriggeredAt ? (
               <DateTime
@@ -158,10 +137,14 @@ export const HttpTriggerDetailContent = ({
               <span className="text-muted-foreground">Never</span>
             )}
           </SummaryItem>
-          <SummaryItem label="Created">
-            <DateTime value={trigger.createdAt} style="datetime" />
+          {trigger.tokenHint ? (
+            <SummaryItem label="Token hint">
+              <code className="font-mono text-xs">{trigger.tokenHint}</code>
+            </SummaryItem>
+          ) : null}
+          <SummaryItem label="Invoke URL" wide>
+            <CopyableId value={invokeUrl} label="Copy invoke URL" />
           </SummaryItem>
-          <SummaryItem label="Created by">{createdBy}</SummaryItem>
         </SummaryGrid>
         <section>{executionsSection}</section>
       </div>

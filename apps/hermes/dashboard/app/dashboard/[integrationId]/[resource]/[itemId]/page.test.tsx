@@ -170,12 +170,10 @@ describe("ViewDomainTableItemPage header", () => {
     getDomainIntegrationByIntegrationIdMock.mockReset();
   });
 
-  it("links to the full-page editor when the manifest allows updates", async () => {
-    // Setup
+  it("leaves the Edit action to the site header", async () => {
     givenIntegration();
     getDomainTableMetaMock.mockResolvedValue({
       title: "Data sources",
-      description: "Collected pages",
       columns: [{ key: "title", label: "Title", type: "text" }],
       createNavigation: "full-page",
       updateSchema: {
@@ -189,52 +187,12 @@ describe("ViewDomainTableItemPage header", () => {
       title: "Example headline",
     });
 
-    // Act
-    await renderItemPage();
-
-    // Assert
-    expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute(
-      "href",
-      "/dashboard/mediapulse/data-sources/row%201/edit",
-    );
-    expect(
-      screen.queryByRole("link", { name: "Back to list" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it.each([
-    ["the editor is a modal", { createNavigation: "modal" }],
-    ["updates are not allowed", { actions: { update: false, view: true } }],
-    ["the update schema has no fields", { updateSchema: {} }],
-  ])("hides Edit when %s", async (_reason, metaOverrides) => {
-    // Setup
-    givenIntegration();
-    getDomainTableMetaMock.mockResolvedValue({
-      title: "Data sources",
-      columns: [{ key: "title", label: "Title", type: "text" }],
-      createNavigation: "full-page",
-      updateSchema: {
-        type: "object",
-        properties: { title: { type: "string", title: "Title" } },
-      },
-      actions: { create: false, update: true, delete: false, view: true },
-      ...metaOverrides,
-    });
-    getDomainTableItemByIdMock.mockResolvedValue({
-      id: "row 1",
-      title: "Example headline",
-    });
-
-    // Act
     const { container } = await renderItemPage();
 
-    // Assert
     expect(
       screen.queryByRole("link", { name: "Edit" }),
     ).not.toBeInTheDocument();
-    expect(
-      container.querySelector('[data-slot="page-header-actions"]'),
-    ).toBeNull();
+    expect(container.querySelector('[data-slot="page-header"]')).toBeNull();
   });
 
   it("renders column values in a summary grid and spans long values", async () => {

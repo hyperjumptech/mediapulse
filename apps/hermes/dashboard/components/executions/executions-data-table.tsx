@@ -193,16 +193,8 @@ export const ExecutionsDataTable = ({
       getRowId={(row) => `${row.source}:${row.id}`}
       urlState={urlState}
       paginationLabel={paginationLabel}
-      toolbarFilters={
-        title ? (
-          <>
-            <h2 className="text-base font-semibold text-foreground">{title}</h2>
-            {toolbarFilters}
-          </>
-        ) : (
-          toolbarFilters
-        )
-      }
+      title={title}
+      toolbarFilters={toolbarFilters}
       emptyState={{
         icon: emptyIcon,
         title: emptyTitle,

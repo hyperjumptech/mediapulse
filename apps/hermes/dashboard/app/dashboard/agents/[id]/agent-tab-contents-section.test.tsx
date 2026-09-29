@@ -54,7 +54,7 @@ const createMockAgent = () => ({
   isActive: true,
   createdAt: new Date("2024-01-15"),
   updatedAt: new Date("2024-01-15"),
-  domainIntegration: { integrationId: "acme-local" },
+  domainIntegration: { integrationId: "acme-local", name: "Acme" },
 });
 
 describe("AgentTabContentsSection", () => {

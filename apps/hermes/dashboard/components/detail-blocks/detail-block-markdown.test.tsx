@@ -68,4 +68,35 @@ describe("DetailBlockMarkdownView", () => {
     );
     expect(screen.queryByRole("button", { name: /show/i })).toBeNull();
   });
+
+  it("renders nothing, heading included, when the body is empty", () => {
+    const { container } = render(
+      <DetailBlockMarkdownView
+        block={{ type: "markdown", field: "body", label: "Reply body" }}
+        data={{ body: "   " }}
+      />,
+    );
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("puts the copy button on the heading row", () => {
+    render(
+      <DetailBlockMarkdownView
+        block={{
+          type: "markdown",
+          field: "body",
+          label: "Strategy snapshot",
+          copyAction: true,
+        }}
+        data={{ body: "Seed from local dev" }}
+      />,
+    );
+
+    const heading = screen.getByRole("heading", { name: "Strategy snapshot" });
+
+    expect(heading.parentElement).toContainElement(
+      screen.getByRole("button", { name: "Copy Strategy snapshot body" }),
+    );
+  });
 });

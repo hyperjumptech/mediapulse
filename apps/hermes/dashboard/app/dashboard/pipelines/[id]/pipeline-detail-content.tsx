@@ -28,7 +28,6 @@ import { DateTime } from "@/components/date-time/date-time";
 import { SummaryGrid, SummaryItem } from "@/components/summary-grid";
 import type { AgentConfigSummary } from "@/lib/agent-configs";
 import type { AgentContractSummary } from "@/lib/agent-contracts";
-import { formatCreatedBy } from "@/lib/format-created-by";
 import {
   DEFAULT_PIPELINE_TIMEOUT_MS,
   formatMsDuration,
@@ -131,9 +130,6 @@ const describeAgentTimeout = (timeoutMilliseconds: number | null) =>
   timeoutMilliseconds != null && timeoutMilliseconds > 0
     ? formatMsDuration(timeoutMilliseconds)
     : `${formatMsDuration(DEFAULT_PIPELINE_TIMEOUT_MS)} (default)`;
-
-const describeStepCount = (stepCount: number) =>
-  stepCount === 1 ? "1 step" : `${stepCount} steps`;
 
 const usePipelineDetailState = (
   pipeline: PipelineWithSteps,
@@ -326,7 +322,6 @@ export const PipelineDetailContent = ({
     domainIntegrations.find(
       (integration) => integration.id === pipeline.domainIntegrationId,
     )?.name ?? pipeline.domainIntegrationId;
-  const createdBy = formatCreatedBy(pipeline.createdBy, pipeline.createdById);
   const selectedStepAgentKey = selectedStep
     ? `${selectedStep.agentId}@${selectedStep.agentVersion}`
     : null;
@@ -369,21 +364,16 @@ export const PipelineDetailContent = ({
       />
       <SummaryGrid>
         <SummaryItem label="Integration">{integrationName}</SummaryItem>
-        <SummaryItem label="Steps">
-          <span className="tabular-nums">
-            {describeStepCount(pipeline.steps.length)}
-          </span>
-        </SummaryItem>
         <SummaryItem label="Agent timeout">
           {describeAgentTimeout(pipeline.timeout)}
         </SummaryItem>
         <SummaryItem label="Updated">
-          <DateTime value={pipeline.updatedAt} style="datetime" />
+          <DateTime
+            value={pipeline.updatedAt}
+            variant="both"
+            style="datetime"
+          />
         </SummaryItem>
-        <SummaryItem label="Created">
-          <DateTime value={pipeline.createdAt} style="datetime" />
-        </SummaryItem>
-        <SummaryItem label="Created by">{createdBy}</SummaryItem>
       </SummaryGrid>
 
       <PipelineFormModal
