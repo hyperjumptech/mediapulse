@@ -11,7 +11,8 @@
     "seed-kg-pipelines": "tsx seed-kg-pipelines.ts",
     "seed-knowledge-extraction-schedule": "tsx seed-knowledge-extraction-schedule.ts",
     "extraction-once": "tsx run-extraction-once.ts",
-    "seed-day1-newsletter": "tsx seed-day1-newsletter-pipelines.ts"
+    "seed-day1-newsletter": "tsx seed-day1-newsletter-pipelines.ts",
+    "seed-day1-dispatch-fixtures": "tsx seed-day1-dispatch-fixtures.ts"
   },
   "dependencies": {
     "@hermes/domain-integration-crypto": "workspace:*",

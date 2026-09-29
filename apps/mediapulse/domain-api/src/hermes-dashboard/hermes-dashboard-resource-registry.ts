@@ -4,6 +4,7 @@ import type { Hono } from "hono";
 import { buildMediapulseOperatorContentViews } from "./extra-manifest-views";
 import { curatedSourcesHermesDashboardResource } from "../resources/curated-sources/resource-definition";
 import { dataSourcesHermesDashboardResource } from "../resources/data-sources/resource-definition";
+import { day1DispatchesHermesDashboardResource } from "../resources/day1-dispatches/resource-definition";
 import { deliveryRunsHermesDashboardResource } from "../resources/delivery-runs/resource-definition";
 import { feedbackHermesDashboardResource } from "../resources/feedback/resource-definition";
 import { mediapulseUsersHermesDashboardResource } from "../resources/mediapulse-users/resource-definition";
@@ -35,6 +36,7 @@ export const hermesDashboardResources = [
   knowledgeExtractionRunsHermesDashboardResource,
   deliveryRunsHermesDashboardResource,
   queryAnalysisRunsHermesDashboardResource,
+  day1DispatchesHermesDashboardResource,
   newslettersHermesDashboardResource,
   feedbackHermesDashboardResource,
 ] as const satisfies readonly HermesDashboardResourceDefinition<
