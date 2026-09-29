@@ -234,4 +234,37 @@ describe("PipelineStepsColumn", () => {
     // Assert
     expect(onSelectStep).toHaveBeenCalledWith(null);
   });
+
+  it("lets a pipeline step be selected and links to the pipeline it runs", () => {
+    givenFormActions();
+    const onSelectStep = vi.fn();
+    renderStepsColumn({
+      onSelectStep,
+      steps: [
+        createStep("step-a", 0, "collector"),
+        {
+          id: "step-p",
+          order: 1,
+          kind: "pipeline" as const,
+          agentId: null,
+          agentVersion: null,
+          targetPipeline: { id: "p-child", name: "Collection" },
+        },
+      ],
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Pipeline Collection",
+      }),
+    );
+
+    expect(onSelectStep).toHaveBeenCalledWith("step-p");
+    expect(
+      screen.getByRole("link", { name: "Open pipeline Collection" }),
+    ).toHaveAttribute("href", "/dashboard/pipelines/p-child");
+    expect(
+      screen.getByRole("button", { name: "Remove step Collection" }),
+    ).toBeVisible();
+  });
 });

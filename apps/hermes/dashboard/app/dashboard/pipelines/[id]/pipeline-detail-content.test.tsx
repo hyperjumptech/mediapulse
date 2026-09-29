@@ -22,6 +22,36 @@ vi.mock(
   () => ({ formAction: vi.fn().mockResolvedValue({ status: true }) }),
 );
 
+vi.mock("./pipeline-available-pipelines", () => ({
+  PipelineAvailablePipelines: ({
+    pipelines,
+  }: {
+    pipelines: Array<{ id: string; name: string }>;
+  }) => (
+    <div
+      data-testid="pipeline-available-pipelines"
+      data-pipeline-names={pipelines.map((pipeline) => pipeline.name).join(",")}
+    />
+  ),
+}));
+
+vi.mock("./pipeline-step-target-editor", () => ({
+  PipelineStepTargetEditor: ({
+    step,
+    includedStepLabels,
+  }: {
+    step: { id: string; targetPipelineId: string | null };
+    includedStepLabels: string[];
+  }) => (
+    <div
+      data-testid="pipeline-step-target-editor"
+      data-step-id={step.id}
+      data-target-pipeline-id={step.targetPipelineId ?? ""}
+      data-included-steps={includedStepLabels.join("|")}
+    />
+  ),
+}));
+
 vi.mock("./pipeline-available-agents", () => ({
   PipelineAvailableAgents: ({
     pipelineId,

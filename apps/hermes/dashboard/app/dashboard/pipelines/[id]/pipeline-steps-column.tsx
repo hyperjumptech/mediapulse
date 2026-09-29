@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
-import { ArrowDown, ArrowUp, Trash2, Workflow } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ExternalLink,
+  Trash2,
+  Workflow,
+} from "lucide-react";
 
 import { Button } from "@workspace/ui/components/button";
 import { cn } from "@workspace/ui/lib/utils";
@@ -85,35 +91,44 @@ const usePipelineStepsColumnState = (onSelectStep: SelectStepHandler) => {
 
 const PipelineStepLabel = ({
   targetPipeline,
+  isSelected,
+  onSelect,
 }: {
   targetPipeline: { id: string; name: string } | null | undefined;
+  isSelected: boolean;
+  onSelect: () => void;
 }) => {
-  if (!targetPipeline) {
-    return (
-      <span className="flex min-w-0 flex-1 items-center gap-1.5 text-sm text-muted-foreground">
-        <Workflow aria-hidden className="size-4 shrink-0" />
-        Pipeline not found
-      </span>
-    );
-  }
+  const pipelineName = targetPipeline?.name ?? "Pipeline not found";
 
   return (
-    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-      <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-        <Workflow
-          aria-hidden
-          className="size-4 shrink-0 text-muted-foreground"
-        />
+    <span className="flex min-w-0 flex-1 items-center gap-1">
+      <button
+        type="button"
+        aria-pressed={isSelected}
+        aria-label={`Pipeline ${pipelineName}`}
+        onClick={onSelect}
+        className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-sm text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
+        <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+          <Workflow
+            aria-hidden
+            className="size-4 shrink-0 text-muted-foreground"
+          />
+          <span className="truncate">{pipelineName}</span>
+        </span>
+        <span className="truncate text-xs text-muted-foreground">
+          Runs every step of this pipeline
+        </span>
+      </button>
+      {targetPipeline ? (
         <Link
           href={`/dashboard/pipelines/${targetPipeline.id}`}
-          className="truncate underline-offset-4 hover:underline"
+          aria-label={`Open pipeline ${targetPipeline.name}`}
+          className="rounded-sm p-1 text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
-          {targetPipeline.name}
+          <ExternalLink aria-hidden className="size-3.5" />
         </Link>
-      </span>
-      <span className="truncate text-xs text-muted-foreground">
-        Runs every step of this pipeline
-      </span>
+      ) : null}
     </span>
   );
 };
@@ -163,10 +178,7 @@ export const PipelineStepsColumn = ({
   }
 
   return (
-    <PipelineColumnCard
-      title={title}
-      description="Select a step to edit its input, config and contract."
-    >
+    <PipelineColumnCard title={title} description="Select a step to edit it.">
       <ol className="flex flex-col gap-1.5">
         {steps.map((step, index) => {
           const isPipelineStep = step.kind === "pipeline";
@@ -204,7 +216,11 @@ export const PipelineStepsColumn = ({
                 {stepPosition}
               </span>
               {isPipelineStep ? (
-                <PipelineStepLabel targetPipeline={step.targetPipeline} />
+                <PipelineStepLabel
+                  targetPipeline={step.targetPipeline}
+                  isSelected={isSelected}
+                  onSelect={() => onSelectStep(isSelected ? null : step.id)}
+                />
               ) : (
                 <button
                   type="button"
