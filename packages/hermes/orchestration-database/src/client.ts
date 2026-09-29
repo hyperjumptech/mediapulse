@@ -30,9 +30,11 @@ export class PrismaClientWithSchema extends PrismaClient {
       password,
       ssl,
       max: 10,
-      connectionTimeoutMillis: 5000,
+      min: 2,
+      connectionTimeoutMillis: 20_000,
       idleTimeoutMillis: 300_000,
       keepAlive: true,
+      keepAliveInitialDelayMillis: 30_000,
     });
 
     const adapter = new PrismaPg(pool, {
