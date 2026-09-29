@@ -5,6 +5,7 @@ import {
   dashboardObjectFormJsonSchemaForListRow,
   dashboardPageCustomActionSchema,
   dashboardPageSchema,
+  domainEventRequestSchema,
   registerDomainIntegrationRequestSchema,
   tableV1ListResponseSchema,
   tableV1MetaResponseSchema,
@@ -289,5 +290,31 @@ describe("dashboardPageSchema", () => {
 
     expect(parsed.customActions).toEqual([]);
     expect(parsed.createNavigation).toBe("modal");
+  });
+});
+
+describe("domainEventRequestSchema", () => {
+  it("accepts a lowercase event name with flat params", () => {
+    const parsed = domainEventRequestSchema.safeParse({
+      event: "order.created",
+      params: { orderId: "o-1", count: 2, force: true },
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects names with spaces or capitals", () => {
+    expect(
+      domainEventRequestSchema.safeParse({ event: "Order Created" }).success,
+    ).toBe(false);
+  });
+
+  it("rejects nested params", () => {
+    expect(
+      domainEventRequestSchema.safeParse({
+        event: "order.created",
+        params: { order: { id: "o-1" } },
+      }).success,
+    ).toBe(false);
   });
 });

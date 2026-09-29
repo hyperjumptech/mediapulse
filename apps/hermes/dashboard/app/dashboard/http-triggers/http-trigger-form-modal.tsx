@@ -151,6 +151,10 @@ export const HttpTriggerFormModal = (props: HttpTriggerFormModalProps) => {
                 defaultEnabled={loadedTrigger?.enabled ?? true}
                 defaultMethod={loadedTrigger?.method ?? "POST"}
                 defaultTokenHint={loadedTrigger?.tokenHint ?? null}
+                defaultStartMode={
+                  loadedTrigger?.authType === "DOMAIN_EVENT" ? "event" : "token"
+                }
+                defaultEventName={loadedTrigger?.eventName ?? ""}
                 httpTriggerId={loadedTrigger?.id}
                 isEdit={isEdit}
               />

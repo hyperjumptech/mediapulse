@@ -23,6 +23,7 @@ type HttpTriggerRowActionsProps = {
   httpTriggerId: string;
   httpTriggerName: string;
   method: HttpTriggerInvokeMethod;
+  isEventTrigger?: boolean;
   onEdit: EditHttpTriggerHandler;
 };
 
@@ -68,6 +69,7 @@ export const HttpTriggerRowActions = ({
   httpTriggerId,
   httpTriggerName,
   method,
+  isEventTrigger = false,
   onEdit,
 }: HttpTriggerRowActionsProps) => {
   const {
@@ -86,9 +88,11 @@ export const HttpTriggerRowActions = ({
         <DropdownMenuItem onSelect={() => onEdit(httpTriggerId)}>
           Edit
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => void copyCurlCommand()}>
-          Copy cURL
-        </DropdownMenuItem>
+        {isEventTrigger ? null : (
+          <DropdownMenuItem onSelect={() => void copyCurlCommand()}>
+            Copy cURL
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"

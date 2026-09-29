@@ -93,6 +93,7 @@ describe("GET /api/http-triggers", () => {
           pipelineId: "p1",
           enabled: true,
           method: "POST",
+          eventName: null,
           authType: "BEARER_TOKEN",
           tokenHint: null,
           createdAt: new Date("2026-01-01T00:00:00.000Z"),

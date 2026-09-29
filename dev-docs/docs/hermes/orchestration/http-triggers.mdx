@@ -48,6 +48,23 @@ Rules:
 
 The parameters are stored on the execution and shown in a **Run parameters** panel on the execution detail page. The dashboard run-pipeline action and the `hermes_mutate_run_pipeline` MCP tool accept the same `params` object.
 
+## Domain events
+
+A trigger can be started by an event from a domain integration instead of by a call to its URL. Pick **An event sent by a domain integration** under **Started by** and enter an event name such as `order.created`. Event triggers have no URL, token or method.
+
+The domain integration sends the event with the same API key it uses to register with Hermes:
+
+```bash
+curl -X POST "{dashboardOrigin}/api/domain-integrations/events" \
+  -H "Authorization: Bearer <domain integration API key>" \
+  -H "Content-Type: application/json" \
+  -d '{"event":"order.created","params":{"orderId":"o-1"}}'
+```
+
+Hermes starts one run for each enabled event trigger with that name whose pipeline belongs to the calling integration, and passes `params` as [run parameters](#run-parameters). It answers **202** with `{ "executions": [{ "triggerId", "executionId" }] }`. The list is empty when nothing listens to the event, so the domain can tell that it is not configured. A wrong key returns **401** and an invalid event name or `params` returns **400**.
+
+Disable or delete the trigger to stop reacting to the event. Nothing changes on the domain side.
+
 ## Execution history
 
 The dashboard includes:

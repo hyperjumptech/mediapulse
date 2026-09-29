@@ -82,6 +82,7 @@ export const HttpTriggerDetailContent = ({
   const invokePath = `/api/http-triggers/${trigger.id}/invoke`;
   const invokeUrl = `${siteOrigin}${invokePath}`;
   const enabledStatus = trigger.enabled ? "enabled" : "disabled";
+  const isEventTrigger = trigger.authType === "DOMAIN_EVENT";
   const pipelineHref = `/dashboard/pipelines/${trigger.pipeline.id}`;
   const description = trigger.description ?? undefined;
 
@@ -94,14 +95,16 @@ export const HttpTriggerDetailContent = ({
           description={description}
           actions={
             <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void copyCurlCommand()}
-              >
-                <Copy aria-hidden />
-                Copy cURL
-              </Button>
+              {isEventTrigger ? null : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void copyCurlCommand()}
+                >
+                  <Copy aria-hidden />
+                  Copy cURL
+                </Button>
+              )}
               <Button type="button" variant="outline" onClick={openEditModal}>
                 <Pencil aria-hidden />
                 Edit HTTP trigger
@@ -118,14 +121,20 @@ export const HttpTriggerDetailContent = ({
               {trigger.pipeline.name}
             </Link>
           </SummaryItem>
-          <SummaryItem label="Method">
-            <Badge
-              variant="outline"
-              className="px-1.5 font-mono text-muted-foreground"
-            >
-              {trigger.method}
-            </Badge>
-          </SummaryItem>
+          {isEventTrigger ? (
+            <SummaryItem label="Started by event">
+              <code className="font-mono text-xs">{trigger.eventName}</code>
+            </SummaryItem>
+          ) : (
+            <SummaryItem label="Method">
+              <Badge
+                variant="outline"
+                className="px-1.5 font-mono text-muted-foreground"
+              >
+                {trigger.method}
+              </Badge>
+            </SummaryItem>
+          )}
           <SummaryItem label="Last triggered">
             {trigger.lastTriggeredAt ? (
               <DateTime
@@ -137,14 +146,16 @@ export const HttpTriggerDetailContent = ({
               <span className="text-muted-foreground">Never</span>
             )}
           </SummaryItem>
-          {trigger.tokenHint ? (
+          {!isEventTrigger && trigger.tokenHint ? (
             <SummaryItem label="Token hint">
               <code className="font-mono text-xs">{trigger.tokenHint}</code>
             </SummaryItem>
           ) : null}
-          <SummaryItem label="Invoke URL" wide>
-            <CopyableId value={invokeUrl} label="Copy invoke URL" />
-          </SummaryItem>
+          {isEventTrigger ? null : (
+            <SummaryItem label="Invoke URL" wide>
+              <CopyableId value={invokeUrl} label="Copy invoke URL" />
+            </SummaryItem>
+          )}
         </SummaryGrid>
         <section>{executionsSection}</section>
       </div>

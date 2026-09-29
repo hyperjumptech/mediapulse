@@ -1,20 +1,15 @@
 import { randomUUID } from "node:crypto";
 
 import { NextResponse } from "next/server";
-import {
-  prisma,
-  type Prisma,
-  ScheduleEnqueueStatus,
-} from "@hermes/orchestration-database";
-import { mergeHermesEnqueueCorrelationIntoMetadata } from "@hermes/scheduler/enqueue-diagnostics-correlation";
+import { prisma } from "@hermes/orchestration-database";
 
 import {
   collectHttpTriggerRequestSnapshot,
   toHttpTriggerExecutionMetadata,
 } from "@/lib/collect-http-trigger-request-snapshot";
-import { getHermesJobQueue } from "@/lib/hermes-job-queue";
 import { verifyHttpTriggerToken } from "@hermes/domain-integration-crypto";
 import { readHttpTriggerRunParams } from "@/lib/read-http-trigger-run-params";
+import { startHttpTriggerExecution } from "@/lib/start-http-trigger-execution";
 
 const parseBearerToken = (authorization: string | null): string | null => {
   if (!authorization) return null;
@@ -82,7 +77,11 @@ const handleInvoke = async (
   }
 
   const token = parseBearerToken(request.headers.get("authorization"));
-  if (!token || !verifyHttpTriggerToken(token, trigger.tokenHash)) {
+  const isTokenValid =
+    token !== null &&
+    trigger.tokenHash !== null &&
+    verifyHttpTriggerToken(token, trigger.tokenHash);
+  if (!isTokenValid) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -95,65 +94,23 @@ const handleInvoke = async (
   }
 
   const requestSnapshot = await collectHttpTriggerRequestSnapshot(request);
-
   const headerRequestId = request.headers.get("x-request-id")?.trim();
   const requestId =
     headerRequestId != null && headerRequestId !== ""
       ? headerRequestId
       : randomUUID();
-
-  const snapshotMetadata = toHttpTriggerExecutionMetadata(requestSnapshot);
-  const metadataWithCorrelation = mergeHermesEnqueueCorrelationIntoMetadata(
-    snapshotMetadata,
-    {
-      requestId,
-    },
-  ) as Prisma.InputJsonValue;
-
-  const execution = await prisma.httpTriggerExecution.create({
-    data: {
-      httpTriggerId: trigger.id,
-      executionTime: new Date(),
-      enqueueStatus: ScheduleEnqueueStatus.success,
-      jobsCreated: 0,
-      jobsEnqueued: 0,
-      effectiveExecutionConfig:
-        trigger.pipeline.executionConfig != null
-          ? trigger.pipeline.executionConfig
-          : undefined,
-      metadata: metadataWithCorrelation,
-      runParams: runParamsResult.params ?? undefined,
-    },
-    select: { id: true },
-  });
-  await prisma.httpTrigger.update({
-    where: { id: trigger.id },
-    data: { lastTriggeredAt: new Date() },
-  });
-
-  const workerJobId = await getHermesJobQueue().addJob({
-    jobType: "execute_http_trigger",
-    payload: {
-      httpTriggerExecutionId: execution.id,
-    },
-    idempotencyKey: `execute_http_trigger:${execution.id}`,
-    tags: [`httpTriggerExecution:${execution.id}`],
-  });
-
-  await prisma.httpTriggerExecution.update({
-    where: { id: execution.id },
-    data: {
-      metadata: mergeHermesEnqueueCorrelationIntoMetadata(
-        metadataWithCorrelation,
-        { workerTickId: String(workerJobId) },
-      ) as Prisma.InputJsonValue,
-    },
+  const executionId = await startHttpTriggerExecution({
+    triggerId: trigger.id,
+    executionConfig: trigger.pipeline.executionConfig,
+    metadata: toHttpTriggerExecutionMetadata(requestSnapshot),
+    requestId,
+    runParams: runParamsResult.params,
   });
 
   return NextResponse.json(
     {
       status: "accepted",
-      executionId: execution.id,
+      executionId,
     },
     { status: 202 },
   );

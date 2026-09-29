@@ -153,4 +153,72 @@ describe("createUpdateHttpTriggerHandler", () => {
       }),
     );
   });
+
+  it("turns a URL trigger into an event trigger and drops its token", async () => {
+    const update = vi.fn().mockResolvedValue({});
+    const db = {
+      httpTrigger: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "t1",
+          tokenHash: "hash",
+          eventName: null,
+        }),
+        update,
+      },
+    };
+    const handler = createUpdateHttpTriggerHandler({ db: db as never });
+
+    const result = await handler({
+      body: {
+        httpTriggerId: "00000000-0000-4000-8000-000000000022",
+        startMode: "event",
+        eventName: "order.created",
+        bearerToken: "ignored",
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    expect(result.status).toBe(true);
+    const data = update.mock.calls[0]?.[0]?.data as Record<string, unknown>;
+    expect(data).toMatchObject({
+      authType: "DOMAIN_EVENT",
+      eventName: "order.created",
+      tokenHash: null,
+      tokenHint: null,
+    });
+  });
+
+  it("needs a new token to turn an event trigger back into a URL trigger", async () => {
+    const update = vi.fn();
+    const db = {
+      httpTrigger: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "t1",
+          tokenHash: null,
+          eventName: "order.created",
+        }),
+        update,
+      },
+    };
+    const handler = createUpdateHttpTriggerHandler({ db: db as never });
+
+    const result = await handler({
+      body: {
+        httpTriggerId: "00000000-0000-4000-8000-000000000022",
+        startMode: "token",
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    expect((result as { message?: string }).message).toBe(
+      "Bearer token is required",
+    );
+    expect(update).not.toHaveBeenCalled();
+  });
 });

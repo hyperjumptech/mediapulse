@@ -6,6 +6,7 @@ import {
   successResponse,
 } from "route-action-gen/lib";
 import { z } from "zod";
+import { domainEventNameSchema } from "@hermes/domain-contract";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
 import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
@@ -27,7 +28,15 @@ const bodyValidator = z.object({
       v === true || v === "on" ? true : v === "false" ? false : undefined,
     ),
   method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH"]),
-  bearerToken: z.string().min(1, "Bearer token is required"),
+  startMode: z.enum(["token", "event"]).optional(),
+  bearerToken: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().min(1).optional(),
+  ),
+  eventName: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    domainEventNameSchema.optional(),
+  ),
 });
 
 export const requestValidator = createRequestValidator({
@@ -64,16 +73,37 @@ export const createCreateHttpTriggerHandler = ({
       );
     }
 
+    const { startMode, bearerToken, eventName } = data.body;
+    const isEventTrigger = startMode === "event";
+    if (isEventTrigger && eventName === undefined) {
+      return errorResponse("Event name is required");
+    }
+    if (!isEventTrigger && bearerToken === undefined) {
+      return errorResponse("Bearer token is required");
+    }
+    const startData = isEventTrigger
+      ? {
+          authType: "DOMAIN_EVENT" as const,
+          eventName: eventName ?? null,
+          method: "POST" as const,
+          tokenHash: null,
+          tokenHint: null,
+        }
+      : {
+          authType: "BEARER_TOKEN" as const,
+          eventName: null,
+          method: data.body.method,
+          tokenHash: hashHttpTriggerToken(bearerToken ?? ""),
+          tokenHint: createTokenHint(bearerToken ?? ""),
+        };
+
     const trigger = await db.httpTrigger.create({
       data: {
         name: data.body.name,
         description: data.body.description ?? null,
         pipelineId: data.body.pipelineId,
         enabled: data.body.enabled ?? true,
-        method: data.body.method,
-        authType: "BEARER_TOKEN",
-        tokenHash: hashHttpTriggerToken(data.body.bearerToken),
-        tokenHint: createTokenHint(data.body.bearerToken),
+        ...startData,
         createdById: userId,
       },
     });

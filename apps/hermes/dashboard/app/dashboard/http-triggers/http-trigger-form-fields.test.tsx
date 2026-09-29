@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { HttpTriggerFormFields } from "./http-trigger-form-fields";
@@ -107,5 +107,53 @@ describe("HttpTriggerFormFields", () => {
     expect(screen.getByLabelText("Pipeline")).toBeDisabled();
     expect(screen.getByLabelText("Method")).toBeDisabled();
     expect(screen.getByLabelText("Enabled")).toBeDisabled();
+  });
+
+  it("asks for an event name instead of a token for an event trigger", () => {
+    render(
+      <HttpTriggerFormFields
+        pending={false}
+        pipelines={pipelines}
+        defaultName=""
+        defaultDescription=""
+        defaultPipelineId="pipeline-1"
+        defaultEnabled={true}
+        defaultMethod="POST"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Started by"), {
+      target: { value: "event" },
+    });
+
+    const eventNameInput = screen.getByLabelText("Event name");
+    expect(eventNameInput).toHaveAttribute("name", "body.eventName");
+    expect(eventNameInput).toBeRequired();
+    expect(screen.queryByLabelText("Bearer token")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Method")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Started by")).toHaveAttribute(
+      "name",
+      "body.startMode",
+    );
+  });
+
+  it("opens an existing event trigger in event mode with its name", () => {
+    render(
+      <HttpTriggerFormFields
+        pending={false}
+        pipelines={pipelines}
+        defaultName="On order"
+        defaultDescription=""
+        defaultPipelineId="pipeline-1"
+        defaultEnabled={true}
+        defaultMethod="POST"
+        defaultStartMode="event"
+        defaultEventName="order.created"
+        isEdit
+      />,
+    );
+
+    expect(screen.getByLabelText("Started by")).toHaveValue("event");
+    expect(screen.getByLabelText("Event name")).toHaveValue("order.created");
   });
 });

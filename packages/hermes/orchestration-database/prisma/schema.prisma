@@ -240,6 +240,7 @@ model Pipeline {
 
 enum HttpTriggerAuthType {
   BEARER_TOKEN
+  DOMAIN_EVENT
 }
 
 enum HttpMethod {
@@ -400,8 +401,9 @@ model HttpTrigger {
   enabled         Boolean             @default(true)
   method          HttpMethod          @default(POST)
   authType        HttpTriggerAuthType @default(BEARER_TOKEN) @map("auth_type")
-  tokenHash       String              @map("token_hash")
+  tokenHash       String?             @map("token_hash")
   tokenHint       String?             @map("token_hint")
+  eventName       String?             @map("event_name")
   createdAt       DateTime            @default(now()) @map("created_at")
   updatedAt       DateTime            @updatedAt @map("updated_at")
   lastTriggeredAt DateTime?           @map("last_triggered_at")
@@ -413,6 +415,7 @@ model HttpTrigger {
   httpTriggerExecutions HttpTriggerExecution[]
 
   @@index([pipelineId])
+  @@index([eventName])
   @@map("http_trigger")
 }
 
