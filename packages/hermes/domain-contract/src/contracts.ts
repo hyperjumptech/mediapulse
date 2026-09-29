@@ -211,6 +211,31 @@ export const registerDomainIntegrationResponseSchema = z.object({
   dashboard: dashboardManifestSchema,
 });
 
+export const DOMAIN_EVENT_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]{0,99}$/;
+
+export const domainEventNameSchema = z
+  .string()
+  .regex(
+    DOMAIN_EVENT_NAME_PATTERN,
+    "Event names use lowercase letters, digits, dots, dashes and underscores (max 100 characters)",
+  );
+
+export const domainEventRequestSchema = z.object({
+  event: domainEventNameSchema,
+  params: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+    .optional(),
+});
+
+export const domainEventResponseSchema = z.object({
+  executions: z.array(
+    z.object({
+      triggerId: z.guid(),
+      executionId: z.guid(),
+    }),
+  ),
+});
+
 export const domainHealthResponseSchema = z.object({
   ok: z.literal(true),
   service: z.string().min(1),
@@ -248,6 +273,8 @@ export type RegisterDomainIntegrationRequest = z.infer<
 export type RegisterDomainIntegrationResponse = z.infer<
   typeof registerDomainIntegrationResponseSchema
 >;
+export type DomainEventRequest = z.infer<typeof domainEventRequestSchema>;
+export type DomainEventResponse = z.infer<typeof domainEventResponseSchema>;
 export type DashboardPageCustomAction = z.infer<
   typeof dashboardPageCustomActionSchema
 >;

@@ -98,7 +98,7 @@ describe("HttpTriggersTable", () => {
     expect(headers).toEqual([
       "Name",
       "Pipeline",
-      "Method",
+      "Started by",
       "Status",
       "Last triggered",
       "Actions",
@@ -164,7 +164,7 @@ describe("HttpTriggersTable", () => {
     });
 
     expect(
-      within(table()).getByRole("columnheader", { name: "Method" }),
+      within(table()).getByRole("columnheader", { name: "Started by" }),
     ).toHaveAttribute("aria-sort", "descending");
     expect(
       within(table()).queryByRole("button", { name: "Last triggered" }),

@@ -54,6 +54,7 @@ const createMockTrigger = (overrides?: Partial<TriggerRow>): TriggerRow => ({
   method: "POST",
   authType: "BEARER_TOKEN",
   tokenHint: "...wxyz",
+  eventName: null,
   createdAt: new Date("2026-09-25T12:00:00Z"),
   updatedAt: new Date("2026-09-25T12:00:00Z"),
   lastTriggeredAt: new Date("2026-09-28T11:30:00Z"),
@@ -226,5 +227,20 @@ describe("HttpTriggerDetailContent", () => {
       .closest("section") as HTMLElement;
 
     expect(section).toBeInTheDocument();
+  });
+
+  it("shows the event name instead of the URL and token for an event trigger", () => {
+    renderTriggerDetail(
+      createMockTrigger({
+        authType: "DOMAIN_EVENT",
+        eventName: "order.created",
+        tokenHint: null,
+      }),
+    );
+
+    expect(summaryValue("Started by event")).toHaveTextContent("order.created");
+    expect(screen.queryByText("Invoke URL", { selector: "dt" })).toBeNull();
+    expect(screen.queryByText("Method", { selector: "dt" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Copy cURL" })).toBeNull();
   });
 });

@@ -97,4 +97,93 @@ describe("createCreateHttpTriggerHandler", () => {
       }),
     );
   });
+
+  const enabledPipelineDb = () => ({
+    pipeline: {
+      findUnique: vi
+        .fn()
+        .mockResolvedValue({ id: "p1", isActive: true, steps: [] }),
+    },
+    agentRegistry: { findMany: vi.fn().mockResolvedValue([]) },
+    agentConfig: { findMany: vi.fn().mockResolvedValue([]) },
+    httpTrigger: {
+      create: vi
+        .fn()
+        .mockResolvedValue({ id: "00000000-0000-4000-8000-000000000013" }),
+    },
+  });
+
+  it("creates an event trigger without a token", async () => {
+    const db = enabledPipelineDb();
+    const handler = createCreateHttpTriggerHandler({ db: db as never });
+
+    const result = await handler({
+      body: {
+        name: "On order",
+        pipelineId: "00000000-0000-4000-8000-000000000011",
+        method: "POST",
+        startMode: "event",
+        eventName: "order.created",
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    expect(result.status).toBe(true);
+    expect(db.httpTrigger.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        authType: "DOMAIN_EVENT",
+        eventName: "order.created",
+        tokenHash: null,
+        tokenHint: null,
+        method: "POST",
+      }),
+    });
+  });
+
+  it("requires an event name for an event trigger", async () => {
+    const db = enabledPipelineDb();
+    const handler = createCreateHttpTriggerHandler({ db: db as never });
+
+    const result = await handler({
+      body: {
+        name: "On order",
+        pipelineId: "00000000-0000-4000-8000-000000000011",
+        method: "POST",
+        startMode: "event",
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    expect((result as { message?: string }).message).toBe(
+      "Event name is required",
+    );
+    expect(db.httpTrigger.create).not.toHaveBeenCalled();
+  });
+
+  it("requires a bearer token for a URL trigger", async () => {
+    const db = enabledPipelineDb();
+    const handler = createCreateHttpTriggerHandler({ db: db as never });
+
+    const result = await handler({
+      body: {
+        name: "Webhook",
+        pipelineId: "00000000-0000-4000-8000-000000000011",
+        method: "POST",
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    expect((result as { message?: string }).message).toBe(
+      "Bearer token is required",
+    );
+  });
 });

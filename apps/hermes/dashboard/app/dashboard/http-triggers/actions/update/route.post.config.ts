@@ -6,6 +6,7 @@ import {
   successResponse,
 } from "route-action-gen/lib";
 import { z } from "zod";
+import { domainEventNameSchema } from "@hermes/domain-contract";
 
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
 import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
@@ -33,6 +34,11 @@ export const httpTriggerUpdateBodySchema = z.object({
   bearerToken: z.preprocess(
     (val) => (val === "" ? undefined : val),
     z.string().min(1).optional(),
+  ),
+  startMode: z.enum(["token", "event"]).optional(),
+  eventName: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    domainEventNameSchema.optional(),
   ),
 });
 
@@ -76,9 +82,31 @@ export const createUpdateHttpTriggerHandler = ({
       }
     }
 
+    const { startMode, eventName, bearerToken } = data.body;
+    const nextEventName = eventName ?? existing.eventName ?? undefined;
+    if (startMode === "event" && nextEventName === undefined) {
+      return errorResponse("Event name is required");
+    }
+    const needsNewToken = startMode === "token" && existing.tokenHash === null;
+    if (needsNewToken && bearerToken === undefined) {
+      return errorResponse("Bearer token is required");
+    }
+    const startModeData =
+      startMode === "event"
+        ? {
+            authType: "DOMAIN_EVENT" as const,
+            eventName: nextEventName,
+            tokenHash: null,
+            tokenHint: null,
+          }
+        : startMode === "token"
+          ? { authType: "BEARER_TOKEN" as const, eventName: null }
+          : {};
+
     await db.httpTrigger.update({
       where: { id: data.body.httpTriggerId },
       data: {
+        ...startModeData,
         ...(data.body.name !== undefined ? { name: data.body.name } : {}),
         ...(data.body.description !== undefined
           ? { description: data.body.description }
@@ -90,10 +118,10 @@ export const createUpdateHttpTriggerHandler = ({
           ? { enabled: data.body.enabled }
           : {}),
         ...(data.body.method !== undefined ? { method: data.body.method } : {}),
-        ...(data.body.bearerToken !== undefined
+        ...(bearerToken !== undefined && startMode !== "event"
           ? {
-              tokenHash: hashHttpTriggerToken(data.body.bearerToken),
-              tokenHint: createTokenHint(data.body.bearerToken),
+              tokenHash: hashHttpTriggerToken(bearerToken),
+              tokenHint: createTokenHint(bearerToken),
             }
           : {}),
       },

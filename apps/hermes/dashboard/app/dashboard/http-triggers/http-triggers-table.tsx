@@ -62,13 +62,15 @@ const createHttpTriggerColumns = (onEdit: EditHttpTriggerHandler) =>
     }),
     columnHelper.accessor("method", {
       id: "method",
-      meta: { label: "Method", sortKey: "method", mobile: "field" },
+      meta: { label: "Started by", sortKey: "method", mobile: "field" },
       cell: ({ row }) => (
         <Badge
           variant="outline"
           className="px-1.5 font-mono text-muted-foreground"
         >
-          {row.original.method}
+          {row.original.authType === "DOMAIN_EVENT"
+            ? `event ${row.original.eventName ?? ""}`
+            : row.original.method}
         </Badge>
       ),
     }),
@@ -106,6 +108,7 @@ const createHttpTriggerColumns = (onEdit: EditHttpTriggerHandler) =>
           httpTriggerId={row.original.id}
           httpTriggerName={row.original.name}
           method={row.original.method}
+          isEventTrigger={row.original.authType === "DOMAIN_EVENT"}
           onEdit={onEdit}
         />
       ),

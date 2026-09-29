@@ -11,6 +11,8 @@ export type HttpTriggerForEdit = {
   enabled: boolean;
   method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
   tokenHint: string | null;
+  authType: "BEARER_TOKEN" | "DOMAIN_EVENT";
+  eventName: string | null;
 };
 
 /**
@@ -30,5 +32,7 @@ export const getHttpTriggerForEdit = async (
     enabled: row.enabled,
     method: row.method,
     tokenHint: row.tokenHint,
+    authType: row.authType,
+    eventName: row.eventName,
   };
 };
