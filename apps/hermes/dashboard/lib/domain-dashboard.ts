@@ -15,6 +15,10 @@ import {
   requestDomainIntegration,
 } from "@/lib/domain-integration-request";
 import {
+  domainRequestFailedError,
+  readDomainErrorDetail,
+} from "@/lib/domain-request-error";
+import {
   getDomainIntegrationByIntegrationId,
   type DomainIntegrationRecord,
 } from "@/lib/domain-integrations";
@@ -199,7 +203,8 @@ const callDomain = async <T>(
     },
     async (response) => {
       if (!response.ok) {
-        throw new Error(`Domain dashboard request failed (${response.status})`);
+        const detail = await readDomainErrorDetail(response);
+        throw domainRequestFailedError(response.status, detail);
       }
       const payload = (await response.json()) as unknown;
 

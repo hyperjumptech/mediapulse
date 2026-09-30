@@ -108,4 +108,17 @@ export const DOMAIN_READ_TOOL_SPECS: HermesReadToolSpec[] = [
       itemId: nonEmptyStringField("Row id"),
     },
   },
+  {
+    name: "hermes_get_domain_expansion_preview",
+    title: "Preview data source expansion",
+    description:
+      "Ask a domain integration what a data source expansion string, such as a step input expression, expands to right now.",
+    toolset: "domain",
+    method: "POST",
+    pathTemplate: "/dashboard/domain-integrations/actions/preview-expansion",
+    inputSchema: {
+      integrationId: nonEmptyStringField("Domain integration id"),
+      expansionString: nonEmptyStringField("Expansion string to preview"),
+    },
+  },
 ];

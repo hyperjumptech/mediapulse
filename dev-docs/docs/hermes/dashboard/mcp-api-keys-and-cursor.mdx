@@ -130,6 +130,7 @@ Set `HERMES_MCP_TOOLSETS` in the MCP client env to a comma-separated list (`pipe
 | `hermes_get_domain_content` | GET | `/api/domain-integrations/{integrationId}/views/{viewId}/content` |
 | `hermes_list_domain_rows`           | GET  | `/api/domain-integrations/{integrationId}/{resource}`          |
 | `hermes_get_domain_row`             | GET  | `/api/domain-integrations/{integrationId}/{resource}/{itemId}` |
+| `hermes_get_domain_expansion_preview` | POST | `/dashboard/domain-integrations/actions/preview-expansion` |
 | `hermes_list_profiles`              | none | In-process profile list                                        |
 | `hermes_set_active_profile`         | none | In-process profile switch                                      |
 
@@ -172,6 +173,10 @@ Domain data is read generically. `hermes_list_domain_views` lists an integration
 | `hermes_mutate_delete_http_trigger`           | Yes                   | `/dashboard/http-triggers/actions/delete`              |
 | `hermes_mutate_create_domain_integration` | Yes | `/dashboard/domain-integrations/actions/create` |
 | `hermes_mutate_delete_domain_integration` | Yes | `/dashboard/domain-integrations/actions/delete` |
+| `hermes_mutate_create_domain_row` | No | `/dashboard/domain-integrations/actions/create-row` |
+| `hermes_mutate_update_domain_row` | No | `/dashboard/domain-integrations/actions/update-row` |
+| `hermes_mutate_delete_domain_row` | Yes | `/dashboard/domain-integrations/actions/delete-row` |
+| `hermes_mutate_run_domain_action` | Yes | `/dashboard/domain-integrations/actions/run-custom-action` |
 
 ## Related
 
