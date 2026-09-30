@@ -3,6 +3,36 @@ import type { GraphMessage } from "@mediapulse/outlook-inbox";
 /** Same shape as extractSenderEmail validation (reject if "display name" is an email string). */
 const EMAIL_SHAPE_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const NAMED_HTML_ENTITIES: Record<string, string> = {
+  nbsp: " ",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  amp: "&",
+};
+
+const decodeNumericEntity = (codePoint: number): string =>
+  Number.isInteger(codePoint) && codePoint > 0 && codePoint <= 0x10ffff
+    ? String.fromCodePoint(codePoint)
+    : "";
+
+const decodeHtmlEntities = (text: string): string =>
+  text.replace(
+    /&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi,
+    (entity, reference: string) => {
+      const lowerReference = reference.toLowerCase();
+      if (lowerReference.startsWith("#x")) {
+        return decodeNumericEntity(parseInt(lowerReference.slice(2), 16));
+      }
+      if (lowerReference.startsWith("#")) {
+        return decodeNumericEntity(parseInt(lowerReference.slice(1), 10));
+      }
+
+      return NAMED_HTML_ENTITIES[lowerReference] ?? entity;
+    },
+  );
+
 /**
  * Converts Graph message body content (plain text or HTML) into newline-oriented text for line-based field parsing.
  *
@@ -23,7 +53,7 @@ function normalizeGraphBodyContentForLineParsing(
     .replace(/<\s*br\s*\/?>/gi, "\n")
     .replace(/<\/\s*(p|div|tr|li|h[1-6])\s*>/gi, "\n")
     .replace(/<[^>]+>/g, " ");
-  return text
+  return decodeHtmlEntities(text)
     .replace(/\r\n/g, "\n")
     .replace(/[ \t\f\v]+/g, " ")
     .replace(/ *\n */g, "\n")

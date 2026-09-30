@@ -261,6 +261,23 @@ describe("Parser Helpers", () => {
       expect(extractSubscriberName(body)).toBe("Pat Lee");
     });
 
+    it("stops at a pipe that Gmail wraps in non-breaking space entities", () => {
+      const body =
+        '<div dir="ltr">Name: Kevin&nbsp; |&nbsp;Ticker: ANTM&nbsp; |&nbsp;Language: id&nbsp; |&nbsp;---</div>';
+      expect(extractSubscriberName(body)).toBe("Kevin");
+    });
+
+    it("decodes named and numeric entities inside the name", () => {
+      const body =
+        "<div>Name: Ren&#233;e &amp; Jos&#xE9;</div><div>Ticker: BBCA</div>";
+      expect(extractSubscriberName(body)).toBe("Renée & José");
+    });
+
+    it("keeps unknown entities as written", () => {
+      const body = "<div>Name: Pat &unknown; Lee</div><div>Ticker: BBCA</div>";
+      expect(extractSubscriberName(body)).toBe("Pat &unknown; Lee");
+    });
+
     it("returns null when Name label is empty", () => {
       expect(extractSubscriberName("Name:\nTicker: BBCA")).toBeNull();
     });
