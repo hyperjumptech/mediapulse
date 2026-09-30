@@ -7,29 +7,15 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
+import { jsonObjectFieldSchema } from "@/lib/json-object-field-schema";
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
 import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
-
-/**
- * Parses JSON string into a plain object for endpoint. Rejects arrays and non-object values.
- */
-const endpointSchema = z.string().transform((s): Record<string, unknown> => {
-  try {
-    const v = JSON.parse(s) as unknown;
-    if (v !== null && typeof v === "object" && !Array.isArray(v)) {
-      return v as Record<string, unknown>;
-    }
-    throw new Error("Endpoint must be a JSON object");
-  } catch (err) {
-    throw err instanceof Error ? err : new Error("Invalid JSON in endpoint");
-  }
-});
 
 const bodyValidator = z.object({
   agentId: z.string().min(1, "Agent ID is required"),
   agentVersion: z.string().min(1, "Agent version is required"),
   description: z.string().optional(),
-  endpoint: endpointSchema,
+  endpoint: jsonObjectFieldSchema("Endpoint"),
   domainIntegrationId: z.guid().optional(),
   isActive: z
     .union([z.boolean(), z.literal("true"), z.literal("false")])

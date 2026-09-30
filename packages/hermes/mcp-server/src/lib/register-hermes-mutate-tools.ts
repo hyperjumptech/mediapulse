@@ -12,6 +12,7 @@ import {
   type HermesMutateToolSpec,
   HERMES_MUTATE_TOOL_SPECS,
 } from "./mutate-tool-catalog.js";
+import { HERMES_TOOLSETS, type HermesToolset } from "./toolsets.js";
 
 const DESTRUCTIVE_CONFIRM_MESSAGE =
   "Destructive Hermes mutation blocked. Call this tool again with confirm: true after the user approves. No HTTP request was sent.";
@@ -61,6 +62,7 @@ export const handleHermesMutateToolCall = async (
 export type RegisterHermesMutateToolsDependencies = {
   server: McpServer;
   httpClient: HermesHttpClient;
+  enabledToolsets?: ReadonlySet<HermesToolset>;
   assertMutationAllowed?: typeof assertMutationAllowed;
   whoamiCache?: WhoamiCache;
   resolveProfileKey?: () => string | undefined;
@@ -69,11 +71,15 @@ export type RegisterHermesMutateToolsDependencies = {
 export const registerHermesMutateTools = ({
   server,
   httpClient,
+  enabledToolsets = new Set(HERMES_TOOLSETS),
   assertMutationAllowed: assertMutationAllowedFn = assertMutationAllowed,
   whoamiCache,
   resolveProfileKey,
 }: RegisterHermesMutateToolsDependencies): void => {
-  for (const spec of HERMES_MUTATE_TOOL_SPECS) {
+  const mutateToolSpecs = HERMES_MUTATE_TOOL_SPECS.filter((spec) =>
+    enabledToolsets.has(spec.toolset),
+  );
+  for (const spec of mutateToolSpecs) {
     server.registerTool(
       spec.name,
       {

@@ -16,7 +16,7 @@ const ACTIVE_PROFILE_ENV = "HERMES_MCP_ACTIVE_PROFILE";
  *
  * @returns Environment map when available; otherwise an empty object.
  */
-const runtimeProcessEnv = (): NodeJS.ProcessEnv =>
+export const runtimeProcessEnv = (): NodeJS.ProcessEnv =>
   globalThis.process?.env ?? ({} as NodeJS.ProcessEnv);
 
 /** In-process override when the user switches profile via MCP tool. */

@@ -68,12 +68,18 @@ List tools take `page`, `pageSize` (up to 100), `q`, `sort` and `dir`, and retur
 
 ## Mutation tools and confirm gate
 
-Tools prefixed `hermes_mutate_*` call dashboard `POST` routes. **Delete, cancel, and run** tools require two steps:
+Tools prefixed `hermes_mutate_*` call dashboard `POST` routes. Tools marked **Needs `confirm: true`** below (deletes, cancels, runs) require two steps:
 
 1. First call without `confirm: true` → tool error, **no HTTP**.
 2. Second call with `confirm: true` after explicit user approval.
 
 Read-only keys are rejected before HTTP (via whoami). The whoami result is cached per profile for 5 minutes and cleared on any 401 or 403 and on a profile switch.
+
+Hermes answers a rejected mutation with HTTP 400. An invalid body lists each bad field in `issues` as `{ path, message }`. A missing record is 404, a duplicate is 409, and only a Hermes failure is 500.
+
+## Toolsets
+
+Set `HERMES_MCP_TOOLSETS` in the MCP client env to a comma-separated list (`pipelines`, `schedules`, `triggers`, `agents`, `variables`, `domain`, `admin`) to register fewer tools, for clients that cap the tool count. `core` tools (`hermes_ping`, `hermes_search`, profiles) are always registered. Unset means every toolset.
 
 ## Rollback
 

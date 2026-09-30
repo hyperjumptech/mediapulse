@@ -4,9 +4,19 @@ import {
   type HandlerFunc,
   type HandlerResponse,
 } from "route-action-gen/lib";
-import type { z } from "zod";
+import { z } from "zod";
 
 import { DashboardReadOnlyApiKeyError } from "@/lib/dashboard-read-only-api-key-error";
+
+export const INTERNAL_ERROR_CODE = "internal_error";
+
+export const internalErrorResponse = (message: string) =>
+  errorResponse(message, { code: INTERNAL_ERROR_CODE }, 500);
+
+type ValidationIssue = {
+  path: string;
+  message: string;
+};
 
 type Validator = ReturnType<typeof createRequestValidator>;
 
@@ -150,40 +160,99 @@ const validateSearchParamsFromRequest = async (
   return searchParamsValidator.parseAsync(searchParamsObj);
 };
 
-/**
- * Converts a route-action-gen error payload into a Next.js `Response`.
- *
- * @param response - Error payload from `errorResponse`.
- * @returns JSON HTTP response.
- */
+const errorObjectField = (
+  response: ReturnType<typeof errorResponse>,
+  field: string,
+): unknown =>
+  typeof response.object === "object" &&
+  response.object !== null &&
+  field in response.object
+    ? (response.object as Record<string, unknown>)[field]
+    : undefined;
+
+const resolveErrorStatusCode = (
+  response: ReturnType<typeof errorResponse>,
+): number => {
+  if (response.statusCode !== 500) {
+    return response.statusCode;
+  }
+  const isInternalError =
+    errorObjectField(response, "code") === INTERNAL_ERROR_CODE;
+
+  return isInternalError ? 500 : 400;
+};
+
 const toErrorHttpResponse = (response: ReturnType<typeof errorResponse>) => {
-  const code =
-    typeof response.object === "object" &&
-    response.object !== null &&
-    "code" in response.object
-      ? (response.object as { code: string }).code
-      : undefined;
+  const code = errorObjectField(response, "code");
+  const statusCode = resolveErrorStatusCode(response);
+  const headers = { "Content-Type": "application/json" };
 
   if (code === "read_only_key") {
     return new Response(
       JSON.stringify({ code: "read_only_key", message: response.message }),
-      {
-        status: response.statusCode,
-        headers: { "Content-Type": "application/json" },
-      },
+      { status: statusCode, headers },
     );
   }
+
+  const issues = errorObjectField(response, "issues");
 
   return new Response(
     JSON.stringify({
       message: response.message,
-      statusCode: response.statusCode,
+      statusCode,
+      ...(Array.isArray(issues) ? { issues } : {}),
     }),
-    {
-      status: response.statusCode,
-      headers: { "Content-Type": "application/json" },
-    },
+    { status: statusCode, headers },
   );
+};
+
+const validationIssuesFromError = (error: unknown): ValidationIssue[] =>
+  error instanceof z.ZodError
+    ? error.issues.map((issue) => ({
+        path: issue.path.map(String).join("."),
+        message: issue.message,
+      }))
+    : [];
+
+const describeValidationIssue = (issue: ValidationIssue): string =>
+  issue.path === "" ? issue.message : `${issue.path}: ${issue.message}`;
+
+const validationErrorResponse = (error: unknown) => {
+  const issues = validationIssuesFromError(error);
+  const detail =
+    issues.length > 0
+      ? issues.map(describeValidationIssue).join("; ")
+      : error instanceof Error
+        ? error.message
+        : "Invalid request";
+
+  return errorResponse(`Invalid request: ${detail}`, { issues }, 400);
+};
+
+const prismaErrorCode = (error: unknown): string | undefined => {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return undefined;
+  }
+  const code = (error as { code: unknown }).code;
+
+  return typeof code === "string" ? code : undefined;
+};
+
+const thrownHandlerErrorResponse = (error: unknown) => {
+  const code = prismaErrorCode(error);
+  if (code === "P2025") {
+    return errorResponse("Record not found", undefined, 404);
+  }
+  if (code === "P2002") {
+    return errorResponse(
+      "A record with these values already exists",
+      undefined,
+      409,
+    );
+  }
+  console.error("Hermes dashboard route failed", error);
+
+  return internalErrorResponse("Internal server error");
 };
 
 /**
@@ -238,27 +307,39 @@ export const processHermesDashboardRequest = <
     }
 
     const { user } = authResult;
+    let validatedInput: unknown[];
+    try {
+      validatedInput = await Promise.all([
+        validateBodyFromRequest(requestValidator.body, request),
+        validateHeaders(requestValidator.headers, request.headers),
+        validateParams(requestValidator.params, params),
+        validateSearchParamsFromRequest(requestValidator.searchParams, request),
+      ]);
+    } catch (error) {
+      return toErrorHttpResponse(validationErrorResponse(error));
+    }
     const [
       validatedBody,
       validatedHeaders,
       validatedParams,
       validatedSearchParams,
-    ] = await Promise.all([
-      validateBodyFromRequest(requestValidator.body, request),
-      validateHeaders(requestValidator.headers, request.headers),
-      validateParams(requestValidator.params, params),
-      validateSearchParamsFromRequest(requestValidator.searchParams, request),
-    ]);
+    ] = validatedInput;
 
     type HandlerParameters = Parameters<HandlerFunc<RV, TV, Input>>[0];
 
-    return handler({
-      body: validatedBody,
-      headers: validatedHeaders,
-      params: validatedParams,
-      searchParams: validatedSearchParams,
-      user,
-    } as HandlerParameters).then(toHttpResponse);
+    try {
+      const response = await handler({
+        body: validatedBody,
+        headers: validatedHeaders,
+        params: validatedParams,
+        searchParams: validatedSearchParams,
+        user,
+      } as HandlerParameters);
+
+      return toHttpResponse(response);
+    } catch (error) {
+      return toErrorHttpResponse(thrownHandlerErrorResponse(error));
+    }
   };
 };
 

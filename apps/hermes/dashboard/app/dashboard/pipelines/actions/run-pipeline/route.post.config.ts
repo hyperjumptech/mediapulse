@@ -30,6 +30,7 @@ import {
 } from "route-action-gen/lib";
 import { z } from "zod";
 
+import { internalErrorResponse } from "@/lib/hermes-dashboard-route-process";
 import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
 import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { createExpandStepInputsForManualPipelineRun } from "@/lib/expand-step-inputs-for-manual-pipeline";
@@ -637,7 +638,7 @@ export const createRunPipelineHandler = ({
         err,
       );
       const message = err instanceof Error ? err.message : String(err);
-      return errorResponse(`Run pipeline failed: ${message}`);
+      return internalErrorResponse(`Run pipeline failed: ${message}`);
     }
   };
 };
