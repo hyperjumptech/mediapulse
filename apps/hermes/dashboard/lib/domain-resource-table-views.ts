@@ -1,4 +1,5 @@
 import type {
+  DashboardPageCustomAction,
   DashboardView,
   ResourceTableListFilterDefinition,
   ResourceTableView,
@@ -15,6 +16,11 @@ export type DomainResourceTableFilterSummary = {
   options?: Array<{ value: string; label: string }>;
 };
 
+export type DomainCustomActionSummary = Pick<
+  DashboardPageCustomAction,
+  "id" | "label" | "description" | "ui" | "accept" | "confirmMessage"
+>;
+
 export type DomainResourceTableViewSummary = {
   id: string;
   label: string;
@@ -25,7 +31,62 @@ export type DomainResourceTableViewSummary = {
   sortableFields: string[];
   defaultSort?: ResourceTableView["defaultSort"];
   filters: DomainResourceTableFilterSummary[];
+  actions: ResourceTableView["actions"];
+  customActions: DomainCustomActionSummary[];
+  createNavigation: ResourceTableView["createNavigation"];
+  hasCreateSchema: boolean;
+  hasUpdateSchema: boolean;
 };
+
+type ContentDashboardView = Extract<
+  DashboardView,
+  { kind: "markdown" | "html" | "text" }
+>;
+
+export type DomainContentViewSummary = {
+  id: string;
+  label: string;
+  description?: string;
+  kind: ContentDashboardView["kind"];
+  placement: ContentDashboardView["placement"];
+  pathSegment?: string;
+  agentIds?: string[];
+};
+
+export const isContentDashboardView = (
+  view: DashboardView,
+): view is ContentDashboardView =>
+  view.kind === "markdown" || view.kind === "html" || view.kind === "text";
+
+export const toDomainCustomActionSummary = (
+  action: DashboardPageCustomAction,
+): DomainCustomActionSummary => ({
+  id: action.id,
+  label: action.label,
+  description: action.description,
+  ui: action.ui,
+  accept: action.accept,
+  confirmMessage: action.confirmMessage,
+});
+
+export const listDomainContentViews = (
+  integration: DomainIntegrationRecord,
+): ContentDashboardView[] =>
+  integration.dashboard.views
+    .filter(isContentDashboardView)
+    .sort((a, b) => a.order - b.order);
+
+export const toDomainContentViewSummary = (
+  view: ContentDashboardView,
+): DomainContentViewSummary => ({
+  id: view.id,
+  label: view.label,
+  description: view.description,
+  kind: view.kind,
+  placement: view.placement,
+  pathSegment: view.pathSegment,
+  agentIds: view.agentIds,
+});
 
 const isResourceTableView = (
   view: DashboardView,
@@ -93,5 +154,10 @@ export const toDomainResourceTableViewSummary = (
     sortableFields: view.sortableFields,
     defaultSort: view.defaultSort,
     filters,
+    actions: view.actions,
+    customActions: view.customActions.map(toDomainCustomActionSummary),
+    createNavigation: view.createNavigation,
+    hasCreateSchema: view.createSchema !== undefined,
+    hasUpdateSchema: view.updateSchema !== undefined,
   };
 };

@@ -140,9 +140,104 @@ describe("HERMES_MUTATE_TOOL_SPECS annotations", () => {
       if (/_(create|add)_/.test(spec.name)) {
         expect(spec.annotations.destructiveHint, spec.name).toBe(false);
       }
-      if (spec.requiresConfirm) {
+      if (spec.requiresConfirm && spec.confirmReason !== "credential") {
         expect(spec.annotations.destructiveHint, spec.name).toBe(true);
       }
+      if (spec.confirmReason === "credential") {
+        expect(spec.requiresConfirm, spec.name).toBe(true);
+        expect(spec.secretFields?.length, spec.name).toBeGreaterThan(0);
+        expect(spec.inputSchema, spec.name).toHaveProperty("secretFilePath");
+      }
     }
+  });
+});
+
+const createIntegrationSpec = HERMES_MUTATE_TOOL_SPECS.find(
+  (spec) => spec.name === "hermes_mutate_create_domain_integration",
+);
+
+const createdIntegration = {
+  id: "00000000-0000-4000-8000-000000000001",
+  integrationId: "acme",
+  name: "Acme",
+  apiKeyPlaintext: "plain-secret",
+};
+
+const allowMutation = async () => ({ allowed: true as const });
+
+describe("handleHermesMutateToolCall secret files", () => {
+  it("writes the secret to the file and keeps it out of the result", async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValue({ status: 200, body: createdIntegration, text: "" });
+    const writeSecretFile = vi.fn().mockResolvedValue(undefined);
+
+    const result = await handleHermesMutateToolCall(
+      createIntegrationSpec!,
+      {
+        integrationId: "acme",
+        name: "Acme",
+        secretFilePath: "/tmp/acme.key",
+        confirm: true,
+      },
+      {
+        httpClient: { request },
+        assertMutationAllowed: allowMutation,
+        writeSecretFile,
+      },
+    );
+
+    const text = JSON.stringify(result.content);
+    expect(writeSecretFile).toHaveBeenCalledWith(
+      "/tmp/acme.key",
+      "plain-secret\n",
+    );
+    expect(text).not.toContain("plain-secret");
+    expect(text).toContain("[written to /tmp/acme.key]");
+    expect(request.mock.calls[0]?.[0].body).toEqual({
+      integrationId: "acme",
+      name: "Acme",
+    });
+  });
+
+  it("returns the secret with a warning when the file cannot be written", async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValue({ status: 200, body: createdIntegration, text: "" });
+    const writeSecretFile = vi
+      .fn()
+      .mockRejectedValue(new Error("EEXIST: file already exists"));
+
+    const result = await handleHermesMutateToolCall(
+      createIntegrationSpec!,
+      {
+        integrationId: "acme",
+        name: "Acme",
+        secretFilePath: "/tmp/acme.key",
+        confirm: true,
+      },
+      {
+        httpClient: { request },
+        assertMutationAllowed: allowMutation,
+        writeSecretFile,
+      },
+    );
+
+    const text = JSON.stringify(result.content);
+    expect(text).toContain("plain-secret");
+    expect(text).toContain("EEXIST");
+  });
+
+  it("needs confirm before creating a credential", async () => {
+    const request = vi.fn();
+
+    const result = await handleHermesMutateToolCall(
+      createIntegrationSpec!,
+      { integrationId: "acme", name: "Acme" },
+      { httpClient: { request }, assertMutationAllowed: allowMutation },
+    );
+
+    expect(result.isError).toBe(true);
+    expect(request).not.toHaveBeenCalled();
   });
 });

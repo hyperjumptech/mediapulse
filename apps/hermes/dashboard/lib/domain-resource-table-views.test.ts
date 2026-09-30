@@ -6,7 +6,10 @@ import type { DomainIntegrationRecord } from "./domain-integrations";
 import {
   domainTableFilterQueryKeys,
   findDomainResourceTableView,
+  listDomainContentViews,
   listDomainResourceTableViews,
+  toDomainContentViewSummary,
+  toDomainCustomActionSummary,
   toDomainResourceTableViewSummary,
 } from "./domain-resource-table-views";
 
@@ -158,6 +161,54 @@ describe("toDomainResourceTableViewSummary", () => {
           queryKeys: ["createdFrom", "createdTo"],
         },
       ],
+      actions: { create: false, update: false, delete: false, view: false },
+      customActions: [],
+      createNavigation: "modal",
+      hasCreateSchema: false,
+      hasUpdateSchema: false,
     });
+  });
+});
+
+describe("toDomainCustomActionSummary", () => {
+  it("never exposes the action path or confirm token", () => {
+    const summary = toDomainCustomActionSummary({
+      id: "reset-all",
+      label: "Reset all",
+      ui: "danger-confirm",
+      method: "POST",
+      path: "/reset-all",
+      confirmMessage: "Delete every row?",
+      confirmToken: "DELETE_EVERYTHING",
+    });
+
+    expect(summary).toEqual({
+      id: "reset-all",
+      label: "Reset all",
+      description: undefined,
+      ui: "danger-confirm",
+      accept: undefined,
+      confirmMessage: "Delete every row?",
+    });
+  });
+});
+
+describe("listDomainContentViews", () => {
+  it("lists markdown, html, and text views with their placement", () => {
+    const summaries = listDomainContentViews(buildIntegration()).map(
+      toDomainContentViewSummary,
+    );
+
+    expect(summaries).toEqual([
+      {
+        id: "readme",
+        label: "Readme",
+        description: undefined,
+        kind: "markdown",
+        placement: "sidebar",
+        pathSegment: "readme",
+        agentIds: undefined,
+      },
+    ]);
   });
 });
