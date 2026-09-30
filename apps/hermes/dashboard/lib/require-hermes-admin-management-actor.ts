@@ -32,11 +32,13 @@ export const createRequireHermesAdminManagementActor = ({
    *
    * @returns Authorized actor payload or a failure marker.
    */
-  return async (): Promise<
+  return async (
+    principalUser?: DashboardUser,
+  ): Promise<
     | { ok: true; session: DashboardUser; actor: HermesAdminManagementActor }
     | { ok: false }
   > => {
-    const session = await getSession();
+    const session = principalUser ?? (await getSession());
     if (!session) {
       return { ok: false };
     }

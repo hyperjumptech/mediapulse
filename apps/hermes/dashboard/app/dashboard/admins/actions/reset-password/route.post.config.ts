@@ -53,9 +53,9 @@ export const createResetAdminPasswordHandler = ({
   hashPassword = (plain: string) => bcrypt.hash(plain, 10),
 }: ResetAdminPasswordHandlerDependencies = {}): ResetAdminPasswordHandler => {
   return async (data) => {
-    const gate = await requireHermesAdminManagementActor();
+    const gate = await requireHermesAdminManagementActor(data.user);
     if (!gate.ok) {
-      return errorResponse("Unauthorized");
+      return errorResponse("Unauthorized", undefined, 403);
     }
 
     const { id, newPassword } = data.body;

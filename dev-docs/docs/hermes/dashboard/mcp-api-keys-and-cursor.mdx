@@ -64,7 +64,7 @@ List tools take `page`, `pageSize` (up to 100), `q`, `sort` and `dir`, and retur
 ## Rollout (v1a → v1b)
 
 1. **v1a — reads only:** Issue a **read-only** API key. Enable MCP with read/list tools only. Confirm operators can triage without mutations.
-2. **v1b — writes:** Issue a **full-access** key only for admins who need mutations. Destructive MCP tools require `confirm: true` on a second call (see below).
+2. **v1b — writes:** Issue a **full-access** key only for admins who need mutations. Destructive MCP tools require `confirm: true` on a second call (see below). A full-access key can also create admins and issue more API keys, so treat it like the owner's password.
 
 ## Mutation tools and confirm gate
 
@@ -85,7 +85,7 @@ Set `HERMES_MCP_TOOLSETS` in the MCP client env to a comma-separated list (`pipe
 
 ## Rollback
 
-1. In Hermes → **API keys**, **revoke** the key.
+1. In Hermes → **API keys**, **revoke** the key. Check the list for keys it may have issued with `hermes_mutate_create_api_key` and revoke those too.
 2. Remove or disable the `hermes` entry in Cursor `mcp.json`.
 3. Rotate any copy of the plaintext key that may have left Cursor secrets.
 
@@ -131,6 +131,8 @@ Set `HERMES_MCP_TOOLSETS` in the MCP client env to a comma-separated list (`pipe
 | `hermes_list_domain_rows`           | GET  | `/api/domain-integrations/{integrationId}/{resource}`          |
 | `hermes_get_domain_row`             | GET  | `/api/domain-integrations/{integrationId}/{resource}/{itemId}` |
 | `hermes_get_domain_expansion_preview` | POST | `/dashboard/domain-integrations/actions/preview-expansion` |
+| `hermes_list_admins` | GET | `/api/admins` |
+| `hermes_list_api_keys` | GET | `/api/api-keys` |
 | `hermes_list_profiles`              | none | In-process profile list                                        |
 | `hermes_set_active_profile`         | none | In-process profile switch                                      |
 
@@ -177,6 +179,12 @@ Domain data is read generically. `hermes_list_domain_views` lists an integration
 | `hermes_mutate_update_domain_row` | No | `/dashboard/domain-integrations/actions/update-row` |
 | `hermes_mutate_delete_domain_row` | Yes | `/dashboard/domain-integrations/actions/delete-row` |
 | `hermes_mutate_run_domain_action` | Yes | `/dashboard/domain-integrations/actions/run-custom-action` |
+| `hermes_mutate_create_admin` | Yes | `/dashboard/admins/actions/create` |
+| `hermes_mutate_delete_admin` | Yes | `/dashboard/admins/actions/delete` |
+| `hermes_mutate_reset_admin_password` | Yes | `/dashboard/admins/actions/reset-password` |
+| `hermes_mutate_set_admin_active` | Yes | `/dashboard/admins/actions/set-active` |
+| `hermes_mutate_create_api_key` | Yes | `/dashboard/api-keys/actions/create` |
+| `hermes_mutate_revoke_api_key` | Yes | `/dashboard/api-keys/actions/revoke` |
 
 ## Related
 
