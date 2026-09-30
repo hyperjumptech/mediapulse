@@ -1,4 +1,5 @@
 import { AGENT_MUTATE_TOOL_SPECS } from "./mutate-specs/agents.js";
+import { DOMAIN_MUTATE_TOOL_SPECS } from "./mutate-specs/domain.js";
 import { HTTP_TRIGGER_MUTATE_TOOL_SPECS } from "./mutate-specs/http-triggers.js";
 import { PIPELINE_MUTATE_TOOL_SPECS } from "./mutate-specs/pipelines.js";
 import { SCHEDULE_MUTATE_TOOL_SPECS } from "./mutate-specs/schedules.js";
@@ -16,6 +17,7 @@ export const HERMES_MUTATE_TOOL_SPECS: HermesMutateToolSpec[] = [
   ...PIPELINE_MUTATE_TOOL_SPECS,
   ...SCHEDULE_MUTATE_TOOL_SPECS,
   ...HTTP_TRIGGER_MUTATE_TOOL_SPECS,
+  ...DOMAIN_MUTATE_TOOL_SPECS,
 ];
 
 export const buildMutationRequestBody = (

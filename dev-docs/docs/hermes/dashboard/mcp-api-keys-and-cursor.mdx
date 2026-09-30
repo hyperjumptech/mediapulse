@@ -77,6 +77,8 @@ Read-only keys are rejected before HTTP (via whoami). The whoami result is cache
 
 Hermes answers a rejected mutation with HTTP 400. An invalid body lists each bad field in `issues` as `{ path, message }`. A missing record is 404, a duplicate is 409, and only a Hermes failure is 500.
 
+Tools that create a credential, such as `hermes_mutate_create_domain_integration`, also need `confirm: true`. Pass `secretFilePath` (an absolute path to a new file) to keep the one-time secret out of the conversation: the MCP server writes it with mode 600 and returns `[written to <path>]` instead.
+
 ## Toolsets
 
 Set `HERMES_MCP_TOOLSETS` in the MCP client env to a comma-separated list (`pipelines`, `schedules`, `triggers`, `agents`, `variables`, `domain`, `admin`) to register fewer tools, for clients that cap the tool count. `core` tools (`hermes_ping`, `hermes_search`, profiles) are always registered. Unset means every toolset.
@@ -124,6 +126,8 @@ Set `HERMES_MCP_TOOLSETS` in the MCP client env to a comma-separated list (`pipe
 | `hermes_get_variable`               | POST | `/dashboard/variables/actions/get`                             |
 | `hermes_list_domain_integrations`   | GET  | `/api/domain-integrations`                                     |
 | `hermes_list_domain_views`          | GET  | `/api/domain-integrations/{integrationId}/views`               |
+| `hermes_get_domain_view` | GET | `/api/domain-integrations/{integrationId}/{resource}/meta` |
+| `hermes_get_domain_content` | GET | `/api/domain-integrations/{integrationId}/views/{viewId}/content` |
 | `hermes_list_domain_rows`           | GET  | `/api/domain-integrations/{integrationId}/{resource}`          |
 | `hermes_get_domain_row`             | GET  | `/api/domain-integrations/{integrationId}/{resource}/{itemId}` |
 | `hermes_list_profiles`              | none | In-process profile list                                        |
@@ -166,6 +170,8 @@ Domain data is read generically. `hermes_list_domain_views` lists an integration
 | `hermes_mutate_update_http_trigger`           | No                    | `/dashboard/http-triggers/actions/update`              |
 | `hermes_mutate_cancel_http_trigger_execution` | Yes                   | `/dashboard/http-triggers/actions/cancel-execution`    |
 | `hermes_mutate_delete_http_trigger`           | Yes                   | `/dashboard/http-triggers/actions/delete`              |
+| `hermes_mutate_create_domain_integration` | Yes | `/dashboard/domain-integrations/actions/create` |
+| `hermes_mutate_delete_domain_integration` | Yes | `/dashboard/domain-integrations/actions/delete` |
 
 ## Related
 

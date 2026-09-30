@@ -1,3 +1,5 @@
+import { isAbsolute } from "node:path";
+
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
@@ -11,10 +13,19 @@ export type HermesMutateToolSpec = {
   pathTemplate: string;
   inputSchema: z.ZodRawShape;
   requiresConfirm: boolean;
+  confirmReason?: "destructive" | "credential";
+  secretFields?: readonly string[];
   annotations: ToolAnnotations;
 };
 
 export const CREATE_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: false,
+  openWorldHint: false,
+};
+
+export const CREDENTIAL_CREATE_ANNOTATIONS: ToolAnnotations = {
   readOnlyHint: false,
   destructiveHint: false,
   idempotentHint: false,
@@ -52,7 +63,23 @@ export const RUN_ANNOTATIONS: ToolAnnotations = {
 export const CONFIRM_FIRST_SENTENCE =
   "Needs confirm: true on a second call after the user approves.";
 
-export const LOCAL_ONLY_FIELDS: readonly string[] = ["confirm"];
+export const CREDENTIAL_CONFIRM_SENTENCE =
+  "Needs confirm: true on a second call after the user approves, because it returns a credential once.";
+
+export const LOCAL_ONLY_FIELDS: readonly string[] = [
+  "confirm",
+  "secretFilePath",
+];
+
+export const secretFilePathField = {
+  secretFilePath: z
+    .string()
+    .refine(isAbsolute, "secretFilePath must be an absolute path")
+    .optional()
+    .describe(
+      "Absolute path of a new file to receive the secret instead of this conversation. Written with mode 600 and never overwrites.",
+    ),
+};
 
 export const confirmField = {
   confirm: z

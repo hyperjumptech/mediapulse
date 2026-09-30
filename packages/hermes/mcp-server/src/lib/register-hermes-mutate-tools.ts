@@ -1,3 +1,5 @@
+import { writeFile } from "node:fs/promises";
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
@@ -5,7 +7,7 @@ import {
   formatHermesHttpAsToolResult,
   formatHermesToolError,
 } from "./format-tool-result.js";
-import type { HermesHttpClient } from "./http-client.js";
+import type { HermesHttpClient, HermesHttpResponse } from "./http-client.js";
 import { assertMutationAllowed, type WhoamiCache } from "./mutation-access.js";
 import {
   buildMutationRequestBody,
@@ -14,14 +16,88 @@ import {
 } from "./mutate-tool-catalog.js";
 import { HERMES_TOOLSETS, type HermesToolset } from "./toolsets.js";
 
-const DESTRUCTIVE_CONFIRM_MESSAGE =
-  "Destructive Hermes mutation blocked. Call this tool again with confirm: true after the user approves. No HTTP request was sent.";
+const CONFIRM_REQUIRED_MESSAGE =
+  "Hermes mutation blocked until confirmed. Call this tool again with confirm: true after the user approves. No HTTP request was sent.";
+
+export type WriteSecretFile = (path: string, contents: string) => Promise<void>;
+
+const writeSecretFileExclusively: WriteSecretFile = async (path, contents) => {
+  await writeFile(path, contents, { flag: "wx", mode: 0o600 });
+};
+
+const isSuccessfulResponse = (response: HermesHttpResponse): boolean =>
+  response.status >= 200 && response.status < 300;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const secretFileContents = (
+  body: Record<string, unknown>,
+  secretFields: readonly string[],
+): string | undefined => {
+  const values = secretFields
+    .map((field) => body[field])
+    .filter((value): value is string => typeof value === "string");
+  if (values.length === 0) {
+    return undefined;
+  }
+
+  return `${values.join("\n")}\n`;
+};
+
+const redactSecretFields = (
+  body: Record<string, unknown>,
+  secretFields: readonly string[],
+  secretFilePath: string,
+): Record<string, unknown> =>
+  Object.fromEntries(
+    Object.entries(body).map(([key, value]) =>
+      secretFields.includes(key)
+        ? [key, `[written to ${secretFilePath}]`]
+        : [key, value],
+    ),
+  );
+
+const moveSecretsToFile = async (
+  response: HermesHttpResponse,
+  secretFields: readonly string[],
+  secretFilePath: string,
+  writeSecretFile: WriteSecretFile,
+): Promise<HermesHttpResponse> => {
+  const body = response.body;
+  if (!isRecord(body)) {
+    return response;
+  }
+  const contents = secretFileContents(body, secretFields);
+  if (contents === undefined) {
+    return response;
+  }
+  try {
+    await writeSecretFile(secretFilePath, contents);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+
+    return {
+      ...response,
+      body: {
+        ...body,
+        secretFileError: `Could not write ${secretFilePath}: ${reason}. The secret is returned here instead, store it now.`,
+      },
+    };
+  }
+
+  return {
+    ...response,
+    body: redactSecretFields(body, secretFields, secretFilePath),
+  };
+};
 
 export type HandleHermesMutateToolCallDependencies = {
   httpClient: HermesHttpClient;
   assertMutationAllowed?: typeof assertMutationAllowed;
   whoamiCache?: WhoamiCache;
   resolveProfileKey?: () => string | undefined;
+  writeSecretFile?: WriteSecretFile;
 };
 
 export const handleHermesMutateToolCall = async (
@@ -32,10 +108,11 @@ export const handleHermesMutateToolCall = async (
     assertMutationAllowed: assertMutationAllowedFn = assertMutationAllowed,
     whoamiCache,
     resolveProfileKey,
+    writeSecretFile = writeSecretFileExclusively,
   }: HandleHermesMutateToolCallDependencies,
 ): Promise<CallToolResult> => {
   if (spec.requiresConfirm && args.confirm !== true) {
-    return formatHermesToolError(DESTRUCTIVE_CONFIRM_MESSAGE, {
+    return formatHermesToolError(CONFIRM_REQUIRED_MESSAGE, {
       requiredField: "confirm",
       requiredValue: true,
     });
@@ -55,6 +132,21 @@ export const handleHermesMutateToolCall = async (
     path: spec.pathTemplate,
     body: buildMutationRequestBody(args),
   });
+  const secretFilePath = args.secretFilePath;
+  if (
+    spec.secretFields &&
+    typeof secretFilePath === "string" &&
+    isSuccessfulResponse(response)
+  ) {
+    const redactedResponse = await moveSecretsToFile(
+      response,
+      spec.secretFields,
+      secretFilePath,
+      writeSecretFile,
+    );
+
+    return formatHermesHttpAsToolResult(redactedResponse);
+  }
 
   return formatHermesHttpAsToolResult(response);
 };

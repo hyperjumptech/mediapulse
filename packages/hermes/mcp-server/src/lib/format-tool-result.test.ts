@@ -59,9 +59,27 @@ describe("formatHermesHttpAsToolResult", () => {
     ).toBe(true);
   });
 
-  it("caps long output and ends it with a narrowing hint", () => {
+  it("shortens the longest strings so long JSON output stays valid", () => {
     const result = formatHermesHttpAsToolResult(
-      httpResponse(200, { value: "x".repeat(500) }),
+      httpResponse(200, {
+        title: "Report",
+        body: "x".repeat(5_000),
+        notes: "y".repeat(1_000),
+      }),
+      { maxCharacters: 1_200 },
+    );
+
+    const text = readText(result);
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    expect(text.length).toBeLessThanOrEqual(1_200);
+    expect(parsed.title).toBe("Report");
+    expect(parsed.body).toMatch(/…\[truncated\]$/);
+    expect(parsed.truncatedFields).toContain("body");
+  });
+
+  it("caps long plain text and ends it with a narrowing hint", () => {
+    const result = formatHermesHttpAsToolResult(
+      httpResponse(200, "x".repeat(500)),
       { maxCharacters: 300 },
     );
 

@@ -55,16 +55,123 @@ export const capToolText = (
   return `${text.slice(0, keptLength)}\n${note}`;
 };
 
+const TRUNCATED_STRING_SUFFIX = "…[truncated]";
+
+const MIN_KEPT_STRING_LENGTH = 200;
+
+type JsonPath = Array<string | number>;
+
+type StringLeaf = {
+  path: JsonPath;
+  value: string;
+};
+
+const collectStringLeaves = (
+  value: unknown,
+  path: JsonPath = [],
+): StringLeaf[] => {
+  if (typeof value === "string") {
+    return [{ path, value }];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) =>
+      collectStringLeaves(item, [...path, index]),
+    );
+  }
+  if (typeof value === "object" && value !== null) {
+    return Object.entries(value).flatMap(([key, item]) =>
+      collectStringLeaves(item, [...path, key]),
+    );
+  }
+
+  return [];
+};
+
+const setAtPath = (
+  root: unknown,
+  path: JsonPath,
+  replacement: string,
+): void => {
+  const parentPath = path.slice(0, -1);
+  const lastKey = path[path.length - 1];
+  const parent = parentPath.reduce<unknown>(
+    (node, key) => (node as Record<string | number, unknown>)[key],
+    root,
+  );
+  if (lastKey !== undefined && typeof parent === "object" && parent !== null) {
+    (parent as Record<string | number, unknown>)[lastKey] = replacement;
+  }
+};
+
+export const shortenLongestStrings = (
+  value: unknown,
+  maxCharacters: number,
+): { value: unknown; truncatedFields: string[] } => {
+  if (typeof value !== "object" || value === null) {
+    return { value, truncatedFields: [] };
+  }
+  const working = structuredClone(value);
+  const truncatedFields = new Set<string>();
+  let serializedLength = JSON.stringify(working).length;
+  while (serializedLength > maxCharacters) {
+    const [longest] = collectStringLeaves(working)
+      .filter(
+        (leaf) =>
+          leaf.value.length >
+          MIN_KEPT_STRING_LENGTH + TRUNCATED_STRING_SUFFIX.length,
+      )
+      .sort((left, right) => right.value.length - left.value.length);
+    if (!longest) {
+      break;
+    }
+    const overflow = serializedLength - maxCharacters;
+    const keptLength = Math.max(
+      MIN_KEPT_STRING_LENGTH,
+      longest.value.length - overflow - TRUNCATED_STRING_SUFFIX.length - 100,
+    );
+    setAtPath(
+      working,
+      longest.path,
+      `${longest.value.slice(0, keptLength)}${TRUNCATED_STRING_SUFFIX}`,
+    );
+    truncatedFields.add(longest.path.join("."));
+    serializedLength = JSON.stringify(working).length;
+  }
+
+  return { value: working, truncatedFields: [...truncatedFields] };
+};
+
+const withTruncatedFields = (
+  value: unknown,
+  truncatedFields: string[],
+): unknown =>
+  truncatedFields.length > 0 &&
+  typeof value === "object" &&
+  value !== null &&
+  !Array.isArray(value)
+    ? { ...value, truncatedFields }
+    : value;
+
 export const formatJsonToolResult = (
   value: unknown,
   {
     isError = false,
-    maxCharacters,
+    maxCharacters = MAX_TOOL_TEXT_CHARACTERS,
   }: FormatToolResultOptions & {
     isError?: boolean;
   } = {},
 ): CallToolResult => {
-  const text = capToolText(serializeJson(value), maxCharacters);
+  const fullText = serializeJson(value);
+  if (fullText.length <= maxCharacters) {
+    return textResult(fullText, isError);
+  }
+  const fieldsBudget = maxCharacters - 200;
+  const shortened = shortenLongestStrings(value, fieldsBudget);
+  const shortenedValue = withTruncatedFields(
+    shortened.value,
+    shortened.truncatedFields,
+  );
+  const text = capToolText(serializeJson(shortenedValue), maxCharacters);
 
   return textResult(text, isError);
 };

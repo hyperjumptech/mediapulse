@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 
 import { resolveActiveDomainIntegrationOrNotFound } from "@/lib/domain-resource-table-api";
 import {
+  listDomainContentViews,
   listDomainResourceTableViews,
+  toDomainContentViewSummary,
   toDomainResourceTableViewSummary,
 } from "@/lib/domain-resource-table-views";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
@@ -27,5 +29,9 @@ export const GET = async (
     toDomainResourceTableViewSummary,
   );
 
-  return NextResponse.json({ integrationId, views });
+  const contentViews = listDomainContentViews(integration).map(
+    toDomainContentViewSummary,
+  );
+
+  return NextResponse.json({ integrationId, views, contentViews });
 };

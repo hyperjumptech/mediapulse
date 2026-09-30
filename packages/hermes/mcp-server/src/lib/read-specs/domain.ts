@@ -24,13 +24,48 @@ export const DOMAIN_READ_TOOL_SPECS: HermesReadToolSpec[] = [
     name: "hermes_list_domain_views",
     title: "List domain views",
     description:
-      "Resource-table views of one domain integration, with columns, searchable and sortable fields, and filter query keys. Call it before hermes_list_domain_rows.",
+      "Views of one domain integration. Resource-table views list columns, search and sort fields, filter query keys, which row actions are allowed, and custom actions. contentViews lists markdown, html, and text views. Call it before hermes_list_domain_rows.",
     toolset: "domain",
     method: "GET",
     pathTemplate: "/api/domain-integrations/{integrationId}/views",
     inputSchema: {
       integrationId: nonEmptyStringField("Domain integration id"),
     },
+  },
+  {
+    name: "hermes_get_domain_view",
+    title: "Get domain view",
+    description:
+      "Live metadata of one resource-table view: create and update JSON schemas, allowed actions, custom actions, filters with their options, and detail blocks. Read it before creating or updating a row.",
+    toolset: "domain",
+    method: "GET",
+    pathTemplate: "/api/domain-integrations/{integrationId}/{resource}/meta",
+    inputSchema: {
+      integrationId: nonEmptyStringField("Domain integration id"),
+      resource: nonEmptyStringField(
+        "View pathSegment from hermes_list_domain_views",
+      ),
+    },
+  },
+  {
+    name: "hermes_get_domain_content",
+    title: "Get domain content view",
+    description:
+      "Rendered body of a markdown, html, or text view from hermes_list_domain_views contentViews or an agent's agentTabViews.",
+    toolset: "domain",
+    method: "GET",
+    pathTemplate:
+      "/api/domain-integrations/{integrationId}/views/{viewId}/content",
+    inputSchema: {
+      integrationId: nonEmptyStringField("Domain integration id"),
+      viewId: nonEmptyStringField("Content view id"),
+      agentId: z
+        .string()
+        .min(1)
+        .optional()
+        .describe("Agent id, for agent-tab views"),
+    },
+    queryKeys: ["agentId"],
   },
   {
     name: "hermes_list_domain_rows",

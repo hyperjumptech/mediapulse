@@ -91,7 +91,7 @@ describe("GET /api/domain-integrations/[integrationId]/views", () => {
     expect(res.status).toBe(404);
   });
 
-  it("lists resource-table views with columns and fields", async () => {
+  it("lists resource-table views with their actions, and content views", async () => {
     vi.mocked(resolveDashboardPrincipalOrUnauthorized).mockResolvedValue(
       apiKeyPrincipal,
     );
@@ -113,6 +113,20 @@ describe("GET /api/domain-integrations/[integrationId]/views", () => {
           searchableFields: ["reference"],
           sortableFields: ["reference"],
           filters: [],
+          actions: { create: false, update: false, delete: false, view: false },
+          customActions: [],
+          createNavigation: "modal",
+          hasCreateSchema: false,
+          hasUpdateSchema: false,
+        },
+      ],
+      contentViews: [
+        {
+          id: "readme",
+          label: "Readme",
+          kind: "markdown",
+          placement: "sidebar",
+          pathSegment: "readme",
         },
       ],
     });
