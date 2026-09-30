@@ -23,6 +23,7 @@ export const HERMES_MCP_SERVER_INSTRUCTIONS = [
   "Output is compact JSON capped at about 50,000 characters. Narrow a truncated result with a smaller pageSize or a q search.",
   "Mutation tools start with hermes_mutate_. Tools whose description says so need confirm: true on a second call after the user approves.",
   "A rejected mutation returns HTTP 400. Its body.issues names each invalid field.",
+  "Tools that return a credential accept secretFilePath so the secret is written to a file instead of this conversation.",
   "Switch environments with hermes_set_active_profile when several profiles are configured.",
 ].join(" ");
 

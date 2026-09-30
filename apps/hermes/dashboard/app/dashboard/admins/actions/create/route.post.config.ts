@@ -62,9 +62,9 @@ export const createCreateAdminHandler = ({
   hashPassword = (plain: string) => bcrypt.hash(plain, 10),
 }: CreateAdminHandlerDependencies = {}): CreateAdminHandler => {
   return async (data) => {
-    const gate = await requireHermesAdminManagementActor();
+    const gate = await requireHermesAdminManagementActor(data.user);
     if (!gate.ok) {
-      return errorResponse("Unauthorized");
+      return errorResponse("Unauthorized", undefined, 403);
     }
 
     const { name, email, password } = data.body;

@@ -113,4 +113,43 @@ describe("createDeleteAdminHandler", () => {
     expect(result.status).toBe(true);
     expect(deleteUser).toHaveBeenCalledWith({ where: { id: targetId } });
   });
+
+  it("checks the caller that reached the route, including an API key owner", async () => {
+    const apiKeyOwner = { ...sessionUser, id: targetId };
+    const requireHermesAdminManagementActor = vi
+      .fn()
+      .mockImplementation(async (principalUser: typeof sessionUser) => ({
+        ok: true,
+        session: principalUser,
+        actor: {
+          id: principalUser.id,
+          role: "ADMIN",
+          isActive: true,
+          credentialVersion: 0,
+        },
+      }));
+    const handler = createDeleteAdminHandler({
+      requireHermesAdminManagementActor,
+      db: {} as never,
+    });
+
+    const result = await handler({ ...baseData, user: apiKeyOwner } as never);
+
+    expect(requireHermesAdminManagementActor).toHaveBeenCalledWith(apiKeyOwner);
+    expect(result).toMatchObject({
+      status: false,
+      message: "You cannot delete your own account",
+    });
+  });
+
+  it("answers a failed gate with 403", async () => {
+    const handler = createDeleteAdminHandler({
+      requireHermesAdminManagementActor: async () => ({ ok: false }),
+      db: {} as never,
+    });
+
+    const result = await handler(baseData as never);
+
+    expect(result).toMatchObject({ status: false, statusCode: 403 });
+  });
 });

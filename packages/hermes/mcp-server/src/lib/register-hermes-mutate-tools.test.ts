@@ -145,7 +145,8 @@ describe("HERMES_MUTATE_TOOL_SPECS annotations", () => {
       }
       if (spec.confirmReason === "credential") {
         expect(spec.requiresConfirm, spec.name).toBe(true);
-        expect(spec.secretFields?.length, spec.name).toBeGreaterThan(0);
+      }
+      if (spec.secretFields) {
         expect(spec.inputSchema, spec.name).toHaveProperty("secretFilePath");
       }
     }

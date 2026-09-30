@@ -116,4 +116,29 @@ describe("createRequireHermesAdminManagementActor", () => {
       actor: actorRow,
     });
   });
+
+  it("uses the route's principal user instead of reading the session", async () => {
+    const getSession = vi.fn();
+    const findUnique = vi.fn().mockResolvedValue({
+      id: "owner",
+      role: "ADMIN",
+      isActive: true,
+      credentialVersion: 3,
+    });
+    const requireActor = createRequireHermesAdminManagementActor({
+      getSession,
+      db: { findUnique },
+    });
+    const apiKeyOwner = {
+      id: "owner",
+      name: "Owner",
+      email: "owner@example.com",
+      credentialVersion: 3,
+    };
+
+    const result = await requireActor(apiKeyOwner);
+
+    expect(getSession).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: true, session: apiKeyOwner });
+  });
 });

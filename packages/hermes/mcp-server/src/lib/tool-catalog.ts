@@ -1,3 +1,4 @@
+import { ADMIN_READ_TOOL_SPECS } from "./read-specs/admin.js";
 import { AGENT_READ_TOOL_SPECS } from "./read-specs/agents.js";
 import { CORE_READ_TOOL_SPECS } from "./read-specs/core.js";
 import { DOMAIN_READ_TOOL_SPECS } from "./read-specs/domain.js";
@@ -22,6 +23,7 @@ export const HERMES_READ_TOOL_SPECS: HermesReadToolSpec[] = [
   ...HTTP_TRIGGER_READ_TOOL_SPECS,
   ...VARIABLE_READ_TOOL_SPECS,
   ...DOMAIN_READ_TOOL_SPECS,
+  ...ADMIN_READ_TOOL_SPECS,
 ];
 
 const PATH_PARAMETER_PATTERN = /\{([^}]+)\}/g;

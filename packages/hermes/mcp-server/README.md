@@ -146,6 +146,8 @@ All read tools are annotated `readOnlyHint` and `idempotentHint`.
 | `hermes_list_domain_rows`             | GET  | `/api/domain-integrations/{integrationId}/{resource}`                 |
 | `hermes_get_domain_row`               | GET  | `/api/domain-integrations/{integrationId}/{resource}/{itemId}`        |
 | `hermes_get_domain_expansion_preview` | POST | `/dashboard/domain-integrations/actions/preview-expansion`            |
+| `hermes_list_admins`                  | GET  | `/api/admins`                                                         |
+| `hermes_list_api_keys`                | GET  | `/api/api-keys`                                                       |
 | `hermes_list_profiles`                | none | Lists configured profile names                                        |
 | `hermes_set_active_profile`           | none | Switches the active profile in-process                                |
 
@@ -207,12 +209,22 @@ Tools marked "Needs `confirm: true`" need two calls:
 | `hermes_mutate_update_domain_row`             | No                    | destructive, idempotent, open world | `/dashboard/domain-integrations/actions/update-row`        |
 | `hermes_mutate_delete_domain_row`             | Yes                   | destructive, idempotent, open world | `/dashboard/domain-integrations/actions/delete-row`        |
 | `hermes_mutate_run_domain_action`             | Yes                   | destructive, open world             | `/dashboard/domain-integrations/actions/run-custom-action` |
+| `hermes_mutate_create_admin`                  | Yes                   | additive, sets a credential         | `/dashboard/admins/actions/create`                         |
+| `hermes_mutate_delete_admin`                  | Yes                   | destructive, idempotent             | `/dashboard/admins/actions/delete`                         |
+| `hermes_mutate_reset_admin_password`          | Yes                   | destructive, idempotent             | `/dashboard/admins/actions/reset-password`                 |
+| `hermes_mutate_set_admin_active`              | Yes                   | destructive, idempotent             | `/dashboard/admins/actions/set-active`                     |
+| `hermes_mutate_create_api_key`                | Yes                   | additive, returns a credential      | `/dashboard/api-keys/actions/create`                       |
+| `hermes_mutate_revoke_api_key`                | Yes                   | destructive, idempotent             | `/dashboard/api-keys/actions/revoke`                       |
 
 The agent detail page's **Unregister** button runs the same delete as `hermes_mutate_delete_agent`, so there is no separate tool for it.
 
 ### Credentials
 
-Tools that create a credential (a domain integration key today) also need `confirm: true`, because Hermes shows the secret once. Pass `secretFilePath`, an absolute path to a file that does not exist yet, to have the MCP server write the secret there with mode 600 and return `[written to <path>]` in its place. If the file cannot be written, the result carries the secret and a `secretFileError`, so it is not lost.
+Tools that create a credential (an API key, a domain integration key, or an admin with a password) also need `confirm: true`. API keys and domain integration keys are shown once. Pass `secretFilePath`, an absolute path to a file that does not exist yet, to have the MCP server write the secret there with mode 600 and return `[written to <path>]` in its place. If the file cannot be written, the result carries the secret and a `secretFileError`, so it is not lost.
+
+### Admins and API keys
+
+A full-access key can manage dashboard admins and issue or revoke API keys, the same as the admin who owns it. The admin rules still apply to the key's owner: it cannot delete or disable itself, and the last admin cannot be deleted or disabled. Deleting, disabling or resetting the password of an admin stops every key that admin owns. If a full-access key leaks, revoke it on the API keys page or with `hermes_mutate_revoke_api_key`, and check `hermes_list_api_keys` for keys it may have issued.
 
 ## Tests
 

@@ -6,7 +6,7 @@ import {
 import { z } from "zod";
 
 import { internalErrorResponse } from "@/lib/hermes-dashboard-route-process";
-import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
+import { requireMutationDashboardPrincipalForRoute } from "@/lib/require-mutation-dashboard-principal-for-route";
 import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { createApiKey } from "@/lib/mcp-api-keys";
 
@@ -19,7 +19,7 @@ const bodyValidator = z.object({
 
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
-  user: requireDashboardSessionForRoute,
+  user: requireMutationDashboardPrincipalForRoute,
 });
 
 export const responseValidator = z.object({
