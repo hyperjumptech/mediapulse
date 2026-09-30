@@ -1,7 +1,7 @@
 /** @vitest-environment node */
 import { describe, expect, it, vi } from "vitest";
 
-import { loadProcessedUrlsExecution } from "./processed-urls-execution";
+import { loadProcessedUrlsExecution } from "@/lib/processed-urls-execution";
 
 const executionRow = {
   schedule: {

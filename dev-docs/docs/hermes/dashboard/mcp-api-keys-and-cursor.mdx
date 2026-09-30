@@ -95,6 +95,9 @@ Set `HERMES_MCP_TOOLSETS` in the MCP client env to a comma-separated list (`pipe
 | ----------------------------------- | ---- | -------------------------------------------------------------- |
 | `hermes_ping`                       | GET  | `/api/mcp/whoami`                                              |
 | `hermes_search`                     | GET  | `/api/dashboard-search?q=`                                     |
+| `hermes_get_overview` | GET | `/api/overview` |
+| `hermes_get_invocation` | POST | `/dashboard/executions/actions/get-invocation` |
+| `hermes_get_agent_activities` | POST | `/dashboard/executions/actions/get-agent-activities` |
 | `hermes_list_agents`                | GET  | `/api/agents`                                                  |
 | `hermes_get_agent` | POST | `/dashboard/agents/actions/get` |
 | `hermes_get_agent_schemas`          | GET  | `/api/agents/{agentId}/{agentVersion}/schemas`                 |
@@ -106,12 +109,17 @@ Set `HERMES_MCP_TOOLSETS` in the MCP client env to a comma-separated list (`pipe
 | `hermes_get_pipeline`               | GET  | `/api/pipelines/{pipelineId}`                                  |
 | `hermes_get_pipeline_schemas`       | GET  | `/api/pipelines/{pipelineId}/schemas`                          |
 | `hermes_get_pipeline_execution`     | GET  | `/api/pipelines/{pipelineId}/executions/{executionId}`         |
+| `hermes_list_pipeline_executions` | GET | `/api/pipelines/{pipelineId}/executions` |
+| `hermes_get_pipeline_usage` | GET | `/api/pipeline-usage` |
 | `hermes_list_schedules`             | GET  | `/api/schedules`                                               |
 | `hermes_get_schedule`               | GET  | `/api/schedules/{scheduleId}`                                  |
 | `hermes_get_schedule_execution`     | GET  | `/api/schedules/{scheduleId}/executions/{executionId}`         |
+| `hermes_list_schedule_executions` | GET | `/api/schedules/{scheduleId}/executions` |
+| `hermes_list_processed_urls` | GET | `/api/schedules/{scheduleId}/executions/{executionId}/processed-urls` |
 | `hermes_list_http_triggers`         | GET  | `/api/http-triggers`                                           |
 | `hermes_get_http_trigger`           | GET  | `/api/http-triggers/{triggerId}`                               |
 | `hermes_get_http_trigger_execution` | GET  | `/api/http-triggers/{triggerId}/executions/{executionId}`      |
+| `hermes_list_http_trigger_executions` | GET | `/api/http-triggers/{triggerId}/executions` |
 | `hermes_list_variables`             | GET  | `/api/variables`                                               |
 | `hermes_get_variable`               | POST | `/dashboard/variables/actions/get`                             |
 | `hermes_list_domain_integrations`   | GET  | `/api/domain-integrations`                                     |

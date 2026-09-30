@@ -1,6 +1,7 @@
 import {
   guidField,
   listToolSpec,
+  pagedToolSpec,
   type HermesReadToolSpec,
 } from "../read-tool-spec.js";
 
@@ -38,4 +39,12 @@ export const HTTP_TRIGGER_READ_TOOL_SPECS: HermesReadToolSpec[] = [
       executionId: guidField("HTTP trigger execution id"),
     },
   },
+  pagedToolSpec({
+    name: "hermes_list_http_trigger_executions",
+    title: "List HTTP trigger executions",
+    description: "Page through an HTTP trigger's executions, newest first.",
+    toolset: "triggers",
+    pathTemplate: "/api/http-triggers/{triggerId}/executions",
+    inputSchema: { triggerId: guidField("HTTP trigger id") },
+  }),
 ];

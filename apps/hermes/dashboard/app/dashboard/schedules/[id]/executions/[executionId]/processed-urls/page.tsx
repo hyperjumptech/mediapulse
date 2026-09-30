@@ -16,7 +16,7 @@ import {
 import { parseListPagination } from "@/lib/list-page-params";
 import { withDashboardAdmin } from "@/lib/require-dashboard-admin";
 
-import { loadProcessedUrlsExecution } from "./processed-urls-execution";
+import { loadProcessedUrlsExecution } from "@/lib/processed-urls-execution";
 import {
   ProcessedUrlsFilters,
   type ProcessedUrlFilterGroup,

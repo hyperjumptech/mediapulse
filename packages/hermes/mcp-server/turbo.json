@@ -10,6 +10,7 @@
         "$TURBO_ROOT$/apps/hermes/dashboard/lib/api-paginated-list-response.ts",
         "$TURBO_ROOT$/apps/hermes/dashboard/app/dashboard/**/actions/*/route.ts",
         "$TURBO_ROOT$/apps/hermes/dashboard/app/dashboard/**/actions/*/route.post.config.ts",
+        "$TURBO_ROOT$/apps/hermes/dashboard/lib/**/*.ts",
         "!$TURBO_ROOT$/apps/hermes/dashboard/app/**/.generated/**"
       ]
     },
@@ -21,6 +22,7 @@
         "$TURBO_ROOT$/apps/hermes/dashboard/lib/api-paginated-list-response.ts",
         "$TURBO_ROOT$/apps/hermes/dashboard/app/dashboard/**/actions/*/route.ts",
         "$TURBO_ROOT$/apps/hermes/dashboard/app/dashboard/**/actions/*/route.post.config.ts",
+        "$TURBO_ROOT$/apps/hermes/dashboard/lib/**/*.ts",
         "!$TURBO_ROOT$/apps/hermes/dashboard/app/**/.generated/**"
       ]
     }

@@ -17,7 +17,8 @@ const SHARED_LIST_PARSER_PATH = new URL(
   DASHBOARD_DIRECTORY,
 );
 
-const SHARED_LIST_PARSER_CALL = /\bparseApiList(?:Params|Query)\(/;
+const SHARED_LIST_PARSER_CALL =
+  /\bparseApi(?:ListParams|ListQuery|PageParams)\(/;
 
 const routeFileUrl = (pathTemplate: string): URL => {
   const routeDirectory = pathTemplate.replace(/\{([^}]+)\}/g, "[$1]");

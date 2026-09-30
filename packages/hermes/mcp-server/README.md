@@ -48,16 +48,16 @@ API keys are never written to logs or tool output.
 
 Every tool belongs to a toolset. Set `HERMES_MCP_TOOLSETS` to a comma-separated list to register only those toolsets, for MCP clients that cap how many tools they load. `core` (`hermes_ping`, `hermes_search` and the profile tools) is always registered. Unset, empty or unknown values register every toolset.
 
-| Toolset     | Covers                                          |
-| ----------- | ----------------------------------------------- |
-| `core`      | API key check, search, profiles                 |
-| `pipelines` | Pipelines, their steps and manual runs          |
-| `schedules` | Schedules and their executions                  |
-| `triggers`  | HTTP triggers and their executions              |
-| `agents`    | Agent registry, agent configs and contracts     |
-| `variables` | Orchestration variables                         |
-| `domain`    | Domain integrations, their views and their rows |
-| `admin`     | Dashboard admins and API keys                   |
+| Toolset     | Covers                                                         |
+| ----------- | -------------------------------------------------------------- |
+| `core`      | API key check, search, overview, invocation payloads, profiles |
+| `pipelines` | Pipelines, their steps and manual runs                         |
+| `schedules` | Schedules and their executions                                 |
+| `triggers`  | HTTP triggers and their executions                             |
+| `agents`    | Agent registry, agent configs and contracts                    |
+| `variables` | Orchestration variables                                        |
+| `domain`    | Domain integrations, their views and their rows                |
+| `admin`     | Dashboard admins and API keys                                  |
 
 ```bash
 export HERMES_MCP_TOOLSETS="pipelines,agents"
@@ -85,7 +85,7 @@ Use secret substitution or your OS environment for `HERMES_PROD_API_KEY`. Do not
 
 ## List tools
 
-Every `hermes_list_*` tool (and `hermes_list_domain_rows`) takes the same optional arguments:
+Every searchable `hermes_list_*` tool takes the same optional arguments:
 
 | Argument   | Meaning                                                            |
 | ---------- | ------------------------------------------------------------------ |
@@ -95,7 +95,7 @@ Every `hermes_list_*` tool (and `hermes_list_domain_rows`) takes the same option
 | `sort`     | Sort field. Each tool accepts a fixed set, listed in its schema.   |
 | `dir`      | `asc` or `desc`.                                                   |
 
-They return `{ items, total, page, pageSize, hasMore }` as compact JSON text and as `structuredContent`, and declare that shape as their `outputSchema`. Ask for the next page while `hasMore` is true.
+Execution lists and `hermes_list_processed_urls` take only `page` and `pageSize` (plus their own filters) and list newest first. Every list tool returns `{ items, total, page, pageSize, hasMore }` as compact JSON text and as `structuredContent`, and declare that shape as their `outputSchema`. Ask for the next page while `hasMore` is true.
 
 ## Output
 
@@ -108,35 +108,43 @@ They return `{ items, total, page, pageSize, hasMore }` as compact JSON text and
 
 All read tools are annotated `readOnlyHint` and `idempotentHint`.
 
-| MCP tool                            | HTTP | Path                                                           |
-| ----------------------------------- | ---- | -------------------------------------------------------------- |
-| `hermes_ping`                       | GET  | `/api/mcp/whoami`                                              |
-| `hermes_search`                     | GET  | `/api/dashboard-search?q=`                                     |
-| `hermes_list_agents`                | GET  | `/api/agents`                                                  |
-| `hermes_get_agent`                  | POST | `/dashboard/agents/actions/get`                                |
-| `hermes_get_agent_schemas`          | GET  | `/api/agents/{agentId}/{agentVersion}/schemas`                 |
-| `hermes_list_agent_configs`         | GET  | `/api/agent-configs`                                           |
-| `hermes_get_agent_config`           | POST | `/dashboard/agent-configs/actions/get`                         |
-| `hermes_list_agent_contracts`       | GET  | `/api/agent-contracts`                                         |
-| `hermes_get_agent_contract`         | POST | `/dashboard/agent-contracts/actions/get`                       |
-| `hermes_list_pipelines`             | GET  | `/api/pipelines` (summaries with `stepCount`)                  |
-| `hermes_get_pipeline`               | GET  | `/api/pipelines/{pipelineId}` (steps, validation, run params)  |
-| `hermes_get_pipeline_schemas`       | GET  | `/api/pipelines/{pipelineId}/schemas`                          |
-| `hermes_get_pipeline_execution`     | GET  | `/api/pipelines/{pipelineId}/executions/{executionId}`         |
-| `hermes_list_schedules`             | GET  | `/api/schedules`                                               |
-| `hermes_get_schedule`               | GET  | `/api/schedules/{scheduleId}`                                  |
-| `hermes_get_schedule_execution`     | GET  | `/api/schedules/{scheduleId}/executions/{executionId}`         |
-| `hermes_list_http_triggers`         | GET  | `/api/http-triggers`                                           |
-| `hermes_get_http_trigger`           | GET  | `/api/http-triggers/{triggerId}`                               |
-| `hermes_get_http_trigger_execution` | GET  | `/api/http-triggers/{triggerId}/executions/{executionId}`      |
-| `hermes_list_variables`             | GET  | `/api/variables`                                               |
-| `hermes_get_variable`               | POST | `/dashboard/variables/actions/get`                             |
-| `hermes_list_domain_integrations`   | GET  | `/api/domain-integrations`                                     |
-| `hermes_list_domain_views`          | GET  | `/api/domain-integrations/{integrationId}/views`               |
-| `hermes_list_domain_rows`           | GET  | `/api/domain-integrations/{integrationId}/{resource}`          |
-| `hermes_get_domain_row`             | GET  | `/api/domain-integrations/{integrationId}/{resource}/{itemId}` |
-| `hermes_list_profiles`              | none | Lists configured profile names                                 |
-| `hermes_set_active_profile`         | none | Switches the active profile in-process                         |
+| MCP tool                              | HTTP | Path                                                                  |
+| ------------------------------------- | ---- | --------------------------------------------------------------------- |
+| `hermes_ping`                         | GET  | `/api/mcp/whoami`                                                     |
+| `hermes_search`                       | GET  | `/api/dashboard-search?q=`                                            |
+| `hermes_get_overview`                 | GET  | `/api/overview`                                                       |
+| `hermes_get_invocation`               | POST | `/dashboard/executions/actions/get-invocation`                        |
+| `hermes_get_agent_activities`         | POST | `/dashboard/executions/actions/get-agent-activities`                  |
+| `hermes_list_agents`                  | GET  | `/api/agents`                                                         |
+| `hermes_get_agent`                    | POST | `/dashboard/agents/actions/get`                                       |
+| `hermes_get_agent_schemas`            | GET  | `/api/agents/{agentId}/{agentVersion}/schemas`                        |
+| `hermes_list_agent_configs`           | GET  | `/api/agent-configs`                                                  |
+| `hermes_get_agent_config`             | POST | `/dashboard/agent-configs/actions/get`                                |
+| `hermes_list_agent_contracts`         | GET  | `/api/agent-contracts`                                                |
+| `hermes_get_agent_contract`           | POST | `/dashboard/agent-contracts/actions/get`                              |
+| `hermes_list_pipelines`               | GET  | `/api/pipelines` (summaries with `stepCount`)                         |
+| `hermes_get_pipeline`                 | GET  | `/api/pipelines/{pipelineId}` (steps, validation, run params)         |
+| `hermes_get_pipeline_schemas`         | GET  | `/api/pipelines/{pipelineId}/schemas`                                 |
+| `hermes_get_pipeline_execution`       | GET  | `/api/pipelines/{pipelineId}/executions/{executionId}`                |
+| `hermes_list_pipeline_executions`     | GET  | `/api/pipelines/{pipelineId}/executions`                              |
+| `hermes_get_pipeline_usage`           | GET  | `/api/pipeline-usage`                                                 |
+| `hermes_list_schedules`               | GET  | `/api/schedules`                                                      |
+| `hermes_get_schedule`                 | GET  | `/api/schedules/{scheduleId}`                                         |
+| `hermes_get_schedule_execution`       | GET  | `/api/schedules/{scheduleId}/executions/{executionId}`                |
+| `hermes_list_schedule_executions`     | GET  | `/api/schedules/{scheduleId}/executions`                              |
+| `hermes_list_processed_urls`          | GET  | `/api/schedules/{scheduleId}/executions/{executionId}/processed-urls` |
+| `hermes_list_http_triggers`           | GET  | `/api/http-triggers`                                                  |
+| `hermes_get_http_trigger`             | GET  | `/api/http-triggers/{triggerId}`                                      |
+| `hermes_get_http_trigger_execution`   | GET  | `/api/http-triggers/{triggerId}/executions/{executionId}`             |
+| `hermes_list_http_trigger_executions` | GET  | `/api/http-triggers/{triggerId}/executions`                           |
+| `hermes_list_variables`               | GET  | `/api/variables`                                                      |
+| `hermes_get_variable`                 | POST | `/dashboard/variables/actions/get`                                    |
+| `hermes_list_domain_integrations`     | GET  | `/api/domain-integrations`                                            |
+| `hermes_list_domain_views`            | GET  | `/api/domain-integrations/{integrationId}/views`                      |
+| `hermes_list_domain_rows`             | GET  | `/api/domain-integrations/{integrationId}/{resource}`                 |
+| `hermes_get_domain_row`               | GET  | `/api/domain-integrations/{integrationId}/{resource}/{itemId}`        |
+| `hermes_list_profiles`                | none | Lists configured profile names                                        |
+| `hermes_set_active_profile`           | none | Switches the active profile in-process                                |
 
 ### Domain data
 

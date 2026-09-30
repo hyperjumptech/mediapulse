@@ -35,10 +35,27 @@ const KNOWN_FIELD_HELPERS: Record<string, boolean> = {
 
 const ACCEPTS_UNDEFINED_SCHEMAS = new Set(["unknown", "any", "undefined"]);
 
+export type ReadImportedModule = (
+  specifier: string,
+  importerPath: string,
+) => { filePath: string; source: string } | undefined;
+
+type ImportBinding = {
+  specifier: string;
+  importedName: string;
+};
+
 type ModuleScope = {
   sourceFile: ts.SourceFile;
   constants: Map<string, ts.Expression>;
+  imports: Map<string, ImportBinding>;
   filePath: string;
+  readImportedModule: ReadImportedModule;
+};
+
+type ScopedExpression = {
+  scope: ModuleScope;
+  expression: ts.Expression;
 };
 
 class UnresolvedRouteSchemaError extends Error {}
@@ -64,6 +81,81 @@ const collectTopLevelConstants = (
   }
 
   return constants;
+};
+
+const collectNamedImports = (
+  sourceFile: ts.SourceFile,
+): Map<string, ImportBinding> => {
+  const imports = new Map<string, ImportBinding>();
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier)
+    ) {
+      continue;
+    }
+    const namedBindings = statement.importClause?.namedBindings;
+    if (!namedBindings || !ts.isNamedImports(namedBindings)) {
+      continue;
+    }
+    for (const element of namedBindings.elements) {
+      imports.set(element.name.text, {
+        specifier: statement.moduleSpecifier.text,
+        importedName: (element.propertyName ?? element.name).text,
+      });
+    }
+  }
+
+  return imports;
+};
+
+const createModuleScope = (
+  filePath: string,
+  source: string,
+  readImportedModule: ReadImportedModule,
+): ModuleScope => {
+  const sourceFile = ts.createSourceFile(
+    filePath,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+
+  return {
+    sourceFile,
+    constants: collectTopLevelConstants(sourceFile),
+    imports: collectNamedImports(sourceFile),
+    filePath,
+    readImportedModule,
+  };
+};
+
+const resolveIdentifier = (
+  scope: ModuleScope,
+  name: string,
+): ScopedExpression | undefined => {
+  const constant = scope.constants.get(name);
+  if (constant) {
+    return { scope, expression: constant };
+  }
+  const binding = scope.imports.get(name);
+  if (!binding) {
+    return undefined;
+  }
+  const importedModule = scope.readImportedModule(
+    binding.specifier,
+    scope.filePath,
+  );
+  if (!importedModule) {
+    return undefined;
+  }
+  const importedScope = createModuleScope(
+    importedModule.filePath,
+    importedModule.source,
+    scope.readImportedModule,
+  );
+
+  return resolveIdentifier(importedScope, binding.importedName);
 };
 
 const unwrapExpression = (expression: ts.Expression): ts.Expression => {
@@ -99,22 +191,30 @@ const propertyName = (scope: ModuleScope, name: ts.PropertyName): string => {
   throw unresolved(scope, name, "property name");
 };
 
+type ScopedObjectLiteral = {
+  scope: ModuleScope;
+  shape: ts.ObjectLiteralExpression;
+};
+
 const resolveObjectLiteral = (
   scope: ModuleScope,
   expression: ts.Expression,
-): ts.ObjectLiteralExpression => {
+): ScopedObjectLiteral => {
   const node = unwrapExpression(expression);
   if (ts.isObjectLiteralExpression(node)) {
-    return node;
+    return { scope, shape: node };
   }
   if (ts.isIdentifier(node)) {
-    const constant = scope.constants.get(node.text);
-    if (constant) {
-      return resolveObjectLiteral(scope, constant);
+    const resolved = resolveIdentifier(scope, node.text);
+    if (resolved) {
+      return resolveObjectLiteral(resolved.scope, resolved.expression);
     }
   }
   throw unresolved(scope, node, "object shape");
 };
+
+const visitKey = (scope: ModuleScope, name: string): string =>
+  `${scope.filePath}#${name}`;
 
 const schemaAcceptsUndefined = (
   scope: ModuleScope,
@@ -123,15 +223,16 @@ const schemaAcceptsUndefined = (
 ): boolean => {
   const node = unwrapExpression(expression);
   if (ts.isIdentifier(node)) {
-    const constant = scope.constants.get(node.text);
-    if (!constant || visited.has(node.text)) {
+    const resolved = resolveIdentifier(scope, node.text);
+    const key = visitKey(scope, node.text);
+    if (!resolved || visited.has(key)) {
       throw unresolved(scope, node, "schema identifier");
     }
 
     return schemaAcceptsUndefined(
-      scope,
-      constant,
-      new Set([...visited, node.text]),
+      resolved.scope,
+      resolved.expression,
+      new Set([...visited, key]),
     );
   }
   if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
@@ -147,13 +248,15 @@ const schemaAcceptsUndefined = (
     if (helperOptional !== undefined) {
       return helperOptional;
     }
-    const constant = scope.constants.get(callee.text);
+    const resolved = resolveIdentifier(scope, callee.text);
+    const helper = resolved ? unwrapExpression(resolved.expression) : undefined;
     if (
-      constant &&
-      (ts.isArrowFunction(constant) || ts.isFunctionExpression(constant)) &&
-      !ts.isBlock(constant.body)
+      resolved &&
+      helper &&
+      (ts.isArrowFunction(helper) || ts.isFunctionExpression(helper)) &&
+      !ts.isBlock(helper.body)
     ) {
-      return schemaAcceptsUndefined(scope, constant.body, visited);
+      return schemaAcceptsUndefined(resolved.scope, helper.body, visited);
     }
     throw unresolved(scope, node, `helper ${callee.text}`);
   }
@@ -196,16 +299,13 @@ const schemaAcceptsUndefined = (
   throw unresolved(scope, node, "schema call");
 };
 
-const collectShapeKeys = (
-  scope: ModuleScope,
-  shape: ts.ObjectLiteralExpression,
-): RouteBodyKey[] =>
+const collectShapeKeys = ({
+  scope,
+  shape,
+}: ScopedObjectLiteral): RouteBodyKey[] =>
   shape.properties.flatMap((property): RouteBodyKey[] => {
     if (ts.isSpreadAssignment(property)) {
-      return collectShapeKeys(
-        scope,
-        resolveObjectLiteral(scope, property.expression),
-      );
+      return collectShapeKeys(resolveObjectLiteral(scope, property.expression));
     }
     if (ts.isPropertyAssignment(property)) {
       return [
@@ -225,15 +325,15 @@ const collectShapeKeys = (
 const resolveBodyShape = (
   scope: ModuleScope,
   expression: ts.Expression,
-): ts.ObjectLiteralExpression => {
+): ScopedObjectLiteral => {
   const node = unwrapExpression(expression);
   if (ts.isIdentifier(node)) {
-    const constant = scope.constants.get(node.text);
-    if (!constant) {
+    const resolved = resolveIdentifier(scope, node.text);
+    if (!resolved) {
       throw unresolved(scope, node, "body validator identifier");
     }
 
-    return resolveBodyShape(scope, constant);
+    return resolveBodyShape(resolved.scope, resolved.expression);
   }
   if (ts.isCallExpression(node)) {
     if (isZodMember(node.expression, "object")) {
@@ -304,30 +404,23 @@ const findOption = (
   return undefined;
 };
 
+const readNoImportedModule: ReadImportedModule = () => undefined;
+
 export const readRouteConfigContract = (
   filePath: string,
   source: string,
+  readImportedModule: ReadImportedModule = readNoImportedModule,
 ): RouteConfigContract => {
-  const sourceFile = ts.createSourceFile(
-    filePath,
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-  );
-  const scope: ModuleScope = {
-    sourceFile,
-    constants: collectTopLevelConstants(sourceFile),
-    filePath,
-  };
+  const scope = createModuleScope(filePath, source, readImportedModule);
   const options = findRequestValidatorOptions(scope);
   const userOption = findOption(scope, options, "user");
   const bodyOption = findOption(scope, options, "body");
   const bodyKeys = bodyOption
-    ? collectShapeKeys(scope, resolveBodyShape(scope, bodyOption))
+    ? collectShapeKeys(resolveBodyShape(scope, bodyOption))
     : [];
 
   return {
-    userGuard: userOption ? userOption.getText(sourceFile) : "",
+    userGuard: userOption ? userOption.getText(scope.sourceFile) : "",
     bodyKeys,
   };
 };

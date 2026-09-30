@@ -35,6 +35,49 @@ export const LIST_QUERY_KEYS = [
   "dir",
 ] as const;
 
+export const PAGE_QUERY_KEYS = ["page", "pageSize"] as const;
+
+const pageQueryShape = (defaultPageSize: number): z.ZodRawShape => ({
+  page: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe("1-based page number. Default 1."),
+  pageSize: z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_LIST_PAGE_SIZE)
+    .optional()
+    .describe(
+      `Rows per page, 1 to ${MAX_LIST_PAGE_SIZE}. Default ${defaultPageSize}.`,
+    ),
+});
+
+export const pagedToolSpec = (
+  spec: Omit<
+    HermesReadToolSpec,
+    "method" | "queryKeys" | "sortFields" | "paginated"
+  > & {
+    filterQueryKeys?: readonly string[];
+    defaultPageSize?: number;
+  },
+): HermesReadToolSpec => ({
+  name: spec.name,
+  title: spec.title,
+  description: spec.description,
+  toolset: spec.toolset,
+  method: "GET",
+  pathTemplate: spec.pathTemplate,
+  inputSchema: {
+    ...spec.inputSchema,
+    ...pageQueryShape(spec.defaultPageSize ?? 20),
+  },
+  queryKeys: [...PAGE_QUERY_KEYS, ...(spec.filterQueryKeys ?? [])],
+  paginated: true,
+});
+
 export const listQueryShape = ({
   searchHint,
   sortFields,
