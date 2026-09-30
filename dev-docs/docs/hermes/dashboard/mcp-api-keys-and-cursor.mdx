@@ -96,9 +96,12 @@ Set `HERMES_MCP_TOOLSETS` in the MCP client env to a comma-separated list (`pipe
 | `hermes_ping`                       | GET  | `/api/mcp/whoami`                                              |
 | `hermes_search`                     | GET  | `/api/dashboard-search?q=`                                     |
 | `hermes_list_agents`                | GET  | `/api/agents`                                                  |
+| `hermes_get_agent` | POST | `/dashboard/agents/actions/get` |
 | `hermes_get_agent_schemas`          | GET  | `/api/agents/{agentId}/{agentVersion}/schemas`                 |
 | `hermes_list_agent_configs`         | GET  | `/api/agent-configs`                                           |
 | `hermes_get_agent_config`           | POST | `/dashboard/agent-configs/actions/get`                         |
+| `hermes_list_agent_contracts` | GET | `/api/agent-contracts` |
+| `hermes_get_agent_contract` | POST | `/dashboard/agent-contracts/actions/get` |
 | `hermes_list_pipelines`             | GET  | `/api/pipelines`                                               |
 | `hermes_get_pipeline`               | GET  | `/api/pipelines/{pipelineId}`                                  |
 | `hermes_get_pipeline_schemas`       | GET  | `/api/pipelines/{pipelineId}/schemas`                          |
@@ -125,7 +128,14 @@ Domain data is read generically. `hermes_list_domain_views` lists an integration
 | MCP tool                                      | Needs `confirm: true` | POST path                                              |
 | --------------------------------------------- | --------------------- | ------------------------------------------------------ |
 | `hermes_mutate_create_agent`                  | No                    | `/dashboard/agents/actions/create`                     |
+| `hermes_mutate_update_agent` | No | `/dashboard/agents/actions/update` |
 | `hermes_mutate_delete_agent`                  | Yes                   | `/dashboard/agents/actions/delete`                     |
+| `hermes_mutate_create_agent_config` | No | `/dashboard/agent-configs/actions/create` |
+| `hermes_mutate_update_agent_config` | No | `/dashboard/agent-configs/actions/update` |
+| `hermes_mutate_delete_agent_config` | Yes | `/dashboard/agent-configs/actions/delete` |
+| `hermes_mutate_create_agent_contract` | No | `/dashboard/agent-contracts/actions/create` |
+| `hermes_mutate_update_agent_contract` | No | `/dashboard/agent-contracts/actions/update` |
+| `hermes_mutate_delete_agent_contract` | Yes | `/dashboard/agent-contracts/actions/delete` |
 | `hermes_mutate_create_variable`               | No                    | `/dashboard/variables/actions/create`                  |
 | `hermes_mutate_update_variable`               | No                    | `/dashboard/variables/actions/update`                  |
 | `hermes_mutate_delete_variable`               | Yes                   | `/dashboard/variables/actions/delete`                  |

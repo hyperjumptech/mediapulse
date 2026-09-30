@@ -54,7 +54,7 @@ Every tool belongs to a toolset. Set `HERMES_MCP_TOOLSETS` to a comma-separated 
 | `pipelines` | Pipelines, their steps and manual runs          |
 | `schedules` | Schedules and their executions                  |
 | `triggers`  | HTTP triggers and their executions              |
-| `agents`    | Agent registry and agent configs                |
+| `agents`    | Agent registry, agent configs and contracts     |
 | `variables` | Orchestration variables                         |
 | `domain`    | Domain integrations, their views and their rows |
 | `admin`     | Dashboard admins and API keys                   |
@@ -113,9 +113,12 @@ All read tools are annotated `readOnlyHint` and `idempotentHint`.
 | `hermes_ping`                       | GET  | `/api/mcp/whoami`                                              |
 | `hermes_search`                     | GET  | `/api/dashboard-search?q=`                                     |
 | `hermes_list_agents`                | GET  | `/api/agents`                                                  |
+| `hermes_get_agent`                  | POST | `/dashboard/agents/actions/get`                                |
 | `hermes_get_agent_schemas`          | GET  | `/api/agents/{agentId}/{agentVersion}/schemas`                 |
 | `hermes_list_agent_configs`         | GET  | `/api/agent-configs`                                           |
 | `hermes_get_agent_config`           | POST | `/dashboard/agent-configs/actions/get`                         |
+| `hermes_list_agent_contracts`       | GET  | `/api/agent-contracts`                                         |
+| `hermes_get_agent_contract`         | POST | `/dashboard/agent-contracts/actions/get`                       |
 | `hermes_list_pipelines`             | GET  | `/api/pipelines` (summaries with `stepCount`)                  |
 | `hermes_get_pipeline`               | GET  | `/api/pipelines/{pipelineId}` (steps, validation, run params)  |
 | `hermes_get_pipeline_schemas`       | GET  | `/api/pipelines/{pipelineId}/schemas`                          |
@@ -155,7 +158,14 @@ Tools marked "Needs `confirm: true`" need two calls:
 | MCP tool                                      | Needs `confirm: true` | Annotations             | POST path                                              |
 | --------------------------------------------- | --------------------- | ----------------------- | ------------------------------------------------------ |
 | `hermes_mutate_create_agent`                  | No                    | additive                | `/dashboard/agents/actions/create`                     |
+| `hermes_mutate_update_agent`                  | No                    | destructive, idempotent | `/dashboard/agents/actions/update`                     |
 | `hermes_mutate_delete_agent`                  | Yes                   | destructive, idempotent | `/dashboard/agents/actions/delete`                     |
+| `hermes_mutate_create_agent_config`           | No                    | additive                | `/dashboard/agent-configs/actions/create`              |
+| `hermes_mutate_update_agent_config`           | No                    | destructive, idempotent | `/dashboard/agent-configs/actions/update`              |
+| `hermes_mutate_delete_agent_config`           | Yes                   | destructive, idempotent | `/dashboard/agent-configs/actions/delete`              |
+| `hermes_mutate_create_agent_contract`         | No                    | additive                | `/dashboard/agent-contracts/actions/create`            |
+| `hermes_mutate_update_agent_contract`         | No                    | destructive, idempotent | `/dashboard/agent-contracts/actions/update`            |
+| `hermes_mutate_delete_agent_contract`         | Yes                   | destructive, idempotent | `/dashboard/agent-contracts/actions/delete`            |
 | `hermes_mutate_create_variable`               | No                    | additive                | `/dashboard/variables/actions/create`                  |
 | `hermes_mutate_update_variable`               | No                    | destructive, idempotent | `/dashboard/variables/actions/update`                  |
 | `hermes_mutate_delete_variable`               | Yes                   | destructive, idempotent | `/dashboard/variables/actions/delete`                  |
@@ -178,6 +188,8 @@ Tools marked "Needs `confirm: true`" need two calls:
 | `hermes_mutate_update_http_trigger`           | No                    | destructive, idempotent | `/dashboard/http-triggers/actions/update`              |
 | `hermes_mutate_cancel_http_trigger_execution` | Yes                   | destructive, idempotent | `/dashboard/http-triggers/actions/cancel-execution`    |
 | `hermes_mutate_delete_http_trigger`           | Yes                   | destructive, idempotent | `/dashboard/http-triggers/actions/delete`              |
+
+The agent detail page's **Unregister** button runs the same delete as `hermes_mutate_delete_agent`, so there is no separate tool for it.
 
 ## Tests
 

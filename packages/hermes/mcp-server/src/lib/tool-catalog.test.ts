@@ -155,6 +155,7 @@ describe("HERMES_READ_TOOL_SPECS", () => {
     expect(paginatedSpecs.map((spec) => spec.name)).toEqual([
       "hermes_list_agents",
       "hermes_list_agent_configs",
+      "hermes_list_agent_contracts",
       "hermes_list_pipelines",
       "hermes_list_schedules",
       "hermes_list_http_triggers",
