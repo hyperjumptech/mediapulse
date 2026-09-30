@@ -44,6 +44,25 @@ If only one profile is configured, it is selected automatically. Use `hermes_lis
 
 API keys are never written to logs or tool output.
 
+## Toolsets
+
+Every tool belongs to a toolset. Set `HERMES_MCP_TOOLSETS` to a comma-separated list to register only those toolsets, for MCP clients that cap how many tools they load. `core` (`hermes_ping`, `hermes_search` and the profile tools) is always registered. Unset, empty or unknown values register every toolset.
+
+| Toolset     | Covers                                          |
+| ----------- | ----------------------------------------------- |
+| `core`      | API key check, search, profiles                 |
+| `pipelines` | Pipelines, their steps and manual runs          |
+| `schedules` | Schedules and their executions                  |
+| `triggers`  | HTTP triggers and their executions              |
+| `agents`    | Agent registry and agent configs                |
+| `variables` | Orchestration variables                         |
+| `domain`    | Domain integrations, their views and their rows |
+| `admin`     | Dashboard admins and API keys                   |
+
+```bash
+export HERMES_MCP_TOOLSETS="pipelines,agents"
+```
+
 ## Cursor `mcp.json` example
 
 ```json
@@ -82,6 +101,7 @@ They return `{ items, total, page, pageSize, hasMore }` as compact JSON text and
 
 - Successful calls return the response body as compact JSON, with no wrapper.
 - Failed calls are tool errors (`isError: true`) whose text is `{"status":<http status>,"body":<Hermes error body>}`. Status `0` means the request never reached Hermes (no profile, network failure).
+- Mutation routes answer 400 when Hermes rejects the input. An invalid body lists each bad field in `body.issues` as `{ path, message }`. A missing record is 404, a duplicate is 409, and 500 means Hermes itself failed.
 - Text is capped at about 50,000 characters. A list that would exceed the cap keeps as many whole items as fit, sets `truncated: true`, and ends with a note. Other output is cut and ends with the same note: narrow the query with a smaller `pageSize`, a `q` search, or a `hermes_get_*` tool.
 
 ## Read tools
@@ -125,7 +145,7 @@ Domain integrations describe their data as resource-table views in their dashboa
 
 Write tools call dashboard `POST` routes with the same Bearer key. Before the first mutation, the server checks `GET /api/mcp/whoami` and blocks read-only keys. The result is cached per profile for 5 minutes. Any 401 or 403 from Hermes, or a profile switch, clears it.
 
-Destructive tools (delete, cancel, run pipeline) need two calls:
+Tools marked "Needs `confirm: true`" need two calls:
 
 1. The first call without `confirm: true` returns a tool error and sends **no** HTTP request.
 2. A second call with `confirm: true`, after the user approves, sends the mutation.
@@ -151,4 +171,9 @@ pnpm --filter @hermes/mcp-server test
 pnpm --filter @hermes/mcp-server test:coverage
 ```
 
-Tests mock `fetch`, so CI makes no network calls. `list-tool-route-contract.test.ts` reads the dashboard route sources and fails when a tool sends a query key, sort field or path that its route does not handle.
+Tests mock `fetch`, so CI makes no network calls. Two contract tests read the dashboard route sources:
+
+- `list-tool-route-contract.test.ts` fails when a read tool sends a query key, sort field or path that its route does not handle.
+- `mutate-tool-route-contract.test.ts` fails when a tool posts to an action route that is missing, does not accept API keys, does not read one of the tool's body keys, or requires a key the tool leaves optional.
+
+`readme-tool-table.test.ts` fails when a registered tool is missing from this README.

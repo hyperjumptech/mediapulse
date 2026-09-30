@@ -25,6 +25,7 @@ import {
   resolvePathTemplate,
   type HermesReadToolSpec,
 } from "./tool-catalog.js";
+import { HERMES_TOOLSETS, type HermesToolset } from "./toolsets.js";
 
 const READ_TOOL_ANNOTATIONS: ToolAnnotations = {
   readOnlyHint: true,
@@ -44,6 +45,7 @@ export type RegisterHermesToolsDependencies = {
   server: McpServer;
   httpClient: HermesHttpClient;
   additionalReadToolSpecs?: HermesReadToolSpec[];
+  enabledToolsets?: ReadonlySet<HermesToolset>;
   getActiveProfile?: typeof getActiveProfile;
   listProfileSummary?: typeof listProfileSummary;
   setActiveProfileOverride?: typeof setActiveProfileOverride;
@@ -93,16 +95,19 @@ export const registerHermesTools = ({
   server,
   httpClient,
   additionalReadToolSpecs = [],
+  enabledToolsets = new Set(HERMES_TOOLSETS),
   getActiveProfile: getActiveProfileFn = getActiveProfile,
   listProfileSummary: listProfileSummaryFn = listProfileSummary,
   setActiveProfileOverride:
     setActiveProfileOverrideFn = setActiveProfileOverride,
   onActiveProfileChange,
 }: RegisterHermesToolsDependencies): void => {
-  registerHermesReadToolSpecs(server, httpClient, [
+  const readToolSpecs = [
     ...HERMES_READ_TOOL_SPECS,
     ...additionalReadToolSpecs,
-  ]);
+  ].filter((spec) => enabledToolsets.has(spec.toolset));
+
+  registerHermesReadToolSpecs(server, httpClient, readToolSpecs);
 
   server.registerTool(
     "hermes_list_profiles",

@@ -2,8 +2,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DashboardReadOnlyApiKeyError } from "@/lib/dashboard-read-only-api-key-error";
-import { createHermesDashboardRoute } from "@/lib/hermes-dashboard-route-process";
-import { createRequestValidator, successResponse } from "route-action-gen/lib";
+import {
+  createHermesDashboardRoute,
+  internalErrorResponse,
+} from "@/lib/hermes-dashboard-route-process";
+import {
+  createRequestValidator,
+  errorResponse,
+  successResponse,
+} from "route-action-gen/lib";
 import { z } from "zod";
 
 describe("createHermesDashboardRoute", () => {
@@ -111,5 +118,151 @@ describe("createHermesDashboardRoute", () => {
     expect(handler).toHaveBeenCalledWith(
       expect.objectContaining({ user, body: { name: "agent" } }),
     );
+  });
+});
+
+const jsonRequest = (body: string): Request =>
+  new Request("http://localhost/test", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+  });
+
+const routeWithHandler = (
+  handler: ReturnType<typeof vi.fn>,
+  body: z.ZodType = z.object({ name: z.string() }),
+) =>
+  createHermesDashboardRoute(
+    createRequestValidator({
+      body,
+      user: vi.fn().mockResolvedValue({ id: "u1" }),
+    }),
+    z.object({ ok: z.boolean() }),
+    handler as never,
+  );
+
+describe("createHermesDashboardRoute status codes", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns 400 with issues when the body fails validation", async () => {
+    const handler = vi.fn();
+    const route = routeWithHandler(handler);
+
+    const response = await route(jsonRequest(JSON.stringify({ name: 1 })));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.statusCode).toBe(400);
+    expect(body.message).toContain("name");
+    expect(body.issues).toEqual([
+      { path: "name", message: expect.any(String) },
+    ]);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when a body transform throws a plain error", async () => {
+    const throwingBody = z.object({
+      config: z.string().transform(() => {
+        throw new Error("config must be valid JSON object");
+      }),
+    });
+    const route = routeWithHandler(vi.fn(), throwingBody);
+
+    const response = await route(jsonRequest(JSON.stringify({ config: "x" })));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.message).toContain("config must be valid JSON object");
+  });
+
+  it("returns 400 for malformed JSON", async () => {
+    const handler = vi.fn();
+    const route = routeWithHandler(handler);
+
+    const response = await route(jsonRequest("{not json"));
+
+    expect(response.status).toBe(400);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when the handler rejects with the default status", async () => {
+    const route = routeWithHandler(
+      vi.fn().mockResolvedValue(errorResponse("Pipeline is invalid")),
+    );
+
+    const response = await route(jsonRequest(JSON.stringify({ name: "x" })));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      message: "Pipeline is invalid",
+      statusCode: 400,
+    });
+  });
+
+  it("keeps an explicit client error status from the handler", async () => {
+    const route = routeWithHandler(
+      vi
+        .fn()
+        .mockResolvedValue(errorResponse("Schedule not found", undefined, 404)),
+    );
+
+    const response = await route(jsonRequest(JSON.stringify({ name: "x" })));
+
+    expect(response.status).toBe(404);
+  });
+
+  it("keeps 500 for internal errors the handler reports", async () => {
+    const route = routeWithHandler(
+      vi.fn().mockResolvedValue(internalErrorResponse("Queue unavailable")),
+    );
+
+    const response = await route(jsonRequest(JSON.stringify({ name: "x" })));
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      message: "Queue unavailable",
+      statusCode: 500,
+    });
+  });
+
+  it("maps a thrown missing-record error to 404", async () => {
+    const route = routeWithHandler(
+      vi
+        .fn()
+        .mockRejectedValue(Object.assign(new Error("x"), { code: "P2025" })),
+    );
+
+    const response = await route(jsonRequest(JSON.stringify({ name: "x" })));
+
+    expect(response.status).toBe(404);
+  });
+
+  it("maps a thrown unique-constraint error to 409", async () => {
+    const route = routeWithHandler(
+      vi
+        .fn()
+        .mockRejectedValue(Object.assign(new Error("x"), { code: "P2002" })),
+    );
+
+    const response = await route(jsonRequest(JSON.stringify({ name: "x" })));
+
+    expect(response.status).toBe(409);
+  });
+
+  it("returns a generic 500 for any other thrown error", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const route = routeWithHandler(
+      vi.fn().mockRejectedValue(new Error("connection reset by peer")),
+    );
+
+    const response = await route(jsonRequest(JSON.stringify({ name: "x" })));
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      message: "Internal server error",
+      statusCode: 500,
+    });
   });
 });

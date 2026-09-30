@@ -1,11 +1,11 @@
 import {
   createRequestValidator,
-  errorResponse,
   type HandlerFunc,
   successResponse,
 } from "route-action-gen/lib";
 import { z } from "zod";
 
+import { internalErrorResponse } from "@/lib/hermes-dashboard-route-process";
 import { requireDashboardSessionForRoute } from "@/lib/auth-dashboard";
 import { withDashboardRevalidation } from "@/lib/revalidate-dashboard";
 import { createApiKey } from "@/lib/mcp-api-keys";
@@ -64,7 +64,7 @@ export const createCreateMcpApiKeyHandler = ({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to create API key";
-      return errorResponse(message);
+      return internalErrorResponse(message);
     }
   };
 };

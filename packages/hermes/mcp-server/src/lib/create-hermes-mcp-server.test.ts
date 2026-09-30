@@ -12,6 +12,7 @@ import {
   resetActiveProfileOverride,
   type HermesMcpProfile,
 } from "./profiles.js";
+import type { HermesToolset } from "./toolsets.js";
 
 const productionProfile: HermesMcpProfile = {
   name: "PROD",
@@ -28,11 +29,13 @@ const jsonResponse = (status: number, body: unknown): Response =>
 const connectClient = async (
   fetchImpl: typeof fetch,
   whoamiCache = createWhoamiCache(),
+  enabledToolsets?: ReadonlySet<HermesToolset>,
 ) => {
   const server = createHermesMcpServer({
     getActiveProfile: () => ({ profile: productionProfile }),
     fetchImpl,
     whoamiCache,
+    enabledToolsets,
   });
   const client = new Client({ name: "test-client", version: "1.0.0" });
   const [clientTransport, serverTransport] =
@@ -201,5 +204,49 @@ describe("createHermesMcpServer", () => {
       url.endsWith("/api/mcp/whoami"),
     );
     expect(whoamiCalls).toHaveLength(2);
+  });
+
+  it("registers only core tools and the requested toolsets", async () => {
+    const { client } = await connectClient(
+      vi.fn(),
+      createWhoamiCache(),
+      new Set<HermesToolset>(["core", "variables"]),
+    );
+
+    const { tools } = await client.listTools();
+
+    const toolNames = tools.map((tool) => tool.name).sort();
+    expect(toolNames).toEqual([
+      "hermes_get_variable",
+      "hermes_list_profiles",
+      "hermes_list_variables",
+      "hermes_mutate_create_variable",
+      "hermes_mutate_delete_variable",
+      "hermes_ping",
+      "hermes_search",
+      "hermes_set_active_profile",
+    ]);
+  });
+
+  it("sends the route's own id field when deleting a pipeline", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockImplementation(async (url: string) =>
+        url.endsWith("/api/mcp/whoami")
+          ? jsonResponse(200, { readOnly: false })
+          : jsonResponse(200, { ok: true }),
+      );
+    const { client } = await connectClient(fetchImpl);
+    const pipelineId = "00000000-0000-4000-8000-000000000001";
+
+    await client.callTool({
+      name: "hermes_mutate_delete_pipeline",
+      arguments: { pipelineId, confirm: true },
+    });
+
+    const deleteCall = fetchImpl.mock.calls.find(([url]) =>
+      String(url).endsWith("/dashboard/pipelines/actions/delete"),
+    );
+    expect(JSON.parse(String(deleteCall?.[1]?.body))).toEqual({ pipelineId });
   });
 });

@@ -7,7 +7,10 @@
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/apps/hermes/dashboard/app/api/**/route.ts",
         "$TURBO_ROOT$/apps/hermes/dashboard/lib/parse-api-page-params.ts",
-        "$TURBO_ROOT$/apps/hermes/dashboard/lib/api-paginated-list-response.ts"
+        "$TURBO_ROOT$/apps/hermes/dashboard/lib/api-paginated-list-response.ts",
+        "$TURBO_ROOT$/apps/hermes/dashboard/app/dashboard/**/actions/*/route.ts",
+        "$TURBO_ROOT$/apps/hermes/dashboard/app/dashboard/**/actions/*/route.post.config.ts",
+        "!$TURBO_ROOT$/apps/hermes/dashboard/app/**/.generated/**"
       ]
     },
     "test:coverage": {
@@ -15,7 +18,10 @@
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/apps/hermes/dashboard/app/api/**/route.ts",
         "$TURBO_ROOT$/apps/hermes/dashboard/lib/parse-api-page-params.ts",
-        "$TURBO_ROOT$/apps/hermes/dashboard/lib/api-paginated-list-response.ts"
+        "$TURBO_ROOT$/apps/hermes/dashboard/lib/api-paginated-list-response.ts",
+        "$TURBO_ROOT$/apps/hermes/dashboard/app/dashboard/**/actions/*/route.ts",
+        "$TURBO_ROOT$/apps/hermes/dashboard/app/dashboard/**/actions/*/route.post.config.ts",
+        "!$TURBO_ROOT$/apps/hermes/dashboard/app/**/.generated/**"
       ]
     }
   }

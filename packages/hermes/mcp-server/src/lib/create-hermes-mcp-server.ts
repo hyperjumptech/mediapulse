@@ -11,6 +11,7 @@ import { getActiveProfile } from "./profiles.js";
 import { registerHermesMutateTools } from "./register-hermes-mutate-tools.js";
 import { registerHermesTools } from "./register-hermes-tools.js";
 import { readServerVersion } from "./server-version.js";
+import { loadEnabledToolsets, type HermesToolset } from "./toolsets.js";
 
 export const HERMES_MCP_SERVER_INSTRUCTIONS = [
   "Hermes dashboard tools. Call hermes_ping first to verify the API key.",
@@ -18,7 +19,8 @@ export const HERMES_MCP_SERVER_INSTRUCTIONS = [
   "Use hermes_search to turn a name into an id, then a hermes_get_* tool for full detail.",
   "Domain data: hermes_list_domain_views, then hermes_list_domain_rows and hermes_get_domain_row.",
   "Output is compact JSON capped at about 50,000 characters. Narrow a truncated result with a smaller pageSize or a q search.",
-  "Mutation tools start with hermes_mutate_. Destructive ones need confirm: true on a second call after the user approves.",
+  "Mutation tools start with hermes_mutate_. Tools whose description says so need confirm: true on a second call after the user approves.",
+  "A rejected mutation returns HTTP 400. Its body.issues names each invalid field.",
   "Switch environments with hermes_set_active_profile when several profiles are configured.",
 ].join(" ");
 
@@ -27,6 +29,7 @@ export type CreateHermesMcpServerDependencies = {
   fetchImpl?: typeof fetch;
   whoamiCache?: WhoamiCache;
   serverVersion?: string;
+  enabledToolsets?: ReadonlySet<HermesToolset>;
 };
 
 export const createHermesMcpServer = (
@@ -34,6 +37,7 @@ export const createHermesMcpServer = (
 ): McpServer => {
   const getActiveProfileFn = dependencies.getActiveProfile ?? getActiveProfile;
   const whoamiCache = dependencies.whoamiCache ?? createWhoamiCache();
+  const enabledToolsets = dependencies.enabledToolsets ?? loadEnabledToolsets();
   const server = new McpServer(
     {
       name: "hermes-mcp",
@@ -57,6 +61,7 @@ export const createHermesMcpServer = (
   registerHermesTools({
     server,
     httpClient,
+    enabledToolsets,
     getActiveProfile: getActiveProfileFn,
     onActiveProfileChange: whoamiCache.clear,
   });
@@ -64,6 +69,7 @@ export const createHermesMcpServer = (
   registerHermesMutateTools({
     server,
     httpClient,
+    enabledToolsets,
     whoamiCache,
     resolveProfileKey,
   });
