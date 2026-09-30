@@ -9,6 +9,8 @@ import {
   resolvePipelineComposition,
   type ComposedAgentStep,
   type CompositionPipeline,
+  type CompositionPipelineStep,
+  type LoadCompositionPipeline,
 } from "@hermes/scheduler/resolve-pipeline-composition";
 
 export const TICKER_OVERRIDE = { tickerId: "{{params.tickerId}}" } as const;
@@ -33,7 +35,11 @@ export const DEFAULT_BOOTSTRAP_SOURCES = [
   "Delivery",
 ];
 
-export const DEFAULT_LATEST_ISSUE_SOURCES = ["Delivery"];
+export const DELIVERY_PIPELINE_NAME = "Delivery";
+
+export const DELIVERY_AGENT_ID = "delivery";
+
+export const DEFAULT_LATEST_ISSUE_SOURCES = [DELIVERY_PIPELINE_NAME];
 
 export const DAY1_FULL_CHAIN_EVENT = "day1.full-chain";
 export const DAY1_LATEST_ISSUE_EVENT = "day1.latest-issue";
@@ -82,6 +88,7 @@ export type SeedDay1Options = {
   latestIssueSources: string[];
   allowExtraAgents: boolean;
   disabled: boolean;
+  copyDeliveryFrom: string | null;
 };
 
 type SourcePipeline = {
@@ -100,6 +107,13 @@ export type PlannedDay1Pipeline = {
   composedSteps: ComposedAgentStep[];
 };
 
+export type PlannedDeliveryPipeline = {
+  existingPipelineId: string | null;
+  sourcePipelineName: string;
+  pipeline: CompositionPipeline;
+  deliveryStep: CompositionPipelineStep;
+};
+
 export type AppliedDay1Trigger = {
   pipelineName: string;
   pipelineId: string;
@@ -110,6 +124,7 @@ export type AppliedDay1Trigger = {
 
 export type SeedDay1Result = {
   applied: boolean;
+  deliveryPipeline: PlannedDeliveryPipeline | null;
   plans: PlannedDay1Pipeline[];
   skippedPipelineNames: string[];
   triggers: AppliedDay1Trigger[];
@@ -226,8 +241,85 @@ const assertComposedSteps = async (
   }
 };
 
+const isDeliveryAgentStep = (step: CompositionPipelineStep): boolean =>
+  step.kind === "agent" && step.agentId === DELIVERY_AGENT_ID;
+
+const planDeliveryPipeline = async (
+  allPipelines: SourcePipeline[],
+  loadPipeline: LoadCompositionPipeline,
+  sourcePipelineName: string,
+): Promise<PlannedDeliveryPipeline> => {
+  if (sourcePipelineName === DELIVERY_PIPELINE_NAME) {
+    throw new Error(
+      `--copy-delivery-from must name another pipeline than "${DELIVERY_PIPELINE_NAME}".`,
+    );
+  }
+  const [source] = findSourcePipelines(allPipelines, [sourcePipelineName]);
+  const loadedSource = source ? await loadPipeline(source.id) : null;
+  if (!source || !loadedSource) {
+    throw new Error(`Pipeline "${sourcePipelineName}" could not be loaded.`);
+  }
+  const deliverySteps = loadedSource.steps.filter(isDeliveryAgentStep);
+  const [sourceDeliveryStep] = deliverySteps;
+  if (deliverySteps.length !== 1 || !sourceDeliveryStep) {
+    throw new Error(
+      `"${sourcePipelineName}" has ${deliverySteps.length} ${DELIVERY_AGENT_ID} steps, expected exactly one to copy.`,
+    );
+  }
+  const existingPipeline =
+    allPipelines.find((pipeline) => pipeline.name === DELIVERY_PIPELINE_NAME) ??
+    null;
+  const loadedExisting = existingPipeline
+    ? await loadPipeline(existingPipeline.id)
+    : null;
+  const hasOtherSteps =
+    loadedExisting?.steps.some((step) => !isDeliveryAgentStep(step)) ?? false;
+  if (hasOtherSteps) {
+    throw new Error(
+      `A "${DELIVERY_PIPELINE_NAME}" pipeline already exists with steps other than ${DELIVERY_AGENT_ID}. Rename it or pass --latest-sources.`,
+    );
+  }
+  const pipelineId =
+    existingPipeline?.id ?? `planned:${DELIVERY_PIPELINE_NAME}`;
+  const deliveryStep: CompositionPipelineStep = {
+    ...sourceDeliveryStep,
+    id: loadedExisting?.steps[0]?.id ?? `${pipelineId}:0`,
+    order: 0,
+  };
+
+  return {
+    existingPipelineId: existingPipeline?.id ?? null,
+    sourcePipelineName,
+    pipeline: {
+      id: pipelineId,
+      name: DELIVERY_PIPELINE_NAME,
+      timeout: source.timeout,
+      domainIntegrationId: source.domainIntegrationId,
+      steps: [deliveryStep],
+    },
+    deliveryStep,
+  };
+};
+
+const withPlannedDeliveryPipeline = (
+  allPipelines: SourcePipeline[],
+  deliveryPlan: PlannedDeliveryPipeline,
+): SourcePipeline[] => {
+  const plannedSummary: SourcePipeline = {
+    id: deliveryPlan.pipeline.id,
+    name: deliveryPlan.pipeline.name,
+    domainIntegrationId: deliveryPlan.pipeline.domainIntegrationId,
+    timeout: deliveryPlan.pipeline.timeout,
+  };
+  const others = allPipelines.filter(
+    (pipeline) => pipeline.id !== plannedSummary.id,
+  );
+
+  return [...others, plannedSummary];
+};
+
 const planDay1Pipeline = async (
-  db: SeedDay1Db,
+  loadPipeline: LoadCompositionPipeline,
   allPipelines: SourcePipeline[],
   definition: Day1PipelineDefinition,
 ): Promise<PlannedDay1Pipeline> => {
@@ -267,7 +359,7 @@ const planDay1Pipeline = async (
   };
   const composition = await resolvePipelineComposition({
     root,
-    loadPipeline: createCompositionPipelineLoader(db),
+    loadPipeline,
   });
   if (composition.errors.length > 0) {
     const messages = composition.errors.map((error) => error.message);
@@ -330,6 +422,61 @@ const writeDay1Pipeline = async (
   return pipeline.id;
 };
 
+const writeDeliveryPipeline = async (
+  db: SeedDay1Db,
+  plan: PlannedDeliveryPipeline,
+): Promise<string> => {
+  const pipelineData = {
+    name: DELIVERY_PIPELINE_NAME,
+    description: `Sends a ticker's newest newsletter to subscribers who have not received it. Copied from the delivery step of "${plan.sourcePipelineName}". Re-run the day 1 seed to copy it again.`,
+    isActive: true,
+    timeout: plan.pipeline.timeout,
+    domainIntegrationId: plan.pipeline.domainIntegrationId,
+  };
+  const pipeline =
+    plan.existingPipelineId === null
+      ? await db.pipeline.create({ data: pipelineData, select: { id: true } })
+      : await db.pipeline.update({
+          where: { id: plan.existingPipelineId },
+          data: pipelineData,
+          select: { id: true },
+        });
+  const { deliveryStep } = plan;
+  const stepInput = (deliveryStep.input ?? {}) as Prisma.InputJsonValue;
+  const stepConfig = (deliveryStep.config ?? {}) as Prisma.InputJsonValue;
+  const stepData = {
+    kind: "agent" as const,
+    targetPipelineId: null,
+    agentId: deliveryStep.agentId,
+    agentVersion: deliveryStep.agentVersion,
+    agentConfigId: deliveryStep.agentConfigId ?? null,
+    agentContractId: deliveryStep.agentContractId ?? null,
+    input: stepInput,
+    config: stepConfig,
+  };
+  await db.pipelineStep.upsert({
+    where: { pipelineId_order: { pipelineId: pipeline.id, order: 0 } },
+    create: { pipelineId: pipeline.id, order: 0, ...stepData },
+    update: stepData,
+  });
+  await db.pipelineStep.deleteMany({
+    where: { pipelineId: pipeline.id, order: { gte: 1 } },
+  });
+
+  return pipeline.id;
+};
+
+const pointSourcesAt = (
+  plan: PlannedDay1Pipeline,
+  plannedPipelineId: string,
+  pipelineId: string,
+): PlannedDay1Pipeline => ({
+  ...plan,
+  sources: plan.sources.map((source) =>
+    source.id === plannedPipelineId ? { ...source, id: pipelineId } : source,
+  ),
+});
+
 const writeDay1Trigger = async (
   db: SeedDay1Db,
   plan: PlannedDay1Pipeline,
@@ -383,6 +530,23 @@ export const seedDay1NewsletterPipelines = async (
     select: { id: true, name: true, domainIntegrationId: true, timeout: true },
     orderBy: { name: "asc" },
   });
+  const baseLoader = createCompositionPipelineLoader(targetDb);
+  const deliveryPlan =
+    options.copyDeliveryFrom === null
+      ? null
+      : await planDeliveryPipeline(
+          allPipelines,
+          baseLoader,
+          options.copyDeliveryFrom,
+        );
+  const loadPipeline: LoadCompositionPipeline = (pipelineId) =>
+    deliveryPlan !== null && pipelineId === deliveryPlan.pipeline.id
+      ? Promise.resolve(deliveryPlan.pipeline)
+      : baseLoader(pipelineId);
+  const planningPipelines =
+    deliveryPlan === null
+      ? allPipelines
+      : withPlannedDeliveryPipeline(allPipelines, deliveryPlan);
   const allDefinitions = buildDay1PipelineDefinitions(options);
   const definitions = allDefinitions.filter(
     (definition) => definition.sourceNames.length > 0,
@@ -392,21 +556,47 @@ export const seedDay1NewsletterPipelines = async (
     .map((definition) => definition.pipelineName);
   const plans: PlannedDay1Pipeline[] = [];
   for (const definition of definitions) {
-    const plan = await planDay1Pipeline(targetDb, allPipelines, definition);
+    const plan = await planDay1Pipeline(
+      loadPipeline,
+      planningPipelines,
+      definition,
+    );
     await assertComposedSteps(targetDb, plan, options.allowExtraAgents);
     plans.push(plan);
   }
   if (!options.apply) {
-    return { applied: false, plans, skippedPipelineNames, triggers: [] };
+    return {
+      applied: false,
+      deliveryPipeline: deliveryPlan,
+      plans,
+      skippedPipelineNames,
+      triggers: [],
+    };
   }
 
+  const deliveryPipelineId =
+    deliveryPlan === null
+      ? null
+      : await writeDeliveryPipeline(targetDb, deliveryPlan);
+  const writablePlans =
+    deliveryPlan === null || deliveryPipelineId === null
+      ? plans
+      : plans.map((plan) =>
+          pointSourcesAt(plan, deliveryPlan.pipeline.id, deliveryPipelineId),
+        );
   const triggers: AppliedDay1Trigger[] = [];
-  for (const plan of plans) {
+  for (const plan of writablePlans) {
     const pipelineId = await writeDay1Pipeline(targetDb, plan);
     triggers.push(await writeDay1Trigger(targetDb, plan, pipelineId, options));
   }
 
-  return { applied: true, plans, skippedPipelineNames, triggers };
+  return {
+    applied: true,
+    deliveryPipeline: deliveryPlan,
+    plans: writablePlans,
+    skippedPipelineNames,
+    triggers,
+  };
 };
 
 const readListFlag = (
@@ -426,6 +616,13 @@ const readListFlag = (
     .filter((name) => name.length > 0);
 };
 
+const readTextFlag = (argv: string[], flag: string): string | null => {
+  const index = argv.indexOf(flag);
+  const value = index === -1 ? undefined : argv[index + 1]?.trim();
+
+  return value === undefined || value.length === 0 ? null : value;
+};
+
 export const parseSeedDay1Args = (argv: string[]): SeedDay1Options => ({
   apply: argv.includes("--apply"),
   allowExtraAgents: argv.includes("--allow-extra-agents"),
@@ -438,6 +635,7 @@ export const parseSeedDay1Args = (argv: string[]): SeedDay1Options => ({
   latestIssueSources: argv.includes("--skip-latest-issue")
     ? []
     : readListFlag(argv, "--latest-sources", DEFAULT_LATEST_ISSUE_SOURCES),
+  copyDeliveryFrom: readTextFlag(argv, "--copy-delivery-from"),
 });
 
 const __filename = fileURLToPath(import.meta.url);
@@ -466,6 +664,15 @@ const printPlan = (plan: PlannedDay1Pipeline): void => {
   }
 };
 
+const printDeliveryPlan = (plan: PlannedDeliveryPipeline): void => {
+  const action = plan.existingPipelineId === null ? "create" : "update";
+  const { agentId, agentVersion } = plan.deliveryStep;
+  console.log(
+    `\n${plan.pipeline.name} (${action}, copied from "${plan.sourcePipelineName}")`,
+  );
+  console.log(`  1. ${agentId}@${agentVersion}`);
+};
+
 const printTrigger = (trigger: AppliedDay1Trigger): void => {
   console.log(
     `${trigger.triggerName}: trigger ${trigger.triggerId} runs "${trigger.pipelineName}" on event ${trigger.eventName}`,
@@ -476,6 +683,9 @@ const main = async (): Promise<void> => {
   loadHermesScriptEnv();
   const options = parseSeedDay1Args(process.argv.slice(2));
   const result = await seedDay1NewsletterPipelines(options);
+  if (result.deliveryPipeline !== null) {
+    printDeliveryPlan(result.deliveryPipeline);
+  }
   for (const plan of result.plans) {
     printPlan(plan);
   }
