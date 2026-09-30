@@ -15,6 +15,7 @@ const TICKER_EXPANSION = "db:userTicker:tickerId?where.enabled=true";
 type FixtureStep = {
   agentId: string;
   input?: Record<string, unknown>;
+  agentConfigId?: string | null;
   agentContractId?: string | null;
 };
 
@@ -86,8 +87,8 @@ const toCompositionPipeline = (pipeline: FixturePipeline) => ({
     targetPipelineId: null,
     input: step.input ?? {},
     config: {},
-    agentConfigId: null,
-    agentConfig: null,
+    agentConfigId: step.agentConfigId ?? null,
+    agentConfig: step.agentConfigId ? { config: {} } : null,
     agentContractId: step.agentContractId ?? null,
     agentContract: step.agentContractId
       ? { brief: "Brief", version: "1" }
@@ -158,6 +159,29 @@ const buildDb = ({
   return { db, createdPipelineIds };
 };
 
+const productionPipelines = (): FixturePipeline[] => [
+  ...nightlyPipelines().slice(0, 3),
+  {
+    id: "p-newsletter",
+    name: "Newsletter Creation & Delivery",
+    timeout: 1_800_000,
+    steps: [
+      {
+        agentId: "content-generation",
+        input: { tickerId: TICKER_EXPANSION },
+        agentConfigId: "config-content",
+        agentContractId: "contract-2",
+      },
+      {
+        agentId: "delivery",
+        input: { tickerId: TICKER_EXPANSION },
+        agentConfigId: "config-delivery",
+        agentContractId: "contract-2",
+      },
+    ],
+  },
+];
+
 const baseOptions = (
   overrides: Partial<SeedDay1Options> = {},
 ): SeedDay1Options => ({
@@ -166,8 +190,23 @@ const baseOptions = (
   latestIssueSources: DEFAULT_LATEST_ISSUE_SOURCES,
   allowExtraAgents: false,
   disabled: false,
+  copyDeliveryFrom: null,
   ...overrides,
 });
+
+const productionOptions = (
+  overrides: Partial<SeedDay1Options> = {},
+): SeedDay1Options =>
+  baseOptions({
+    bootstrapSources: [
+      "Query Analysis",
+      "Data Collection",
+      "Article Analysis",
+      "Newsletter Creation & Delivery",
+    ],
+    copyDeliveryFrom: "Newsletter Creation & Delivery",
+    ...overrides,
+  });
 
 describe("seedDay1NewsletterPipelines", () => {
   it("plans both pipelines on a dry run without writing", async () => {
@@ -393,6 +432,109 @@ describe("seedDay1NewsletterPipelines", () => {
     ]);
   });
 
+  it("plans a copied delivery pipeline for the latest issue on a dry run", async () => {
+    const { db } = buildDb({ pipelines: productionPipelines() });
+
+    const result = await seedDay1NewsletterPipelines(
+      productionOptions(),
+      db as never,
+    );
+    const [, latestIssue] = result.plans;
+
+    expect(result.deliveryPipeline?.existingPipelineId).toBeNull();
+    expect(result.deliveryPipeline?.deliveryStep).toEqual(
+      expect.objectContaining({
+        agentId: "delivery",
+        agentVersion: "1.0.0",
+        agentConfigId: "config-delivery",
+        agentContractId: "contract-2",
+      }),
+    );
+    expect(latestIssue?.composedSteps.map((step) => step.agentId)).toEqual([
+      "delivery",
+    ]);
+    expect(latestIssue?.composedSteps[0]?.input).toEqual({
+      tickerId: "{{params.tickerId}}",
+    });
+    expect(db.pipeline.create).not.toHaveBeenCalled();
+    expect(db.pipelineStep.upsert).not.toHaveBeenCalled();
+  });
+
+  it("writes the copied delivery pipeline and points the latest issue at it", async () => {
+    const { db } = buildDb({ pipelines: productionPipelines() });
+
+    const result = await seedDay1NewsletterPipelines(
+      productionOptions({ apply: true }),
+      db as never,
+    );
+
+    expect(db.pipeline.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        name: "Delivery",
+        timeout: 1_800_000,
+        domainIntegrationId: "di-1",
+      }),
+      select: { id: true },
+    });
+    expect(db.pipelineStep.upsert).toHaveBeenCalledWith({
+      where: { pipelineId_order: { pipelineId: "new-Delivery", order: 0 } },
+      create: expect.objectContaining({
+        pipelineId: "new-Delivery",
+        order: 0,
+        kind: "agent",
+        agentId: "delivery",
+        agentVersion: "1.0.0",
+        agentConfigId: "config-delivery",
+        agentContractId: "contract-2",
+        input: { tickerId: TICKER_EXPANSION },
+      }),
+      update: expect.objectContaining({ agentId: "delivery" }),
+    });
+    expect(db.pipelineStep.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          pipelineId_order: { pipelineId: "new-Day 1 Latest Issue", order: 0 },
+        },
+        create: expect.objectContaining({
+          kind: "pipeline",
+          targetPipelineId: "new-Delivery",
+        }),
+      }),
+    );
+    expect(result.triggers.map((trigger) => trigger.eventName)).toEqual([
+      "day1.full-chain",
+      "day1.latest-issue",
+    ]);
+  });
+
+  it("refuses to copy from a pipeline without exactly one delivery step", async () => {
+    const { db } = buildDb({ pipelines: productionPipelines() });
+
+    await expect(
+      seedDay1NewsletterPipelines(
+        productionOptions({ copyDeliveryFrom: "Article Analysis" }),
+        db as never,
+      ),
+    ).rejects.toThrow(/has 0 delivery steps/);
+  });
+
+  it("refuses to overwrite a Delivery pipeline that runs other agents", async () => {
+    const pipelines = [
+      ...productionPipelines(),
+      {
+        id: "p-other-delivery",
+        name: "Delivery",
+        timeout: null,
+        steps: [{ agentId: "content-generation" }],
+      },
+    ];
+    const { db } = buildDb({ pipelines });
+
+    await expect(
+      seedDay1NewsletterPipelines(productionOptions(), db as never),
+    ).rejects.toThrow(/already exists with steps other than delivery/);
+  });
+
   it("skips a day 1 pipeline that has no source pipelines", async () => {
     const { db } = buildDb();
 
@@ -458,6 +600,7 @@ describe("parseSeedDay1Args", () => {
       disabled: false,
       bootstrapSources: DEFAULT_BOOTSTRAP_SOURCES,
       latestIssueSources: DEFAULT_LATEST_ISSUE_SOURCES,
+      copyDeliveryFrom: null,
     });
   });
 
@@ -482,7 +625,17 @@ describe("parseSeedDay1Args", () => {
         "Analysis & Newsletter",
       ],
       latestIssueSources: ["Newsletter Delivery"],
+      copyDeliveryFrom: null,
     });
+  });
+
+  it("reads the pipeline to copy the delivery step from", () => {
+    const options = parseSeedDay1Args([
+      "--copy-delivery-from",
+      "Newsletter Creation & Delivery",
+    ]);
+
+    expect(options.copyDeliveryFrom).toBe("Newsletter Creation & Delivery");
   });
 
   it("drops the latest issue sources with --skip-latest-issue", () => {
