@@ -156,7 +156,7 @@ export const PIPELINE_MUTATE_TOOL_SPECS: HermesMutateToolSpec[] = [
       stepId: guidField("Step id"),
       targetPipelineId: guidField("Id of the pipeline this step runs"),
       input: jsonObjectField(
-        "Input overrides, for example { tickerId: '{{params.tickerId}}' }. Use {} for none.",
+        "Input overrides, for example { itemId: '{{params.itemId}}' }. Use {} for none.",
       ),
       ...confirmField,
     },
