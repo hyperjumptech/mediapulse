@@ -18,6 +18,7 @@ export const HERMES_MCP_SERVER_INSTRUCTIONS = [
   "List tools (hermes_list_*) take page, pageSize (max 100), q, sort, and dir, and return items, total, page, pageSize, and hasMore. Request the next page while hasMore is true.",
   "Use hermes_search to turn a name into an id, then a hermes_get_* tool for full detail.",
   "Domain data: hermes_list_domain_views, then hermes_list_domain_rows and hermes_get_domain_row.",
+  "Build a pipeline with hermes_mutate_create_pipeline, then hermes_mutate_add_agent_step or hermes_mutate_add_pipeline_step, then check validation with hermes_get_pipeline.",
   "Output is compact JSON capped at about 50,000 characters. Narrow a truncated result with a smaller pageSize or a q search.",
   "Mutation tools start with hermes_mutate_. Tools whose description says so need confirm: true on a second call after the user approves.",
   "A rejected mutation returns HTTP 400. Its body.issues names each invalid field.",

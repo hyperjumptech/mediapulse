@@ -6,12 +6,12 @@ vi.mock("@/lib/require-dashboard-principal-response", () => ({
   resolveDashboardPrincipalOrUnauthorized: vi.fn(),
 }));
 
-vi.mock("@/lib/pipelines", () => ({
-  getPipelineWithSteps: vi.fn(),
+vi.mock("@/lib/pipeline-detail-api", () => ({
+  getPipelineDetailForApi: vi.fn(),
 }));
 
 import { GET } from "./route";
-import { getPipelineWithSteps } from "@/lib/pipelines";
+import { getPipelineDetailForApi } from "@/lib/pipeline-detail-api";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
 const pipelineId = "00000000-0000-4000-8000-000000000001";
@@ -47,14 +47,14 @@ describe("GET /api/pipelines/[pipelineId]", () => {
     const res = await callRoute(pipelineId);
 
     expect(res.status).toBe(401);
-    expect(getPipelineWithSteps).not.toHaveBeenCalled();
+    expect(getPipelineDetailForApi).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the pipeline does not exist", async () => {
     vi.mocked(resolveDashboardPrincipalOrUnauthorized).mockResolvedValue(
       apiKeyPrincipal,
     );
-    vi.mocked(getPipelineWithSteps).mockResolvedValue(null);
+    vi.mocked(getPipelineDetailForApi).mockResolvedValue(null);
 
     const res = await callRoute(pipelineId);
 
@@ -67,7 +67,7 @@ describe("GET /api/pipelines/[pipelineId]", () => {
       apiKeyPrincipal,
     );
     const createdAt = new Date("2026-01-01T00:00:00.000Z");
-    vi.mocked(getPipelineWithSteps).mockResolvedValue({
+    vi.mocked(getPipelineDetailForApi).mockResolvedValue({
       id: pipelineId,
       name: "Daily",
       description: null,
@@ -98,11 +98,13 @@ describe("GET /api/pipelines/[pipelineId]", () => {
           createdById: null,
         },
       ],
+      validation: { valid: true, warnings: [] },
+      runParamKeys: ["itemId"],
     });
 
     const res = await callRoute(pipelineId);
 
-    expect(getPipelineWithSteps).toHaveBeenCalledWith(pipelineId);
+    expect(getPipelineDetailForApi).toHaveBeenCalledWith(pipelineId);
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       id: string;
@@ -112,5 +114,9 @@ describe("GET /api/pipelines/[pipelineId]", () => {
     expect(body.steps).toEqual([
       expect.objectContaining({ agentId: "collector", input: { query: "x" } }),
     ]);
+    expect(body).toMatchObject({
+      validation: { valid: true, warnings: [] },
+      runParamKeys: ["itemId"],
+    });
   });
 });

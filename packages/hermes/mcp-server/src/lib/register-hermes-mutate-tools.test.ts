@@ -129,15 +129,15 @@ describe("handleHermesMutateToolCall", () => {
 });
 
 describe("HERMES_MUTATE_TOOL_SPECS annotations", () => {
-  it("marks deletes destructive and idempotent, creates additive", () => {
+  it("marks deletes and updates destructive and idempotent, creates additive", () => {
     for (const spec of HERMES_MUTATE_TOOL_SPECS) {
       expect(spec.title.length, spec.name).toBeGreaterThan(0);
       expect(spec.annotations.readOnlyHint, spec.name).toBe(false);
-      if (spec.name.includes("_delete_")) {
+      if (/_(delete|remove|update)_/.test(spec.name)) {
         expect(spec.annotations.destructiveHint, spec.name).toBe(true);
         expect(spec.annotations.idempotentHint, spec.name).toBe(true);
       }
-      if (spec.name.includes("_create_")) {
+      if (/_(create|add)_/.test(spec.name)) {
         expect(spec.annotations.destructiveHint, spec.name).toBe(false);
       }
       if (spec.requiresConfirm) {

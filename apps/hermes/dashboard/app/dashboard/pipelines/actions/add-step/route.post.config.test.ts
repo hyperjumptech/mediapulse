@@ -99,4 +99,69 @@ describe("handler", () => {
     } as never);
     expect(result.status).toBe(true);
   });
+
+  it("links a contract to the new step", async () => {
+    const contractId = "00000000-0000-4000-8000-00000000c0de";
+    const db = {
+      agentRegistry: {
+        findFirst: vi
+          .fn()
+          .mockResolvedValue({ id: "ar1", agentId: "ag1", agentVersion: "1" }),
+      },
+      agentContract: {
+        findUnique: vi.fn().mockResolvedValue({ id: contractId }),
+      },
+      pipelineStep: {
+        aggregate: vi.fn().mockResolvedValue({ _max: { order: 0 } }),
+        create: vi.fn().mockResolvedValue({ id: "step-uuid" }),
+      },
+    };
+    const addHandler = createAddStepHandler({ db: db as never });
+
+    await addHandler({
+      body: {
+        pipelineId: "p-1",
+        agentId: "ag1",
+        agentVersion: "1",
+        agentContractId: contractId,
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    expect(db.pipelineStep.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ agentContractId: contractId }),
+    });
+  });
+
+  it("rejects a contract that does not exist", async () => {
+    const db = {
+      agentRegistry: {
+        findFirst: vi
+          .fn()
+          .mockResolvedValue({ id: "ar1", agentId: "ag1", agentVersion: "1" }),
+      },
+      agentContract: { findUnique: vi.fn().mockResolvedValue(null) },
+      pipelineStep: { create: vi.fn() },
+    };
+    const addHandler = createAddStepHandler({ db: db as never });
+
+    const result = await addHandler({
+      body: {
+        pipelineId: "p-1",
+        agentId: "ag1",
+        agentVersion: "1",
+        agentContractId: "00000000-0000-4000-8000-00000000c0de",
+      },
+      params: {},
+      headers: new Headers(),
+      searchParams: {},
+      user: mockDashboardUser,
+    } as never);
+
+    expect(result.status).toBe(false);
+    expect(db.pipelineStep.create).not.toHaveBeenCalled();
+  });
 });

@@ -40,6 +40,10 @@ const bodyValidator = z.object({
     .union([z.guid(), z.literal("")])
     .optional()
     .transform((s) => (s === "" ? undefined : s)),
+  agentContractId: z
+    .union([z.guid(), z.literal("")])
+    .optional()
+    .transform((s) => (s === "" ? undefined : s)),
   input: jsonObjectSchema,
   config: jsonObjectSchema,
 });
@@ -74,8 +78,15 @@ export const createAddStepHandler = ({
 }: AddStepHandlerDependencies = {}): AddStepHandler => {
   return async (data) => {
     const userId = data.user.id;
-    const { pipelineId, agentId, agentVersion, agentConfigId, input, config } =
-      data.body;
+    const {
+      pipelineId,
+      agentId,
+      agentVersion,
+      agentConfigId,
+      agentContractId,
+      input,
+      config,
+    } = data.body;
 
     const inputObj = (input ?? {}) as Record<string, unknown>;
     const dataSourceValidation = validateDataSourceExpressions(inputObj);
@@ -105,6 +116,15 @@ export const createAddStepHandler = ({
       }
     }
 
+    if (agentContractId != null) {
+      const agentContract = await db.agentContract.findUnique({
+        where: { id: agentContractId },
+      });
+      if (!agentContract) {
+        return errorResponse("Selected contract not found");
+      }
+    }
+
     // Do not validate input/config against agent schemas when adding a step.
     // User adds the agent to the pipeline first, then assigns input and config
     // in the third column. Validation happens on update-step (Save) or at run time.
@@ -122,7 +142,7 @@ export const createAddStepHandler = ({
         agentVersion,
         order: nextOrder,
         agentConfigId: agentConfigId ?? null,
-        agentContractId: null,
+        agentContractId: agentContractId ?? null,
         input: inputObj as object,
         config: agentConfigId != null ? {} : ((config ?? {}) as object),
         createdById: userId,
