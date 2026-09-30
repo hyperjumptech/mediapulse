@@ -57,7 +57,11 @@ const bodyValidator = z
       .union([z.boolean(), z.literal("on"), z.literal("false")])
       .optional()
       .transform((v) =>
-        v === true || v === "on" ? true : v === "false" ? false : undefined,
+        v === true || v === "on"
+          ? true
+          : v === false || v === "false"
+            ? false
+            : undefined,
       ),
   })
   .refine(

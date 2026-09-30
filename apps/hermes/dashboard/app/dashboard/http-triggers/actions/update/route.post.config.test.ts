@@ -10,6 +10,7 @@ const mockDashboardUser = {
 import {
   createUpdateHttpTriggerHandler,
   httpTriggerUpdateBodySchema,
+  requestValidator,
 } from "./route.post.config";
 
 describe("createUpdateHttpTriggerHandler", () => {
@@ -220,5 +221,16 @@ describe("createUpdateHttpTriggerHandler", () => {
       "Bearer token is required",
     );
     expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe("enabled body field", () => {
+  it("keeps a JSON false instead of dropping it", () => {
+    const parsed = requestValidator.body?.parse({
+      httpTriggerId: "00000000-0000-4000-8000-000000000001",
+      enabled: false,
+    }) as { enabled?: boolean };
+
+    expect(parsed.enabled).toBe(false);
   });
 });

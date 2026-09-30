@@ -1,6 +1,9 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createUpdateScheduleHandler } from "./route.post.config";
+import {
+  createUpdateScheduleHandler,
+  requestValidator,
+} from "./route.post.config";
 
 const mockDashboardUser = {
   id: "user-1",
@@ -286,5 +289,16 @@ describe("handler", () => {
       user: mockDashboardUser,
     } as never);
     expect(result.status).toBe(true);
+  });
+});
+
+describe("enabled body field", () => {
+  it("keeps a JSON false instead of dropping it", () => {
+    const parsed = requestValidator.body?.parse({
+      scheduleId: "00000000-0000-4000-8000-000000000001",
+      enabled: false,
+    }) as { enabled?: boolean };
+
+    expect(parsed.enabled).toBe(false);
   });
 });

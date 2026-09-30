@@ -16,6 +16,16 @@ export const SCHEDULE_READ_TOOL_SPECS: HermesReadToolSpec[] = [
     defaultSort: "name asc",
   }),
   {
+    name: "hermes_get_schedule",
+    title: "Get schedule",
+    description:
+      "One schedule with its cadence, next run, missed-run count, and pipeline.",
+    toolset: "schedules",
+    method: "GET",
+    pathTemplate: "/api/schedules/{scheduleId}",
+    inputSchema: { scheduleId: guidField("Schedule id") },
+  },
+  {
     name: "hermes_get_schedule_execution",
     title: "Get schedule execution",
     description:

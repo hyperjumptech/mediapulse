@@ -121,8 +121,10 @@ All read tools are annotated `readOnlyHint` and `idempotentHint`.
 | `hermes_get_pipeline_schemas`       | GET  | `/api/pipelines/{pipelineId}/schemas`                          |
 | `hermes_get_pipeline_execution`     | GET  | `/api/pipelines/{pipelineId}/executions/{executionId}`         |
 | `hermes_list_schedules`             | GET  | `/api/schedules`                                               |
+| `hermes_get_schedule`               | GET  | `/api/schedules/{scheduleId}`                                  |
 | `hermes_get_schedule_execution`     | GET  | `/api/schedules/{scheduleId}/executions/{executionId}`         |
 | `hermes_list_http_triggers`         | GET  | `/api/http-triggers`                                           |
+| `hermes_get_http_trigger`           | GET  | `/api/http-triggers/{triggerId}`                               |
 | `hermes_get_http_trigger_execution` | GET  | `/api/http-triggers/{triggerId}/executions/{executionId}`      |
 | `hermes_list_variables`             | GET  | `/api/variables`                                               |
 | `hermes_get_variable`               | POST | `/dashboard/variables/actions/get`                             |
@@ -155,6 +157,7 @@ Tools marked "Needs `confirm: true`" need two calls:
 | `hermes_mutate_create_agent`                  | No                    | additive                | `/dashboard/agents/actions/create`                     |
 | `hermes_mutate_delete_agent`                  | Yes                   | destructive, idempotent | `/dashboard/agents/actions/delete`                     |
 | `hermes_mutate_create_variable`               | No                    | additive                | `/dashboard/variables/actions/create`                  |
+| `hermes_mutate_update_variable`               | No                    | destructive, idempotent | `/dashboard/variables/actions/update`                  |
 | `hermes_mutate_delete_variable`               | Yes                   | destructive, idempotent | `/dashboard/variables/actions/delete`                  |
 | `hermes_mutate_create_pipeline`               | No                    | additive                | `/dashboard/pipelines/actions/create`                  |
 | `hermes_mutate_update_pipeline`               | No                    | destructive, idempotent | `/dashboard/pipelines/actions/update`                  |
@@ -167,8 +170,12 @@ Tools marked "Needs `confirm: true`" need two calls:
 | `hermes_mutate_run_pipeline`                  | Yes                   | destructive, open world | `/dashboard/pipelines/actions/run-pipeline`            |
 | `hermes_mutate_cancel_pipeline_execution`     | Yes                   | destructive, idempotent | `/dashboard/pipelines/actions/cancel-manual-execution` |
 | `hermes_mutate_delete_pipeline`               | Yes                   | destructive, idempotent | `/dashboard/pipelines/actions/delete`                  |
+| `hermes_mutate_create_schedule`               | No                    | additive                | `/dashboard/schedules/actions/create`                  |
+| `hermes_mutate_update_schedule`               | No                    | destructive, idempotent | `/dashboard/schedules/actions/update`                  |
 | `hermes_mutate_cancel_schedule_execution`     | Yes                   | destructive, idempotent | `/dashboard/schedules/actions/cancel-execution`        |
 | `hermes_mutate_delete_schedule`               | Yes                   | destructive, idempotent | `/dashboard/schedules/actions/delete`                  |
+| `hermes_mutate_create_http_trigger`           | No                    | additive                | `/dashboard/http-triggers/actions/create`              |
+| `hermes_mutate_update_http_trigger`           | No                    | destructive, idempotent | `/dashboard/http-triggers/actions/update`              |
 | `hermes_mutate_cancel_http_trigger_execution` | Yes                   | destructive, idempotent | `/dashboard/http-triggers/actions/cancel-execution`    |
 | `hermes_mutate_delete_http_trigger`           | Yes                   | destructive, idempotent | `/dashboard/http-triggers/actions/delete`              |
 
