@@ -27,7 +27,11 @@ export const httpTriggerUpdateBodySchema = z.object({
     .union([z.boolean(), z.literal("on"), z.literal("false")])
     .optional()
     .transform((v) =>
-      v === true || v === "on" ? true : v === "false" ? false : undefined,
+      v === true || v === "on"
+        ? true
+        : v === false || v === "false"
+          ? false
+          : undefined,
     ),
   method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH"]).optional(),
   /** Empty string from an optional password input means "keep current token". */

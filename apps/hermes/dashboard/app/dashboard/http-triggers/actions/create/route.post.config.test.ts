@@ -7,7 +7,10 @@ const mockDashboardUser = {
   email: "a@b.com",
 } as const;
 
-import { createCreateHttpTriggerHandler } from "./route.post.config";
+import {
+  createCreateHttpTriggerHandler,
+  requestValidator,
+} from "./route.post.config";
 
 describe("createCreateHttpTriggerHandler", () => {
   afterEach(() => {
@@ -185,5 +188,19 @@ describe("createCreateHttpTriggerHandler", () => {
     expect((result as { message?: string }).message).toBe(
       "Bearer token is required",
     );
+  });
+});
+
+describe("enabled body field", () => {
+  it("keeps a JSON false instead of dropping it", () => {
+    const parsed = requestValidator.body?.parse({
+      name: "Hook",
+      pipelineId: "00000000-0000-4000-8000-000000000001",
+      method: "POST",
+      bearerToken: "secret-token",
+      enabled: false,
+    }) as { enabled?: boolean };
+
+    expect(parsed.enabled).toBe(false);
   });
 });

@@ -222,6 +222,7 @@ describe("createHermesMcpServer", () => {
       "hermes_list_variables",
       "hermes_mutate_create_variable",
       "hermes_mutate_delete_variable",
+      "hermes_mutate_update_variable",
       "hermes_ping",
       "hermes_search",
       "hermes_set_active_profile",

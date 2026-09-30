@@ -104,8 +104,10 @@ Set `HERMES_MCP_TOOLSETS` in the MCP client env to a comma-separated list (`pipe
 | `hermes_get_pipeline_schemas`       | GET  | `/api/pipelines/{pipelineId}/schemas`                          |
 | `hermes_get_pipeline_execution`     | GET  | `/api/pipelines/{pipelineId}/executions/{executionId}`         |
 | `hermes_list_schedules`             | GET  | `/api/schedules`                                               |
+| `hermes_get_schedule`               | GET  | `/api/schedules/{scheduleId}`                                  |
 | `hermes_get_schedule_execution`     | GET  | `/api/schedules/{scheduleId}/executions/{executionId}`         |
 | `hermes_list_http_triggers`         | GET  | `/api/http-triggers`                                           |
+| `hermes_get_http_trigger`           | GET  | `/api/http-triggers/{triggerId}`                               |
 | `hermes_get_http_trigger_execution` | GET  | `/api/http-triggers/{triggerId}/executions/{executionId}`      |
 | `hermes_list_variables`             | GET  | `/api/variables`                                               |
 | `hermes_get_variable`               | POST | `/dashboard/variables/actions/get`                             |
@@ -125,6 +127,7 @@ Domain data is read generically. `hermes_list_domain_views` lists an integration
 | `hermes_mutate_create_agent`                  | No                    | `/dashboard/agents/actions/create`                     |
 | `hermes_mutate_delete_agent`                  | Yes                   | `/dashboard/agents/actions/delete`                     |
 | `hermes_mutate_create_variable`               | No                    | `/dashboard/variables/actions/create`                  |
+| `hermes_mutate_update_variable`               | No                    | `/dashboard/variables/actions/update`                  |
 | `hermes_mutate_delete_variable`               | Yes                   | `/dashboard/variables/actions/delete`                  |
 | `hermes_mutate_create_pipeline`               | No                    | `/dashboard/pipelines/actions/create`                  |
 | `hermes_mutate_update_pipeline`               | No                    | `/dashboard/pipelines/actions/update`                  |
@@ -137,8 +140,12 @@ Domain data is read generically. `hermes_list_domain_views` lists an integration
 | `hermes_mutate_run_pipeline`                  | Yes                   | `/dashboard/pipelines/actions/run-pipeline`            |
 | `hermes_mutate_cancel_pipeline_execution`     | Yes                   | `/dashboard/pipelines/actions/cancel-manual-execution` |
 | `hermes_mutate_delete_pipeline`               | Yes                   | `/dashboard/pipelines/actions/delete`                  |
+| `hermes_mutate_create_schedule`               | No                    | `/dashboard/schedules/actions/create`                  |
+| `hermes_mutate_update_schedule`               | No                    | `/dashboard/schedules/actions/update`                  |
 | `hermes_mutate_cancel_schedule_execution`     | Yes                   | `/dashboard/schedules/actions/cancel-execution`        |
 | `hermes_mutate_delete_schedule`               | Yes                   | `/dashboard/schedules/actions/delete`                  |
+| `hermes_mutate_create_http_trigger`           | No                    | `/dashboard/http-triggers/actions/create`              |
+| `hermes_mutate_update_http_trigger`           | No                    | `/dashboard/http-triggers/actions/update`              |
 | `hermes_mutate_cancel_http_trigger_execution` | Yes                   | `/dashboard/http-triggers/actions/cancel-execution`    |
 | `hermes_mutate_delete_http_trigger`           | Yes                   | `/dashboard/http-triggers/actions/delete`              |
 
