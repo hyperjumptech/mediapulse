@@ -37,7 +37,7 @@ const httpTriggerFields = {
     .regex(/^[a-z0-9][a-z0-9._-]{0,99}$/)
     .optional()
     .describe(
-      "Domain event name, required in event mode, for example day1.full-chain",
+      "Domain event name, required in event mode, for example order.created",
     ),
 };
 
