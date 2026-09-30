@@ -21,6 +21,13 @@ export const CREATE_ANNOTATIONS: ToolAnnotations = {
   openWorldHint: false,
 };
 
+export const UPDATE_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  idempotentHint: true,
+  openWorldHint: false,
+};
+
 export const DELETE_ANNOTATIONS: ToolAnnotations = {
   readOnlyHint: false,
   destructiveHint: true,
@@ -58,3 +65,6 @@ export const confirmField = {
 
 export const guidField = (description: string) =>
   z.guid().describe(description);
+
+export const jsonObjectField = (description: string) =>
+  z.record(z.string(), z.unknown()).describe(description);

@@ -20,7 +20,7 @@ export const PIPELINE_READ_TOOL_SPECS: HermesReadToolSpec[] = [
     name: "hermes_get_pipeline",
     title: "Get pipeline",
     description:
-      "One pipeline with its ordered steps. An agent step has its agent, input, and config. A pipeline step (kind pipeline) has targetPipelineId and input overrides merged into every step of that pipeline at run time.",
+      "One pipeline with its ordered steps, validation (valid and warnings), and runParamKeys. An agent step has its agent, input, and config. A pipeline step (kind pipeline) has targetPipelineId and input overrides merged into every step of that pipeline at run time.",
     toolset: "pipelines",
     method: "GET",
     pathTemplate: "/api/pipelines/{pipelineId}",

@@ -117,7 +117,7 @@ All read tools are annotated `readOnlyHint` and `idempotentHint`.
 | `hermes_list_agent_configs`         | GET  | `/api/agent-configs`                                           |
 | `hermes_get_agent_config`           | POST | `/dashboard/agent-configs/actions/get`                         |
 | `hermes_list_pipelines`             | GET  | `/api/pipelines` (summaries with `stepCount`)                  |
-| `hermes_get_pipeline`               | GET  | `/api/pipelines/{pipelineId}` (full pipeline with steps)       |
+| `hermes_get_pipeline`               | GET  | `/api/pipelines/{pipelineId}` (steps, validation, run params)  |
 | `hermes_get_pipeline_schemas`       | GET  | `/api/pipelines/{pipelineId}/schemas`                          |
 | `hermes_get_pipeline_execution`     | GET  | `/api/pipelines/{pipelineId}/executions/{executionId}`         |
 | `hermes_list_schedules`             | GET  | `/api/schedules`                                               |
@@ -156,6 +156,14 @@ Tools marked "Needs `confirm: true`" need two calls:
 | `hermes_mutate_delete_agent`                  | Yes                   | destructive, idempotent | `/dashboard/agents/actions/delete`                     |
 | `hermes_mutate_create_variable`               | No                    | additive                | `/dashboard/variables/actions/create`                  |
 | `hermes_mutate_delete_variable`               | Yes                   | destructive, idempotent | `/dashboard/variables/actions/delete`                  |
+| `hermes_mutate_create_pipeline`               | No                    | additive                | `/dashboard/pipelines/actions/create`                  |
+| `hermes_mutate_update_pipeline`               | No                    | destructive, idempotent | `/dashboard/pipelines/actions/update`                  |
+| `hermes_mutate_add_agent_step`                | No                    | additive                | `/dashboard/pipelines/actions/add-step`                |
+| `hermes_mutate_add_pipeline_step`             | No                    | additive                | `/dashboard/pipelines/actions/add-pipeline-step`       |
+| `hermes_mutate_update_agent_step`             | No                    | destructive, idempotent | `/dashboard/pipelines/actions/update-step`             |
+| `hermes_mutate_update_pipeline_step`          | No                    | destructive, idempotent | `/dashboard/pipelines/actions/update-pipeline-step`    |
+| `hermes_mutate_remove_step`                   | Yes                   | destructive, idempotent | `/dashboard/pipelines/actions/remove-step`             |
+| `hermes_mutate_reorder_steps`                 | No                    | destructive, idempotent | `/dashboard/pipelines/actions/reorder-steps`           |
 | `hermes_mutate_run_pipeline`                  | Yes                   | destructive, open world | `/dashboard/pipelines/actions/run-pipeline`            |
 | `hermes_mutate_cancel_pipeline_execution`     | Yes                   | destructive, idempotent | `/dashboard/pipelines/actions/cancel-manual-execution` |
 | `hermes_mutate_delete_pipeline`               | Yes                   | destructive, idempotent | `/dashboard/pipelines/actions/delete`                  |

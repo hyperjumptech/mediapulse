@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getPipelineWithSteps } from "@/lib/pipelines";
+import { getPipelineDetailForApi } from "@/lib/pipeline-detail-api";
 import { resolveDashboardPrincipalOrUnauthorized } from "@/lib/require-dashboard-principal-response";
 
 export const GET = async (
@@ -13,7 +13,7 @@ export const GET = async (
   }
 
   const { pipelineId } = await context.params;
-  const pipeline = await getPipelineWithSteps(pipelineId);
+  const pipeline = await getPipelineDetailForApi(pipelineId);
   if (!pipeline) {
     return NextResponse.json({ error: "Pipeline not found" }, { status: 404 });
   }
