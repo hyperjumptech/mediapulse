@@ -3,7 +3,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { readRouteConfigContract } from "../test-utils/route-config-body-keys.js";
+import {
+  readRouteConfigContract,
+  type ReadImportedModule,
+} from "../test-utils/route-config-body-keys.js";
 import { HERMES_MUTATE_TOOL_SPECS } from "./mutate-tool-catalog.js";
 import { LOCAL_ONLY_FIELDS } from "./mutate-tool-spec.js";
 import { HERMES_READ_TOOL_SPECS } from "./tool-catalog.js";
@@ -40,6 +43,26 @@ const postReadRouteSpecs: ActionRouteSpec[] = HERMES_READ_TOOL_SPECS.filter(
 
 const actionRouteSpecs = [...mutationRouteSpecs, ...postReadRouteSpecs];
 
+const DASHBOARD_LIB_ALIAS = "@/lib/";
+
+const readDashboardLibModule: ReadImportedModule = (specifier) => {
+  if (!specifier.startsWith(DASHBOARD_LIB_ALIAS)) {
+    return undefined;
+  }
+  const moduleUrl = new URL(
+    `lib/${specifier.slice(DASHBOARD_LIB_ALIAS.length)}.ts`,
+    DASHBOARD_DIRECTORY,
+  );
+  if (!existsSync(moduleUrl)) {
+    return undefined;
+  }
+
+  return {
+    filePath: moduleUrl.pathname,
+    source: readFileSync(moduleUrl, "utf8"),
+  };
+};
+
 const routeFileUrl = (pathTemplate: string, fileName: string): URL =>
   new URL(`app${pathTemplate}/${fileName}`, DASHBOARD_DIRECTORY);
 
@@ -49,6 +72,7 @@ const readRouteContract = (spec: ActionRouteSpec) => {
   return readRouteConfigContract(
     configUrl.pathname,
     readFileSync(configUrl, "utf8"),
+    readDashboardLibModule,
   );
 };
 

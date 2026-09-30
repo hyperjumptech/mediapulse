@@ -7,6 +7,7 @@ import {
   HERMES_READ_TOOL_SPECS,
   LIST_QUERY_KEYS,
   MAX_LIST_PAGE_SIZE,
+  PAGE_QUERY_KEYS,
   pathTemplateParameterNames,
   resolvePathTemplate,
   type HermesReadToolSpec,
@@ -152,7 +153,14 @@ describe("HERMES_READ_TOOL_SPECS", () => {
   });
 
   it("gives every paginated tool the shared list query keys", () => {
-    expect(paginatedSpecs.map((spec) => spec.name)).toEqual([
+    const searchableSpecs = paginatedSpecs.filter((spec) =>
+      spec.queryKeys?.includes("q"),
+    );
+    const pageOnlySpecs = paginatedSpecs.filter(
+      (spec) => !spec.queryKeys?.includes("q"),
+    );
+
+    expect(searchableSpecs.map((spec) => spec.name)).toEqual([
       "hermes_list_agents",
       "hermes_list_agent_configs",
       "hermes_list_agent_contracts",
@@ -163,10 +171,19 @@ describe("HERMES_READ_TOOL_SPECS", () => {
       "hermes_list_domain_integrations",
       "hermes_list_domain_rows",
     ]);
+    expect(pageOnlySpecs.map((spec) => spec.name)).toEqual([
+      "hermes_list_pipeline_executions",
+      "hermes_list_schedule_executions",
+      "hermes_list_processed_urls",
+      "hermes_list_http_trigger_executions",
+    ]);
+    for (const spec of searchableSpecs) {
+      expect(spec.queryKeys, spec.name).toEqual(LIST_QUERY_KEYS);
+    }
     for (const spec of paginatedSpecs) {
       expect(spec.method, spec.name).toBe("GET");
-      expect(spec.queryKeys, spec.name).toEqual(LIST_QUERY_KEYS);
-      for (const key of LIST_QUERY_KEYS) {
+      for (const key of PAGE_QUERY_KEYS) {
+        expect(spec.queryKeys, spec.name).toContain(key);
         expect(spec.inputSchema, `${spec.name}.${key}`).toHaveProperty(key);
       }
     }

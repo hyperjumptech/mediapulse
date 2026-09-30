@@ -16,7 +16,7 @@ vi.mock("@/lib/domain-dashboard", () => ({
     fetchProcessedUrlsForExecutionMock(...args),
 }));
 
-vi.mock("./processed-urls-execution", () => ({
+vi.mock("@/lib/processed-urls-execution", () => ({
   loadProcessedUrlsExecution: (...args: unknown[]) =>
     loadProcessedUrlsExecutionMock(...args),
 }));

@@ -10,6 +10,7 @@ import type { HermesReadToolSpec } from "./read-tool-spec.js";
 export {
   LIST_QUERY_KEYS,
   MAX_LIST_PAGE_SIZE,
+  PAGE_QUERY_KEYS,
   type HermesReadToolSpec,
 } from "./read-tool-spec.js";
 

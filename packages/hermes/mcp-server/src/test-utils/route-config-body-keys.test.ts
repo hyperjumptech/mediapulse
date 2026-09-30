@@ -74,4 +74,41 @@ const bodyValidator = z.object({ value: importedHelper() });`);
       readRouteConfigContract("route.post.config.ts", source),
     ).toThrow("Extend route-config-body-keys.ts");
   });
+
+  it("follows a body schema imported from another module", () => {
+    const source = `
+import { createRequestValidator } from "route-action-gen/lib";
+import { requestSchema as sharedRequestSchema } from "@/lib/shared-request";
+
+export const requestValidator = createRequestValidator({
+  body: sharedRequestSchema,
+  user: requireDashboardPrincipalForRoute,
+});
+`;
+    const sharedModule = `
+import { z } from "zod";
+
+const kindSchema = z.enum(["a", "b"]);
+
+export const requestSchema = z.object({
+  kind: kindSchema,
+  note: kindSchema.optional(),
+});
+`;
+    const readImportedModule = (specifier: string) =>
+      specifier === "@/lib/shared-request"
+        ? { filePath: "lib/shared-request.ts", source: sharedModule }
+        : undefined;
+
+    const contract = readRouteConfigContract(
+      "route.post.config.ts",
+      source,
+      readImportedModule,
+    );
+
+    expect(contract.bodyKeys).toEqual([
+      { name: "kind", optional: false },
+      { name: "note", optional: true },
+    ]);
+  });
 });

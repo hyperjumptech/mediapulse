@@ -1,6 +1,9 @@
+import { z } from "zod";
+
 import {
   guidField,
   listToolSpec,
+  pagedToolSpec,
   type HermesReadToolSpec,
 } from "../read-tool-spec.js";
 
@@ -48,5 +51,41 @@ export const PIPELINE_READ_TOOL_SPECS: HermesReadToolSpec[] = [
       pipelineId: guidField("Pipeline id"),
       executionId: guidField("Manual pipeline execution id"),
     },
+  },
+  pagedToolSpec({
+    name: "hermes_list_pipeline_executions",
+    title: "List pipeline runs",
+    description:
+      "Page through every run of a pipeline, newest first: schedule, HTTP trigger, and manual runs merged.",
+    toolset: "pipelines",
+    pathTemplate: "/api/pipelines/{pipelineId}/executions",
+    inputSchema: { pipelineId: guidField("Pipeline id") },
+  }),
+  {
+    name: "hermes_get_pipeline_usage",
+    title: "Get pipeline usage",
+    description:
+      "Pipelines that reference a variable key, or a data source expansion string of one domain integration.",
+    toolset: "pipelines",
+    method: "GET",
+    pathTemplate: "/api/pipeline-usage",
+    inputSchema: {
+      variableKey: z
+        .string()
+        .min(1)
+        .optional()
+        .describe("Variable key without braces"),
+      integrationId: z
+        .string()
+        .min(1)
+        .optional()
+        .describe("Domain integration id, used with expansionString"),
+      expansionString: z
+        .string()
+        .min(1)
+        .optional()
+        .describe("Exact data source expansion string"),
+    },
+    queryKeys: ["variableKey", "integrationId", "expansionString"],
   },
 ];

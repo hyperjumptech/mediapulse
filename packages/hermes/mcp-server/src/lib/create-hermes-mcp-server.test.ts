@@ -217,6 +217,9 @@ describe("createHermesMcpServer", () => {
 
     const toolNames = tools.map((tool) => tool.name).sort();
     expect(toolNames).toEqual([
+      "hermes_get_agent_activities",
+      "hermes_get_invocation",
+      "hermes_get_overview",
       "hermes_get_variable",
       "hermes_list_profiles",
       "hermes_list_variables",
