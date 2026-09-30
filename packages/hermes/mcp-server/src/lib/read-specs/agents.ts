@@ -18,6 +18,16 @@ export const AGENT_READ_TOOL_SPECS: HermesReadToolSpec[] = [
     defaultSort: "agentId asc",
   }),
   {
+    name: "hermes_get_agent",
+    title: "Get agent",
+    description:
+      "One agent registry entry by id, with its endpoint, schemas, domain integration, and the integration's agent tabs (read them with hermes_get_domain_content).",
+    toolset: "agents",
+    method: "POST",
+    pathTemplate: "/dashboard/agents/actions/get",
+    inputSchema: { id: guidField("Agent registry id") },
+  },
+  {
     name: "hermes_get_agent_schemas",
     title: "Get agent schemas",
     description: "Input and config JSON schemas for one agent version.",
@@ -47,5 +57,25 @@ export const AGENT_READ_TOOL_SPECS: HermesReadToolSpec[] = [
     method: "POST",
     pathTemplate: "/dashboard/agent-configs/actions/get",
     inputSchema: { id: guidField("Agent config id") },
+  },
+  listToolSpec({
+    name: "hermes_list_agent_contracts",
+    title: "List agent contracts",
+    description:
+      "Page through agent contracts (versioned briefs pipeline steps pass to agents).",
+    toolset: "agents",
+    pathTemplate: "/api/agent-contracts",
+    searchHint: "contract name, description, and version",
+    sortFields: ["name", "createdAt"],
+    defaultSort: "name asc",
+  }),
+  {
+    name: "hermes_get_agent_contract",
+    title: "Get agent contract",
+    description: "One agent contract by id, including its brief.",
+    toolset: "agents",
+    method: "POST",
+    pathTemplate: "/dashboard/agent-contracts/actions/get",
+    inputSchema: { id: guidField("Agent contract id") },
   },
 ];
