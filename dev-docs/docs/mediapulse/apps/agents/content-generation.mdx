@@ -633,7 +633,7 @@ A ticker with no KG anchor (not yet analyzed, or analysis found no issuer entity
 
 ### Observability
 
-No extra log line for the empty-graph path; the resolution is a few indexed reads well within the existing request latency budget. If you see unexpectedly empty `competitors` arrays for tickers that should have peer data, confirm the analysis agent has run `ensureTickerIssuerCompanyAnchor` for the ticker and seeded `COMPETITOR`/`SECTOR_PEER` relation types via `seed-kg-vocabulary`.
+No extra log line for the empty-graph path; the resolution is a few indexed reads well within the existing request latency budget. If you see unexpectedly empty `competitors` arrays for tickers that should have peer data, confirm the analysis agent has run `ensureTickerIssuerCompanyAnchor` for the ticker and that the `COMPETITOR` and `SECTOR_PEER` relation types exist.
 
 ## Competitor-anchored Competitive Landscape
 

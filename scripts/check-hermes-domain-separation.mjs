@@ -40,7 +40,6 @@ const ALLOWLIST = [
   /\.test\.[tj]sx?$/,
   /\.contract\.test\.[tj]sx?$/,
   /[/\\]test-utils[/\\]/,
-  /[/\\]scripts[/\\]seed-[^/\\]+\.ts$/,
   /orchestration-database[/\\]prisma\.config\.ts$/,
 ];
 

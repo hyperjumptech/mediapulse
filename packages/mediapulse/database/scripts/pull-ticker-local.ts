@@ -2,7 +2,7 @@
  * Copy one issuer's articles from a remote Mediapulse database into the local one.
  *
  * The knowledge-base work needs a real corpus to extract from, and a fresh local database has
- * issuers (from `seed-tickers-local.ts`) but no articles. This reads a remote database directly and
+ * issuers (imported on the Tickers page) but no articles. This reads a remote database directly and
  * writes through the local Prisma client, so the remote is never migrated and never written.
  *
  * Idempotent: every row keeps its source primary key, so a re-run refreshes rather than duplicates.
@@ -243,7 +243,7 @@ export const pullTickerLocal = async (
   });
   if (local === null) {
     throw new Error(
-      `${options.symbol} does not exist locally. Run seed-tickers-local first.`,
+      `${options.symbol} does not exist locally. Import it first with the Tickers page's JSON import in Hermes, or hermes_mutate_run_domain_action.`,
     );
   }
 

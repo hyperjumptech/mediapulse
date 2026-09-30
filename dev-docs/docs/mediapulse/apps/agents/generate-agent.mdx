@@ -42,7 +42,7 @@ Run these steps after the generator succeeds:
 2. **Build** — `pnpm --filter @mediapulse/env build` so the new agent env export exists.
 3. **Env and API key** — `./setup-agent-env.sh <agent-name>`. This:
    - Runs `dev-bootstrap.sh` so the agent gets `.env` and `.env.local` from `env.agents.<name>.example` (with the correct `PORT` and `AGENT_PUBLIC_URL`).
-   - Copies `DOMAIN_INTEGRATION_API_KEY` into the agent's `.env.local` from another agent's `.env.local` or from **`packages/mediapulse/env/.env`**. If none exists, run **`./dev-setup-local.sh`** first, or from **`apps/hermes/dashboard`**: `pnpm seed-local-domain-integration <admin-email>`.
+   - Copies `DOMAIN_INTEGRATION_API_KEY` into the agent's `.env.local` from another agent's `.env.local` or from **`packages/mediapulse/env/.env`**. If none exists, create the domain integration as described in [Hermes setup](/mediapulse/hermes-setup#local-domain-integration).
 
 Optional flag for `setup-agent-env.sh`: `--no-bootstrap` (skip bootstrap if `.env` is already set up).
 

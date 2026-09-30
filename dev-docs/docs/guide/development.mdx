@@ -64,9 +64,8 @@ Use **pnpm** for install/scripts.
 4. Prisma migrations + client generation in `packages/hermes/orchestration-database` and `packages/mediapulse/database` (unless `--skip-migrations`)
 5. `pnpm --filter @hermes/worker run migrate-dataqueue:dev` (unless `--skip-migrations`)
 6. `pnpm create:admin ...` in `apps/hermes/dashboard` (unless `--skip-admin`)
-7. `pnpm seed-local-domain-integration ...` in `apps/hermes/dashboard` — creates a **pending** domain integration row (encrypted API key in DB), same as the dashboard wizard (unless `--skip-admin`)
-8. Writes **`DOMAIN_INTEGRATION_ID`** and **`DOMAIN_INTEGRATION_API_KEY`** (plaintext once) to **`packages/mediapulse/env/.env`** (unless `--skip-admin` or integration already existed)
-9. Writes the same vars to all `apps/mediapulse/agents/*/.env.local` (unless `--skip-admin` / same caveat as step 8)
+7. Writes **`DOMAIN_INTEGRATION_ID`** to **`packages/mediapulse/env/.env`** (unless `--skip-admin`)
+8. If **`DOMAIN_INTEGRATION_API_KEY`** is already in that file, copies it and the id to every `apps/mediapulse/agents/*/.env.local`. Otherwise it prints how to create the integration in the dashboard (**Domain integrations > Create**) or with the `hermes_mutate_create_domain_integration` MCP tool. Put the key in the file and run the script again with `--skip-install --skip-migrations`. See [Hermes setup](/mediapulse/hermes-setup).
 
 ### Services and ports
 
@@ -110,7 +109,7 @@ For pipeline stages that read third-party keys from env (e.g. data collection, s
 To let agents register with the registry on startup, set in each agent’s **`apps/mediapulse/agents/<name>/.env.local`**:
 
 - `AGENT_REGISTRY_URL` (e.g. `http://localhost:8082`)
-- `DOMAIN_INTEGRATION_ID` / `DOMAIN_INTEGRATION_API_KEY` (from **Domain integrations**; `./dev-setup-local.sh` seeds the same as the dashboard wizard)
+- `DOMAIN_INTEGRATION_ID` / `DOMAIN_INTEGRATION_API_KEY` (from **Domain integrations**; `./dev-setup-local.sh` copies them into every agent once the key is in `packages/mediapulse/env/.env`)
 - `AGENT_PUBLIC_URL` (e.g. `http://localhost:4001` for data-collection)
 
 ---

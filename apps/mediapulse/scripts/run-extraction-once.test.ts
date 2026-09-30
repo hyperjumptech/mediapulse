@@ -10,7 +10,7 @@ import {
   waitForExtractionRun,
   type ExtractionRunRow,
 } from "./run-extraction-once";
-import { AGENT_ID, AGENT_VERSION } from "./seed-knowledge-extraction-schedule";
+import { AGENT_ID, AGENT_VERSION } from "./knowledge-extraction-config";
 
 const buildDb = (overrides: { integration?: { id: string } | null } = {}) => {
   const db = {
