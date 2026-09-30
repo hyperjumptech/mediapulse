@@ -8,8 +8,10 @@
 # Options:
 #   --no-bootstrap     Skip running dev-bootstrap.sh (use if .env/.env.local already exist).
 #
-# If no DOMAIN_INTEGRATION_API_KEY is found, run ./dev-setup-local.sh or from
-# apps/hermes/dashboard: pnpm seed-local-domain-integration <admin-email>
+# If no DOMAIN_INTEGRATION_API_KEY is found, create the domain integration in the
+# Hermes dashboard (Domain integrations > Create) or with the
+# hermes_mutate_create_domain_integration MCP tool, and put its key in
+# packages/mediapulse/env/.env.
 
 set -euo pipefail
 
@@ -28,8 +30,10 @@ Examples:
   ./setup-agent-env.sh user-registration
   ./setup-agent-env.sh my-agent --no-bootstrap
 
-If DOMAIN_INTEGRATION_API_KEY is missing, run ./dev-setup-local.sh first, or:
-  cd apps/hermes/dashboard && pnpm seed-local-domain-integration <admin-email>
+If DOMAIN_INTEGRATION_API_KEY is missing, create the domain integration in the
+Hermes dashboard (Domain integrations > Create) or with the
+hermes_mutate_create_domain_integration MCP tool, and put its key in
+packages/mediapulse/env/.env.
 EOF
 }
 
@@ -163,8 +167,9 @@ fi
 
 if [[ -z "$RAW_KEY" ]]; then
   echo "  No DOMAIN_INTEGRATION_API_KEY found."
-  echo "  Run ./dev-setup-local.sh to create an admin and domain integration, or:"
-  echo "    cd apps/hermes/dashboard && pnpm seed-local-domain-integration <admin-email>"
+  echo "  Create the domain integration in the Hermes dashboard (Domain integrations > Create)"
+  echo "  or with the hermes_mutate_create_domain_integration MCP tool, then put its key in"
+  echo "  packages/mediapulse/env/.env as DOMAIN_INTEGRATION_API_KEY."
   exit 1
 fi
 

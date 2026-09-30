@@ -1,0 +1,68 @@
+---
+title: Hermes setup
+description: The integration, data, pipelines and schedules Mediapulse needs in Hermes, and how to create them over MCP
+icon: Workflow
+---
+
+Mediapulse's Hermes configuration is data in the Hermes orchestration database, not code in this repository. Create and change it in the Hermes dashboard or through the Hermes MCP server. Each step below names the MCP tool, and the dashboard page with the same name does the same thing. The tools are listed on [MCP API keys and Cursor](/hermes/dashboard/mcp-api-keys-and-cursor).
+
+Seed scripts used to write this configuration straight into the databases. They were removed once the MCP server could do everything the dashboard does, so this page is now the record of what a working setup contains.
+
+## Local domain integration
+
+1. Run `./dev-setup-local.sh`. It creates your admin and writes `DOMAIN_INTEGRATION_ID` (default `mediapulse`) to `packages/mediapulse/env/.env`.
+2. Start Hermes with `pnpm dev:hermes`, sign in, and create the integration on **Domain integrations > Create** with that id. With an MCP key, `hermes_mutate_create_domain_integration` does the same. Pass `secretFilePath` so the one-time key lands in a file.
+3. Put the key in `packages/mediapulse/env/.env` as `DOMAIN_INTEGRATION_API_KEY`, then run `./dev-setup-local.sh --skip-install --skip-migrations` to copy it into every agent's `.env.local`.
+4. Start `domain-api`. It registers with Hermes on startup and the integration becomes active.
+
+## Tickers and profiles
+
+Tickers and ticker profiles come from JSON imports on their dashboard pages.
+
+- Tickers: `hermes_mutate_run_domain_action` with `integrationId: "mediapulse"`, `resource: "tickers"`, `actionId: "import-idx-json"` and `payloadFilePath` pointing at an IDX export.
+- Ticker profiles: the same tool with `resource: "ticker-profiles"` and `actionId: "import-profiles-json"`.
+
+The files the old seed read are still in git history: `git show 4c5c53f3:seed-data/tickers.json > /tmp/tickers.json`, and the same for `seed-data/ticker-profiles.json`.
+
+Search query sets and curated sources are ordinary rows. Read the view's schema with `hermes_get_domain_view`, then create rows with `hermes_mutate_create_domain_row`.
+
+Publisher display names have no dashboard page, so they can only be changed in the database for now.
+
+## Day 1 pipelines
+
+agent-data-api sends Hermes a `day1.full-chain` or `day1.latest-issue` event after a subscription is confirmed (see [User registration](/mediapulse/apps/user-registration)). Each event needs a pipeline and an event trigger.
+
+**Day 1 Newsletter** runs the whole chain for one ticker.
+
+1. `hermes_mutate_create_pipeline` named "Day 1 Newsletter" with `timeout: 10800000` (three hours).
+2. One `hermes_mutate_add_pipeline_step` per nightly pipeline, in order: Query Analysis, Data Collection, Article Analysis, then Newsletter Creation & Delivery.
+3. `hermes_mutate_update_pipeline_step` on each step with `input: { "tickerId": "{{params.tickerId}}" }`, so every agent in the chain gets the ticker from the event.
+4. `hermes_mutate_create_http_trigger` with `startMode: "event"`, `eventName: "day1.full-chain"` and `method: "POST"`.
+
+**Day 1 Latest Issue** sends the latest issue to new subscribers. It needs a pipeline that only delivers.
+
+1. `hermes_get_pipeline` on Newsletter Creation & Delivery and note its delivery step: agent, saved config, contract, input and config.
+2. `hermes_mutate_create_pipeline` named "Delivery", then `hermes_mutate_add_agent_step` with those values, including `agentConfigId` and `agentContractId`.
+3. `hermes_mutate_create_pipeline` named "Day 1 Latest Issue", `hermes_mutate_add_pipeline_step` targeting Delivery, and `hermes_mutate_update_pipeline_step` with the same `tickerId` override.
+4. `hermes_mutate_create_http_trigger` with `startMode: "event"` and `eventName: "day1.latest-issue"`.
+
+Disabling a trigger switches that path off. Until a trigger exists, dispatches are recorded as skipped.
+
+## Knowledge extraction
+
+Extraction runs nightly after the newsletter, one invocation per subscribed issuer. See [Extraction](/mediapulse/knowledge-base/extraction) for why it is shaped this way.
+
+1. Check the prerequisites: `hermes_list_agents` with `q: "knowledge-ingestion"` shows an active `1.0.0`, and `hermes_list_variables` shows `AI_API_KEY` (secret) and `AI_BASE_URL`.
+2. `hermes_mutate_create_agent_config` named "Knowledge Extraction" for `knowledge-ingestion@1.0.0` with config `{ "model": "google/gemini-2.5-flash-lite", "apiKey": "{{AI_API_KEY}}", "baseUrl": "{{AI_BASE_URL}}" }`.
+3. `hermes_mutate_create_pipeline` named "Knowledge Extraction" and `hermes_mutate_add_agent_step` with that `agentConfigId` and input `{ "tickerId": "db:userTicker:tickerId?where.enabled=true", "limit": 100 }`.
+4. `hermes_mutate_create_schedule` named "Nightly Knowledge Extraction", `repeat: "repeating"`, `cronExpression: "0 2 * * *"`, `timezone: "Asia/Jakarta"`. Pass `enabled: false` and enable it once a manual run looks right.
+
+A step pins `agentId@agentVersion`, so bumping the agent means updating the step with `hermes_mutate_update_agent_step`.
+
+## Checking a setup
+
+The seeds refused to write a setup that would fail on its first run. Check the same things before enabling a schedule or trigger:
+
+- `hermes_get_pipeline` returns `validation.valid` and the warnings for any step whose input or config does not match its agent's schema.
+- `hermes_get_pipeline` also returns `runParamKeys`. Day 1 pipelines should list `tickerId`.
+- `hermes_mutate_run_pipeline` with `params` runs a pipeline once by hand. Follow it with `hermes_list_pipeline_executions` and `hermes_get_pipeline_execution`.

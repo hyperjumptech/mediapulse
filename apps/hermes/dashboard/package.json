@@ -15,7 +15,6 @@
     "type:check": "tsc --noEmit",
     "create:route": "route-action-gen create",
     "create:admin": "tsx scripts/create-admin.ts",
-    "seed-local-domain-integration": "tsx scripts/seed-local-domain-integration.ts",
     "visual:capture": "node scripts/capture-routes.mjs",
     "measure:timings": "node scripts/measure-route-timings.mjs",
     "test": "pnpm generate && vitest --run",

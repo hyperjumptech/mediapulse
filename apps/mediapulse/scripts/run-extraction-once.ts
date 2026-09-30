@@ -32,7 +32,7 @@ import {
   AGENT_VERSION,
   findMissingVariableKeys,
   knowledgeExtractionConfig,
-} from "./seed-knowledge-extraction-schedule.js";
+} from "./knowledge-extraction-config.js";
 
 /** Names the throwaway rows so an interrupted run leaves something obviously disposable behind. */
 export const ONE_SHOT_NAME_PREFIX = "One-shot Knowledge Extraction";

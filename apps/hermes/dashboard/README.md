@@ -19,23 +19,7 @@ Schedules are stored in the database (`Schedule` table). The **scheduler does no
 1. Set `PG_DATAQUEUE_DATABASE` (e.g. same host/db as `ORCHESTRATION_DATABASE_URL` with `?schema=dataqueue`). Run DataQueue migrations from **hermes-worker**: `pnpm --filter @hermes/worker run migrate-dataqueue` (or from `apps/hermes-worker`: `pnpm run migrate-dataqueue`).
 2. Ensure Prisma migrations are applied (including `Schedule`, `ScheduleExecution`, `AgentJobExecution`).
 3. Start **hermes-worker** (e.g. `pnpm dev:hermes-worker` from repo root).
-4. (Optional) Seed a default daily schedule: `pnpm exec tsx scripts/seed-default-schedule.ts` from `apps/hermes`.
-
-## Knowledge graph seeding (development)
-
-KG **vocabulary** (entity types and relation types) lives in the Mediapulse domain database. Run it from the monorepo root with `packages/mediapulse/env` configured (`MEDIAPULSE_DATABASE_URL`):
-
-```bash
-pnpm --filter @mediapulse/database run seed-kg-vocabulary
-```
-
-KG **pipelines and schedules** are Hermes orchestration data. With `ORCHESTRATION_DATABASE_URL` set for the dashboard (e.g. in `apps/hermes/dashboard/.env.local`), run from `apps/hermes/dashboard`:
-
-```bash
-pnpm seed-kg-pipelines
-```
-
-Both commands are idempotent.
+4. Create pipelines and schedules in the dashboard, or through the Hermes MCP server (`packages/hermes/mcp-server`).
 
 ## Creating an admin user
 

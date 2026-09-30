@@ -16,6 +16,7 @@ JWT_SECRET=""
 SKIP_INSTALL="false"
 SKIP_MIGRATIONS="false"
 SKIP_ADMIN="false"
+NEEDS_DOMAIN_INTEGRATION="false"
 
 section() {
   echo ""
@@ -105,26 +106,6 @@ read_dotenv_value() {
   ' "$file" 2>/dev/null
 }
 
-# Parses PLAIN_API_KEY= and INTEGRATION_ID= lines from seed-local-domain-integration output.
-read_plain_api_key_from_seed_output() {
-  local output="$1"
-  local line
-  line="$(printf "%s\n" "$output" | grep '^PLAIN_API_KEY=' | head -n 1)"
-  printf "%s" "${line#PLAIN_API_KEY=}"
-}
-
-read_integration_id_from_seed_output() {
-  local output="$1"
-  local line
-  line="$(printf "%s\n" "$output" | grep '^INTEGRATION_ID=' | head -n 1)"
-  printf "%s" "${line#INTEGRATION_ID=}"
-}
-
-seed_output_has_skip_plaintext() {
-  local output="$1"
-  printf "%s\n" "$output" | grep -q '^SKIP_PLAINTEXT=1$'
-}
-
 usage() {
   cat <<'EOF'
 Usage:
@@ -143,7 +124,7 @@ Options:
   --jwt-secret <secret>             AGENT_AUTH_JWT_SECRET value (default: generated with openssl).
   --skip-install                    Skip pnpm install.
   --skip-migrations                 Skip Prisma and DataQueue migrations.
-  --skip-admin                      Skip admin creation and domain integration seed (no DB row / env API key).
+  --skip-admin                      Skip admin creation and agent domain integration env.
   -h, --help                        Show this help text.
 
 Examples:
@@ -322,8 +303,8 @@ main() {
   fi
 
   if [[ "$SKIP_ADMIN" == "true" ]]; then
-    section "Admin and domain integration seed"
-    echo "Skipping admin and domain integration seed (--skip-admin)."
+    section "Admin and agent domain integration env"
+    echo "Skipping admin creation and agent domain integration env (--skip-admin)."
     if [[ -z "$(read_dotenv_value "$HERMES_ENV_FILE" "HERMES_INTERNAL_API_KEY")" ]]; then
       echo "Warning: HERMES_INTERNAL_API_KEY is empty in $HERMES_ENV_FILE."
       echo "Hermes worker and dashboard need it to mint JWTs (run dev-setup without --skip-admin or set it manually)."
@@ -337,41 +318,18 @@ main() {
       echo "Mediapulse domain-api and agents need it (Hermes domain integration API key)."
     fi
   else
-    section "Create admin and domain integration (encrypted API key in DB)"
+    section "Create admin and agent domain integration env"
     (
       cd apps/hermes/dashboard
       pnpm create:admin "$ADMIN_EMAIL" "$ADMIN_PASSWORD" >/dev/null
     )
 
-    SEED_OUTPUT="$(
-      cd apps/hermes/dashboard
-      pnpm seed-local-domain-integration "$ADMIN_EMAIL" "$DOMAIN_INTEGRATION_ID" "$DOMAIN_INTEGRATION_DISPLAY_NAME"
-    )"
-    RESOLVED_INTEGRATION_ID="$(read_integration_id_from_seed_output "$SEED_OUTPUT")"
-    if [[ -z "$RESOLVED_INTEGRATION_ID" ]]; then
-      echo "Could not parse INTEGRATION_ID from seed-local-domain-integration output."
-      exit 1
-    fi
-
-    upsert_env_var "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_ID" "$RESOLVED_INTEGRATION_ID"
-
-    if seed_output_has_skip_plaintext "$SEED_OUTPUT"; then
-      echo "Domain integration already existed; left DOMAIN_INTEGRATION_API_KEY unchanged (set manually if missing)."
-      for agent_dir in "$SCRIPT_DIR/apps/mediapulse/agents"/*; do
-        if [[ -d "$agent_dir" ]]; then
-          env_local_file="$agent_dir/.env.local"
-          [[ -f "$env_local_file" ]] || touch "$env_local_file"
-          upsert_env_var "$env_local_file" "DOMAIN_INTEGRATION_ID" "$RESOLVED_INTEGRATION_ID"
-        fi
-      done
+    upsert_env_var "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_ID" "$DOMAIN_INTEGRATION_ID"
+    EXISTING_INTEGRATION_KEY="$(read_dotenv_value "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_API_KEY")"
+    if [[ -n "$EXISTING_INTEGRATION_KEY" ]]; then
+      set_domain_integration_env_for_all_agents "$EXISTING_INTEGRATION_KEY" "$DOMAIN_INTEGRATION_ID"
     else
-      LOCAL_DEV_API_KEY="$(read_plain_api_key_from_seed_output "$SEED_OUTPUT")"
-      if [[ -z "$LOCAL_DEV_API_KEY" ]]; then
-        echo "Could not parse PLAIN_API_KEY from seed-local-domain-integration output."
-        exit 1
-      fi
-      upsert_env_var "$MEDIAPULSE_ENV_FILE" "DOMAIN_INTEGRATION_API_KEY" "$LOCAL_DEV_API_KEY"
-      set_domain_integration_env_for_all_agents "$LOCAL_DEV_API_KEY" "$RESOLVED_INTEGRATION_ID"
+      NEEDS_DOMAIN_INTEGRATION="true"
     fi
     pnpm --filter @mediapulse/env build
   fi
@@ -383,10 +341,19 @@ main() {
   echo "  - HERMES_INTERNAL_API_KEY (Hermes worker, dashboard, agent-auth; preset secret)"
   echo "  - HERMES_MCP_API_KEY_PEPPER (Hermes dashboard MCP API key hashing)"
   echo "  - DOMAIN_INTEGRATION_ID"
-  echo "  - DOMAIN_INTEGRATION_API_KEY (generated once; stored encrypted in orchestration DB)"
-  echo "Updated apps/mediapulse/agents/*/.env.local with:"
-  echo "  - DOMAIN_INTEGRATION_API_KEY"
-  echo "  - DOMAIN_INTEGRATION_ID"
+  if [[ "$NEEDS_DOMAIN_INTEGRATION" == "true" ]]; then
+    echo ""
+    echo "Create the \"$DOMAIN_INTEGRATION_ID\" domain integration once, after pnpm dev:hermes is running:"
+    echo "  - Dashboard: sign in, open Domain integrations > Create, use id \"$DOMAIN_INTEGRATION_ID\" and name \"$DOMAIN_INTEGRATION_DISPLAY_NAME\", or"
+    echo "  - MCP: hermes_mutate_create_domain_integration with the same id and name (pass secretFilePath to write the key to a file)."
+    echo "Put the key in $MEDIAPULSE_ENV_FILE as DOMAIN_INTEGRATION_API_KEY, then run"
+    echo "  ./dev-setup-local.sh --skip-install --skip-migrations"
+    echo "to copy it into every agent's .env.local."
+  else
+    echo "Updated apps/mediapulse/agents/*/.env.local with:"
+    echo "  - DOMAIN_INTEGRATION_API_KEY"
+    echo "  - DOMAIN_INTEGRATION_ID"
+  fi
   if [[ "$SKIP_ADMIN" == "false" ]]; then
     echo ""
     echo "Admin credentials:"
