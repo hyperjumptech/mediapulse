@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -20,6 +20,19 @@ const CONFIRM_REQUIRED_MESSAGE =
   "Hermes mutation blocked until confirmed. Call this tool again with confirm: true after the user approves. No HTTP request was sent.";
 
 export type WriteSecretFile = (path: string, contents: string) => Promise<void>;
+
+export type ReadPayloadFile = (path: string) => Promise<string>;
+
+export const MAX_PAYLOAD_FILE_BYTES = 16 * 1024 * 1024;
+
+const readPayloadFileFromDisk: ReadPayloadFile = async (path) => {
+  const fileStats = await stat(path);
+  if (fileStats.size > MAX_PAYLOAD_FILE_BYTES) {
+    throw new Error(`${path} is larger than 16 MB`);
+  }
+
+  return readFile(path, "utf8");
+};
 
 const writeSecretFileExclusively: WriteSecretFile = async (path, contents) => {
   await writeFile(path, contents, { flag: "wx", mode: 0o600 });
@@ -98,6 +111,7 @@ export type HandleHermesMutateToolCallDependencies = {
   whoamiCache?: WhoamiCache;
   resolveProfileKey?: () => string | undefined;
   writeSecretFile?: WriteSecretFile;
+  readPayloadFile?: ReadPayloadFile;
 };
 
 export const handleHermesMutateToolCall = async (
@@ -109,6 +123,7 @@ export const handleHermesMutateToolCall = async (
     whoamiCache,
     resolveProfileKey,
     writeSecretFile = writeSecretFileExclusively,
+    readPayloadFile = readPayloadFileFromDisk,
   }: HandleHermesMutateToolCallDependencies,
 ): Promise<CallToolResult> => {
   if (spec.requiresConfirm && args.confirm !== true) {
@@ -127,10 +142,27 @@ export const handleHermesMutateToolCall = async (
     return access;
   }
 
+  const requestBody = buildMutationRequestBody(args);
+  const payloadFilePath = args.payloadFilePath;
+  if (spec.payloadFileField && typeof payloadFilePath === "string") {
+    if (requestBody[spec.payloadFileField] !== undefined) {
+      return formatHermesToolError(
+        `Pass either ${spec.payloadFileField} or payloadFilePath, not both.`,
+      );
+    }
+    try {
+      requestBody[spec.payloadFileField] =
+        await readPayloadFile(payloadFilePath);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+
+      return formatHermesToolError(`Could not read payloadFilePath: ${reason}`);
+    }
+  }
   const response = await httpClient.request({
     method: "POST",
     path: spec.pathTemplate,
-    body: buildMutationRequestBody(args),
+    body: requestBody,
   });
   const secretFilePath = args.secretFilePath;
   if (

@@ -15,6 +15,7 @@ export type HermesMutateToolSpec = {
   requiresConfirm: boolean;
   confirmReason?: "destructive" | "credential";
   secretFields?: readonly string[];
+  payloadFileField?: string;
   annotations: ToolAnnotations;
 };
 
@@ -69,7 +70,18 @@ export const CREDENTIAL_CONFIRM_SENTENCE =
 export const LOCAL_ONLY_FIELDS: readonly string[] = [
   "confirm",
   "secretFilePath",
+  "payloadFilePath",
 ];
+
+export const payloadFilePathField = {
+  payloadFilePath: z
+    .string()
+    .refine(isAbsolute, "payloadFilePath must be an absolute path")
+    .optional()
+    .describe(
+      "Absolute path of a local file (up to 16 MB) whose text is sent as payloadJson. Use it for large imports.",
+    ),
+};
 
 export const secretFilePathField = {
   secretFilePath: z

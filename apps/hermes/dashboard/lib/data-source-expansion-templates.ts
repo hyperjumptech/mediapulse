@@ -4,6 +4,10 @@
 
 import { tableV1ListResponseSchema } from "@hermes/domain-contract";
 import {
+  DomainRequestError,
+  domainRequestFailedError,
+} from "@/lib/domain-request-error";
+import {
   prisma,
   type Prisma,
   type PrismaClient,
@@ -291,7 +295,7 @@ export const createDataSourceExpansionTemplateForIntegration = async (
 
   const parsed = dataSourceExpansionTemplateCreateBodySchema.safeParse(body);
   if (!parsed.success) {
-    throw new Error("Invalid request body");
+    throw new DomainRequestError(400, "Invalid request body");
   }
 
   const integration = await getIntegration(integrationId);
@@ -341,7 +345,7 @@ export const updateDataSourceExpansionTemplateForIntegration = async (
 
   const parsed = dataSourceExpansionTemplateUpdateBodySchema.safeParse(body);
   if (!parsed.success) {
-    throw new Error("Invalid request body");
+    throw new DomainRequestError(400, "Invalid request body");
   }
 
   const integration = await getIntegration(integrationId);
@@ -364,7 +368,7 @@ export const updateDataSourceExpansionTemplateForIntegration = async (
   });
 
   if (result.count < 1) {
-    throw new Error("Domain dashboard request failed (404)");
+    throw domainRequestFailedError(404);
   }
 
   return { id };
@@ -406,6 +410,6 @@ export const deleteDataSourceExpansionTemplateForIntegration = async (
   });
 
   if (result.count < 1) {
-    throw new Error("Domain dashboard request failed (404)");
+    throw domainRequestFailedError(404);
   }
 };

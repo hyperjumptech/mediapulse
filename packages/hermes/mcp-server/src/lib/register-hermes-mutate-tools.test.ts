@@ -241,3 +241,83 @@ describe("handleHermesMutateToolCall secret files", () => {
     expect(request).not.toHaveBeenCalled();
   });
 });
+
+const runDomainActionSpec = HERMES_MUTATE_TOOL_SPECS.find(
+  (spec) => spec.name === "hermes_mutate_run_domain_action",
+);
+
+describe("handleHermesMutateToolCall payload files", () => {
+  it("sends the file text as payloadJson", async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValue({ status: 200, body: { added: 3 }, text: "" });
+    const readPayloadFile = vi.fn().mockResolvedValue('[{"code":"A"}]');
+
+    await handleHermesMutateToolCall(
+      runDomainActionSpec!,
+      {
+        integrationId: "acme",
+        resource: "orders",
+        actionId: "import",
+        payloadFilePath: "/data/orders.json",
+        confirm: true,
+      },
+      {
+        httpClient: { request },
+        assertMutationAllowed: allowMutation,
+        readPayloadFile,
+      },
+    );
+
+    expect(readPayloadFile).toHaveBeenCalledWith("/data/orders.json");
+    expect(request.mock.calls[0]?.[0].body).toEqual({
+      integrationId: "acme",
+      resource: "orders",
+      actionId: "import",
+      payloadJson: '[{"code":"A"}]',
+    });
+  });
+
+  it("refuses payloadJson and payloadFilePath together", async () => {
+    const request = vi.fn();
+
+    const result = await handleHermesMutateToolCall(
+      runDomainActionSpec!,
+      {
+        integrationId: "acme",
+        resource: "orders",
+        actionId: "import",
+        payloadJson: "[]",
+        payloadFilePath: "/data/orders.json",
+        confirm: true,
+      },
+      { httpClient: { request }, assertMutationAllowed: allowMutation },
+    );
+
+    expect(result.isError).toBe(true);
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("reports a file it cannot read without calling Hermes", async () => {
+    const request = vi.fn();
+
+    const result = await handleHermesMutateToolCall(
+      runDomainActionSpec!,
+      {
+        integrationId: "acme",
+        resource: "orders",
+        actionId: "import",
+        payloadFilePath: "/data/missing.json",
+        confirm: true,
+      },
+      {
+        httpClient: { request },
+        assertMutationAllowed: allowMutation,
+        readPayloadFile: vi.fn().mockRejectedValue(new Error("ENOENT")),
+      },
+    );
+
+    expect(JSON.stringify(result.content)).toContain("ENOENT");
+    expect(request).not.toHaveBeenCalled();
+  });
+});

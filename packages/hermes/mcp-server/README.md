@@ -145,6 +145,7 @@ All read tools are annotated `readOnlyHint` and `idempotentHint`.
 | `hermes_get_domain_content`           | GET  | `/api/domain-integrations/{integrationId}/views/{viewId}/content`     |
 | `hermes_list_domain_rows`             | GET  | `/api/domain-integrations/{integrationId}/{resource}`                 |
 | `hermes_get_domain_row`               | GET  | `/api/domain-integrations/{integrationId}/{resource}/{itemId}`        |
+| `hermes_get_domain_expansion_preview` | POST | `/dashboard/domain-integrations/actions/preview-expansion`            |
 | `hermes_list_profiles`                | none | Lists configured profile names                                        |
 | `hermes_set_active_profile`           | none | Switches the active profile in-process                                |
 
@@ -155,6 +156,8 @@ Domain integrations describe their data as resource-table views in their dashboa
 1. `hermes_list_domain_views` with an `integrationId` lists each view's `pathSegment`, columns, `searchableFields`, `sortableFields`, `defaultSort` and filters. Each filter names the `queryKeys` it reads.
 2. `hermes_list_domain_rows` with `integrationId`, `resource` (a view's `pathSegment`) and the list arguments pages through rows. `sort` must be one of the view's `sortableFields`. Pass filters as `filters: { "<queryKey>": "<value>" }`. Keys the view does not declare are ignored.
 3. `hermes_get_domain_row` fetches one row by id.
+4. `hermes_get_domain_view` returns the live create and update JSON schemas. `hermes_mutate_create_domain_row`, `hermes_mutate_update_domain_row` and `hermes_mutate_delete_domain_row` write rows, and Hermes refuses (403) any action the view's `actions` do not allow. Validation errors come from the domain with its own message.
+5. `hermes_mutate_run_domain_action` runs a view's custom action: an import sends `payloadJson`, or the text of the file at `payloadFilePath` (up to 16 MB), and a danger-confirm action runs as confirmed. Hermes adds the confirm token itself, so it never reaches the MCP client.
 
 ## Mutation tools (`hermes_mutate_*`)
 
@@ -165,41 +168,45 @@ Tools marked "Needs `confirm: true`" need two calls:
 1. The first call without `confirm: true` returns a tool error and sends **no** HTTP request.
 2. A second call with `confirm: true`, after the user approves, sends the mutation.
 
-| MCP tool                                      | Needs `confirm: true` | Annotations                    | POST path                                              |
-| --------------------------------------------- | --------------------- | ------------------------------ | ------------------------------------------------------ |
-| `hermes_mutate_create_agent`                  | No                    | additive                       | `/dashboard/agents/actions/create`                     |
-| `hermes_mutate_update_agent`                  | No                    | destructive, idempotent        | `/dashboard/agents/actions/update`                     |
-| `hermes_mutate_delete_agent`                  | Yes                   | destructive, idempotent        | `/dashboard/agents/actions/delete`                     |
-| `hermes_mutate_create_agent_config`           | No                    | additive                       | `/dashboard/agent-configs/actions/create`              |
-| `hermes_mutate_update_agent_config`           | No                    | destructive, idempotent        | `/dashboard/agent-configs/actions/update`              |
-| `hermes_mutate_delete_agent_config`           | Yes                   | destructive, idempotent        | `/dashboard/agent-configs/actions/delete`              |
-| `hermes_mutate_create_agent_contract`         | No                    | additive                       | `/dashboard/agent-contracts/actions/create`            |
-| `hermes_mutate_update_agent_contract`         | No                    | destructive, idempotent        | `/dashboard/agent-contracts/actions/update`            |
-| `hermes_mutate_delete_agent_contract`         | Yes                   | destructive, idempotent        | `/dashboard/agent-contracts/actions/delete`            |
-| `hermes_mutate_create_variable`               | No                    | additive                       | `/dashboard/variables/actions/create`                  |
-| `hermes_mutate_update_variable`               | No                    | destructive, idempotent        | `/dashboard/variables/actions/update`                  |
-| `hermes_mutate_delete_variable`               | Yes                   | destructive, idempotent        | `/dashboard/variables/actions/delete`                  |
-| `hermes_mutate_create_pipeline`               | No                    | additive                       | `/dashboard/pipelines/actions/create`                  |
-| `hermes_mutate_update_pipeline`               | No                    | destructive, idempotent        | `/dashboard/pipelines/actions/update`                  |
-| `hermes_mutate_add_agent_step`                | No                    | additive                       | `/dashboard/pipelines/actions/add-step`                |
-| `hermes_mutate_add_pipeline_step`             | No                    | additive                       | `/dashboard/pipelines/actions/add-pipeline-step`       |
-| `hermes_mutate_update_agent_step`             | No                    | destructive, idempotent        | `/dashboard/pipelines/actions/update-step`             |
-| `hermes_mutate_update_pipeline_step`          | No                    | destructive, idempotent        | `/dashboard/pipelines/actions/update-pipeline-step`    |
-| `hermes_mutate_remove_step`                   | Yes                   | destructive, idempotent        | `/dashboard/pipelines/actions/remove-step`             |
-| `hermes_mutate_reorder_steps`                 | No                    | destructive, idempotent        | `/dashboard/pipelines/actions/reorder-steps`           |
-| `hermes_mutate_run_pipeline`                  | Yes                   | destructive, open world        | `/dashboard/pipelines/actions/run-pipeline`            |
-| `hermes_mutate_cancel_pipeline_execution`     | Yes                   | destructive, idempotent        | `/dashboard/pipelines/actions/cancel-manual-execution` |
-| `hermes_mutate_delete_pipeline`               | Yes                   | destructive, idempotent        | `/dashboard/pipelines/actions/delete`                  |
-| `hermes_mutate_create_schedule`               | No                    | additive                       | `/dashboard/schedules/actions/create`                  |
-| `hermes_mutate_update_schedule`               | No                    | destructive, idempotent        | `/dashboard/schedules/actions/update`                  |
-| `hermes_mutate_cancel_schedule_execution`     | Yes                   | destructive, idempotent        | `/dashboard/schedules/actions/cancel-execution`        |
-| `hermes_mutate_delete_schedule`               | Yes                   | destructive, idempotent        | `/dashboard/schedules/actions/delete`                  |
-| `hermes_mutate_create_http_trigger`           | No                    | additive                       | `/dashboard/http-triggers/actions/create`              |
-| `hermes_mutate_update_http_trigger`           | No                    | destructive, idempotent        | `/dashboard/http-triggers/actions/update`              |
-| `hermes_mutate_cancel_http_trigger_execution` | Yes                   | destructive, idempotent        | `/dashboard/http-triggers/actions/cancel-execution`    |
-| `hermes_mutate_delete_http_trigger`           | Yes                   | destructive, idempotent        | `/dashboard/http-triggers/actions/delete`              |
-| `hermes_mutate_create_domain_integration`     | Yes                   | additive, returns a credential | `/dashboard/domain-integrations/actions/create`        |
-| `hermes_mutate_delete_domain_integration`     | Yes                   | destructive, idempotent        | `/dashboard/domain-integrations/actions/delete`        |
+| MCP tool                                      | Needs `confirm: true` | Annotations                         | POST path                                                  |
+| --------------------------------------------- | --------------------- | ----------------------------------- | ---------------------------------------------------------- |
+| `hermes_mutate_create_agent`                  | No                    | additive                            | `/dashboard/agents/actions/create`                         |
+| `hermes_mutate_update_agent`                  | No                    | destructive, idempotent             | `/dashboard/agents/actions/update`                         |
+| `hermes_mutate_delete_agent`                  | Yes                   | destructive, idempotent             | `/dashboard/agents/actions/delete`                         |
+| `hermes_mutate_create_agent_config`           | No                    | additive                            | `/dashboard/agent-configs/actions/create`                  |
+| `hermes_mutate_update_agent_config`           | No                    | destructive, idempotent             | `/dashboard/agent-configs/actions/update`                  |
+| `hermes_mutate_delete_agent_config`           | Yes                   | destructive, idempotent             | `/dashboard/agent-configs/actions/delete`                  |
+| `hermes_mutate_create_agent_contract`         | No                    | additive                            | `/dashboard/agent-contracts/actions/create`                |
+| `hermes_mutate_update_agent_contract`         | No                    | destructive, idempotent             | `/dashboard/agent-contracts/actions/update`                |
+| `hermes_mutate_delete_agent_contract`         | Yes                   | destructive, idempotent             | `/dashboard/agent-contracts/actions/delete`                |
+| `hermes_mutate_create_variable`               | No                    | additive                            | `/dashboard/variables/actions/create`                      |
+| `hermes_mutate_update_variable`               | No                    | destructive, idempotent             | `/dashboard/variables/actions/update`                      |
+| `hermes_mutate_delete_variable`               | Yes                   | destructive, idempotent             | `/dashboard/variables/actions/delete`                      |
+| `hermes_mutate_create_pipeline`               | No                    | additive                            | `/dashboard/pipelines/actions/create`                      |
+| `hermes_mutate_update_pipeline`               | No                    | destructive, idempotent             | `/dashboard/pipelines/actions/update`                      |
+| `hermes_mutate_add_agent_step`                | No                    | additive                            | `/dashboard/pipelines/actions/add-step`                    |
+| `hermes_mutate_add_pipeline_step`             | No                    | additive                            | `/dashboard/pipelines/actions/add-pipeline-step`           |
+| `hermes_mutate_update_agent_step`             | No                    | destructive, idempotent             | `/dashboard/pipelines/actions/update-step`                 |
+| `hermes_mutate_update_pipeline_step`          | No                    | destructive, idempotent             | `/dashboard/pipelines/actions/update-pipeline-step`        |
+| `hermes_mutate_remove_step`                   | Yes                   | destructive, idempotent             | `/dashboard/pipelines/actions/remove-step`                 |
+| `hermes_mutate_reorder_steps`                 | No                    | destructive, idempotent             | `/dashboard/pipelines/actions/reorder-steps`               |
+| `hermes_mutate_run_pipeline`                  | Yes                   | destructive, open world             | `/dashboard/pipelines/actions/run-pipeline`                |
+| `hermes_mutate_cancel_pipeline_execution`     | Yes                   | destructive, idempotent             | `/dashboard/pipelines/actions/cancel-manual-execution`     |
+| `hermes_mutate_delete_pipeline`               | Yes                   | destructive, idempotent             | `/dashboard/pipelines/actions/delete`                      |
+| `hermes_mutate_create_schedule`               | No                    | additive                            | `/dashboard/schedules/actions/create`                      |
+| `hermes_mutate_update_schedule`               | No                    | destructive, idempotent             | `/dashboard/schedules/actions/update`                      |
+| `hermes_mutate_cancel_schedule_execution`     | Yes                   | destructive, idempotent             | `/dashboard/schedules/actions/cancel-execution`            |
+| `hermes_mutate_delete_schedule`               | Yes                   | destructive, idempotent             | `/dashboard/schedules/actions/delete`                      |
+| `hermes_mutate_create_http_trigger`           | No                    | additive                            | `/dashboard/http-triggers/actions/create`                  |
+| `hermes_mutate_update_http_trigger`           | No                    | destructive, idempotent             | `/dashboard/http-triggers/actions/update`                  |
+| `hermes_mutate_cancel_http_trigger_execution` | Yes                   | destructive, idempotent             | `/dashboard/http-triggers/actions/cancel-execution`        |
+| `hermes_mutate_delete_http_trigger`           | Yes                   | destructive, idempotent             | `/dashboard/http-triggers/actions/delete`                  |
+| `hermes_mutate_create_domain_integration`     | Yes                   | additive, returns a credential      | `/dashboard/domain-integrations/actions/create`            |
+| `hermes_mutate_delete_domain_integration`     | Yes                   | destructive, idempotent             | `/dashboard/domain-integrations/actions/delete`            |
+| `hermes_mutate_create_domain_row`             | No                    | additive, open world                | `/dashboard/domain-integrations/actions/create-row`        |
+| `hermes_mutate_update_domain_row`             | No                    | destructive, idempotent, open world | `/dashboard/domain-integrations/actions/update-row`        |
+| `hermes_mutate_delete_domain_row`             | Yes                   | destructive, idempotent, open world | `/dashboard/domain-integrations/actions/delete-row`        |
+| `hermes_mutate_run_domain_action`             | Yes                   | destructive, open world             | `/dashboard/domain-integrations/actions/run-custom-action` |
 
 The agent detail page's **Unregister** button runs the same delete as `hermes_mutate_delete_agent`, so there is no separate tool for it.
 
