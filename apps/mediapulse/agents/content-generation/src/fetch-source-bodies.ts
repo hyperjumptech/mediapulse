@@ -19,7 +19,7 @@ import type {
   PostContentGenerationFetchedContentBody,
   PostDataCollectionDeadUrlsRecordBody,
 } from "@workspace/agent-data-api-contract";
-import { sanitizePublisherDisplayName } from "@workspace/utils";
+import { publisherNameFromSiteMetadata } from "@workspace/utils";
 
 import type { ResolvedContentGenerationConfig } from "./config-schema.js";
 import { compareSourcesForRanking } from "./lib/rank-sources.js";
@@ -285,7 +285,7 @@ export async function fetchSourceBodies(
       }),
     )?.toISOString();
 
-    const siteName = sanitizePublisherDisplayName(page.source);
+    const siteName = publisherNameFromSiteMetadata(page.source, source.url);
     fetchedContentById.set(source.dataSourceId, {
       content: page.content,
       fetchProvider: page.provider,
