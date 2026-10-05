@@ -197,7 +197,11 @@ describe("getDataSourcesForTicker", () => {
       name: "Test Company",
     });
     db.publisher.findMany.mockResolvedValue([
-      { domain: "thejakartapost.com", displayName: "The Jakarta Post" },
+      {
+        domain: "thejakartapost.com",
+        displayName: "The Jakarta Post",
+        nameSource: "manual",
+      },
     ]);
     db.dataSourceTickerSection.findMany.mockResolvedValue([
       {
@@ -247,6 +251,51 @@ describe("getDataSourcesForTicker", () => {
     // Assert — a domain with no reference row keeps the name the collection run stored.
     expect(result.dataSources[0]?.source).toBe("The Jakarta Post");
     expect(result.dataSources[1]?.source).toBe("Bisnis");
+  });
+
+  it("reports how each publisher name was sourced so a fetched site name cannot override a manual one", async () => {
+    // Setup
+    const db = createMockDb();
+    db.ticker.findUniqueOrThrow.mockResolvedValue({
+      symbol: "TEST",
+      name: "Test Company",
+    });
+    db.publisher.findMany.mockResolvedValue([
+      { domain: "kontan.co.id", displayName: "KONTAN", nameSource: "manual" },
+    ]);
+    db.dataSourceTickerSection.findMany.mockResolvedValue(
+      ["kontan.co.id", "batampos.co.id", null].map((registrableDomain) => ({
+        section: "quickHits",
+        sectionScore: 0.8,
+        sectionReason: "note",
+        dataSource: {
+          id: `ds-${registrableDomain ?? "none"}`,
+          url: "https://example.com/a",
+          title: "Title",
+          description: null,
+          content: "Body",
+          author: null,
+          source: "Derived",
+          registrableDomain,
+          searchQueryId: null,
+          metadata: null,
+          publishedAt: null,
+        },
+      })),
+    );
+
+    // Act
+    const result = await getDataSourcesForTicker("ticker-1", {
+      db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
+      now: () => new Date("2026-10-05T00:00:00.000Z"),
+    });
+
+    // Assert
+    const nameSources = result.dataSources.map(
+      (dataSource) => dataSource.publisherNameSource,
+    );
+
+    expect(nameSources).toEqual(["manual", null, null]);
   });
 
   it("includes an article analyzed during the prior UTC day (rolling-window regression)", async () => {

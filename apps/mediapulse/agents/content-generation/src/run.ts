@@ -38,6 +38,7 @@ import {
 } from "./fetch-source-bodies.js";
 import { citedFigures } from "./lib/figures-grounded.js";
 import { selectSectionCoverageSeeds } from "./lib/section-coverage-seeds.js";
+import { pickPublisherName } from "./pick-publisher-name.js";
 import { resolvePublisherNames } from "./resolve-publisher-names.js";
 import { translateNewsletter } from "./translate-newsletter.js";
 import type { TranslationTargetLanguage } from "./translate-newsletter.js";
@@ -631,11 +632,11 @@ export async function run({
         typeof s.publishedAt === "string"
           ? s.publishedAt
           : fetched?.publishedAt;
-      // Site metadata read during this run beats the stored name, so a first-time domain ships
-      // with its real name in the same issue that discovered it.
-      const publisherName =
-        fetched?.source ??
-        (typeof s.source === "string" ? s.source : undefined);
+      const publisherName = pickPublisherName({
+        storedName: typeof s.source === "string" ? s.source : undefined,
+        storedNameSource: s.publisherNameSource,
+        fetchedSiteName: fetched?.source,
+      });
       return {
         dataSourceId: s.dataSourceId,
         url: s.url,

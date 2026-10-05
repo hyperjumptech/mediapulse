@@ -17,6 +17,26 @@ export const publisherNameSourceSchema = z.enum([
   "manual",
 ]);
 
+export const PUBLISHER_NAME_SOURCE_RANK = {
+  derived: 0,
+  llm: 1,
+  site_metadata: 2,
+  manual: 3,
+} as const satisfies Record<z.infer<typeof publisherNameSourceSchema>, number>;
+
+export const publisherNameMayReplace = (
+  candidate: z.infer<typeof publisherNameSourceSchema>,
+  stored: z.infer<typeof publisherNameSourceSchema> | null | undefined,
+): boolean => {
+  if (stored === null || stored === undefined) {
+    return true;
+  }
+
+  return (
+    PUBLISHER_NAME_SOURCE_RANK[candidate] >= PUBLISHER_NAME_SOURCE_RANK[stored]
+  );
+};
+
 export const publisherDisplayNameSchema = z
   .string()
   .trim()

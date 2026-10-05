@@ -1,9 +1,9 @@
 import type { Prisma } from "@mediapulse/database";
 import type { prisma } from "@mediapulse/database";
-import type {
-  PublisherNameItem,
-  PublisherNameSourceValue,
-  PublisherSeenItem,
+import {
+  publisherNameMayReplace,
+  type PublisherNameItem,
+  type PublisherSeenItem,
 } from "@workspace/agent-data-api-contract";
 
 type PublisherDb = Pick<
@@ -14,13 +14,6 @@ type PublisherDb = Pick<
 export type PublisherDeps = {
   publisher: PublisherDb;
   now?: Date;
-};
-
-const NAME_SOURCE_RANK: Record<PublisherNameSourceValue, number> = {
-  derived: 0,
-  llm: 1,
-  site_metadata: 2,
-  manual: 3,
 };
 
 /**
@@ -137,19 +130,19 @@ export const recordPublisherNames = async (
     where: { domain: { in: domains } },
     select: { domain: true, nameSource: true },
   } satisfies Prisma.PublisherFindManyArgs);
-  const rankByDomain = new Map(
-    existingRows.map((row) => [row.domain, NAME_SOURCE_RANK[row.nameSource]]),
+  const storedSourceByDomain = new Map(
+    existingRows.map((row) => [row.domain, row.nameSource]),
   );
 
   let updatedCount = 0;
   let skippedCount = 0;
   for (const item of publishers) {
-    const storedRank = rankByDomain.get(item.domain);
-    if (storedRank === undefined) {
+    const storedSource = storedSourceByDomain.get(item.domain);
+    if (storedSource === undefined) {
       skippedCount += 1;
       continue;
     }
-    if (NAME_SOURCE_RANK[item.nameSource] < storedRank) {
+    if (!publisherNameMayReplace(item.nameSource, storedSource)) {
       skippedCount += 1;
       continue;
     }

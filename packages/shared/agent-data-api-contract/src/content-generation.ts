@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { NEWSLETTER_SECTION_IDS } from "./newsletter-sections.js";
+import { publisherNameSourceSchema } from "./publisher.js";
 
 export const getContentGenerationQuerySchema = z.object({
   tickerId: z.string().trim().min(1),
@@ -28,6 +29,7 @@ export const contentGenerationDataSourceSchema = z
     content: z.string().nullable().optional(),
     author: z.string().nullable().optional(),
     source: z.string().nullable().optional(),
+    publisherNameSource: publisherNameSourceSchema.nullable().optional(),
     tickerId: z.string().trim().min(1),
     /** Search query that surfaced the article; `null` for curated/global sources. */
     searchQueryId: z.guid().nullable().optional(),
