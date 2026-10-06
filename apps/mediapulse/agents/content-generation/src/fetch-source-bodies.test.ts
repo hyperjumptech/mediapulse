@@ -625,3 +625,63 @@ describe("acceptablePublishedDate", () => {
     expect(acceptablePublishedDate(null, now)).toBeUndefined();
   });
 });
+
+describe("fetchSourceBodies site names", () => {
+  const outcomeWithSiteName = (
+    url: string,
+    siteName: string,
+  ): WebFetchOutcome => {
+    const outcome = successOutcome(url, "body");
+
+    return {
+      ...outcome,
+      success: outcome.success
+        ? { ...outcome.success, source: siteName }
+        : null,
+    };
+  };
+
+  it("drops a section site name and keeps the brand from a headline site name", async () => {
+    const siteNameByUrl = new Map([
+      ["https://metropolis.batampos.co.id/a", "Metropolis"],
+      [
+        "https://sindikatpost.com/b",
+        "10 UMKM Pangan Tembus Jaringan Ritel AEON Indonesia - Sindikat Post",
+      ],
+    ]);
+    const requested: RequestedFetchSource[] = [...siteNameByUrl.keys()].map(
+      (url, index) => ({
+        dataSourceId: `ds-${index}`,
+        url,
+        title: "Title",
+        sectionScore: 0.9,
+      }),
+    );
+    const performWebFetchFn = vi
+      .fn()
+      .mockImplementation((inputs: WebSearchResult[]) =>
+        Promise.resolve(
+          inputs.map((input) =>
+            outcomeWithSiteName(input.url, siteNameByUrl.get(input.url) ?? ""),
+          ),
+        ),
+      );
+    const persistFetchedContent = vi
+      .fn()
+      .mockResolvedValue({ updatedCount: 2 });
+
+    const result = await fetchSourceBodies(
+      requested,
+      makeConfig(),
+      { tickerId: "ticker-1" },
+      {
+        persistFetchedContent,
+        performWebFetchFn: performWebFetchFn as never,
+        runQualityGateFn: () => ({ blocked: false }),
+      },
+    );
+
+    expect(result.fetchedContentById.get("ds-0")?.source).toBeUndefined();
+    expect(result.fetchedContentById.get("ds-1")?.source).toBe("Sindikat Post");
+  });
+});

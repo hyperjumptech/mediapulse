@@ -1,4 +1,4 @@
-import { getDomainWithoutSuffix } from "tldts";
+import { getDomain, getDomainWithoutSuffix, parse } from "tldts";
 
 const MAX_DISPLAY_NAME_CHARS = 80;
 
@@ -14,6 +14,7 @@ const GENERIC_SITE_NAMES = new Set([
   "untitled",
   "google news",
   "amp",
+  "umum",
 ]);
 
 const normalizeForComparison = (value: string): string =>
@@ -69,4 +70,125 @@ export const publisherNameMatchesDomain = (
   }
 
   return normalizeForComparison(displayName) === normalizeForComparison(brand);
+};
+
+const MAX_SITE_NAME_WORDS = 5;
+
+const MIN_BRAND_FRAGMENT_CHARS = 4;
+
+const LEGAL_ENTITY_PATTERN = /^(pt|cv)\b\.?\s|\btbk\.?$/i;
+
+const SPACED_SEPARATOR_PATTERN = /\s+[|\-–—:]\s+|:\s+/;
+
+const BARE_HYPHEN_TAGLINE_PATTERN = /^(\S{3,})-(\S+\s.*)$/;
+
+const DOMAIN_LIKE_PATTERN = /\.[a-z]{2,}$/i;
+
+const IGNORED_SUBDOMAIN_LABELS = new Set(["www", "m", "amp", "mobile"]);
+
+const hostnameWhenUrl = (value: string): string => {
+  const trimmed = value.trim();
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return value;
+  }
+
+  const hostname = parse(trimmed).hostname ?? "";
+
+  return hostname.replace(/^www\./, "");
+};
+
+const splitTagline = (name: string): string[] => {
+  const spacedSegments = name
+    .split(SPACED_SEPARATOR_PATTERN)
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+  if (spacedSegments.length > 1) {
+    return spacedSegments;
+  }
+
+  const hyphenMatch = BARE_HYPHEN_TAGLINE_PATTERN.exec(name);
+  const head = hyphenMatch?.[1];
+  const tail = hyphenMatch?.[2];
+  if (head === undefined || tail === undefined) {
+    return [name];
+  }
+
+  return [head, tail.trim()];
+};
+
+const overlapsBrand = (name: string, brand: string): boolean => {
+  const normalizedName = normalizeForComparison(name);
+  if (normalizedName.includes(brand)) {
+    return true;
+  }
+
+  return (
+    normalizedName.length >= MIN_BRAND_FRAGMENT_CHARS &&
+    brand.includes(normalizedName)
+  );
+};
+
+const namesAnotherDomain = (name: string, pageDomain: string): boolean => {
+  if (!DOMAIN_LIKE_PATTERN.test(name)) {
+    return false;
+  }
+
+  const namedDomain = getDomain(name);
+
+  return namedDomain !== null && namedDomain !== pageDomain;
+};
+
+const namesPageSubdomain = (
+  name: string,
+  subdomain: string | null,
+): boolean => {
+  const normalizedName = normalizeForComparison(name);
+  const labels = (subdomain ?? "")
+    .split(".")
+    .filter(
+      (label) => label.length > 0 && !IGNORED_SUBDOMAIN_LABELS.has(label),
+    );
+
+  return labels.some(
+    (label) => normalizeForComparison(label) === normalizedName,
+  );
+};
+
+export const publisherNameFromSiteMetadata = (
+  value: string | undefined | null,
+  pageUrl: string,
+): string => {
+  const unwrapped = typeof value === "string" ? hostnameWhenUrl(value) : value;
+  const name = sanitizePublisherDisplayName(unwrapped);
+  if (name.length === 0) {
+    return "";
+  }
+
+  const page = parse(pageUrl);
+  const brand = normalizeForComparison(page.domainWithoutSuffix ?? "");
+  if (page.domain === null || brand.length === 0) {
+    return name;
+  }
+
+  const segments = splitTagline(name);
+  const candidate =
+    segments.length > 1
+      ? segments.find((segment) => overlapsBrand(segment, brand))
+      : name;
+  if (candidate === undefined || LEGAL_ENTITY_PATTERN.test(candidate)) {
+    return "";
+  }
+  if (overlapsBrand(candidate, brand)) {
+    return candidate;
+  }
+  if (namesAnotherDomain(candidate, page.domain)) {
+    return "";
+  }
+  if (namesPageSubdomain(candidate, page.subdomain)) {
+    return "";
+  }
+
+  const wordCount = candidate.split(/\s+/).length;
+
+  return wordCount > MAX_SITE_NAME_WORDS ? "" : candidate;
 };
