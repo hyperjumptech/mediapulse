@@ -81,6 +81,8 @@ Implemented in `apps/mediapulse/agent-data-api/src/routes/content-generation.ts`
 
 The **GET** response now also carries **`dataSourceId`** (the `data_source` row id) and the lightweight **`description`** on each source. `content` is nullable: after ADR-0002 most sources start with only a `description`, and a full `content` body appears only once content-generation fetches it on demand.
 
+Each source's **`source`** is the publisher name from the `publisher` reference table when the domain has a row, otherwise the name stored at collection. **`publisherNameSource`** says where that reference name came from (`derived`, `llm`, `site_metadata` or `manual`), and is `null` when the domain has no row. Content generation uses it to decide whether a site name read during its own fetch may replace the stored name in the issue it is building. It applies the same rank rule as `recordPublisherNames` (`publisherNameMayReplace`), so a `manual` name always wins.
+
 The **POST** response is **`{ message, id? }`** where **`id`** is the created `newsletter` row id. Agents use it to attach follow-up records (translations, citations) to the persisted newsletter.
 
 ### Content generation fetched content (`POST /api/v1/content-generation/fetched-content`)

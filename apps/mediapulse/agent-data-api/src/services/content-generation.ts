@@ -50,27 +50,6 @@ type ContentGenerationDb = {
 };
 
 /**
- * Picks the publisher name shown to readers, preferring the shared reference over the name the
- * collection run derived from the URL.
- *
- * @param registrableDomain - The article's registrable domain, or `null` when it has none.
- * @param collectedSource - Publisher name stored on the data source at collection time.
- * @param publisherNameByDomain - Display names from the publisher reference, keyed by domain.
- * @returns The name to render, or `null` when neither source has one.
- */
-const resolvePublisherName = (
-  registrableDomain: string | null,
-  collectedSource: string | null,
-  publisherNameByDomain: Map<string, string>,
-): string | null => {
-  if (registrableDomain === null) {
-    return collectedSource;
-  }
-
-  return publisherNameByDomain.get(registrableDomain) ?? collectedSource;
-};
-
-/**
  * Returns the recently classified data sources for a ticker, plus the ticker's name, symbol,
  * competitors, and issuer aliases. Reads the per-(article, ticker) section table.
  *
@@ -161,35 +140,40 @@ export const getDataSourcesForTicker = async (
       ? []
       : await db.publisher.findMany({
           where: { domain: { in: registrableDomains } },
-          select: { domain: true, displayName: true },
+          select: { domain: true, displayName: true, nameSource: true },
         } satisfies Prisma.PublisherFindManyArgs);
-  const publisherNameByDomain = new Map(
-    publisherRows.map((row) => [row.domain, row.displayName]),
+  const publisherByDomain = new Map(
+    publisherRows.map((row) => [row.domain, row]),
   );
 
-  const dataSources = sectionRows.map((row) => ({
-    dataSourceId: row.dataSource.id,
-    url: row.dataSource.url,
-    title: row.dataSource.title,
-    description: row.dataSource.description,
-    content: row.dataSource.content,
-    author: row.dataSource.author,
-    source: resolvePublisherName(
-      row.dataSource.registrableDomain,
-      row.dataSource.source,
-      publisherNameByDomain,
-    ),
-    registrableDomain: row.dataSource.registrableDomain,
-    publisherAuthority:
-      row.dataSource.registrableDomain === null
-        ? null
-        : (authorityByDomain.get(row.dataSource.registrableDomain) ?? null),
-    tickerId,
-    searchQueryId: row.dataSource.searchQueryId,
-    section: row.section,
-    sectionScore: row.sectionScore,
-    sectionReason: row.sectionReason,
-  }));
+  const dataSources = sectionRows.map((row) => {
+    const registrableDomain = row.dataSource.registrableDomain;
+    const publisher =
+      registrableDomain === null
+        ? undefined
+        : publisherByDomain.get(registrableDomain);
+
+    return {
+      dataSourceId: row.dataSource.id,
+      url: row.dataSource.url,
+      title: row.dataSource.title,
+      description: row.dataSource.description,
+      content: row.dataSource.content,
+      author: row.dataSource.author,
+      source: publisher?.displayName ?? row.dataSource.source,
+      publisherNameSource: publisher?.nameSource ?? null,
+      registrableDomain,
+      publisherAuthority:
+        registrableDomain === null
+          ? null
+          : (authorityByDomain.get(registrableDomain) ?? null),
+      tickerId,
+      searchQueryId: row.dataSource.searchQueryId,
+      section: row.section,
+      sectionScore: row.sectionScore,
+      sectionReason: row.sectionReason,
+    };
+  });
 
   const profile = ticker.profile ?? null;
   const issuerAliases: string[] = [

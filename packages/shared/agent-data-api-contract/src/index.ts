@@ -126,6 +126,7 @@ export {
 } from "./publisher-authority.js";
 export {
   PUBLISHER_DISPLAY_NAME_MAX_CHARS,
+  PUBLISHER_NAME_SOURCE_RANK,
   PUBLISHER_NAMES_MAX,
   PUBLISHER_SEEN_MAX,
   PUBLISHER_UNRESOLVED_DEFAULT_LIMIT,
@@ -137,6 +138,7 @@ export {
   postPublishersSeenBodySchema,
   postPublishersSeenResponseSchema,
   publisherDisplayNameSchema,
+  publisherNameMayReplace,
   publisherNameSourceSchema,
   type GetPublishersUnresolvedQuery,
   type GetPublishersUnresolvedResponse,

@@ -208,6 +208,7 @@ describe("agent-data-api", () => {
             content: "Content",
             author: null,
             source: null,
+            publisherNameSource: null,
             registrableDomain: "example.com",
             publisherAuthority: 5.5,
             tickerId: TICKER_ID,
