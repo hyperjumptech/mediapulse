@@ -1,4 +1,18 @@
 export {
+  Day1FirstIssueEmail,
+  type Day1FirstIssueEmailProps,
+} from "./day1/day1-first-issue.js";
+export {
+  Day1WelcomeEmail,
+  MAX_WELCOME_NAMED_ENTITIES,
+  MAX_WELCOME_PEERS,
+  MAX_WELCOME_STORIES,
+  MAX_WELCOME_STORY_POINTS,
+  type Day1WelcomeEmailProps,
+  type Day1WelcomeNamedEntity,
+  type Day1WelcomeStory,
+} from "./day1/day1-welcome.js";
+export {
   DefaultNewsletterEmail,
   type DefaultNewsletterEmailProps,
 } from "./newsletter/default-newsletter.js";

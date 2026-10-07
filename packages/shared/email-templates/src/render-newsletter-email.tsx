@@ -1,6 +1,10 @@
 import { render } from "@react-email/render";
 import type { ReactElement } from "react";
 
+import { Day1FirstIssueEmail } from "./day1/day1-first-issue.js";
+import type { Day1FirstIssueEmailProps } from "./day1/day1-first-issue.js";
+import { Day1WelcomeEmail } from "./day1/day1-welcome.js";
+import type { Day1WelcomeEmailProps } from "./day1/day1-welcome.js";
 import { DefaultNewsletterEmail } from "./newsletter/default-newsletter.js";
 import type { DefaultNewsletterEmailProps } from "./newsletter/default-newsletter.js";
 import RegistrationConfirmationEmail from "./registration/registration-confirmation.js";
@@ -15,7 +19,9 @@ export type NewsletterTemplateVariant =
   | "default"
   | "registration-confirmation"
   | "registration-pending-confirmation"
-  | "invalid-ticker";
+  | "invalid-ticker"
+  | "day1-welcome"
+  | "day1-first-issue";
 
 export type RenderNewsletterEmailInput =
   | ({ variant?: "default" } & DefaultNewsletterEmailProps & {
@@ -29,7 +35,9 @@ export type RenderNewsletterEmailInput =
   | ({
       variant: "registration-pending-confirmation";
     } & RegistrationPendingConfirmationEmailProps)
-  | ({ variant: "invalid-ticker" } & InvalidTickerEmailProps);
+  | ({ variant: "invalid-ticker" } & InvalidTickerEmailProps)
+  | ({ variant: "day1-welcome" } & Day1WelcomeEmailProps)
+  | ({ variant: "day1-first-issue" } & Day1FirstIssueEmailProps);
 
 type RenderEmailToHtml = (element: ReactElement) => Promise<string>;
 type RenderEmailToText = (element: ReactElement) => Promise<string>;
@@ -109,6 +117,10 @@ function newsletterElementForVariant(
       );
     case "invalid-ticker":
       return <InvalidTickerEmail tickerSymbol={input.tickerSymbol} />;
+    case "day1-welcome":
+      return <Day1WelcomeEmail {...input} />;
+    case "day1-first-issue":
+      return <Day1FirstIssueEmail {...input} />;
     default: {
       const _exhaustive: never = input;
       return _exhaustive;
