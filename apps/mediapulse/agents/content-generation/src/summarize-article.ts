@@ -64,13 +64,47 @@ Never write a point about what the article does not say, does not detail, leaves
 
 Lead with the concrete thing: the number, the name, the decision, the change. Cut throat-clearing ("The article reports that", "It is worth noting"), scene-setting, and hedging. Use plain language a busy reader understands at a glance, and expand jargon the first time it appears.
 
-One fact per point. No bullet characters, no leading dashes, no trailing citations.
+One fact per point, except the one point that names the items a list headline promises. No bullet characters, no leading dashes, no trailing citations.
 
 Write in English using the Latin alphabet only. Never leave a word from the source language in another script, and never mix Chinese, Japanese, Korean, Arabic, or Cyrillic characters into a point: translate the term or drop it.
 
 Never cut a point short to fit the character limit. If a fact does not fit, write a shorter complete sentence instead. A point that stops mid-word, mid-number, or on a word like "and", "with", "by", or "the" is unusable.
 
+Deliver what the headline promises. A reader sees only your title and points and decides from them whether to open the article, so the points must answer the headline rather than repeat it. When the headline promises a set of items, such as eight projects, ten banks, or a list of stocks, one point names the items themselves in the article's own words, as many as the limit holds, most prominent first, and carries the headline's count inside that same point, for example "The four: Pertamina, PLN, Pupuk Indonesia and ID Food". This takes precedence over stating a trend. Use the remaining points for the largest figures among those items. When the headline asks a question, one point gives the article's answer in its own terms. Never spend a whole point announcing that a list, a ranking, or a question exists. When the body names only some of the items the headline promises, name the ones it gives and never invent the rest.
+
 Write as many points as the article earns and no more. Most articles carry one or two things worth knowing. Never pad to reach ${String(MAX_POINTS_PER_ARTICLE)}, and return an empty list rather than inventing one.`;
+
+export const articleInventorySchema = z.object({
+  headlinePromise: z.object({
+    kind: z.enum(["list", "question", "trend", "event"]),
+    count: z.number().int().nullable(),
+    items: z.array(z.string()),
+    question: z.string().nullable(),
+    answer: z.string().nullable(),
+  }),
+  facts: z.array(
+    z.object({
+      subject: z.string(),
+      statement: z.string(),
+      figures: z.array(z.string()),
+    }),
+  ),
+});
+
+export type ArticleInventory = z.infer<typeof articleInventorySchema>;
+
+export const EXTRACT_ARTICLE_SYSTEM_PROMPT = `You read a single news article and list what it contains, so that a second writer can summarize it without rereading it. Work only from the article. Write in English.
+
+headlinePromise describes what the headline promises the reader:
+- kind is "list" when the headline promises a set of items, "question" when it asks a question, "trend" when it generalises across several parties, and "event" for a single development.
+- count is the number of items the headline states, or null.
+- items are the items the body actually names, in the order the body gives them. Empty unless kind is "list".
+- question is the headline's question, or null. answer is the body's answer to it in one sentence, or null when the body gives none.
+
+facts lists every concrete fact the body states, one per entry: the subject it is about, the statement, and the figures it carries exactly as written (amounts, percentages, capacities, counts, dates). Cover every company the body names. Never add anything the body does not say, and never infer a cause the body does not state.`;
+
+export const buildInventoryBlock = (inventory: ArticleInventory): string =>
+  `\n\nA first reader has already listed what this article contains. Use the list to make sure nothing the headline promises is missed, but take every point from the article itself and drop anything in the list the article does not support.\n\n<article_inventory>\n${JSON.stringify(inventory, null, 2)}\n</article_inventory>`;
 
 export type IssuerFocus = {
   label: string;

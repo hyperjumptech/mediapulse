@@ -23,7 +23,13 @@ import {
   EmptyNewsletterError,
 } from "./llm-generate-newsletter.js";
 import type { SelectedArticle } from "./select-articles.js";
-import { SUMMARIZE_ARTICLE_SYSTEM_PROMPT } from "./summarize-article.js";
+import {
+  articleInventorySchema,
+  articleSummarySchema,
+  type ArticleInventory,
+  EXTRACT_ARTICLE_SYSTEM_PROMPT,
+  SUMMARIZE_ARTICLE_SYSTEM_PROMPT,
+} from "./summarize-article.js";
 import {
   MAX_SUBJECT_LENGTH,
   newsletterSubjectSchema,
@@ -50,6 +56,23 @@ const GENERATED_SUBJECT = "Regional lenders close a merger";
 const isSubjectCall = (args: GenerateNewsletterObjectArgs): boolean =>
   args.schema === newsletterSubjectSchema;
 
+const isInventoryCall = (args: GenerateNewsletterObjectArgs): boolean =>
+  args.schema === articleInventorySchema;
+
+const isSummaryCall = (args: GenerateNewsletterObjectArgs): boolean =>
+  args.schema === articleSummarySchema;
+
+const EMPTY_INVENTORY: ArticleInventory = {
+  headlinePromise: {
+    kind: "event",
+    count: null,
+    items: [],
+    question: null,
+    answer: null,
+  },
+  facts: [],
+};
+
 /** Reads back the article title the summarizer prompt was built from. */
 const promptTitle = (prompt: string): string =>
   (prompt.split("\n")[0] ?? "").replace("Title: ", "");
@@ -74,9 +97,22 @@ const makeGenerateFn = (
     onSubject?: (
       args: GenerateNewsletterObjectArgs,
     ) => Promise<GenerateNewsletterObjectResult>;
+    onInventory?: (
+      args: GenerateNewsletterObjectArgs,
+    ) => Promise<GenerateNewsletterObjectResult>;
   } = {},
 ): GenerateNewsletterObjectFn =>
   vi.fn(async (args: GenerateNewsletterObjectArgs) => {
+    if (isInventoryCall(args)) {
+      if (options.onInventory !== undefined) {
+        return options.onInventory(args);
+      }
+
+      return {
+        object: EMPTY_INVENTORY,
+        ...(options.usage !== undefined ? { usage: options.usage } : {}),
+      };
+    }
     if (isSubjectCall(args)) {
       if (options.onSubject !== undefined) {
         return options.onSubject(args);
@@ -444,7 +480,7 @@ describe("generateNewsletterWithLlm — happy path", () => {
       generateObjectFn,
     });
     const calls = vi.mocked(generateObjectFn).mock.calls;
-    const summarizerCalls = calls.filter(([args]) => !isSubjectCall(args));
+    const summarizerCalls = calls.filter(([args]) => isSummaryCall(args));
     const subjectCalls = calls.filter(([args]) => isSubjectCall(args));
 
     expect(summarizerCalls).toHaveLength(testSources.length);
@@ -460,7 +496,7 @@ describe("generateNewsletterWithLlm — happy path", () => {
     const [summarizerArgs] = vi
       .mocked(generateObjectFn)
       .mock.calls.map(([args]) => args)
-      .filter((args) => !isSubjectCall(args));
+      .filter((args) => isSummaryCall(args));
 
     expect(summarizerArgs?.system).toBe(SUMMARIZE_ARTICLE_SYSTEM_PROMPT);
     expect(summarizerArgs?.maxRetries).toBe(0);
@@ -1262,7 +1298,7 @@ describe("generateNewsletterWithLlm — subject fallback", () => {
 // ---------------------------------------------------------------------------
 
 describe("generateNewsletterWithLlm — token usage and provenance", () => {
-  it("sums token usage across every summarizer call and the subject call", async () => {
+  it("sums token usage across every inventory call, summarizer call and the subject call", async () => {
     const generateObjectFn = makeGenerateFn({
       usage: {
         promptTokens: 10,
@@ -1278,7 +1314,7 @@ describe("generateNewsletterWithLlm — token usage and provenance", () => {
       testContext,
       { generateObjectFn },
     );
-    const callCount = testSources.length + 1;
+    const callCount = testSources.length * 2 + 1;
 
     expect(result.promptTokens).toBe(10 * callCount);
     expect(result.completionTokens).toBe(4 * callCount);
@@ -1444,7 +1480,7 @@ describe("generateNewsletterWithLlm — cross-day dedup", () => {
     const summarizedTitles = vi
       .mocked(generateObjectFn)
       .mock.calls.map(([args]) => args)
-      .filter((args) => !isSubjectCall(args))
+      .filter((args) => isSummaryCall(args))
       .map((args) => promptTitle(args.prompt));
 
     expect(result.crossRunDedupSummary?.removedCount).toBe(1);
@@ -2190,5 +2226,193 @@ describe("generateNewsletterWithLlm — point quality", () => {
     expect(calls).toBe(2);
     expect(result.articlesSkippedSummaryFailed).toBe(0);
     expect(result.content).toContain("welcomed by staff");
+  });
+});
+
+describe("generateNewsletterWithLlm — article inventory", () => {
+  const listArticle: SourceForGeneration = {
+    dataSourceId: "ds-list",
+    url: "https://example.com/list",
+    title: "Ini 3 Rencana Data Center Baru",
+    content:
+      "Tiga pengembang mengumumkan data center baru: Digital Edge di Bekasi " +
+      "berkapasitas 500 MW, BDx di Purwakarta berkapasitas 640 MW, dan " +
+      "CoreWeave dengan tiga fasilitas berkapasitas total 360 MW.",
+    section: "industryPulse",
+    sectionScore: 0.9,
+  };
+
+  const listInventory: ArticleInventory = {
+    headlinePromise: {
+      kind: "list",
+      count: 3,
+      items: ["Digital Edge", "BDx", "CoreWeave"],
+      question: null,
+      answer: null,
+    },
+    facts: [
+      {
+        subject: "BDx",
+        statement: "BDx plans a 640 MW campus in Purwakarta.",
+        figures: ["640 MW"],
+      },
+    ],
+  };
+
+  const listSummary = {
+    title: "These Are 3 New Data Center Plans",
+    points: [
+      "The three: Digital Edge, BDx and CoreWeave.",
+      "BDx plans a 640 MW campus in Purwakarta.",
+    ],
+  };
+
+  it("asks for one inventory per selected article with the extraction prompt", async () => {
+    const generateObjectFn = makeGenerateFn();
+
+    await generateNewsletterWithLlm(testSources, baseConfig, testContext, {
+      generateObjectFn,
+    });
+    const inventoryCalls = vi
+      .mocked(generateObjectFn)
+      .mock.calls.map(([args]) => args)
+      .filter((args) => isInventoryCall(args));
+    const inventoryTitles = inventoryCalls
+      .map((args) => promptTitle(args.prompt))
+      .sort();
+    const sourceTitles = testSources.map((source) => source.title).sort();
+
+    expect(inventoryCalls).toHaveLength(testSources.length);
+    expect(inventoryCalls[0]?.system).toBe(EXTRACT_ARTICLE_SYSTEM_PROMPT);
+    expect(inventoryCalls[0]?.maxRetries).toBe(0);
+    expect(inventoryTitles).toEqual(sourceTitles);
+  });
+
+  it("attaches the inventory to the summary prompt", async () => {
+    const prompts: string[] = [];
+    const generateObjectFn = makeGenerateFn({
+      onInventory: async () => ({ object: listInventory }),
+      onSummarize: async (args) => {
+        prompts.push(args.prompt);
+
+        return { object: listSummary };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      [listArticle],
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(prompts[0]).toContain("<article_inventory>");
+    expect(prompts[0]).toContain('"CoreWeave"');
+    expect(result.content).toContain(
+      "The three: Digital Edge, BDx and CoreWeave.",
+    );
+  });
+
+  it("extracts once per article and keeps a retry directive after the inventory", async () => {
+    let inventoryCalls = 0;
+    let summaryCalls = 0;
+    const prompts: string[] = [];
+    const generateObjectFn = makeGenerateFn({
+      onInventory: async () => {
+        inventoryCalls += 1;
+
+        return { object: listInventory };
+      },
+      onSummarize: async (args) => {
+        summaryCalls += 1;
+        prompts.push(args.prompt);
+
+        return {
+          object:
+            summaryCalls === 1 ? { ...listSummary, points: [] } : listSummary,
+        };
+      },
+    });
+
+    await generateNewsletterWithLlm([listArticle], baseConfig, testContext, {
+      generateObjectFn,
+      sleepFn: noopSleepFn,
+    });
+    const retryPrompt = prompts[1] ?? "";
+    const inventoryEnd = retryPrompt.indexOf("</article_inventory>");
+    const directiveStart = retryPrompt.indexOf(
+      "Your previous summary of this article returned no points",
+    );
+
+    expect(inventoryCalls).toBe(1);
+    expect(summaryCalls).toBe(2);
+    expect(inventoryEnd).toBeGreaterThan(-1);
+    expect(directiveStart).toBeGreaterThan(inventoryEnd);
+  });
+
+  it("summarizes without an inventory when the inventory call fails", async () => {
+    const prompts: string[] = [];
+    const generateObjectFn = makeGenerateFn({
+      onInventory: async () => {
+        throw new Error("inventory unavailable");
+      },
+      onSummarize: async (args) => {
+        prompts.push(args.prompt);
+
+        return { object: listSummary };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      [listArticle],
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0]).not.toContain("<article_inventory>");
+    expect(result.articlesSkippedSummaryFailed).toBe(0);
+    expect(result.content).toContain("BDx plans a 640 MW campus");
+  });
+
+  it("summarizes without an inventory when the model returns an unusable one", async () => {
+    const prompts: string[] = [];
+    const generateObjectFn = makeGenerateFn({
+      onInventory: async () => ({ object: { items: "not an inventory" } }),
+      onSummarize: async (args) => {
+        prompts.push(args.prompt);
+
+        return { object: listSummary };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      [listArticle],
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(prompts[0]).not.toContain("<article_inventory>");
+    expect(result.articlesSkippedSummaryFailed).toBe(0);
+  });
+
+  it("skips the inventory for a source carrying only its description", async () => {
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async () => ({ object: listSummary }),
+    });
+
+    await generateNewsletterWithLlm(
+      [{ ...listArticle, contentIsDescriptionOnly: true }],
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    ).catch(() => undefined);
+    const inventoryCalls = vi
+      .mocked(generateObjectFn)
+      .mock.calls.filter(([args]) => isInventoryCall(args));
+
+    expect(inventoryCalls).toHaveLength(0);
   });
 });

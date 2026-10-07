@@ -57,11 +57,15 @@ import { truncateSources } from "./lib/truncate-sources.js";
 import { isRetryableLlmError } from "./llm-classify-error.js";
 import { selectArticles, type SelectedArticle } from "./select-articles.js";
 import {
+  articleInventorySchema,
   articleSummarySchema,
+  type ArticleInventory,
   buildArticlePrompt,
   buildClauseSpliceDirective,
+  buildInventoryBlock,
   buildIssuerCoverageDirective,
   EMPTY_SUMMARY_DIRECTIVE,
+  EXTRACT_ARTICLE_SYSTEM_PROMPT,
   MATERIAL_FIGURE_DIRECTIVE,
   type IssuerFocus,
   SUMMARIZE_ARTICLE_SYSTEM_PROMPT,
@@ -300,6 +304,7 @@ export interface GeneratedContentWithProvenance extends GeneratedContent {
 
 /** Structured output shapes this agent asks the model for. */
 export type NewsletterObjectSchema =
+  | typeof articleInventorySchema
   | typeof articleSummarySchema
   | typeof newsletterSubjectSchema;
 
@@ -881,9 +886,66 @@ export async function generateNewsletterWithLlm(
 
   const tokenTotals = createTokenTotals();
 
+  const extractInventory = async (
+    entry: SelectedArticle,
+  ): Promise<ArticleInventory | undefined> => {
+    if (entry.source.contentIsDescriptionOnly === true) {
+      return undefined;
+    }
+    try {
+      const result = await retryWithBackoff(
+        async () =>
+          generateFn({
+            model,
+            schema: articleInventorySchema,
+            system: EXTRACT_ARTICLE_SYSTEM_PROMPT,
+            prompt: buildArticlePrompt(entry.source, issuerFocus),
+            maxRetries: 0,
+            timeout: requestTimeoutMs,
+          }),
+        retry,
+        isRetryableLlmError,
+        { sleepFn: deps.sleepFn },
+      );
+      addUsage(tokenTotals, result.usage);
+      const parsed = articleInventorySchema.safeParse(result.object);
+      if (parsed.success) {
+        return parsed.data;
+      }
+      logger.warn(
+        {
+          tickerId: context.tickerId,
+          sectionKey: entry.sectionKey,
+          url: entry.source.url,
+          issueCount: parsed.error.issues.length,
+          event: "article_inventory_unusable",
+        },
+        "Article inventory did not match its schema; summarizing without it",
+      );
+
+      return undefined;
+    } catch (err) {
+      logger.warn(
+        {
+          tickerId: context.tickerId,
+          sectionKey: entry.sectionKey,
+          url: entry.source.url,
+          err,
+          event: "article_inventory_failed",
+        },
+        "Article inventory failed after retries; summarizing without it",
+      );
+
+      return undefined;
+    }
+  };
+
   const summarizeEntry = async (
     entry: SelectedArticle,
   ): Promise<SummaryOutcome> => {
+    const inventory = await extractInventory(entry);
+    const inventoryBlock =
+      inventory === undefined ? "" : buildInventoryBlock(inventory);
     // A heading's figure missing from every point is the model forgetting an instruction, not a bad
     // article, so the article gets one more attempt with the omission named before it is given up.
     let figureDirective = "";
@@ -935,7 +997,7 @@ export async function generateNewsletterWithLlm(
               model,
               schema: articleSummarySchema,
               system: systemPrompt,
-              prompt: `${buildArticlePrompt(entry.source, issuerFocus)}${figureDirective}`,
+              prompt: `${buildArticlePrompt(entry.source, issuerFocus)}${inventoryBlock}${figureDirective}`,
               maxRetries: 0,
               timeout: requestTimeoutMs,
             }),
