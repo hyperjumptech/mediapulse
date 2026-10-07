@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import {
+  articleInventorySchema,
   articleSummarySchema,
   buildArticlePrompt,
+  buildInventoryBlock,
   buildIssuerCoverageDirective,
   SUMMARIZE_ARTICLE_SYSTEM_PROMPT,
 } from "./summarize-article.js";
@@ -29,6 +31,33 @@ describe("articleSummarySchema", () => {
 });
 
 describe("SUMMARIZE_ARTICLE_SYSTEM_PROMPT", () => {
+  it("asks the points to deliver what the headline promises", () => {
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "Deliver what the headline promises",
+    );
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "one point names the items themselves",
+    );
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "one point gives the article's answer",
+    );
+  });
+
+  it("keeps a list headline's count inside the point that names its items", () => {
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "carries the headline's count inside that same point",
+    );
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "One fact per point, except the one point that names the items a list headline promises.",
+    );
+  });
+
+  it("forbids inventing list items the body does not name", () => {
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "name the ones it gives and never invent the rest",
+    );
+  });
+
   it("requires the attributable profit measure to be reported and named", () => {
     expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
       "Report the attributable figure",
@@ -224,5 +253,63 @@ describe("articleSummarySchema as JSON Schema", () => {
     const json = JSON.stringify(z.toJSONSchema(articleSummarySchema));
 
     expect(json).not.toContain("maxLength");
+  });
+});
+
+describe("articleInventorySchema", () => {
+  it("accepts a list promise with no question", () => {
+    const parsed = articleInventorySchema.safeParse({
+      headlinePromise: {
+        kind: "list",
+        count: 8,
+        items: ["Digital Edge", "BDx"],
+        question: null,
+        answer: null,
+      },
+      facts: [
+        {
+          subject: "BDx",
+          statement: "BDx began building a 640 MW campus.",
+          figures: ["640 MW"],
+        },
+      ],
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects a promise kind outside the four it knows", () => {
+    const parsed = articleInventorySchema.safeParse({
+      headlinePromise: {
+        kind: "ranking",
+        count: null,
+        items: [],
+        question: null,
+        answer: null,
+      },
+      facts: [],
+    });
+
+    expect(parsed.success).toBe(false);
+  });
+});
+
+describe("buildInventoryBlock", () => {
+  it("wraps the inventory in a tagged block that defers to the article", () => {
+    const block = buildInventoryBlock({
+      headlinePromise: {
+        kind: "question",
+        count: null,
+        items: [],
+        question: "Why did BYAN fall?",
+        answer: "A rumoured acquisition at a deep discount.",
+      },
+      facts: [],
+    });
+
+    expect(block.startsWith("\n\n")).toBe(true);
+    expect(block).toContain("take every point from the article itself");
+    expect(block).toContain('"question": "Why did BYAN fall?"');
+    expect(block.trimEnd().endsWith("</article_inventory>")).toBe(true);
   });
 });
