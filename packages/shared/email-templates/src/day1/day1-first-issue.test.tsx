@@ -25,7 +25,7 @@ describe("Day1FirstIssueEmail", () => {
       Day1FirstIssueEmail.PreviewProps,
     );
     const badgeIndex = html.indexOf(">First issue</span>");
-    const welcomeIndex = html.indexOf("Welcome to MediaPulse");
+    const welcomeIndex = html.indexOf("Here is your first ACME issue.");
     const firstSectionIndex = html.indexOf("Industry Pulse");
 
     expect(badgeIndex).toBeGreaterThan(-1);
@@ -34,14 +34,16 @@ describe("Day1FirstIssueEmail", () => {
     expect(html).toContain("e-tile");
     expect(html).not.toContain("linear-gradient");
     expect(html).toContain(
-      "This is your first ACME briefing. From now on we check ACME news every day at 9:00 AM WIB and send an issue only when there is news worth reading.",
+      "Here is your first ACME issue. From now on, you get an issue at 9:00 AM WIB on days when ACME has news worth your time.",
     );
+    expect(html).not.toContain("Welcome to MediaPulse");
     expect(html).toContain("Fixed broadband carries a flat quarter");
     expect(html).toContain(
       "You are receiving this because you just subscribed to ACME updates.",
     );
     expect(html).toContain("Unsubscribe from MediaPulse: ACME updates");
-    expect(text).toContain("This is your first ACME briefing.");
+    expect(html).not.toContain("We send an issue only when");
+    expect(text).toContain("Here is your first ACME issue.");
   });
 
   it("keeps an explicit footer note", async () => {
@@ -54,19 +56,19 @@ describe("Day1FirstIssueEmail", () => {
     expect(html).not.toContain("you just subscribed");
   });
 
-  it("drops the review time from the note when none is given", async () => {
+  it("leaves the time out of the note when none is given", async () => {
     const { html } = await renderFirstIssue({
       ...Day1FirstIssueEmail.PreviewProps,
       reviewTimeLabel: undefined,
     });
 
     expect(html).toContain(
-      "This is your first ACME briefing. From now on we check ACME news every day and send an issue only when there is news worth reading.",
+      "Here is your first ACME issue. More issues arrive only when ACME has news worth your time.",
     );
   });
 
   it("localizes the note, the footer and the sections in Indonesian", async () => {
-    const withTime = await renderFirstIssue({
+    const { html } = await renderFirstIssue({
       ...Day1FirstIssueEmail.PreviewProps,
       reviewTimeLabel: "09.00 WIB",
       language: "id",
@@ -77,17 +79,17 @@ describe("Day1FirstIssueEmail", () => {
       language: "id",
     });
 
-    expect(withTime.html).toContain(">Edisi perdana</span>");
-    expect(withTime.html).toContain("Selamat datang di MediaPulse");
-    expect(withTime.html).toContain(
-      "Ini edisi ACME pertama Anda. Mulai sekarang kami memeriksa berita ACME setiap hari pukul 09.00 WIB",
-    );
-    expect(withTime.html).toContain("Sorotan Industri");
-    expect(withTime.html).toContain(
-      "Anda menerima email ini karena Anda baru saja berlangganan pembaruan ACME.",
+    expect(html).toContain(">Edisi perdana</span>");
+    expect(html).toContain(
+      "Ini edisi ACME pertama Anda. Mulai sekarang, Anda menerima edisi pukul 09.00 WIB pada hari ada berita ACME yang layak Anda baca.",
     );
     expect(withoutTime.html).toContain(
-      "Mulai sekarang kami memeriksa berita ACME setiap hari dan mengirim edisi",
+      "Ini edisi ACME pertama Anda. Edisi berikutnya datang hanya saat ada berita ACME yang layak Anda baca.",
+    );
+    expect(html).not.toContain("Selamat datang di MediaPulse");
+    expect(html).toContain("Sorotan Industri");
+    expect(html).toContain(
+      "Anda menerima email ini karena Anda baru saja berlangganan pembaruan ACME.",
     );
   });
 
@@ -97,7 +99,7 @@ describe("Day1FirstIssueEmail", () => {
       bodyText: "Plain body with a [link](https://example.com/plain).",
       tickerSymbol: "ACME",
     });
-    const welcomeIndex = html.indexOf("Welcome to MediaPulse");
+    const welcomeIndex = html.indexOf("Here is your first ACME issue.");
     const titleIndex = html.indexOf("Your first ACME briefing</h1>");
 
     expect(welcomeIndex).toBeGreaterThan(-1);
@@ -112,7 +114,7 @@ describe("Day1FirstIssueEmail", () => {
       tickerSymbol: "ACME",
     });
 
-    expect(html).not.toContain("Welcome to MediaPulse");
+    expect(html).not.toContain("Here is your first ACME issue.");
   });
 });
 
@@ -124,7 +126,7 @@ describe("Day1FirstIssueIndonesianPreview", () => {
       />,
     );
 
-    expect(html).toContain("Selamat datang di MediaPulse");
+    expect(html).toContain("Ini edisi ACME pertama Anda.");
     expect(html).toContain("09.00 WIB");
   });
 });

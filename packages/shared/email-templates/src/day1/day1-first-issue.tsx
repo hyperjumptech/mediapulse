@@ -26,19 +26,19 @@ export const DAY1_FIRST_ISSUE_COPY: Record<EmailLanguage, Day1FirstIssueCopy> =
       badge: "First issue",
       welcomeBody: (ticker, reviewTimeLabel) =>
         reviewTimeLabel !== undefined
-          ? `Welcome to MediaPulse. This is your first ${ticker} briefing. From now on we check ${ticker} news every day at ${reviewTimeLabel} and send an issue only when there is news worth reading.`
-          : `Welcome to MediaPulse. This is your first ${ticker} briefing. From now on we check ${ticker} news every day and send an issue only when there is news worth reading.`,
+          ? `Here is your first ${ticker} issue. From now on, you get an issue at ${reviewTimeLabel} on days when ${ticker} has news worth your time.`
+          : `Here is your first ${ticker} issue. More issues arrive only when ${ticker} has news worth your time.`,
       footerNote: (ticker) =>
-        `You are receiving this because you just subscribed to ${ticker} updates. We send an issue only when ${ticker} has news worth reading, so some days there is no email.`,
+        `You are receiving this because you just subscribed to ${ticker} updates.`,
     },
     id: {
       badge: "Edisi perdana",
       welcomeBody: (ticker, reviewTimeLabel) =>
         reviewTimeLabel !== undefined
-          ? `Selamat datang di MediaPulse. Ini edisi ${ticker} pertama Anda. Mulai sekarang kami memeriksa berita ${ticker} setiap hari pukul ${reviewTimeLabel} dan mengirim edisi hanya saat ada berita yang layak dibaca.`
-          : `Selamat datang di MediaPulse. Ini edisi ${ticker} pertama Anda. Mulai sekarang kami memeriksa berita ${ticker} setiap hari dan mengirim edisi hanya saat ada berita yang layak dibaca.`,
+          ? `Ini edisi ${ticker} pertama Anda. Mulai sekarang, Anda menerima edisi pukul ${reviewTimeLabel} pada hari ada berita ${ticker} yang layak Anda baca.`
+          : `Ini edisi ${ticker} pertama Anda. Edisi berikutnya datang hanya saat ada berita ${ticker} yang layak Anda baca.`,
       footerNote: (ticker) =>
-        `Anda menerima email ini karena Anda baru saja berlangganan pembaruan ${ticker}. Kami mengirim edisi hanya saat ada berita ${ticker} yang layak dibaca, jadi ada hari tanpa email.`,
+        `Anda menerima email ini karena Anda baru saja berlangganan pembaruan ${ticker}.`,
     },
   };
 
