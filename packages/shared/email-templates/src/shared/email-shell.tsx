@@ -84,6 +84,9 @@ export const darkModeClassName = {
   ruleStrong: "e-rule-strong",
   panel: "e-panel",
   button: "e-button",
+  inverse: "e-inverse",
+  tile: "e-tile",
+  pill: "e-pill",
 } as const;
 
 /**
@@ -117,6 +120,9 @@ const EMAIL_CARD_STYLE = [
   ".e-rule-strong{border-color:#e4e6ea !important}",
   ".e-panel{background-color:#1e2126 !important;border-color:#2b2f36 !important;border-left-color:#7fb0ff !important}",
   ".e-button{background-color:#f4f5f7 !important;color:#17191d !important}",
+  ".e-inverse{background-color:#f4f5f7 !important;color:#17191d !important}",
+  ".e-tile{background-color:#1e2126 !important;border-color:#2b2f36 !important}",
+  ".e-pill{background-color:#1e2126 !important;border-color:#2b2f36 !important;color:#d2d6dd !important}",
   "}",
 ].join("");
 
@@ -244,6 +250,26 @@ export const EmailParagraph = ({
  */
 export const EmailDivider = (): ReactElement => (
   <Hr className={emailDividerClassName} />
+);
+
+export const EmailSectionHeader = ({
+  label,
+  description,
+}: {
+  label: string;
+  description: string;
+}): ReactElement => (
+  <>
+    <Heading
+      as="h2"
+      className="e-ink m-0 mb-1 text-xl font-bold leading-tight tracking-[-0.01em] text-ink"
+    >
+      {label}
+    </Heading>
+    <Text className="e-faint e-rule-strong m-0 mb-5 border-0 border-b-2 border-solid border-ink pb-2 text-xs leading-normal text-faint">
+      {description}
+    </Text>
+  </>
 );
 
 /**
