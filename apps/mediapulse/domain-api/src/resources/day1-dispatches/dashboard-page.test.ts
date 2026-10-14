@@ -71,6 +71,11 @@ describe("day1DispatchesDashboardPage", () => {
       "failed",
       "skipped",
     ]);
-    expect(optionValues("kind")).toEqual(["bootstrap", "latest_issue", "none"]);
+    expect(optionValues("kind")).toEqual([
+      "bootstrap",
+      "latest_issue",
+      "welcome",
+      "none",
+    ]);
   });
 });

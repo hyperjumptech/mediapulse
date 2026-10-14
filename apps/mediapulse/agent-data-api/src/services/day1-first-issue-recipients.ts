@@ -1,5 +1,7 @@
 import type { PrismaClient } from "@mediapulse/database";
 
+import { countSubscriberTickerDeliveries } from "./subscriber-ticker-deliveries.js";
+
 export type Day1FirstIssueRecipientsDb = Pick<
   PrismaClient,
   "day1NewsletterDispatch" | "newsletterDeliveryCheckpoint"
@@ -7,17 +9,12 @@ export type Day1FirstIssueRecipientsDb = Pick<
 
 export type FindDay1FirstIssueRecipientsInput = {
   tickerId: string;
-  newsletterId: string;
   scheduleExecutionId: string | undefined;
 };
 
 export const findDay1FirstIssueRecipients = async (
   db: Day1FirstIssueRecipientsDb,
-  {
-    tickerId,
-    newsletterId,
-    scheduleExecutionId,
-  }: FindDay1FirstIssueRecipientsInput,
+  { tickerId, scheduleExecutionId }: FindDay1FirstIssueRecipientsInput,
 ): Promise<string[]> => {
   if (scheduleExecutionId === undefined) {
     return [];
@@ -28,12 +25,9 @@ export const findDay1FirstIssueRecipients = async (
   });
   const recipients = await Promise.all(
     dispatches.map(async (dispatch) => {
-      const earlierDeliveryCount = await db.newsletterDeliveryCheckpoint.count({
-        where: {
-          newsletterId: { not: newsletterId },
-          resendEmailId: { not: null },
-          userTicker: { userId: dispatch.userTicker.userId, tickerId },
-        },
+      const earlierDeliveryCount = await countSubscriberTickerDeliveries(db, {
+        userId: dispatch.userTicker.userId,
+        tickerId,
       });
 
       return earlierDeliveryCount === 0 ? dispatch.userTickerId : null;

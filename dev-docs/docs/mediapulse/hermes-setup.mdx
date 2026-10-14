@@ -30,7 +30,7 @@ Publisher display names have no dashboard page, so they can only be changed in t
 
 ## Day 1 pipelines
 
-agent-data-api sends Hermes a `day1.full-chain` or `day1.latest-issue` event after a subscription is confirmed (see [User registration](/mediapulse/apps/user-registration)). Each event needs a pipeline and an event trigger.
+agent-data-api sends Hermes a `day1.full-chain` or `day1.welcome` event after a subscription is confirmed (see [User registration](/mediapulse/apps/user-registration)). Each event needs a pipeline and an event trigger.
 
 **Day 1 Newsletter** runs the whole chain for one ticker.
 
@@ -41,12 +41,7 @@ agent-data-api sends Hermes a `day1.full-chain` or `day1.latest-issue` event aft
 
 The new subscriber's email in this run carries a "First issue" note with the daily delivery time. Set that time on the delivery agent config with `hermes_mutate_update_agent_config`, as `template: { "newsletterVariant": "default", "reviewTimeLabels": { "en": "7:00 AM WIB", "id": "07.00 WIB" } }`.
 
-**Day 1 Latest Issue** sends the latest issue to new subscribers. It needs a pipeline that only delivers.
-
-1. `hermes_get_pipeline` on Newsletter Creation & Delivery and note its delivery step: agent, saved config, contract, input and config.
-2. `hermes_mutate_create_pipeline` named "Delivery", then `hermes_mutate_add_agent_step` with those values, including `agentConfigId` and `agentContractId`.
-3. `hermes_mutate_create_pipeline` named "Day 1 Latest Issue", `hermes_mutate_add_pipeline_step` targeting Delivery, and `hermes_mutate_update_pipeline_step` with the same `tickerId` override.
-4. `hermes_mutate_create_http_trigger` with `startMode: "event"` and `eventName: "day1.latest-issue"`.
+**Day 1 Welcome** sends a welcome email to a new subscriber of a ticker that is already tracked. The `day1.welcome` event carries `tickerId` and `day1DispatchId`. The delivery agent can't send the welcome yet, so leave this event without a trigger for now. Its dispatches are recorded as skipped until then.
 
 Disabling a trigger switches that path off. Until a trigger exists, dispatches are recorded as skipped.
 

@@ -16,6 +16,7 @@ export type Day1DispatchRow = Prisma.Day1NewsletterDispatchGetPayload<{
 export const DAY1_DISPATCH_KIND_LABELS = {
   bootstrap: "Full chain",
   latest_issue: "Latest issue",
+  welcome: "Welcome",
   none: "None",
 } as const satisfies Record<Day1DispatchKind, string>;
 
@@ -30,6 +31,7 @@ const DAY1_SKIP_REASON_LABELS: Record<string, string> = {
   already_dispatched: "Already dispatched for this subscription",
   not_configured: "No Hermes trigger listens for this day-1 event yet",
   missing_translation: "Latest issue has no translation for this language",
+  returning_subscriber: "Subscriber already received issues for this ticker",
   nightly_owns_ticker:
     "Stale issue and other subscribers, nightly run covers it",
   bootstrap_in_flight: "A full-chain run for this ticker is already running",

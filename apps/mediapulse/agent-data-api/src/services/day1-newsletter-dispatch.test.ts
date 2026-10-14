@@ -17,8 +17,8 @@ const hoursAgo = (hours: number) => new Date(NOW.getTime() - hours * HOUR_MS);
 const baseState = (
   overrides: Partial<Day1DispatchState> = {},
 ): Day1DispatchState => ({
-  subscriberLanguage: "en",
-  latestIssue: null,
+  latestIssueCreatedAt: null,
+  subscriberDeliveryCount: 0,
   otherActiveSubscriptionCount: 0,
   recentBootstrapCount: 0,
   inFlightBootstrapExecutionId: null,
@@ -35,52 +35,62 @@ describe("decideDay1Dispatch", () => {
       { kind: "none", reason: "bootstrap_in_flight" },
     ],
     [
-      "fresh issue in the subscriber's language",
-      baseState({ latestIssue: { createdAt: hoursAgo(5), languages: ["en"] } }),
-      { kind: "latest_issue" },
-    ],
-    [
-      "fresh issue translated for an Indonesian subscriber",
+      "a tracked ticker while a bootstrap is still running",
       baseState({
-        subscriberLanguage: "id",
-        latestIssue: { createdAt: hoursAgo(5), languages: ["en", "id"] },
+        latestIssueCreatedAt: hoursAgo(1),
+        otherActiveSubscriptionCount: 1,
+        recentBootstrapCount: 1,
       }),
-      { kind: "latest_issue" },
+      { kind: "none", reason: "bootstrap_in_flight" },
     ],
     [
-      "fresh issue without the subscriber's translation",
-      baseState({
-        subscriberLanguage: "id",
-        latestIssue: { createdAt: hoursAgo(5), languages: ["en"] },
-      }),
-      { kind: "none", reason: "missing_translation" },
+      "no issue yet, even with other subscribers",
+      baseState({ otherActiveSubscriptionCount: 3 }),
+      { kind: "bootstrap" },
     ],
     [
-      "issue exactly at the age limit",
-      baseState({
-        latestIssue: { createdAt: hoursAgo(36), languages: ["en"] },
-      }),
-      { kind: "latest_issue" },
+      "a fresh issue",
+      baseState({ latestIssueCreatedAt: hoursAgo(5) }),
+      { kind: "welcome" },
     ],
     [
-      "stale issue while other subscribers are active",
+      "an issue exactly at the age limit",
+      baseState({ latestIssueCreatedAt: hoursAgo(36) }),
+      { kind: "welcome" },
+    ],
+    [
+      "a stale issue while other subscribers are active",
       baseState({
-        latestIssue: { createdAt: hoursAgo(40), languages: ["en"] },
+        latestIssueCreatedAt: hoursAgo(40),
         otherActiveSubscriptionCount: 2,
       }),
-      { kind: "none", reason: "nightly_owns_ticker" },
+      { kind: "welcome" },
     ],
     [
-      "stale issue on a dormant ticker",
+      "a returning subscriber on a tracked ticker",
       baseState({
-        latestIssue: { createdAt: hoursAgo(400), languages: ["en"] },
+        latestIssueCreatedAt: hoursAgo(5),
+        subscriberDeliveryCount: 12,
+      }),
+      { kind: "none", reason: "returning_subscriber" },
+    ],
+    [
+      "a stale issue on a lapsed ticker",
+      baseState({ latestIssueCreatedAt: hoursAgo(400) }),
+      { kind: "bootstrap" },
+    ],
+    [
+      "a returning subscriber on a lapsed ticker",
+      baseState({
+        latestIssueCreatedAt: hoursAgo(400),
+        subscriberDeliveryCount: 12,
       }),
       { kind: "bootstrap" },
     ],
     [
-      "stale issue on a dormant ticker with a bootstrap running",
+      "a stale issue on a lapsed ticker with a bootstrap running",
       baseState({
-        latestIssue: { createdAt: hoursAgo(400), languages: ["en"] },
+        latestIssueCreatedAt: hoursAgo(400),
         recentBootstrapCount: 1,
       }),
       { kind: "none", reason: "bootstrap_in_flight" },
@@ -88,7 +98,7 @@ describe("decideDay1Dispatch", () => {
     [
       "a subscription that was already dispatched recently",
       baseState({
-        latestIssue: { createdAt: hoursAgo(5), languages: ["en"] },
+        latestIssueCreatedAt: hoursAgo(5),
         recentSubscriptionDispatchCount: 1,
       }),
       { kind: "none", reason: "already_dispatched" },
@@ -136,10 +146,12 @@ type FakeDbOptions = {
   otherActiveSubscriptionCount?: number;
   recentBootstraps?: { hermesExecutionId: string | null }[];
   recentSubscriptionDispatchCount?: number;
+  subscriberDeliveryCount?: number;
 };
 
 const activeSubscription = (overrides: Record<string, unknown> = {}) => ({
   id: "ut-1",
+  userId: "user-1",
   tickerId: "ticker-1",
   language: "en",
   enabled: true,
@@ -154,6 +166,7 @@ const buildDb = ({
   otherActiveSubscriptionCount = 0,
   recentBootstraps = [],
   recentSubscriptionDispatchCount = 0,
+  subscriberDeliveryCount = 0,
 }: FakeDbOptions = {}) => {
   const tx = {
     $executeRaw: vi.fn().mockResolvedValue(1),
@@ -171,6 +184,9 @@ const buildDb = ({
     $transaction: vi.fn(async (run: (client: typeof tx) => unknown) => run(tx)),
     userTicker: { findUnique: vi.fn().mockResolvedValue(subscription) },
     day1NewsletterDispatch: { update: vi.fn().mockResolvedValue({}) },
+    newsletterDeliveryCheckpoint: {
+      count: vi.fn().mockResolvedValue(subscriberDeliveryCount),
+    },
   };
 
   return { db, tx };
@@ -248,9 +264,10 @@ describe("createDay1NewsletterDispatcher", () => {
     });
   });
 
-  it("fires the latest issue trigger when the ticker has a fresh issue", async () => {
-    const { db } = buildDb({
-      latestNewsletter: { createdAt: hoursAgo(3), translations: [] },
+  it("fires the welcome trigger with the dispatch id when the ticker is tracked", async () => {
+    const { db, tx } = buildDb({
+      subscription: activeSubscription({ language: "id" }),
+      latestNewsletter: { createdAt: hoursAgo(3) },
     });
     const sendEvent = vi.fn().mockResolvedValue({ executionIds: ["exec-4"] });
     const dispatch = createDay1NewsletterDispatcher({
@@ -262,16 +279,36 @@ describe("createDay1NewsletterDispatcher", () => {
 
     const outcome = await dispatch({ userTickerId: "ut-1" });
 
-    expect(outcome).toMatchObject({ status: "fired", kind: "latest_issue" });
-    expect(sendEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ event: "day1.latest-issue" }),
-    );
+    expect(outcome).toEqual({
+      status: "fired",
+      dispatchId: "dispatch-1",
+      kind: "welcome",
+      executionId: "exec-4",
+    });
+    expect(tx.newsletter.findFirst).toHaveBeenCalledWith({
+      where: { tickerId: "ticker-1" },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+    expect(tx.day1NewsletterDispatch.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        kind: "welcome",
+        status: "dispatching",
+        language: "id",
+      }),
+      select: { id: true },
+    });
+    expect(sendEvent).toHaveBeenCalledWith({
+      event: "day1.welcome",
+      params: { tickerId: "ticker-1", day1DispatchId: "dispatch-1" },
+      requestId: "day1:ut-1:dispatch-1",
+    });
   });
 
-  it("records a skip without calling Hermes when the translation is missing", async () => {
+  it("skips a returning subscriber of a tracked ticker without calling Hermes", async () => {
     const { db, tx } = buildDb({
-      subscription: activeSubscription({ language: "id" }),
-      latestNewsletter: { createdAt: hoursAgo(3), translations: [] },
+      latestNewsletter: { createdAt: hoursAgo(3) },
+      subscriberDeliveryCount: 4,
     });
     const sendEvent = vi.fn();
     const dispatch = createDay1NewsletterDispatcher({
@@ -286,13 +323,19 @@ describe("createDay1NewsletterDispatcher", () => {
     expect(outcome).toEqual({
       status: "skipped",
       dispatchId: "dispatch-1",
-      reason: "missing_translation",
+      reason: "returning_subscriber",
+    });
+    expect(db.newsletterDeliveryCheckpoint.count).toHaveBeenCalledWith({
+      where: {
+        resendEmailId: { not: null },
+        userTicker: { userId: "user-1", tickerId: "ticker-1" },
+      },
     });
     expect(tx.day1NewsletterDispatch.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         kind: "none",
         status: "skipped",
-        reason: "missing_translation",
+        reason: "returning_subscriber",
       }),
       select: { id: true },
     });
@@ -437,28 +480,33 @@ describe("createDay1NewsletterDispatcher", () => {
     });
   });
 
-  it("counts only other confirmed and enabled subscribers of the ticker", async () => {
+  it("welcomes a signup on a stale ticker that other people still follow", async () => {
     const { db, tx } = buildDb({
-      latestNewsletter: { createdAt: hoursAgo(100), translations: [] },
+      latestNewsletter: { createdAt: hoursAgo(100) },
       otherActiveSubscriptionCount: 1,
     });
+    const sendEvent = vi.fn().mockResolvedValue({ executionIds: [] });
     const dispatch = createDay1NewsletterDispatcher({
       db: db as never,
-      sendEvent: vi.fn(),
+      sendEvent,
       config: CONFIG,
       now: () => NOW,
     });
 
     const outcome = await dispatch({ userTickerId: "ut-1" });
 
-    expect(outcome).toMatchObject({
+    expect(outcome).toEqual({
       status: "skipped",
-      reason: "nightly_owns_ticker",
+      dispatchId: "dispatch-1",
+      reason: "not_configured",
     });
+    expect(sendEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "day1.welcome" }),
+    );
     expect(tx.userTicker.count).toHaveBeenCalledWith({
       where: {
         tickerId: "ticker-1",
-        id: { not: "ut-1" },
+        userId: { not: "user-1" },
         enabled: true,
         registrationConfirmedAt: { not: null },
         user: { enabled: true },

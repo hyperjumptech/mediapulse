@@ -48,7 +48,6 @@ export async function getDeliveryData({
       }),
       findDay1FirstIssueRecipients(mediapulsePrisma, {
         tickerId,
-        newsletterId: newsletter.id,
         scheduleExecutionId,
       }),
     ]);

@@ -35,7 +35,6 @@ const createDb = ({
 
 const RUN = {
   tickerId: "ticker-1",
-  newsletterId: "newsletter-1",
   scheduleExecutionId: "trigger-execution-1",
 };
 
@@ -59,7 +58,6 @@ describe("findDay1FirstIssueRecipients", () => {
     });
     expect(count).toHaveBeenCalledWith({
       where: {
-        newsletterId: { not: "newsletter-1" },
         resendEmailId: { not: null },
         userTicker: { userId: "user-1", tickerId: "ticker-1" },
       },

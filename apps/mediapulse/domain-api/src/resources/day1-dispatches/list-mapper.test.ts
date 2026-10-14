@@ -39,6 +39,17 @@ describe("mapRowToListItem", () => {
 });
 
 describe("mapRowToDetailItem", () => {
+  it("labels a welcome dispatch", () => {
+    const detail = mapRowToDetailItem({
+      ...row,
+      kind: "welcome",
+      status: "fired",
+      reason: null,
+    } as Day1DispatchRow);
+
+    expect(detail.kind).toBe("Welcome");
+  });
+
   it("adds the title, the user id for linking and the Hermes fields", () => {
     const detail = mapRowToDetailItem({
       ...row,
@@ -62,6 +73,18 @@ describe("mapRowToDetailItem", () => {
 });
 
 describe("formatDay1SkipReason", () => {
+  it("labels the returning subscriber skip", () => {
+    expect(formatDay1SkipReason("returning_subscriber")).toBe(
+      "Subscriber already received issues for this ticker",
+    );
+  });
+
+  it("keeps labelling reasons that only older rows carry", () => {
+    expect(formatDay1SkipReason("nightly_owns_ticker")).toBe(
+      "Stale issue and other subscribers, nightly run covers it",
+    );
+  });
+
   it("keeps an unknown reason as it is", () => {
     expect(formatDay1SkipReason("something_new")).toBe("something_new");
     expect(formatDay1SkipReason(null)).toBeNull();
