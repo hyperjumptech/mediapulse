@@ -22,11 +22,14 @@ import {
   type RecipientSendResult,
 } from "./deliver-newsletter.js";
 import { resolveDeliveryRecipients } from "./resolve-delivery-recipients.js";
+import { runDay1WelcomeDelivery } from "./run-day1-welcome-delivery.js";
+import { aggregateRunOutcome, toDeliveryRecipientRow } from "./run-outcome.js";
 
 const BodySchema = z.object({
   tickerId: hermesTickerIdSchema,
   /** When set, send only to these addresses (manual/test); skips delivery checkpoints. */
   emails: z.array(z.string().email()).optional(),
+  day1DispatchId: z.guid().optional(),
 });
 
 type Input = z.infer<typeof BodySchema>;
@@ -53,30 +56,6 @@ function hermesRunFields(c: HermesInvokeCorrelation | undefined): {
     hermesExecutionId: c?.executionId,
     jobId: c?.jobId,
   };
-}
-
-/**
- * Derives aggregate HTTP / diagnostics outcome from per-recipient rows.
- *
- * @param results - Recipient rows after send pass (may be empty).
- */
-function aggregateOutcome(results: RecipientSendResult[]): DeliveryRunOutcome {
-  if (results.length === 0) {
-    return "skipped";
-  }
-  const success = results.filter((r) => r.status === "success").length;
-  const failed = results.filter((r) => r.status === "failed").length;
-  const skipped = results.filter((r) => r.status === "skipped").length;
-  if (failed > 0 && success > 0) {
-    return "partial_success";
-  }
-  if (failed > 0) {
-    return "failed";
-  }
-  if (success === 0 && skipped === results.length) {
-    return "skipped_all_already_delivered";
-  }
-  return "success";
 }
 
 /**
@@ -107,7 +86,7 @@ const app = createAgentApp<
     agentId: "delivery",
     agentVersion: "1.0.0",
     description:
-      "Delivers the latest newsletter to Mediapulse subscribers via Resend (HTML + text, rate limits, retries).",
+      "Delivers the latest newsletter, or a day-1 welcome email, to Mediapulse subscribers via Resend (HTML + text, rate limits, retries).",
     inputSchema: BodySchema,
     configSchema: DeliveryConfigSchema as z.ZodType<DeliveryConfig>,
     run: async ({ input, config, token, hermesCorrelation }) => {
@@ -138,6 +117,30 @@ const app = createAgentApp<
           }).catch(() => {});
         }
       };
+
+      if (input.day1DispatchId !== undefined) {
+        return runDay1WelcomeDelivery(
+          {
+            runId,
+            startedAt,
+            input: { ...input, day1DispatchId: input.day1DispatchId },
+            config: {
+              ...config,
+              unsubscribe: {
+                baseUrl: env.UNSUBSCRIBE_BASE_URL,
+                secret: env.UNSUBSCRIBE_SECRET,
+              },
+            },
+            hermesRunFields: hx,
+          },
+          {
+            dataApiClient,
+            resend: new Resend(config.resendApiKey),
+            logger,
+            report,
+          },
+        );
+      }
 
       report("Fetching newsletter and subscribers", `ticker ${input.tickerId}`);
 
@@ -332,7 +335,7 @@ const app = createAgentApp<
         );
         recipientRows = sendResult.results;
         resendMessageIds = sendResult.resendMessageIds;
-        runOutcome = aggregateOutcome(recipientRows);
+        runOutcome = aggregateRunOutcome(recipientRows);
 
         const firstFail = recipientRows.find((r) => r.status === "failed");
         errorSummary = firstFail?.lastErrorMessage ?? null;
@@ -377,15 +380,7 @@ const app = createAgentApp<
           ...hx,
           resendMessageIds,
           recipientErrorSummary: errorSummary,
-          recipients: recipientRows.map((r) => ({
-            userTickerId: r.userTickerId,
-            status: r.status,
-            attempts: r.attempts,
-            lastErrorCode: r.lastErrorCode ?? null,
-            lastErrorMessage: r.lastErrorMessage ?? null,
-            errorCategory: r.errorCategory ?? null,
-            resendEmailId: r.resendEmailId ?? null,
-          })),
+          recipients: recipientRows.map(toDeliveryRecipientRow),
         });
 
         logger.info(
@@ -448,15 +443,7 @@ const app = createAgentApp<
             resendMessageIds,
             recipientErrorSummary:
               err instanceof Error ? err.message.slice(0, 500) : String(err),
-            recipients: recipientRows.map((r) => ({
-              userTickerId: r.userTickerId,
-              status: r.status,
-              attempts: r.attempts,
-              lastErrorCode: r.lastErrorCode ?? null,
-              lastErrorMessage: r.lastErrorMessage ?? null,
-              errorCategory: r.errorCategory ?? null,
-              resendEmailId: r.resendEmailId ?? null,
-            })),
+            recipients: recipientRows.map(toDeliveryRecipientRow),
           });
         } catch (persistErr) {
           logger.error(

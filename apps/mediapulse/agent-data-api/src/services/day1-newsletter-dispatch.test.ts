@@ -147,6 +147,7 @@ type FakeDbOptions = {
   recentBootstraps?: { hermesExecutionId: string | null }[];
   recentSubscriptionDispatchCount?: number;
   subscriberDeliveryCount?: number;
+  subscriberWelcomeCount?: number;
 };
 
 const activeSubscription = (overrides: Record<string, unknown> = {}) => ({
@@ -167,6 +168,7 @@ const buildDb = ({
   recentBootstraps = [],
   recentSubscriptionDispatchCount = 0,
   subscriberDeliveryCount = 0,
+  subscriberWelcomeCount = 0,
 }: FakeDbOptions = {}) => {
   const tx = {
     $executeRaw: vi.fn().mockResolvedValue(1),
@@ -183,7 +185,10 @@ const buildDb = ({
   const db = {
     $transaction: vi.fn(async (run: (client: typeof tx) => unknown) => run(tx)),
     userTicker: { findUnique: vi.fn().mockResolvedValue(subscription) },
-    day1NewsletterDispatch: { update: vi.fn().mockResolvedValue({}) },
+    day1NewsletterDispatch: {
+      update: vi.fn().mockResolvedValue({}),
+      count: vi.fn().mockResolvedValue(subscriberWelcomeCount),
+    },
     newsletterDeliveryCheckpoint: {
       count: vi.fn().mockResolvedValue(subscriberDeliveryCount),
     },
@@ -478,6 +483,34 @@ describe("createDay1NewsletterDispatcher", () => {
       where: { id: "dispatch-1" },
       data: { status: "skipped", reason: "not_configured" },
     });
+  });
+
+  it("does not welcome a subscriber twice for the same ticker", async () => {
+    const { db } = buildDb({
+      latestNewsletter: { createdAt: hoursAgo(3) },
+      subscriberWelcomeCount: 1,
+    });
+    const sendEvent = vi.fn();
+    const dispatch = createDay1NewsletterDispatcher({
+      db: db as never,
+      sendEvent,
+      config: CONFIG,
+      now: () => NOW,
+    });
+
+    const outcome = await dispatch({ userTickerId: "ut-1" });
+
+    expect(outcome).toMatchObject({
+      status: "skipped",
+      reason: "returning_subscriber",
+    });
+    expect(db.day1NewsletterDispatch.count).toHaveBeenCalledWith({
+      where: {
+        welcomeClaimedAt: { not: null },
+        userTicker: { userId: "user-1", tickerId: "ticker-1" },
+      },
+    });
+    expect(sendEvent).not.toHaveBeenCalled();
   });
 
   it("welcomes a signup on a stale ticker that other people still follow", async () => {

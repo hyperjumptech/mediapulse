@@ -87,7 +87,8 @@ export function extractInReplyToMessageId(
  * carries this shape is one of our newsletters; anything else is registration
  * mail or unrelated human correspondence sharing the mailbox.
  */
-const SELF_DESCRIBING_MESSAGE_ID = /<nl\.[0-9a-f-]{36}\.[0-9a-f-]{36}@/i;
+const SELF_DESCRIBING_MESSAGE_ID =
+  /<(?:nl|d1w)\.[0-9a-f-]{36}\.[0-9a-f-]{36}@/i;
 
 /**
  * Returns true when the referenced Message-ID identifies one of our delivered

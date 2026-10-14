@@ -6,21 +6,20 @@ import {
   renderNewsletterEmail,
 } from "@workspace/email-templates";
 import type { LoggerLike } from "@workspace/agent-runtime";
-import { createUnsubscribeToken, formatResendSender } from "@workspace/utils";
+import { formatResendSender } from "@workspace/utils";
 import { Resend } from "resend";
 
-import {
-  classifyResendApiError,
-  classifyResendError,
-  extractResendResponseParts,
-} from "./classify-resend-error.js";
+import { describeSendFailure } from "./classify-resend-error.js";
 import type { DeliveryConfig } from "./config-schema.js";
+import { buildNewsletterMessageId } from "./message-id.js";
 import { buildNewsletterRenderInput } from "./newsletter-render-input.js";
 import { createSendRateLimiter, type SendRateLimiter } from "./rate-limiter.js";
+import { buildSendPayload } from "./send-payload.js";
+import { sendWithResendRetry } from "./send-with-resend-retry.js";
 import {
-  sendWithResendRetry,
-  type SendEmailPayload,
-} from "./send-with-resend-retry.js";
+  buildUnsubscribeLinks,
+  type UnsubscribeSettings,
+} from "./unsubscribe-links.js";
 
 export type DeliverySubscriber = {
   userTickerId: string;
@@ -55,18 +54,6 @@ export type RecipientSendResult = {
   resendEmailId?: string;
 };
 
-/** Unsubscribe link settings sourced from env at the call site. */
-export type UnsubscribeSettings = {
-  /**
-   * Origin of the user-registration app (e.g. "https://register.mediapulse.com").
-   * The confirmation page (`/unsubscribe`) and one-click endpoint (`/api/unsubscribe`)
-   * are appended at runtime.
-   */
-  baseUrl: string;
-  /** Shared HMAC secret for signing unsubscribe tokens. */
-  secret: string;
-};
-
 /** DeliveryConfig augmented with the env-sourced unsubscribe settings a run needs. */
 export type DeliveryRunConfig = DeliveryConfig & {
   unsubscribe: UnsubscribeSettings;
@@ -96,57 +83,6 @@ export type DeliverNewsletterDependencies = {
  */
 export function recipientLogRef(userTickerId: string): string {
   return createHash("sha256").update(userTickerId).digest("hex").slice(0, 12);
-}
-
-/**
- * Extracts the domain from a sender string (`"Name <user@domain>"` or `"user@domain"`),
- * falling back to a fixed label when no domain is present.
- *
- * @param fromAddress - Resend `from` value.
- */
-function senderDomain(fromAddress: string): string {
-  const match = /@([^>\s]+)/.exec(fromAddress);
-
-  return match?.[1] ?? "mediapulse";
-}
-
-/**
- * Builds a self-describing RFC `Message-ID` for a delivered newsletter so that a
- * reply's `In-Reply-To` header carries the newsletter and subscriber ids back to
- * the feedback agent. UUIDs contain no dots, so the ids parse unambiguously.
- *
- * @param newsletterId - Newsletter row id.
- * @param userTickerId - Subscriber join id.
- * @param fromAddress - Sender used for the domain part.
- */
-export function buildNewsletterMessageId(
-  newsletterId: string,
-  userTickerId: string,
-  fromAddress: string,
-): string {
-  return `<nl.${newsletterId}.${userTickerId}@${senderDomain(fromAddress)}>`;
-}
-
-/**
- * Maps Resend / transport failure to a stable analytics category for delivery runs.
- *
- * @param api - Parsed Resend API error when present.
- * @param kind - Retry bucket from string fallback classification.
- */
-function recipientErrorCategory(
-  api: { name: string } | undefined,
-  kind: ReturnType<typeof classifyResendError>,
-): string {
-  if (kind === "rate_limited") {
-    return "resend_rate_limited";
-  }
-  if (api !== undefined) {
-    return `resend_${api.name}`;
-  }
-  if (kind === "transient") {
-    return "resend_transient";
-  }
-  return "resend_error";
 }
 
 /**
@@ -287,17 +223,12 @@ export async function deliverNewsletterToSubscribers(
       );
     }
 
-    // Generate per-subscriber unsubscribe token, confirmation page link, and one-click endpoint.
-    const unsubscribeToken = createUnsubscribeToken({
+    const { unsubscribeUrl, oneClickUnsubscribeUrl } = buildUnsubscribeLinks({
       userTickerId: sub.userTickerId,
       tickerSymbol: newsletter.symbol,
-      secret: config.unsubscribe.secret,
+      language: sub.language,
+      settings: config.unsubscribe,
     });
-    const unsubscribeBaseUrl = config.unsubscribe.baseUrl.replace(/\/$/, "");
-    // Human-facing footer link points at the confirmation page.
-    const unsubscribeUrl = `${unsubscribeBaseUrl}/unsubscribe?token=${unsubscribeToken}&lang=${sub.language}`;
-    // RFC 8058 one-click POST endpoint for the List-Unsubscribe header (mail clients only).
-    const oneClickUnsubscribeUrl = `${unsubscribeBaseUrl}/api/unsubscribe?token=${unsubscribeToken}`;
 
     const renderStart = Date.now();
     const emailTitle = parseNewsletterEmailSubject(localizedSubject).title;
@@ -345,31 +276,20 @@ export async function deliverNewsletterToSubscribers(
       "delivery newsletter render timing",
     );
 
-    const payload: SendEmailPayload = {
+    const payload = buildSendPayload({
+      config,
       from,
       to: sub.email,
       subject: localizedSubject,
-      ...(config.send.includeHtml ? { html } : {}),
-      ...(config.send.includeText ? { text } : {}),
-      ...(config.resend.replyTo !== undefined
-        ? { replyTo: config.resend.replyTo }
-        : {}),
-      ...(config.resend.tags !== undefined && config.resend.tags.length > 0
-        ? { tags: config.resend.tags }
-        : {}),
-      headers: {
-        "List-Unsubscribe": `<${oneClickUnsubscribeUrl}>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-        // Self-describing Message-ID so a reply's In-Reply-To header lets the
-        // newsletter-feedback agent correlate the reply to this newsletter and
-        // subscriber without any extra storage or lookup.
-        "Message-ID": buildNewsletterMessageId(
-          newsletter.id,
-          sub.userTickerId,
-          from,
-        ),
-      },
-    };
+      html,
+      text,
+      oneClickUnsubscribeUrl,
+      messageId: buildNewsletterMessageId(
+        newsletter.id,
+        sub.userTickerId,
+        from,
+      ),
+    });
 
     try {
       const { id, attempts } = await sendImpl(
@@ -387,26 +307,13 @@ export async function deliverNewsletterToSubscribers(
         resendEmailId: id,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      const attempts =
-        typeof err === "object" &&
-        err !== null &&
-        "attempts" in err &&
-        typeof (err as { attempts: unknown }).attempts === "number"
-          ? (err as { attempts: number }).attempts
-          : config.retry.maxAttempts;
-      const { api } = extractResendResponseParts(err);
-      const kind =
-        api !== undefined
-          ? classifyResendApiError(api)
-          : classifyResendError(err);
-      const category = recipientErrorCategory(api, kind);
+      const failure = describeSendFailure(err, config.retry.maxAttempts);
       logger?.error?.(
         {
           recipientRef: ref,
           err,
-          errorCategory: category,
-          resendErrorName: api?.name,
+          errorCategory: failure.errorCategory,
+          resendErrorName: failure.resendErrorName,
         },
         "delivery send failed",
       );
@@ -414,10 +321,10 @@ export async function deliverNewsletterToSubscribers(
       results.push({
         userTickerId: sub.userTickerId,
         status: "failed",
-        attempts,
-        lastErrorCode: api?.name ?? "resend_error",
-        lastErrorMessage: message.slice(0, 500),
-        errorCategory: category,
+        attempts: failure.attempts,
+        lastErrorCode: failure.lastErrorCode,
+        lastErrorMessage: failure.lastErrorMessage,
+        errorCategory: failure.errorCategory,
       });
     }
   }

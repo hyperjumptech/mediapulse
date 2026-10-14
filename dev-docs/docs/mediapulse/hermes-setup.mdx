@@ -41,7 +41,14 @@ agent-data-api sends Hermes a `day1.full-chain` or `day1.welcome` event after a 
 
 The new subscriber's email in this run carries a "First issue" note with the daily delivery time. Set that time on the delivery agent config with `hermes_mutate_update_agent_config`, as `template: { "newsletterVariant": "default", "reviewTimeLabels": { "en": "7:00 AM WIB", "id": "07.00 WIB" } }`.
 
-**Day 1 Welcome** sends a welcome email to a new subscriber of a ticker that is already tracked. The `day1.welcome` event carries `tickerId` and `day1DispatchId`. The delivery agent can't send the welcome yet, so leave this event without a trigger for now. Its dispatches are recorded as skipped until then.
+**Day 1 Welcome** sends a welcome email to a new subscriber of a ticker that is already tracked. The `day1.welcome` event carries `tickerId` and `day1DispatchId`, and the delivery agent sends the welcome when it receives `day1DispatchId`.
+
+1. `hermes_get_agent_schemas` for `delivery` and check that `day1DispatchId` is in the input schema.
+2. `hermes_mutate_create_pipeline` named "Day 1 Welcome" with `timeout: 300000`.
+3. `hermes_mutate_add_agent_step` with the delivery agent, the same saved config and contract as the nightly delivery step, and `input: { "tickerId": "{{params.tickerId}}", "day1DispatchId": "{{params.day1DispatchId}}" }`.
+4. `hermes_get_pipeline` should be valid with `runParamKeys` `day1DispatchId` and `tickerId`.
+5. Try it before wiring the event: run the pipeline by hand with the ids of a `welcome` dispatch from the Day 1 Dispatches page. The dispatch then shows "Welcome sent", and a second run skips because the welcome was already sent.
+6. `hermes_mutate_create_http_trigger` with `startMode: "event"`, `eventName: "day1.welcome"` and `method: "POST"`.
 
 Disabling a trigger switches that path off. Until a trigger exists, dispatches are recorded as skipped.
 

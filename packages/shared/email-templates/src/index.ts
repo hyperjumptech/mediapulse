@@ -4,6 +4,7 @@ export {
 } from "./day1/day1-first-issue.js";
 export {
   Day1WelcomeEmail,
+  formatDay1WelcomeEmailSubject,
   MAX_WELCOME_PEERS,
   MAX_WELCOME_STORIES,
   MAX_WELCOME_STORY_POINTS,

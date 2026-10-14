@@ -278,6 +278,24 @@ export {
   type PostDeliveryClaimReleaseResponse,
 } from "./delivery-claim.js";
 export {
+  day1WelcomeClaimBodySchema,
+  day1WelcomeRecipientSchema,
+  day1WelcomeSchema,
+  day1WelcomeStorySchema,
+  getDay1WelcomeQuerySchema,
+  getDay1WelcomeResponseSchema,
+  postDay1WelcomeBodySchema,
+  postDay1WelcomeClaimReleaseResponseSchema,
+  postDay1WelcomeClaimResponseSchema,
+  postDay1WelcomeResponseSchema,
+  type Day1Welcome,
+  type Day1WelcomeClaimBody,
+  type Day1WelcomeStory,
+  type GetDay1WelcomeQuery,
+  type GetDay1WelcomeResponse,
+  type PostDay1WelcomeBody,
+} from "./day1-welcome.js";
+export {
   deliveryRecipientOutcomeInputSchema,
   deliveryRunListItemSchema,
   deliveryRunOutcomeSchema,

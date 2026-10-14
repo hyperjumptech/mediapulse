@@ -6,7 +6,6 @@ import { renderNewsletterEmail } from "@workspace/email-templates";
 
 import { DeliveryConfigSchema, type DeliveryConfig } from "./config-schema.js";
 import {
-  buildNewsletterMessageId,
   deliverNewsletterToSubscribers,
   type DeliveryNewsletter,
   type DeliveryRunConfig,
@@ -20,28 +19,6 @@ const withUnsubscribe = (config: DeliveryConfig): DeliveryRunConfig => ({
     secret: "test-secret",
   },
   day1FirstIssueUserTickerIds: [],
-});
-
-describe("buildNewsletterMessageId", () => {
-  it("embeds the newsletter and userTicker ids using the sender domain", () => {
-    // Act
-    const messageId = buildNewsletterMessageId(
-      "news-1",
-      "ut-1",
-      '"MediaPulse" <news@mp.example.com>',
-    );
-
-    // Assert
-    expect(messageId).toBe("<nl.news-1.ut-1@mp.example.com>");
-  });
-
-  it("falls back to a fixed domain when the sender has none", () => {
-    // Act
-    const messageId = buildNewsletterMessageId("news-1", "ut-1", "no-domain");
-
-    // Assert
-    expect(messageId).toBe("<nl.news-1.ut-1@mediapulse>");
-  });
 });
 
 /**

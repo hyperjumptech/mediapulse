@@ -8,31 +8,27 @@ import type {
 
 import { isPrismaUniqueViolation } from "./is-prisma-unique-violation.js";
 
-/**
- * Matches a self-describing newsletter Message-ID of the form
- * `<nl.{newsletterId}.{userTickerId}@domain>` set by the delivery agent.
- * UUIDs contain no dots, so the two ids parse unambiguously.
- */
-const SELF_DESCRIBING_MESSAGE_ID = /<nl\.([0-9a-f-]{36})\.([0-9a-f-]{36})@/i;
+const SELF_DESCRIBING_MESSAGE_ID =
+  /<(nl|d1w)\.([0-9a-f-]{36})\.([0-9a-f-]{36})@/i;
 
-/**
- * Extracts `{ newsletterId, userTickerId }` from an `In-Reply-To`/`References`
- * header value, when it carries a self-describing newsletter Message-ID.
- *
- * @param inReplyToMessageId - Raw header value (may include angle brackets).
- */
 export function parseNewsletterMessageId(
   inReplyToMessageId: string | null | undefined,
-): { newsletterId: string; userTickerId: string } | null {
+): { newsletterId: string | null; userTickerId: string } | null {
   if (!inReplyToMessageId) {
     return null;
   }
   const match = SELF_DESCRIBING_MESSAGE_ID.exec(inReplyToMessageId);
-  if (!match || match[1] === undefined || match[2] === undefined) {
+  const [, prefix, referencedId, userTickerId] = match ?? [];
+  if (
+    prefix === undefined ||
+    referencedId === undefined ||
+    userTickerId === undefined
+  ) {
     return null;
   }
+  const isNewsletter = prefix.toLowerCase() === "nl";
 
-  return { newsletterId: match[1], userTickerId: match[2] };
+  return { newsletterId: isNewsletter ? referencedId : null, userTickerId };
 }
 
 /**
@@ -57,10 +53,13 @@ async function correlateFeedback(
       correlation.userId = userTicker.userId;
     }
 
-    const newsletter = await mediapulsePrisma.newsletter.findUnique({
-      where: { id: parsed.newsletterId },
-      select: { id: true },
-    });
+    const newsletter =
+      parsed.newsletterId === null
+        ? null
+        : await mediapulsePrisma.newsletter.findUnique({
+            where: { id: parsed.newsletterId },
+            select: { id: true },
+          });
     if (newsletter) {
       correlation.newsletterId = newsletter.id;
     }

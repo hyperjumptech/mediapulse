@@ -115,6 +115,15 @@ import {
   postDeliveryClaimReleaseResponseSchema,
 } from "./delivery-claim.js";
 import {
+  day1WelcomeClaimBodySchema,
+  getDay1WelcomeQuerySchema,
+  getDay1WelcomeResponseSchema,
+  postDay1WelcomeBodySchema,
+  postDay1WelcomeClaimReleaseResponseSchema,
+  postDay1WelcomeClaimResponseSchema,
+  postDay1WelcomeResponseSchema,
+} from "./day1-welcome.js";
+import {
   dataCollectionRunQuerySchema,
   getDataCollectionRunResponseSchema,
   postDataCollectionRunBodySchema,
@@ -821,6 +830,59 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: deliveryClaimBodySchema,
         response: postDeliveryClaimReleaseResponseSchema,
+      },
+    },
+  },
+
+  day1Welcome: {
+    v1: {
+      get: {
+        query: getDay1WelcomeQuerySchema,
+        response: getDay1WelcomeResponseSchema,
+      },
+      post: {
+        body: postDay1WelcomeBodySchema,
+        response: postDay1WelcomeResponseSchema,
+      },
+    },
+    v2: {
+      get: {
+        query: getDay1WelcomeQuerySchema,
+        response: getDay1WelcomeResponseSchema,
+      },
+      post: {
+        body: postDay1WelcomeBodySchema,
+        response: postDay1WelcomeResponseSchema,
+      },
+    },
+  },
+
+  day1WelcomeClaim: {
+    v1: {
+      post: {
+        body: day1WelcomeClaimBodySchema,
+        response: postDay1WelcomeClaimResponseSchema,
+      },
+    },
+    v2: {
+      post: {
+        body: day1WelcomeClaimBodySchema,
+        response: postDay1WelcomeClaimResponseSchema,
+      },
+    },
+  },
+
+  day1WelcomeClaimRelease: {
+    v1: {
+      post: {
+        body: day1WelcomeClaimBodySchema,
+        response: postDay1WelcomeClaimReleaseResponseSchema,
+      },
+    },
+    v2: {
+      post: {
+        body: day1WelcomeClaimBodySchema,
+        response: postDay1WelcomeClaimReleaseResponseSchema,
       },
     },
   },

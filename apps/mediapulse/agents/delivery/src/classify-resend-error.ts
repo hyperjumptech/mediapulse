@@ -157,3 +157,57 @@ export function retryAfterMsFromError(err: unknown): number | undefined {
   }
   return undefined;
 }
+
+export const recipientErrorCategory = (
+  api: { name: string } | undefined,
+  kind: ResendErrorKind,
+): string => {
+  if (kind === "rate_limited") {
+    return "resend_rate_limited";
+  }
+  if (api !== undefined) {
+    return `resend_${api.name}`;
+  }
+  if (kind === "transient") {
+    return "resend_transient";
+  }
+
+  return "resend_error";
+};
+
+export type SendFailure = {
+  attempts: number;
+  lastErrorCode: string;
+  lastErrorMessage: string;
+  errorCategory: string;
+  resendErrorName: string | undefined;
+};
+
+const readAttempts = (error: unknown): number | undefined => {
+  if (typeof error !== "object" || error === null || !("attempts" in error)) {
+    return undefined;
+  }
+  const { attempts } = error as { attempts: unknown };
+
+  return typeof attempts === "number" ? attempts : undefined;
+};
+
+export const describeSendFailure = (
+  error: unknown,
+  fallbackAttempts: number,
+): SendFailure => {
+  const message = error instanceof Error ? error.message : String(error);
+  const { api } = extractResendResponseParts(error);
+  const kind =
+    api !== undefined
+      ? classifyResendApiError(api)
+      : classifyResendError(error);
+
+  return {
+    attempts: readAttempts(error) ?? fallbackAttempts,
+    lastErrorCode: api?.name ?? "resend_error",
+    lastErrorMessage: message.slice(0, 500),
+    errorCategory: recipientErrorCategory(api, kind),
+    resendErrorName: api?.name,
+  };
+};
