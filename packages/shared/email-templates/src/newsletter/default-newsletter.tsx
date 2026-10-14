@@ -1,5 +1,5 @@
-import { Heading, Hr, Link, Section, Text } from "@react-email/components";
-import { Fragment, type ReactElement } from "react";
+import { Hr, Section, Text } from "@react-email/components";
+import { Fragment, type ReactElement, type ReactNode } from "react";
 
 import { parseNewsletterBody } from "./parse-newsletter-body.js";
 import {
@@ -9,11 +9,14 @@ import {
   type NewsletterSectionKey,
 } from "./newsletter-document.js";
 import { renderInlineMarkdownLinks } from "./render-inline-markdown-links.js";
+import { EmailArticle } from "../shared/email-article.js";
 import {
   EmailHeading,
+  EmailSectionHeader,
   EmailShell,
   emailLink as link,
   emailLinkClassName,
+  type EmailFooterContent,
   type EmailLanguage,
 } from "../shared/email-shell.js";
 export interface DefaultNewsletterEmailProps {
@@ -44,6 +47,7 @@ export interface DefaultNewsletterEmailProps {
    * Defaults to "en".
    */
   language?: FooterLanguage;
+  lead?: ReactNode;
 }
 
 /** Reader-facing name and remit of one newsletter section. */
@@ -148,13 +152,10 @@ export const SECTION_COPY: Record<
  *   marker the parser strips before rendering. A leaked marker is still detectable because it
  *   always carries its `: <url>` tail, which this label never does.
  */
-const ARTICLE_LINK_LABEL: Record<FooterLanguage, string> = {
+export const ARTICLE_LINK_LABEL: Record<FooterLanguage, string> = {
   en: "Read the full article…",
   id: "Baca artikel selengkapnya…",
 };
-
-const ARTICLE_SOURCE_LINK_CLASS_NAME =
-  "e-faint text-faint underline decoration-dotted decoration-[0.5px] underline-offset-2";
 
 const MEDIAPULSE_BRAND_NAME = "MediaPulse";
 
@@ -213,17 +214,7 @@ export const renderSectionHeader = (
   const copy = SECTION_COPY[language][sectionKey];
 
   return (
-    <>
-      <Heading
-        as="h2"
-        className="e-ink m-0 mb-1 text-xl font-bold leading-tight tracking-[-0.01em] text-ink"
-      >
-        {copy.label}
-      </Heading>
-      <Text className="e-faint e-rule-strong m-0 mb-5 border-0 border-b-2 border-solid border-ink pb-2 text-xs leading-normal text-faint">
-        {copy.description}
-      </Text>
-    </>
+    <EmailSectionHeader label={copy.label} description={copy.description} />
   );
 };
 
@@ -323,6 +314,40 @@ export const buildDefaultFooterNote = (
   return FOOTER_COPY[language].subscriptionNote(trimmed);
 };
 
+export const buildNewsletterFooter = ({
+  tickerSymbol,
+  language,
+  footerNote,
+  unsubscribeUrl,
+}: {
+  tickerSymbol?: string;
+  language: FooterLanguage;
+  footerNote?: string;
+  unsubscribeUrl?: string;
+}): EmailFooterContent => {
+  const copy = FOOTER_COPY[language];
+  const resolvedFooterNote =
+    footerNote ?? buildDefaultFooterNote(tickerSymbol, language);
+  const trimmedTicker = tickerSymbol?.trim() ?? "";
+  const unsubscribeTarget =
+    trimmedTicker.length > 0
+      ? `${MEDIAPULSE_BRAND_NAME}: ${trimmedTicker}`
+      : copy.unsubscribeFallback;
+
+  return {
+    feedback: copy.feedback,
+    note: resolvedFooterNote,
+    ...(unsubscribeUrl !== undefined && unsubscribeUrl !== ""
+      ? {
+          unsubscribe: {
+            url: unsubscribeUrl,
+            label: copy.unsubscribeLabel(unsubscribeTarget),
+          },
+        }
+      : {}),
+  };
+};
+
 /**
  * Default HTML newsletter layout for Mediapulse delivery.
  *
@@ -347,55 +372,32 @@ export const DefaultNewsletterEmail = ({
   unsubscribeUrl,
   tickerSymbol,
   language = "en",
+  lead,
 }: DefaultNewsletterEmailProps): ReactElement => {
   const document = parseNewsletterBody(bodyText);
-  const copy = FOOTER_COPY[language];
-  const resolvedFooterNote =
-    footerNote ?? buildDefaultFooterNote(tickerSymbol, language);
-  const trimmedTicker = tickerSymbol?.trim() ?? "";
-  const unsubscribeTarget =
-    trimmedTicker.length > 0
-      ? `${MEDIAPULSE_BRAND_NAME}: ${trimmedTicker}`
-      : copy.unsubscribeFallback;
+  const footer = buildNewsletterFooter({
+    tickerSymbol,
+    language,
+    footerNote,
+    unsubscribeUrl,
+  });
 
   const renderArticle = (
     article: NewsletterArticle,
     sectionKey: NewsletterSectionKey,
     articleIndex: number,
     isLast: boolean,
-  ): ReactElement => {
-    const source = article.source?.trim() ?? "";
-
-    return (
-      <Section key={`${sectionKey}-a-${String(articleIndex)}`}>
-        <Text className="e-ink m-0 mb-1 text-[17px] font-semibold leading-snug text-ink">
-          {article.title}
-        </Text>
-        <Text className="e-faint m-0 mb-3 text-xs font-normal leading-normal tracking-[0.01em] text-faint">
-          <Link
-            href={article.url}
-            className={ARTICLE_SOURCE_LINK_CLASS_NAME}
-            title={ARTICLE_LINK_LABEL[language]}
-            aria-label={ARTICLE_LINK_LABEL[language]}
-          >
-            {source.length > 0 ? source : ARTICLE_LINK_LABEL[language]}
-          </Link>
-        </Text>
-        <ul className="e-body m-0 mb-0 list-disc pl-5 text-[15px] leading-[1.65] text-body">
-          {article.points.map((point, pointIndex) => (
-            <li key={`p-${String(pointIndex)}`} className="mb-2 pl-1">
-              {renderInlineMarkdownLinks(point, link, {
-                linkClassName: emailLinkClassName,
-              })}
-            </li>
-          ))}
-        </ul>
-        {isLast ? null : (
-          <Hr className="e-rule my-6 border-0 border-t border-rule" />
-        )}
-      </Section>
-    );
-  };
+  ): ReactElement => (
+    <EmailArticle
+      key={`${sectionKey}-a-${String(articleIndex)}`}
+      title={article.title}
+      url={article.url}
+      source={article.source}
+      linkLabel={ARTICLE_LINK_LABEL[language]}
+      points={article.points}
+      isLast={isLast}
+    />
+  );
 
   const renderIndustrySection = (
     section: NewsletterSection,
@@ -420,21 +422,8 @@ export const DefaultNewsletterEmail = ({
   );
 
   return (
-    <EmailShell
-      preview={title}
-      footer={{
-        feedback: copy.feedback,
-        note: resolvedFooterNote,
-        ...(unsubscribeUrl !== undefined && unsubscribeUrl !== ""
-          ? {
-              unsubscribe: {
-                url: unsubscribeUrl,
-                label: copy.unsubscribeLabel(unsubscribeTarget),
-              },
-            }
-          : {}),
-      }}
-    >
+    <EmailShell preview={title} footer={footer}>
+      {lead}
       {isIndustryFormat ? null : (
         <>
           <Section>
