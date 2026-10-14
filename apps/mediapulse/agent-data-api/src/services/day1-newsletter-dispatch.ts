@@ -33,6 +33,7 @@ export type Day1DispatchState = {
   latestIssue: { createdAt: Date; languages: Day1Language[] } | null;
   otherActiveSubscriptionCount: number;
   recentBootstrapCount: number;
+  inFlightBootstrapExecutionId: string | null;
   recentSubscriptionDispatchCount: number;
 };
 
@@ -204,14 +205,19 @@ const loadDispatchState = async (
   const dedupeSince = new Date(
     now.getTime() - bootstrapDedupeMinutes * MINUTE_MS,
   );
-  const recentBootstrapCount = await tx.day1NewsletterDispatch.count({
+  const recentBootstraps = await tx.day1NewsletterDispatch.findMany({
     where: {
       tickerId: subscription.tickerId,
       kind: "bootstrap",
       status: { in: ["dispatching", "fired"] },
       createdAt: { gte: dedupeSince },
     },
+    orderBy: { createdAt: "desc" },
+    select: { hermesExecutionId: true },
   });
+  const inFlightBootstrap = recentBootstraps.find(
+    (bootstrap) => bootstrap.hermesExecutionId !== null,
+  );
   const recentSubscriptionDispatchCount = await tx.day1NewsletterDispatch.count(
     {
       where: {
@@ -238,7 +244,8 @@ const loadDispatchState = async (
     subscriberLanguage: subscription.language,
     latestIssue,
     otherActiveSubscriptionCount,
-    recentBootstrapCount,
+    recentBootstrapCount: recentBootstraps.length,
+    inFlightBootstrapExecutionId: inFlightBootstrap?.hermesExecutionId ?? null,
     recentSubscriptionDispatchCount,
   };
 };
@@ -269,6 +276,8 @@ export const createDay1NewsletterDispatcher = ({
         decidedAt,
       );
       const isSkip = decided.kind === "none";
+      const joinsInFlightBootstrap =
+        decided.kind === "none" && decided.reason === "bootstrap_in_flight";
       const dispatch = await tx.day1NewsletterDispatch.create({
         data: {
           userTickerId: subscription.id,
@@ -277,6 +286,9 @@ export const createDay1NewsletterDispatcher = ({
           kind: decided.kind,
           status: isSkip ? "skipped" : "dispatching",
           reason: decided.kind === "none" ? decided.reason : null,
+          hermesExecutionId: joinsInFlightBootstrap
+            ? state.inFlightBootstrapExecutionId
+            : null,
         },
         select: { id: true },
       });

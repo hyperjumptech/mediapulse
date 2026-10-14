@@ -32,6 +32,38 @@ describe("DeliveryConfigSchema", () => {
     expect(r.success).toBe(false);
   });
 
+  it("keeps accepting a template that names only the newsletter variant", () => {
+    const r = DeliveryConfigSchema.safeParse({
+      ...minimalResendConfig,
+      template: { newsletterVariant: "default" },
+    });
+    expect(r.success).toBe(true);
+    expect(r.data?.template).toEqual({ newsletterVariant: "default" });
+  });
+
+  it("accepts a review time label per language", () => {
+    const r = DeliveryConfigSchema.safeParse({
+      ...minimalResendConfig,
+      template: {
+        newsletterVariant: "default",
+        reviewTimeLabels: { en: "7:00 AM WIB", id: " 07.00 WIB " },
+      },
+    });
+    expect(r.success).toBe(true);
+    expect(r.data?.template.reviewTimeLabels).toEqual({
+      en: "7:00 AM WIB",
+      id: "07.00 WIB",
+    });
+  });
+
+  it("rejects a blank review time label", () => {
+    const r = DeliveryConfigSchema.safeParse({
+      ...minimalResendConfig,
+      template: { reviewTimeLabels: { en: "  " } },
+    });
+    expect(r.success).toBe(false);
+  });
+
   it("rejects when resend.from is missing", () => {
     const r = DeliveryConfigSchema.safeParse({
       resendApiKey: "re_x",

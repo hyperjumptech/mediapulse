@@ -1,10 +1,18 @@
 import { prisma as mediapulsePrisma } from "@mediapulse/database";
 
+import { findDay1FirstIssueRecipients } from "./day1-first-issue-recipients.js";
+
 /**
  * Loads the latest newsletter for a ticker and enabled `user_ticker` subscribers with emails.
  * When there is no newsletter, returns an empty payload (HTTP 200) so agents can skip gracefully.
  */
-export async function getDeliveryData(tickerId: string) {
+export async function getDeliveryData({
+  tickerId,
+  scheduleExecutionId,
+}: {
+  tickerId: string;
+  scheduleExecutionId?: string;
+}) {
   const newsletter = await mediapulsePrisma.newsletter.findFirst({
     where: { tickerId },
     orderBy: { createdAt: "desc" },
@@ -20,26 +28,30 @@ export async function getDeliveryData(tickerId: string) {
         language: "en" | "id";
       }[],
       deliveredUserTickerIds: [] as string[],
+      day1FirstIssueUserTickerIds: [] as string[],
     };
   }
 
-  const [checkpoints, subscriptions] = await Promise.all([
-    mediapulsePrisma.newsletterDeliveryCheckpoint.findMany({
-      where: { newsletterId: newsletter.id },
-      select: { userTickerId: true },
-    }),
-    // Enabled subscribers in every language. Each (user, ticker, language) row has its own
-    // delivery checkpoint, so a subscriber registered in both languages receives one email per
-    // language without duplicate sends. The delivery agent picks the rendered text per language.
-    mediapulsePrisma.userTicker.findMany({
-      where: {
+  const [checkpoints, subscriptions, day1FirstIssueUserTickerIds] =
+    await Promise.all([
+      mediapulsePrisma.newsletterDeliveryCheckpoint.findMany({
+        where: { newsletterId: newsletter.id },
+        select: { userTickerId: true },
+      }),
+      mediapulsePrisma.userTicker.findMany({
+        where: {
+          tickerId,
+          enabled: true,
+          user: { enabled: true },
+        },
+        include: { user: true },
+      }),
+      findDay1FirstIssueRecipients(mediapulsePrisma, {
         tickerId,
-        enabled: true,
-        user: { enabled: true },
-      },
-      include: { user: true },
-    }),
-  ]);
+        newsletterId: newsletter.id,
+        scheduleExecutionId,
+      }),
+    ]);
 
   const subscribers = subscriptions
     .map((subscription) => {
@@ -73,6 +85,7 @@ export async function getDeliveryData(tickerId: string) {
     },
     subscribers,
     deliveredUserTickerIds: checkpoints.map((c) => c.userTickerId),
+    day1FirstIssueUserTickerIds,
   };
 }
 

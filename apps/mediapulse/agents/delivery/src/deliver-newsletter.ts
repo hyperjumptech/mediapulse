@@ -15,6 +15,7 @@ import {
   extractResendResponseParts,
 } from "./classify-resend-error.js";
 import type { DeliveryConfig } from "./config-schema.js";
+import { buildNewsletterRenderInput } from "./newsletter-render-input.js";
 import { createSendRateLimiter, type SendRateLimiter } from "./rate-limiter.js";
 import {
   sendWithResendRetry,
@@ -69,6 +70,7 @@ export type UnsubscribeSettings = {
 /** DeliveryConfig augmented with the env-sourced unsubscribe settings a run needs. */
 export type DeliveryRunConfig = DeliveryConfig & {
   unsubscribe: UnsubscribeSettings;
+  day1FirstIssueUserTickerIds: string[];
 };
 
 export type DeliverNewsletterDependencies = {
@@ -76,6 +78,7 @@ export type DeliverNewsletterDependencies = {
   rateLimiter?: SendRateLimiter;
   logger?: LoggerLike;
   sendWithRetry?: typeof sendWithResendRetry;
+  renderEmail?: typeof renderNewsletterEmail;
   /**
    * Atomically claims a recipient before sending. Returns false when another concurrent
    * delivery run already owns this recipient, in which case the send is skipped. When
@@ -168,6 +171,7 @@ export async function deliverNewsletterToSubscribers(
 }> {
   const logger = dependencies.logger;
   const sendImpl = dependencies.sendWithRetry ?? sendWithResendRetry;
+  const renderEmail = dependencies.renderEmail ?? renderNewsletterEmail;
   const claimRecipient = dependencies.claimRecipient;
   const releaseRecipient = dependencies.releaseRecipient;
   const rateLimiter =
@@ -182,6 +186,22 @@ export async function deliverNewsletterToSubscribers(
 
   const results: RecipientSendResult[] = [];
   const resendMessageIds: string[] = [];
+  const releaseClaimQuietly = async (
+    userTickerId: string,
+    recipientRef: string,
+  ): Promise<void> => {
+    if (!releaseRecipient) {
+      return;
+    }
+    try {
+      await releaseRecipient(userTickerId);
+    } catch (releaseError) {
+      logger?.error?.(
+        { recipientRef, err: releaseError },
+        "delivery claim release failed",
+      );
+    }
+  };
 
   for (const sub of subscribers) {
     if (deliveredSet.has(sub.userTickerId)) {
@@ -281,19 +301,46 @@ export async function deliverNewsletterToSubscribers(
 
     const renderStart = Date.now();
     const emailTitle = parseNewsletterEmailSubject(localizedSubject).title;
-    const { html, text } = await renderNewsletterEmail({
+    const renderInput = buildNewsletterRenderInput({
+      userTickerId: sub.userTickerId,
+      language: sub.language,
       title: emailTitle,
       bodyText: localizedContent,
-      variant: config.template.newsletterVariant,
       unsubscribeUrl,
       tickerSymbol: newsletter.symbol,
-      language: sub.language,
+      template: config.template,
+      day1FirstIssueUserTickerIds: config.day1FirstIssueUserTickerIds,
     });
+    let rendered: { html: string; text: string };
+    try {
+      rendered = await renderEmail(renderInput);
+    } catch (renderError) {
+      const message =
+        renderError instanceof Error
+          ? renderError.message
+          : String(renderError);
+      logger?.error?.(
+        { recipientRef: ref, err: renderError, variant: renderInput.variant },
+        "delivery render failed",
+      );
+      await releaseClaimQuietly(sub.userTickerId, ref);
+      results.push({
+        userTickerId: sub.userTickerId,
+        status: "failed",
+        attempts: 0,
+        lastErrorCode: "render_error",
+        lastErrorMessage: message.slice(0, 500),
+        errorCategory: "render_error",
+      });
+      continue;
+    }
+    const { html, text } = rendered;
     logger?.info?.(
       {
         ms: Date.now() - renderStart,
         newsletterId: newsletter.id,
         recipientRef: ref,
+        variant: renderInput.variant,
       },
       "delivery newsletter render timing",
     );
@@ -363,18 +410,7 @@ export async function deliverNewsletterToSubscribers(
         },
         "delivery send failed",
       );
-      // Release the claim so a later run can retry this recipient. Failing to release must
-      // not turn a send failure into an unhandled error, so swallow and log release errors.
-      if (releaseRecipient) {
-        try {
-          await releaseRecipient(sub.userTickerId);
-        } catch (releaseErr) {
-          logger?.error?.(
-            { recipientRef: ref, err: releaseErr },
-            "delivery claim release failed",
-          );
-        }
-      }
+      await releaseClaimQuietly(sub.userTickerId, ref);
       results.push({
         userTickerId: sub.userTickerId,
         status: "failed",

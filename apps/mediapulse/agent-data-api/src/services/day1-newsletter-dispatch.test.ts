@@ -21,6 +21,7 @@ const baseState = (
   latestIssue: null,
   otherActiveSubscriptionCount: 0,
   recentBootstrapCount: 0,
+  inFlightBootstrapExecutionId: null,
   recentSubscriptionDispatchCount: 0,
   ...overrides,
 });
@@ -133,7 +134,8 @@ type FakeDbOptions = {
   subscription?: unknown;
   latestNewsletter?: unknown;
   otherActiveSubscriptionCount?: number;
-  recentBootstrapCount?: number;
+  recentBootstraps?: { hermesExecutionId: string | null }[];
+  recentSubscriptionDispatchCount?: number;
 };
 
 const activeSubscription = (overrides: Record<string, unknown> = {}) => ({
@@ -150,7 +152,8 @@ const buildDb = ({
   subscription = activeSubscription(),
   latestNewsletter = null,
   otherActiveSubscriptionCount = 0,
-  recentBootstrapCount = 0,
+  recentBootstraps = [],
+  recentSubscriptionDispatchCount = 0,
 }: FakeDbOptions = {}) => {
   const tx = {
     $executeRaw: vi.fn().mockResolvedValue(1),
@@ -159,7 +162,8 @@ const buildDb = ({
       count: vi.fn().mockResolvedValue(otherActiveSubscriptionCount),
     },
     day1NewsletterDispatch: {
-      count: vi.fn().mockResolvedValue(recentBootstrapCount),
+      findMany: vi.fn().mockResolvedValue(recentBootstraps),
+      count: vi.fn().mockResolvedValue(recentSubscriptionDispatchCount),
       create: vi.fn().mockResolvedValue({ id: "dispatch-1" }),
     },
   };
@@ -211,13 +215,15 @@ describe("createDay1NewsletterDispatcher", () => {
       executionId: "exec-9",
     });
     expect(tx.$executeRaw.mock.calls[0]?.[1]).toBe("ticker-1");
-    expect(tx.day1NewsletterDispatch.count).toHaveBeenCalledWith({
+    expect(tx.day1NewsletterDispatch.findMany).toHaveBeenCalledWith({
       where: {
         tickerId: "ticker-1",
         kind: "bootstrap",
         status: { in: ["dispatching", "fired"] },
         createdAt: { gte: new Date(NOW.getTime() - 120 * 60_000) },
       },
+      orderBy: { createdAt: "desc" },
+      select: { hermesExecutionId: true },
     });
     expect(tx.day1NewsletterDispatch.create).toHaveBeenCalledWith({
       data: {
@@ -227,6 +233,7 @@ describe("createDay1NewsletterDispatcher", () => {
         kind: "bootstrap",
         status: "dispatching",
         reason: null,
+        hermesExecutionId: null,
       },
       select: { id: true },
     });
@@ -325,10 +332,7 @@ describe("createDay1NewsletterDispatcher", () => {
   });
 
   it("skips a subscription that already has a recent dispatch", async () => {
-    const { db, tx } = buildDb();
-    tx.day1NewsletterDispatch.count
-      .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(1);
+    const { db, tx } = buildDb({ recentSubscriptionDispatchCount: 1 });
     const sendEvent = vi.fn();
     const dispatch = createDay1NewsletterDispatcher({
       db: db as never,
@@ -351,6 +355,63 @@ describe("createDay1NewsletterDispatcher", () => {
       },
     });
     expect(sendEvent).not.toHaveBeenCalled();
+  });
+
+  it("links a signup that waits on a running bootstrap to that run's execution", async () => {
+    const { db, tx } = buildDb({
+      recentBootstraps: [
+        { hermesExecutionId: null },
+        { hermesExecutionId: "exec-7" },
+        { hermesExecutionId: "exec-3" },
+      ],
+    });
+    const sendEvent = vi.fn();
+    const dispatch = createDay1NewsletterDispatcher({
+      db: db as never,
+      sendEvent,
+      config: CONFIG,
+      now: () => NOW,
+    });
+
+    const outcome = await dispatch({ userTickerId: "ut-1" });
+
+    expect(outcome).toEqual({
+      status: "skipped",
+      dispatchId: "dispatch-1",
+      reason: "bootstrap_in_flight",
+    });
+    expect(tx.day1NewsletterDispatch.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        kind: "none",
+        status: "skipped",
+        reason: "bootstrap_in_flight",
+        hermesExecutionId: "exec-7",
+      }),
+      select: { id: true },
+    });
+    expect(sendEvent).not.toHaveBeenCalled();
+  });
+
+  it("leaves a waiting signup unlinked while the running bootstrap has no execution yet", async () => {
+    const { db, tx } = buildDb({
+      recentBootstraps: [{ hermesExecutionId: null }],
+    });
+    const dispatch = createDay1NewsletterDispatcher({
+      db: db as never,
+      sendEvent: vi.fn(),
+      config: CONFIG,
+      now: () => NOW,
+    });
+
+    await dispatch({ userTickerId: "ut-1" });
+
+    expect(tx.day1NewsletterDispatch.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        reason: "bootstrap_in_flight",
+        hermesExecutionId: null,
+      }),
+      select: { id: true },
+    });
   });
 
   it("records not configured when no Hermes trigger listens for the event", async () => {

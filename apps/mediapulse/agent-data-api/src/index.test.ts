@@ -1085,6 +1085,7 @@ describe("agent-data-api", () => {
         newsletter: null,
         subscribers: [],
         deliveredUserTickerIds: [],
+        day1FirstIssueUserTickerIds: [],
       });
 
       const { app } = await import("./index.js");
@@ -1113,16 +1114,22 @@ describe("agent-data-api", () => {
           { userTickerId: UT_ID, email: "u@example.com", language: "en" },
         ],
         deliveredUserTickerIds: [],
+        day1FirstIssueUserTickerIds: [UT_ID],
       });
 
       const { app } = await import("./index.js");
       const res = await app.request(
-        `http://localhost${deliveryPath}?tickerId=${TICKER_ID}`,
+        `http://localhost${deliveryPath}?tickerId=${TICKER_ID}&scheduleExecutionId=trigger-execution-1`,
         { headers: AUTH_HEADERS },
       );
       const body = await res.json();
 
       expect(res.status).toBe(200);
+      expect(mod.getDeliveryData).toHaveBeenCalledWith({
+        tickerId: TICKER_ID,
+        scheduleExecutionId: "trigger-execution-1",
+      });
+      expect(body.day1FirstIssueUserTickerIds).toEqual([UT_ID]);
       expect(body.newsletter.subject).toBe("News");
       expect(body.subscribers).toHaveLength(1);
       expect(body.subscribers[0].email).toBe("u@example.com");

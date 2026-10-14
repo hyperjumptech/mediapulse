@@ -50,9 +50,9 @@ The decision is made per ticker, under a Postgres advisory lock so two confirmat
 | --- | --- |
 | Latest issue at most `MEDIAPULSE_DAY1_LATEST_ISSUE_MAX_AGE_HOURS` old (36 by default), in the subscriber's language | **Day 1 Latest Issue**: delivery only. Checkpoints keep existing subscribers from getting it twice. |
 | Latest issue fresh, but not translated into the subscriber's language | Nothing. The next nightly run covers it. |
-| No issue yet, or a stale issue and no other active subscribers | **Day 1 Newsletter**: query-analysis, data-collection, article-analysis, content-generation and delivery for that ticker. |
+| No issue yet, or a stale issue and no other active subscribers | **Day 1 Newsletter**: query-analysis, data-collection, article-analysis, content-generation and delivery for that ticker. The new subscriber's copy carries a "First issue" note, unless they received an issue before. |
 | Stale issue while other subscribers are active | Nothing. A mid-day issue would reach the existing subscribers too, so the nightly run keeps the ticker. |
-| A Day 1 Newsletter run already started for the ticker within `MEDIAPULSE_DAY1_BOOTSTRAP_DEDUPE_MINUTES` (120) | Nothing. That run's delivery step picks the new subscriber up. |
+| A Day 1 Newsletter run already started for the ticker within `MEDIAPULSE_DAY1_BOOTSTRAP_DEDUPE_MINUTES` (120) | Nothing. The skipped dispatch records that run's execution id, so its delivery step picks the new subscriber up with the "First issue" note. |
 | The same subscription already dispatched within that window (a repeated or concurrent confirmation) | Nothing. |
 
 Every decision is stored in `day1_newsletter_dispatch` with its kind, status (`dispatching`, `fired`, `failed`, `skipped`), skip reason, Hermes execution id or error, and is shown on the Hermes **Day 1 Dispatches** page. The event call is fire-and-forget with a `MEDIAPULSE_DAY1_TRIGGER_TIMEOUT_MS` timeout and is never retried, and a failure never affects registration.

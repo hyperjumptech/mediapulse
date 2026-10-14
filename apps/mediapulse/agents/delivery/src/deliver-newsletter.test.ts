@@ -19,6 +19,7 @@ const withUnsubscribe = (config: DeliveryConfig): DeliveryRunConfig => ({
     baseUrl: "https://example.com",
     secret: "test-secret",
   },
+  day1FirstIssueUserTickerIds: [],
 });
 
 describe("buildNewsletterMessageId", () => {
@@ -167,6 +168,123 @@ describe("deliverNewsletterToSubscribers", () => {
       }),
     ]);
     expect(resendMessageIds).toEqual(["re_1"]);
+  });
+
+  it("renders the first-issue note only for the day-1 subscriber", async () => {
+    const day1UserTickerId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const renderEmail = vi
+      .fn()
+      .mockResolvedValue({ html: "<p>h</p>", text: "plain" });
+    const sendWithRetry = vi
+      .fn()
+      .mockResolvedValue({ id: "re_1", attempts: 1 });
+    const config: DeliveryRunConfig = {
+      ...withUnsubscribe(
+        DeliveryConfigSchema.parse({
+          resendApiKey: "re_k",
+          resend: { from: "from@example.com" },
+          template: { reviewTimeLabels: { en: "7:00 AM WIB" } },
+        }),
+      ),
+      day1FirstIssueUserTickerIds: [day1UserTickerId],
+    };
+
+    await deliverNewsletterToSubscribers(
+      newsletter,
+      [
+        { userTickerId, email: "existing@example.com", language: "en" },
+        {
+          userTickerId: day1UserTickerId,
+          email: "new@example.com",
+          language: "en",
+        },
+      ],
+      [],
+      config,
+      {
+        resend: {} as Resend,
+        rateLimiter: mockRateLimiter(),
+        sendWithRetry,
+        renderEmail,
+      },
+    );
+
+    expect(renderEmail).toHaveBeenCalledTimes(2);
+    expect(renderEmail.mock.calls[0]?.[0]).toMatchObject({
+      variant: "default",
+      tickerSymbol: "AAPL",
+    });
+    expect(renderEmail.mock.calls[0]?.[0]).not.toHaveProperty(
+      "reviewTimeLabel",
+    );
+    expect(renderEmail.mock.calls[1]?.[0]).toMatchObject({
+      variant: "day1-first-issue",
+      title: "Subject",
+      bodyText: newsletter.content,
+      tickerSymbol: "AAPL",
+      language: "en",
+      reviewTimeLabel: "7:00 AM WIB",
+    });
+    expect(renderNewsletterEmail).not.toHaveBeenCalled();
+    expect(sendWithRetry.mock.calls[1]?.[1]).toMatchObject({
+      to: "new@example.com",
+      subject: newsletter.subject,
+      headers: {
+        "Message-ID": `<nl.${newsletter.id}.${day1UserTickerId}@example.com>`,
+      },
+    });
+  });
+
+  it("releases the claim and keeps going when one recipient fails to render", async () => {
+    const renderEmail = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("template exploded"))
+      .mockResolvedValueOnce({ html: "<p>h</p>", text: "plain" });
+    const sendWithRetry = vi
+      .fn()
+      .mockResolvedValue({ id: "re_2", attempts: 1 });
+    const claimRecipient = vi.fn().mockResolvedValue(true);
+    const releaseRecipient = vi.fn().mockResolvedValue(undefined);
+    const otherUserTickerId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+
+    const { results } = await deliverNewsletterToSubscribers(
+      newsletter,
+      [
+        { userTickerId, email: "broken@example.com", language: "en" },
+        {
+          userTickerId: otherUserTickerId,
+          email: "fine@example.com",
+          language: "en",
+        },
+      ],
+      [],
+      baseConfig,
+      {
+        resend: {} as Resend,
+        rateLimiter: mockRateLimiter(),
+        sendWithRetry,
+        renderEmail,
+        claimRecipient,
+        releaseRecipient,
+      },
+    );
+
+    expect(releaseRecipient).toHaveBeenCalledExactlyOnceWith(userTickerId);
+    expect(sendWithRetry).toHaveBeenCalledOnce();
+    expect(results).toEqual([
+      {
+        userTickerId,
+        status: "failed",
+        attempts: 0,
+        lastErrorCode: "render_error",
+        lastErrorMessage: "template exploded",
+        errorCategory: "render_error",
+      },
+      expect.objectContaining({
+        userTickerId: otherUserTickerId,
+        status: "success",
+      }),
+    ]);
   });
 
   it("renders the translated subject and content for an id subscriber", async () => {
