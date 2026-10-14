@@ -1,36 +1,35 @@
 import type { Prisma, PrismaClient } from "@mediapulse/database";
 
 import type { SendHermesDomainEvent } from "./hermes-domain-event-client.js";
+import { countSubscriberTickerDeliveries } from "./subscriber-ticker-deliveries.js";
 
 export const DEFAULT_DAY1_TRIGGER_TIMEOUT_MS = 5_000;
 export const DEFAULT_DAY1_LATEST_ISSUE_MAX_AGE_HOURS = 36;
 export const DEFAULT_DAY1_BOOTSTRAP_DEDUPE_MINUTES = 120;
 
 export const DAY1_FULL_CHAIN_EVENT = "day1.full-chain";
-export const DAY1_LATEST_ISSUE_EVENT = "day1.latest-issue";
+export const DAY1_WELCOME_EVENT = "day1.welcome";
 
 const HOUR_MS = 3_600_000;
 const MINUTE_MS = 60_000;
 const MAX_STORED_ERROR_LENGTH = 500;
-const NEWSLETTER_BASE_LANGUAGE = "en";
 
 export type Day1Language = "en" | "id";
 
 export type Day1SkipReason =
   | "already_dispatched"
   | "not_configured"
-  | "missing_translation"
-  | "nightly_owns_ticker"
+  | "returning_subscriber"
   | "bootstrap_in_flight";
 
 export type Day1DispatchDecision =
   | { kind: "bootstrap" }
-  | { kind: "latest_issue" }
+  | { kind: "welcome" }
   | { kind: "none"; reason: Day1SkipReason };
 
 export type Day1DispatchState = {
-  subscriberLanguage: Day1Language;
-  latestIssue: { createdAt: Date; languages: Day1Language[] } | null;
+  latestIssueCreatedAt: Date | null;
+  subscriberDeliveryCount: number;
   otherActiveSubscriptionCount: number;
   recentBootstrapCount: number;
   inFlightBootstrapExecutionId: string | null;
@@ -59,13 +58,13 @@ export type Day1DispatchOutcome =
   | {
       status: "fired";
       dispatchId: string;
-      kind: "bootstrap" | "latest_issue";
+      kind: "bootstrap" | "welcome";
       executionId: string;
     }
   | {
       status: "failed";
       dispatchId: string;
-      kind: "bootstrap" | "latest_issue";
+      kind: "bootstrap" | "welcome";
       error: string;
     };
 
@@ -75,7 +74,10 @@ export type Day1Dispatcher = (
 
 export type Day1DispatcherDb = Pick<
   PrismaClient,
-  "$transaction" | "userTicker" | "day1NewsletterDispatch"
+  | "$transaction"
+  | "userTicker"
+  | "day1NewsletterDispatch"
+  | "newsletterDeliveryCheckpoint"
 >;
 
 export type CreateDay1DispatcherDeps = {
@@ -87,6 +89,7 @@ export type CreateDay1DispatcherDeps = {
 
 type ActiveSubscription = {
   id: string;
+  userId: string;
   tickerId: string;
   language: Day1Language;
 };
@@ -104,31 +107,23 @@ export const decideDay1Dispatch = (
   if (state.recentSubscriptionDispatchCount > 0) {
     return skip("already_dispatched");
   }
-  const bootstrapInFlight = state.recentBootstrapCount > 0;
-  const { latestIssue } = state;
-  if (latestIssue === null) {
-    return bootstrapInFlight
-      ? skip("bootstrap_in_flight")
-      : { kind: "bootstrap" };
+  if (state.recentBootstrapCount > 0) {
+    return skip("bootstrap_in_flight");
   }
-  const issueAgeMs = now.getTime() - latestIssue.createdAt.getTime();
+  const { latestIssueCreatedAt } = state;
+  if (latestIssueCreatedAt === null) {
+    return { kind: "bootstrap" };
+  }
+  const issueAgeMs = now.getTime() - latestIssueCreatedAt.getTime();
   const isFresh = issueAgeMs <= latestIssueMaxAgeHours * HOUR_MS;
-  if (isFresh) {
-    const hasSubscriberLanguage = latestIssue.languages.includes(
-      state.subscriberLanguage,
-    );
-
-    return hasSubscriberLanguage
-      ? { kind: "latest_issue" }
-      : skip("missing_translation");
-  }
-  if (state.otherActiveSubscriptionCount > 0) {
-    return skip("nightly_owns_ticker");
+  const isTracked = isFresh || state.otherActiveSubscriptionCount > 0;
+  if (isTracked) {
+    return state.subscriberDeliveryCount > 0
+      ? skip("returning_subscriber")
+      : { kind: "welcome" };
   }
 
-  return bootstrapInFlight
-    ? skip("bootstrap_in_flight")
-    : { kind: "bootstrap" };
+  return { kind: "bootstrap" };
 };
 
 const positiveOr = (value: number | undefined, fallback: number): number =>
@@ -159,6 +154,7 @@ const findActiveSubscription = async (
     where: { id: userTickerId },
     select: {
       id: true,
+      userId: true,
       tickerId: true,
       language: true,
       enabled: true,
@@ -177,6 +173,7 @@ const findActiveSubscription = async (
 
   return {
     id: subscription.id,
+    userId: subscription.userId,
     tickerId: subscription.tickerId,
     language: subscription.language,
   };
@@ -185,18 +182,19 @@ const findActiveSubscription = async (
 const loadDispatchState = async (
   tx: Prisma.TransactionClient,
   subscription: ActiveSubscription,
+  subscriberDeliveryCount: number,
   bootstrapDedupeMinutes: number,
   now: Date,
 ): Promise<Day1DispatchState> => {
   const latestNewsletter = await tx.newsletter.findFirst({
     where: { tickerId: subscription.tickerId },
     orderBy: { createdAt: "desc" },
-    select: { createdAt: true, translations: { select: { language: true } } },
+    select: { createdAt: true },
   });
   const otherActiveSubscriptionCount = await tx.userTicker.count({
     where: {
       tickerId: subscription.tickerId,
-      id: { not: subscription.id },
+      userId: { not: subscription.userId },
       enabled: true,
       registrationConfirmedAt: { not: null },
       user: { enabled: true },
@@ -227,22 +225,9 @@ const loadDispatchState = async (
       },
     },
   );
-  const latestIssue =
-    latestNewsletter === null
-      ? null
-      : {
-          createdAt: latestNewsletter.createdAt,
-          languages: [
-            NEWSLETTER_BASE_LANGUAGE,
-            ...latestNewsletter.translations.map(
-              (translation) => translation.language,
-            ),
-          ] as Day1Language[],
-        };
-
   return {
-    subscriberLanguage: subscription.language,
-    latestIssue,
+    latestIssueCreatedAt: latestNewsletter?.createdAt ?? null,
+    subscriberDeliveryCount,
     otherActiveSubscriptionCount,
     recentBootstrapCount: recentBootstraps.length,
     inFlightBootstrapExecutionId: inFlightBootstrap?.hermesExecutionId ?? null,
@@ -261,12 +246,17 @@ export const createDay1NewsletterDispatcher = ({
     if (!subscription) {
       return { status: "not_active" };
     }
+    const subscriberDeliveryCount = await countSubscriberTickerDeliveries(db, {
+      userId: subscription.userId,
+      tickerId: subscription.tickerId,
+    });
     const decidedAt = now();
     const { dispatchId, decision } = await db.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${subscription.tickerId}))`;
       const state = await loadDispatchState(
         tx,
         subscription,
+        subscriberDeliveryCount,
         config.bootstrapDedupeMinutes,
         decidedAt,
       );
@@ -298,14 +288,15 @@ export const createDay1NewsletterDispatcher = ({
     if (decision.kind === "none") {
       return { status: "skipped", dispatchId, reason: decision.reason };
     }
-    const event =
-      decision.kind === "bootstrap"
-        ? DAY1_FULL_CHAIN_EVENT
-        : DAY1_LATEST_ISSUE_EVENT;
+    const isBootstrap = decision.kind === "bootstrap";
+    const event = isBootstrap ? DAY1_FULL_CHAIN_EVENT : DAY1_WELCOME_EVENT;
+    const params: Record<string, string> = isBootstrap
+      ? { tickerId: subscription.tickerId }
+      : { tickerId: subscription.tickerId, day1DispatchId: dispatchId };
     try {
       const { executionIds } = await sendEvent({
         event,
-        params: { tickerId: subscription.tickerId },
+        params,
         requestId: `day1:${subscription.id}:${dispatchId}`,
       });
       const [executionId] = executionIds;

@@ -23,6 +23,7 @@ export const DAY1_DISPATCHES_ORDER = 57;
 export const day1DispatchKindBadgeTones = {
   "Full chain": "neutral",
   "Latest issue": "neutral",
+  Welcome: "neutral",
   None: "muted",
 } as const satisfies ManifestColumnBadgeTones;
 
