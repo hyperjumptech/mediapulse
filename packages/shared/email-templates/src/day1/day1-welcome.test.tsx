@@ -9,6 +9,7 @@ import {
   MAX_WELCOME_PEERS,
   MAX_WELCOME_STORIES,
   MAX_WELCOME_STORY_POINTS,
+  formatDay1WelcomeEmailSubject,
   formatStoryDate,
   type Day1WelcomeStory,
 } from "./day1-welcome.js";
@@ -383,5 +384,35 @@ describe("Day1WelcomeIndonesianPreview", () => {
 
     expect(html).toContain("Acme Telekomunikasi</h1>");
     expect(html).toContain("Infrastruktur");
+  });
+});
+
+describe("formatDay1WelcomeEmailSubject", () => {
+  it.each([
+    ["en", "ACME Pulse: Getting to know Acme Telekomunikasi"],
+    ["id", "ACME Pulse: Mengenal Acme Telekomunikasi"],
+  ] as const)("writes the %s subject", (language, expected) => {
+    const subject = formatDay1WelcomeEmailSubject({
+      tickerSymbol: "acme",
+      companyName: " Acme Telekomunikasi ",
+      language,
+    });
+
+    expect(subject).toBe(expected);
+  });
+
+  it("never speaks as we, kami, or uses an em dash", () => {
+    const subjects = (["en", "id"] as const).map((language) =>
+      formatDay1WelcomeEmailSubject({
+        tickerSymbol: "ACME",
+        companyName: "Acme",
+        language,
+      }),
+    );
+
+    for (const subject of subjects) {
+      expect(subject).not.toMatch(/\b(we|kami)\b/i);
+      expect(subject).not.toContain("\u2014");
+    }
   });
 });

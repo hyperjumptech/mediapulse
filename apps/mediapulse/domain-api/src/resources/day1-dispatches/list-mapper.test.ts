@@ -17,6 +17,9 @@ const row = {
   reason: "missing_translation",
   hermesExecutionId: null,
   error: null,
+  welcomeClaimedAt: null,
+  welcomeSentAt: null,
+  welcomeResendEmailId: null,
   createdAt: new Date("2026-09-29T08:00:00.000Z"),
   updatedAt: new Date("2026-09-29T08:00:01.000Z"),
   ticker: { symbol: "BBCA" },
@@ -39,15 +42,17 @@ describe("mapRowToListItem", () => {
 });
 
 describe("mapRowToDetailItem", () => {
-  it("labels a welcome dispatch", () => {
+  it("labels a welcome dispatch and shows when the welcome went out", () => {
     const detail = mapRowToDetailItem({
       ...row,
       kind: "welcome",
       status: "fired",
       reason: null,
+      welcomeSentAt: new Date("2026-09-29T08:00:05.000Z"),
     } as Day1DispatchRow);
 
     expect(detail.kind).toBe("Welcome");
+    expect(detail.welcomeSentAt).toBe("2026-09-29T08:00:05.000Z");
   });
 
   it("adds the title, the user id for linking and the Hermes fields", () => {

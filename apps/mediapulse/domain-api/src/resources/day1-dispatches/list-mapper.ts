@@ -73,6 +73,7 @@ export type DetailItem = ListItem & {
   tickerId: string;
   hermesExecutionId: string | null;
   error: string | null;
+  welcomeSentAt: string | null;
   updatedAt: string;
 };
 
@@ -86,6 +87,7 @@ export const mapRowToDetailItem = (row: Day1DispatchRow): DetailItem => {
     tickerId: row.tickerId,
     hermesExecutionId: row.hermesExecutionId,
     error: row.error,
+    welcomeSentAt: row.welcomeSentAt?.toISOString() ?? null,
     updatedAt: row.updatedAt.toISOString(),
   };
 };

@@ -10,6 +10,7 @@ const {
   deliveryGetMock,
   deliveryCreateMock,
   deliveryRunCreateMock,
+  day1WelcomeGetMock,
 } = vi.hoisted(() => ({
   hoistedLogger: {
     info: vi.fn(),
@@ -20,6 +21,7 @@ const {
   deliveryGetMock: vi.fn(),
   deliveryCreateMock: vi.fn().mockResolvedValue({ message: "ok" }),
   deliveryRunCreateMock: vi.fn().mockResolvedValue({ message: "ok" }),
+  day1WelcomeGetMock: vi.fn(),
 }));
 
 vi.stubGlobal("fetch", mockFetch);
@@ -82,6 +84,12 @@ vi.mock("@workspace/agent-data-api-client", () => ({
     deliveryRun: {
       create: deliveryRunCreateMock,
     },
+    day1Welcome: {
+      get: day1WelcomeGetMock,
+      create: vi.fn(),
+    },
+    day1WelcomeClaim: { create: vi.fn() },
+    day1WelcomeClaimRelease: { create: vi.fn() },
   })),
 }));
 
@@ -106,6 +114,7 @@ describe("delivery-agent", () => {
 
   beforeEach(() => {
     deliveryGetMock.mockReset();
+    day1WelcomeGetMock.mockReset();
     deliveryCreateMock.mockReset();
     deliveryCreateMock.mockResolvedValue({ message: "ok" });
     deliveryRunCreateMock.mockReset();
@@ -406,6 +415,35 @@ describe("delivery-agent", () => {
       [],
       expect.objectContaining({ day1FirstIssueUserTickerIds: [] }),
       expect.anything(),
+    );
+  });
+
+  it("sends the day-1 welcome instead of the newsletter when a dispatch id is given", async () => {
+    day1WelcomeGetMock.mockResolvedValue({ welcome: null });
+
+    const res = await fetchAgent({
+      method: "POST",
+      headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: {
+          tickerId: TICKER_ID,
+          day1DispatchId: "55555555-5555-4555-8555-555555555555",
+        },
+        config: DELIVERY_CONFIG,
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(day1WelcomeGetMock).toHaveBeenCalledWith({
+      dispatchId: "55555555-5555-4555-8555-555555555555",
+    });
+    expect(deliveryGetMock).not.toHaveBeenCalled();
+    expect(mockDeliverNewsletter).not.toHaveBeenCalled();
+    expect(deliveryRunCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        newsletterId: null,
+        runSkipReason: "skipped_welcome_not_found",
+      }),
     );
   });
 

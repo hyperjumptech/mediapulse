@@ -78,6 +78,14 @@ describe("isNewsletterReply", () => {
     ).toBe(true);
   });
 
+  it("recognizes a reply to a day-1 welcome email", () => {
+    expect(
+      isNewsletterReply(
+        "<d1w.11111111-1111-4111-a111-111111111111.22222222-2222-4222-a222-222222222222@mp>",
+      ),
+    ).toBe(true);
+  });
+
   it("rejects unrelated message ids", () => {
     expect(isNewsletterReply("<random@mail>")).toBe(false);
     expect(isNewsletterReply(null)).toBe(false);

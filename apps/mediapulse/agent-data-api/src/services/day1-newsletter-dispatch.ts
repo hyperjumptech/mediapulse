@@ -1,7 +1,10 @@
 import type { Prisma, PrismaClient } from "@mediapulse/database";
 
 import type { SendHermesDomainEvent } from "./hermes-domain-event-client.js";
-import { countSubscriberTickerDeliveries } from "./subscriber-ticker-deliveries.js";
+import {
+  countSubscriberTickerDeliveries,
+  countSubscriberTickerWelcomes,
+} from "./subscriber-ticker-deliveries.js";
 
 export const DEFAULT_DAY1_TRIGGER_TIMEOUT_MS = 5_000;
 export const DEFAULT_DAY1_LATEST_ISSUE_MAX_AGE_HOURS = 36;
@@ -246,10 +249,15 @@ export const createDay1NewsletterDispatcher = ({
     if (!subscription) {
       return { status: "not_active" };
     }
-    const subscriberDeliveryCount = await countSubscriberTickerDeliveries(db, {
+    const subscriberTicker = {
       userId: subscription.userId,
       tickerId: subscription.tickerId,
-    });
+    };
+    const [issueDeliveryCount, welcomeDeliveryCount] = await Promise.all([
+      countSubscriberTickerDeliveries(db, subscriberTicker),
+      countSubscriberTickerWelcomes(db, subscriberTicker),
+    ]);
+    const subscriberDeliveryCount = issueDeliveryCount + welcomeDeliveryCount;
     const decidedAt = now();
     const { dispatchId, decision } = await db.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${subscription.tickerId}))`;

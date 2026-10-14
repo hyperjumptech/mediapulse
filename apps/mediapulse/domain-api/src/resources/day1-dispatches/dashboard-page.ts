@@ -58,6 +58,7 @@ const day1DispatchDetailBlock = {
       linkTemplate: "/dashboard/executions/{hermesExecutionId}",
       copyAction: true,
     },
+    { field: "welcomeSentAt", label: "Welcome sent", format: "date-time" },
     { field: "createdAt", label: "Decided", format: "date-time" },
     { field: "updatedAt", label: "Updated", format: "date-time" },
   ],

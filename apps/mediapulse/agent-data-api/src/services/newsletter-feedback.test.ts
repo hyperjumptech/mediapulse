@@ -48,6 +48,17 @@ describe("parseNewsletterMessageId", () => {
     });
   });
 
+  it("reads the subscriber from a day-1 welcome Message-ID, which names no newsletter", () => {
+    const parsed = parseNewsletterMessageId(
+      `<d1w.${NEWSLETTER_ID}.${USER_TICKER_ID}@mediapulse>`,
+    );
+
+    expect(parsed).toEqual({
+      newsletterId: null,
+      userTickerId: USER_TICKER_ID,
+    });
+  });
+
   it("returns null for unrelated headers", () => {
     // Assert
     expect(parseNewsletterMessageId("<random@mail.example.com>")).toBeNull();
@@ -100,6 +111,28 @@ describe("recordNewsletterFeedback", () => {
       .calls[0]![0];
     expect(createArg.data.senderEmail).toBe("reader@example.com");
     expect(createArg.data.newsletterId).toBe(NEWSLETTER_ID);
+  });
+
+  it("correlates a reply to a day-1 welcome to the subscriber without a newsletter", async () => {
+    vi.mocked(prisma.newsletterFeedback.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.userTicker.findUnique).mockResolvedValue({
+      id: USER_TICKER_ID,
+      userId: USER_ID,
+    } as never);
+    vi.mocked(prisma.newsletterFeedback.create).mockResolvedValue({
+      id: "feedback-3",
+    } as never);
+
+    const result = await recordNewsletterFeedback({
+      ...BASE_INPUT,
+      inReplyToMessageId: `<d1w.${NEWSLETTER_ID}.${USER_TICKER_ID}@mediapulse>`,
+    });
+
+    expect(result.correlated).toEqual({
+      userId: USER_ID,
+      userTickerId: USER_TICKER_ID,
+    });
+    expect(prisma.newsletter.findUnique).not.toHaveBeenCalled();
   });
 
   it("falls back to the sender email when no header correlation exists", async () => {

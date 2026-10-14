@@ -84,6 +84,12 @@ import {
   postDeliveryClaimReleaseHandler,
 } from "./routes/delivery-claim.js";
 import {
+  getDay1WelcomeHandler,
+  postDay1WelcomeClaimHandler,
+  postDay1WelcomeClaimReleaseHandler,
+  postDay1WelcomeHandler,
+} from "./routes/day1-welcome.js";
+import {
   postUserRegistrationRegisterHandler,
   postUserRegistrationConfirmHandler,
   getUserRegistrationUnsubscribeHandler,
@@ -257,6 +263,16 @@ const routeHandlers = {
   },
   deliveryClaimRelease: {
     post: postDeliveryClaimReleaseHandler,
+  },
+  day1Welcome: {
+    get: getDay1WelcomeHandler,
+    post: postDay1WelcomeHandler,
+  },
+  day1WelcomeClaim: {
+    post: postDay1WelcomeClaimHandler,
+  },
+  day1WelcomeClaimRelease: {
+    post: postDay1WelcomeClaimReleaseHandler,
   },
   queryAnalysis: {
     get: getQueryAnalysis,

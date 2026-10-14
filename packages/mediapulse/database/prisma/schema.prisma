@@ -417,12 +417,12 @@ model Ticker {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  profile         TickerProfile?
-  searchQueries   SearchQuery[]
-  searchQuerySets SearchQuerySet[]
-  dataSources     DataSource[]
-  newsletters     Newsletter[]
-  userTickers     UserTicker[]
+  profile                  TickerProfile?
+  searchQueries            SearchQuery[]
+  searchQuerySets          SearchQuerySet[]
+  dataSources              DataSource[]
+  newsletters              Newsletter[]
+  userTickers              UserTicker[]
   day1NewsletterDispatches Day1NewsletterDispatch[]
 
   storylineTickers       StorylineTicker[]
@@ -530,17 +530,20 @@ enum Day1DispatchStatus {
 }
 
 model Day1NewsletterDispatch {
-  id                String             @id @default(uuid())
-  userTickerId      String             @map("user_ticker_id")
-  tickerId          String             @map("ticker_id")
-  language          Language
-  kind              Day1DispatchKind
-  status            Day1DispatchStatus
-  reason            String?
-  hermesExecutionId String?            @map("hermes_execution_id")
-  error             String?
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
+  id                   String             @id @default(uuid())
+  userTickerId         String             @map("user_ticker_id")
+  tickerId             String             @map("ticker_id")
+  language             Language
+  kind                 Day1DispatchKind
+  status               Day1DispatchStatus
+  reason               String?
+  hermesExecutionId    String?            @map("hermes_execution_id")
+  error                String?
+  welcomeClaimedAt     DateTime?          @map("welcome_claimed_at")
+  welcomeSentAt        DateTime?          @map("welcome_sent_at")
+  welcomeResendEmailId String?            @map("welcome_resend_email_id")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
 
   userTicker UserTicker @relation(fields: [userTickerId], references: [id], onDelete: Cascade)
   ticker     Ticker     @relation(fields: [tickerId], references: [id], onDelete: Cascade)

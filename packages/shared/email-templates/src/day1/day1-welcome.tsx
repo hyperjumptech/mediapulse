@@ -5,6 +5,7 @@ import {
   ARTICLE_LINK_LABEL,
   buildNewsletterFooter,
 } from "../newsletter/default-newsletter.js";
+import { formatNewsletterEmailSubject } from "../newsletter/newsletter-email-subject.js";
 import { EmailArticle } from "../shared/email-article.js";
 import {
   EmailDivider,
@@ -48,6 +49,7 @@ export interface Day1WelcomeEmailProps {
 }
 
 interface Day1WelcomeCopy {
+  subject: (companyName: string) => string;
   preview: (companyName: string) => string;
   intro: (companyName: string) => string;
   aboutLabel: string;
@@ -69,6 +71,7 @@ interface Day1WelcomeCopy {
 
 export const DAY1_WELCOME_COPY: Record<EmailLanguage, Day1WelcomeCopy> = {
   en: {
+    subject: (companyName) => `Getting to know ${companyName}`,
     preview: (companyName) =>
       `A quick look at ${companyName} before your first issue`,
     intro: (companyName) =>
@@ -94,6 +97,7 @@ export const DAY1_WELCOME_COPY: Record<EmailLanguage, Day1WelcomeCopy> = {
     signOff: "Thank you,\nThe MediaPulse Team",
   },
   id: {
+    subject: (companyName) => `Mengenal ${companyName}`,
     preview: (companyName) =>
       `Gambaran singkat ${companyName} sebelum edisi pertama Anda`,
     intro: (companyName) =>
@@ -119,6 +123,20 @@ export const DAY1_WELCOME_COPY: Record<EmailLanguage, Day1WelcomeCopy> = {
       `Anda menerima edisi setiap kali ada berita ${ticker} yang layak Anda baca.`,
     signOff: "Terima kasih,\nTim MediaPulse",
   },
+};
+
+export const formatDay1WelcomeEmailSubject = ({
+  tickerSymbol,
+  companyName,
+  language = "en",
+}: {
+  tickerSymbol: string;
+  companyName: string;
+  language?: EmailLanguage;
+}): string => {
+  const title = DAY1_WELCOME_COPY[language].subject(companyName.trim());
+
+  return formatNewsletterEmailSubject(tickerSymbol, title);
 };
 
 const LOCALE: Record<EmailLanguage, string> = {

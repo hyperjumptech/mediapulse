@@ -52,6 +52,18 @@ When the delivery step runs inside a **Day 1 Newsletter** run, the new subscribe
 - If rendering fails for one recipient, the agent releases that recipient's claim, records `render_error`, and carries on with the rest.
 - The note shows the daily delivery time from `template.reviewTimeLabels` in the subscriber's language. Without a label for that language, the note leaves the time out.
 
+### Day 1 welcome (`input.day1DispatchId`)
+
+When the invoke input carries `day1DispatchId`, the agent sends the day-1 welcome email for that dispatch instead of the newsletter. The Hermes "Day 1 Welcome" pipeline passes it from the `day1.welcome` event.
+
+- It loads the welcome with `day1Welcome.get` and skips, with a delivery run and no send, when the dispatch is not a welcome for this ticker (`skipped_welcome_not_found`), the welcome already went out (`skipped_welcome_already_sent`), or the subscriber is no longer active (`skipped_no_subscribers`).
+- It claims the dispatch before sending, so two runs can never both send. A lost claim is recorded as `skipped_welcome_already_claimed`. A claim older than 30 minutes with no send recorded can be taken again, so a run that died mid-send doesn't block the welcome for good.
+- The subject is `{TICKER} Pulse: Getting to know {company}` (or `Mengenal {company}`), and the `Message-ID` is `<d1w.{dispatchId}.{userTickerId}@domain>` so replies reach the feedback agent.
+- After a successful send it records the welcome on the dispatch, retrying that call up to three times. If every attempt fails, the run still reports the send with `welcome_sent_but_not_recorded`, and the claim stays in place so the welcome can't go out twice.
+- After a failed send, or any error once the claim is taken, it releases the claim so a later run can retry.
+- The delivery run is stored with `agentId: "delivery-day1-welcome"` and `newsletterId: null`, so it shows in the Delivery runs table but stays out of the newsletter delivery insights. Its `scheduleExecutionId` matches the dispatch's Hermes execution id.
+- With `emails`, it sends the welcome to those test addresses only, without claiming or recording it, even when the welcome was already sent.
+
 ### Newsletter `content` (plain text in storage)
 
 Content-generation stores **`newsletter.content` as plain text** (often markdown-style prose from the model). The delivery path **does not treat it as trusted HTML**: the React Email template in `@workspace/email-templates` renders it into **email-safe HTML and a plain-text part** for Resend. Do not put raw subscriber-controlled HTML into `content`; treat the field as **editorial copy** only.
