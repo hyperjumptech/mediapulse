@@ -39,6 +39,8 @@ agent-data-api sends Hermes a `day1.full-chain` or `day1.latest-issue` event aft
 3. `hermes_mutate_update_pipeline_step` on each step with `input: { "tickerId": "{{params.tickerId}}" }`, so every agent in the chain gets the ticker from the event.
 4. `hermes_mutate_create_http_trigger` with `startMode: "event"`, `eventName: "day1.full-chain"` and `method: "POST"`.
 
+The new subscriber's email in this run carries a "First issue" note with the daily delivery time. Set that time on the delivery agent config with `hermes_mutate_update_agent_config`, as `template: { "newsletterVariant": "default", "reviewTimeLabels": { "en": "7:00 AM WIB", "id": "07.00 WIB" } }`.
+
 **Day 1 Latest Issue** sends the latest issue to new subscribers. It needs a pipeline that only delivers.
 
 1. `hermes_get_pipeline` on Newsletter Creation & Delivery and note its delivery step: agent, saved config, contract, input and config.

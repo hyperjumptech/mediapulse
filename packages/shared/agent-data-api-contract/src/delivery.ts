@@ -4,6 +4,7 @@ import { newsletterLanguageSchema } from "./newsletter-translation.js";
 
 export const getDeliveryQuerySchema = z.object({
   tickerId: z.string().trim().min(1),
+  scheduleExecutionId: z.string().trim().min(1).optional(),
 });
 
 export const postDeliveryBodySchema = z.object({
@@ -40,6 +41,7 @@ export const getDeliveryResponseSchema = z.object({
   subscribers: z.array(deliverySubscriberSchema),
   /** User-ticker ids that already have a delivery checkpoint for the latest newsletter (skip send on replay). */
   deliveredUserTickerIds: z.array(z.guid()),
+  day1FirstIssueUserTickerIds: z.array(z.guid()).optional(),
 });
 
 export const postDeliveryResponseSchema = z.object({

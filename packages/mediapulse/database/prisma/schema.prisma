@@ -546,6 +546,7 @@ model Day1NewsletterDispatch {
 
   @@index([tickerId, kind, createdAt])
   @@index([userTickerId])
+  @@index([hermesExecutionId])
   @@map("day1_newsletter_dispatch")
 }
 

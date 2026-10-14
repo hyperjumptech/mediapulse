@@ -322,6 +322,93 @@ describe("delivery-agent", () => {
     );
   });
 
+  it("passes the trigger execution id and names the day-1 first-issue subscriber", async () => {
+    deliveryGetMock.mockResolvedValue({
+      newsletter: {
+        id: NL_ID,
+        subject: "News",
+        content: "Body",
+        symbol: "AAPL",
+        translations: [],
+      },
+      subscribers: [{ userTickerId: UT_ID, email: "u@example.com" }],
+      deliveredUserTickerIds: [],
+      day1FirstIssueUserTickerIds: [UT_ID],
+    });
+    mockDeliverNewsletter.mockResolvedValue({
+      results: [{ userTickerId: UT_ID, status: "success", attempts: 1 }],
+      resendMessageIds: [],
+    });
+
+    await fetchAgent({
+      method: "POST",
+      headers: {
+        ...AUTH_HEADERS,
+        "Content-Type": "application/json",
+        "X-Schedule-Execution-Id": "trigger-execution-1",
+      },
+      body: JSON.stringify({
+        input: { tickerId: TICKER_ID },
+        config: DELIVERY_CONFIG,
+      }),
+    });
+
+    expect(deliveryGetMock).toHaveBeenCalledWith({
+      tickerId: TICKER_ID,
+      scheduleExecutionId: "trigger-execution-1",
+    });
+    expect(mockDeliverNewsletter).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      [],
+      expect.objectContaining({ day1FirstIssueUserTickerIds: [UT_ID] }),
+      expect.anything(),
+    );
+    expect(hoistedLogger.info).toHaveBeenCalledWith(
+      expect.objectContaining({ day1FirstIssueRecipientCount: 1 }),
+      "delivery data-api fetch summary",
+    );
+  });
+
+  it("names no first-issue subscriber when Hermes sends no execution id", async () => {
+    deliveryGetMock.mockResolvedValue({
+      newsletter: {
+        id: NL_ID,
+        subject: "News",
+        content: "Body",
+        symbol: "AAPL",
+        translations: [],
+      },
+      subscribers: [{ userTickerId: UT_ID, email: "u@example.com" }],
+      deliveredUserTickerIds: [],
+    });
+    mockDeliverNewsletter.mockResolvedValue({
+      results: [{ userTickerId: UT_ID, status: "success", attempts: 1 }],
+      resendMessageIds: [],
+    });
+
+    await fetchAgent({
+      method: "POST",
+      headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { tickerId: TICKER_ID },
+        config: DELIVERY_CONFIG,
+      }),
+    });
+
+    expect(deliveryGetMock).toHaveBeenCalledWith({
+      tickerId: TICKER_ID,
+      scheduleExecutionId: undefined,
+    });
+    expect(mockDeliverNewsletter).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      [],
+      expect.objectContaining({ day1FirstIssueUserTickerIds: [] }),
+      expect.anything(),
+    );
+  });
+
   it("sends to test emails when override is set and DB has no subscribers", async () => {
     deliveryGetMock.mockResolvedValue({
       newsletter: {

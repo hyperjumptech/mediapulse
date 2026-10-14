@@ -152,7 +152,10 @@ const app = createAgentApp<
         const fetchStarted = Date.now();
         const deliveryData = await dataApiClient.delivery.get({
           tickerId: input.tickerId,
+          scheduleExecutionId: hx.scheduleExecutionId,
         });
+        const day1FirstIssueUserTickerIds =
+          deliveryData.day1FirstIssueUserTickerIds ?? [];
         const { subscribers, isTestEmailOverride } = resolveDeliveryRecipients(
           input,
           deliveryData,
@@ -179,6 +182,7 @@ const app = createAgentApp<
             subscriberCount,
             checkpointCount,
             pendingRecipientCount: pendingRecipients,
+            day1FirstIssueRecipientCount: day1FirstIssueUserTickerIds.length,
             ...(isTestEmailOverride
               ? {
                   testEmailOverride: true,
@@ -294,6 +298,7 @@ const app = createAgentApp<
             baseUrl: env.UNSUBSCRIBE_BASE_URL,
             secret: env.UNSUBSCRIBE_SECRET,
           },
+          day1FirstIssueUserTickerIds,
         };
         const sendResult = await deliverNewsletterToSubscribers(
           deliveryData.newsletter,

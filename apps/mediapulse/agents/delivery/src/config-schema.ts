@@ -48,6 +48,12 @@ export const DeliveryConfigSchema = z
     template: z
       .object({
         newsletterVariant: z.enum(["default"]).default("default"),
+        reviewTimeLabels: z
+          .object({
+            en: z.string().trim().min(1).optional(),
+            id: z.string().trim().min(1).optional(),
+          })
+          .optional(),
       })
       .prefault({ newsletterVariant: "default" }),
   })
