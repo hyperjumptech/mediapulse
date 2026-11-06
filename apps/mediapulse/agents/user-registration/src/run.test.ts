@@ -18,7 +18,8 @@ vi.mock("@workspace/email-templates", () => ({
 }));
 
 // Simplify withRetry to call through immediately – no delays, no retries.
-vi.mock("@workspace/utils", () => ({
+vi.mock("@workspace/utils", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@workspace/utils")>()),
   withRetry: async (fn: () => unknown) => fn(),
   buildVCard: ({ name, email }: { name: string; email: string }) =>
     `BEGIN:VCARD\r\nFN:${name}\r\nEMAIL:${email}\r\nEND:VCARD`,

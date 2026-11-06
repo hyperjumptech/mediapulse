@@ -1,4 +1,5 @@
 import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
+import { logger, type Logger } from "@workspace/logger";
 import { env } from "@mediapulse/env/app-user-registration";
 import { sendRegistrationConfirmedEmailDefault } from "@/lib/send-registration-emails";
 
@@ -80,9 +81,33 @@ export const toConfirmBrowserHtml = (
   );
 };
 
+type ConfirmLinkLogger = Pick<Logger, "error">;
+
 type HandleConfirmLinkDeps = {
   requestConfirmSubscription?: typeof requestConfirmSubscription;
   sendRegistrationConfirmedEmail?: SendConfirmedEmail;
+  log?: ConfirmLinkLogger;
+};
+
+const sendWelcomeEmailWithoutFailingConfirmation = async ({
+  sendRegistrationConfirmedEmail,
+  to,
+  tickerSymbol,
+  log,
+}: {
+  sendRegistrationConfirmedEmail: SendConfirmedEmail;
+  to: string;
+  tickerSymbol: string;
+  log: ConfirmLinkLogger;
+}): Promise<void> => {
+  try {
+    await sendRegistrationConfirmedEmail({ to, tickerSymbol });
+  } catch (error) {
+    log.error(
+      { err: error, tickerSymbol },
+      "user-registration: welcome email failed after confirmation",
+    );
+  }
 };
 
 /**
@@ -101,6 +126,7 @@ export const handleConfirmLink = async (
   const sendRegistrationConfirmedEmail =
     deps.sendRegistrationConfirmedEmail ??
     sendRegistrationConfirmedEmailDefault;
+  const log = deps.log ?? logger;
 
   if (!token.trim()) {
     return htmlResponse(
@@ -112,14 +138,18 @@ export const handleConfirmLink = async (
     const result = await requestConfirmSubscriptionFn(token);
 
     if (result.status === "confirmed" && result.email && result.displaySymbol) {
-      await sendRegistrationConfirmedEmail({
+      await sendWelcomeEmailWithoutFailingConfirmation({
+        sendRegistrationConfirmedEmail,
         to: result.email,
         tickerSymbol: result.displaySymbol,
+        log,
       });
     }
 
     return toConfirmBrowserHtml(result);
-  } catch {
+  } catch (error) {
+    log.error({ err: error }, "user-registration: confirm link request failed");
+
     return htmlResponse(
       `<p style="color:#6b7280">Confirmation is temporarily unavailable. Please try again later.</p>`,
     );

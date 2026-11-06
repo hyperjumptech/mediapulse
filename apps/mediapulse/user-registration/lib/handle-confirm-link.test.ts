@@ -48,6 +48,33 @@ describe("handleConfirmLink", () => {
     expect(await response.text()).toContain("Subscription confirmed");
   });
 
+  it("still shows the confirmed page when the welcome email fails", async () => {
+    const requestConfirmSubscription = vi.fn().mockResolvedValue({
+      status: "confirmed",
+      displaySymbol: "BBCA",
+      email: "alice@example.com",
+    });
+    const sendFailure = new Error(
+      "Resend email send failed: API key is invalid",
+    );
+    const sendRegistrationConfirmedEmail = vi
+      .fn()
+      .mockRejectedValue(sendFailure);
+    const log = { error: vi.fn() };
+
+    const response = await handleConfirmLink("token-123", {
+      requestConfirmSubscription,
+      sendRegistrationConfirmedEmail,
+      log,
+    });
+
+    expect(await response.text()).toContain("Subscription confirmed");
+    expect(log.error).toHaveBeenCalledWith(
+      { err: sendFailure, tickerSymbol: "BBCA" },
+      "user-registration: welcome email failed after confirmation",
+    );
+  });
+
   it("returns invalid HTML for empty tokens", async () => {
     const response = await handleConfirmLink("");
     expect(await response.text()).toMatch(/invalid/i);
