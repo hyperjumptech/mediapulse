@@ -97,6 +97,7 @@ trigger_webhook() {
   local webhook_url="$1"
 
   curl --fail --silent --show-error \
+    --request POST \
     --retry 2 \
     --retry-all-errors \
     --retry-delay 3 \
