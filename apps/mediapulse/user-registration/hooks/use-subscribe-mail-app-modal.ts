@@ -169,7 +169,6 @@ export const useSubscribeMailAppModal = ({
         language,
       });
       setConfirmEmailOpen(false);
-      setConfirmationEmail("");
       onEmailComplete(trimmedEmail);
       toast.success("Check your inbox for the confirmation link.");
     } catch {
@@ -182,7 +181,6 @@ export const useSubscribeMailAppModal = ({
   const resetSubscribeModals = () => {
     setMailChoiceOpen(false);
     setConfirmEmailOpen(false);
-    setConfirmationEmail("");
     setSendingEmail(false);
   };
 
