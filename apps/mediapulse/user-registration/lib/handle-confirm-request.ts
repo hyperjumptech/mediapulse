@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { logger, type Logger } from "@workspace/logger";
 import type { RegistrationLanguage } from "@/lib/tickers";
 import { checkMemorySlidingRateLimit } from "@/lib/memory-sliding-rate-limit";
 import { getClientIpFromRequest } from "@/lib/get-client-ip";
@@ -32,6 +33,7 @@ type ConfirmRequestDeps = {
   sendPendingConfirmationEmail?: SendEmail;
   checkRateLimit?: typeof checkMemorySlidingRateLimit;
   getClientIp?: (request: Request) => string;
+  log?: Pick<Logger, "info" | "error">;
 };
 
 /**
@@ -53,6 +55,7 @@ export const handleConfirmRequest = async (
     deps.sendPendingConfirmationEmail ?? sendPendingConfirmationEmailDefault;
   const checkRateLimit = deps.checkRateLimit ?? checkMemorySlidingRateLimit;
   const getClientIp = deps.getClientIp ?? getClientIpFromRequest;
+  const log = deps.log ?? logger;
 
   const clientIp = getClientIp(request);
   const emailKey = body.email.trim().toLowerCase();
@@ -67,6 +70,11 @@ export const handleConfirmRequest = async (
   });
 
   if (!ipAllowed || !emailAllowed) {
+    log.info(
+      { tickerSymbol: body.tickerSymbol, ipAllowed, emailAllowed },
+      "user-registration: confirm request rate limited, no email sent",
+    );
+
     return { ok: true };
   }
 
@@ -78,16 +86,35 @@ export const handleConfirmRequest = async (
       language: body.language as RegistrationLanguage,
     });
 
-    if (signup.tickerKnown && signup.userTickerId && signup.isNewSubscription) {
-      await sendPendingConfirmationEmail({
-        to: emailKey,
-        name: body.name,
-        tickerSymbol: body.tickerSymbol,
-        userTickerId: signup.userTickerId,
-      });
+    if (!signup.tickerKnown || !signup.userTickerId) {
+      log.info(
+        { tickerSymbol: body.tickerSymbol },
+        "user-registration: confirm request for unknown ticker, no email sent",
+      );
+
+      return { ok: true };
     }
-  } catch {
-    // Anti-enumeration: still return ok on downstream failures.
+
+    if (!signup.isNewSubscription) {
+      log.info(
+        { tickerSymbol: body.tickerSymbol, userTickerId: signup.userTickerId },
+        "user-registration: subscription already confirmed, no email sent",
+      );
+
+      return { ok: true };
+    }
+
+    await sendPendingConfirmationEmail({
+      to: emailKey,
+      name: body.name,
+      tickerSymbol: body.tickerSymbol,
+      userTickerId: signup.userTickerId,
+    });
+  } catch (error) {
+    log.error(
+      { err: error, tickerSymbol: body.tickerSymbol },
+      "user-registration: confirm request failed, no email sent",
+    );
   }
 
   return { ok: true };

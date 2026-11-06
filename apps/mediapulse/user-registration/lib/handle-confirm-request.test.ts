@@ -84,4 +84,59 @@ describe("handleConfirmRequest", () => {
     expect(result).toEqual({ ok: true });
     expect(sendPendingConfirmationEmail).not.toHaveBeenCalled();
   });
+
+  it("returns ok and logs the failure when the confirmation email is rejected", async () => {
+    const requestWebSignup = vi.fn().mockResolvedValue({
+      tickerKnown: true,
+      userTickerId: "11111111-1111-4111-a111-111111111111",
+      isNewSubscription: true,
+    });
+    const sendFailure = new Error(
+      "Resend email send failed: The example.com domain is not verified.",
+    );
+    const sendPendingConfirmationEmail = vi.fn().mockRejectedValue(sendFailure);
+    const log = { info: vi.fn(), error: vi.fn() };
+
+    const result = await handleConfirmRequest(
+      {
+        email: "alice@example.com",
+        name: "Alice",
+        tickerSymbol: "BBCA",
+        language: "en",
+      },
+      new Request("http://localhost"),
+      { requestWebSignup, sendPendingConfirmationEmail, log },
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(log.error).toHaveBeenCalledWith(
+      { err: sendFailure, tickerSymbol: "BBCA" },
+      "user-registration: confirm request failed, no email sent",
+    );
+  });
+
+  it("logs why no email was sent when the request is rate limited", async () => {
+    const requestWebSignup = vi.fn();
+    const sendPendingConfirmationEmail = vi.fn();
+    const checkRateLimit = vi.fn().mockReturnValue(false);
+    const log = { info: vi.fn(), error: vi.fn() };
+
+    const result = await handleConfirmRequest(
+      {
+        email: "alice@example.com",
+        name: "Alice",
+        tickerSymbol: "BBCA",
+        language: "en",
+      },
+      new Request("http://localhost"),
+      { requestWebSignup, sendPendingConfirmationEmail, checkRateLimit, log },
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(requestWebSignup).not.toHaveBeenCalled();
+    expect(log.info).toHaveBeenCalledWith(
+      { tickerSymbol: "BBCA", ipAllowed: false, emailAllowed: false },
+      "user-registration: confirm request rate limited, no email sent",
+    );
+  });
 });

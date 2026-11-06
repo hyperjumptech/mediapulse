@@ -15,6 +15,7 @@ import {
   MEDIAPULSE_SENDER_NAME,
   formatResendSender,
   buildVCard,
+  assertResendSendSucceeded,
 } from "@workspace/utils";
 import { Resend } from "resend";
 import { logger } from "@workspace/logger";
@@ -109,25 +110,6 @@ const isRetryable = (error: any): boolean => {
   // to avoid infinite loops on unexpected error objects.
   return false;
 };
-
-/** Minimal shape of `resend.emails.send` resolution (SDK returns `{ data, error }` without rejecting). */
-type ResendEmailsSendResult = {
-  error?: { message: string } | null;
-  data?: unknown;
-};
-
-/**
- * Throws when Resend returns an error in the result envelope so a failed send is not treated as success.
- * Without this, the agent can call `user-registration-confirm` even though no email was accepted.
- *
- * @param result - Resolved value from {@link Resend.prototype.emails.send}.
- * @throws Error when `result.error` is set.
- */
-function assertResendSendSucceeded(result: ResendEmailsSendResult): void {
-  if (result.error) {
-    throw new Error(`Resend email send failed: ${result.error.message}`);
-  }
-}
 
 type ResendTransactionalPayload = {
   from: string;

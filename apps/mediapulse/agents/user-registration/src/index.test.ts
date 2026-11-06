@@ -53,7 +53,8 @@ vi.mock("@workspace/email-templates", () => ({
   }),
 }));
 
-vi.mock("@workspace/utils", () => ({
+vi.mock("@workspace/utils", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@workspace/utils")>()),
   withRetry: async <T>(fn: () => Promise<T>): Promise<T> => fn(),
   buildVCard: ({ name, email }: { name: string; email: string }) =>
     `BEGIN:VCARD\r\nFN:${name}\r\nEMAIL:${email}\r\nEND:VCARD`,

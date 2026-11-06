@@ -217,8 +217,10 @@ describe("fetchSourceBodies", () => {
         title: "One",
       },
     ];
-    const body =
-      '<meta property="article:published_time" content="2026-08-05T02:00:00Z" /> Alfamart siap gelontorkan';
+    const oneDayAgoInWholeSeconds =
+      Math.floor((Date.now() - 86_400_000) / 1000) * 1000;
+    const recentPublishedAt = new Date(oneDayAgoInWholeSeconds).toISOString();
+    const body = `<meta property="article:published_time" content="${recentPublishedAt}" /> Alfamart siap gelontorkan`;
     const performWebFetchFn = vi
       .fn()
       .mockResolvedValue([
@@ -244,11 +246,11 @@ describe("fetchSourceBodies", () => {
         dataSourceId: "ds-1",
         content: body,
         fetchProvider: "tavily",
-        publishedAt: "2026-08-05T02:00:00.000Z",
+        publishedAt: recentPublishedAt,
       },
     ]);
     expect(result.fetchedContentById.get("ds-1")?.publishedAt).toBe(
-      "2026-08-05T02:00:00.000Z",
+      recentPublishedAt,
     );
   });
 

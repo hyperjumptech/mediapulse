@@ -49,6 +49,13 @@ export {
   formatResendSender,
 } from "./format-resend-sender.js";
 export {
+  assertResendSendSucceeded,
+  readResendEmailId,
+  ResendSendError,
+  type ResendEmailsSendResult,
+  type ResendSendErrorDetails,
+} from "./assert-resend-send-succeeded.js";
+export {
   normalizeEntityName,
   textNamesEntity,
   textNamesMarketParties,
