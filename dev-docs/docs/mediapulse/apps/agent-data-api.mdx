@@ -484,6 +484,32 @@ Every write re-runs the extraction guards against the stored article: an evidenc
 
 A mention is unique per `(ticker, entity, article)` and a relation per `(subject, kind, object)`, so re-reading an article confirms what is already held instead of duplicating it: `observations` and `lastObservedAt` move, and nothing else does.
 
+## Ticker profile source
+
+Ticker profiles (overview, business operation, the four classification levels, aliases, competitors and regulators) can come from the `ticker_profile` table or from the Organon knowledge graph. `MEDIAPULSE_TICKER_PROFILE_SOURCE` picks one at startup:
+
+| Value               | Reads                                                                                         |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| `database` (default) | The `ticker_profile` table, one query per request.                                           |
+| `organon`           | Organon over `POST /api/v1/sparql?inferred=true`, with `ORGANON_API_URL` and `ORGANON_API_KEY`. |
+
+The Organon source loads every listed company in one pass, using the two queries on Organon's developer page **How to get a ticker profile**, and keeps the result in memory. The copy is served for `MEDIAPULSE_TICKER_PROFILE_CACHE_TTL_MS` (10 minutes by default) and then refreshed in the background while the old copy keeps being served. A failed refresh keeps the old copy and retries after 30 seconds. If Organon is down before the first load succeeds, profile reads fail with a 500 rather than returning empty profiles. The server starts loading at boot without waiting for it.
+
+Organon values have no order, so the source orders them itself:
+
+- Competitors: primary competitors first, then the ones the most issuers list, listed companies before unlisted ones, then by name.
+- Regulators: the most specific first (the fewest issuers covered), so a sector regulator comes before OJK and IDX.
+
+Aliases follow the developer page: the ticker, the label, the legal name, other names, then the names of the brands and subsidiaries the company operates.
+
+To compare the two sources before switching, run the diff script. It only reads. Point `MEDIAPULSE_DATABASE_URL` at the database to compare and set the Organon variables, then run it from the monorepo root:
+
+```bash
+pnpm --filter @mediapulse/agent-data-api run diff-ticker-profile-sources -- --active-only
+```
+
+It prints each ticker's alias, competitor and regulator changes, how many of the top competitors and regulators survive, and a summary. `--symbol FORE` limits it to one ticker (repeat it for more), `--json` prints JSON, and `--fail-on-missing-active` exits with 1 when an active ticker has a database profile but none in Organon.
+
 ## Versioning
 
 - `agent-data-api` can serve multiple live versions (for example `v1`, `v2`) under `/api/<version>/...`.

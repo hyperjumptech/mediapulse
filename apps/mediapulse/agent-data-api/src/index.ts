@@ -127,6 +127,7 @@ import { createDeliveryInsightsProvider } from "./services/insights/delivery-ins
 import { createQueryAnalysisInsightsProvider } from "./services/insights/query-analysis-insights-provider.js";
 import { createNewsletterFeedbackInsightsProvider } from "./services/insights/newsletter-feedback-insights-provider.js";
 import { registerInsightsProvider } from "./services/agent-insights-registry.js";
+import { startDefaultTickerProfileSource } from "./services/ticker-profile/ticker-profile-source-default.js";
 import {
   registerAgentDataApiRoutes,
   type AgentDataApiHandlers,
@@ -135,6 +136,8 @@ import {
 if (!env.AGENT_AUTH_API_URL) {
   throw new Error("AGENT_AUTH_API_URL is required for agent-data-api");
 }
+
+await startDefaultTickerProfileSource();
 
 /**
  * Builds the JSON body for the public liveness route `GET /health`.
