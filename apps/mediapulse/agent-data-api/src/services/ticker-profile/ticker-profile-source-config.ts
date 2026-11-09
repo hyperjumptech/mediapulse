@@ -84,6 +84,12 @@ export const createTickerProfileSource = (
   dependencies: TickerProfileSourceDependencies = {},
 ): ConfiguredTickerProfileSource => {
   if (config.kind === "database") {
+    if (dependencies.tickerProfileDb === undefined) {
+      throw new Error(
+        "The database profile source needs a tickerProfile delegate",
+      );
+    }
+
     return {
       kind: config.kind,
       source: createDatabaseTickerProfileSource(dependencies.tickerProfileDb),

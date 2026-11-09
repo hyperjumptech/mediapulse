@@ -109,7 +109,9 @@ const run = async (): Promise<number> => {
     (ticker) => !options.activeOnly || ticker.searchQuerySets.length > 0,
   );
   const symbols = selected.map((ticker) => ticker.symbol);
-  const databaseProfiles = await createDatabaseTickerProfileSource()(symbols);
+  const databaseProfiles = await createDatabaseTickerProfileSource({
+    tickerProfile: prisma.tickerProfile,
+  })(symbols);
   const organonProfiles = await loadOrganonTickerProfiles(
     createOrganonSparqlClient({
       baseUrl,

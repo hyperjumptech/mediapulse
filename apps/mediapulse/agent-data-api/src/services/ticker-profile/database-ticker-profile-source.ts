@@ -1,4 +1,4 @@
-import { prisma } from "@mediapulse/database";
+import type { prisma } from "@mediapulse/database";
 
 import {
   keyProfilesBySymbol,
@@ -12,9 +12,7 @@ export type DatabaseTickerProfileDb = {
 };
 
 export const createDatabaseTickerProfileSource =
-  (
-    db: DatabaseTickerProfileDb = { tickerProfile: prisma.tickerProfile },
-  ): TickerProfileSource =>
+  (db: DatabaseTickerProfileDb): TickerProfileSource =>
   async (symbols) => {
     const requested = [
       ...new Set(
