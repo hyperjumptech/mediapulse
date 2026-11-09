@@ -5,11 +5,16 @@ import {
   applyExtraction,
   listExtractionCandidates,
   resolveRelationKind,
+  seedKnowledgeBaseFromProfile,
   seedRelationKinds,
   spanIsInArticle,
   upsertEntity,
   type KnowledgeExtractionDb,
 } from "./knowledge-extraction";
+import {
+  createInMemoryTickerProfileSource,
+  type TickerProfileRecord,
+} from "./ticker-profile/ticker-profile-source.js";
 
 const article = {
   id: "11111111-1111-4111-a111-111111111111",
@@ -24,6 +29,27 @@ const ticker = {
   name: "Fore Kopi Indonesia",
   aliases: ["Fore Coffee"],
 };
+
+const foreProfile: TickerProfileRecord = {
+  companyOverview: "App-led coffee chain.",
+  businessOperation: "",
+  sectorIndonesian: "",
+  sectorEnglish: "",
+  subSectorIndonesian: "",
+  subSectorEnglish: "",
+  industryIndonesian: "",
+  industryEnglish: "",
+  subIndustryIndonesian: "",
+  subIndustryEnglish: "",
+  aliases: ["Fore Coffee", "Fore Donut"],
+  competitors: [{ name: "Kopi Kenangan", aliases: ["Kenangan"] }],
+  regulators: [{ name: "BPOM", aliases: [] }],
+};
+
+const foreProfiles = () =>
+  createInMemoryTickerProfileSource(new Map([["FORE", foreProfile]]));
+
+const noProfiles = createInMemoryTickerProfileSource(new Map());
 
 type Delegates = {
   entityByName?: Record<string, { id: string }>;
@@ -135,15 +161,74 @@ describe("listExtractionCandidates", () => {
   it("offers only curated relation kinds, so invented ones do not feed themselves back", async () => {
     const { db } = buildDb();
 
-    await listExtractionCandidates(db, {
-      tickerId: ticker.id,
-      fromStart: true,
-    });
+    await listExtractionCandidates(
+      db,
+      { tickerId: ticker.id, fromStart: true },
+      noProfiles,
+    );
 
     const call = vi.mocked(db.knowledgeRelationKind.findMany).mock
       .calls[0]?.[0];
 
     expect(call?.where).toStrictEqual({ curated: true });
+  });
+
+  it("takes the issuer's aliases, overview and parties from the profile source", async () => {
+    const { db } = buildDb();
+
+    const candidates = await listExtractionCandidates(
+      db,
+      { tickerId: ticker.id, fromStart: true },
+      foreProfiles(),
+    );
+
+    expect(candidates?.issuer).toMatchObject({
+      aliases: ["Fore Coffee", "Fore Donut"],
+      companyOverview: "App-led coffee chain.",
+    });
+    expect(candidates?.parties).toEqual([
+      { name: "Kopi Kenangan", aliases: ["Kenangan"], kind: "company" },
+      { name: "BPOM", aliases: [], kind: "regulator" },
+    ]);
+  });
+
+  it("falls back to the ticker's own aliases when the issuer has no profile", async () => {
+    const { db } = buildDb();
+
+    const candidates = await listExtractionCandidates(
+      db,
+      { tickerId: ticker.id, fromStart: true },
+      noProfiles,
+    );
+
+    expect(candidates?.issuer).toMatchObject({
+      aliases: ["Fore Coffee"],
+      companyOverview: null,
+    });
+    expect(candidates?.parties).toEqual([]);
+  });
+});
+
+describe("seedKnowledgeBaseFromProfile", () => {
+  it("seeds the competitors and regulators the profile source names", async () => {
+    const { db, created, relationsCreated } = buildDb({ issuerEntityId: null });
+
+    const result = await seedKnowledgeBaseFromProfile(
+      db,
+      ticker.id,
+      null,
+      [],
+      foreProfiles(),
+    );
+
+    const createdNames = created.map((entity) => entity.canonicalName);
+    const relationKinds = relationsCreated.map((relation) => relation.kindSlug);
+
+    expect(createdNames).toEqual(
+      expect.arrayContaining(["Kopi Kenangan", "BPOM"]),
+    );
+    expect(relationKinds).toEqual(["competes_with", "regulates"]);
+    expect(result?.relationsOpened).toBe(2);
   });
 });
 

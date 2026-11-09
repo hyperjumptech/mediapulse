@@ -6,6 +6,7 @@ import {
   getDay1Welcome,
   type Day1WelcomeDb,
 } from "./day1-welcome.js";
+import { createInMemoryTickerProfileSource } from "./ticker-profile/ticker-profile-source.js";
 
 const NOW = new Date("2026-10-14T00:00:00.000Z");
 
@@ -18,6 +19,9 @@ const profile = {
   subSectorIndonesian: "Telekomunikasi",
   industryEnglish: "Integrated Telecom",
   industryIndonesian: "Telekomunikasi Terintegrasi",
+  subIndustryEnglish: "Fixed and Mobile Network Operators",
+  subIndustryIndonesian: "Operator Jaringan Tetap dan Seluler",
+  aliases: [],
   competitors: [
     { name: "Indosat", aliases: ["ISAT"] },
     { name: " XL Axiata ", aliases: [] },
@@ -38,9 +42,12 @@ const dispatchRow = (overrides: Record<string, unknown> = {}) => ({
     registrationConfirmedAt: new Date("2026-10-13T00:00:00.000Z"),
     user: { email: "reader@example.com", enabled: true },
   },
-  ticker: { symbol: "TLKM", name: "Telkom Indonesia", profile },
+  ticker: { symbol: "TLKM", name: "Telkom Indonesia" },
   ...overrides,
 });
+
+const telkomProfiles = () =>
+  vi.fn(createInMemoryTickerProfileSource(new Map([["TLKM", profile]])));
 
 const createDb = (dispatch: unknown) => {
   const findUnique = vi.fn().mockResolvedValue(dispatch);
@@ -74,11 +81,13 @@ describe("getDay1Welcome", () => {
 
   it("builds an English welcome from the profile", async () => {
     const { db, findMany } = createDb(dispatchRow());
+    const profileSource = telkomProfiles();
 
     const { welcome } = await getDay1Welcome(
       db,
       { dispatchId: "11111111-1111-4111-8111-111111111111" },
       NOW,
+      profileSource,
     );
 
     expect(welcome).toEqual({
@@ -106,6 +115,7 @@ describe("getDay1Welcome", () => {
         where: expect.objectContaining({ tickerId: "ticker-1" }),
       }),
     );
+    expect(profileSource).toHaveBeenCalledWith(["TLKM"]);
   });
 
   it("uses the Indonesian classification and leaves out the English-only overview for an Indonesian reader", async () => {
@@ -115,6 +125,7 @@ describe("getDay1Welcome", () => {
       db,
       { dispatchId: "11111111-1111-4111-8111-111111111111" },
       NOW,
+      telkomProfiles(),
     );
 
     expect(welcome).toMatchObject({
@@ -130,16 +141,13 @@ describe("getDay1Welcome", () => {
   });
 
   it("still welcomes a ticker without a curated profile", async () => {
-    const { db } = createDb(
-      dispatchRow({
-        ticker: { symbol: "TLKM", name: "Telkom Indonesia", profile: null },
-      }),
-    );
+    const { db } = createDb(dispatchRow());
 
     const { welcome } = await getDay1Welcome(
       db,
       { dispatchId: "11111111-1111-4111-8111-111111111111" },
       NOW,
+      createInMemoryTickerProfileSource(new Map()),
     );
 
     expect(welcome).toMatchObject({
@@ -160,6 +168,7 @@ describe("getDay1Welcome", () => {
       db,
       { dispatchId: "11111111-1111-4111-8111-111111111111" },
       NOW,
+      telkomProfiles(),
     );
 
     expect(welcome?.sentAt).toBe("2026-10-13T09:00:00.000Z");
@@ -187,6 +196,7 @@ describe("getDay1Welcome", () => {
       db,
       { dispatchId: "11111111-1111-4111-8111-111111111111" },
       NOW,
+      telkomProfiles(),
     );
 
     expect(welcome?.recipient).toBeNull();
@@ -198,14 +208,17 @@ describe("getDay1Welcome", () => {
     ["a skipped dispatch", dispatchRow({ kind: "none" })],
   ])("returns no welcome for %s", async (_label, dispatch) => {
     const { db, findMany } = createDb(dispatch);
+    const profileSource = telkomProfiles();
 
     const result = await getDay1Welcome(
       db,
       { dispatchId: "11111111-1111-4111-8111-111111111111" },
       NOW,
+      profileSource,
     );
 
     expect(result).toEqual({ welcome: null });
     expect(findMany).not.toHaveBeenCalled();
+    expect(profileSource).not.toHaveBeenCalled();
   });
 });

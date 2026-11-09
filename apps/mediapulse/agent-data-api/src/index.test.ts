@@ -88,6 +88,9 @@ vi.mock("@mediapulse/database", () => ({
       findUniqueOrThrow: vi.fn(),
       findMany: vi.fn(),
     },
+    tickerProfile: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     tickerEntity: {
       findMany: vi.fn(),
     },

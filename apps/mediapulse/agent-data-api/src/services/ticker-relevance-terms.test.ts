@@ -19,6 +19,33 @@ import {
   getTickerRelevanceTermsForAgent,
   taxonomyPhraseSegments,
 } from "./ticker-relevance-terms";
+import {
+  createInMemoryTickerProfileSource,
+  type TickerProfileRecord,
+} from "./ticker-profile/ticker-profile-source.js";
+
+const blankProfile: TickerProfileRecord = {
+  companyOverview: "",
+  businessOperation: "",
+  sectorIndonesian: "",
+  sectorEnglish: "",
+  subSectorIndonesian: "",
+  subSectorEnglish: "",
+  industryIndonesian: "",
+  industryEnglish: "",
+  subIndustryIndonesian: "",
+  subIndustryEnglish: "",
+  aliases: [],
+  competitors: [],
+  regulators: [],
+};
+
+const profilesFor = (symbol: string, profile: Partial<TickerProfileRecord>) =>
+  createInMemoryTickerProfileSource(
+    new Map([[symbol, { ...blankProfile, ...profile }]]),
+  );
+
+const noProfiles = createInMemoryTickerProfileSource(new Map());
 
 const ANCHOR_TICKER_ID = "11111111-1111-4111-a111-111111111111";
 const PEER_TICKER_ID = "22222222-2222-4222-a222-222222222222";
@@ -114,7 +141,9 @@ describe("getTickerRelevanceTermsForAgent", () => {
     );
 
     // Act
-    const result = await getTickerRelevanceTermsForAgent();
+    const result = await getTickerRelevanceTermsForAgent({
+      profileSource: noProfiles,
+    });
 
     // Assert
     expect(result).toEqual({ tickers: [] });
@@ -137,12 +166,13 @@ describe("getTickerRelevanceTermsForAgent", () => {
         industry: null,
         subSector: null,
         subIndustry: null,
-        profile: null,
       },
     ] as never);
 
     // Act
-    const result = await getTickerRelevanceTermsForAgent();
+    const result = await getTickerRelevanceTermsForAgent({
+      profileSource: noProfiles,
+    });
 
     // Assert
     expect(prisma.ticker.findMany).toHaveBeenCalledTimes(1);
@@ -173,7 +203,6 @@ describe("getTickerRelevanceTermsForAgent", () => {
           industry: "Bank",
           subSector: "Bank",
           subIndustry: "Keuangan",
-          profile: null,
         },
       ] as never)
       .mockResolvedValueOnce([
@@ -196,7 +225,9 @@ describe("getTickerRelevanceTermsForAgent", () => {
       ] as never);
 
     // Act
-    const result = await getTickerRelevanceTermsForAgent();
+    const result = await getTickerRelevanceTermsForAgent({
+      profileSource: noProfiles,
+    });
 
     // Assert
     expect(result.tickers).toHaveLength(1);
@@ -228,12 +259,13 @@ describe("getTickerRelevanceTermsForAgent", () => {
         industry: null,
         subSector: null,
         subIndustry: null,
-        profile: null,
       },
     ] as never);
 
     // Act
-    const result = await getTickerRelevanceTermsForAgent();
+    const result = await getTickerRelevanceTermsForAgent({
+      profileSource: noProfiles,
+    });
 
     // Assert
     expect(prisma.ticker.findMany).toHaveBeenCalledTimes(1);
@@ -255,22 +287,23 @@ describe("getTickerRelevanceTermsForAgent", () => {
         industry: "Batu Bara",
         subSector: "Batu Bara",
         subIndustry: "Pertambangan Batu Bara",
-        profile: {
-          sectorIndonesian: "Energi",
-          subSectorIndonesian: "Batu Bara",
-          industryIndonesian: "Batu Bara Termal",
-          subIndustryIndonesian: "Batu Bara Kalori Menengah",
-          aliases: ["Adaro Andalan", "Adaro"],
-          competitors: [
-            { name: "Indo Tambangraya Megah", aliases: ["ITMG", "ITM"] },
-            { name: "Bukit Asam", aliases: ["PTBA"] },
-          ],
-        },
       },
     ] as never);
 
+    const profileSource = profilesFor("AADI", {
+      sectorIndonesian: "Energi",
+      subSectorIndonesian: "Batu Bara",
+      industryIndonesian: "Batu Bara Termal",
+      subIndustryIndonesian: "Batu Bara Kalori Menengah",
+      aliases: ["Adaro Andalan", "Adaro"],
+      competitors: [
+        { name: "Indo Tambangraya Megah", aliases: ["ITMG", "ITM"] },
+        { name: "Bukit Asam", aliases: ["PTBA"] },
+      ],
+    });
+
     // Act
-    const result = await getTickerRelevanceTermsForAgent();
+    const result = await getTickerRelevanceTermsForAgent({ profileSource });
 
     // Assert
     expect(prisma.ticker.findMany).toHaveBeenCalledTimes(1);
@@ -311,22 +344,23 @@ describe("getTickerRelevanceTermsForAgent", () => {
         industry: "Minuman",
         subSector: "Makanan & Minuman",
         subIndustry: "Minuman Ringan",
-        profile: {
-          sectorIndonesian: "Barang Konsumen Primer",
-          subSectorIndonesian: "Makanan & Minuman",
-          industryIndonesian: "Jaringan Kedai Kopi",
-          subIndustryIndonesian: "Kedai Kopi Berbasis Aplikasi",
-          aliases: ["Fore Coffee"],
-          competitors: [
-            { name: "Mitra Adiperkasa", aliases: ["MAPI", "Starbucks"] },
-            { name: "Kopi Tuku", aliases: ["Tuku", "PT"] },
-          ],
-        },
       },
     ] as never);
 
+    const profileSource = profilesFor("FORE", {
+      sectorIndonesian: "Barang Konsumen Primer",
+      subSectorIndonesian: "Makanan & Minuman",
+      industryIndonesian: "Jaringan Kedai Kopi",
+      subIndustryIndonesian: "Kedai Kopi Berbasis Aplikasi",
+      aliases: ["Fore Coffee"],
+      competitors: [
+        { name: "Mitra Adiperkasa", aliases: ["MAPI", "Starbucks"] },
+        { name: "Kopi Tuku", aliases: ["Tuku", "PT"] },
+      ],
+    });
+
     // Act
-    const result = await getTickerRelevanceTermsForAgent();
+    const result = await getTickerRelevanceTermsForAgent({ profileSource });
     const terms = result.tickers[0]?.terms ?? [];
 
     // Assert
@@ -350,19 +384,20 @@ describe("getTickerRelevanceTermsForAgent", () => {
         industry: "Minuman",
         subSector: "Makanan & Minuman",
         subIndustry: "Minuman Ringan",
-        profile: {
-          sectorIndonesian: "Barang Konsumen Primer",
-          subSectorIndonesian: "Makanan & Minuman",
-          industryIndonesian: "Jaringan Kedai Kopi",
-          subIndustryIndonesian: "Kedai Kopi Berbasis Aplikasi",
-          aliases: [],
-          competitors: [],
-        },
       },
     ] as never);
 
+    const profileSource = profilesFor("FORE", {
+      sectorIndonesian: "Barang Konsumen Primer",
+      subSectorIndonesian: "Makanan & Minuman",
+      industryIndonesian: "Jaringan Kedai Kopi",
+      subIndustryIndonesian: "Kedai Kopi Berbasis Aplikasi",
+      aliases: [],
+      competitors: [],
+    });
+
     // Act
-    const result = await getTickerRelevanceTermsForAgent();
+    const result = await getTickerRelevanceTermsForAgent({ profileSource });
     const terms = result.tickers[0]?.terms ?? [];
 
     // Assert
@@ -388,7 +423,6 @@ describe("getTickerRelevanceTermsForAgent", () => {
           industry: "Bank",
           subSector: null,
           subIndustry: null,
-          profile: null,
         },
         {
           id: PEER_TICKER_ID,
@@ -399,7 +433,6 @@ describe("getTickerRelevanceTermsForAgent", () => {
           industry: "Bank",
           subSector: null,
           subIndustry: null,
-          profile: null,
         },
       ] as never)
       .mockResolvedValueOnce([
@@ -422,7 +455,9 @@ describe("getTickerRelevanceTermsForAgent", () => {
       ] as never);
 
     // Act
-    const result = await getTickerRelevanceTermsForAgent();
+    const result = await getTickerRelevanceTermsForAgent({
+      profileSource: noProfiles,
+    });
 
     // Assert
     expect(prisma.ticker.findMany).toHaveBeenCalledTimes(2);
