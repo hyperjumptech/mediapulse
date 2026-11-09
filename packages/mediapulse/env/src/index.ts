@@ -23,6 +23,10 @@ export const env = createEnv({
     MEDIAPULSE_DAY1_TRIGGER_TIMEOUT_MS: z.coerce.number().optional(),
     MEDIAPULSE_DAY1_LATEST_ISSUE_MAX_AGE_HOURS: z.coerce.number().optional(),
     MEDIAPULSE_DAY1_BOOTSTRAP_DEDUPE_MINUTES: z.coerce.number().optional(),
+    MEDIAPULSE_TICKER_PROFILE_SOURCE: z.string().default("database").optional(),
+    ORGANON_API_URL: z.string().optional(),
+    ORGANON_API_KEY: z.string().optional(),
+    MEDIAPULSE_TICKER_PROFILE_CACHE_TTL_MS: z.coerce.number().optional(),
   },
   client: {
   },

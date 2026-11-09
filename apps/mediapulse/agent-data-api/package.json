@@ -8,7 +8,8 @@
     "type:check": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "diff-ticker-profile-sources": "dotenv -e ./.env.local -- bun run scripts/diff-ticker-profile-sources.ts"
   },
   "dependencies": {
     "@mediapulse/domain-api": "workspace:*",
