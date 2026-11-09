@@ -16,6 +16,9 @@ import type {
   KnowledgeExtractionRejection,
 } from "@workspace/agent-data-api-contract";
 
+import { defaultTickerProfileSource } from "./ticker-profile/ticker-profile-source-default.js";
+import type { TickerProfileSource } from "./ticker-profile/ticker-profile-source.js";
+
 export type KnowledgeExtractionDb = Pick<
   PrismaClient,
   | "ticker"
@@ -635,14 +638,16 @@ export async function listExtractionCandidates(
     fromStart?: boolean;
     take?: number;
   },
+  profileSource: TickerProfileSource = defaultTickerProfileSource,
 ): Promise<ExtractionCandidates | null> {
   const ticker = await db.ticker.findUnique({
     where: { id: query.tickerId },
-    include: { profile: true },
   });
   if (ticker === null) {
     return null;
   }
+  const profiles = await profileSource([ticker.symbol]);
+  const profile = profiles.get(ticker.symbol) ?? null;
 
   const storedWatermark = await latestExtractionWatermark(db, query.tickerId);
   const resumedFrom =
@@ -669,8 +674,8 @@ export async function listExtractionCandidates(
     },
   });
 
-  const competitors = asParties(ticker.profile?.competitors);
-  const regulators = asParties(ticker.profile?.regulators);
+  const competitors = asParties(profile?.competitors);
+  const regulators = asParties(profile?.regulators);
   const kinds = await db.knowledgeRelationKind.findMany({
     where: { curated: true },
     select: { label: true },
@@ -685,8 +690,8 @@ export async function listExtractionCandidates(
       tickerId: ticker.id,
       symbol: ticker.symbol,
       name: ticker.name,
-      aliases: ticker.profile?.aliases ?? ticker.aliases,
-      companyOverview: ticker.profile?.companyOverview ?? null,
+      aliases: profile?.aliases ?? ticker.aliases,
+      companyOverview: profile?.companyOverview ?? null,
     },
     parties: [
       ...competitors.map((party) => ({
@@ -730,6 +735,7 @@ export async function seedKnowledgeBaseFromProfile(
   tickerId: string,
   extractionRunId: string | null,
   seedKinds: readonly SeedRelationKindInput[],
+  profileSource: TickerProfileSource = defaultTickerProfileSource,
 ): Promise<{
   issuerEntityId: string;
   entitiesCreated: number;
@@ -738,18 +744,19 @@ export async function seedKnowledgeBaseFromProfile(
 } | null> {
   const ticker = await db.ticker.findUnique({
     where: { id: tickerId },
-    include: { profile: true },
   });
   if (ticker === null) {
     return null;
   }
+  const profiles = await profileSource([ticker.symbol]);
+  const profile = profiles.get(ticker.symbol) ?? null;
 
   await seedRelationKinds(db, seedKinds);
 
   const issuer = await upsertEntity(db, {
     kind: "issuer",
     canonicalName: ticker.name,
-    aliases: [ticker.symbol, ...(ticker.profile?.aliases ?? ticker.aliases)],
+    aliases: [ticker.symbol, ...(profile?.aliases ?? ticker.aliases)],
     tickerId: ticker.id,
     source: "profile",
   });
@@ -800,10 +807,10 @@ export async function seedKnowledgeBaseFromProfile(
     }
   };
 
-  for (const party of asParties(ticker.profile?.competitors)) {
+  for (const party of asParties(profile?.competitors)) {
     await seedParty(party, "company", "competes_with", true);
   }
-  for (const party of asParties(ticker.profile?.regulators)) {
+  for (const party of asParties(profile?.regulators)) {
     await seedParty(party, "regulator", "regulates", false);
   }
 

@@ -6,6 +6,8 @@ import type {
 } from "@workspace/agent-data-api-contract";
 
 import { parseProfileParties } from "./ticker-profile-parties.js";
+import { defaultTickerProfileSource } from "./ticker-profile/ticker-profile-source-default.js";
+import type { TickerProfileSource } from "./ticker-profile/ticker-profile-source.js";
 
 /**
  * How far back a query's novel-article history is read when deciding whether it has proven itself.
@@ -120,6 +122,7 @@ export const getProvenQueries = async (
 export const getQueryAnalysisContext = async (
   query: GetQueryAnalysisQuery,
   db: QueryAnalysisDb = defaultDb,
+  profileSource: TickerProfileSource = defaultTickerProfileSource,
 ) => {
   const provenQueries = await getProvenQueries(query.tickerId, db);
   const ticker = await db.ticker.findUniqueOrThrow({
@@ -134,27 +137,10 @@ export const getQueryAnalysisContext = async (
       subSector: true,
       subIndustry: true,
       businessActivity: true,
-      profile: {
-        select: {
-          companyOverview: true,
-          businessOperation: true,
-          sectorIndonesian: true,
-          sectorEnglish: true,
-          subSectorIndonesian: true,
-          subSectorEnglish: true,
-          industryIndonesian: true,
-          industryEnglish: true,
-          subIndustryIndonesian: true,
-          subIndustryEnglish: true,
-          aliases: true,
-          competitors: true,
-          regulators: true,
-        },
-      },
     },
   } satisfies Prisma.TickerFindUniqueOrThrowArgs);
-
-  const profile = ticker.profile;
+  const profiles = await profileSource([ticker.symbol]);
+  const profile = profiles.get(ticker.symbol) ?? null;
 
   return {
     provenQueries,
@@ -170,7 +156,7 @@ export const getQueryAnalysisContext = async (
       businessActivity: ticker.businessActivity,
     },
     profile:
-      profile === null || profile === undefined
+      profile === null
         ? null
         : {
             companyOverview: profile.companyOverview,

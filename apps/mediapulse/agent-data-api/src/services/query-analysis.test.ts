@@ -15,11 +15,14 @@ vi.mock("./search-query-yield.js", () => ({
 const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 
 let getQueryAnalysisContext: typeof import("./query-analysis.js").getQueryAnalysisContext;
+let createInMemoryTickerProfileSource: typeof import("./ticker-profile/ticker-profile-source.js").createInMemoryTickerProfileSource;
 let getProvenQueries: typeof import("./query-analysis.js").getProvenQueries;
 
 beforeAll(async () => {
   ({ getQueryAnalysisContext, getProvenQueries } =
     await import("./query-analysis.js"));
+  ({ createInMemoryTickerProfileSource } =
+    await import("./ticker-profile/ticker-profile-source.js"));
 });
 
 describe("getProvenQueries", () => {
@@ -111,7 +114,6 @@ describe("getQueryAnalysisContext", () => {
       subSector: "Application Software",
       subIndustry: "SaaS",
       businessActivity: "Enterprise software",
-      profile: null,
     });
     const db = {
       ticker: { findUniqueOrThrow },
@@ -129,7 +131,13 @@ describe("getQueryAnalysisContext", () => {
       },
     };
 
-    const payload = await getQueryAnalysisContext({ tickerId: TICKER_ID }, db);
+    const profileSource = vi.fn(createInMemoryTickerProfileSource(new Map()));
+
+    const payload = await getQueryAnalysisContext(
+      { tickerId: TICKER_ID },
+      db,
+      profileSource,
+    );
 
     expect(payload).toEqual({
       ticker: {
@@ -149,6 +157,7 @@ describe("getQueryAnalysisContext", () => {
     expect(findUniqueOrThrow).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: TICKER_ID } }),
     );
+    expect(profileSource).toHaveBeenCalledWith(["ACME"]);
   });
 
   it("shapes the curated profile into both language sides", async () => {
@@ -164,7 +173,27 @@ describe("getQueryAnalysisContext", () => {
           subSector: null,
           subIndustry: null,
           businessActivity: null,
-          profile: {
+        }),
+      },
+      searchQuerySet: {
+        updateMany: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+        findUnique: vi.fn(),
+        delete: vi.fn(),
+      },
+      searchQuery: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn(),
+        createMany: vi.fn(),
+      },
+    };
+
+    const profileSource = createInMemoryTickerProfileSource(
+      new Map([
+        [
+          "AADI",
+          {
             companyOverview: "Thermal coal producer.",
             businessOperation: "Mines and sells thermal coal.",
             sectorIndonesian: "Energi",
@@ -182,23 +211,15 @@ describe("getQueryAnalysisContext", () => {
             ],
             regulators: [{ name: "Kementerian ESDM" }],
           },
-        }),
-      },
-      searchQuerySet: {
-        updateMany: vi.fn(),
-        create: vi.fn(),
-        update: vi.fn(),
-        findUnique: vi.fn(),
-        delete: vi.fn(),
-      },
-      searchQuery: {
-        findMany: vi.fn().mockResolvedValue([]),
-        deleteMany: vi.fn(),
-        createMany: vi.fn(),
-      },
-    };
+        ],
+      ]),
+    );
 
-    const payload = await getQueryAnalysisContext({ tickerId: TICKER_ID }, db);
+    const payload = await getQueryAnalysisContext(
+      { tickerId: TICKER_ID },
+      db,
+      profileSource,
+    );
 
     expect(payload.profile?.sector).toEqual({
       indonesian: "Energi",
@@ -241,7 +262,11 @@ describe("getQueryAnalysisContext", () => {
       },
     };
 
-    const payload = await getQueryAnalysisContext({ tickerId: TICKER_ID }, db);
+    const payload = await getQueryAnalysisContext(
+      { tickerId: TICKER_ID },
+      db,
+      createInMemoryTickerProfileSource(new Map()),
+    );
 
     expect(payload.ticker.sector).toBeNull();
     expect(payload.ticker.businessActivity).toBeNull();

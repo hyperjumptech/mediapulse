@@ -7,6 +7,8 @@ import {
   type WelcomeStoriesDb,
 } from "./day1-welcome-stories.js";
 import { parseProfileParties } from "./ticker-profile-parties.js";
+import { defaultTickerProfileSource } from "./ticker-profile/ticker-profile-source-default.js";
+import type { TickerProfileSource } from "./ticker-profile/ticker-profile-source.js";
 
 export const WELCOME_CLASSIFICATION_LEVELS = 3;
 
@@ -49,20 +51,6 @@ const welcomeDispatchSelect = {
     select: {
       symbol: true,
       name: true,
-      profile: {
-        select: {
-          companyOverview: true,
-          businessOperation: true,
-          sectorEnglish: true,
-          sectorIndonesian: true,
-          subSectorEnglish: true,
-          subSectorIndonesian: true,
-          industryEnglish: true,
-          industryIndonesian: true,
-          competitors: true,
-          regulators: true,
-        },
-      },
     },
   },
 } as const;
@@ -74,6 +62,7 @@ export const getDay1Welcome = async (
   db: Day1WelcomeDb,
   { dispatchId }: { dispatchId: string },
   now: Date = new Date(),
+  profileSource: TickerProfileSource = defaultTickerProfileSource,
 ): Promise<GetDay1WelcomeResponse> => {
   const dispatch = await db.day1NewsletterDispatch.findUnique({
     where: { id: dispatchId },
@@ -89,7 +78,15 @@ export const getDay1Welcome = async (
     userTicker.registrationConfirmedAt !== null &&
     userTicker.user.enabled &&
     deliverableEmailSchema.safeParse(email).success;
-  const profile = ticker.profile;
+  const [profiles, recentStories] = await Promise.all([
+    profileSource([ticker.symbol]),
+    loadWelcomeStories(db, {
+      tickerId: dispatch.tickerId,
+      language,
+      now,
+    }),
+  ]);
+  const profile = profiles.get(ticker.symbol) ?? null;
   const isEnglish = language === "en";
   const classificationLevels =
     profile === null
@@ -109,11 +106,6 @@ export const getDay1Welcome = async (
     profile === null ? [] : parseProfileParties(profile.competitors);
   const regulators =
     profile === null ? [] : parseProfileParties(profile.regulators);
-  const recentStories = await loadWelcomeStories(db, {
-    tickerId: dispatch.tickerId,
-    language,
-    now,
-  });
 
   return {
     welcome: {

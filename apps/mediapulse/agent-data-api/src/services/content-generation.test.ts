@@ -29,6 +29,33 @@ import {
   getRecentNewsletterSubjects,
   updateFetchedContent,
 } from "./content-generation.js";
+import {
+  createInMemoryTickerProfileSource,
+  type TickerProfileRecord,
+} from "./ticker-profile/ticker-profile-source.js";
+
+const blankProfile: TickerProfileRecord = {
+  companyOverview: "",
+  businessOperation: "",
+  sectorIndonesian: "",
+  sectorEnglish: "",
+  subSectorIndonesian: "",
+  subSectorEnglish: "",
+  industryIndonesian: "",
+  industryEnglish: "",
+  subIndustryIndonesian: "",
+  subIndustryEnglish: "",
+  aliases: [],
+  competitors: [],
+  regulators: [],
+};
+
+const profilesFor = (symbol: string, profile: Partial<TickerProfileRecord>) =>
+  createInMemoryTickerProfileSource(
+    new Map([[symbol, { ...blankProfile, ...profile }]]),
+  );
+
+const noProfiles = createInMemoryTickerProfileSource(new Map());
 
 type MockDb = {
   dataSourceTickerSection: {
@@ -161,6 +188,7 @@ describe("getDataSourcesForTicker", () => {
 
     // Act
     const result = await getDataSourcesForTicker("ticker-1", {
+      profileSource: noProfiles,
       db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
       now: () => new Date("2026-03-19T15:30:00.000Z"),
     });
@@ -244,6 +272,7 @@ describe("getDataSourcesForTicker", () => {
 
     // Act
     const result = await getDataSourcesForTicker("ticker-1", {
+      profileSource: noProfiles,
       db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
       now: () => new Date("2026-09-09T00:00:00.000Z"),
     });
@@ -286,6 +315,7 @@ describe("getDataSourcesForTicker", () => {
 
     // Act
     const result = await getDataSourcesForTicker("ticker-1", {
+      profileSource: noProfiles,
       db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
       now: () => new Date("2026-10-05T00:00:00.000Z"),
     });
@@ -309,6 +339,7 @@ describe("getDataSourcesForTicker", () => {
 
     // Act
     await getDataSourcesForTicker("ticker-1", {
+      profileSource: noProfiles,
       db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
       now: () => new Date("2026-07-01T02:00:00.000Z"),
     });
@@ -342,6 +373,7 @@ describe("getDataSourcesForTicker", () => {
 
     // Act
     await getDataSourcesForTicker("ticker-1", {
+      profileSource: noProfiles,
       db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
       now: () => new Date("2026-08-20T00:03:00.000Z"),
     });
@@ -367,6 +399,7 @@ describe("getDataSourcesForTicker", () => {
 
     // Act
     const result = await getDataSourcesForTicker("ticker-1", {
+      profileSource: noProfiles,
       db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
       now: () => new Date("2026-03-19T02:00:00.000Z"),
     });
@@ -389,6 +422,7 @@ describe("getDataSourcesForTicker", () => {
 
     // Act
     const result = await getDataSourcesForTicker("ticker-1", {
+      profileSource: noProfiles,
       db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
       now: () => new Date("2026-03-19T02:00:00.000Z"),
     });
@@ -416,6 +450,7 @@ describe("getDataSourcesForTicker", () => {
 
     // Act
     const result = await getDataSourcesForTicker("ticker-1", {
+      profileSource: noProfiles,
       db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
       now: () => new Date("2026-03-19T02:00:00.000Z"),
     });
@@ -860,18 +895,19 @@ describe("getDataSourcesForTicker — competitors and issuerAliases from the pro
       symbol: "BBCA",
       name: "Bank Central Asia",
       aliases: ["BCA"],
-      profile: {
-        aliases: ["PT Bank Central Asia Tbk"],
-        competitors: [
-          { name: "Bank Mandiri", aliases: ["BMRI"] },
-          { name: "Bank Rakyat Indonesia", aliases: ["BBRI"] },
-        ],
-      },
+    });
+    const profileSource = profilesFor("BBCA", {
+      aliases: ["PT Bank Central Asia Tbk"],
+      competitors: [
+        { name: "Bank Mandiri", aliases: ["BMRI"] },
+        { name: "Bank Rakyat Indonesia", aliases: ["BBRI"] },
+      ],
     });
     db.dataSourceTickerSection.findMany.mockResolvedValue([]);
 
     // Act
     const result = await getDataSourcesForTicker("ticker-bbca", {
+      profileSource,
       db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
       now: () => new Date("2026-05-01T10:00:00.000Z"),
     });
@@ -896,12 +932,12 @@ describe("getDataSourcesForTicker — competitors and issuerAliases from the pro
       symbol: "NEW",
       name: "New Company",
       aliases: [],
-      profile: null,
     });
     db.dataSourceTickerSection.findMany.mockResolvedValue([]);
 
     // Act
     const result = await getDataSourcesForTicker("ticker-new", {
+      profileSource: noProfiles,
       db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
       now: () => new Date("2026-05-01T10:00:00.000Z"),
     });
@@ -919,15 +955,15 @@ describe("getDataSourcesForTicker — competitors and issuerAliases from the pro
       symbol: "SOLO",
       name: "Solo Corp",
       aliases: [],
-      profile: {
-        aliases: [],
-        competitors: [{ name: "" }, { aliases: ["X"] }, 42, null],
-      },
+    });
+    const profileSource = profilesFor("SOLO", {
+      competitors: [{ name: "" }, { aliases: ["X"] }, 42, null],
     });
     db.dataSourceTickerSection.findMany.mockResolvedValue([]);
 
     // Act
     const result = await getDataSourcesForTicker("ticker-solo", {
+      profileSource,
       db: db as unknown as NonNullable<GetDataSourcesDeps["db"]>,
       now: () => new Date("2026-05-01T10:00:00.000Z"),
     });

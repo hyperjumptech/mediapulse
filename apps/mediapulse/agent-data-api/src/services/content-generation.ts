@@ -10,6 +10,8 @@ import { sanitizePublisherDisplayName } from "@workspace/utils";
 
 import { recordPublisherNames, upsertPublishersSeen } from "./publisher.js";
 import { parseProfileParties } from "./ticker-profile-parties.js";
+import { defaultTickerProfileSource } from "./ticker-profile/ticker-profile-source-default.js";
+import type { TickerProfileSource } from "./ticker-profile/ticker-profile-source.js";
 
 const MAX_RECENT_BULLETS = 200;
 
@@ -73,9 +75,14 @@ export const getDataSourcesForTicker = async (
       | "publisher"
     >;
     now?: () => Date;
+    profileSource?: TickerProfileSource;
   } = {},
 ) => {
-  const { db = prisma, now = () => new Date() } = deps;
+  const {
+    db = prisma,
+    now = () => new Date(),
+    profileSource = defaultTickerProfileSource,
+  } = deps;
   const cutoff = new Date(now().getTime() - SOURCE_LOOKBACK_HOURS * 3_600_000);
 
   const [ticker, sectionRows] = await Promise.all([
@@ -85,7 +92,6 @@ export const getDataSourcesForTicker = async (
         symbol: true,
         name: true,
         aliases: true,
-        profile: { select: { aliases: true, competitors: true } },
       },
     } satisfies Prisma.TickerFindUniqueOrThrowArgs),
     db.dataSourceTickerSection.findMany({
@@ -175,7 +181,8 @@ export const getDataSourcesForTicker = async (
     };
   });
 
-  const profile = ticker.profile ?? null;
+  const profiles = await profileSource([ticker.symbol]);
+  const profile = profiles.get(ticker.symbol) ?? null;
   const issuerAliases: string[] = [
     ...new Set(
       [

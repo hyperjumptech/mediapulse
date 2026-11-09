@@ -13,6 +13,11 @@ import {
   extractTickerSectorIndustry,
 } from "./query-analysis-context-helpers.js";
 import { parseProfileParties } from "./ticker-profile-parties.js";
+import { defaultTickerProfileSource } from "./ticker-profile/ticker-profile-source-default.js";
+import {
+  uniqueTickerSymbols,
+  type TickerProfileSource,
+} from "./ticker-profile/ticker-profile-source.js";
 
 /** Newest-first cap on eligible articles scanned per candidate-pair request. */
 const MAX_CANDIDATE_ARTICLE_SCAN = 1500;
@@ -109,7 +114,6 @@ type TickerRow = {
   subIndustry: string | null;
   businessActivity: string | null;
   aliases?: string[];
-  profile?: TickerProfileContextRow;
 } | null;
 
 /**
@@ -119,26 +123,31 @@ type TickerRow = {
  * @param ticker - The selected ticker row.
  * @returns Deduplicated alias strings, in ticker-then-profile order.
  */
-const collectIssuerAliases = (ticker: NonNullable<TickerRow>): string[] => {
+const collectIssuerAliases = (
+  ticker: NonNullable<TickerRow>,
+  profile: TickerProfileContextRow,
+): string[] => {
   const known = new Set([ticker.symbol, ticker.name]);
 
   return [
     ...new Set(
-      [...(ticker.aliases ?? []), ...(ticker.profile?.aliases ?? [])]
+      [...(ticker.aliases ?? []), ...(profile?.aliases ?? [])]
         .map((alias) => alias.trim())
         .filter((alias) => alias.length > 0 && !known.has(alias)),
     ),
   ];
 };
 
-const mapTickerContext = (ticker: TickerRow): AnalysisTickerContext => {
+const mapTickerContext = (
+  ticker: TickerRow,
+  profile: TickerProfileContextRow,
+): AnalysisTickerContext => {
   if (ticker === null) {
     throw new Error("mapTickerContext called with null ticker");
   }
   const { sector, industry } = extractTickerSectorIndustry(ticker);
   const { subIndustry, businessActivity } =
     extractTickerBusinessContext(ticker);
-  const profile = ticker.profile ?? null;
 
   return {
     symbol: ticker.symbol,
@@ -147,7 +156,7 @@ const mapTickerContext = (ticker: TickerRow): AnalysisTickerContext => {
     industry: profile?.industryEnglish ?? industry ?? null,
     subIndustry: profile?.subIndustryEnglish ?? subIndustry ?? null,
     businessActivity: profile?.businessOperation ?? businessActivity ?? null,
-    aliases: collectIssuerAliases(ticker),
+    aliases: collectIssuerAliases(ticker, profile),
     competitors:
       profile === null ? [] : parseProfileParties(profile.competitors),
     regulators: profile === null ? [] : parseProfileParties(profile.regulators),
@@ -174,16 +183,6 @@ type TickerGatingContext = {
   matcher: RegExp | null;
 };
 
-const tickerProfileContextSelect = {
-  sectorEnglish: true,
-  industryEnglish: true,
-  subIndustryEnglish: true,
-  businessOperation: true,
-  aliases: true,
-  competitors: true,
-  regulators: true,
-} satisfies Prisma.TickerProfileSelect;
-
 /** Ticker columns selected to build {@link AnalysisTickerContext}. */
 const tickerContextSelect = {
   symbol: true,
@@ -194,14 +193,14 @@ const tickerContextSelect = {
   subIndustry: true,
   businessActivity: true,
   aliases: true,
-  profile: { select: tickerProfileContextSelect },
 } satisfies Prisma.TickerSelect;
 
 /** Builds issuer context + alias matcher for one active ticker. */
 const buildTickerGatingContext = (
   ticker: NonNullable<TickerRow> & { id: string },
+  profile: TickerProfileContextRow,
 ): TickerGatingContext => {
-  const context = mapTickerContext(ticker);
+  const context = mapTickerContext(ticker, profile);
   const aliases = [
     context.symbol,
     context.name,
@@ -230,6 +229,7 @@ const buildAnalysisCandidatePairs = async (
     AnalysisDb,
     "dataSource" | "dataSourceTickerSection" | "ticker" | "searchQuerySet"
   >,
+  profileSource: TickerProfileSource,
 ): Promise<GetAnalysisResponse> => {
   const recencyDays = query.unanalyzed
     ? UNANALYZED_ARTICLE_RECENCY_DAYS
@@ -273,9 +273,6 @@ const buildAnalysisCandidatePairs = async (
       ...tickerContextSelect,
     },
   } satisfies Prisma.TickerFindManyArgs);
-  const gatingContexts = activeTickers
-    .map((ticker) => buildTickerGatingContext(ticker))
-    .filter((gating) => !cappedTickerIds.has(gating.tickerId));
 
   const ownedArticles = await db.dataSource.findMany({
     where: {
@@ -321,6 +318,22 @@ const buildAnalysisCandidatePairs = async (
     },
   } satisfies Prisma.DataSourceFindManyArgs);
 
+  const profiles = await profileSource(
+    uniqueTickerSymbols([
+      ...activeTickers.map((ticker) => ticker.symbol),
+      ...ownedArticles.flatMap((article) =>
+        article.ticker === null ? [] : [article.ticker.symbol],
+      ),
+    ]),
+  );
+  const profileOf = (ticker: TickerRow): TickerProfileContextRow =>
+    ticker === null
+      ? null
+      : (profiles.get(ticker.symbol.trim().toUpperCase()) ?? null);
+  const gatingContexts = activeTickers
+    .map((ticker) => buildTickerGatingContext(ticker, profileOf(ticker)))
+    .filter((gating) => !cappedTickerIds.has(gating.tickerId));
+
   const pairs: GetAnalysisResponse["dataSources"] = [];
 
   for (const article of ownedArticles) {
@@ -333,7 +346,7 @@ const buildAnalysisCandidatePairs = async (
       description: article.description,
       content: article.content,
       createdAt: article.createdAt,
-      ticker: mapTickerContext(article.ticker),
+      ticker: mapTickerContext(article.ticker, profileOf(article.ticker)),
     });
   }
 
@@ -376,12 +389,13 @@ const buildAnalysisCandidatePairs = async (
  */
 export const loadAnalysisContext = async (
   query: GetAnalysisQuery,
-  deps: { db?: AnalysisDb } = {},
+  deps: { db?: AnalysisDb; profileSource?: TickerProfileSource } = {},
 ): Promise<GetAnalysisResponse> => {
   const db = deps.db ?? defaultDb;
+  const profileSource = deps.profileSource ?? defaultTickerProfileSource;
 
   if (query.unanalyzed || query.tickerId === undefined) {
-    return buildAnalysisCandidatePairs(query, db);
+    return buildAnalysisCandidatePairs(query, db, profileSource);
   }
 
   const scopedTickerId = query.tickerId;
@@ -418,6 +432,11 @@ export const loadAnalysisContext = async (
     db.dataSource.count({ where }),
   ]);
 
+  const symbols = uniqueTickerSymbols(
+    rows.flatMap((row) => (row.ticker === null ? [] : [row.ticker.symbol])),
+  );
+  const profiles =
+    symbols.length === 0 ? new Map() : await profileSource(symbols);
   const dataSources = rows.map((row) => ({
     id: row.id,
     tickerId: row.tickerId ?? scopedTickerId,
@@ -426,7 +445,12 @@ export const loadAnalysisContext = async (
     description: row.description,
     content: row.content,
     createdAt: row.createdAt,
-    ticker: mapTickerContext(row.ticker),
+    ticker: mapTickerContext(
+      row.ticker,
+      row.ticker === null
+        ? null
+        : (profiles.get(row.ticker.symbol.trim().toUpperCase()) ?? null),
+    ),
   }));
 
   return { dataSources, dataSourceTotalCount };

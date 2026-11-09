@@ -14,6 +14,28 @@ import {
   deleteAnalysisDataSource,
   loadAnalysisContext,
 } from "./analysis.js";
+import {
+  createInMemoryTickerProfileSource,
+  type TickerProfileRecord,
+} from "./ticker-profile/ticker-profile-source.js";
+
+const blankProfile: TickerProfileRecord = {
+  companyOverview: "",
+  businessOperation: "",
+  sectorIndonesian: "",
+  sectorEnglish: "",
+  subSectorIndonesian: "",
+  subSectorEnglish: "",
+  industryIndonesian: "",
+  industryEnglish: "",
+  subIndustryIndonesian: "",
+  subIndustryEnglish: "",
+  aliases: [],
+  competitors: [],
+  regulators: [],
+};
+
+const noProfiles = createInMemoryTickerProfileSource(new Map());
 
 const TICKER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const SECOND_TICKER_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -91,7 +113,10 @@ describe("loadAnalysisContext — data-collection daily baseline", () => {
 
     const result = await loadAnalysisContext(
       { unanalyzed: false, limit: 5, tickerId: TICKER_ID },
-      { db: { dataSource: { findMany, count } } as never },
+      {
+        profileSource: noProfiles,
+        db: { dataSource: { findMany, count } } as never,
+      },
     );
 
     expect(findMany).toHaveBeenCalledWith(
@@ -124,29 +149,37 @@ describe("loadAnalysisContext — data-collection daily baseline", () => {
           subIndustry: "Jasa Telekomunikasi Terintegrasi",
           businessActivity: "Penyelenggara Jaringan dan Jasa Telekom",
           aliases: ["TLKM", "Telkomsel"],
-          profile: {
-            sectorEnglish: null,
-            industryEnglish: null,
-            subIndustryEnglish: null,
-            businessOperation: null,
-            aliases: ["IndiHome", "Telkomsel"],
-            competitors: [
-              { name: "Indosat", aliases: ["ISAT"] },
-              { name: "XLSMART Telecom Sejahtera", aliases: ["XLSmart"] },
-            ],
-          },
         },
       },
     ];
     const findMany = vi.fn().mockResolvedValue(rows);
     const count = vi.fn().mockResolvedValue(1);
+    const profileSource = vi.fn(
+      createInMemoryTickerProfileSource(
+        new Map([
+          [
+            "TLKM",
+            {
+              ...blankProfile,
+              aliases: ["IndiHome", "Telkomsel"],
+              competitors: [
+                { name: "Indosat", aliases: ["ISAT"] },
+                { name: "XLSMART Telecom Sejahtera", aliases: ["XLSmart"] },
+              ],
+            },
+          ],
+        ]),
+      ),
+    );
 
     const result = await loadAnalysisContext(
       { unanalyzed: false, limit: 5, tickerId: TICKER_ID },
-      { db: { dataSource: { findMany, count } } as never },
+      { profileSource, db: { dataSource: { findMany, count } } as never },
     );
     const ticker = result.dataSources[0]?.ticker;
 
+    expect(profileSource).toHaveBeenCalledTimes(1);
+    expect(profileSource).toHaveBeenCalledWith(["TLKM"]);
     expect(ticker?.aliases).toEqual(["Telkomsel", "IndiHome"]);
     expect(ticker?.competitors).toEqual([
       { name: "Indosat", aliases: ["ISAT"] },
@@ -180,7 +213,10 @@ describe("loadAnalysisContext — data-collection daily baseline", () => {
 
     const result = await loadAnalysisContext(
       { unanalyzed: false, limit: 5, tickerId: TICKER_ID },
-      { db: { dataSource: { findMany, count } } as never },
+      {
+        profileSource: noProfiles,
+        db: { dataSource: { findMany, count } } as never,
+      },
     );
     const ticker = result.dataSources[0]?.ticker;
 
@@ -286,9 +322,11 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
       },
     ]);
 
+    const profileSource = vi.fn(noProfiles);
+
     const result = await loadAnalysisContext(
       { unanalyzed: true, limit: 10 },
-      { db: db as never },
+      { profileSource, db: db as never },
     );
 
     expect(db.dataSource.findMany).toHaveBeenCalledWith(
@@ -318,12 +356,17 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
       expect(pair.tickerId).toBe(TICKER_ID);
       expect(pair.ticker.symbol).toBe("BBCA");
     }
+    expect(profileSource).toHaveBeenCalledTimes(1);
+    expect(profileSource).toHaveBeenCalledWith(["BBCA"]);
   });
 
   it("holds unanalyzed backlog in the candidate window longer than fresh candidates", async () => {
     const readFloor = async (unanalyzed: boolean): Promise<Date> => {
       const db = buildDb([]);
-      await loadAnalysisContext({ unanalyzed, limit: 10 }, { db: db as never });
+      await loadAnalysisContext(
+        { unanalyzed, limit: 10 },
+        { profileSource: noProfiles, db: db as never },
+      );
       const call = db.dataSource.findMany.mock.calls[0]![0] as {
         where: { createdAt: { gte: Date } };
       };
@@ -367,7 +410,7 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
 
     const result = await loadAnalysisContext(
       { unanalyzed: true, limit: 10 },
-      { db: db as never },
+      { profileSource: noProfiles, db: db as never },
     );
 
     expect(result.dataSources.map((pair) => pair.id)).toEqual([CURATED_MATCH]);
@@ -393,7 +436,7 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
 
     const result = await loadAnalysisContext(
       { unanalyzed: true, limit: 10 },
-      { db: db as never },
+      { profileSource: noProfiles, db: db as never },
     );
 
     expect(result.dataSources).toEqual([]);
@@ -423,7 +466,7 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
     const cappedDb = buildDb([searchArticle], { [TICKER_ID]: 50 });
     const cappedResult = await loadAnalysisContext(
       { unanalyzed: true, limit: 10 },
-      { db: cappedDb as never },
+      { profileSource: noProfiles, db: cappedDb as never },
     );
 
     expect(cappedResult.dataSources).toEqual([]);
@@ -438,7 +481,7 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
     const underDb = buildDb([searchArticle], { [TICKER_ID]: 49 });
     const underResult = await loadAnalysisContext(
       { unanalyzed: true, limit: 10 },
-      { db: underDb as never },
+      { profileSource: noProfiles, db: underDb as never },
     );
 
     expect(underResult.dataSources.map((pair) => pair.id)).toEqual([
@@ -519,7 +562,7 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
 
     const result = await loadAnalysisContext(
       { unanalyzed: true, limit: 10 },
-      { db: db as never },
+      { profileSource: noProfiles, db: db as never },
     );
 
     expect(result.dataSources.map((pair) => pair.tickerId)).toEqual([
@@ -568,7 +611,7 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
     const db = buildDb([cappedOwned, uncappedOwned], { [TICKER_ID]: 50 });
     const result = await loadAnalysisContext(
       { unanalyzed: true, limit: 10 },
-      { db: db as never },
+      { profileSource: noProfiles, db: db as never },
     );
 
     expect(db.dataSource.findMany).toHaveBeenCalledWith(
@@ -608,7 +651,7 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
 
     const result = await loadAnalysisContext(
       { unanalyzed: true, limit: 10, tickerId: TICKER_ID },
-      { db: db as never },
+      { profileSource: noProfiles, db: db as never },
     );
 
     expect(db.searchQuerySet.findMany).toHaveBeenCalledWith(
@@ -651,7 +694,7 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
 
     const result = await loadAnalysisContext(
       { unanalyzed: true, limit: 10, tickerId: TICKER_ID },
-      { db: db as never },
+      { profileSource: noProfiles, db: db as never },
     );
 
     expect(db.dataSource.findMany).not.toHaveBeenCalled();
