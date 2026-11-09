@@ -137,7 +137,7 @@ if (!env.AGENT_AUTH_API_URL) {
   throw new Error("AGENT_AUTH_API_URL is required for agent-data-api");
 }
 
-startDefaultTickerProfileSource();
+await startDefaultTickerProfileSource();
 
 /**
  * Builds the JSON body for the public liveness route `GET /health`.
