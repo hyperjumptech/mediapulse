@@ -1,4 +1,3 @@
-import { prisma } from "@mediapulse/database";
 import { logger } from "@workspace/logger";
 
 import {
@@ -11,7 +10,10 @@ import type { TickerProfileSource } from "./ticker-profile-source.js";
 let configured: Promise<ConfiguredTickerProfileSource> | undefined;
 
 const getConfigured = (): Promise<ConfiguredTickerProfileSource> => {
-  configured ??= import("@mediapulse/env").then(({ env }) =>
+  configured ??= Promise.all([
+    import("@mediapulse/env"),
+    import("@mediapulse/database"),
+  ]).then(([{ env }, { prisma }]) =>
     createTickerProfileSource(readTickerProfileSourceConfig(env), {
       tickerProfileDb: { tickerProfile: prisma.tickerProfile },
       logger,
