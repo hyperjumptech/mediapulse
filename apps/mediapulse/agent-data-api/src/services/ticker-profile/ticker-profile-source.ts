@@ -3,6 +3,8 @@ import type { Prisma } from "@mediapulse/database";
 export type TickerProfileRecord = {
   companyOverview: string;
   businessOperation: string;
+  companyOverviewIndonesian: string;
+  businessOperationIndonesian: string;
   sectorIndonesian: string;
   sectorEnglish: string;
   subSectorIndonesian: string;

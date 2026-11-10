@@ -6,6 +6,8 @@ import type { TickerProfileRecord } from "./ticker-profile/ticker-profile-source
 const profile: TickerProfileRecord = {
   companyOverview: "Coffee chain.",
   businessOperation: "  Runs app-first coffee shops.  ",
+  companyOverviewIndonesian: "",
+  businessOperationIndonesian: "",
   sectorIndonesian: "Barang Konsumen Primer",
   sectorEnglish: "Consumer Non-Cyclicals",
   subSectorIndonesian: "Makanan & Minuman",

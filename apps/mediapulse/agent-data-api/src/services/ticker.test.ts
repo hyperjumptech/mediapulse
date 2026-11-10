@@ -17,6 +17,8 @@ const TICKER_ID = "11111111-1111-4111-a111-111111111111";
 const blankProfile: TickerProfileRecord = {
   companyOverview: "",
   businessOperation: "",
+  companyOverviewIndonesian: "",
+  businessOperationIndonesian: "",
   sectorIndonesian: "",
   sectorEnglish: "",
   subSectorIndonesian: "",
@@ -75,6 +77,8 @@ describe("getTickerForAgent", () => {
           {
             ...blankProfile,
             businessOperation: "Perbankan digital",
+            companyOverviewIndonesian: "",
+            businessOperationIndonesian: "",
             sectorIndonesian: "Keuangan",
             sectorEnglish: "Financials",
             subSectorIndonesian: "Bank",

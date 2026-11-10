@@ -186,6 +186,8 @@ describe("getQueryAnalysisContext", () => {
           {
             companyOverview: "Thermal coal producer.",
             businessOperation: "Mines and sells thermal coal.",
+            companyOverviewIndonesian: "",
+            businessOperationIndonesian: "",
             sectorIndonesian: "Energi",
             sectorEnglish: "Energy",
             subSectorIndonesian: "Batu Bara",

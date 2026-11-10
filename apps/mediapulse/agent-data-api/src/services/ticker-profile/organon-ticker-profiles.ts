@@ -309,6 +309,8 @@ export const mapOrganonTickerProfiles = (
     profiles.set(ticker, {
       companyOverview: pickText(facts, "companyOverview", "en"),
       businessOperation: pickText(facts, "businessOperation", "en"),
+      companyOverviewIndonesian: pickText(facts, "companyOverview", "id"),
+      businessOperationIndonesian: pickText(facts, "businessOperation", "id"),
       sectorIndonesian: pickText(facts, "sector", "id"),
       sectorEnglish: pickText(facts, "sector", "en"),
       subSectorIndonesian: pickText(facts, "subSector", "id"),
