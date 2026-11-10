@@ -10,14 +10,8 @@ import type { TickerProfileSource } from "./ticker-profile-source.js";
 let configured: Promise<ConfiguredTickerProfileSource> | undefined;
 
 const getConfigured = (): Promise<ConfiguredTickerProfileSource> => {
-  configured ??= Promise.all([
-    import("@mediapulse/env"),
-    import("@mediapulse/database"),
-  ]).then(([{ env }, { prisma }]) =>
-    createTickerProfileSource(readTickerProfileSourceConfig(env), {
-      tickerProfileDb: { tickerProfile: prisma.tickerProfile },
-      logger,
-    }),
+  configured ??= import("@mediapulse/env").then(({ env }) =>
+    createTickerProfileSource(readTickerProfileSourceConfig(env), { logger }),
   );
 
   return configured;
@@ -33,8 +27,5 @@ export const defaultTickerProfileSource: TickerProfileSource = async (
 
 export const startDefaultTickerProfileSource = async (): Promise<void> => {
   const configuredSource = await getConfigured();
-  logger.info({ kind: configuredSource.kind }, "Ticker profile source");
-  if (configuredSource.kind === "organon") {
-    configuredSource.warm().catch(() => undefined);
-  }
+  configuredSource.warm().catch(() => undefined);
 };

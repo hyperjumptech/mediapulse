@@ -486,14 +486,9 @@ A mention is unique per `(ticker, entity, article)` and a relation per `(subject
 
 ## Ticker profile source
 
-Ticker profiles (overview, business operation, the four classification levels, aliases, competitors and regulators) can come from the `ticker_profile` table or from the Organon knowledge graph. `MEDIAPULSE_TICKER_PROFILE_SOURCE` picks one at startup:
+Ticker profiles (overview, business operation, the four classification levels, aliases, competitors and regulators) come from the Organon knowledge graph over `POST /api/v1/sparql?inferred=true`. `ORGANON_API_URL` and `ORGANON_API_KEY` are required, and the server does not start without them. A read key for the MediaPulse project is enough. Locally, point them at a local Organon (`http://localhost:3000`) or at production with a read key.
 
-| Value               | Reads                                                                                         |
-| ------------------- | --------------------------------------------------------------------------------------------- |
-| `database` (default) | The `ticker_profile` table, one query per request.                                           |
-| `organon`           | Organon over `POST /api/v1/sparql?inferred=true`, with `ORGANON_API_URL` and `ORGANON_API_KEY`. |
-
-The Organon source loads every listed company in one pass, using the two queries on Organon's developer page **How to get a ticker profile**, and keeps the result in memory. The copy is served for `MEDIAPULSE_TICKER_PROFILE_CACHE_TTL_MS` (10 minutes by default) and then refreshed in the background while the old copy keeps being served. A failed refresh keeps the old copy and retries after 30 seconds. If Organon is down before the first load succeeds, profile reads fail with a 500 rather than returning empty profiles. The server starts loading at boot without waiting for it.
+The source loads every listed company in one pass, using the two queries on Organon's developer page **How to get a ticker profile**, and keeps the result in memory. The copy is served for `MEDIAPULSE_TICKER_PROFILE_CACHE_TTL_MS` (10 minutes by default) and then refreshed in the background while the old copy keeps being served. A failed refresh keeps the old copy and retries after 30 seconds. If Organon is down before the first load succeeds, profile reads fail with a 500 rather than returning empty profiles. The server starts loading at boot without waiting for it.
 
 Organon values have no order, so the source orders them itself:
 
@@ -502,13 +497,7 @@ Organon values have no order, so the source orders them itself:
 
 Aliases follow the developer page: the ticker, the label, the legal name, other names, then the names of the brands and subsidiaries the company operates.
 
-To compare the two sources before switching, run the diff script. It only reads. Point `MEDIAPULSE_DATABASE_URL` at the database to compare and set the Organon variables, then run it from the monorepo root:
-
-```bash
-pnpm --filter @mediapulse/agent-data-api run diff-ticker-profile-sources -- --active-only
-```
-
-It prints each ticker's alias, competitor and regulator changes, how many of the top competitors and regulators survive, and a summary. `--symbol FORE` limits it to one ticker (repeat it for more), `--json` prints JSON, and `--fail-on-missing-active` exits with 1 when an active ticker has a database profile but none in Organon.
+To change a profile, edit the company in Organon. Mediapulse keeps no copy of its own.
 
 ## Versioning
 
