@@ -15,6 +15,7 @@
     "@hermes/domain-contract": "workspace:*",
     "@mediapulse/database": "workspace:*",
     "@mediapulse/env": "workspace:*",
+    "@mediapulse/knowledge-graph": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-contract": "workspace:*",
     "@workspace/agent-types": "workspace:*",

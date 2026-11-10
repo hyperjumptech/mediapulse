@@ -100,11 +100,6 @@ describe("loadAnalysisContext — data-collection daily baseline", () => {
         ticker: {
           symbol: "AGRO",
           name: "PT Bank Raya Indonesia Tbk",
-          sector: "Keuangan",
-          industry: "Bank",
-          subSector: null,
-          subIndustry: "Bank",
-          businessActivity: "Perbankan",
         },
       },
     ];
@@ -143,12 +138,6 @@ describe("loadAnalysisContext — data-collection daily baseline", () => {
         ticker: {
           symbol: "TLKM",
           name: "PT Telkom Indonesia (Persero) Tbk",
-          sector: "Infrastruktur",
-          industry: "Jasa Telekomunikasi",
-          subSector: null,
-          subIndustry: "Jasa Telekomunikasi Terintegrasi",
-          businessActivity: "Penyelenggara Jaringan dan Jasa Telekom",
-          aliases: ["TLKM", "Telkomsel"],
         },
       },
     ];
@@ -161,7 +150,7 @@ describe("loadAnalysisContext — data-collection daily baseline", () => {
             "TLKM",
             {
               ...blankProfile,
-              aliases: ["IndiHome", "Telkomsel"],
+              aliases: ["TLKM", "Telkomsel", "IndiHome", "Telkomsel"],
               competitors: [
                 { name: "Indosat", aliases: ["ISAT"] },
                 { name: "XLSMART Telecom Sejahtera", aliases: ["XLSmart"] },
@@ -200,11 +189,6 @@ describe("loadAnalysisContext — data-collection daily baseline", () => {
         ticker: {
           symbol: "AGRO",
           name: "PT Bank Raya Indonesia Tbk",
-          sector: "Keuangan",
-          industry: "Bank",
-          subSector: null,
-          subIndustry: "Bank",
-          businessActivity: "Perbankan",
         },
       },
     ];
@@ -245,11 +229,6 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
           id: TICKER_ID,
           symbol: "BBCA",
           name: "Bank Central Asia",
-          sector: null,
-          industry: null,
-          subSector: null,
-          subIndustry: null,
-          businessActivity: null,
         },
       ]),
       findUnique: vi
@@ -292,11 +271,6 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
         ticker: {
           symbol: "BBCA",
           name: "Bank Central Asia",
-          sector: null,
-          industry: null,
-          subSector: null,
-          subIndustry: null,
-          businessActivity: null,
         },
         tickerSections: [],
       },
@@ -454,11 +428,6 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
       ticker: {
         symbol: "BBCA",
         name: "Bank Central Asia",
-        sector: null,
-        industry: null,
-        subSector: null,
-        subIndustry: null,
-        businessActivity: null,
       },
       tickerSections: [],
     };
@@ -504,21 +473,11 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
           id: TICKER_ID,
           symbol: "BBCA",
           name: "Bank Central Asia",
-          sector: null,
-          industry: null,
-          subSector: null,
-          subIndustry: null,
-          businessActivity: null,
         },
         {
           id: SECOND_TICKER_ID,
           symbol: "BBRI",
           name: "Bank Rakyat Indonesia",
-          sector: null,
-          industry: null,
-          subSector: null,
-          subIndustry: null,
-          businessActivity: null,
         },
       ]),
       findUnique: vi.fn(),
@@ -581,11 +540,6 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
       ticker: {
         symbol: "BBCA",
         name: "Bank Central Asia",
-        sector: null,
-        industry: null,
-        subSector: null,
-        subIndustry: null,
-        businessActivity: null,
       },
       tickerSections: [],
     };
@@ -599,11 +553,6 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
       ticker: {
         symbol: "SOHO",
         name: "Soho",
-        sector: null,
-        industry: null,
-        subSector: null,
-        subIndustry: null,
-        businessActivity: null,
       },
       tickerSections: [],
     };
@@ -635,11 +584,6 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
       ticker: {
         symbol: "BBCA",
         name: "Bank Central Asia",
-        sector: null,
-        industry: null,
-        subSector: null,
-        subIndustry: null,
-        businessActivity: null,
       },
       tickerSections: [],
     });
@@ -680,11 +624,6 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
           ticker: {
             symbol: "BBCA",
             name: "Bank Central Asia",
-            sector: null,
-            industry: null,
-            subSector: null,
-            subIndustry: null,
-            businessActivity: null,
           },
           tickerSections: [],
         },

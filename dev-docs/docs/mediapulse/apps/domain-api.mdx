@@ -14,7 +14,7 @@ icon: Server
   - `GET /health`
   - `POST /v1/preview-expansion`
   - `POST /v1/expand-step-inputs`
-- Serves **Hermes dashboard** HTTP for registered `table-v1` resources (list, meta, create/update/delete) under `/v1/hermes-dashboard/...`, including optional **custom actions** declared in the integration manifest (for example `POST /v1/hermes-dashboard/tickers/import-idx-json` with body `{ "payloadJson": "<stringified IDX JSON>" }` for IDX ticker import via `@mediapulse/idx-tickers-importer`).
+- Serves **Hermes dashboard** HTTP for registered `table-v1` resources (list, meta, create/update/delete) under `/v1/hermes-dashboard/...`, including optional **custom actions** declared in the integration manifest (for example `POST /v1/hermes-dashboard/tickers/sync-from-knowledge-graph`, which adds every listed company from the knowledge graph through `@mediapulse/knowledge-graph`).
 - Registered table-v1 resources include `tickers`, **`mediapulse-users`** (full CRUD with an **Enabled** flag that blocks newsletter delivery when false, plus a **Language** column aggregating subscription languages and a language filter; read-only **detail view** with a **Subscriptions** sub-table listing each `UserTicker` row with ticker symbol, language, enabled state, confirmation/unsubscribe timestamps, and unsubscribe method — linked from Feedback detail), `entity-types`, `relation-types`, `entities`, `entity-relations` (full CRUD on edges by canonical entity names and relation type label, plus a **Reset all relations** custom action that deletes every `entity_relation` row after confirm), `data-sources` (read-only list with ticker, collected-by, and created-date filters), `search-query-sets` (full CRUD with full-page create/edit and detail blocks for strategy snapshot + queries), `search-queries` (list + delete per query row), `delivery-runs`, **`day1-dispatches`** (read-only record of each subscription activation: which day-1 pipeline fired or why none did, with status, pipeline, ticker and created-date filters and a detail link to the Hermes run through `/dashboard/executions/{id}`), `newsletters` (read-only list with subject/ticker/date filters and a delivery cell that shows checkpoint-vs-enabled counts), **`curated-sources`** (operator-managed page-collection URLs with a required **`linkType`** of `page` or `listing`), and **`publishers`** (newsletter byline names per registrable domain, edit only). The newsletters resource also exposes a read-only `GET /resources/newsletters/:id` detail handler that returns subject/ticker/agent metadata, the per-newsletter recipients table (capped at 2,000 rows with `recipientsTruncated`), the selected sources for that day's UTC window, the active SearchQuerySet at send time, and the Hermes execution links (schedule, execution, pipeline run/step, content-generation run, delivery run ids). The manifest declares `detailBlocks` so the Hermes dashboard renders metadata and Hermes-links blocks without per-resource code. **`mediapulse-users`** uses the same pattern: `GET /v1/hermes-dashboard/mediapulse-users/:id` returns user metadata plus a `subscriptions` array rendered by manifest `detailBlocks`.
 - Runs Mediapulse DB expansion logic using `@mediapulse/hermes-integration`.
 - Self-registers to Hermes via `POST /api/domain-integrations/register`.
@@ -43,7 +43,7 @@ This is a **team convention** (not enforced by tooling). New resources should fo
 | `resource-definition.ts` | Single `defineHermesDashboardResource(...)` export wiring `routes`, `dashboardPage`, `order`, and `resourceKey`.                                                                                                                               |
 | `routes.ts`              | Hono sub-app mounted at `/v1/hermes-dashboard/<segment>/` (list, CRUD, resource-specific routes).                                                                                                                                              |
 
-Place **extra** domain logic beside these (for example ticker metadata merge or custom actions). Co-locate tests as `*.test.ts`.
+Place **extra** domain logic beside these (for example the tickers knowledge graph sync or other custom actions). Co-locate tests as `*.test.ts`.
 
 ## Prisma-backed write schemas
 
@@ -73,6 +73,15 @@ Hermes **Curated Sources** lets operators register URLs for the page-collection 
 
 Existing rows default to `listing` after migration. The create/update modal exposes `linkType` as a select field derived from the Prisma enum.
 
+### Tickers (`tickers`)
+
+Hermes **Tickers** lists the `ticker` table, which holds only a symbol and a company name. Everything else about a company, such as its classification, aliases, competitors and regulators, comes from the knowledge graph through agent-data-api.
+
+The page has two custom actions:
+
+- **Sync from knowledge graph** (`sync-from-knowledge-graph`) loads every `mp:ListedCompany` from the knowledge graph, adds the symbols the table lacks and updates names that differ. It never deletes a ticker. The response is `{ added, updated, unchanged, missingFromKnowledgeGraph }`, and `missingFromKnowledgeGraph` lists the symbols in the table that the graph does not list. The action needs `ORGANON_API_URL` and `ORGANON_API_KEY` on domain-api. It answers 400 when either is missing and 502 when the knowledge graph cannot be read. Hermes has no plain confirm kind for custom actions, so the action uses `danger-confirm` and the dashboard shows it with the destructive button style.
+- **Reset all tickers** (`reset-all`) deletes every ticker row. Rows that other records still reference block it.
+
 ### Publishers (`publishers`)
 
 Hermes **Publishers** lists the `publisher` table, which holds the name shown in each newsletter byline, one row per registrable domain. Collection creates the rows, so the page has no create or delete. You can search by name or domain and filter by name source.
@@ -84,6 +93,7 @@ Editing a row changes only its display name and sets `nameSource` to `manual`. A
 - `MEDIAPULSE_API_URL` — Public base URL this service registers in Hermes.
 - `HERMES_API_URL` — Hermes base URL for registration.
 - `DOMAIN_INTEGRATION_API_KEY` — Hermes dashboard API key (purpose `domain_integration`) for `POST /api/domain-integrations/register` and for agents (JWT mint / registry); `./dev-setup-local.sh` sets it in dev.
+- `ORGANON_API_URL` and `ORGANON_API_KEY`: the knowledge graph the **Sync from knowledge graph** tickers action reads. domain-api starts without them, and only that action needs them.
 - `AGENT_AUTH_API_URL` — When set, domain-api requires Hermes to send a short-lived **JWT** (`Authorization: Bearer …`) issued by **`POST /api/token`** on agent-auth-api; verification uses **`POST /api/verify`**. Omit only for local dev without auth.
 
 ## Related

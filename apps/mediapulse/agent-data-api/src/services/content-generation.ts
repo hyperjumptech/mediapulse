@@ -91,7 +91,6 @@ export const getDataSourcesForTicker = async (
       select: {
         symbol: true,
         name: true,
-        aliases: true,
       },
     } satisfies Prisma.TickerFindUniqueOrThrowArgs),
     db.dataSourceTickerSection.findMany({
@@ -185,12 +184,9 @@ export const getDataSourcesForTicker = async (
   const profile = profiles.get(ticker.symbol) ?? null;
   const issuerAliases: string[] = [
     ...new Set(
-      [
-        ticker.symbol,
-        ticker.name,
-        ...(ticker.aliases ?? []),
-        ...(profile?.aliases ?? []),
-      ].filter((value) => value.length > 0),
+      [ticker.symbol, ticker.name, ...(profile?.aliases ?? [])].filter(
+        (value) => value.length > 0,
+      ),
     ),
   ];
   const competitors = (

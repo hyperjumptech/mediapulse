@@ -14,7 +14,7 @@ Shared **`@workspace/*`** libraries used by agents and APIs are mostly documente
 | ----------------------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------- |
 | [mediapulse-database](/mediapulse/packages/mediapulse-database)                     | `@mediapulse/database`             | Prisma: tickers, newsletters, KG, Mediapulse-only tables |
 | [mediapulse-hermes-integration](/mediapulse/packages/mediapulse-hermes-integration) | `@mediapulse/hermes-integration`   | Mediapulse Prisma expansion for domain-api               |
-| [idx-tickers-importer](/mediapulse/packages/idx-tickers-importer)                   | `@mediapulse/idx-tickers-importer` | IDX listed-company import (used from domain-api)         |
+| [knowledge-graph](/mediapulse/packages/knowledge-graph)                             | `@mediapulse/knowledge-graph`      | Knowledge graph SPARQL client and ticker sync            |
 | [outlook-inbox](/mediapulse/packages/outlook-inbox)                                 | `@mediapulse/outlook-inbox`        | Outlook / Microsoft Graph helpers                        |
 
 Environment variables for Mediapulse apps and agents are built from **`packages/mediapulse/env`** (T3 Env / env-to-t3); run `pnpm build` there after changing `env*.example` files. Hermes apps use [@hermes/env](/hermes/packages/env) separately.
@@ -26,4 +26,4 @@ Environment variables for Mediapulse apps and agents are built from **`packages/
 | `@mediapulse/database`             | agent-data-api, domain-api, Mediapulse tooling                   |
 | `@mediapulse/env`                  | agent-data-api, domain-api, user-registration, Mediapulse agents |
 | `@mediapulse/hermes-integration`   | domain-api                                                       |
-| `@mediapulse/idx-tickers-importer` | domain-api (IDX import actions)                                  |
+| `@mediapulse/knowledge-graph`      | agent-data-api (ticker profiles), domain-api (ticker sync)       |

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   MAX_SPARQL_QUERY_LENGTH,
   createOrganonSparqlClient,
-} from "./organon-sparql-client.js";
+} from "./organon-sparql-client";
 
 const sparqlResponse = (bindings: unknown[], status = 200) =>
   new Response(

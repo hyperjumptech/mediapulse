@@ -215,7 +215,7 @@ describe("callDomainCustomPost", () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 400,
-      json: async () => ({ message: "Invalid IDX payload" }),
+      json: async () => ({ message: "Invalid payload" }),
     });
     const result = await callDomainCustomPost(
       "http://localhost/v1/x",
@@ -226,7 +226,7 @@ describe("callDomainCustomPost", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.message).toBe("Invalid IDX payload");
+      expect(result.message).toBe("Invalid payload");
     }
   });
 
@@ -401,11 +401,11 @@ describe("invokeDomainTableCustomAction", () => {
       actions: { create: false, update: false, delete: false, view: false },
       customActions: [
         {
-          id: "import-idx-json",
+          id: "import-json",
           label: "Import",
           ui: "json-file-upload",
           method: "POST",
-          path: "/import-idx-json",
+          path: "/import-json",
         },
       ],
     });
@@ -425,7 +425,7 @@ describe("invokeDomainTableCustomAction", () => {
     const result = await invokeDomainTableCustomAction(
       "k",
       "tickers",
-      "import-idx-json",
+      "import-json",
       '{"data":[]}',
       { getMeta, getPage, callPost },
     );
@@ -435,7 +435,7 @@ describe("invokeDomainTableCustomAction", () => {
       expect(result.data).toEqual({ added: 2, updated: 1 });
     }
     expect(callPost).toHaveBeenCalledWith(
-      "http://localhost/v1/hermes-dashboard/tickers/import-idx-json",
+      "http://localhost/v1/hermes-dashboard/tickers/import-json",
       { payloadJson: '{"data":[]}' },
       "di-1",
     );

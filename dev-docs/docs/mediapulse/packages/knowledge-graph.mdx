@@ -1,0 +1,20 @@
+---
+title: knowledge-graph
+description: Read the knowledge graph over SPARQL and sync the ticker table from its listed companies
+icon: Network
+---
+
+## Purpose
+
+`@mediapulse/knowledge-graph` reads the MediaPulse knowledge graph in Organon over SPARQL. agent-data-api uses its client to load ticker profiles. domain-api uses it to keep the `ticker` table in step with the listed companies the graph holds.
+
+## Exports
+
+- **`createOrganonSparqlClient({ baseUrl, apiKey, timeoutMs, fetchImpl? })`** returns a function that posts a SPARQL `SELECT` to `POST /api/v1/sparql?inferred=true` and resolves to its bindings. It refuses a query longer than Organon's limit and reports the status and the start of the body when Organon fails.
+- **`loadListedCompanies(runSparql)`** runs `LISTED_COMPANIES_QUERY` and returns one `{ symbol, name }` per `mp:ListedCompany`, sorted by symbol. The symbol is trimmed and uppercased. The name is the legal name, or the label when the company has none. Rows without a symbol or a name are skipped, and it throws when nothing usable comes back.
+- **`syncTickersFromKnowledgeGraph(companies, db)`** adds the symbols the table lacks and renames tickers whose name differs. It never deletes a ticker. It returns `{ added, updated, unchanged, missingFromKnowledgeGraph }`, where the last field lists, sorted, the symbols in the table that the graph does not list.
+
+## Consumers
+
+- **agent-data-api** builds its ticker profile source on the SPARQL client.
+- **domain-api** runs the **Sync from knowledge graph** action on the tickers page. See [Domain API](/mediapulse/apps/domain-api).

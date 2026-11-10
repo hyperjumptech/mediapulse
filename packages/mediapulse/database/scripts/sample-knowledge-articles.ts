@@ -42,7 +42,7 @@ const quoteIdentifier = (value: string): string =>
   `"${value.replace(/"/gu, '""')}"`;
 
 export const issuerSelectionSql = (schema: string): string => `
-  SELECT t.id, t.symbol, t.name, t.aliases AS ticker_aliases,
+  SELECT t.id, t.symbol, t.name,
          issuer_aliases.aliases AS issuer_aliases,
          issuer.description AS company_overview
   FROM ${quoteIdentifier(schema)}.ticker t
@@ -119,6 +119,31 @@ export const toSampleParties = (
     return [{ name: row.name, aliases, kind: row.kind }];
   });
 
+export const toSampleIssuer = (
+  row: {
+    id: unknown;
+    symbol: unknown;
+    name: unknown;
+    issuer_aliases?: unknown;
+    company_overview?: unknown;
+  },
+  parties: SampleParty[],
+): SampleIssuer => ({
+  tickerId: String(row.id),
+  symbol: String(row.symbol),
+  name: String(row.name),
+  aliases: Array.isArray(row.issuer_aliases)
+    ? row.issuer_aliases.filter(
+        (alias): alias is string => typeof alias === "string",
+      )
+    : [],
+  companyOverview:
+    row.company_overview === null || row.company_overview === undefined
+      ? null
+      : String(row.company_overview),
+  parties,
+});
+
 const schemaFromUrl = (sourceUrl: string): string => {
   const parsed = new URL(sourceUrl);
 
@@ -155,21 +180,9 @@ export const sampleKnowledgeArticles = async (options: {
     const tickerIds = issuerRows.rows.map((row) => String(row.id));
     const partyRows = await pool.query(seededPartySql(schema), [tickerIds]);
 
-    const issuers: SampleIssuer[] = issuerRows.rows.map((row) => {
-      const tickerId = String(row.id);
-
-      return {
-        tickerId,
-        symbol: String(row.symbol),
-        name: String(row.name),
-        aliases: (row.issuer_aliases ?? row.ticker_aliases ?? []) as string[],
-        companyOverview:
-          row.company_overview === null || row.company_overview === undefined
-            ? null
-            : String(row.company_overview),
-        parties: toSampleParties(partyRows.rows, tickerId),
-      };
-    });
+    const issuers: SampleIssuer[] = issuerRows.rows.map((row) =>
+      toSampleIssuer(row, toSampleParties(partyRows.rows, String(row.id))),
+    );
 
     const articles: SampleArticle[] = [];
     const seen = new Set<string>();

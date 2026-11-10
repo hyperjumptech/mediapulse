@@ -1,5 +1,5 @@
 {
-  "name": "@mediapulse/idx-tickers-importer",
+  "name": "@mediapulse/knowledge-graph",
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
@@ -15,7 +15,8 @@
     "type:check": "tsc --noEmit"
   },
   "dependencies": {
-    "@mediapulse/database": "workspace:*"
+    "@mediapulse/database": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

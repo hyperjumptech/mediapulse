@@ -1,4 +1,5 @@
-import { createOrganonSparqlClient } from "./organon-sparql-client.js";
+import { createOrganonSparqlClient } from "@mediapulse/knowledge-graph";
+
 import { loadOrganonTickerProfiles } from "./organon-ticker-profiles.js";
 import { createTickerProfileCache } from "./ticker-profile-cache.js";
 import type { TickerProfileSource } from "./ticker-profile-source.js";

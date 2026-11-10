@@ -56,7 +56,7 @@ const domainTableMetaCache = new Map<string, DomainTableMetaCacheEntry>();
 
 const JSON_CONTENT_TYPE_HEADERS = { "Content-Type": "application/json" };
 
-/** Result state for JSON file custom actions (e.g. IDX import) returned from server actions. */
+/** Result state for JSON file custom actions returned from server actions. */
 export type DomainTableJsonImportState =
   | { status: "idle" }
   | { status: "error"; message: string }

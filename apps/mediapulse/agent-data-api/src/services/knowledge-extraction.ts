@@ -690,7 +690,7 @@ export async function listExtractionCandidates(
       tickerId: ticker.id,
       symbol: ticker.symbol,
       name: ticker.name,
-      aliases: profile?.aliases ?? ticker.aliases,
+      aliases: profile?.aliases ?? [],
       companyOverview: profile?.companyOverview ?? null,
     },
     parties: [
@@ -756,7 +756,7 @@ export async function seedKnowledgeBaseFromProfile(
   const issuer = await upsertEntity(db, {
     kind: "issuer",
     canonicalName: ticker.name,
-    aliases: [ticker.symbol, ...(profile?.aliases ?? ticker.aliases)],
+    aliases: [ticker.symbol, ...(profile?.aliases ?? [])],
     tickerId: ticker.id,
     source: "profile",
   });
@@ -882,7 +882,7 @@ export async function applyExtraction(
   }
   const ticker = await db.ticker.findUnique({
     where: { id: input.tickerId },
-    select: { id: true, symbol: true, name: true, aliases: true },
+    select: { id: true, symbol: true, name: true },
   });
   if (ticker === null) {
     throw new Error(`Ticker ${input.tickerId} does not exist`);
@@ -910,7 +910,7 @@ export async function applyExtraction(
 
   const idsByName = new Map<string, { id: string; kind: EntityKindName }>();
   if (issuerLink !== null) {
-    for (const known of [ticker.name, ticker.symbol, ...ticker.aliases]) {
+    for (const known of [ticker.name, ticker.symbol]) {
       idsByName.set(normalizeEntityName(known), {
         id: issuerLink.entityId,
         kind: "issuer",

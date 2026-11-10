@@ -27,7 +27,6 @@ const ticker = {
   id: "22222222-2222-4222-a222-222222222222",
   symbol: "FORE",
   name: "Fore Kopi Indonesia",
-  aliases: ["Fore Coffee"],
 };
 
 const foreProfile: TickerProfileRecord = {
@@ -192,7 +191,7 @@ describe("listExtractionCandidates", () => {
     ]);
   });
 
-  it("falls back to the ticker's own aliases when the issuer has no profile", async () => {
+  it("gives the issuer no aliases when it has no profile", async () => {
     const { db } = buildDb();
 
     const candidates = await listExtractionCandidates(
@@ -202,7 +201,7 @@ describe("listExtractionCandidates", () => {
     );
 
     expect(candidates?.issuer).toMatchObject({
-      aliases: ["Fore Coffee"],
+      aliases: [],
       companyOverview: null,
     });
     expect(candidates?.parties).toEqual([]);
@@ -369,7 +368,7 @@ describe("applyExtraction", () => {
         ],
         relations: [
           {
-            subject: "Fore Coffee",
+            subject: "Fore Kopi Indonesia",
             kind: "regulates",
             object: "BPOM",
             evidenceSpan: "BPOM menerbitkan aturan baru",
@@ -403,7 +402,7 @@ describe("applyExtraction", () => {
         ],
         relations: [
           {
-            subject: "Fore Coffee",
+            subject: "Fore Kopi Indonesia",
             kind: "supplied by",
             object: "Kopi Kenangan",
             evidenceSpan: "Kopi Kenangan bersaing",
