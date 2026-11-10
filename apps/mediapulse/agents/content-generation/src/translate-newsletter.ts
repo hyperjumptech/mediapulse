@@ -214,6 +214,21 @@ export const stripEchoedIndexPrefixes = (
     return value.replace(pattern, "");
   });
 
+const ECHOED_BUDGET_TAG_PATTERN = /^\s*\(max\s+\d+\s+chars?\)\s*/i;
+
+export const stripEchoedBudgetTags = (
+  sourceStrings: readonly string[],
+  translated: readonly string[],
+): string[] =>
+  translated.map((value, index) => {
+    const source = sourceStrings[index];
+    if (source !== undefined && ECHOED_BUDGET_TAG_PATTERN.test(source)) {
+      return value;
+    }
+
+    return value.replace(ECHOED_BUDGET_TAG_PATTERN, "");
+  });
+
 /**
  * Builds the system prompt that constrains the translation to a positional string array.
  *
@@ -299,9 +314,13 @@ export async function translateNewsletter(
     maxRetries: 0,
   });
 
-  const cleanedStrings = stripEchoedIndexPrefixes(
+  const withoutIndexPrefixes = stripEchoedIndexPrefixes(
     sourceStrings,
     result.object.strings,
+  );
+  const cleanedStrings = stripEchoedBudgetTags(
+    sourceStrings,
+    withoutIndexPrefixes,
   );
   const translatedDocument = rebuildWithTranslatedStrings(
     document,

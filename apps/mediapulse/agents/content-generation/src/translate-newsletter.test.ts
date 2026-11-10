@@ -112,6 +112,81 @@ describe("translateNewsletter", () => {
     ]);
   });
 
+  it("drops the character budget tag the model echoed back, with or without its list number", async () => {
+    const generateObjectFn = vi.fn().mockResolvedValue({
+      object: {
+        subject: "Subjek Indonesia",
+        strings: [
+          "Pendapatan naik",
+          "2. (max 140 chars) Pendapatan naik 12.5% menjadi $4.2B pada Q1 2026.",
+          "(max 140 chars) Margin bertahan.",
+          "Margin stabil",
+          "(Max 140 Chars)Margin bertahan di 30%.",
+        ],
+      },
+    }) satisfies TranslateNewsletterObjectFn;
+
+    const result = await translateNewsletter(
+      {
+        subject: "English Subject",
+        content: sourceContent,
+        targetLanguage: "id",
+        model: "gpt-4o-mini",
+        credentials,
+      },
+      generateObjectFn,
+    );
+    const document = readNewsletterDocument(result.content);
+
+    expect(document?.sections[0]?.articles[0]?.points).toEqual([
+      "Pendapatan naik 12.5% menjadi $4.2B pada Q1 2026.",
+      "Margin bertahan.",
+    ]);
+    expect(document?.sections[1]?.articles[0]?.points).toEqual([
+      "Margin bertahan di 30%.",
+    ]);
+  });
+
+  it("keeps a budget-like prefix that belongs to the copy itself", async () => {
+    const taggedSourceContent = JSON.stringify({
+      version: 1,
+      sections: [
+        {
+          key: "industry-pulse",
+          articles: [
+            {
+              title: "Revenue climbs",
+              url: "https://example.com/a",
+              points: ["(max 5 chars) is the new tweet limit."],
+            },
+          ],
+        },
+      ],
+    });
+    const generateObjectFn = vi.fn().mockResolvedValue({
+      object: {
+        subject: "Subjek",
+        strings: ["Pendapatan naik", "(max 5 chars) adalah batas tweet baru."],
+      },
+    }) satisfies TranslateNewsletterObjectFn;
+
+    const result = await translateNewsletter(
+      {
+        subject: "English Subject",
+        content: taggedSourceContent,
+        targetLanguage: "id",
+        model: "gpt-4o-mini",
+        credentials,
+      },
+      generateObjectFn,
+    );
+    const document = readNewsletterDocument(result.content);
+
+    expect(document?.sections[0]?.articles[0]?.points).toEqual([
+      "(max 5 chars) adalah batas tweet baru.",
+    ]);
+  });
+
   it("keeps a leading number that belongs to the copy itself", async () => {
     const numberedSourceContent = JSON.stringify({
       version: 1,
