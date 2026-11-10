@@ -4,11 +4,15 @@ import type {
   GetQueryAnalysisQuery,
   PostQueryAnalysisBody,
 } from "@workspace/agent-data-api-contract";
+import { normalizeEntityName } from "@workspace/utils";
 
 import { tickerFieldsFromProfile } from "./ticker-fields-from-profile.js";
 import { parseProfileParties } from "./ticker-profile-parties.js";
 import { defaultTickerProfileSource } from "./ticker-profile/ticker-profile-source-default.js";
-import type { TickerProfileSource } from "./ticker-profile/ticker-profile-source.js";
+import type {
+  TickerProfileRecord,
+  TickerProfileSource,
+} from "./ticker-profile/ticker-profile-source.js";
 
 /**
  * How far back a query's novel-article history is read when deciding whether it has proven itself.
@@ -113,6 +117,23 @@ export const getProvenQueries = async (
     .slice(0, PROVEN_QUERY_LIMIT);
 };
 
+const otherCompanyNames = (
+  profile: TickerProfileRecord | null,
+  registeredName: string,
+): string[] => {
+  const seen = new Set([normalizeEntityName(registeredName)]);
+  const names: string[] = [];
+  for (const name of profile?.names ?? []) {
+    const normalized = normalizeEntityName(name);
+    if (normalized !== "" && !seen.has(normalized)) {
+      seen.add(normalized);
+      names.push(name.trim());
+    }
+  }
+
+  return names;
+};
+
 /**
  * Builds query-analysis GET response data for one ticker.
  *
@@ -144,7 +165,7 @@ export const getQueryAnalysisContext = async (
       symbol: ticker.symbol,
       name: ticker.name,
       ...tickerFieldsFromProfile(profile),
-      aliases: [],
+      aliases: otherCompanyNames(profile, ticker.name),
     },
     profile:
       profile === null
@@ -171,6 +192,11 @@ export const getQueryAnalysisContext = async (
             aliases: profile.aliases,
             competitors: parseProfileParties(profile.competitors),
             regulators: parseProfileParties(profile.regulators),
+            brands: profile.brands,
+            subsidiaries: profile.subsidiaries,
+            ambiguousNames: profile.ambiguousNames,
+            commodities: profile.commodities,
+            regulations: profile.regulations,
           },
   };
 };

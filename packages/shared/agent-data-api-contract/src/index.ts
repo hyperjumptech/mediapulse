@@ -321,8 +321,10 @@ export {
   queryAnalysisTickerSchema,
   queryAnalysisTickerProfileSchema,
   queryAnalysisPostQuerySchema,
+  tickerProfileCommoditySchema,
   tickerProfileLabelSchema,
   tickerProfilePartySchema,
+  tickerProfileRegulationSchema,
   type GetQueryAnalysisQuery,
   type GetQueryAnalysisResponse,
   type ProvenQuery,
@@ -330,7 +332,9 @@ export {
   type PostQueryAnalysisResponse,
   type QueryAnalysisIntent,
   type QueryAnalysisTickerProfile,
+  type TickerProfileCommodity,
   type TickerProfileParty,
+  type TickerProfileRegulation,
 } from "./query-analysis.js";
 export {
   dataCollectionFailureErrorCategorySchema,

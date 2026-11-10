@@ -85,6 +85,6 @@ describe("createTickerProfileSource", () => {
     await configured.source(["MAPB"]);
 
     expect(first.get("MAPB")?.companyOverview).toBe("Overview.");
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 });

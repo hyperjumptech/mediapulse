@@ -16,6 +16,12 @@ const profile = {
   companyOverviewIndonesian:
     "Telkom mengoperasikan jaringan terbesar di Indonesia.",
   businessOperationIndonesian: "Layanan telepon tetap, seluler dan pusat data.",
+  names: [],
+  brands: [],
+  subsidiaries: [],
+  ambiguousNames: [],
+  commodities: [],
+  regulations: [],
   sectorEnglish: "Infrastructures",
   sectorIndonesian: "Infrastruktur",
   subSectorEnglish: "Telecommunication",

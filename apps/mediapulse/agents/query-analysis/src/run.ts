@@ -218,6 +218,13 @@ export const runQueryAnalysis = async (
       ? {
           companyOverview: profile.companyOverview,
           businessOperation: profile.businessOperation,
+          knowledge: {
+            brands: profile.brands,
+            subsidiaries: profile.subsidiaries,
+            ambiguousNames: profile.ambiguousNames,
+            commodities: profile.commodities,
+            regulations: profile.regulations,
+          },
         }
       : {}),
     reconSignals,

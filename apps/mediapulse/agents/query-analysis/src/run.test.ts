@@ -57,6 +57,19 @@ const baseProfile = {
   aliases: ["BBRI", "BRI"],
   competitors: profileCompetitors,
   regulators: profileRegulators,
+  brands: ["BRImo", "Simpedes"],
+  subsidiaries: ["Bank Raya Indonesia"],
+  ambiguousNames: ["BRI"],
+  commodities: [],
+  regulations: [
+    {
+      name: "POJK 12/2021",
+      description:
+        "Sets licensing, minimum core capital and digital bank rules for commercial banks. It replaces an older rule.",
+      issuer: "OJK",
+      status: "in force",
+    },
+  ],
 };
 
 const generatedCandidates = [
@@ -197,6 +210,30 @@ describe("runQueryAnalysis — with a curated profile", () => {
     expect(prompt).toContain("Bank Mandiri (aka BMRI)");
     expect(prompt).toContain("Financials");
     expect(prompt).toContain("Micro and Retail Banking");
+  });
+
+  it("puts the brands, subsidiaries, ambiguous names and binding rules in the prompt", async () => {
+    // Setup
+    const { client } = makeClient(baseProfile);
+    const deps: RunQueryAnalysisDeps = {
+      createClient: vi.fn(() => client) as never,
+      generateQueries: generateQueries as never,
+    };
+
+    // Act
+    await runQueryAnalysis(makeContext() as never, deps);
+
+    // Assert
+    const prompt = generateQueries.mock.calls[0]?.[0].prompt;
+    expect(prompt).toContain("Brands: BRImo, Simpedes");
+    expect(prompt).toContain("Subsidiaries: Bank Raya Indonesia");
+    expect(prompt).toContain(
+      "Names that also mean something else (a query that uses one needs a disambiguator): BRI",
+    );
+    expect(prompt).toContain(
+      "- POJK 12/2021 (OJK, in force): Sets licensing, minimum core capital and digital bank rules for commercial banks.",
+    );
+    expect(prompt).not.toContain("It replaces an older rule.");
   });
 
   it("phrases recon searches from the Indonesian classification and curated rivals", async () => {
