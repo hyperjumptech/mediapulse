@@ -12,6 +12,7 @@ export const tickerRelevanceTermsItemSchema = z.object({
   issuerTerms: z.array(z.string()).default([]),
   competitorTerms: z.array(z.string()).default([]),
   industryTerms: z.array(z.string()).default([]),
+  ambiguousTerms: z.array(z.string()).default([]),
 });
 
 export const getTickerRelevanceTermsResponseSchema = z.object({

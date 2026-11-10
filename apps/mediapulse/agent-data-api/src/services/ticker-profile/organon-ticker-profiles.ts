@@ -365,13 +365,18 @@ const countIssuersPerParty = (
 const toProfileParty = (
   party: LinkedParty,
   leadingAliases: string[],
-): ProfileParty => ({
-  name: party.name,
-  aliases: dedupeCaseInsensitive(
-    [...leadingAliases, ...sortedText(party.aliases)],
-    [party.name],
-  ),
-});
+): ProfileParty => {
+  const ambiguousNames = sortedText(party.ambiguousNames);
+
+  return {
+    name: party.name,
+    aliases: dedupeCaseInsensitive(
+      [...leadingAliases, ...sortedText(party.aliases)],
+      [party.name],
+    ),
+    ...(ambiguousNames.length > 0 ? { ambiguousNames } : {}),
+  };
+};
 
 const orderCompetitors = (
   ticker: string,
