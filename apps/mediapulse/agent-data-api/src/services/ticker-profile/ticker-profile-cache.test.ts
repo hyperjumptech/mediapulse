@@ -6,6 +6,8 @@ import type { TickerProfileRecord } from "./ticker-profile-source.js";
 const profileWithOverview = (companyOverview: string): TickerProfileRecord => ({
   companyOverview,
   businessOperation: "",
+  companyOverviewIndonesian: "",
+  businessOperationIndonesian: "",
   sectorIndonesian: "",
   sectorEnglish: "",
   subSectorIndonesian: "",

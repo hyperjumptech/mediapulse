@@ -54,6 +54,18 @@ const party = (
 const classificationFacts = (ticker: string): SparqlBinding[] => [
   fact(ticker, `${MP}companyOverview`, "Overview in English.", "en"),
   fact(ticker, `${MP}businessOperation`, "Operation in English.", "en"),
+  fact(
+    ticker,
+    `${MP}companyOverview`,
+    "Ikhtisar dalam bahasa Indonesia.",
+    "id",
+  ),
+  fact(
+    ticker,
+    `${MP}businessOperation`,
+    "Operasi dalam bahasa Indonesia.",
+    "id",
+  ),
   fact(ticker, `${MP}sector`, "Consumer Cyclicals", "en"),
   fact(ticker, `${MP}sector`, "Barang Konsumen Primer", "id"),
   fact(ticker, `${MP}subSector`, "Restaurants", "en"),
@@ -88,6 +100,8 @@ describe("mapOrganonTickerProfiles", () => {
     expect(profile).toEqual({
       companyOverview: "Overview in English.",
       businessOperation: "Operation in English.",
+      companyOverviewIndonesian: "Ikhtisar dalam bahasa Indonesia.",
+      businessOperationIndonesian: "Operasi dalam bahasa Indonesia.",
       sectorIndonesian: "Barang Konsumen Primer",
       sectorEnglish: "Consumer Cyclicals",
       subSectorIndonesian: "Restoran",
@@ -122,6 +136,7 @@ describe("mapOrganonTickerProfiles", () => {
     const profile = mapOrganonTickerProfiles(facts, []).get("FORE");
 
     expect(profile?.companyOverview).toBe("");
+    expect(profile?.companyOverviewIndonesian).toBe("");
     expect(profile?.sectorIndonesian).toBe("");
     expect(profile?.aliases).toEqual([
       "FORE",

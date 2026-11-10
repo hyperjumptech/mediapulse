@@ -12,6 +12,10 @@ const Day1WelcomeIndonesianPreview = (
 Day1WelcomeIndonesianPreview.PreviewProps = {
   ...Day1WelcomeEmail.PreviewProps,
   reviewTimeLabel: "09.00 WIB",
+  overview:
+    "Operator telekomunikasi terintegrasi yang melayani pelanggan seluler, fiber rumah dan korporasi di seluruh Indonesia, dengan jaringan tulang punggung fiber terbesar di luar BUMN.",
+  businessOperation:
+    "Menjual paket seluler prabayar dan pascabayar, bundel internet fiber rumah dan konektivitas terkelola untuk korporasi. Menyewakan kapasitas menara dan fiber kepada operator lain.",
   classification: [
     "Infrastruktur",
     "Telekomunikasi",

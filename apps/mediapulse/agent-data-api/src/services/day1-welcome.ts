@@ -102,6 +102,12 @@ export const getDay1Welcome = async (
             profile.subSectorIndonesian,
             profile.industryIndonesian,
           ];
+  const overview = isEnglish
+    ? (profile?.companyOverview ?? "")
+    : (profile?.companyOverviewIndonesian ?? "");
+  const businessOperation = isEnglish
+    ? (profile?.businessOperation ?? "")
+    : (profile?.businessOperationIndonesian ?? "");
   const competitors =
     profile === null ? [] : parseProfileParties(profile.competitors);
   const regulators =
@@ -117,14 +123,8 @@ export const getDay1Welcome = async (
       recipient: isActiveRecipient ? { email: email.trim() } : null,
       tickerSymbol: ticker.symbol,
       companyName: ticker.name,
-      overview:
-        profile !== null && isEnglish
-          ? nonBlankOrNull(profile.companyOverview)
-          : null,
-      businessOperation:
-        profile !== null && isEnglish
-          ? nonBlankOrNull(profile.businessOperation)
-          : null,
+      overview: nonBlankOrNull(overview),
+      businessOperation: nonBlankOrNull(businessOperation),
       classification: buildWelcomeClassification(classificationLevels),
       competitors: competitors.map((party) => party.name.trim()),
       regulators: regulators.map((party) => party.name.trim()),

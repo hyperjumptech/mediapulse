@@ -22,6 +22,8 @@ import {
 const blankProfile: TickerProfileRecord = {
   companyOverview: "",
   businessOperation: "",
+  companyOverviewIndonesian: "",
+  businessOperationIndonesian: "",
   sectorIndonesian: "",
   sectorEnglish: "",
   subSectorIndonesian: "",

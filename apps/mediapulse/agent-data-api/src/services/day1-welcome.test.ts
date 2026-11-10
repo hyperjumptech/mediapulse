@@ -13,6 +13,9 @@ const NOW = new Date("2026-10-14T00:00:00.000Z");
 const profile = {
   companyOverview: "Telkom runs Indonesia's largest network.",
   businessOperation: "Fixed, mobile and data center services.",
+  companyOverviewIndonesian:
+    "Telkom mengoperasikan jaringan terbesar di Indonesia.",
+  businessOperationIndonesian: "Layanan telepon tetap, seluler dan pusat data.",
   sectorEnglish: "Infrastructures",
   sectorIndonesian: "Infrastruktur",
   subSectorEnglish: "Telecommunication",
@@ -118,7 +121,7 @@ describe("getDay1Welcome", () => {
     expect(profileSource).toHaveBeenCalledWith(["TLKM"]);
   });
 
-  it("uses the Indonesian classification and leaves out the English-only overview for an Indonesian reader", async () => {
+  it("uses the Indonesian classification, overview and business operation for an Indonesian reader", async () => {
     const { db } = createDb(dispatchRow({ language: "id" }));
 
     const { welcome } = await getDay1Welcome(
@@ -130,8 +133,8 @@ describe("getDay1Welcome", () => {
 
     expect(welcome).toMatchObject({
       language: "id",
-      overview: null,
-      businessOperation: null,
+      overview: "Telkom mengoperasikan jaringan terbesar di Indonesia.",
+      businessOperation: "Layanan telepon tetap, seluler dan pusat data.",
       classification: [
         "Infrastruktur",
         "Telekomunikasi",

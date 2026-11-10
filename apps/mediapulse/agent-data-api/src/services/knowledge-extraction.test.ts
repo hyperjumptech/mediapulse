@@ -32,6 +32,8 @@ const ticker = {
 const foreProfile: TickerProfileRecord = {
   companyOverview: "App-led coffee chain.",
   businessOperation: "",
+  companyOverviewIndonesian: "",
+  businessOperationIndonesian: "",
   sectorIndonesian: "",
   sectorEnglish: "",
   subSectorIndonesian: "",
