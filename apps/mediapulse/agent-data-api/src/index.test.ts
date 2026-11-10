@@ -88,9 +88,6 @@ vi.mock("@mediapulse/database", () => ({
       findUniqueOrThrow: vi.fn(),
       findMany: vi.fn(),
     },
-    tickerProfile: {
-      findMany: vi.fn().mockResolvedValue([]),
-    },
     tickerEntity: {
       findMany: vi.fn(),
     },
@@ -116,6 +113,11 @@ vi.mock("@mediapulse/database", () => ({
       }),
     },
   },
+}));
+
+vi.mock("./services/ticker-profile/ticker-profile-source-default.js", () => ({
+  defaultTickerProfileSource: vi.fn().mockResolvedValue(new Map()),
+  startDefaultTickerProfileSource: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("./services/analysis.js", async (importOriginal) => {

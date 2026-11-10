@@ -43,11 +43,38 @@ const quoteIdentifier = (value: string): string =>
 
 export const issuerSelectionSql = (schema: string): string => `
   SELECT t.id, t.symbol, t.name, t.aliases AS ticker_aliases,
-         p.aliases AS profile_aliases, p.company_overview,
-         p.competitors, p.regulators
+         issuer_aliases.aliases AS issuer_aliases,
+         issuer.description AS company_overview
   FROM ${quoteIdentifier(schema)}.ticker t
-  LEFT JOIN ${quoteIdentifier(schema)}.ticker_profile p ON p.ticker_id = t.id
+  LEFT JOIN ${quoteIdentifier(schema)}.knowledge_entity issuer
+    ON issuer.ticker_id = t.id
+  LEFT JOIN LATERAL (
+    SELECT array_agg(alias.alias ORDER BY alias.alias) AS aliases
+    FROM ${quoteIdentifier(schema)}.knowledge_entity_alias alias
+    WHERE alias.entity_id = issuer.id
+  ) issuer_aliases ON true
   WHERE t.symbol = ANY($1)
+`;
+
+export const seededPartySql = (schema: string): string => `
+  SELECT link.ticker_id, entity.kind::text AS kind,
+         entity.canonical_name AS name,
+         COALESCE(
+           array_agg(alias.alias ORDER BY alias.alias)
+             FILTER (WHERE alias.alias IS NOT NULL),
+           '{}'
+         ) AS aliases
+  FROM ${quoteIdentifier(schema)}.knowledge_ticker_entity link
+  JOIN ${quoteIdentifier(schema)}.knowledge_entity entity
+    ON entity.id = link.entity_id
+  LEFT JOIN ${quoteIdentifier(schema)}.knowledge_entity_alias alias
+    ON alias.entity_id = entity.id
+  WHERE link.ticker_id = ANY($1)
+    AND link.source = 'profile'
+    AND link.is_issuer = false
+    AND entity.kind IN ('company', 'regulator')
+  GROUP BY link.ticker_id, entity.id, entity.kind, entity.canonical_name
+  ORDER BY entity.kind, entity.canonical_name
 `;
 
 export const articleSampleSql = (schema: string, bodyOnly: boolean): string => `
@@ -64,31 +91,33 @@ export const articleSampleSql = (schema: string, bodyOnly: boolean): string => `
   LIMIT $2
 `;
 
-export const asParties = (
-  value: unknown,
-  kind: SampleParty["kind"],
-): SampleParty[] => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.flatMap((entry) => {
-    if (typeof entry !== "object" || entry === null) {
+export const toSampleParties = (
+  rows: readonly {
+    ticker_id: unknown;
+    kind: unknown;
+    name: unknown;
+    aliases: unknown;
+  }[],
+  tickerId: string,
+): SampleParty[] =>
+  rows.flatMap((row) => {
+    if (String(row.ticker_id) !== tickerId) {
       return [];
     }
-    const record = entry as { name?: unknown; aliases?: unknown };
-    if (typeof record.name !== "string" || record.name.trim() === "") {
+    if (row.kind !== "company" && row.kind !== "regulator") {
       return [];
     }
-    const aliases = Array.isArray(record.aliases)
-      ? record.aliases.filter(
+    if (typeof row.name !== "string" || row.name.trim() === "") {
+      return [];
+    }
+    const aliases = Array.isArray(row.aliases)
+      ? row.aliases.filter(
           (alias): alias is string => typeof alias === "string",
         )
       : [];
 
-    return [{ name: record.name, aliases, kind }];
+    return [{ name: row.name, aliases, kind: row.kind }];
   });
-};
 
 const schemaFromUrl = (sourceUrl: string): string => {
   const parsed = new URL(sourceUrl);
@@ -123,20 +152,24 @@ export const sampleKnowledgeArticles = async (options: {
       options.symbols,
     ]);
 
-    const issuers: SampleIssuer[] = issuerRows.rows.map((row) => ({
-      tickerId: String(row.id),
-      symbol: String(row.symbol),
-      name: String(row.name),
-      aliases: (row.profile_aliases ?? row.ticker_aliases ?? []) as string[],
-      companyOverview:
-        row.company_overview === null || row.company_overview === undefined
-          ? null
-          : String(row.company_overview),
-      parties: [
-        ...asParties(row.competitors, "company"),
-        ...asParties(row.regulators, "regulator"),
-      ],
-    }));
+    const tickerIds = issuerRows.rows.map((row) => String(row.id));
+    const partyRows = await pool.query(seededPartySql(schema), [tickerIds]);
+
+    const issuers: SampleIssuer[] = issuerRows.rows.map((row) => {
+      const tickerId = String(row.id);
+
+      return {
+        tickerId,
+        symbol: String(row.symbol),
+        name: String(row.name),
+        aliases: (row.issuer_aliases ?? row.ticker_aliases ?? []) as string[],
+        companyOverview:
+          row.company_overview === null || row.company_overview === undefined
+            ? null
+            : String(row.company_overview),
+        parties: toSampleParties(partyRows.rows, tickerId),
+      };
+    });
 
     const articles: SampleArticle[] = [];
     const seen = new Set<string>();

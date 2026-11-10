@@ -1,24 +1,20 @@
 import type { Prisma } from "@mediapulse/database";
 
-export const tickerProfileRecordSelect = {
-  companyOverview: true,
-  businessOperation: true,
-  sectorIndonesian: true,
-  sectorEnglish: true,
-  subSectorIndonesian: true,
-  subSectorEnglish: true,
-  industryIndonesian: true,
-  industryEnglish: true,
-  subIndustryIndonesian: true,
-  subIndustryEnglish: true,
-  aliases: true,
-  competitors: true,
-  regulators: true,
-} as const satisfies Prisma.TickerProfileSelect;
-
-export type TickerProfileRecord = Prisma.TickerProfileGetPayload<{
-  select: typeof tickerProfileRecordSelect;
-}>;
+export type TickerProfileRecord = {
+  companyOverview: string;
+  businessOperation: string;
+  sectorIndonesian: string;
+  sectorEnglish: string;
+  subSectorIndonesian: string;
+  subSectorEnglish: string;
+  industryIndonesian: string;
+  industryEnglish: string;
+  subIndustryIndonesian: string;
+  subIndustryEnglish: string;
+  aliases: string[];
+  competitors: Prisma.JsonValue;
+  regulators: Prisma.JsonValue;
+};
 
 export type TickerProfileSource = (
   symbols: readonly string[],

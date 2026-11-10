@@ -28,7 +28,6 @@ export const PULL_CHUNK_SIZE = 200;
 /** Minimal Prisma delegate shape for {@link pullTickerLocal} (inject for tests). */
 export type PullTickerLocalDb = {
   ticker: Pick<PrismaClientWithSchema["ticker"], "findUnique">;
-  tickerProfile: Pick<PrismaClientWithSchema["tickerProfile"], "upsert">;
   dataSource: Pick<PrismaClientWithSchema["dataSource"], "upsert">;
   dataSourceTickerSection: Pick<
     PrismaClientWithSchema["dataSourceTickerSection"],
@@ -50,7 +49,6 @@ export type PullTickerLocalResult = {
   symbol: string;
   sourceTickerId: string;
   localTickerId: string;
-  profilesWritten: number;
   articlesWritten: number;
   placementsWritten: number;
   /** Articles whose source `tickerId` belonged to another issuer and was dropped. */
@@ -226,7 +224,7 @@ const chunked = <T>(items: readonly T[], size: number): T[][] => {
 };
 
 /**
- * Copies one issuer's profile, articles and Placements from a remote database into the local one.
+ * Copies one issuer's articles and Placements from a remote database into the local one.
  *
  * @param options - Which issuer to pull, where from, and whether to write.
  * @param db - Optional local Prisma client (defaults to the client from `@mediapulse/database`).
@@ -269,10 +267,6 @@ export const pullTickerLocal = async (
       );
     }
 
-    const profileResult = await pool.query<SourceRow>(
-      `SELECT * FROM ${quoteIdentifier(schema)}.ticker_profile WHERE ticker_id = $1`,
-      [sourceTicker.id],
-    );
     const articleResult = await pool.query<SourceRow>(
       articleSelectionSql(schema),
       [sourceTicker.id],
@@ -300,7 +294,6 @@ export const pullTickerLocal = async (
       symbol: options.symbol,
       sourceTickerId: sourceTicker.id,
       localTickerId: local.id,
-      profilesWritten: 0,
       articlesWritten: 0,
       placementsWritten: 0,
       provenanceNulled,
@@ -309,34 +302,10 @@ export const pullTickerLocal = async (
 
     if (!options.apply) {
       console.log(
-        `Dry run: would write ${profileResult.rows.length} profile, ${articles.length} articles, ${placements.length} placements. Pass --apply to write.`,
+        `Dry run: would write ${articles.length} articles, ${placements.length} placements. Pass --apply to write.`,
       );
 
       return result;
-    }
-
-    for (const row of profileResult.rows) {
-      const fields = {
-        companyOverview: asText(row.company_overview) ?? "",
-        businessOperation: asText(row.business_operation) ?? "",
-        sectorIndonesian: asText(row.sector_indonesian) ?? "",
-        sectorEnglish: asText(row.sector_english) ?? "",
-        subSectorIndonesian: asText(row.sub_sector_indonesian) ?? "",
-        subSectorEnglish: asText(row.sub_sector_english) ?? "",
-        industryIndonesian: asText(row.industry_indonesian) ?? "",
-        industryEnglish: asText(row.industry_english) ?? "",
-        subIndustryIndonesian: asText(row.sub_industry_indonesian) ?? "",
-        subIndustryEnglish: asText(row.sub_industry_english) ?? "",
-        aliases: Array.isArray(row.aliases) ? (row.aliases as string[]) : [],
-        competitors: row.competitors ?? [],
-        regulators: row.regulators ?? [],
-      };
-      await targetDb.tickerProfile.upsert({
-        where: { tickerId: local.id },
-        create: { tickerId: local.id, ...fields },
-        update: fields,
-      });
-      result.profilesWritten += 1;
     }
 
     for (const chunk of chunked(articles, PULL_CHUNK_SIZE)) {
@@ -448,7 +417,7 @@ const main = async (): Promise<void> => {
     `${result.symbol}: sourceTickerId=${result.sourceTickerId} localTickerId=${result.localTickerId}`,
   );
   console.log(
-    `Wrote ${result.profilesWritten} profile, ${result.articlesWritten} articles, ${result.placementsWritten} placements.`,
+    `Wrote ${result.articlesWritten} articles, ${result.placementsWritten} placements.`,
   );
   if (result.provenanceNulled > 0) {
     console.log(

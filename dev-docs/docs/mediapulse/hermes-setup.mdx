@@ -17,12 +17,11 @@ Seed scripts used to write this configuration straight into the databases. They 
 
 ## Tickers and profiles
 
-Tickers and ticker profiles come from JSON imports on their dashboard pages.
+Tickers come from a JSON import on their dashboard page: `hermes_mutate_run_domain_action` with `integrationId: "mediapulse"`, `resource: "tickers"`, `actionId: "import-idx-json"` and `payloadFilePath` pointing at an IDX export.
 
-- Tickers: `hermes_mutate_run_domain_action` with `integrationId: "mediapulse"`, `resource: "tickers"`, `actionId: "import-idx-json"` and `payloadFilePath` pointing at an IDX export.
-- Ticker profiles: the same tool with `resource: "ticker-profiles"` and `actionId: "import-profiles-json"`.
+Ticker profiles are not imported. agent-data-api reads them from the Organon knowledge graph, so set `ORGANON_API_URL` and `ORGANON_API_KEY` (see the agent-data-api page).
 
-The files the old seed read are still in git history: `git show 4c5c53f3:seed-data/tickers.json > /tmp/tickers.json`, and the same for `seed-data/ticker-profiles.json`.
+The tickers file the old seed read is still in git history: `git show 4c5c53f3:seed-data/tickers.json > /tmp/tickers.json`.
 
 Search query sets and curated sources are ordinary rows. Read the view's schema with `hermes_get_domain_view`, then create rows with `hermes_mutate_create_domain_row`.
 

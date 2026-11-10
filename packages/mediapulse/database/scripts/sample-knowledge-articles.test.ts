@@ -2,31 +2,45 @@ import { describe, expect, it } from "vitest";
 
 import {
   articleSampleSql,
-  asParties,
   issuerSelectionSql,
+  seededPartySql,
+  toSampleParties,
 } from "./sample-knowledge-articles";
 
-describe("asParties", () => {
-  it("keeps named parties and tags them with the kind", () => {
-    const parties = asParties(
-      [{ name: "Starbucks", aliases: ["SBUX"] }, { name: "Tomoro" }],
-      "company",
-    );
+describe("toSampleParties", () => {
+  it("keeps the named company and regulator parties of one issuer", () => {
+    const rows = [
+      {
+        ticker_id: "t1",
+        kind: "company",
+        name: "Starbucks",
+        aliases: ["SBUX"],
+      },
+      { ticker_id: "t1", kind: "regulator", name: "BPOM", aliases: [] },
+      { ticker_id: "t2", kind: "company", name: "Tomoro", aliases: [] },
+    ];
 
-    expect(parties).toEqual([
+    expect(toSampleParties(rows, "t1")).toEqual([
       { name: "Starbucks", aliases: ["SBUX"], kind: "company" },
-      { name: "Tomoro", aliases: [], kind: "company" },
+      { name: "BPOM", aliases: [], kind: "regulator" },
     ]);
   });
 
-  it("drops entries that carry no usable name", () => {
-    expect(
-      asParties([{ name: "" }, { aliases: ["x"] }, null, 7], "regulator"),
-    ).toEqual([]);
-  });
+  it("drops unnamed parties, other kinds and non-string aliases", () => {
+    const rows = [
+      { ticker_id: "t1", kind: "company", name: "", aliases: [] },
+      { ticker_id: "t1", kind: "person", name: "Someone", aliases: [] },
+      {
+        ticker_id: "t1",
+        kind: "company",
+        name: "Kopi Kenangan",
+        aliases: [7, "Kenangan"],
+      },
+    ];
 
-  it("returns nothing for a non-array", () => {
-    expect(asParties(null, "company")).toEqual([]);
+    expect(toSampleParties(rows, "t1")).toEqual([
+      { name: "Kopi Kenangan", aliases: ["Kenangan"], kind: "company" },
+    ]);
   });
 });
 
@@ -60,11 +74,21 @@ describe("articleSampleSql", () => {
 });
 
 describe("issuerSelectionSql", () => {
-  it("reads the profile aliases and parties alongside the ticker", () => {
+  it("reads the issuer's aliases and description from the knowledge base", () => {
     const sql = issuerSelectionSql("mediapulse");
 
-    expect(sql).toContain("p.competitors");
-    expect(sql).toContain("p.regulators");
-    expect(sql).toContain("LEFT JOIN");
+    expect(sql).toContain('"mediapulse".knowledge_entity issuer');
+    expect(sql).toContain('"mediapulse".knowledge_entity_alias');
+    expect(sql).not.toContain("ticker_profile");
+  });
+});
+
+describe("seededPartySql", () => {
+  it("reads only the competitors and regulators seeded from the profile", () => {
+    const sql = seededPartySql("mediapulse");
+
+    expect(sql).toContain("link.source = 'profile'");
+    expect(sql).toContain("link.is_issuer = false");
+    expect(sql).toContain("entity.kind IN ('company', 'regulator')");
   });
 });

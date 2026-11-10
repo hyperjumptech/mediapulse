@@ -417,7 +417,6 @@ model Ticker {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  profile                  TickerProfile?
   searchQueries            SearchQuery[]
   searchQuerySets          SearchQuerySet[]
   dataSources              DataSource[]
@@ -443,35 +442,6 @@ model Ticker {
   knowledgeExtractionRuns  KnowledgeExtractionRun[]
 
   @@map("ticker")
-}
-
-model TickerProfile {
-  id       String @id @default(uuid())
-  tickerId String @unique @map("ticker_id")
-
-  companyOverview   String @map("company_overview")
-  businessOperation String @map("business_operation")
-
-  sectorIndonesian      String @map("sector_indonesian")
-  sectorEnglish         String @map("sector_english")
-  subSectorIndonesian   String @map("sub_sector_indonesian")
-  subSectorEnglish      String @map("sub_sector_english")
-  industryIndonesian    String @map("industry_indonesian")
-  industryEnglish       String @map("industry_english")
-  subIndustryIndonesian String @map("sub_industry_indonesian")
-  subIndustryEnglish    String @map("sub_industry_english")
-
-  aliases String[] @map("aliases")
-
-  competitors Json
-  regulators  Json
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  ticker Ticker @relation(fields: [tickerId], references: [id], onDelete: Cascade)
-
-  @@map("ticker_profile")
 }
 
 /// End-user / newsletter subscriber in the Mediapulse domain (distinct from Hermes orchestration `User` admins).

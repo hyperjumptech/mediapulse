@@ -15,7 +15,6 @@ import { searchQueriesHermesDashboardResource } from "../resources/search-querie
 import { knowledgeBaseHermesDashboardResource } from "../resources/knowledge-base/resource-definition";
 import { knowledgeExtractionRunsHermesDashboardResource } from "../resources/knowledge-extraction-runs/resource-definition";
 import { searchQuerySetsHermesDashboardResource } from "../resources/search-query-sets/resource-definition";
-import { tickerProfilesHermesDashboardResource } from "../resources/ticker-profiles/resource-definition";
 import { tickersHermesDashboardResource } from "../resources/tickers/resource-definition";
 import type { HermesDashboardResourceDefinition } from "./hermes-dashboard-resource-types";
 
@@ -27,7 +26,6 @@ export { defineHermesDashboardResource } from "./hermes-dashboard-resource-types
  */
 export const hermesDashboardResources = [
   tickersHermesDashboardResource,
-  tickerProfilesHermesDashboardResource,
   curatedSourcesHermesDashboardResource,
   mediapulseUsersHermesDashboardResource,
   dataSourcesHermesDashboardResource,

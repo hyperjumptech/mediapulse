@@ -66,7 +66,6 @@ describe("Hermes dashboard routing contract", () => {
   it("exposes stable resource keys on HermesDashboardResource", () => {
     // Assert — breaks if segments are renamed without updating mounts + manifest
     expect(HermesDashboardResource.tickers).toBe("tickers");
-    expect(HermesDashboardResource.tickerProfiles).toBe("ticker-profiles");
     expect(HermesDashboardResource.mediapulseUsers).toBe("mediapulse-users");
     expect(HermesDashboardResource.dataSources).toBe("data-sources");
     expect(HermesDashboardResource.searchQuerySets).toBe("search-query-sets");
@@ -77,8 +76,5 @@ describe("Hermes dashboard routing contract", () => {
     expect(
       hermesDashboardTableMountPath(HermesDashboardResource.dataSources),
     ).toBe("/hermes-dashboard/data-sources");
-    expect(
-      hermesDashboardTableMountPath(HermesDashboardResource.tickerProfiles),
-    ).toBe("/hermes-dashboard/ticker-profiles");
   });
 });
