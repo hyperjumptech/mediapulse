@@ -894,10 +894,9 @@ describe("getDataSourcesForTicker — competitors and issuerAliases from the pro
     db.ticker.findUniqueOrThrow.mockResolvedValue({
       symbol: "BBCA",
       name: "Bank Central Asia",
-      aliases: ["BCA"],
     });
     const profileSource = profilesFor("BBCA", {
-      aliases: ["PT Bank Central Asia Tbk"],
+      aliases: ["BCA", "PT Bank Central Asia Tbk"],
       competitors: [
         { name: "Bank Mandiri", aliases: ["BMRI"] },
         { name: "Bank Rakyat Indonesia", aliases: ["BBRI"] },
@@ -931,7 +930,6 @@ describe("getDataSourcesForTicker — competitors and issuerAliases from the pro
     db.ticker.findUniqueOrThrow.mockResolvedValue({
       symbol: "NEW",
       name: "New Company",
-      aliases: [],
     });
     db.dataSourceTickerSection.findMany.mockResolvedValue([]);
 
@@ -954,7 +952,6 @@ describe("getDataSourcesForTicker — competitors and issuerAliases from the pro
     db.ticker.findUniqueOrThrow.mockResolvedValue({
       symbol: "SOLO",
       name: "Solo Corp",
-      aliases: [],
     });
     const profileSource = profilesFor("SOLO", {
       competitors: [{ name: "" }, { aliases: ["X"] }, 42, null],

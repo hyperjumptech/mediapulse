@@ -48,17 +48,17 @@ describe("tableV1ListResponseSchema", () => {
 describe("dashboardPageCustomActionSchema", () => {
   it("parses a valid custom action", () => {
     const parsed = dashboardPageCustomActionSchema.parse({
-      id: "import-idx-json",
-      label: "Import IDX JSON",
-      description: "Upload IDX company profiles JSON",
+      id: "import-json",
+      label: "Import JSON",
+      description: "Upload a JSON file",
       ui: "json-file-upload",
       method: "POST",
-      path: "/import-idx-json",
+      path: "/import-json",
       accept: ".json,application/json",
     });
 
-    expect(parsed.id).toBe("import-idx-json");
-    expect(parsed.path).toBe("/import-idx-json");
+    expect(parsed.id).toBe("import-json");
+    expect(parsed.path).toBe("/import-json");
   });
 
   it("rejects path without leading slash", () => {
@@ -94,17 +94,17 @@ describe("tableV1MetaResponseSchema", () => {
       actions: { create: true, update: true, delete: true },
       customActions: [
         {
-          id: "import-idx-json",
+          id: "import-json",
           label: "Import",
           ui: "json-file-upload",
           method: "POST",
-          path: "/import-idx-json",
+          path: "/import-json",
         },
       ],
     });
 
     expect(parsed.customActions).toHaveLength(1);
-    expect(parsed.customActions[0]?.id).toBe("import-idx-json");
+    expect(parsed.customActions[0]?.id).toBe("import-json");
   });
 
   it("parses full-page navigation and preview config", () => {

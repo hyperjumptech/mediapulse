@@ -131,48 +131,6 @@ export const prismaWriteFieldMetadata = {
       isRequired: true,
       isList: false,
     },
-    sector: {
-      kind: "scalar",
-      type: "String",
-      isRequired: false,
-      isList: false,
-    },
-    industry: {
-      kind: "scalar",
-      type: "String",
-      isRequired: false,
-      isList: false,
-    },
-    subSector: {
-      kind: "scalar",
-      type: "String",
-      isRequired: false,
-      isList: false,
-    },
-    subIndustry: {
-      kind: "scalar",
-      type: "String",
-      isRequired: false,
-      isList: false,
-    },
-    businessActivity: {
-      kind: "scalar",
-      type: "String",
-      isRequired: false,
-      isList: false,
-    },
-    aliases: {
-      kind: "scalar",
-      type: "String",
-      isRequired: true,
-      isList: true,
-    },
-    metadataRaw: {
-      kind: "scalar",
-      type: "Json",
-      isRequired: false,
-      isList: false,
-    },
     createdAt: {
       kind: "scalar",
       type: "DateTime",

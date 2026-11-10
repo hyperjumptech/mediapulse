@@ -1,112 +1,118 @@
 /** @vitest-environment node */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@mediapulse/database", () => ({
-  prisma: {
-    ticker: {
-      findUnique: vi.fn(),
-      findMany: vi.fn(),
-    },
-  },
+  prisma: {},
 }));
 
-import { prisma } from "@mediapulse/database";
-
 import { getTickerForAgent } from "./ticker";
+import {
+  createInMemoryTickerProfileSource,
+  type TickerProfileRecord,
+} from "./ticker-profile/ticker-profile-source.js";
+
+const TICKER_ID = "11111111-1111-4111-a111-111111111111";
+
+const blankProfile: TickerProfileRecord = {
+  companyOverview: "",
+  businessOperation: "",
+  sectorIndonesian: "",
+  sectorEnglish: "",
+  subSectorIndonesian: "",
+  subSectorEnglish: "",
+  industryIndonesian: "",
+  industryEnglish: "",
+  subIndustryIndonesian: "",
+  subIndustryEnglish: "",
+  aliases: [],
+  competitors: [],
+  regulators: [],
+};
+
+const dbReturning = (row: unknown) => {
+  const findUnique = vi.fn().mockResolvedValue(row);
+
+  return { db: { ticker: { findUnique } } as never, findUnique };
+};
+
+const noProfiles = createInMemoryTickerProfileSource(new Map());
 
 describe("getTickerForAgent", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("returns null when the ticker row is missing", async () => {
-    // Setup
-    vi.mocked(prisma.ticker.findUnique).mockResolvedValueOnce(null);
+    const { db } = dbReturning(null);
 
-    // Act
-    const result = await getTickerForAgent(
-      "11111111-1111-4111-a111-111111111111",
-    );
+    const result = await getTickerForAgent(TICKER_ID, db, noProfiles);
 
-    // Assert
     expect(result).toBeNull();
   });
 
-  it("returns identity, aliases, sector labels, business context, and peers", async () => {
-    // Setup
-    vi.mocked(prisma.ticker.findUnique).mockResolvedValueOnce({
-      id: "11111111-1111-4111-a111-111111111111",
+  it("reads only the symbol and the name from the ticker row", async () => {
+    const { db, findUnique } = dbReturning({
+      id: TICKER_ID,
+      symbol: "XYZ",
+      name: "Example Corp",
+    });
+
+    await getTickerForAgent(TICKER_ID, db, noProfiles);
+
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: TICKER_ID },
+      select: { id: true, symbol: true, name: true },
+    });
+  });
+
+  it("fills aliases and the Indonesian classification from the profile", async () => {
+    const { db } = dbReturning({
+      id: TICKER_ID,
       symbol: "AGRO",
       name: "PT Bank Raya Indonesia Tbk",
-      aliases: ["BRI Agro", "Bank Agroniaga", "BRI Agro"],
-      sector: "Keuangan",
-      industry: "Bank",
-      subSector: "Bank",
-      subIndustry: "Bank",
-      businessActivity: "Perbankan",
-    } as never);
-    vi.mocked(prisma.ticker.findMany).mockResolvedValueOnce([
-      {
-        id: "22222222-2222-4222-a222-222222222222",
-        symbol: "BBCA",
-        name: "Bank Central Asia Tbk",
-        metadataRaw: { marketCap: 100 },
-      },
-      {
-        id: "33333333-3333-4333-a333-333333333333",
-        symbol: "BBRI",
-        name: "Bank Rakyat Indonesia Tbk",
-        metadataRaw: { marketCap: 200 },
-      },
-    ] as never);
-
-    // Act
-    const result = await getTickerForAgent(
-      "11111111-1111-4111-a111-111111111111",
+    });
+    const profileSource = createInMemoryTickerProfileSource(
+      new Map([
+        [
+          "AGRO",
+          {
+            ...blankProfile,
+            businessOperation: "Perbankan digital",
+            sectorIndonesian: "Keuangan",
+            sectorEnglish: "Financials",
+            subSectorIndonesian: "Bank",
+            industryIndonesian: "Bank",
+            subIndustryIndonesian: "",
+            aliases: ["BRI Agro", "Bank Agroniaga", " bri agro ", ""],
+          },
+        ],
+      ]),
     );
 
-    // Assert
+    const result = await getTickerForAgent(TICKER_ID, db, profileSource);
+
     expect(result).toEqual({
-      id: "11111111-1111-4111-a111-111111111111",
+      id: TICKER_ID,
       symbol: "AGRO",
       name: "PT Bank Raya Indonesia Tbk",
       aliases: ["BRI Agro", "Bank Agroniaga"],
       sector: "Keuangan",
       industry: "Bank",
       subSector: "Bank",
-      subIndustry: "Bank",
-      businessActivity: "Perbankan",
-      peers: [
-        { symbol: "BBRI", name: "Bank Rakyat Indonesia Tbk" },
-        { symbol: "BBCA", name: "Bank Central Asia Tbk" },
-      ],
+      subIndustry: null,
+      businessActivity: "Perbankan digital",
+      peers: [],
     });
   });
 
-  it("returns empty peers and null business context when columns lack them", async () => {
-    // Setup
-    vi.mocked(prisma.ticker.findUnique).mockResolvedValueOnce({
-      id: "11111111-1111-4111-a111-111111111111",
+  it("returns empty aliases and null classification without a profile", async () => {
+    const { db } = dbReturning({
+      id: TICKER_ID,
       symbol: "XYZ",
       name: "Example Corp",
-      aliases: [],
-      sector: null,
-      industry: null,
-      subSector: null,
-      subIndustry: null,
-      businessActivity: null,
-    } as never);
+    });
 
-    // Act
-    const result = await getTickerForAgent(
-      "11111111-1111-4111-a111-111111111111",
-    );
+    const result = await getTickerForAgent(TICKER_ID, db, noProfiles);
 
-    // Assert
-    expect(prisma.ticker.findMany).not.toHaveBeenCalled();
     expect(result).toEqual({
-      id: "11111111-1111-4111-a111-111111111111",
+      id: TICKER_ID,
       symbol: "XYZ",
       name: "Example Corp",
       aliases: [],

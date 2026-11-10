@@ -21,13 +21,6 @@ const TICKER = {
   id: "ticker-uuid-1",
   symbol: "BBCA",
   name: "Bank BCA",
-  sector: null,
-  industry: null,
-  subSector: null,
-  subIndustry: null,
-  businessActivity: null,
-  aliases: [],
-  metadataRaw: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };

@@ -17,7 +17,7 @@ export const tickersDashboardPage = {
   id: tickersHermesPathSegment,
   label: "Tickers",
   description:
-    "Ticker symbols and company names; admin-created or imported via IDX JSON.",
+    "Ticker symbols and company names, synced from the knowledge graph or added by hand.",
   pathSegment: tickersHermesPathSegment,
   kind: "resource-table" as const,
   placement: "sidebar" as const,

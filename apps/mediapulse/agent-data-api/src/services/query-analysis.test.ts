@@ -104,16 +104,11 @@ describe("getProvenQueries", () => {
 });
 
 describe("getQueryAnalysisContext", () => {
-  it("returns the ticker with its classification columns and a null profile", async () => {
+  it("returns the ticker with no classification and a null profile when the knowledge graph has no profile", async () => {
     const findUniqueOrThrow = vi.fn().mockResolvedValue({
       id: TICKER_ID,
       symbol: "ACME",
       name: "Acme Co",
-      sector: "Technology",
-      industry: "Software",
-      subSector: "Application Software",
-      subIndustry: "SaaS",
-      businessActivity: "Enterprise software",
     });
     const db = {
       ticker: { findUniqueOrThrow },
@@ -144,19 +139,20 @@ describe("getQueryAnalysisContext", () => {
         id: TICKER_ID,
         symbol: "ACME",
         name: "Acme Co",
-        sector: "Technology",
-        industry: "Software",
-        subSector: "Application Software",
-        subIndustry: "SaaS",
-        businessActivity: "Enterprise software",
-        aliases: undefined,
+        sector: null,
+        industry: null,
+        subSector: null,
+        subIndustry: null,
+        businessActivity: null,
+        aliases: [],
       },
       profile: null,
       provenQueries: [],
     });
-    expect(findUniqueOrThrow).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: TICKER_ID } }),
-    );
+    expect(findUniqueOrThrow).toHaveBeenCalledWith({
+      where: { id: TICKER_ID },
+      select: { id: true, symbol: true, name: true },
+    });
     expect(profileSource).toHaveBeenCalledWith(["ACME"]);
   });
 
@@ -167,12 +163,6 @@ describe("getQueryAnalysisContext", () => {
           id: TICKER_ID,
           symbol: "AADI",
           name: "Adaro Andalan Indonesia",
-          aliases: [],
-          sector: "Energi",
-          industry: "Batu Bara",
-          subSector: null,
-          subIndustry: null,
-          businessActivity: null,
         }),
       },
       searchQuerySet: {
@@ -232,43 +222,16 @@ describe("getQueryAnalysisContext", () => {
     expect(payload.profile?.regulators).toEqual([
       { name: "Kementerian ESDM", aliases: [] },
     ]);
-  });
-
-  it("passes through null classification columns unchanged", async () => {
-    const db = {
-      ticker: {
-        findUniqueOrThrow: vi.fn().mockResolvedValue({
-          id: TICKER_ID,
-          symbol: "ACME",
-          name: "Acme Co",
-          sector: null,
-          industry: null,
-          subSector: null,
-          subIndustry: null,
-          businessActivity: null,
-        }),
-      },
-      searchQuerySet: {
-        updateMany: vi.fn(),
-        create: vi.fn(),
-        update: vi.fn(),
-        findUnique: vi.fn(),
-        delete: vi.fn(),
-      },
-      searchQuery: {
-        findMany: vi.fn().mockResolvedValue([]),
-        deleteMany: vi.fn(),
-        createMany: vi.fn(),
-      },
-    };
-
-    const payload = await getQueryAnalysisContext(
-      { tickerId: TICKER_ID },
-      db,
-      createInMemoryTickerProfileSource(new Map()),
-    );
-
-    expect(payload.ticker.sector).toBeNull();
-    expect(payload.ticker.businessActivity).toBeNull();
+    expect(payload.ticker).toEqual({
+      id: TICKER_ID,
+      symbol: "AADI",
+      name: "Adaro Andalan Indonesia",
+      aliases: [],
+      sector: "Energi",
+      industry: "Batu Bara Termal",
+      subSector: "Batu Bara",
+      subIndustry: "Penambangan Batu Bara Termal",
+      businessActivity: "Mines and sells thermal coal.",
+    });
   });
 });

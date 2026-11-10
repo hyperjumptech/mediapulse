@@ -5,6 +5,7 @@ import type {
   PostQueryAnalysisBody,
 } from "@workspace/agent-data-api-contract";
 
+import { tickerFieldsFromProfile } from "./ticker-fields-from-profile.js";
 import { parseProfileParties } from "./ticker-profile-parties.js";
 import { defaultTickerProfileSource } from "./ticker-profile/ticker-profile-source-default.js";
 import type { TickerProfileSource } from "./ticker-profile/ticker-profile-source.js";
@@ -117,7 +118,7 @@ export const getProvenQueries = async (
  *
  * @param query - Validated query payload containing `tickerId`.
  * @param db - Optional injected DB delegates for testing.
- * @returns The ticker with its classification columns.
+ * @returns The ticker with classification filled from its knowledge graph profile.
  */
 export const getQueryAnalysisContext = async (
   query: GetQueryAnalysisQuery,
@@ -131,12 +132,6 @@ export const getQueryAnalysisContext = async (
       id: true,
       symbol: true,
       name: true,
-      aliases: true,
-      sector: true,
-      industry: true,
-      subSector: true,
-      subIndustry: true,
-      businessActivity: true,
     },
   } satisfies Prisma.TickerFindUniqueOrThrowArgs);
   const profiles = await profileSource([ticker.symbol]);
@@ -148,12 +143,8 @@ export const getQueryAnalysisContext = async (
       id: ticker.id,
       symbol: ticker.symbol,
       name: ticker.name,
-      aliases: ticker.aliases,
-      sector: ticker.sector,
-      industry: ticker.industry,
-      subSector: ticker.subSector,
-      subIndustry: ticker.subIndustry,
-      businessActivity: ticker.businessActivity,
+      ...tickerFieldsFromProfile(profile),
+      aliases: [],
     },
     profile:
       profile === null

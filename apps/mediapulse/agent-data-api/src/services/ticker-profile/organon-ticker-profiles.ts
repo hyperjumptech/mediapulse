@@ -1,8 +1,9 @@
-import type { ProfileParty } from "../ticker-profile-parties.js";
 import type {
   RunSparqlSelect,
   SparqlBinding,
-} from "./organon-sparql-client.js";
+} from "@mediapulse/knowledge-graph";
+
+import type { ProfileParty } from "../ticker-profile-parties.js";
 import type { TickerProfileRecord } from "./ticker-profile-source.js";
 
 const MP = "https://mediapulse.hyperjump.tech/ontology#";

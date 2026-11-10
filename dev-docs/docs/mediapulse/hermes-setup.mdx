@@ -17,11 +17,11 @@ Seed scripts used to write this configuration straight into the databases. They 
 
 ## Tickers and profiles
 
-Tickers come from a JSON import on their dashboard page: `hermes_mutate_run_domain_action` with `integrationId: "mediapulse"`, `resource: "tickers"`, `actionId: "import-idx-json"` and `payloadFilePath` pointing at an IDX export.
+Tickers come from the knowledge graph. Run the **Sync from knowledge graph** action on the tickers page, or call `hermes_mutate_run_domain_action` with `integrationId: "mediapulse"`, `resource: "tickers"` and `actionId: "sync-from-knowledge-graph"`. The tool asks you to confirm and then needs a second call with `confirm: true`. The action adds the listed companies the table lacks and removes the tickers the graph no longer lists, unless subscribers, newsletters or run history still reference them. It never renames a ticker. The response lists the removed tickers in `removed` and the referenced ones it kept in `keptUnlisted`.
 
-Ticker profiles are not imported. agent-data-api reads them from the Organon knowledge graph, so set `ORGANON_API_URL` and `ORGANON_API_KEY` (see the agent-data-api page).
+The sync runs in domain-api, so set `ORGANON_API_URL` and `ORGANON_API_KEY` there as well as on agent-data-api. A read key for the MediaPulse project is enough.
 
-The tickers file the old seed read is still in git history: `git show 4c5c53f3:seed-data/tickers.json > /tmp/tickers.json`.
+Ticker profiles are not copied into Mediapulse. agent-data-api reads them from the Organon knowledge graph (see the agent-data-api page).
 
 Search query sets and curated sources are ordinary rows. Read the view's schema with `hermes_get_domain_view`, then create rows with `hermes_mutate_create_domain_row`.
 

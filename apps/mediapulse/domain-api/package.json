@@ -22,7 +22,7 @@
     "@mediapulse/database": "workspace:*",
     "@mediapulse/env": "workspace:*",
     "@mediapulse/hermes-integration": "workspace:*",
-    "@mediapulse/idx-tickers-importer": "workspace:*",
+    "@mediapulse/knowledge-graph": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/agent-data-api-contract": "workspace:*",

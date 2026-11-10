@@ -4,7 +4,7 @@
     "index",
     "mediapulse-database",
     "mediapulse-hermes-integration",
-    "idx-tickers-importer",
+    "knowledge-graph",
     "outlook-inbox"
   ],
   "defaultOpen": true

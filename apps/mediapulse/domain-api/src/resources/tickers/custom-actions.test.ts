@@ -1,12 +1,9 @@
-/**
- * Tests for tickers custom-action manifest snippets and registration list shape.
- */
-
-/** @vitest-environment node */
+import { dashboardPageCustomActionSchema } from "@hermes/domain-contract";
 import { describe, expect, it } from "vitest";
 
 import {
   tickersCustomActionsForManifest,
+  tickersSyncFromKnowledgeGraphConfirmToken,
   tickersTableV1CustomActionRegistrations,
   tickersTableV1CustomActions,
 } from "./custom-actions";
@@ -20,19 +17,45 @@ describe("tickersTableV1CustomActions", () => {
       tickersTableV1CustomActions.length,
     );
 
-    for (let i = 0; i < tickersTableV1CustomActions.length; i += 1) {
-      const def = tickersTableV1CustomActions[i];
-      const reg = tickersTableV1CustomActionRegistrations[i];
-      const manifestRow = tickersCustomActionsForManifest[i];
-      expect(def).toBeDefined();
-      expect(reg).toBeDefined();
+    for (
+      let index = 0;
+      index < tickersTableV1CustomActions.length;
+      index += 1
+    ) {
+      const definition = tickersTableV1CustomActions[index];
+      const registration = tickersTableV1CustomActionRegistrations[index];
+      const manifestRow = tickersCustomActionsForManifest[index];
+      expect(definition).toBeDefined();
+      expect(registration).toBeDefined();
       expect(manifestRow).toBeDefined();
 
-      expect(reg!.path).toBe(def!.manifest.path);
-      expect(reg!.method).toBe(def!.manifest.method);
-      expect(manifestRow!.path).toBe(def!.manifest.path);
-      expect(manifestRow!.id).toBe(def!.manifest.id);
+      expect(registration!.path).toBe(definition!.manifest.path);
+      expect(registration!.method).toBe(definition!.manifest.method);
+      expect(manifestRow!.path).toBe(definition!.manifest.path);
+      expect(manifestRow!.id).toBe(definition!.manifest.id);
       expect(manifestRow!.path).toBe(`/${manifestRow!.id}`);
     }
+  });
+
+  it("offers the reset and the knowledge graph sync", () => {
+    const ids = tickersCustomActionsForManifest.map((action) => action.id);
+
+    expect(ids).toEqual(["reset-all", "sync-from-knowledge-graph"]);
+  });
+
+  it("declares the sync as a confirmed POST that Hermes accepts", () => {
+    const sync = tickersCustomActionsForManifest.find(
+      (action) => action.id === "sync-from-knowledge-graph",
+    );
+    const parsed = dashboardPageCustomActionSchema.safeParse(sync);
+
+    expect(parsed.success).toBe(true);
+    expect(sync).toMatchObject({
+      label: "Sync from knowledge graph",
+      ui: "danger-confirm",
+      method: "POST",
+      path: "/sync-from-knowledge-graph",
+      confirmToken: tickersSyncFromKnowledgeGraphConfirmToken,
+    });
   });
 });

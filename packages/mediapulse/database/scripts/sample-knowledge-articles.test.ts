@@ -4,6 +4,7 @@ import {
   articleSampleSql,
   issuerSelectionSql,
   seededPartySql,
+  toSampleIssuer,
   toSampleParties,
 } from "./sample-knowledge-articles";
 
@@ -80,6 +81,7 @@ describe("issuerSelectionSql", () => {
     expect(sql).toContain('"mediapulse".knowledge_entity issuer');
     expect(sql).toContain('"mediapulse".knowledge_entity_alias');
     expect(sql).not.toContain("ticker_profile");
+    expect(sql).not.toContain("t.aliases");
   });
 });
 
@@ -90,5 +92,45 @@ describe("seededPartySql", () => {
     expect(sql).toContain("link.source = 'profile'");
     expect(sql).toContain("link.is_issuer = false");
     expect(sql).toContain("entity.kind IN ('company', 'regulator')");
+  });
+});
+
+describe("toSampleIssuer", () => {
+  it("takes the issuer's aliases from the knowledge base", () => {
+    const issuer = toSampleIssuer(
+      {
+        id: "t1",
+        symbol: "FORE",
+        name: "Fore Kopi Indonesia",
+        issuer_aliases: ["Fore Coffee", 7],
+        company_overview: "App-led coffee chain.",
+      },
+      [],
+    );
+
+    expect(issuer).toEqual({
+      tickerId: "t1",
+      symbol: "FORE",
+      name: "Fore Kopi Indonesia",
+      aliases: ["Fore Coffee"],
+      companyOverview: "App-led coffee chain.",
+      parties: [],
+    });
+  });
+
+  it("falls back to no aliases when the issuer has no knowledge base entity", () => {
+    const issuer = toSampleIssuer(
+      {
+        id: "t2",
+        symbol: "NEW",
+        name: "New Company",
+        issuer_aliases: null,
+        company_overview: null,
+      },
+      [],
+    );
+
+    expect(issuer.aliases).toEqual([]);
+    expect(issuer.companyOverview).toBeNull();
   });
 });

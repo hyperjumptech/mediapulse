@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   MAX_SPARQL_QUERY_LENGTH,
   type SparqlBinding,
-} from "./organon-sparql-client.js";
+} from "@mediapulse/knowledge-graph";
+
 import {
   COMPANY_FACTS_QUERY,
   LINKED_PARTIES_QUERY,

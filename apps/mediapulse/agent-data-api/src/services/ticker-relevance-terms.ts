@@ -1,24 +1,9 @@
 import { prisma, type Prisma } from "@mediapulse/database";
 import type { GetTickerRelevanceTermsResponse } from "@workspace/agent-data-api-contract";
 
-import {
-  buildPeerColumnFilters,
-  extractTickerBusinessContext,
-  extractTickerSectorIndustry,
-  sortAndLimitPeers,
-} from "./query-analysis-context-helpers";
 import { parseProfileParties } from "./ticker-profile-parties.js";
 import { defaultTickerProfileSource } from "./ticker-profile/ticker-profile-source-default.js";
 import type { TickerProfileSource } from "./ticker-profile/ticker-profile-source.js";
-
-type PeerCandidate = {
-  id: string;
-  symbol: string;
-  name: string;
-  sector: string | null;
-  industry: string | null;
-  metadataRaw: Prisma.JsonValue;
-};
 
 const appendTerm = (
   seen: Set<string>,
@@ -225,31 +210,6 @@ export const taxonomyPhraseSegments = (label: string): string[] => {
   return found;
 };
 
-const indexPeerCandidatesByLabel = (
-  candidates: PeerCandidate[],
-): {
-  bySector: Map<string, PeerCandidate[]>;
-  byIndustry: Map<string, PeerCandidate[]>;
-} => {
-  const bySector = new Map<string, PeerCandidate[]>();
-  const byIndustry = new Map<string, PeerCandidate[]>();
-
-  for (const candidate of candidates) {
-    if (candidate.sector !== null) {
-      const bucket = bySector.get(candidate.sector) ?? [];
-      bucket.push(candidate);
-      bySector.set(candidate.sector, bucket);
-    }
-    if (candidate.industry !== null) {
-      const bucket = byIndustry.get(candidate.industry) ?? [];
-      bucket.push(candidate);
-      byIndustry.set(candidate.industry, bucket);
-    }
-  }
-
-  return { bySector, byIndustry };
-};
-
 /**
  * Loads relevance-matching terms for every ticker that has an active search query set.
  *
@@ -283,11 +243,6 @@ export const getTickerRelevanceTermsForAgent = async (
       id: true,
       symbol: true,
       name: true,
-      aliases: true,
-      sector: true,
-      industry: true,
-      subSector: true,
-      subIndustry: true,
     },
     orderBy: { symbol: "asc" },
   } satisfies Prisma.TickerFindManyArgs);
@@ -295,48 +250,11 @@ export const getTickerRelevanceTermsForAgent = async (
     activeTickers.map((ticker) => ticker.symbol),
   );
 
-  const peerFilters: Prisma.TickerWhereInput[] = [];
-  const seenPeerFilters = new Set<string>();
-  for (const ticker of activeTickers) {
-    if (profiles.has(ticker.symbol)) {
-      continue;
-    }
-    const { sector, industry } = extractTickerSectorIndustry(ticker);
-    const filters = buildPeerColumnFilters(sector, industry) ?? [];
-    for (const filter of filters) {
-      const filterKey = JSON.stringify(filter);
-      if (seenPeerFilters.has(filterKey)) {
-        continue;
-      }
-      seenPeerFilters.add(filterKey);
-      peerFilters.push(filter);
-    }
-  }
-
-  const peerCandidates: PeerCandidate[] =
-    peerFilters.length === 0
-      ? []
-      : await db.ticker.findMany({
-          where: { OR: peerFilters },
-          select: {
-            id: true,
-            symbol: true,
-            name: true,
-            sector: true,
-            industry: true,
-            metadataRaw: true,
-          },
-        } satisfies Prisma.TickerFindManyArgs);
-  const { bySector, byIndustry } = indexPeerCandidatesByLabel(peerCandidates);
-
   const tickers = activeTickers.map((ticker) => {
     const seen = new Set<string>();
     const terms: string[] = [];
     appendTerm(seen, terms, ticker.symbol);
     appendTerm(seen, terms, ticker.name);
-    for (const alias of ticker.aliases) {
-      appendTerm(seen, terms, alias);
-    }
 
     const profile = profiles.get(ticker.symbol) ?? null;
     if (profile !== null) {
@@ -355,43 +273,7 @@ export const getTickerRelevanceTermsForAgent = async (
       appendTaxonomyTerm(seen, terms, profile.subSectorIndonesian);
       appendTaxonomyTerm(seen, terms, profile.industryIndonesian);
       appendTaxonomyTerm(seen, terms, profile.subIndustryIndonesian);
-
-      // A profile describes the issuer in its own words ("Jaringan Kedai Kopi"), which reads well
-      // to an analyst but rarely appears verbatim in news copy. The exchange taxonomy on the
-      // ticker row uses the plain words reporters actually write ("Minuman"), so keep both:
-      // curating a profile must only ever widen a ticker's reach, never narrow it.
-      appendTaxonomyTerm(seen, terms, ticker.sector);
-      appendTaxonomyTerm(seen, terms, ticker.subSector);
-      appendTaxonomyTerm(seen, terms, ticker.industry);
-      appendTaxonomyTerm(seen, terms, ticker.subIndustry);
-
-      return { id: ticker.id, symbol: ticker.symbol, terms };
     }
-
-    const { sector, industry } = extractTickerSectorIndustry(ticker);
-    const { subSector, subIndustry } = extractTickerBusinessContext(ticker);
-
-    const matchedPeers = new Map<string, PeerCandidate>();
-    const sectorMatches =
-      sector === undefined ? [] : (bySector.get(sector) ?? []);
-    const industryMatches =
-      industry === undefined ? [] : (byIndustry.get(industry) ?? []);
-    for (const candidate of [...sectorMatches, ...industryMatches]) {
-      if (candidate.id === ticker.id) {
-        continue;
-      }
-      matchedPeers.set(candidate.id, candidate);
-    }
-    const peers = sortAndLimitPeers([...matchedPeers.values()]);
-
-    for (const peer of peers) {
-      appendTerm(seen, terms, peer.symbol);
-      appendTerm(seen, terms, peer.name);
-    }
-    appendTaxonomyTerm(seen, terms, sector);
-    appendTaxonomyTerm(seen, terms, industry);
-    appendTaxonomyTerm(seen, terms, subSector);
-    appendTaxonomyTerm(seen, terms, subIndustry);
 
     return { id: ticker.id, symbol: ticker.symbol, terms };
   });

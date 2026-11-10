@@ -8,10 +8,6 @@ import type {
 } from "@workspace/agent-data-api-contract";
 import { prisma, Prisma } from "@mediapulse/database";
 
-import {
-  extractTickerBusinessContext,
-  extractTickerSectorIndustry,
-} from "./query-analysis-context-helpers.js";
 import { parseProfileParties } from "./ticker-profile-parties.js";
 import { defaultTickerProfileSource } from "./ticker-profile/ticker-profile-source-default.js";
 import {
@@ -108,12 +104,6 @@ type TickerProfileContextRow = {
 type TickerRow = {
   symbol: string;
   name: string;
-  sector: string | null;
-  industry: string | null;
-  subSector: string | null;
-  subIndustry: string | null;
-  businessActivity: string | null;
-  aliases?: string[];
 } | null;
 
 /**
@@ -121,7 +111,7 @@ type TickerRow = {
  * name the context already carries separately.
  *
  * @param ticker - The selected ticker row.
- * @returns Deduplicated alias strings, in ticker-then-profile order.
+ * @returns Deduplicated alias strings from the profile.
  */
 const collectIssuerAliases = (
   ticker: NonNullable<TickerRow>,
@@ -131,7 +121,7 @@ const collectIssuerAliases = (
 
   return [
     ...new Set(
-      [...(ticker.aliases ?? []), ...(profile?.aliases ?? [])]
+      (profile?.aliases ?? [])
         .map((alias) => alias.trim())
         .filter((alias) => alias.length > 0 && !known.has(alias)),
     ),
@@ -145,17 +135,14 @@ const mapTickerContext = (
   if (ticker === null) {
     throw new Error("mapTickerContext called with null ticker");
   }
-  const { sector, industry } = extractTickerSectorIndustry(ticker);
-  const { subIndustry, businessActivity } =
-    extractTickerBusinessContext(ticker);
 
   return {
     symbol: ticker.symbol,
     name: ticker.name,
-    sector: profile?.sectorEnglish ?? sector ?? null,
-    industry: profile?.industryEnglish ?? industry ?? null,
-    subIndustry: profile?.subIndustryEnglish ?? subIndustry ?? null,
-    businessActivity: profile?.businessOperation ?? businessActivity ?? null,
+    sector: profile?.sectorEnglish ?? null,
+    industry: profile?.industryEnglish ?? null,
+    subIndustry: profile?.subIndustryEnglish ?? null,
+    businessActivity: profile?.businessOperation ?? null,
     aliases: collectIssuerAliases(ticker, profile),
     competitors:
       profile === null ? [] : parseProfileParties(profile.competitors),
@@ -187,12 +174,6 @@ type TickerGatingContext = {
 const tickerContextSelect = {
   symbol: true,
   name: true,
-  sector: true,
-  industry: true,
-  subSector: true,
-  subIndustry: true,
-  businessActivity: true,
-  aliases: true,
 } satisfies Prisma.TickerSelect;
 
 /** Builds issuer context + alias matcher for one active ticker. */
