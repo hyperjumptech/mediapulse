@@ -26,6 +26,18 @@ describe("createTickerRelevanceMatcher", () => {
     });
   });
 
+  it("keeps a name that differs from the symbol only by case", () => {
+    const matcher = createTickerRelevanceMatcher([
+      {
+        id: "12121212-1212-4212-a212-121212121212",
+        symbol: "GOTO",
+        terms: ["GOTO", "GoTo"],
+      },
+    ]);
+
+    expect(matcher.match("GoTo catat laba bersih")?.term).toBe("GoTo");
+  });
+
   it("does not match a symbol written as an ordinary lowercase word", () => {
     const matcher = createTickerRelevanceMatcher([
       {
@@ -192,6 +204,20 @@ describe("routingRelevanceTerms", () => {
     });
 
     expect(routed.terms).toEqual(["BBCA", "Bank Central Asia", "BMRI", "Bank"]);
+  });
+
+  it("leaves out a name that also means something else", () => {
+    const routed = routingRelevanceTerms({
+      id: "99999999-9999-4999-a999-999999999999",
+      symbol: "SMAR",
+      terms: ["SMAR", "Sinar Mas Agro", "Mitra", "Sawit"],
+      issuerTerms: ["SMAR", "Sinar Mas Agro", "Mitra"],
+      competitorTerms: [],
+      industryTerms: ["Sawit"],
+      ambiguousTerms: ["Mitra"],
+    });
+
+    expect(routed.terms).toEqual(["SMAR", "Sinar Mas Agro", "Sawit"]);
   });
 
   it("keeps every term when the lists that split them are missing", () => {

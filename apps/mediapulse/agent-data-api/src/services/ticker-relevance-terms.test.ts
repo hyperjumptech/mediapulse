@@ -231,7 +231,7 @@ describe("getTickerRelevanceTermsForAgent", () => {
     expect(result.tickers[0]?.terms).toEqual(["XYZ", "Example Corp"]);
   });
 
-  it("does not repeat a name that only differs from the symbol by case", async () => {
+  it("keeps a name that differs from the symbol only by case, because a symbol matches only in capitals", async () => {
     // Setup
     vi.mocked(prisma.searchQuerySet.findMany).mockResolvedValueOnce([
       { tickerId: ANCHOR_TICKER_ID },
@@ -250,7 +250,7 @@ describe("getTickerRelevanceTermsForAgent", () => {
     });
 
     // Assert
-    expect(result.tickers[0]?.terms).toEqual(["AGRO"]);
+    expect(result.tickers[0]?.terms).toEqual(["AGRO", "agro"]);
   });
 
   it("takes terms from the curated profile and skips the sector peer query", async () => {
@@ -319,6 +319,40 @@ describe("getTickerRelevanceTermsForAgent", () => {
       "Bukit Asam",
       "PTBA",
     ]);
+  });
+
+  it("marks the issuer's and its competitors' ambiguous names, matching a symbol only in its own casing", async () => {
+    // Setup
+    vi.mocked(prisma.searchQuerySet.findMany).mockResolvedValueOnce([
+      { tickerId: ANCHOR_TICKER_ID },
+    ] as never);
+    vi.mocked(prisma.ticker.findMany).mockResolvedValueOnce([
+      { id: ANCHOR_TICKER_ID, symbol: "ADHI", name: "Adhi Karya (Persero)" },
+    ] as never);
+
+    const profileSource = profilesFor("ADHI", {
+      aliases: ["Adhi", "LRT City"],
+      ambiguousNames: ["Adhi", "LRT City"],
+      competitors: [
+        {
+          name: "PP (Persero)",
+          aliases: ["PTPP", "PP"],
+          ambiguousNames: ["PP"],
+        },
+      ],
+    });
+
+    // Act
+    const result = await getTickerRelevanceTermsForAgent({ profileSource });
+
+    // Assert
+    expect(result.tickers[0]?.issuerTerms).toEqual([
+      "ADHI",
+      "Adhi Karya (Persero)",
+      "Adhi",
+      "LRT City",
+    ]);
+    expect(result.tickers[0]?.ambiguousTerms).toEqual(["Adhi", "LRT City"]);
   });
 
   it("keeps a curated peer alias that is not an exchange ticker symbol", async () => {

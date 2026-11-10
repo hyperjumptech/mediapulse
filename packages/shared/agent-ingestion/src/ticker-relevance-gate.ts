@@ -14,7 +14,7 @@ export type TickerRelevanceTermsInput = Pick<
   Partial<
     Pick<
       TickerRelevanceTermsItem,
-      "issuerTerms" | "competitorTerms" | "industryTerms"
+      "issuerTerms" | "competitorTerms" | "industryTerms" | "ambiguousTerms"
     >
   >;
 
@@ -107,7 +107,10 @@ const compileTerms = (
   const seenTerms = new Set<string>();
   const compiled: CompiledTerm[] = [];
   for (const term of terms) {
-    const normalizedTerm = term.trim().replace(/\s+/g, " ").toLowerCase();
+    const collapsedTerm = term.trim().replace(/\s+/g, " ");
+    const normalizedTerm = isSymbolLike(collapsedTerm)
+      ? collapsedTerm
+      : collapsedTerm.toLowerCase();
     if (normalizedTerm.length === 0 || seenTerms.has(normalizedTerm)) {
       continue;
     }
@@ -151,14 +154,16 @@ export const routingRelevanceTerms = (
     return ticker;
   }
 
-  return {
-    ...ticker,
-    terms: [
-      ...issuerTerms,
-      ...competitorTerms,
-      ...(ticker.industryTerms ?? []),
-    ],
-  };
+  const ambiguousTerms = new Set(
+    (ticker.ambiguousTerms ?? []).map((term) => term.trim()),
+  );
+  const terms = [
+    ...issuerTerms,
+    ...competitorTerms,
+    ...(ticker.industryTerms ?? []),
+  ].filter((term) => !ambiguousTerms.has(term.trim()));
+
+  return { ...ticker, terms };
 };
 
 export function createTickerRelevanceMatcher(

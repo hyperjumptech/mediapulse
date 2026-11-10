@@ -11,6 +11,15 @@ import type {
   TickerProfileSource,
 } from "./ticker-profile/ticker-profile-source.js";
 
+const isSymbolLikeName = (name: string): boolean =>
+  /^[A-Z0-9]+$/.test(name) && name.length <= 6;
+
+const nameKey = (name: string): string => {
+  const trimmed = name.trim();
+
+  return isSymbolLikeName(trimmed) ? trimmed : trimmed.toLowerCase();
+};
+
 const appendTerm = (
   seen: Set<string>,
   terms: string[],
@@ -20,7 +29,7 @@ const appendTerm = (
     return;
   }
   const trimmed = value.trim();
-  const normalized = trimmed.toLowerCase();
+  const normalized = nameKey(trimmed);
   if (trimmed.length === 0 || seen.has(normalized)) {
     return;
   }
@@ -296,6 +305,15 @@ export const taxonomyPhraseSegments = (
   return found;
 };
 
+const ambiguousTermsOf = (
+  terms: readonly string[],
+  ambiguousNames: readonly string[],
+): string[] => {
+  const ambiguous = new Set(ambiguousNames.map(nameKey));
+
+  return terms.filter((term) => ambiguous.has(nameKey(term)));
+};
+
 export const buildTickerRelevanceTerms = (
   ticker: { id: string; symbol: string; name: string },
   profile: TickerProfileRecord | null,
@@ -336,6 +354,11 @@ export const buildTickerRelevanceTerms = (
     appendTaxonomyTerm(industrySeen, industryTerms, label, "specific");
   }
 
+  const ambiguousNames = [
+    ...(profile?.ambiguousNames ?? []),
+    ...competitors.flatMap((competitor) => competitor.ambiguousNames ?? []),
+  ];
+
   return {
     id: ticker.id,
     symbol: ticker.symbol,
@@ -343,6 +366,10 @@ export const buildTickerRelevanceTerms = (
     issuerTerms,
     competitorTerms,
     industryTerms,
+    ambiguousTerms: ambiguousTermsOf(
+      [...issuerTerms, ...competitorTerms],
+      ambiguousNames,
+    ),
   };
 };
 
