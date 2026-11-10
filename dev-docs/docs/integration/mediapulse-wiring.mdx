@@ -27,7 +27,7 @@ This repo typically registers an integration whose **integration id** is `mediap
 
 - **Pipeline run helpers** — Some Hermes UI flows resolve the registered **Mediapulse** integration (manifest + `baseUrl` from orchestration) to list tickers via the same `table-v1` list pattern as other domain tables (`fetchAllTickersForPipelineRun` in `domain-dashboard.ts`). See [Domain integration dashboard](/hermes/domain-integration-dashboard).
 
-- **Ticker sync.** The tickers manifest registers a **Sync from knowledge graph** custom action. The dashboard shows it as a confirm button and POSTs to the domain API, which loads the listed companies from the knowledge graph with [`@mediapulse/knowledge-graph`](/mediapulse/packages/knowledge-graph) and adds or renames tickers. It never deletes one.
+- **Ticker sync.** The tickers manifest registers a **Sync from knowledge graph** custom action. The dashboard shows it as a confirm button and POSTs to the domain API, which loads the listed companies from the knowledge graph with [`@mediapulse/knowledge-graph`](/mediapulse/packages/knowledge-graph) adds the tickers the table lacks and removes the ones the graph no longer lists, unless something still references them. It never renames a ticker.
 
 - **Search queries, entity types, relation types** — Product-owned tables exposed under the integration manifest (e.g. `/dashboard/mediapulse/search-queries`) are served by `domain-api`, not by the Hermes Next.js server reading the Mediapulse database.
 

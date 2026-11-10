@@ -1,8 +1,9 @@
-import type {
-  ListedCompany,
-  RunSparqlSelect,
-  TickerSyncDb,
-  TickerSyncResult,
+import {
+  TickerRemovalLimitError,
+  type ListedCompany,
+  type RunSparqlSelect,
+  type TickerSyncDb,
+  type TickerSyncResult,
 } from "@mediapulse/knowledge-graph";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
@@ -26,9 +27,9 @@ const listedCompanies: ListedCompany[] = [
 
 const syncResult: TickerSyncResult = {
   added: 1,
-  updated: 1,
-  unchanged: 0,
-  missingFromKnowledgeGraph: ["TEST"],
+  alreadyPresent: 1,
+  removed: ["TOYS"],
+  keptUnlisted: ["OLDX"],
 };
 
 const configuredEnv: KnowledgeGraphEnv = {
@@ -39,11 +40,16 @@ const configuredEnv: KnowledgeGraphEnv = {
 type HarnessOptions = {
   env?: KnowledgeGraphEnv;
   loadCompanies?: (runSparql: RunSparqlSelect) => Promise<ListedCompany[]>;
+  syncTickers?: (
+    companies: readonly ListedCompany[],
+    db: TickerSyncDb,
+  ) => Promise<TickerSyncResult>;
 };
 
 const createHarness = ({
   env = configuredEnv,
   loadCompanies,
+  syncTickers,
 }: HarnessOptions = {}) => {
   const connections: KnowledgeGraphConnection[] = [];
   const syncCalls: { companies: readonly ListedCompany[]; db: TickerSyncDb }[] =
@@ -72,7 +78,9 @@ const createHarness = ({
       syncTickers: async (companies, db) => {
         syncCalls.push({ companies, db });
 
-        return syncResult;
+        return syncTickers === undefined
+          ? syncResult
+          : syncTickers(companies, db);
       },
     }),
   );
@@ -93,7 +101,7 @@ describe("createSyncFromKnowledgeGraphHandler", () => {
     const response = await harness.post({ confirm: confirmToken });
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual(syncResult);
+    expect(await response.json()).toEqual({ ...syncResult, deleted: 1 });
     expect(harness.connections).toEqual([
       { baseUrl: "https://organon.example", apiKey: "organon_key" },
     ]);
@@ -101,6 +109,24 @@ describe("createSyncFromKnowledgeGraphHandler", () => {
     expect(harness.syncCalls).toEqual([
       { companies: listedCompanies, db: fakeDb },
     ]);
+  });
+
+  it("refuses with 409 when the sync would remove too many tickers", async () => {
+    const harness = createHarness({
+      syncTickers: async () => {
+        throw new TickerRemovalLimitError(["AAAA", "BBBB"]);
+      },
+    });
+
+    const response = await harness.post({ confirm: confirmToken });
+    const body = (await response.json()) as {
+      message: string;
+      unlisted: string[];
+    };
+
+    expect(response.status).toBe(409);
+    expect(body.unlisted).toEqual(["AAAA", "BBBB"]);
+    expect(body.message).toContain("Nothing was changed.");
   });
 
   it("rejects a body without the confirm token before reading the env", async () => {

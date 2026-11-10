@@ -50,11 +50,11 @@ const tickersTableV1CustomActionRegistry = {
   "sync-from-knowledge-graph": {
     label: "Sync from knowledge graph",
     description:
-      "Adds every listed company from the knowledge graph and updates ticker names. Never deletes a ticker.",
+      "Adds every listed company the table lacks and removes tickers the knowledge graph no longer lists. Existing ticker names are never changed, and a removed ticker must have no subscribers, newsletters or run history.",
     ui: "danger-confirm",
     method: "POST",
     confirmMessage:
-      "Add every listed company from the knowledge graph and update ticker names to match it? No ticker is deleted.",
+      "Add the listed companies the table lacks and remove tickers the knowledge graph no longer lists? Tickers with subscribers or history are kept.",
     confirmToken: tickersSyncFromKnowledgeGraphConfirmToken,
     handler: createSyncFromKnowledgeGraphHandler({
       confirmToken: tickersSyncFromKnowledgeGraphConfirmToken,

@@ -12,7 +12,8 @@ export {
   type SparqlTerm,
 } from "./organon-sparql-client";
 export {
-  TICKER_WRITE_CONCURRENCY,
+  MAX_TICKER_REMOVALS_PER_SYNC,
+  TickerRemovalLimitError,
   syncTickersFromKnowledgeGraph,
   type TickerSyncDb,
   type TickerSyncResult,

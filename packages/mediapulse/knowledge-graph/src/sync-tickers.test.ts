@@ -2,70 +2,67 @@ import { describe, expect, it } from "vitest";
 
 import type { ListedCompany } from "./listed-companies";
 import {
-  TICKER_WRITE_CONCURRENCY,
+  MAX_TICKER_REMOVALS_PER_SYNC,
+  TickerRemovalLimitError,
   syncTickersFromKnowledgeGraph,
   type TickerSyncDb,
 } from "./sync-tickers";
 
-type StoredTicker = { symbol: string; name: string };
+type StoredTicker = { symbol: string; name: string; referenced?: boolean };
 
-type TickerCreateArgs = { data: StoredTicker };
+type SymbolFilter = { where?: { symbol?: { in: string[] } } };
 
-type TickerUpdateArgs = {
-  where: { symbol: string };
-  data: { name: string };
+type TickerCreateManyArgs = {
+  data: { symbol: string; name: string }[];
+  skipDuplicates: boolean;
 };
 
 const createFakeTickerDb = (initialTickers: StoredTicker[]) => {
-  const tickers = initialTickers.map((ticker) => ({ ...ticker }));
-  const created: StoredTicker[] = [];
-  const updates: TickerUpdateArgs[] = [];
-  const inFlight = { current: 0, peak: 0 };
-  const trackWrite = async <Result>(write: () => Result): Promise<Result> => {
-    inFlight.current += 1;
-    inFlight.peak = Math.max(inFlight.peak, inFlight.current);
-    await Promise.resolve();
-    inFlight.current -= 1;
+  let tickers = initialTickers.map((ticker) => ({ ...ticker }));
+  const createManyCalls: TickerCreateManyArgs[] = [];
+  const deletedSymbols: string[] = [];
+  const unreferencedIn = (filter: SymbolFilter) => {
+    const symbols = filter.where?.symbol?.in ?? [];
 
-    return write();
+    return tickers.filter(
+      (ticker) => symbols.includes(ticker.symbol) && ticker.referenced !== true,
+    );
   };
   const fake = {
     ticker: {
-      findMany: async () => tickers.map((ticker) => ({ ...ticker })),
-      create: (args: TickerCreateArgs) =>
-        trackWrite(() => {
-          created.push(args.data);
-          tickers.push({ ...args.data });
+      findMany: async (args: SymbolFilter) => {
+        const rows = args.where === undefined ? tickers : unreferencedIn(args);
 
-          return args.data;
-        }),
-      update: (args: TickerUpdateArgs) =>
-        trackWrite(() => {
-          updates.push(args);
-          const ticker = tickers.find(
-            (stored) => stored.symbol === args.where.symbol,
-          );
-          if (ticker === undefined) {
-            throw new Error(`No ticker ${args.where.symbol}`);
-          }
-          ticker.name = args.data.name;
+        return rows.map((ticker) => ({ symbol: ticker.symbol }));
+      },
+      createMany: async (args: TickerCreateManyArgs) => {
+        createManyCalls.push(args);
+        tickers.push(...args.data.map((ticker) => ({ ...ticker })));
 
-          return ticker;
-        }),
+        return { count: args.data.length };
+      },
+      deleteMany: async (args: SymbolFilter) => {
+        const doomed = new Set(
+          unreferencedIn(args).map((ticker) => ticker.symbol),
+        );
+        deletedSymbols.push(...doomed);
+        tickers = tickers.filter((ticker) => !doomed.has(ticker.symbol));
+
+        return { count: doomed.size };
+      },
     },
   };
 
   return {
     db: fake as unknown as TickerSyncDb,
-    tickers,
-    created,
-    updates,
-    inFlight,
+    tickers: () => tickers,
+    createManyCalls,
+    deletedSymbols,
   };
 };
 
 describe("syncTickersFromKnowledgeGraph", () => {
-  it("adds missing symbols, renames changed ones and keeps the rest", async () => {
+  it("adds missing symbols and leaves every existing ticker name as it is", async () => {
     const fake = createFakeTickerDb([
       { symbol: "BBCA", name: "Bank Central Asia Tbk." },
       { symbol: "GOTO", name: "PT GoTo Gojek Tokopedia Tbk" },
@@ -80,26 +77,29 @@ describe("syncTickersFromKnowledgeGraph", () => {
 
     expect(result).toEqual({
       added: 1,
-      updated: 1,
-      unchanged: 1,
-      missingFromKnowledgeGraph: [],
+      alreadyPresent: 2,
+      removed: [],
+      keptUnlisted: [],
     });
-    expect(fake.created).toEqual([
-      { symbol: "MAPB", name: "PT Map Boga Adiperkasa Tbk" },
-    ]);
-    expect(fake.updates).toEqual([
+    expect(fake.createManyCalls).toEqual([
       {
-        where: { symbol: "BBCA" },
-        data: { name: "PT Bank Central Asia Tbk" },
+        data: [{ symbol: "MAPB", name: "PT Map Boga Adiperkasa Tbk" }],
+        skipDuplicates: true,
       },
+    ]);
+    expect(fake.tickers()).toEqual([
+      { symbol: "BBCA", name: "Bank Central Asia Tbk." },
+      { symbol: "GOTO", name: "PT GoTo Gojek Tokopedia Tbk" },
+      { symbol: "MAPB", name: "PT Map Boga Adiperkasa Tbk" },
     ]);
   });
 
-  it("never deletes and lists table symbols the knowledge graph does not, sorted", async () => {
+  it("removes unlisted tickers nothing references and keeps the referenced ones", async () => {
     const fake = createFakeTickerDb([
-      { symbol: "ZZZZ", name: "Delisted Tbk" },
+      { symbol: "TOYS", name: "PT Sunindo Adipersada Tbk." },
       { symbol: "BBCA", name: "PT Bank Central Asia Tbk" },
-      { symbol: "AAAA", name: "Test Ticker" },
+      { symbol: "SBAT", name: "PT Sejahtera Bintang Abadi Textile Tbk." },
+      { symbol: "OLDX", name: "Old Issuer Tbk", referenced: true },
     ]);
 
     const result = await syncTickersFromKnowledgeGraph(
@@ -109,18 +109,43 @@ describe("syncTickersFromKnowledgeGraph", () => {
 
     expect(result).toEqual({
       added: 0,
-      updated: 0,
-      unchanged: 1,
-      missingFromKnowledgeGraph: ["AAAA", "ZZZZ"],
+      alreadyPresent: 1,
+      removed: ["SBAT", "TOYS"],
+      keptUnlisted: ["OLDX"],
     });
-    expect(fake.tickers.map((ticker) => ticker.symbol)).toEqual([
-      "ZZZZ",
+    expect(fake.tickers().map((ticker) => ticker.symbol)).toEqual([
       "BBCA",
-      "AAAA",
+      "OLDX",
     ]);
   });
 
-  it("matches a symbol stored in another case instead of adding a duplicate", async () => {
+  it("refuses to remove more tickers than one sync allows and changes nothing", async () => {
+    const unlisted = Array.from(
+      { length: MAX_TICKER_REMOVALS_PER_SYNC + 1 },
+      (_, index) => ({
+        symbol: `X${String(index).padStart(3, "0")}`,
+        name: `Issuer ${index}`,
+      }),
+    );
+    const fake = createFakeTickerDb([
+      ...unlisted,
+      { symbol: "BBCA", name: "PT Bank Central Asia Tbk" },
+    ]);
+
+    await expect(
+      syncTickersFromKnowledgeGraph(
+        [
+          { symbol: "BBCA", name: "PT Bank Central Asia Tbk" },
+          { symbol: "MAPB", name: "PT Map Boga Adiperkasa Tbk" },
+        ],
+        fake.db,
+      ),
+    ).rejects.toBeInstanceOf(TickerRemovalLimitError);
+    expect(fake.createManyCalls).toEqual([]);
+    expect(fake.deletedSymbols).toEqual([]);
+  });
+
+  it("matches a symbol stored in another case instead of adding or removing it", async () => {
     const fake = createFakeTickerDb([{ symbol: "bbca", name: "Old Name" }]);
 
     const result = await syncTickersFromKnowledgeGraph(
@@ -130,17 +155,11 @@ describe("syncTickersFromKnowledgeGraph", () => {
 
     expect(result).toEqual({
       added: 0,
-      updated: 1,
-      unchanged: 0,
-      missingFromKnowledgeGraph: [],
+      alreadyPresent: 1,
+      removed: [],
+      keptUnlisted: [],
     });
-    expect(fake.created).toEqual([]);
-    expect(fake.updates).toEqual([
-      {
-        where: { symbol: "bbca" },
-        data: { name: "PT Bank Central Asia Tbk" },
-      },
-    ]);
+    expect(fake.tickers()).toEqual([{ symbol: "bbca", name: "Old Name" }]);
   });
 
   it("writes each symbol once when the list repeats it", async () => {
@@ -155,24 +174,25 @@ describe("syncTickersFromKnowledgeGraph", () => {
     );
 
     expect(result.added).toBe(1);
-    expect(fake.created).toEqual([
-      { symbol: "MAPB", name: "PT Map Boga Adiperkasa Tbk" },
+    expect(fake.createManyCalls).toEqual([
+      {
+        data: [{ symbol: "MAPB", name: "PT Map Boga Adiperkasa Tbk" }],
+        skipDuplicates: true,
+      },
     ]);
   });
 
-  it("limits how many writes run at once", async () => {
-    const fake = createFakeTickerDb([]);
-    const companyCount = TICKER_WRITE_CONCURRENCY * 2 + 3;
-    const companies = Array.from({ length: companyCount }, (_, index) => ({
-      symbol: `T${String(index).padStart(3, "0")}`,
-      name: `Company ${index}`,
-    }));
+  it("writes nothing when the table already matches", async () => {
+    const fake = createFakeTickerDb([
+      { symbol: "BBCA", name: "PT Bank Central Asia Tbk" },
+    ]);
 
-    const result = await syncTickersFromKnowledgeGraph(companies, fake.db);
+    await syncTickersFromKnowledgeGraph(
+      [{ symbol: "BBCA", name: "PT Bank Central Asia Tbk" }],
+      fake.db,
+    );
 
-    expect(result.added).toBe(companyCount);
-    expect(fake.created).toHaveLength(companyCount);
-    expect(fake.inFlight.peak).toBeLessThanOrEqual(TICKER_WRITE_CONCURRENCY);
-    expect(fake.inFlight.peak).toBeGreaterThan(1);
+    expect(fake.createManyCalls).toEqual([]);
+    expect(fake.deletedSymbols).toEqual([]);
   });
 });

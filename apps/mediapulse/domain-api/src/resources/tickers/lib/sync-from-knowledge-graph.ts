@@ -1,4 +1,5 @@
 import {
+  TickerRemovalLimitError,
   createOrganonSparqlClient,
   loadListedCompanies,
   syncTickersFromKnowledgeGraph,
@@ -102,8 +103,16 @@ export const createSyncFromKnowledgeGraphHandler = ({
       );
     }
 
-    const result = await syncTickers(companies, db);
+    let result: TickerSyncResult;
+    try {
+      result = await syncTickers(companies, db);
+    } catch (error) {
+      if (error instanceof TickerRemovalLimitError) {
+        return c.json({ message: error.message, unlisted: error.symbols }, 409);
+      }
+      throw error;
+    }
 
-    return c.json(result);
+    return c.json({ ...result, deleted: result.removed.length });
   };
 };
