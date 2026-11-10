@@ -31,13 +31,17 @@ The brief is the steering context for discovery. Before the discovery LLM call, 
 - **Reads:** the agent-data-api `query-analysis` GET resource for the ticker
 - **Writes:** the agent-data-api `query-analysis` POST resource (persists the active query set)
 
-The GET response now carries only the ticker. There are no more KG entities, themes, peers, calendar, or headline samples.
+The GET response carries the ticker, its knowledge graph profile and the proven queries of the last 30 days.
 
 ### GET response fields
 
-| Field    | Shape                                                                                   | Notes                    |
-| -------- | --------------------------------------------------------------------------------------- | ------------------------ |
-| `ticker` | `{ id, symbol, name, sector?, industry?, subSector?, subIndustry?, businessActivity? }` | The tracked issuer only. |
+| Field           | Shape                                                                                                     | Notes                                                                                              |
+| --------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `ticker`        | `{ id, symbol, name, aliases, sector?, industry?, subSector?, subIndustry?, businessActivity? }`           | `aliases` holds the company's other names, without the registered name, and fills "also known as". |
+| `profile`       | overview, business operation, bilingual classification, competitors, regulators, brands, subsidiaries, ambiguous names, commodities, regulations | `null` when the knowledge graph has no listed company for the ticker.                                |
+| `provenQueries` | `{ text, intent, novelArticleCount }[]`                                                                   | Up to 12 query texts that found new articles in the last 30 days.                                  |
+
+The prompt lists the brands and subsidiaries, the names that also mean something else (so the model adds a disambiguator), the commodities the company produces and buys, and up to six rules that bind it, most specific first.
 
 ### POST body
 

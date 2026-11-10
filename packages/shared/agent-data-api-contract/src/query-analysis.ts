@@ -69,6 +69,19 @@ export const tickerProfileLabelSchema = z.object({
   english: z.string(),
 });
 
+export const tickerProfileCommoditySchema = z.object({
+  name: z.string(),
+  nameIndonesian: z.string().default(""),
+  relation: z.enum(["produces", "uses"]),
+});
+
+export const tickerProfileRegulationSchema = z.object({
+  name: z.string(),
+  description: z.string().default(""),
+  issuer: z.string().default(""),
+  status: z.string().default(""),
+});
+
 export const queryAnalysisTickerProfileSchema = z.object({
   companyOverview: z.string(),
   businessOperation: z.string(),
@@ -79,6 +92,11 @@ export const queryAnalysisTickerProfileSchema = z.object({
   aliases: z.array(z.string()).default([]),
   competitors: z.array(tickerProfilePartySchema).default([]),
   regulators: z.array(tickerProfilePartySchema).default([]),
+  brands: z.array(z.string()).default([]),
+  subsidiaries: z.array(z.string()).default([]),
+  ambiguousNames: z.array(z.string()).default([]),
+  commodities: z.array(tickerProfileCommoditySchema).default([]),
+  regulations: z.array(tickerProfileRegulationSchema).default([]),
 });
 
 export const provenQuerySchema = z.object({
@@ -112,3 +130,9 @@ export type QueryAnalysisTickerProfile = z.infer<
   typeof queryAnalysisTickerProfileSchema
 >;
 export type TickerProfileParty = z.infer<typeof tickerProfilePartySchema>;
+export type TickerProfileCommodity = z.infer<
+  typeof tickerProfileCommoditySchema
+>;
+export type TickerProfileRegulation = z.infer<
+  typeof tickerProfileRegulationSchema
+>;

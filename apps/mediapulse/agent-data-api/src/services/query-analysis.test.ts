@@ -188,6 +188,29 @@ describe("getQueryAnalysisContext", () => {
             businessOperation: "Mines and sells thermal coal.",
             companyOverviewIndonesian: "",
             businessOperationIndonesian: "",
+            names: [
+              "Adaro Andalan Indonesia",
+              "PT Adaro Andalan Indonesia Tbk",
+              "Adaro",
+            ],
+            brands: ["Envirocoal"],
+            subsidiaries: ["Adaro Indonesia"],
+            ambiguousNames: ["Adaro"],
+            commodities: [
+              {
+                name: "Coal",
+                nameIndonesian: "Batu bara",
+                relation: "produces",
+              },
+            ],
+            regulations: [
+              {
+                name: "Kepmen ESDM 399.K/2023",
+                description: "Domestic market obligation for coal.",
+                issuer: "ESDM",
+                status: "in force",
+              },
+            ],
             sectorIndonesian: "Energi",
             sectorEnglish: "Energy",
             subSectorIndonesian: "Batu Bara",
@@ -224,11 +247,27 @@ describe("getQueryAnalysisContext", () => {
     expect(payload.profile?.regulators).toEqual([
       { name: "Kementerian ESDM", aliases: [] },
     ]);
+    expect(payload.profile).toMatchObject({
+      brands: ["Envirocoal"],
+      subsidiaries: ["Adaro Indonesia"],
+      ambiguousNames: ["Adaro"],
+      commodities: [
+        { name: "Coal", nameIndonesian: "Batu bara", relation: "produces" },
+      ],
+      regulations: [
+        {
+          name: "Kepmen ESDM 399.K/2023",
+          description: "Domestic market obligation for coal.",
+          issuer: "ESDM",
+          status: "in force",
+        },
+      ],
+    });
     expect(payload.ticker).toEqual({
       id: TICKER_ID,
       symbol: "AADI",
       name: "Adaro Andalan Indonesia",
-      aliases: [],
+      aliases: ["Adaro"],
       sector: "Energi",
       industry: "Batu Bara Termal",
       subSector: "Batu Bara",

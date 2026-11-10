@@ -8,6 +8,7 @@ import {
 import {
   COMPANY_FACTS_QUERY,
   LINKED_PARTIES_QUERY,
+  MARKET_CONTEXT_QUERY,
   compareText,
   loadOrganonTickerProfiles,
   mapOrganonTickerProfiles,
@@ -37,7 +38,11 @@ const party = (
   relation: string,
   iri: string,
   name: string,
-  extra: { partyTicker?: string; partyAlias?: string } = {},
+  extra: {
+    partyTicker?: string;
+    partyAlias?: string;
+    partyAmbiguousName?: string;
+  } = {},
 ): SparqlBinding => ({
   ticker: { type: "literal", value: ticker },
   relation: { type: "uri", value: `${MP}${relation}` },
@@ -49,6 +54,37 @@ const party = (
   ...(extra.partyAlias === undefined
     ? {}
     : { partyAlias: { type: "literal", value: extra.partyAlias } }),
+  ...(extra.partyAmbiguousName === undefined
+    ? {}
+    : {
+        partyAmbiguousName: {
+          type: "literal",
+          value: extra.partyAmbiguousName,
+        },
+      }),
+});
+
+const marketRow = (
+  ticker: string,
+  relation: string,
+  iri: string,
+  name: string,
+  extra: Partial<
+    Record<"itemNameId" | "description" | "status" | "issuer", string>
+  > = {},
+): SparqlBinding => ({
+  ticker: { type: "literal", value: ticker },
+  relation: { type: "uri", value: `${MP}${relation}` },
+  item: { type: "uri", value: iri },
+  itemName: { type: "literal", value: name },
+  ...Object.fromEntries(
+    Object.entries(extra).map(([key, value]) => [
+      key,
+      key === "status"
+        ? { type: "uri", value: `${MP}${value}` }
+        : { type: "literal", value },
+    ]),
+  ),
 });
 
 const classificationFacts = (ticker: string): SparqlBinding[] => [
@@ -121,9 +157,89 @@ describe("mapOrganonTickerProfiles", () => {
         "Starbucks Indonesia",
         "Sari Coffee Indonesia",
       ],
+      names: [
+        "Map Boga Adiperkasa",
+        "PT Map Boga Adiperkasa Tbk",
+        "Map Boga",
+        "MBA",
+      ],
+      brands: ["Krispy Kreme", "Starbucks"],
+      subsidiaries: ["Sari Coffee Indonesia"],
+      ambiguousNames: [],
       competitors: [],
       regulators: [],
+      commodities: [],
+      regulations: [],
     });
+  });
+
+  it("collects the ambiguous names of the company and of its brands", () => {
+    const facts = [
+      fact("SMAR", RDFS_LABEL, "Sinar Mas Agro Resources and Technology"),
+      fact("SMAR", `${MP}ambiguousName`, "SMART"),
+    ];
+    const parties = [
+      party("SMAR", "operatesBrand", "brand:mitra", "Mitra", {
+        partyAmbiguousName: "Mitra",
+      }),
+      party("SMAR", "operatesBrand", "brand:filma", "Filma"),
+    ];
+
+    const profile = mapOrganonTickerProfiles(facts, parties).get("SMAR");
+
+    expect(profile?.ambiguousNames).toEqual(["SMART", "Mitra"]);
+    expect(profile?.brands).toEqual(["Filma", "Mitra"]);
+  });
+
+  it("lists produced commodities before inputs and the most specific regulations first, leaving out revoked ones", () => {
+    const facts = [
+      fact("AADI", RDFS_LABEL, "Adaro Andalan Indonesia"),
+      fact("ITMG", RDFS_LABEL, "Indo Tambangraya Megah"),
+    ];
+    const market = [
+      marketRow("AADI", "usesCommodity", `${MP}CommodityDiesel`, "Diesel"),
+      marketRow("AADI", "producesCommodity", `${MP}CommodityCoal`, "Coal", {
+        itemNameId: "Batu bara",
+      }),
+      marketRow("AADI", "boundBy", "rule:dhe", "PP 8/2025 (DHE SDA)", {
+        description: "Export proceeds retention.",
+        status: "RegulationStatusInForce",
+        issuer: "BI",
+      }),
+      marketRow("ITMG", "boundBy", "rule:dhe", "PP 8/2025 (DHE SDA)", {
+        status: "RegulationStatusInForce",
+      }),
+      marketRow("AADI", "boundBy", "rule:dmo", "Kepmen ESDM 399.K/2023", {
+        description: "Domestic market obligation for coal.",
+        status: "RegulationStatusInForce",
+        issuer: "ESDM",
+      }),
+      marketRow("AADI", "boundBy", "rule:old", "Permen ESDM 10/2023", {
+        status: "RegulationStatusRevoked",
+        issuer: "ESDM",
+      }),
+    ];
+
+    const profile = mapOrganonTickerProfiles(facts, [], market).get("AADI");
+
+    expect(profile?.commodities).toEqual([
+      { name: "Coal", nameIndonesian: "Batu bara", relation: "produces" },
+      { name: "Diesel", nameIndonesian: "", relation: "uses" },
+    ]);
+    expect(profile?.regulations).toEqual([
+      {
+        name: "Kepmen ESDM 399.K/2023",
+        description: "Domestic market obligation for coal.",
+        issuer: "ESDM",
+        status: "in force",
+      },
+      {
+        name: "PP 8/2025 (DHE SDA)",
+        description: "Export proceeds retention.",
+        issuer: "BI",
+        status: "in force",
+      },
+    ]);
   });
 
   it("uses empty text for a missing value and drops repeated aliases ignoring case", () => {
@@ -228,16 +344,18 @@ describe("mapOrganonTickerProfiles", () => {
 });
 
 describe("loadOrganonTickerProfiles", () => {
-  it("runs both queries and maps their rows", async () => {
+  it("runs every query and maps their rows", async () => {
     const runSparql = vi.fn(async (query: string) =>
       query === COMPANY_FACTS_QUERY
         ? classificationFacts("MAPB")
-        : [party("MAPB", "regulatedBy", "regulator:ojk", "OJK")],
+        : query === LINKED_PARTIES_QUERY
+          ? [party("MAPB", "regulatedBy", "regulator:ojk", "OJK")]
+          : [],
     );
 
     const profiles = await loadOrganonTickerProfiles(runSparql);
 
-    expect(runSparql).toHaveBeenCalledTimes(2);
+    expect(runSparql).toHaveBeenCalledTimes(3);
     expect(profiles.get("MAPB")?.regulators).toEqual([
       { name: "OJK", aliases: [] },
     ]);
@@ -249,8 +367,12 @@ describe("loadOrganonTickerProfiles", () => {
     );
   });
 
-  it("keeps both queries under Organon's length limit and loads every ticker", () => {
-    for (const query of [COMPANY_FACTS_QUERY, LINKED_PARTIES_QUERY]) {
+  it("keeps every query under Organon's length limit and loads every ticker", () => {
+    for (const query of [
+      COMPANY_FACTS_QUERY,
+      LINKED_PARTIES_QUERY,
+      MARKET_CONTEXT_QUERY,
+    ]) {
       expect(query.length).toBeLessThan(MAX_SPARQL_QUERY_LENGTH);
       expect(query).not.toContain("VALUES ?ticker");
     }

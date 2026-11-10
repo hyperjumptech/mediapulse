@@ -1,4 +1,8 @@
 import type { Prisma } from "@mediapulse/database";
+import type {
+  TickerProfileCommodity,
+  TickerProfileRegulation,
+} from "@workspace/agent-data-api-contract";
 
 export type TickerProfileRecord = {
   companyOverview: string;
@@ -14,8 +18,14 @@ export type TickerProfileRecord = {
   subIndustryIndonesian: string;
   subIndustryEnglish: string;
   aliases: string[];
+  names: string[];
+  brands: string[];
+  subsidiaries: string[];
+  ambiguousNames: string[];
   competitors: Prisma.JsonValue;
   regulators: Prisma.JsonValue;
+  commodities: TickerProfileCommodity[];
+  regulations: TickerProfileRegulation[];
 };
 
 export type TickerProfileSource = (

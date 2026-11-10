@@ -1,6 +1,10 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { extractLlmUsage, type OnLlmUsage } from "@workspace/agent-runtime";
+import type {
+  TickerProfileCommodity,
+  TickerProfileRegulation,
+} from "@workspace/agent-data-api-contract";
 
 import type { QueryAnalysisAiConfig } from "../config-schema";
 import { GENERATION_LLM_MAX_RETRIES } from "../constants";
@@ -17,6 +21,19 @@ export interface GenerationLogger {
   warn: (obj: object, msg?: string) => void;
 }
 
+export type IssuerKnowledge = {
+  brands: string[];
+  subsidiaries: string[];
+  ambiguousNames: string[];
+  commodities: TickerProfileCommodity[];
+  regulations: TickerProfileRegulation[];
+};
+
+export const PROMPT_BRAND_LIMIT = 12;
+export const PROMPT_SUBSIDIARY_LIMIT = 8;
+export const PROMPT_REGULATION_LIMIT = 6;
+const PROMPT_REGULATION_DESCRIPTION_CHARS = 200;
+
 export interface GenerateQueryCandidatesInput {
   ticker: { symbol: string; name: string; aliases?: string[] };
   classification: Classification;
@@ -26,6 +43,7 @@ export interface GenerateQueryCandidatesInput {
   regulators: ProfileParty[];
   companyOverview?: string;
   businessOperation?: string;
+  knowledge?: IssuerKnowledge;
   languages: readonly Language[];
   currentDate: string;
   /** Number of queries the model is asked to write for each intent. */
@@ -51,6 +69,68 @@ const renderEntities = (entities: ProfileParty[]): string =>
         : entity.name,
     )
     .join(", ");
+
+const listLine = (
+  label: string,
+  values: readonly string[],
+  limit: number,
+): string | null =>
+  values.length > 0 ? `${label}: ${values.slice(0, limit).join(", ")}` : null;
+
+const renderCommodities = (
+  commodities: readonly TickerProfileCommodity[],
+  relation: TickerProfileCommodity["relation"],
+): string[] =>
+  commodities
+    .filter((commodity) => commodity.relation === relation)
+    .map((commodity) =>
+      commodity.nameIndonesian === ""
+        ? commodity.name
+        : `${commodity.name} (${commodity.nameIndonesian})`,
+    );
+
+const shortDescription = (description: string): string => {
+  const firstSentence = description.trim().split(/(?<=\.)\s/u)[0] ?? "";
+
+  return firstSentence.length > PROMPT_REGULATION_DESCRIPTION_CHARS
+    ? `${firstSentence.slice(0, PROMPT_REGULATION_DESCRIPTION_CHARS).trimEnd()}…`
+    : firstSentence;
+};
+
+const renderRegulation = (regulation: TickerProfileRegulation): string => {
+  const source = [regulation.issuer, regulation.status]
+    .filter((part) => part !== "")
+    .join(", ");
+  const heading =
+    source === "" ? regulation.name : `${regulation.name} (${source})`;
+  const description = shortDescription(regulation.description);
+
+  return description === "" ? `- ${heading}` : `- ${heading}: ${description}`;
+};
+
+const buildKnowledgeLines = (
+  knowledge: IssuerKnowledge | undefined,
+): string[] => {
+  if (knowledge === undefined) {
+    return [];
+  }
+  const produced = renderCommodities(knowledge.commodities, "produces");
+  const used = renderCommodities(knowledge.commodities, "uses");
+  const regulations = knowledge.regulations.slice(0, PROMPT_REGULATION_LIMIT);
+
+  return [
+    listLine("Brands", knowledge.brands, PROMPT_BRAND_LIMIT),
+    listLine("Subsidiaries", knowledge.subsidiaries, PROMPT_SUBSIDIARY_LIMIT),
+    knowledge.ambiguousNames.length > 0
+      ? `Names that also mean something else (a query that uses one needs a disambiguator): ${knowledge.ambiguousNames.join(", ")}`
+      : null,
+    listLine("Commodities it produces", produced, produced.length),
+    listLine("Inputs it buys", used, used.length),
+    ...(regulations.length > 0
+      ? ["Rules that bind it:", ...regulations.map(renderRegulation)]
+      : []),
+  ].filter((line): line is string => line !== null);
+};
 
 const stripTrailingPunctuation = (text: string): string =>
   text.replace(/[\s.,;]+$/u, "");
@@ -159,13 +239,14 @@ const buildPrompt = (input: GenerateQueryCandidatesInput): string => {
     input.regulators.length > 0
       ? `Regulators: ${renderEntities(input.regulators)}`
       : "Regulators: no curated profile for this issuer.",
+    ...buildKnowledgeLines(input.knowledge),
     `Languages: ${input.languages.join(", ")}`,
     ...(input.reconSignals && input.reconSignals.length > 0
       ? [
           "",
           "Recent signals from this company's market and its rivals (real headlines).",
           "Use them to make the industry, competitor, deal, regulatory, and disruption",
-          "queries concrete and current. Still cover every intent 1-5 as instructed:",
+          "queries concrete and current. Still cover every intent as instructed:",
           ...input.reconSignals.map((signal) => `- ${signal}`),
         ]
       : []),

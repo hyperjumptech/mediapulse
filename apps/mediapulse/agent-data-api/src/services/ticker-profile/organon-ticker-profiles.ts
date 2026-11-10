@@ -2,6 +2,10 @@ import type {
   RunSparqlSelect,
   SparqlBinding,
 } from "@mediapulse/knowledge-graph";
+import type {
+  TickerProfileCommodity,
+  TickerProfileRegulation,
+} from "@workspace/agent-data-api-contract";
 
 import type { ProfileParty } from "../ticker-profile-parties.js";
 import type { TickerProfileRecord } from "./ticker-profile-source.js";
@@ -12,23 +16,43 @@ const DCTERMS_ALTERNATIVE = "http://purl.org/dc/terms/alternative";
 
 const PREFIXES = `PREFIX mp: <${MP}>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX dcterms: <http://purl.org/dc/terms/>`;
 
 export const COMPANY_FACTS_QUERY = `${PREFIXES}
 SELECT ?ticker ?property ?value WHERE {
   ?company a mp:ListedCompany ; mp:ticker ?ticker .
-  VALUES ?property { rdfs:label mp:legalName dcterms:alternative mp:companyOverview mp:businessOperation mp:sector mp:subSector mp:industry mp:subIndustry }
+  VALUES ?property { rdfs:label mp:legalName dcterms:alternative mp:ambiguousName mp:companyOverview mp:businessOperation mp:sector mp:subSector mp:industry mp:subIndustry }
   ?company ?property ?value .
 }`;
 
 export const LINKED_PARTIES_QUERY = `${PREFIXES}
-SELECT ?ticker ?relation ?party ?partyName ?partyTicker ?partyAlias WHERE {
+SELECT ?ticker ?relation ?party ?partyName ?partyTicker ?partyAlias ?partyAmbiguousName WHERE {
   ?company a mp:ListedCompany ; mp:ticker ?ticker .
   VALUES ?relation { mp:competesWith mp:primaryCompetitor mp:regulatedBy mp:operatesBrand mp:parentOf }
   ?company ?relation ?party .
   ?party rdfs:label ?partyName .
   OPTIONAL { ?party mp:ticker ?partyTicker }
   OPTIONAL { ?party dcterms:alternative ?partyAlias }
+  OPTIONAL { ?party mp:ambiguousName ?partyAmbiguousName }
+}`;
+
+export const MARKET_CONTEXT_QUERY = `${PREFIXES}
+SELECT ?ticker ?relation ?item ?itemName ?itemNameId ?description ?status ?issuer WHERE {
+  ?company a mp:ListedCompany ; mp:ticker ?ticker .
+  {
+    VALUES ?relation { mp:producesCommodity mp:usesCommodity }
+    ?company ?relation ?item .
+    ?item skos:prefLabel ?itemName .
+    OPTIONAL { ?item skos:altLabel ?itemNameId FILTER(lang(?itemNameId) = "id") }
+  } UNION {
+    BIND(mp:boundBy AS ?relation)
+    ?company mp:boundBy ?item .
+    ?item rdfs:label ?itemName .
+    OPTIONAL { ?item dcterms:description ?description }
+    OPTIONAL { ?item mp:regulationStatus ?status }
+    OPTIONAL { ?item mp:issuedBy/rdfs:label ?issuer }
+  }
 }`;
 
 type LanguageValue = { value: string; language: string };
@@ -40,9 +64,31 @@ type LinkedParty = {
   name: string;
   ticker: string;
   aliases: Set<string>;
+  ambiguousNames: Set<string>;
 };
 
 type IssuerParties = Map<string, Map<string, LinkedParty>>;
+
+const COMMODITY_RELATIONS: Record<string, TickerProfileCommodity["relation"]> =
+  {
+    [`${MP}producesCommodity`]: "produces",
+    [`${MP}usesCommodity`]: "uses",
+  };
+
+const BOUND_BY = `${MP}boundBy`;
+
+const REGULATION_STATUSES: Record<string, string> = {
+  [`${MP}RegulationStatusInForce`]: "in force",
+  [`${MP}RegulationStatusIssued`]: "issued",
+  [`${MP}RegulationStatusDraft`]: "draft",
+};
+
+type MarketRegulation = TickerProfileRegulation & { iri: string };
+
+type IssuerMarket = {
+  commodities: Map<string, TickerProfileCommodity>;
+  regulations: Map<string, MarketRegulation>;
+};
 
 const RELATIONS = {
   competesWith: `${MP}competesWith`,
@@ -111,6 +157,7 @@ const groupParties = (rows: SparqlBinding[]): Map<string, IssuerParties> => {
       name,
       ticker: "",
       aliases: new Set<string>(),
+      ambiguousNames: new Set<string>(),
     };
     if (compareText(name, party.name) < 0) {
       party.name = name;
@@ -126,6 +173,10 @@ const groupParties = (rows: SparqlBinding[]): Map<string, IssuerParties> => {
     if (alias !== "") {
       party.aliases.add(alias);
     }
+    const ambiguousName = bindingValue(row, "partyAmbiguousName");
+    if (ambiguousName !== "") {
+      party.ambiguousNames.add(ambiguousName);
+    }
     parties.set(iri, party);
     relations.set(relation, parties);
     byTicker.set(ticker, relations);
@@ -133,6 +184,99 @@ const groupParties = (rows: SparqlBinding[]): Map<string, IssuerParties> => {
 
   return byTicker;
 };
+
+const groupMarket = (rows: SparqlBinding[]): Map<string, IssuerMarket> => {
+  const byTicker = new Map<string, IssuerMarket>();
+  for (const row of rows) {
+    const ticker = bindingValue(row, "ticker").toUpperCase();
+    const relation = bindingValue(row, "relation");
+    const iri = bindingValue(row, "item");
+    const name = bindingValue(row, "itemName");
+    if (ticker === "" || iri === "" || name === "") {
+      continue;
+    }
+    const market = byTicker.get(ticker) ?? {
+      commodities: new Map<string, TickerProfileCommodity>(),
+      regulations: new Map<string, MarketRegulation>(),
+    };
+    const commodityRelation = COMMODITY_RELATIONS[relation];
+    if (commodityRelation !== undefined) {
+      const key = `${commodityRelation} ${iri}`;
+      const existing = market.commodities.get(key);
+      const nameIndonesian = bindingValue(row, "itemNameId");
+      const keepsExistingName =
+        existing !== undefined &&
+        (nameIndonesian === "" ||
+          (existing.nameIndonesian !== "" &&
+            compareText(existing.nameIndonesian, nameIndonesian) <= 0));
+      if (!keepsExistingName) {
+        market.commodities.set(key, {
+          name,
+          nameIndonesian,
+          relation: commodityRelation,
+        });
+      }
+    }
+    const status = REGULATION_STATUSES[bindingValue(row, "status")];
+    if (relation === BOUND_BY && status !== undefined) {
+      market.regulations.set(iri, {
+        iri,
+        name,
+        description: bindingValue(row, "description"),
+        issuer: bindingValue(row, "issuer"),
+        status,
+      });
+    }
+    byTicker.set(ticker, market);
+  }
+
+  return byTicker;
+};
+
+const countIssuersPerRegulation = (
+  marketByTicker: Map<string, IssuerMarket>,
+): Map<string, number> => {
+  const counts = new Map<string, number>();
+  for (const market of marketByTicker.values()) {
+    for (const iri of market.regulations.keys()) {
+      counts.set(iri, (counts.get(iri) ?? 0) + 1);
+    }
+  }
+
+  return counts;
+};
+
+const orderCommodities = (
+  market: IssuerMarket | undefined,
+): TickerProfileCommodity[] =>
+  [...(market?.commodities.values() ?? [])].sort((first, second) => {
+    if (first.relation !== second.relation) {
+      return first.relation === "produces" ? -1 : 1;
+    }
+
+    return compareText(first.name, second.name);
+  });
+
+const orderRegulations = (
+  market: IssuerMarket | undefined,
+  regulationCoverage: Map<string, number>,
+): TickerProfileRegulation[] =>
+  [...(market?.regulations.values() ?? [])]
+    .sort((first, second) => {
+      const coverageOrder =
+        (regulationCoverage.get(first.iri) ?? 0) -
+        (regulationCoverage.get(second.iri) ?? 0);
+
+      return coverageOrder !== 0
+        ? coverageOrder
+        : compareText(first.name, second.name);
+    })
+    .map(({ name, description, issuer, status }) => ({
+      name,
+      description,
+      issuer,
+      status,
+    }));
 
 const pickText = (
   facts: IssuerFacts,
@@ -183,11 +327,18 @@ const mergeByName = (parties: LinkedParty[]): LinkedParty[] => {
     const key = party.name.toLowerCase();
     const existing = byName.get(key);
     if (existing === undefined) {
-      byName.set(key, { ...party, aliases: new Set(party.aliases) });
+      byName.set(key, {
+        ...party,
+        aliases: new Set(party.aliases),
+        ambiguousNames: new Set(party.ambiguousNames),
+      });
       continue;
     }
     for (const alias of party.aliases) {
       existing.aliases.add(alias);
+    }
+    for (const ambiguousName of party.ambiguousNames) {
+      existing.ambiguousNames.add(ambiguousName);
     }
     if (existing.ticker === "" && party.ticker !== "") {
       existing.ticker = party.ticker;
@@ -284,9 +435,12 @@ const orderRegulators = (
 export const mapOrganonTickerProfiles = (
   factRows: SparqlBinding[],
   partyRows: SparqlBinding[],
+  marketRows: SparqlBinding[] = [],
 ): Map<string, TickerProfileRecord> => {
   const factsByTicker = groupFacts(factRows);
   const partiesByTicker = groupParties(partyRows);
+  const marketByTicker = groupMarket(marketRows);
+  const regulationCoverage = countIssuersPerRegulation(marketByTicker);
   const competitorDegree = countIssuersPerParty(
     partiesByTicker,
     RELATIONS.competesWith,
@@ -298,6 +452,9 @@ export const mapOrganonTickerProfiles = (
   const profiles = new Map<string, TickerProfileRecord>();
   for (const [ticker, facts] of factsByTicker) {
     const relations = partiesByTicker.get(ticker);
+    const brands = partiesOf(relations, RELATIONS.operatesBrand);
+    const subsidiaries = partiesOf(relations, RELATIONS.parentOf);
+    const market = marketByTicker.get(ticker);
     const aliases = dedupeCaseInsensitive([
       ticker,
       ...allValues(facts, RDFS_LABEL),
@@ -320,8 +477,32 @@ export const mapOrganonTickerProfiles = (
       subIndustryIndonesian: pickText(facts, "subIndustry", "id"),
       subIndustryEnglish: pickText(facts, "subIndustry", "en"),
       aliases,
+      names: dedupeCaseInsensitive(
+        [
+          ...allValues(facts, RDFS_LABEL),
+          ...allValues(facts, `${MP}legalName`),
+          ...allValues(facts, DCTERMS_ALTERNATIVE),
+        ],
+        [ticker],
+      ),
+      brands: dedupeCaseInsensitive(
+        sortedText(brands.map((party) => party.name)),
+      ),
+      subsidiaries: dedupeCaseInsensitive(
+        sortedText(subsidiaries.map((party) => party.name)),
+      ),
+      ambiguousNames: dedupeCaseInsensitive([
+        ...allValues(facts, `${MP}ambiguousName`),
+        ...sortedText(
+          [...brands, ...subsidiaries].flatMap((party) => [
+            ...party.ambiguousNames,
+          ]),
+        ),
+      ]),
       competitors: orderCompetitors(ticker, relations, competitorDegree),
       regulators: orderRegulators(relations, regulatorCoverage),
+      commodities: orderCommodities(market),
+      regulations: orderRegulations(market, regulationCoverage),
     });
   }
 
@@ -331,11 +512,12 @@ export const mapOrganonTickerProfiles = (
 export const loadOrganonTickerProfiles = async (
   runSparql: RunSparqlSelect,
 ): Promise<Map<string, TickerProfileRecord>> => {
-  const [factRows, partyRows] = await Promise.all([
+  const [factRows, partyRows, marketRows] = await Promise.all([
     runSparql(COMPANY_FACTS_QUERY),
     runSparql(LINKED_PARTIES_QUERY),
+    runSparql(MARKET_CONTEXT_QUERY),
   ]);
-  const profiles = mapOrganonTickerProfiles(factRows, partyRows);
+  const profiles = mapOrganonTickerProfiles(factRows, partyRows, marketRows);
   if (profiles.size === 0) {
     throw new Error("Organon returned no ticker profiles");
   }
