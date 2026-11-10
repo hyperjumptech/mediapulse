@@ -58,6 +58,7 @@ export {
 
 export {
   createTickerRelevanceMatcher,
+  routingRelevanceTerms,
   buildRelevanceMatchText,
   type TickerRelevanceMatch,
   type TickerRelevanceMatcher,

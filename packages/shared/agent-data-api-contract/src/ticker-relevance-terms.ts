@@ -9,6 +9,9 @@ export const tickerRelevanceTermsItemSchema = z.object({
   symbol: z.string(),
   /** Deduplicated symbol, name, alias, peer, and sector/industry strings for relevance matching. */
   terms: z.array(z.string()),
+  issuerTerms: z.array(z.string()).default([]),
+  competitorTerms: z.array(z.string()).default([]),
+  industryTerms: z.array(z.string()).default([]),
 });
 
 export const getTickerRelevanceTermsResponseSchema = z.object({
