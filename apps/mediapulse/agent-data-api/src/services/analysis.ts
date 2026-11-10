@@ -1,5 +1,6 @@
 import type {
   AnalysisTickerContext,
+  TickerRelevanceTermsItem,
   GetAnalysisQuery,
   GetAnalysisResponse,
   PostAnalysisDataSourceDeleteBody,
@@ -7,11 +8,17 @@ import type {
   PostAnalysisResponse,
 } from "@workspace/agent-data-api-contract";
 import { prisma, Prisma } from "@mediapulse/database";
+import {
+  createTickerRelevanceMatcher,
+  routingRelevanceTerms,
+} from "@workspace/agent-ingestion";
 
 import { parseProfileParties } from "./ticker-profile-parties.js";
+import { buildTickerRelevanceTerms } from "./ticker-relevance-terms.js";
 import { defaultTickerProfileSource } from "./ticker-profile/ticker-profile-source-default.js";
 import {
   uniqueTickerSymbols,
+  type TickerProfileRecord,
   type TickerProfileSource,
 } from "./ticker-profile/ticker-profile-source.js";
 
@@ -150,24 +157,10 @@ const mapTickerContext = (
   };
 };
 
-const escapeRegExp = (value: string): string =>
-  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-/** Compiles a word-boundary matcher over a ticker's issuer + peer aliases. */
-const compileAliasMatcher = (aliases: string[]): RegExp | null => {
-  const cleaned = [
-    ...new Set(aliases.map((alias) => alias.trim()).filter(Boolean)),
-  ];
-  if (cleaned.length === 0) return null;
-  const pattern = cleaned.map(escapeRegExp).join("|");
-
-  return new RegExp(`\\b(${pattern})\\b`, "i");
-};
-
 type TickerGatingContext = {
   tickerId: string;
   context: AnalysisTickerContext;
-  matcher: RegExp | null;
+  relevanceTerms: TickerRelevanceTermsItem;
 };
 
 /** Ticker columns selected to build {@link AnalysisTickerContext}. */
@@ -176,26 +169,14 @@ const tickerContextSelect = {
   name: true,
 } satisfies Prisma.TickerSelect;
 
-/** Builds issuer context + alias matcher for one active ticker. */
 const buildTickerGatingContext = (
   ticker: NonNullable<TickerRow> & { id: string },
-  profile: TickerProfileContextRow,
-): TickerGatingContext => {
-  const context = mapTickerContext(ticker, profile);
-  const aliases = [
-    context.symbol,
-    context.name,
-    ...context.aliases,
-    ...context.competitors.map((competitor) => competitor.name),
-    ...context.competitors.flatMap((competitor) => competitor.aliases),
-  ].filter((value) => value.length > 0);
-
-  return {
-    tickerId: ticker.id,
-    context,
-    matcher: compileAliasMatcher(aliases),
-  };
-};
+  profile: TickerProfileRecord | null,
+): TickerGatingContext => ({
+  tickerId: ticker.id,
+  context: mapTickerContext(ticker, profile),
+  relevanceTerms: buildTickerRelevanceTerms(ticker, profile),
+});
 
 /**
  * Builds candidate (article, ticker) pairs for the article-analysis agent.
@@ -307,7 +288,7 @@ const buildAnalysisCandidatePairs = async (
       ),
     ]),
   );
-  const profileOf = (ticker: TickerRow): TickerProfileContextRow =>
+  const profileOf = (ticker: TickerRow): TickerProfileRecord | null =>
     ticker === null
       ? null
       : (profiles.get(ticker.symbol.trim().toUpperCase()) ?? null);
@@ -315,6 +296,11 @@ const buildAnalysisCandidatePairs = async (
     .map((ticker) => buildTickerGatingContext(ticker, profileOf(ticker)))
     .filter((gating) => !cappedTickerIds.has(gating.tickerId));
 
+  const curatedMatcher = createTickerRelevanceMatcher(
+    gatingContexts.map((gating) =>
+      routingRelevanceTerms(gating.relevanceTerms),
+    ),
+  );
   const pairs: GetAnalysisResponse["dataSources"] = [];
 
   for (const article of ownedArticles) {
@@ -336,9 +322,12 @@ const buildAnalysisCandidatePairs = async (
       article.tickerSections.map((row) => row.tickerId),
     );
     const haystack = `${article.title}\n${article.description ?? article.content ?? ""}`;
+    const matchedTickerIds = new Set(
+      curatedMatcher.matchAll(haystack).map((match) => match.tickerId),
+    );
     for (const gating of gatingContexts) {
       if (classifiedTickerIds.has(gating.tickerId)) continue;
-      if (gating.matcher === null || !gating.matcher.test(haystack)) continue;
+      if (!matchedTickerIds.has(gating.tickerId)) continue;
       pairs.push({
         id: article.id,
         tickerId: gating.tickerId,

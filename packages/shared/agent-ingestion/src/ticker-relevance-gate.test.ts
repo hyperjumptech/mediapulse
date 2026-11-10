@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRelevanceMatchText,
   createTickerRelevanceMatcher,
+  routingRelevanceTerms,
 } from "./ticker-relevance-gate";
 
 const bankCentralAsia = {
@@ -14,15 +15,28 @@ const bankCentralAsia = {
 };
 
 describe("createTickerRelevanceMatcher", () => {
-  it("matches a symbol as a whole word regardless of case", () => {
+  it("matches a symbol as a whole word in capitals", () => {
     const matcher = createTickerRelevanceMatcher([bankCentralAsia]);
-    const result = matcher.match("Laba bbca naik pada kuartal ini");
+    const result = matcher.match("Laba BBCA naik pada kuartal ini");
 
     expect(result).toEqual({
       tickerId: bankCentralAsia.id,
       tickerSymbol: "BBCA",
       term: "BBCA",
     });
+  });
+
+  it("does not match a symbol written as an ordinary lowercase word", () => {
+    const matcher = createTickerRelevanceMatcher([
+      {
+        id: "55555555-5555-4555-a555-555555555555",
+        symbol: "AMAN",
+        terms: ["AMAN", "Makmur Berkah Amanda"],
+      },
+    ]);
+
+    expect(matcher.match("Petugas pemadam tetap aman di lapangan")).toBeNull();
+    expect(matcher.match("Saham AMAN menguat")).not.toBeNull();
   });
 
   it("does not match a symbol embedded inside a longer word", () => {
@@ -109,6 +123,79 @@ describe("createTickerRelevanceMatcher", () => {
     const matcher = createTickerRelevanceMatcher([bankCentralAsia]);
 
     expect(matcher.match("   ")).toBeNull();
+  });
+});
+
+describe("matchAll", () => {
+  const bankMandiri = {
+    id: "66666666-6666-4666-a666-666666666666",
+    symbol: "BMRI",
+    terms: ["BMRI", "Bank Mandiri", "BBCA", "Bank"],
+    issuerTerms: ["BMRI", "Bank Mandiri"],
+    competitorTerms: ["BBCA"],
+  };
+  const bankRaya = {
+    id: "77777777-7777-4777-a777-777777777777",
+    symbol: "AGRO",
+    terms: ["AGRO", "Bank Raya", "Bank"],
+    issuerTerms: ["AGRO", "Bank Raya"],
+    competitorTerms: [],
+  };
+  const coalMiner = {
+    id: "88888888-8888-4888-a888-888888888888",
+    symbol: "AADI",
+    terms: ["AADI", "Adaro Andalan", "Batu Bara"],
+    issuerTerms: ["AADI", "Adaro Andalan"],
+    competitorTerms: [],
+  };
+
+  it("reports every ticker the text matches, each on its first matching term", () => {
+    const matcher = createTickerRelevanceMatcher([
+      bankRaya,
+      bankMandiri,
+      coalMiner,
+    ]);
+    const matched = matcher.matchAll(
+      "Laba Bank Mandiri (BMRI) Oktober 2026 tembus Rp46,52 triliun",
+    );
+
+    expect(matched).toEqual([
+      { tickerId: bankRaya.id, tickerSymbol: "AGRO", term: "Bank" },
+      { tickerId: bankMandiri.id, tickerSymbol: "BMRI", term: "BMRI" },
+    ]);
+  });
+
+  it("returns no ticker for text none of them matches", () => {
+    const matcher = createTickerRelevanceMatcher([bankRaya, coalMiner]);
+
+    expect(matcher.matchAll("Harga emas naik tipis")).toEqual([]);
+    expect(matcher.matchAll("   ")).toEqual([]);
+  });
+
+  it("tells whether the terms say which names belong to the issuer", () => {
+    expect(createTickerRelevanceMatcher([bankRaya]).hasNamedTerms).toBe(true);
+    expect(createTickerRelevanceMatcher([bankCentralAsia]).hasNamedTerms).toBe(
+      false,
+    );
+  });
+});
+
+describe("routingRelevanceTerms", () => {
+  it("routes on issuer, competitor and specific industry terms only", () => {
+    const routed = routingRelevanceTerms({
+      id: "99999999-9999-4999-a999-999999999999",
+      symbol: "BBCA",
+      terms: ["BBCA", "Bank Central Asia", "BMRI", "Bank", "Keuangan"],
+      issuerTerms: ["BBCA", "Bank Central Asia"],
+      competitorTerms: ["BMRI"],
+      industryTerms: ["Bank"],
+    });
+
+    expect(routed.terms).toEqual(["BBCA", "Bank Central Asia", "BMRI", "Bank"]);
+  });
+
+  it("keeps every term when the lists that split them are missing", () => {
+    expect(routingRelevanceTerms(bankCentralAsia)).toEqual(bankCentralAsia);
   });
 });
 

@@ -18,6 +18,7 @@
     "@mediapulse/knowledge-graph": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-contract": "workspace:*",
+    "@workspace/agent-ingestion": "workspace:*",
     "@workspace/agent-types": "workspace:*",
     "@workspace/api-utils": "workspace:*",
     "@workspace/email-templates": "workspace:*",

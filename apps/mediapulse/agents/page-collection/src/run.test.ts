@@ -349,4 +349,79 @@ describe("runPageCollection", () => {
       ]),
     );
   });
+
+  describe("with issuer and competitor names", () => {
+    const namedTerms = {
+      tickers: [
+        {
+          id: "55555555-5555-4555-a555-555555555555",
+          symbol: "AGRO",
+          terms: ["AGRO", "Bank Raya", "Bank", "Keuangan"],
+          issuerTerms: ["AGRO", "Bank Raya"],
+          competitorTerms: [],
+          industryTerms: ["Bank"],
+        },
+        {
+          id: "44444444-4444-4444-a444-444444444444",
+          symbol: "BBCA",
+          terms: ["BBCA", "Bank Central Asia", "Bank", "Keuangan"],
+          issuerTerms: ["BBCA", "Bank Central Asia"],
+          competitorTerms: [],
+          industryTerms: ["Bank"],
+        },
+      ],
+    };
+
+    it("stores an article naming a tracked company without an owner, so analysis pairs it with every ticker it names", async () => {
+      tickerRelevanceTermsGetMock.mockResolvedValue(namedTerms);
+
+      await runPageCollection(createContext());
+      const persistedSource = pageCollectionCreateMock.mock.calls[0]![0][0];
+
+      expect(persistedSource.collectionGateStatus).toBe("passed");
+      expect(persistedSource).not.toHaveProperty("tickerId");
+      expect(outcomeCreateMock).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.not.objectContaining({ tickerId: expect.anything() }),
+        ]),
+      );
+    });
+
+    it("drops an article that shares only a sector-wide word with a ticker", async () => {
+      tickerRelevanceTermsGetMock.mockResolvedValue(namedTerms);
+      vi.mocked(expandSourceUrl).mockResolvedValue([
+        {
+          url: SOURCE_URL,
+          title: "Literasi keuangan warga terus naik",
+          summary:
+            "Survei terbaru menunjukkan literasi keuangan masyarakat naik dibanding tahun lalu",
+        },
+      ]);
+
+      const result = await runPageCollection(createContext());
+
+      expect(pageCollectionCreateMock).not.toHaveBeenCalled();
+      expect(result.details?.summary).toEqual(
+        expect.objectContaining({ droppedByRelevance: 1 }),
+      );
+    });
+
+    it("keeps an article that shares only an industry word, leaving analysis to pair it with every matching ticker", async () => {
+      tickerRelevanceTermsGetMock.mockResolvedValue(namedTerms);
+      vi.mocked(expandSourceUrl).mockResolvedValue([
+        {
+          url: SOURCE_URL,
+          title: "Bank sentral menahan suku bunga acuan",
+          summary:
+            "Bank sentral mempertahankan suku bunga acuan untuk menjaga stabilitas rupiah",
+        },
+      ]);
+
+      await runPageCollection(createContext());
+      const persistedSource = pageCollectionCreateMock.mock.calls[0]![0][0];
+
+      expect(persistedSource.collectionGateStatus).toBe("passed");
+      expect(persistedSource).not.toHaveProperty("tickerId");
+    });
+  });
 });

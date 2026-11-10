@@ -126,6 +126,24 @@ describe("taxonomyPhraseSegments", () => {
     expect(industrial).not.toContain("Pengelolaan");
   });
 
+  it("never indexes a function word on its own", () => {
+    const water = taxonomyPhraseSegments("Air Minum Dalam Kemasan");
+
+    expect(water).toEqual(["Air Minum Dalam Kemasan", "Minum", "Kemasan"]);
+  });
+
+  it("keeps a sector-wide noun on its own only for broad terms", () => {
+    expect(taxonomyPhraseSegments("Pusat Data")).toEqual([
+      "Pusat Data",
+      "Data",
+    ]);
+    expect(taxonomyPhraseSegments("Pusat Data", "specific")).toEqual([
+      "Pusat Data",
+    ]);
+    expect(taxonomyPhraseSegments("Keuangan")).toEqual(["Keuangan"]);
+    expect(taxonomyPhraseSegments("Keuangan", "specific")).toEqual([]);
+  });
+
   it("returns nothing for a label made only of connectors", () => {
     expect(taxonomyPhraseSegments("dan untuk dengan")).toEqual([]);
   });
@@ -275,7 +293,25 @@ describe("getTickerRelevanceTermsForAgent", () => {
       "Termal",
       "Batu Bara Kalori Menengah",
       "Kalori",
-      "Menengah",
+    ]);
+    expect(result.tickers[0]?.issuerTerms).toEqual([
+      "AADI",
+      "PT Adaro Andalan Indonesia Tbk",
+      "Adaro Andalan",
+      "Adaro",
+    ]);
+    expect(result.tickers[0]?.industryTerms).toEqual([
+      "Energi",
+      "Batu Bara",
+      "Batu Bara Termal",
+      "Batu Bara Kalori Menengah",
+    ]);
+    expect(result.tickers[0]?.competitorTerms).toEqual([
+      "Indo Tambangraya Megah",
+      "ITMG",
+      "ITM",
+      "Bukit Asam",
+      "PTBA",
     ]);
   });
 

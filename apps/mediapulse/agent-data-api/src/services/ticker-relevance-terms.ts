@@ -1,9 +1,15 @@
 import { prisma, type Prisma } from "@mediapulse/database";
-import type { GetTickerRelevanceTermsResponse } from "@workspace/agent-data-api-contract";
+import type {
+  GetTickerRelevanceTermsResponse,
+  TickerRelevanceTermsItem,
+} from "@workspace/agent-data-api-contract";
 
 import { parseProfileParties } from "./ticker-profile-parties.js";
 import { defaultTickerProfileSource } from "./ticker-profile/ticker-profile-source-default.js";
-import type { TickerProfileSource } from "./ticker-profile/ticker-profile-source.js";
+import type {
+  TickerProfileRecord,
+  TickerProfileSource,
+} from "./ticker-profile/ticker-profile-source.js";
 
 const appendTerm = (
   seen: Set<string>,
@@ -82,6 +88,26 @@ const GENERIC_SEGMENT_WORDS = new Set([
   "operasi",
   "penyedia",
   "produk",
+  "dalam",
+  "luar",
+  "tetap",
+  "hidup",
+  "diri",
+  "nasional",
+  "internasional",
+  "perusahaan",
+  "khusus",
+  "tempat",
+  "swasta",
+  "terintegrasi",
+  "primer",
+  "nonprimer",
+  "pokok",
+  "produktif",
+  "menengah",
+  "berlisensi",
+  "karakter",
+  "perindustrian",
 ]);
 
 /**
@@ -99,6 +125,44 @@ const COMPOUND_ONLY_WORDS = new Set([
   "rumah",
   "pusat",
   "gerai",
+]);
+
+const SECTOR_WIDE_WORDS = new Set([
+  "anak",
+  "investasi",
+  "pembangunan",
+  "pengembangan",
+  "lahan",
+  "jalur",
+  "barang",
+  "konsumen",
+  "jaringan",
+  "kapasitas",
+  "merek",
+  "platform",
+  "distribusi",
+  "komponen",
+  "korporasi",
+  "baku",
+  "real",
+  "estat",
+  "mikro",
+  "kalori",
+  "termal",
+  "keuangan",
+  "digital",
+  "teknologi",
+  "infrastruktur",
+  "media",
+  "aplikasi",
+  "data",
+  "kereta",
+  "kawasan",
+  "industri",
+  "gaya",
+  "malam",
+  "ruang",
+  "operator",
 ]);
 
 const MIN_SEGMENT_CHARS = 3;
@@ -126,25 +190,44 @@ const isUsableSegment = (segment: string): boolean => {
   return !words.every((word) => GENERIC_SEGMENT_WORDS.has(bareWord(word)));
 };
 
-const isUsableWord = (word: string): boolean => {
+export type TermBreadth = "broad" | "specific";
+
+const isUsableWord = (word: string, breadth: TermBreadth): boolean => {
   const bare = bareWord(word);
   if (GENERIC_SEGMENT_WORDS.has(bare) || COMPOUND_ONLY_WORDS.has(bare)) {
+    return false;
+  }
+  if (breadth === "specific" && SECTOR_WIDE_WORDS.has(bare)) {
     return false;
   }
 
   return bare.length >= MIN_WORD_CHARS || word === word.toUpperCase();
 };
 
+const isUsableTerm = (segment: string, breadth: TermBreadth): boolean => {
+  const words = segment.split(/\s+/).filter((word) => word.length > 0);
+  const onlyWord = words.length === 1 ? words[0] : undefined;
+
+  return (
+    isUsableSegment(segment) &&
+    (onlyWord === undefined || isUsableWord(onlyWord, breadth))
+  );
+};
+
 const appendTaxonomyTerm = (
   seen: Set<string>,
   terms: string[],
   value: string | null | undefined,
+  breadth: TermBreadth,
 ): void => {
-  appendTerm(seen, terms, value);
   if (typeof value !== "string") {
     return;
   }
-  for (const segment of taxonomyPhraseSegments(value)) {
+  const label = value.trim();
+  if (isUsableTerm(label, breadth)) {
+    appendTerm(seen, terms, label);
+  }
+  for (const segment of taxonomyPhraseSegments(value, breadth)) {
     appendTerm(seen, terms, segment);
   }
 };
@@ -167,7 +250,10 @@ const appendTaxonomyTerm = (
  * @param label - A taxonomy label, which may be a single term or a descriptive phrase.
  * @returns The label's business segments and their indexable words, connectors removed.
  */
-export const taxonomyPhraseSegments = (label: string): string[] => {
+export const taxonomyPhraseSegments = (
+  label: string,
+  breadth: TermBreadth = "broad",
+): string[] => {
   const found: string[] = [];
   const push = (value: string): void => {
     if (!found.includes(value)) {
@@ -182,11 +268,11 @@ export const taxonomyPhraseSegments = (label: string): string[] => {
         return;
       }
       const segment = current.join(" ").trim();
-      if (isUsableSegment(segment)) {
+      if (isUsableTerm(segment, breadth)) {
         push(segment);
         if (current.length > 1) {
           for (const word of current) {
-            if (isUsableWord(word)) {
+            if (isUsableWord(word, breadth)) {
               push(word);
             }
           }
@@ -208,6 +294,56 @@ export const taxonomyPhraseSegments = (label: string): string[] => {
   }
 
   return found;
+};
+
+export const buildTickerRelevanceTerms = (
+  ticker: { id: string; symbol: string; name: string },
+  profile: TickerProfileRecord | null,
+): TickerRelevanceTermsItem => {
+  const issuerSeen = new Set<string>();
+  const issuerTerms: string[] = [];
+  for (const name of [
+    ticker.symbol,
+    ticker.name,
+    ...(profile?.aliases ?? []),
+  ]) {
+    appendTerm(issuerSeen, issuerTerms, name);
+  }
+  const competitorSeen = new Set(issuerSeen);
+  const competitorTerms: string[] = [];
+  const competitors =
+    profile === null ? [] : parseProfileParties(profile.competitors);
+  for (const competitor of competitors) {
+    appendTerm(competitorSeen, competitorTerms, competitor.name);
+    for (const alias of competitor.aliases) {
+      if (alias.trim().length >= MIN_PEER_ALIAS_CHARS) {
+        appendTerm(competitorSeen, competitorTerms, alias);
+      }
+    }
+  }
+  const taxonomy = [
+    profile?.sectorIndonesian,
+    profile?.subSectorIndonesian,
+    profile?.industryIndonesian,
+    profile?.subIndustryIndonesian,
+  ];
+  const seen = new Set(competitorSeen);
+  const terms = [...issuerTerms, ...competitorTerms];
+  const industrySeen = new Set(competitorSeen);
+  const industryTerms: string[] = [];
+  for (const label of taxonomy) {
+    appendTaxonomyTerm(seen, terms, label, "broad");
+    appendTaxonomyTerm(industrySeen, industryTerms, label, "specific");
+  }
+
+  return {
+    id: ticker.id,
+    symbol: ticker.symbol,
+    terms,
+    issuerTerms,
+    competitorTerms,
+    industryTerms,
+  };
 };
 
 /**
@@ -250,33 +386,9 @@ export const getTickerRelevanceTermsForAgent = async (
     activeTickers.map((ticker) => ticker.symbol),
   );
 
-  const tickers = activeTickers.map((ticker) => {
-    const seen = new Set<string>();
-    const terms: string[] = [];
-    appendTerm(seen, terms, ticker.symbol);
-    appendTerm(seen, terms, ticker.name);
-
-    const profile = profiles.get(ticker.symbol) ?? null;
-    if (profile !== null) {
-      for (const alias of profile.aliases) {
-        appendTerm(seen, terms, alias);
-      }
-      for (const competitor of parseProfileParties(profile.competitors)) {
-        appendTerm(seen, terms, competitor.name);
-        for (const alias of competitor.aliases) {
-          if (alias.trim().length >= MIN_PEER_ALIAS_CHARS) {
-            appendTerm(seen, terms, alias);
-          }
-        }
-      }
-      appendTaxonomyTerm(seen, terms, profile.sectorIndonesian);
-      appendTaxonomyTerm(seen, terms, profile.subSectorIndonesian);
-      appendTaxonomyTerm(seen, terms, profile.industryIndonesian);
-      appendTaxonomyTerm(seen, terms, profile.subIndustryIndonesian);
-    }
-
-    return { id: ticker.id, symbol: ticker.symbol, terms };
-  });
+  const tickers = activeTickers.map((ticker) =>
+    buildTickerRelevanceTerms(ticker, profiles.get(ticker.symbol) ?? null),
+  );
 
   return { tickers };
 };

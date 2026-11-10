@@ -396,6 +396,77 @@ describe("loadAnalysisContext — candidate pairs (ticker-agnostic)", () => {
     expect(result.dataSources[0]!.content).toBeNull();
   });
 
+  it("fans a curated article out on a symbol only when it is written in capitals", async () => {
+    const db = buildDb([
+      {
+        id: CURATED_MATCH,
+        url: "https://example.com/c",
+        title: "Saham BBCA menguat",
+        description: null,
+        content: "the issuer did well",
+        createdAt: new Date("2026-01-02T00:00:00Z"),
+        tickerId: null,
+        ticker: null,
+        tickerSections: [],
+      },
+      {
+        id: CURATED_MISS,
+        url: "https://example.com/d",
+        title: "Data bbca bocor di forum",
+        description: null,
+        content: "nothing about the bank",
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        tickerId: null,
+        ticker: null,
+        tickerSections: [],
+      },
+    ]);
+
+    const result = await loadAnalysisContext(
+      { unanalyzed: true, limit: 10 },
+      { profileSource: noProfiles, db: db as never },
+    );
+
+    expect(result.dataSources.map((pair) => pair.id)).toEqual([CURATED_MATCH]);
+  });
+
+  it("fans a curated article out on the ticker's industry when it names no company", async () => {
+    const db = buildDb([
+      {
+        id: CURATED_MATCH,
+        url: "https://example.com/c",
+        title: "Margin perbankan makin tipis",
+        description: null,
+        content: "bank berebut dana nasabah",
+        createdAt: new Date("2026-01-02T00:00:00Z"),
+        tickerId: null,
+        ticker: null,
+        tickerSections: [],
+      },
+      {
+        id: CURATED_MISS,
+        url: "https://example.com/d",
+        title: "Harga cabai naik di pasar tradisional",
+        description: null,
+        content: "pedagang mengeluh",
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        tickerId: null,
+        ticker: null,
+        tickerSections: [],
+      },
+    ]);
+    const profileSource = createInMemoryTickerProfileSource(
+      new Map([["BBCA", { ...blankProfile, industryIndonesian: "Perbankan" }]]),
+    );
+
+    const result = await loadAnalysisContext(
+      { unanalyzed: true, limit: 10 },
+      { profileSource, db: db as never },
+    );
+
+    expect(result.dataSources.map((pair) => pair.id)).toEqual([CURATED_MATCH]);
+  });
+
   it("skips a pair that is already classified for the ticker", async () => {
     const db = buildDb([
       {

@@ -20,6 +20,7 @@ import { withApiStep } from "./utilities/with-api-step";
 import {
   buildRelevanceMatchText,
   createTickerRelevanceMatcher,
+  routingRelevanceTerms,
   type TickerRelevanceMatcher,
   isJunkTitle,
   hasSufficientDescription,
@@ -515,6 +516,9 @@ async function executePageCollectionRun(
       continue;
     }
     relevanceMatchedCount += 1;
+    const ownerTickerId = relevanceMatcher.hasNamedTerms
+      ? undefined
+      : relevanceMatch.tickerId;
 
     const attributionUrl = item.publisherUrl ?? url;
     const resolvedSource = derivePublisherFromUrl(attributionUrl);
@@ -525,7 +529,7 @@ async function executePageCollectionRun(
       ...(resolvedSource ? { source: resolvedSource } : {}),
       ...(item.publisherUrl ? { publisherUrl: item.publisherUrl } : {}),
       curatedSourceListingUrl: item.sourceListingUrl,
-      tickerId: relevanceMatch.tickerId,
+      ...(ownerTickerId === undefined ? {} : { tickerId: ownerTickerId }),
       dataCollectionRunId: runId,
       collectionGateStatus: "passed",
       ...(publishedAt ? { publishedAt: publishedAt.toISOString() } : {}),
@@ -533,7 +537,7 @@ async function executePageCollectionRun(
     outcomes.push(
       makeCollectedOutcome({
         ...outcomeBase,
-        tickerId: relevanceMatch.tickerId,
+        ...(ownerTickerId === undefined ? {} : { tickerId: ownerTickerId }),
       }),
     );
   }
@@ -785,7 +789,9 @@ async function loadTickerRelevanceMatcher(
   const { tickers } = await withApiStep("load ticker relevance terms", () =>
     dataApiClient.tickerRelevanceTerms.get({}),
   );
-  const matcher = createTickerRelevanceMatcher(tickers);
+  const matcher = createTickerRelevanceMatcher(
+    tickers.map(routingRelevanceTerms),
+  );
   if (matcher.isEmpty) {
     log.warn(
       { tickerCount: tickers.length },

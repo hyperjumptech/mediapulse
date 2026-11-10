@@ -7,9 +7,22 @@ export type TickerRelevanceMatch = {
   term: string;
 };
 
+export type TickerRelevanceTermsInput = Pick<
+  TickerRelevanceTermsItem,
+  "id" | "symbol" | "terms"
+> &
+  Partial<
+    Pick<
+      TickerRelevanceTermsItem,
+      "issuerTerms" | "competitorTerms" | "industryTerms"
+    >
+  >;
+
 export type TickerRelevanceMatcher = {
   isEmpty: boolean;
+  hasNamedTerms: boolean;
   match: (text: string) => TickerRelevanceMatch | null;
+  matchAll: (text: string) => TickerRelevanceMatch[];
 };
 
 type CompiledTerm = {
@@ -65,6 +78,9 @@ const derivedRoot = (word: string): string | null => {
   return root.length >= MIN_DERIVED_ROOT_CHARS ? root : null;
 };
 
+const isSymbolLike = (term: string): boolean =>
+  /^[A-Z0-9]+$/.test(term) && term.length <= 6;
+
 const buildTermPattern = (term: string): RegExp | null => {
   const collapsed = term.trim().replace(/\s+/g, " ");
   if (collapsed.length === 0) {
@@ -75,11 +91,47 @@ const buildTermPattern = (term: string): RegExp | null => {
     .replace(/ /g, "\\s+")
     .replace(/\\s\+&\\s\+/g, `\\s+${CONJUNCTION_ALTERNATION}\\s+`);
 
-  const root = collapsed.includes(" ") ? null : derivedRoot(collapsed);
+  const symbolLike = isSymbolLike(collapsed);
+  const root =
+    symbolLike || collapsed.includes(" ") ? null : derivedRoot(collapsed);
   const body = root === null ? escaped : `(?:${escaped}|${escapeRegExp(root)})`;
+  const flags = symbolLike ? "u" : "iu";
 
-  return new RegExp(`(?<![\\p{L}\\p{N}])${body}(?![\\p{L}\\p{N}])`, "iu");
+  return new RegExp(`(?<![\\p{L}\\p{N}])${body}(?![\\p{L}\\p{N}])`, flags);
 };
+
+const compileTerms = (
+  ticker: TickerRelevanceTermsInput,
+  terms: readonly string[],
+): CompiledTerm[] => {
+  const seenTerms = new Set<string>();
+  const compiled: CompiledTerm[] = [];
+  for (const term of terms) {
+    const normalizedTerm = term.trim().replace(/\s+/g, " ").toLowerCase();
+    if (normalizedTerm.length === 0 || seenTerms.has(normalizedTerm)) {
+      continue;
+    }
+    const pattern = buildTermPattern(term);
+    if (!pattern) {
+      continue;
+    }
+    seenTerms.add(normalizedTerm);
+    compiled.push({
+      tickerId: ticker.id,
+      tickerSymbol: ticker.symbol,
+      term: term.trim().replace(/\s+/g, " "),
+      pattern,
+    });
+  }
+
+  return compiled;
+};
+
+const toMatch = (compiledTerm: CompiledTerm): TickerRelevanceMatch => ({
+  tickerId: compiledTerm.tickerId,
+  tickerSymbol: compiledTerm.tickerSymbol,
+  term: compiledTerm.term,
+});
 
 /**
  * Compiles a word-boundary matcher over every supplied ticker's relevance terms.
@@ -90,50 +142,67 @@ const buildTermPattern = (term: string): RegExp | null => {
  *
  * @param tickers - Tickers with their relevance terms.
  */
-export function createTickerRelevanceMatcher(
-  tickers: readonly TickerRelevanceTermsItem[],
-): TickerRelevanceMatcher {
-  const compiledTerms: CompiledTerm[] = [];
-
-  for (const ticker of tickers) {
-    const seenTerms = new Set<string>();
-    for (const term of ticker.terms) {
-      const normalizedTerm = term.trim().replace(/\s+/g, " ").toLowerCase();
-      if (normalizedTerm.length === 0 || seenTerms.has(normalizedTerm)) {
-        continue;
-      }
-      const pattern = buildTermPattern(term);
-      if (!pattern) {
-        continue;
-      }
-      seenTerms.add(normalizedTerm);
-      compiledTerms.push({
-        tickerId: ticker.id,
-        tickerSymbol: ticker.symbol,
-        term: term.trim().replace(/\s+/g, " "),
-        pattern,
-      });
-    }
+export const routingRelevanceTerms = (
+  ticker: TickerRelevanceTermsInput,
+): TickerRelevanceTermsInput => {
+  const issuerTerms = ticker.issuerTerms ?? [];
+  const competitorTerms = ticker.competitorTerms ?? [];
+  if (issuerTerms.length === 0 && competitorTerms.length === 0) {
+    return ticker;
   }
 
   return {
-    isEmpty: compiledTerms.length === 0,
+    ...ticker,
+    terms: [
+      ...issuerTerms,
+      ...competitorTerms,
+      ...(ticker.industryTerms ?? []),
+    ],
+  };
+};
+
+export function createTickerRelevanceMatcher(
+  tickers: readonly TickerRelevanceTermsInput[],
+): TickerRelevanceMatcher {
+  const termsByTicker = tickers.map((ticker) =>
+    compileTerms(ticker, ticker.terms),
+  );
+  const hasNamedTerms = tickers.some(
+    (ticker) =>
+      (ticker.issuerTerms ?? []).length > 0 ||
+      (ticker.competitorTerms ?? []).length > 0,
+  );
+
+  return {
+    isEmpty: termsByTicker.every((terms) => terms.length === 0),
+    hasNamedTerms,
     match: (text: string): TickerRelevanceMatch | null => {
       if (text.trim().length === 0) {
         return null;
       }
-
-      for (const compiledTerm of compiledTerms) {
-        if (compiledTerm.pattern.test(text)) {
-          return {
-            tickerId: compiledTerm.tickerId,
-            tickerSymbol: compiledTerm.tickerSymbol,
-            term: compiledTerm.term,
-          };
+      for (const terms of termsByTicker) {
+        const matched = terms.find((compiledTerm) =>
+          compiledTerm.pattern.test(text),
+        );
+        if (matched !== undefined) {
+          return toMatch(matched);
         }
       }
 
       return null;
+    },
+    matchAll: (text: string): TickerRelevanceMatch[] => {
+      if (text.trim().length === 0) {
+        return [];
+      }
+
+      return termsByTicker.flatMap((terms) => {
+        const matched = terms.find((compiledTerm) =>
+          compiledTerm.pattern.test(text),
+        );
+
+        return matched === undefined ? [] : [toMatch(matched)];
+      });
     },
   };
 }
