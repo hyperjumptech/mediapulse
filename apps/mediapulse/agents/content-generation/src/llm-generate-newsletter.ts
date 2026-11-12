@@ -53,6 +53,7 @@ import { sanitizeSummaryPoints } from "./lib/sanitize-summary-points.js";
 import { isMetaPoint } from "./lib/meta-point.js";
 import { pointsOmitStatedFigures } from "./lib/material-figure-coverage.js";
 import { splicesClauses } from "./lib/clause-splice.js";
+import { opensWithBareCount } from "./lib/bare-count-lead.js";
 import { truncateSources } from "./lib/truncate-sources.js";
 import { isRetryableLlmError } from "./llm-classify-error.js";
 import { selectArticles, type SelectedArticle } from "./select-articles.js";
@@ -61,6 +62,7 @@ import {
   articleSummarySchema,
   type ArticleInventory,
   buildArticlePrompt,
+  buildBareCountDirective,
   buildClauseSpliceDirective,
   buildInventoryBlock,
   buildIssuerCoverageDirective,
@@ -1414,6 +1416,43 @@ export async function generateNewsletterWithLlm(
               event: "summary_point_clause_splice",
             },
             "Summary ships a point joining two clauses with a semicolon",
+          );
+        }
+
+        const bareCountPoints = groundedPoints.filter(opensWithBareCount);
+        if (bareCountPoints.length > 0) {
+          if (
+            requestRetry(
+              attempt,
+              "bare_count",
+              buildBareCountDirective(bareCountPoints),
+            )
+          ) {
+            softRetryFallback ??= {
+              title: articleTitle,
+              points: groundedPoints,
+            };
+            logger.info(
+              {
+                tickerId: context.tickerId,
+                sectionKey: entry.sectionKey,
+                url: entry.source.url,
+                bareCount: bareCountPoints,
+                event: "article_bare_count_retry",
+              },
+              "Retrying summary: a point opens with a bare count",
+            );
+            continue;
+          }
+          logger.warn(
+            {
+              tickerId: context.tickerId,
+              sectionKey: entry.sectionKey,
+              url: entry.source.url,
+              bareCount: bareCountPoints,
+              event: "summary_point_bare_count",
+            },
+            "Summary ships a point opening with a bare count",
           );
         }
 

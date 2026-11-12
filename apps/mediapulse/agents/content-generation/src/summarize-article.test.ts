@@ -5,6 +5,7 @@ import {
   articleInventorySchema,
   articleSummarySchema,
   buildArticlePrompt,
+  buildBareCountDirective,
   buildInventoryBlock,
   buildIssuerCoverageDirective,
   SUMMARIZE_ARTICLE_SYSTEM_PROMPT,
@@ -49,6 +50,22 @@ describe("SUMMARIZE_ARTICLE_SYSTEM_PROMPT", () => {
     );
     expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
       "One fact per point, except the one point that names the items a list headline promises.",
+    );
+  });
+
+  it("asks for the list count inside a full sentence, never as a bare label", () => {
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      '"Four state firms will receive the funds: Pertamina, PLN, Pupuk Indonesia and ID Food"',
+    );
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      'Never open a point with a bare count such as "The two:" or "The four:"',
+    );
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).not.toContain('"The four: ');
+  });
+
+  it("does not treat a headline carrying two figures as a list", () => {
+    expect(SUMMARIZE_ARTICLE_SYSTEM_PROMPT).toContain(
+      "A headline that reports two figures, such as one number falling while another rises, promises no list",
     );
   });
 
@@ -311,5 +328,29 @@ describe("buildInventoryBlock", () => {
     expect(block).toContain("take every point from the article itself");
     expect(block).toContain('"question": "Why did BYAN fall?"');
     expect(block.trimEnd().endsWith("</article_inventory>")).toBe(true);
+  });
+});
+
+describe("buildBareCountDirective", () => {
+  it("quotes each bare-count point and asks for a full sentence", () => {
+    const directive = buildBareCountDirective([
+      "The two: Telkominfra into Telkom Akses, and NSI into GSD.",
+    ]);
+
+    expect(directive.startsWith("\n\n")).toBe(true);
+    expect(directive).toContain("opened one point with a bare count");
+    expect(directive).toContain(
+      '"The two: Telkominfra into Telkom Akses, and NSI into GSD."',
+    );
+    expect(directive).toContain("Rewrite the point as a full sentence");
+  });
+
+  it("counts several bare-count points", () => {
+    const directive = buildBareCountDirective([
+      "The two: A and B.",
+      "The 3: C.",
+    ]);
+
+    expect(directive).toContain("opened 2 points with a bare count");
   });
 });
