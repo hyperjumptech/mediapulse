@@ -2166,6 +2166,43 @@ describe("generateNewsletterWithLlm — point quality", () => {
     expect(result.content).not.toContain("its operator, Bank A");
   });
 
+  it("retries a point that opens with a bare count", async () => {
+    let calls = 0;
+    const prompts: string[] = [];
+    const generateObjectFn = makeGenerateFn({
+      onSummarize: async (args) => {
+        calls += 1;
+        prompts.push(args.prompt);
+
+        return {
+          object: {
+            title: "Merger closes",
+            points:
+              calls === 1
+                ? [
+                    "The two: regional lenders whose merger created a bank holding Rp40 trillion of assets.",
+                  ]
+                : [
+                    "The merger of two regional lenders created a bank holding Rp40 trillion of assets.",
+                  ],
+          },
+        };
+      },
+    });
+
+    const result = await generateNewsletterWithLlm(
+      [figureRichSource],
+      baseConfig,
+      testContext,
+      { generateObjectFn, sleepFn: noopSleepFn },
+    );
+
+    expect(calls).toBe(2);
+    expect(prompts[1]).toContain("with a bare count");
+    expect(result.content).not.toContain("The two:");
+    expect(result.content).toContain("The merger of two regional lenders");
+  });
+
   it("puts a second complaint to the model rather than repeating the first", async () => {
     const prompts: string[] = [];
     const answers = [
@@ -2262,7 +2299,7 @@ describe("generateNewsletterWithLlm — article inventory", () => {
   const listSummary = {
     title: "These Are 3 New Data Center Plans",
     points: [
-      "The three: Digital Edge, BDx and CoreWeave.",
+      "Three developers announced new data centers: Digital Edge, BDx and CoreWeave.",
       "BDx plans a 640 MW campus in Purwakarta.",
     ],
   };
@@ -2309,7 +2346,7 @@ describe("generateNewsletterWithLlm — article inventory", () => {
     expect(prompts[0]).toContain("<article_inventory>");
     expect(prompts[0]).toContain('"CoreWeave"');
     expect(result.content).toContain(
-      "The three: Digital Edge, BDx and CoreWeave.",
+      "Three developers announced new data centers: Digital Edge, BDx and CoreWeave.",
     );
   });
 
