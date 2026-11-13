@@ -22,6 +22,7 @@ import type {
 import { publisherNameFromSiteMetadata } from "@workspace/utils";
 
 import type { ResolvedContentGenerationConfig } from "./config-schema.js";
+import { fetchUrlFor } from "./lib/fetch-url-rewrites.js";
 import { compareSourcesForRanking } from "./lib/rank-sources.js";
 
 /**
@@ -100,6 +101,7 @@ export type FetchSourceBodiesCounters = {
   droppedByCap: number;
   droppedByDeadUrlCache: number;
   attempted: number;
+  retried: number;
   fetchSucceeded: number;
   fetchFailed: number;
   gateDropped: number;
@@ -131,6 +133,7 @@ const emptyCounters = (requested: number): FetchSourceBodiesCounters => ({
   droppedByCap: 0,
   droppedByDeadUrlCache: 0,
   attempted: 0,
+  retried: 0,
   fetchSucceeded: 0,
   fetchFailed: 0,
   gateDropped: 0,
@@ -224,7 +227,7 @@ export async function fetchSourceBodies(
   }
 
   const fetchInputs: WebSearchResult[] = candidates.map((source) => ({
-    url: source.url,
+    url: fetchUrlFor(source.url),
     title: source.title,
     content: "",
     tickerId: context.tickerId,
@@ -233,11 +236,33 @@ export async function fetchSourceBodies(
     serpIndex: 0,
   }));
 
-  const outcomes = await performFetch(fetchInputs, {
+  const fetchDeps = {
     config: { providers: expandFetchProviderEntries(config.fetch.providers) },
     ...(log ? { logger: log } : {}),
     hostErrorTracker,
-  });
+  };
+  const outcomes = await performFetch(fetchInputs, fetchDeps);
+
+  const retryIndexes = outcomes.flatMap((outcome, index) =>
+    outcome.success === null &&
+    outcome.failures.length > 0 &&
+    outcome.failures.every((failure) => failure.retryable)
+      ? [index]
+      : [],
+  );
+  if (retryIndexes.length > 0) {
+    counters.retried = retryIndexes.length;
+    const retried = await performFetch(
+      retryIndexes.flatMap((index) => fetchInputs[index] ?? []),
+      fetchDeps,
+    );
+    retryIndexes.forEach((outcomeIndex, retryIndex) => {
+      const second = retried[retryIndex];
+      if (second) {
+        outcomes[outcomeIndex] = second;
+      }
+    });
+  }
 
   const persistBody: PostContentGenerationFetchedContentBody = [];
   const fetchFailures: WebFetchFailure[] = [];
@@ -251,7 +276,9 @@ export async function fetchSourceBodies(
 
     if (outcome.success === null) {
       counters.fetchFailed += 1;
-      fetchFailures.push(...outcome.failures);
+      fetchFailures.push(
+        ...outcome.failures.map((failure) => ({ ...failure, url: source.url })),
+      );
       fetchEvents.push({
         dataSourceId: source.dataSourceId,
         reason: source.reason ?? "",

@@ -578,6 +578,141 @@ describe("fetchSourceBodies", () => {
     expect(result.counters.droppedByDeadUrlCache).toBe(1);
     expect(fetchedInputs.map((input) => input.url)).toEqual(["https://x/live"]);
   });
+
+  it("retries once a fetch that failed only with retryable errors", async () => {
+    // Arrange
+    const requested: RequestedFetchSource[] = [
+      {
+        dataSourceId: "ds-slow",
+        url: "https://www.ojk.go.id/siaran-pers/slow",
+        title: "Slow",
+        sectionScore: 0.9,
+      },
+      {
+        dataSourceId: "ds-gone",
+        url: "https://x/gone",
+        title: "Gone",
+        sectionScore: 0.8,
+      },
+    ];
+    const timeoutOutcome: WebFetchOutcome = {
+      success: null,
+      failures: [
+        {
+          url: "https://www.ojk.go.id/siaran-pers/slow",
+          queryId: "",
+          tickerId: "ticker-1",
+          provider: "serper",
+          errorCategory: "timeout_error",
+          message: "timed out",
+          retryable: true,
+        },
+      ],
+    };
+    const performWebFetchFn = vi
+      .fn()
+      .mockResolvedValueOnce([timeoutOutcome, failureOutcome("https://x/gone")])
+      .mockResolvedValueOnce([
+        successOutcome("https://www.ojk.go.id/siaran-pers/slow", "body"),
+      ]);
+    const persistFetchedContent = vi
+      .fn()
+      .mockResolvedValue({ updatedCount: 1 });
+
+    // Act
+    const result = await fetchSourceBodies(
+      requested,
+      makeConfig(),
+      { tickerId: "ticker-1" },
+      {
+        persistFetchedContent,
+        performWebFetchFn: performWebFetchFn as never,
+        runQualityGateFn: () => ({ blocked: false }),
+      },
+    );
+
+    // Assert
+    const retriedInputs = performWebFetchFn.mock
+      .calls[1]![0] as WebSearchResult[];
+    expect(performWebFetchFn).toHaveBeenCalledTimes(2);
+    expect(retriedInputs.map((input) => input.url)).toEqual([
+      "https://www.ojk.go.id/siaran-pers/slow",
+    ]);
+    expect(result.counters.retried).toBe(1);
+    expect(result.counters.fetchSucceeded).toBe(1);
+    expect(result.counters.fetchFailed).toBe(1);
+    expect(result.fetchedContentById.has("ds-slow")).toBe(true);
+  });
+
+  it("does not retry when no failure is retryable", async () => {
+    // Arrange
+    const performWebFetchFn = vi
+      .fn()
+      .mockResolvedValue([failureOutcome("https://x/gone")]);
+
+    // Act
+    const result = await fetchSourceBodies(
+      [
+        {
+          dataSourceId: "ds-gone",
+          url: "https://x/gone",
+          title: "Gone",
+          sectionScore: 0.9,
+        },
+      ],
+      makeConfig(),
+      { tickerId: "ticker-1" },
+      {
+        persistFetchedContent: vi.fn(),
+        performWebFetchFn: performWebFetchFn as never,
+        runQualityGateFn: () => ({ blocked: false }),
+      },
+    );
+
+    // Assert
+    expect(performWebFetchFn).toHaveBeenCalledTimes(1);
+    expect(result.counters.retried).toBe(0);
+  });
+
+  it("fetches a TIMES Indonesia article through its AMP page and records failures against the original URL", async () => {
+    // Arrange
+    const original =
+      "https://timesindonesia.co.id/ekonomi/512345/ojk-dorong-sektor-jasa-keuangan";
+    const performWebFetchFn = vi
+      .fn()
+      .mockResolvedValue([failureOutcome(`${original}/amp`)]);
+    const recordDeadUrls = vi.fn().mockResolvedValue(undefined);
+
+    // Act
+    await fetchSourceBodies(
+      [
+        {
+          dataSourceId: "ds-times",
+          url: original,
+          title: "OJK Dorong Sektor Jasa Keuangan",
+          sectionScore: 0.9,
+        },
+      ],
+      makeConfig(),
+      { tickerId: "ticker-1" },
+      {
+        persistFetchedContent: vi.fn(),
+        recordDeadUrls,
+        performWebFetchFn: performWebFetchFn as never,
+        runQualityGateFn: () => ({ blocked: false }),
+      },
+    );
+
+    // Assert
+    const fetchedInputs = performWebFetchFn.mock
+      .calls[0]![0] as WebSearchResult[];
+    expect(fetchedInputs.map((input) => input.url)).toEqual([
+      `${original}/amp`,
+    ]);
+    expect(recordDeadUrls).toHaveBeenCalledWith([
+      expect.objectContaining({ url: original }),
+    ]);
+  });
 });
 
 describe("acceptablePublishedDate", () => {
