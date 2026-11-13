@@ -37,6 +37,10 @@ import {
   type RequestedFetchSource,
 } from "./fetch-source-bodies.js";
 import { citedFigures } from "./lib/figures-grounded.js";
+import {
+  newsletterExclusionOf,
+  withoutNewsletterExclusions,
+} from "./lib/newsletter-excluded-url.js";
 import { selectSectionCoverageSeeds } from "./lib/section-coverage-seeds.js";
 import { pickPublisherName } from "./pick-publisher-name.js";
 import { resolvePublisherNames } from "./resolve-publisher-names.js";
@@ -472,7 +476,14 @@ export async function run({
     };
   }
 
-  const triageCandidates: TriageCandidateSource[] = sources
+  const fetchableSources = withoutNewsletterExclusions(sources);
+  const excludedFromFetch = sources.filter(
+    (s) =>
+      !(typeof s.content === "string" && s.content.trim() !== "") &&
+      newsletterExclusionOf(s.url) !== undefined,
+  ).length;
+
+  const triageCandidates: TriageCandidateSource[] = fetchableSources
     .filter((s) => !(typeof s.content === "string" && s.content.trim() !== ""))
     .map((s) => ({
       dataSourceId: s.dataSourceId,
@@ -531,7 +542,7 @@ export async function run({
   // Guarantee the top candidate of every publishable section gets a body, so a section is never
   // dropped merely because the on-demand triage skipped its highest-scored article.
   for (const seed of selectSectionCoverageSeeds(
-    sources,
+    fetchableSources,
     CONTENT_GENERATION_CONSTANTS.coverageSeedSections,
   )) {
     pushFetchSource(seed.dataSourceId, seed.reason);
@@ -547,7 +558,7 @@ export async function run({
   // all, and those items averaged 1.40 bullets against 2.41 for items with a body. Requesting the
   // rest costs nothing when the budget is already paid for, and `applyFetchCap` still decides the
   // order, figure-bearing descriptions first.
-  for (const source of sources) {
+  for (const source of fetchableSources) {
     if (typeof source.content === "string" && source.content.trim() !== "") {
       continue;
     }
@@ -597,7 +608,11 @@ export async function run({
   }
 
   logger.info(
-    { tickerId: input.tickerId, fetch: fetchResult.counters },
+    {
+      tickerId: input.tickerId,
+      fetch: fetchResult.counters,
+      excludedFromFetch,
+    },
     "On-demand fetch summary",
   );
 

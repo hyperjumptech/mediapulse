@@ -3,12 +3,8 @@ import {
   NEWSLETTER_SECTION_KEYS,
   type NewsletterSectionKey,
 } from "@workspace/email-templates/newsletter-document";
-import {
-  classifyNoisyUrl,
-  isUnresolvableAggregatorUrl,
-  isUserGeneratedHost,
-} from "@workspace/utils";
 
+import { newsletterExclusionOf } from "./lib/newsletter-excluded-url.js";
 import { compareSourcesForRanking } from "./lib/rank-sources.js";
 import type { SourceForGeneration } from "./types.js";
 
@@ -114,14 +110,12 @@ export const selectArticles = (
       droppedUnassigned += 1;
       return;
     }
-    if (
-      classifyNoisyUrl(source.url).blocked ||
-      isUnresolvableAggregatorUrl(source.url)
-    ) {
+    const exclusion = newsletterExclusionOf(source.url);
+    if (exclusion === "blocked_host") {
       droppedBlockedHost += 1;
       return;
     }
-    if (isUserGeneratedHost(source.url)) {
+    if (exclusion === "user_generated") {
       droppedUserGenerated += 1;
       return;
     }
