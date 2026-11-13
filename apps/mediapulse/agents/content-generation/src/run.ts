@@ -576,6 +576,7 @@ export async function run({
       droppedByCap: 0,
       droppedByDeadUrlCache: 0,
       attempted: 0,
+      retried: 0,
       fetchSucceeded: 0,
       fetchFailed: 0,
       gateDropped: 0,
