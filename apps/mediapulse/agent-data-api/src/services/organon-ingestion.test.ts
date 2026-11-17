@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   claimOrganonIngestionRetries,
   listOrganonIngestionCandidates,
+  listOrganonIngestionSends,
   recordOrganonIngestionSends,
   type OrganonIngestionDb,
 } from "./organon-ingestion.js";
@@ -229,6 +230,131 @@ describe("listOrganonIngestionCandidates", () => {
     expect(candidates.map((candidate) => candidate.canonicalUrl)).toEqual([
       ARTICLE_URL,
     ]);
+  });
+});
+
+describe("listOrganonIngestionSends", () => {
+  const window = {
+    sentAfter: "2026-11-16T03:00:00.000Z",
+    sentBefore: "2026-11-17T03:00:00.000Z",
+    take: 200,
+  };
+
+  const createSendsDb = ({
+    sends,
+    placements,
+  }: {
+    sends: {
+      canonicalUrl: string;
+      tickerSymbols: string[];
+      organonJobId: string;
+      sentAt: Date;
+    }[];
+    placements: ReturnType<typeof placement>[];
+  }) => {
+    const sendFindMany = vi.fn().mockResolvedValue(sends);
+    const placementFindMany = vi.fn().mockResolvedValue(placements);
+    const db = {
+      dataSourceTickerSection: { findMany: placementFindMany },
+      organonArticleSend: { findMany: sendFindMany },
+    } as unknown as OrganonIngestionDb;
+
+    return { db, sendFindMany, placementFindMany };
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("reads the sends in the window, oldest first, with the article text that was sent", async () => {
+    const { db, sendFindMany, placementFindMany } = createSendsDb({
+      sends: [
+        {
+          canonicalUrl: ARTICLE_URL,
+          tickerSymbols: ["MAPB", "MAPI"],
+          organonJobId: "job-1",
+          sentAt: new Date("2026-11-16T03:05:00.000Z"),
+        },
+      ],
+      placements: [
+        placement({ dataSourceId: "ds-mapb", ticker: MAPB }),
+        placement({
+          dataSourceId: "ds-mapi",
+          ticker: MAPI,
+          content: "Isi artikel lengkap.",
+        }),
+      ],
+    });
+
+    const result = await listOrganonIngestionSends(db, window);
+
+    expect(result).toEqual({
+      sends: [
+        {
+          canonicalUrl: ARTICLE_URL,
+          tickerSymbols: ["MAPB", "MAPI"],
+          organonJobId: "job-1",
+          sentAt: "2026-11-16T03:05:00.000Z",
+          title: "Map Boga Adiperkasa buka gerai baru",
+          description: "MAPB membuka gerai baru.",
+          content: "Isi artikel lengkap.",
+        },
+      ],
+    });
+    expect(sendFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          sentAt: {
+            gte: new Date(window.sentAfter),
+            lt: new Date(window.sentBefore),
+          },
+        },
+        orderBy: { sentAt: "asc" },
+        take: 200,
+      }),
+    );
+    expect(placementFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          section: { not: null },
+          dataSource: { canonicalUrl: { in: [ARTICLE_URL] } },
+        },
+      }),
+    );
+  });
+
+  it("returns a send with no text when its article is no longer placed", async () => {
+    const { db } = createSendsDb({
+      sends: [
+        {
+          canonicalUrl: ARTICLE_URL,
+          tickerSymbols: ["MAPB"],
+          organonJobId: "job-1",
+          sentAt: new Date("2026-11-16T03:05:00.000Z"),
+        },
+      ],
+      placements: [],
+    });
+
+    const result = await listOrganonIngestionSends(db, window);
+
+    expect(result.sends[0]).toMatchObject({
+      title: null,
+      description: null,
+      content: null,
+    });
+  });
+
+  it("skips the article lookup when nothing was sent in the window", async () => {
+    const { db, placementFindMany } = createSendsDb({
+      sends: [],
+      placements: [],
+    });
+
+    await expect(listOrganonIngestionSends(db, window)).resolves.toEqual({
+      sends: [],
+    });
+    expect(placementFindMany).not.toHaveBeenCalled();
   });
 });
 

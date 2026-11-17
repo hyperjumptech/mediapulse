@@ -1,32 +1,14 @@
-import { createAgentApp, hermesTickerIdSchema } from "@workspace/agent-runtime";
 import { env } from "@mediapulse/env/agents-knowledge-ingestion";
+import { createAgentApp } from "@workspace/agent-runtime";
 import { z } from "zod";
-import { run } from "./run.js";
+
 import { AGENT_ID, AGENT_VERSION } from "./agent-version.js";
+import { ConfigSchema } from "./config-schema.js";
+import { run, type Config, type Input } from "./run.js";
 
 const InputSchema = z.object({
-  /** Extraction is per issuer: an entity's relevance to a ticker is a per-ticker fact. */
-  tickerId: hermesTickerIdSchema,
-  since: z.string().datetime().optional(),
   limit: z.number().int().positive().max(500).optional(),
-  fromStart: z.boolean().optional(),
-});
-
-const ConfigSchema = z.object({
-  model: z.string().default("{{AI_MODEL}}"),
-  apiKey: z.string().default("{{AI_API_KEY}}"),
-  baseUrl: z.string().default("{{AI_BASE_URL}}"),
-  /**
-   * Articles read at once. Reading is a model call of roughly half a minute, so reading one at a
-   * time puts a full batch past the invoke-agent job timeout. Writes stay sequential whatever this
-   * is set to, because resolving an entity is find-then-create.
-   */
-  readConcurrency: z.number().int().min(1).max(8).default(4),
-  dryRun: z.boolean().optional(),
-});
-
-export type Config = z.infer<typeof ConfigSchema>;
-export type Input = z.infer<typeof InputSchema>;
+}) as unknown as z.ZodType<Input>;
 
 const app = createAgentApp<
   Input,
@@ -38,17 +20,18 @@ const app = createAgentApp<
     agentId: AGENT_ID,
     agentVersion: AGENT_VERSION,
     description:
-      "Reads an issuer's articles for the entities they name and the relations they state, building that issuer's knowledge base.",
+      "Sends each placed article to the knowledge graph as one ingestion job, fetching a missing body first, retries each failed job once, and reports what the articles sent before the run added.",
     inputSchema: InputSchema,
     configSchema: ConfigSchema,
     run,
   },
   {
-    authApiUrl: env.AGENT_AUTH_API_URL ?? "",
+    authApiUrl: env.AGENT_AUTH_API_URL,
     autoRegister:
       env.AGENT_REGISTRY_URL &&
       env.DOMAIN_INTEGRATION_API_KEY &&
-      env.AGENT_PUBLIC_URL
+      env.AGENT_PUBLIC_URL &&
+      env.AGENT_AUTH_API_URL
         ? {
             registryUrl: env.AGENT_REGISTRY_URL,
             domainIntegrationId: env.DOMAIN_INTEGRATION_ID,
@@ -58,6 +41,8 @@ const app = createAgentApp<
         : undefined,
   },
 );
+
+export { app };
 
 export default {
   port: env.PORT ?? 4013,

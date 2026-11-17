@@ -51,14 +51,17 @@ The new subscriber's email in this run carries a "First issue" note with the dai
 
 Disabling a trigger switches that path off. Until a trigger exists, dispatches are recorded as skipped.
 
-## Knowledge extraction
+## Knowledge graph ingestion
 
-Extraction runs nightly after the newsletter, one invocation per subscribed issuer. See [Extraction](/mediapulse/knowledge-base/extraction) for why it is shaped this way.
+The knowledge-ingestion agent sends each analyzed article to the knowledge graph in Organon, once a night after the newsletter, in one invocation for every ticker. See [Knowledge Ingestion Agent](/mediapulse/apps/agents/knowledge-ingestion).
 
-1. Check the prerequisites: `hermes_list_agents` with `q: "knowledge-ingestion"` shows an active `1.0.0`, and `hermes_list_variables` shows `AI_API_KEY` (secret) and `AI_BASE_URL`.
-2. `hermes_mutate_create_agent_config` named "Knowledge Extraction" for `knowledge-ingestion@1.0.0` with config `{ "model": "google/gemini-2.5-flash-lite", "apiKey": "{{AI_API_KEY}}", "baseUrl": "{{AI_BASE_URL}}" }`.
-3. `hermes_mutate_create_pipeline` named "Knowledge Extraction" and `hermes_mutate_add_agent_step` with that `agentConfigId` and input `{ "tickerId": "db:userTicker:tickerId?where.enabled=true", "limit": 100 }`.
-4. `hermes_mutate_create_schedule` named "Nightly Knowledge Extraction", `repeat: "repeating"`, `cronExpression: "0 2 * * *"`, `timezone: "Asia/Jakarta"`. Pass `enabled: false` and enable it once a manual run looks right.
+1. In Organon, create an API key with write access for the MediaPulse project, used only for ingestion.
+2. Check the prerequisites: `hermes_list_agents` with `q: "knowledge-ingestion"` shows an active `2.0.0`, and `hermes_list_variables` shows `SERPER_API_KEY` and `DIFFBOT_API_KEY`. Create `ORGANON_API_URL` and `ORGANON_INGESTION_API_KEY` (secret) with `hermes_mutate_create_variable` when they are missing.
+3. Where the 1.0.0 setup exists, delete its "Nightly Knowledge Extraction" schedule, "Knowledge Extraction" pipeline and "Knowledge Extraction" agent config. They describe the extraction the agent no longer does, and the 2.0.0 config takes different fields.
+4. `hermes_mutate_create_agent_config` named "Knowledge Graph Ingestion" for `knowledge-ingestion@2.0.0` with config `{ "sendFrom": "<cutover as ISO 8601>", "dryRun": true }`.
+5. `hermes_mutate_create_pipeline` named "Knowledge Graph Ingestion" and `hermes_mutate_add_agent_step` with that `agentConfigId` and input `{}`.
+6. Run the pipeline by hand. With `dryRun` on, the result lists the articles it would send. Then set `dryRun` to `false` with `hermes_mutate_update_agent_config` and run it again.
+7. `hermes_mutate_create_schedule` named "Nightly Knowledge Graph Ingestion", `repeat: "repeating"`, `cronExpression: "0 3 * * *"`, `timezone: "Asia/Jakarta"`. Pass `enabled: false` and enable it once a manual run looks right.
 
 A step pins `agentId@agentVersion`, so bumping the agent means updating the step with `hermes_mutate_update_agent_step`.
 

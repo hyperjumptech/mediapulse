@@ -40,6 +40,25 @@ describe("createOrganonSparqlClient", () => {
     expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
 
+  it("asks for the history graph instead of inferred answers when told to", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(sparqlResponse([]));
+    const runSparql = createOrganonSparqlClient({
+      baseUrl: "https://organon.example",
+      apiKey: "organon_key",
+      timeoutMs: 1000,
+      fetchImpl,
+      includeInferred: false,
+      includeProvenance: true,
+    });
+
+    await runSparql("SELECT ?revision WHERE {}");
+
+    const [url] = fetchImpl.mock.calls[0] ?? [];
+    expect(url).toBe("https://organon.example/api/v1/sparql?provenance=true");
+  });
+
   it("refuses a query over Organon's length limit without calling it", async () => {
     const fetchImpl = vi.fn<typeof fetch>();
     const runSparql = createOrganonSparqlClient({

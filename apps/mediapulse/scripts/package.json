@@ -7,8 +7,7 @@
     "lint": "eslint \"*.ts\"",
     "type:check": "tsc --noEmit",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "extraction-once": "tsx run-extraction-once.ts"
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@hermes/orchestration-database": "workspace:*",

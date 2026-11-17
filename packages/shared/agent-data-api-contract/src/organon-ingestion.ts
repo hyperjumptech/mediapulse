@@ -3,6 +3,7 @@ import { z } from "zod";
 export const ORGANON_INGESTION_CANDIDATES_MAX_TAKE = 500;
 export const ORGANON_INGESTION_SENDS_MAX = 100;
 export const ORGANON_INGESTION_RETRIES_MAX = 100;
+export const ORGANON_INGESTION_SENT_ARTICLES_MAX_TAKE = 500;
 
 export const getOrganonIngestionCandidatesQuerySchema = z.object({
   sendFrom: z.string().datetime(),
@@ -56,6 +57,31 @@ export const postOrganonIngestionSendsResponseSchema = z.object({
   recordedCount: z.number().int().nonnegative(),
 });
 
+export const getOrganonIngestionSendsQuerySchema = z.object({
+  sentAfter: z.string().datetime(),
+  sentBefore: z.string().datetime(),
+  take: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(ORGANON_INGESTION_SENT_ARTICLES_MAX_TAKE)
+    .default(200),
+});
+
+export const organonIngestionSentArticleSchema = z.object({
+  canonicalUrl: z.string(),
+  tickerSymbols: z.array(z.string()),
+  organonJobId: z.string(),
+  sentAt: z.string().datetime(),
+  title: z.string().nullable(),
+  description: z.string().nullable(),
+  content: z.string().nullable(),
+});
+
+export const getOrganonIngestionSendsResponseSchema = z.object({
+  sends: z.array(organonIngestionSentArticleSchema),
+});
+
 export const postOrganonIngestionRetriesBodySchema = z.object({
   organonJobIds: z
     .array(z.string().min(1))
@@ -85,6 +111,15 @@ export type PostOrganonIngestionSendsBody = z.infer<
 >;
 export type PostOrganonIngestionSendsResponse = z.infer<
   typeof postOrganonIngestionSendsResponseSchema
+>;
+export type GetOrganonIngestionSendsQuery = z.infer<
+  typeof getOrganonIngestionSendsQuerySchema
+>;
+export type OrganonIngestionSentArticle = z.infer<
+  typeof organonIngestionSentArticleSchema
+>;
+export type GetOrganonIngestionSendsResponse = z.infer<
+  typeof getOrganonIngestionSendsResponseSchema
 >;
 export type PostOrganonIngestionRetriesBody = z.infer<
   typeof postOrganonIngestionRetriesBodySchema

@@ -29,6 +29,8 @@ export type OrganonSparqlClientOptions = {
   apiKey: string;
   timeoutMs: number;
   fetchImpl?: typeof fetch;
+  includeInferred?: boolean;
+  includeProvenance?: boolean;
 };
 
 const readErrorBody = async (response: Response): Promise<string> => {
@@ -46,8 +48,15 @@ export const createOrganonSparqlClient = ({
   apiKey,
   timeoutMs,
   fetchImpl = fetch,
+  includeInferred = true,
+  includeProvenance = false,
 }: OrganonSparqlClientOptions): RunSparqlSelect => {
   const origin = baseUrl.replace(/\/+$/, "");
+  const search = new URLSearchParams({
+    ...(includeInferred ? { inferred: "true" } : {}),
+    ...(includeProvenance ? { provenance: "true" } : {}),
+  }).toString();
+  const endpoint = `${origin}/api/v1/sparql${search ? `?${search}` : ""}`;
 
   return async (query) => {
     if (query.length > MAX_SPARQL_QUERY_LENGTH) {
@@ -55,7 +64,7 @@ export const createOrganonSparqlClient = ({
         `SPARQL query is ${query.length} characters, over Organon's limit of ${MAX_SPARQL_QUERY_LENGTH}`,
       );
     }
-    const response = await fetchImpl(`${origin}/api/v1/sparql?inferred=true`, {
+    const response = await fetchImpl(endpoint, {
       method: "POST",
       headers: {
         authorization: `Bearer ${apiKey}`,

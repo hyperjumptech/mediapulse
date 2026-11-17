@@ -4,8 +4,10 @@ import {
   ARTICLE_CLASS_IRIS,
   MAX_INGESTION_CONTENT_LENGTH,
   MAX_INGESTION_FACT_LENGTH,
+  articleAnnotationsQuery,
   buildIngestionRequest,
   createOrganonIngestionClient,
+  figuresWithoutAnnotationQuery,
   type IngestionArticle,
 } from "./organon-ingestion-client";
 
@@ -30,6 +32,15 @@ const article = (
   ],
   ...overrides,
 });
+
+const sparqlResponse = (bindings: unknown[]) =>
+  new Response(JSON.stringify({ head: { vars: [] }, results: { bindings } }), {
+    status: 200,
+    headers: { "content-type": "application/sparql-results+json" },
+  });
+
+const literal = (value: string) => ({ type: "literal", value });
+const uri = (value: string) => ({ type: "uri", value });
 
 const jsonResponse = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
@@ -279,5 +290,100 @@ describe("createOrganonIngestionClient", () => {
     expect(fetchImpl.mock.calls[0]?.[0]).toBe(
       "https://organon.example/api/v1/ingestion/jobs/job-1/retry",
     );
+  });
+
+  it("reads a job's status, and returns null for a job this key never started", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({ job: { id: "job-1", status: "completed" } }, 200),
+      )
+      .mockResolvedValueOnce(jsonResponse({ error: "Job not found." }, 404))
+      .mockResolvedValueOnce(jsonResponse({ error: "boom" }, 500));
+    const client = createClient(fetchImpl);
+
+    await expect(client.getJobStatus("job-1")).resolves.toBe("completed");
+    await expect(client.getJobStatus("job-2")).resolves.toBeNull();
+    await expect(client.getJobStatus("job-3")).rejects.toThrow(
+      "Organon answered 500 to a read of job job-3",
+    );
+    expect(fetchImpl.mock.calls[0]?.[0]).toBe(
+      "https://organon.example/api/v1/ingestion/jobs/job-1",
+    );
+  });
+
+  it("groups an article's annotations with their tickers and quotes, and reads its unannotated figures from the history", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async (input) =>
+      String(input).includes("provenance=true")
+        ? sparqlResponse([
+            {
+              figure: uri("https://mediapulse.hyperjump.tech/id/figure-1"),
+              label: literal("MAPB revenue 9M 2026"),
+            },
+          ])
+        : sparqlResponse([
+            {
+              annotation: uri("https://mediapulse.hyperjump.tech/id/a-1"),
+              ticker: literal("MAPB"),
+              quote: literal("MAPB merupakan anak usaha MAPI"),
+            },
+            {
+              annotation: uri("https://mediapulse.hyperjump.tech/id/a-1"),
+              ticker: literal("MAPI"),
+              quote: literal("MAPB merupakan anak usaha MAPI"),
+            },
+            { annotation: uri("https://mediapulse.hyperjump.tech/id/a-2") },
+          ]),
+    );
+    const client = createClient(fetchImpl);
+
+    const evidence = await client.articleEvidence(article().canonicalUrl);
+
+    expect(evidence).toEqual({
+      annotations: [
+        {
+          iri: "https://mediapulse.hyperjump.tech/id/a-1",
+          tickerSymbols: ["MAPB", "MAPI"],
+          quotes: ["MAPB merupakan anak usaha MAPI"],
+        },
+        {
+          iri: "https://mediapulse.hyperjump.tech/id/a-2",
+          tickerSymbols: [],
+          quotes: [],
+        },
+      ],
+      figuresWithoutAnnotation: [
+        {
+          iri: "https://mediapulse.hyperjump.tech/id/figure-1",
+          label: "MAPB revenue 9M 2026",
+        },
+      ],
+    });
+    const urls = fetchImpl.mock.calls.map(([input]) => String(input)).sort();
+    expect(urls).toEqual([
+      "https://organon.example/api/v1/sparql?inferred=true",
+      "https://organon.example/api/v1/sparql?provenance=true",
+    ]);
+  });
+});
+
+describe("article evidence queries", () => {
+  it("compare the canonical URL as a string, escaped so a URL can't break the query", () => {
+    const url = 'https://example.com/a"b\\c';
+
+    expect(articleAnnotationsQuery(url)).toContain(
+      'FILTER(STR(?url) = "https://example.com/a\\"b\\\\c")',
+    );
+    expect(figuresWithoutAnnotationQuery(url)).toContain(
+      'FILTER(STR(?url) = "https://example.com/a\\"b\\\\c")',
+    );
+  });
+
+  it("find figures through the article's versions and skip the ones an annotation names", () => {
+    const query = figuresWithoutAnnotationQuery(article().canonicalUrl);
+
+    expect(query).toContain("?version dcterms:isVersionOf ?source .");
+    expect(query).toContain("prov:specializationOf ?figure .");
+    expect(query).toContain("FILTER NOT EXISTS {");
   });
 });

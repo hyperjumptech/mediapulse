@@ -1,11 +1,16 @@
 import { z } from "zod";
 
-import { createOrganonSparqlClient } from "./organon-sparql-client";
+import {
+  createOrganonSparqlClient,
+  type SparqlBinding,
+} from "./organon-sparql-client";
 
 const MP = "https://mediapulse.hyperjump.tech/ontology#";
 const DCTERMS = "http://purl.org/dc/terms/";
 const OA = "http://www.w3.org/ns/oa#";
 const ORG = "http://www.w3.org/ns/org#";
+const PROV = "http://www.w3.org/ns/prov#";
+const RDFS = "http://www.w3.org/2000/01/rdf-schema#";
 
 export const MAX_INGESTION_CONTENT_LENGTH = 200_000;
 export const MAX_INGESTION_TITLE_LENGTH = 255;
@@ -73,6 +78,27 @@ export type FailedIngestionJobsPage = {
   nextCursor: string | null;
 };
 
+export type IngestionJobStatus =
+  | "queued"
+  | "running"
+  | "ready"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type ArticleAnnotation = {
+  iri: string;
+  tickerSymbols: string[];
+  quotes: string[];
+};
+
+export type ArticleFigure = { iri: string; label: string | null };
+
+export type ArticleEvidence = {
+  annotations: ArticleAnnotation[];
+  figuresWithoutAnnotation: ArticleFigure[];
+};
+
 export type OrganonIngestionClient = {
   findPublisherIri: (registrableDomain: string) => Promise<string | null>;
   createPublisher: (input: {
@@ -84,6 +110,8 @@ export type OrganonIngestionClient = {
     cursor?: string;
   }) => Promise<FailedIngestionJobsPage>;
   retryJob: (jobId: string) => Promise<"retried" | "not-retryable">;
+  getJobStatus: (jobId: string) => Promise<IngestionJobStatus | null>;
+  articleEvidence: (canonicalUrl: string) => Promise<ArticleEvidence>;
 };
 
 export type OrganonIngestionClientOptions = {
@@ -115,6 +143,19 @@ const jobListSchema = z.object({
     }),
   ),
   nextCursor: z.string().nullable(),
+});
+
+const jobSchema = z.object({
+  job: z.object({
+    status: z.enum([
+      "queued",
+      "running",
+      "ready",
+      "completed",
+      "failed",
+      "cancelled",
+    ]),
+  }),
 });
 
 const cut = (text: string, maxLength: number): string =>
@@ -169,6 +210,79 @@ export const buildIngestionRequest = (
   ],
 });
 
+const sparqlString = (value: string): string => JSON.stringify(value);
+
+const articleSourcePattern = (canonicalUrl: string): string[] => [
+  "  ?source a mp:DataSource ; mp:canonicalUrl ?url .",
+  `  FILTER(STR(?url) = ${sparqlString(canonicalUrl)})`,
+];
+
+export const articleAnnotationsQuery = (canonicalUrl: string): string =>
+  [
+    `PREFIX mp: <${MP}>`,
+    `PREFIX oa: <${OA}>`,
+    "SELECT ?annotation ?ticker ?quote WHERE {",
+    ...articleSourcePattern(canonicalUrl),
+    "  ?target oa:hasSource ?source .",
+    "  ?annotation oa:hasTarget ?target .",
+    "  OPTIONAL { ?annotation mp:forTicker/mp:ticker ?ticker }",
+    "  OPTIONAL { ?target oa:hasSelector/oa:exact ?quote }",
+    "}",
+  ].join("\n");
+
+export const figuresWithoutAnnotationQuery = (canonicalUrl: string): string =>
+  [
+    `PREFIX dcterms: <${DCTERMS}>`,
+    `PREFIX mp: <${MP}>`,
+    `PREFIX oa: <${OA}>`,
+    `PREFIX prov: <${PROV}>`,
+    `PREFIX rdfs: <${RDFS}>`,
+    "SELECT DISTINCT ?figure ?label WHERE {",
+    ...articleSourcePattern(canonicalUrl),
+    "  ?version dcterms:isVersionOf ?source .",
+    "  ?revision prov:wasDerivedFrom ?version ;",
+    "    prov:specializationOf ?figure .",
+    "  ?figure a mp:Measurement .",
+    "  OPTIONAL { ?figure rdfs:label ?label }",
+    "  FILTER NOT EXISTS {",
+    "    ?annotation oa:hasBody ?figure ;",
+    "      oa:hasTarget/oa:hasSource ?source .",
+    "  }",
+    "}",
+  ].join("\n");
+
+const toAnnotations = (
+  bindings: readonly SparqlBinding[],
+): ArticleAnnotation[] => {
+  const byIri = new Map<
+    string,
+    { tickerSymbols: Set<string>; quotes: Set<string> }
+  >();
+  for (const binding of bindings) {
+    const iri = binding.annotation?.value;
+    if (!iri) {
+      continue;
+    }
+    const annotation = byIri.get(iri) ?? {
+      tickerSymbols: new Set<string>(),
+      quotes: new Set<string>(),
+    };
+    if (binding.ticker) {
+      annotation.tickerSymbols.add(binding.ticker.value);
+    }
+    if (binding.quote) {
+      annotation.quotes.add(binding.quote.value);
+    }
+    byIri.set(iri, annotation);
+  }
+
+  return [...byIri].map(([iri, { tickerSymbols, quotes }]) => ({
+    iri,
+    tickerSymbols: [...tickerSymbols],
+    quotes: [...quotes],
+  }));
+};
+
 export const instanceIriFromId = (id: string): string =>
   Buffer.from(id, "base64url").toString("utf8");
 
@@ -199,6 +313,14 @@ export const createOrganonIngestionClient = ({
     apiKey,
     timeoutMs,
     fetchImpl,
+  });
+  const runHistorySparql = createOrganonSparqlClient({
+    baseUrl,
+    apiKey,
+    timeoutMs,
+    fetchImpl,
+    includeInferred: false,
+    includeProvenance: true,
   });
   const request = (path: string, init: RequestInit = {}) =>
     fetchImpl(`${origin}${path}`, {
@@ -302,6 +424,41 @@ export const createOrganonIngestionClient = ({
         return "not-retryable";
       }
       throw await failure(response, `a retry of job ${jobId}`);
+    },
+
+    getJobStatus: async (jobId) => {
+      const response = await request(
+        `/api/v1/ingestion/jobs/${encodeURIComponent(jobId)}`,
+      );
+      if (response.status === 404) {
+        return null;
+      }
+      if (!response.ok) {
+        throw await failure(response, `a read of job ${jobId}`);
+      }
+
+      return jobSchema.parse(await response.json()).job.status;
+    },
+
+    articleEvidence: async (canonicalUrl) => {
+      const [annotationBindings, figureBindings] = await Promise.all([
+        runSparql(articleAnnotationsQuery(canonicalUrl)),
+        runHistorySparql(figuresWithoutAnnotationQuery(canonicalUrl)),
+      ]);
+
+      return {
+        annotations: toAnnotations(annotationBindings),
+        figuresWithoutAnnotation: figureBindings.flatMap((binding) =>
+          binding.figure
+            ? [
+                {
+                  iri: binding.figure.value,
+                  label: binding.label?.value ?? null,
+                },
+              ]
+            : [],
+        ),
+      };
     },
   };
 };

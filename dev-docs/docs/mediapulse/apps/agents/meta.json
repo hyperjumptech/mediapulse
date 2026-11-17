@@ -11,6 +11,7 @@
     "content-generation-runbook",
     "data-collection",
     "delivery",
+    "knowledge-ingestion",
     "newsletter-feedback",
     "generate-agent"
   ],

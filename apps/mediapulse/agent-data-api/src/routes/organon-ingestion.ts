@@ -5,6 +5,8 @@ import { internalError } from "@workspace/api-utils";
 import {
   getOrganonIngestionCandidatesQuerySchema,
   getOrganonIngestionCandidatesResponseSchema,
+  getOrganonIngestionSendsQuerySchema,
+  getOrganonIngestionSendsResponseSchema,
   postOrganonIngestionRetriesBodySchema,
   postOrganonIngestionRetriesResponseSchema,
   postOrganonIngestionSendsBodySchema,
@@ -13,6 +15,7 @@ import {
 import {
   claimOrganonIngestionRetries,
   listOrganonIngestionCandidates,
+  listOrganonIngestionSends,
   recordOrganonIngestionSends,
 } from "../services/organon-ingestion.js";
 
@@ -28,6 +31,22 @@ export async function getOrganonIngestionCandidatesHandler(
       query,
     );
     const response = getOrganonIngestionCandidatesResponseSchema.parse(result);
+
+    return context.json(response, 200);
+  } catch (error) {
+    return internalError(context, error);
+  }
+}
+
+export async function getOrganonIngestionSendsHandler(
+  context: Context,
+): Promise<Response> {
+  try {
+    const query = getOrganonIngestionSendsQuerySchema.parse(
+      context.req.query(),
+    );
+    const result = await listOrganonIngestionSends(mediapulsePrisma, query);
+    const response = getOrganonIngestionSendsResponseSchema.parse(result);
 
     return context.json(response, 200);
   } catch (error) {

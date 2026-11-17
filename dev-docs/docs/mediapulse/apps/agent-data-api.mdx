@@ -49,6 +49,7 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | POST   | `/api/v1/day1-welcome-claim`                     | Claim a welcome dispatch before sending (returns `claimed`)                |
 | POST   | `/api/v1/day1-welcome-claim-release`             | Release a welcome claim after a failed send (returns `released`)           |
 | GET    | `/api/v1/organon-ingestion/candidates`           | Placed articles to send to the knowledge graph, one per canonical URL      |
+| GET    | `/api/v1/organon-ingestion/sends`                | Articles sent in a time window, with the text that was sent                |
 | POST   | `/api/v1/organon-ingestion/sends`                | Record which tickers an article was sent for, and its job                  |
 | POST   | `/api/v1/organon-ingestion/retries`              | Claim failed jobs for a single retry (returns `claimedJobIds`)             |
 | GET    | `/api/v1/delivery-run`                           | List delivery diagnostic runs (filters optional)                           |
@@ -479,12 +480,13 @@ await dataApiClient.tickerDiscoveryRecord.create({
 What the ingestion agent sends to the knowledge graph in Organon, and what it already sent. Only analyzed articles go: an article is a candidate once article-analysis placed it in a section for at least one ticker.
 
 - `GET /api/v1/organon-ingestion/candidates?sendFrom=&lookbackDays=&take=` returns placed articles collected since `sendFrom`, the cutover, whose first placement falls within the last `lookbackDays` (default 7). One article is often several `data_source` rows, one per ticker plus a curated row, so candidates are grouped by canonical URL. Each candidate names every ticker its rows are placed for, carries the body of the row that has one, and lists the tickers it was already sent for in `sentTickerSymbols`. An article already sent for every ticker it is placed for is left out, so a new placement makes it a candidate again. At most `take` (default 200) are returned, oldest placement first.
+- `GET /api/v1/organon-ingestion/sends?sentAfter=&sentBefore=&take=` returns the sends whose `sentAt` is at or after `sentAfter` and before `sentBefore`, oldest first, at most `take` (default 200, up to 500). Each has its tickers, job id and time, with the title, snippet and body of the placed row that has a body, the same row the candidates read. The text is `null` when no placed row is left. The agent's evidence check reads it.
 - `POST /api/v1/organon-ingestion/sends` records, per canonical URL, the tickers an article was sent for, its Organon job id and when. Sending again replaces the row and clears an earlier retry.
 - `POST /api/v1/organon-ingestion/retries` claims failed jobs for a retry. A job is claimed only when it is still an article's latest job and was never retried, so each failure is retried at most once. The answer lists the claimed ids in `claimedJobIds`.
 
 ### Knowledge extraction (`/api/v1/knowledge/*`)
 
-Storage for the per-issuer knowledge base, read and written by the `knowledge-ingestion` agent.
+Storage for the per-issuer knowledge base. The `knowledge-ingestion` agent read and wrote it until 2.0.0. Nothing calls these endpoints now, and they are removed with the tables.
 
 - `GET /api/v1/knowledge/extraction-candidates` — one issuer's profile parties, the relation-kind registry's vocabulary, and the articles no extraction has read yet, with a `watermark` for the next run. With no `since`, the batch resumes from the newest watermark left by a run that finished successfully, and failed runs are ignored, otherwise the articles a half-finished batch never reached would be skipped for good. `fromStart=true` ignores the watermark for a deliberate rebuild. Only articles carrying a Placement for that issuer are returned: an article the issuer's own pipeline rejected says nothing about its market.
 - `POST /api/v1/knowledge/extraction-seed` — creates the relation-kind registry and the entities the issuer's Ticker Profile names, with their `competes_with` and `regulates` relations. Idempotent, and marked `profile` so curated input is never mistaken for an article's claim.
