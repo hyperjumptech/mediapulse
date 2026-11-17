@@ -20,7 +20,12 @@ export type OrganonIngestionDb = Pick<
 const DAY_MS = 86_400_000;
 export const CANONICAL_URL_BATCH_SIZE = 1_000;
 
-const placedSection = { not: null } satisfies Prisma.StringNullableFilter;
+const placedForSubscribedTicker = {
+  section: { not: null },
+  ticker: {
+    userTickers: { some: { enabled: true, user: { enabled: true } } },
+  },
+} satisfies Prisma.DataSourceTickerSectionWhereInput;
 
 const placementSelect = {
   sectionScore: true,
@@ -134,7 +139,7 @@ const candidatesForBatch = async (
   const [placements, sends] = await Promise.all([
     db.dataSourceTickerSection.findMany({
       where: {
-        section: placedSection,
+        ...placedForSubscribedTicker,
         dataSource: { canonicalUrl: { in: [...canonicalUrls] } },
       },
       select: placementSelect,
@@ -173,7 +178,7 @@ export const listOrganonIngestionCandidates = async (
 ): Promise<GetOrganonIngestionCandidatesResponse> => {
   const recentPlacements = await db.dataSourceTickerSection.findMany({
     where: {
-      section: placedSection,
+      ...placedForSubscribedTicker,
       createdAt: { gte: new Date(now.getTime() - query.lookbackDays * DAY_MS) },
       dataSource: { createdAt: { gte: new Date(query.sendFrom) } },
     },
@@ -267,7 +272,7 @@ export const listOrganonIngestionSends = async (
 
   const placements = await db.dataSourceTickerSection.findMany({
     where: {
-      section: placedSection,
+      ...placedForSubscribedTicker,
       dataSource: {
         canonicalUrl: {
           in: uniqueInOrder(sends.map((send) => send.canonicalUrl)),

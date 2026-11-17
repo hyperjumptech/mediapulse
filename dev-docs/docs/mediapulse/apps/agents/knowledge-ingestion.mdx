@@ -8,7 +8,7 @@ icon: Network
 
 The knowledge-ingestion agent sends each analyzed article to the MediaPulse knowledge graph in Organon. Organon's Ingestion model reads the article against the Concepts and adds what it states: the parties and how they relate, events, corporate actions, figures and regulations, each tied by an annotation to the sentence it came from and the tickers the article was placed for.
 
-Only analyzed data goes. An article is sent once article-analysis has placed it in a section for at least one ticker. Articles that were never analyzed, and articles analysis rejected, are never sent.
+Only analyzed data goes, and only for tickers someone reads. An article is sent once article-analysis has placed it in a section for at least one ticker with an active subscription: an enabled subscription from an enabled user, the rule delivery uses. Its header names only those tickers. Articles that were never analyzed, articles analysis rejected, and placements for tickers without subscribers are never sent.
 
 The contract it follows is the Organon developer page **How to ingest an article** (`how-to-ingest-articles`) in the MediaPulse project.
 
