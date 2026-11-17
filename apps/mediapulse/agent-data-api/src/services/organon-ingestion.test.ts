@@ -49,6 +49,13 @@ const placement = (overrides: {
   },
 });
 
+const placedForSubscribedTicker = {
+  section: { not: null },
+  ticker: {
+    userTickers: { some: { enabled: true, user: { enabled: true } } },
+  },
+};
+
 const createDb = ({
   recentUrls,
   placements,
@@ -97,13 +104,36 @@ describe("listOrganonIngestionCandidates", () => {
     expect(placementFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          section: { not: null },
+          ...placedForSubscribedTicker,
           createdAt: { gte: new Date("2026-11-10T03:00:00.000Z") },
           dataSource: { createdAt: { gte: new Date(SEND_FROM) } },
         },
       }),
     );
     expect(sendFindMany).not.toHaveBeenCalled();
+  });
+
+  it("reads an article's tickers only from placements for tickers someone is subscribed to", async () => {
+    const { db, placementFindMany } = createDb({
+      recentUrls: [ARTICLE_URL],
+      placements: [placement({ dataSourceId: "ds-mapb", ticker: MAPB })],
+    });
+
+    await listOrganonIngestionCandidates(
+      db,
+      { sendFrom: SEND_FROM, lookbackDays: 7, take: 200 },
+      NOW,
+    );
+
+    expect(placementFindMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: {
+          ...placedForSubscribedTicker,
+          dataSource: { canonicalUrl: { in: [ARTICLE_URL] } },
+        },
+      }),
+    );
   });
 
   it("joins every row of one article into a single candidate naming each placed ticker", async () => {
@@ -316,7 +346,7 @@ describe("listOrganonIngestionSends", () => {
     expect(placementFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          section: { not: null },
+          ...placedForSubscribedTicker,
           dataSource: { canonicalUrl: { in: [ARTICLE_URL] } },
         },
       }),
