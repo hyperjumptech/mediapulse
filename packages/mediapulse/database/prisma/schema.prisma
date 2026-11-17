@@ -165,7 +165,23 @@ model DataSourceTickerSection {
   @@unique([dataSourceId, tickerId])
   @@index([tickerId, section, analyzedAt])
   @@index([articleAnalysisRunId])
+  @@index([createdAt])
   @@map("data_source_ticker_section")
+}
+
+model OrganonArticleSend {
+  id               String    @id @default(uuid())
+  canonicalUrl     String    @unique @map("canonical_url")
+  tickerSymbols    String[]  @map("ticker_symbols")
+  organonJobId     String    @map("organon_job_id")
+  sentAt           DateTime  @map("sent_at")
+  failureRetriedAt DateTime? @map("failure_retried_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@index([organonJobId])
+  @@index([sentAt])
+  @@map("organon_article_send")
 }
 
 /// Negative cache for URLs that recently failed terminally during data collection.

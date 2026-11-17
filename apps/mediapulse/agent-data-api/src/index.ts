@@ -90,6 +90,11 @@ import {
   postDay1WelcomeHandler,
 } from "./routes/day1-welcome.js";
 import {
+  getOrganonIngestionCandidatesHandler,
+  postOrganonIngestionRetriesHandler,
+  postOrganonIngestionSendsHandler,
+} from "./routes/organon-ingestion.js";
+import {
   postUserRegistrationRegisterHandler,
   postUserRegistrationConfirmHandler,
   getUserRegistrationUnsubscribeHandler,
@@ -276,6 +281,15 @@ const routeHandlers = {
   },
   day1WelcomeClaimRelease: {
     post: postDay1WelcomeClaimReleaseHandler,
+  },
+  organonIngestionCandidates: {
+    get: getOrganonIngestionCandidatesHandler,
+  },
+  organonIngestionSends: {
+    post: postOrganonIngestionSendsHandler,
+  },
+  organonIngestionRetries: {
+    post: postOrganonIngestionRetriesHandler,
   },
   queryAnalysis: {
     get: getQueryAnalysis,
