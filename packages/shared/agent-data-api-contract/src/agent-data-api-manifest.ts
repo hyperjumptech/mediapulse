@@ -124,6 +124,14 @@ import {
   postDay1WelcomeResponseSchema,
 } from "./day1-welcome.js";
 import {
+  getOrganonIngestionCandidatesQuerySchema,
+  getOrganonIngestionCandidatesResponseSchema,
+  postOrganonIngestionRetriesBodySchema,
+  postOrganonIngestionRetriesResponseSchema,
+  postOrganonIngestionSendsBodySchema,
+  postOrganonIngestionSendsResponseSchema,
+} from "./organon-ingestion.js";
+import {
   dataCollectionRunQuerySchema,
   getDataCollectionRunResponseSchema,
   postDataCollectionRunBodySchema,
@@ -883,6 +891,55 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: day1WelcomeClaimBodySchema,
         response: postDay1WelcomeClaimReleaseResponseSchema,
+      },
+    },
+  },
+
+  organonIngestionCandidates: {
+    v1: {
+      pathSegment: "/organon-ingestion/candidates",
+      get: {
+        query: getOrganonIngestionCandidatesQuerySchema,
+        response: getOrganonIngestionCandidatesResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/organon-ingestion/candidates",
+      get: {
+        query: getOrganonIngestionCandidatesQuerySchema,
+        response: getOrganonIngestionCandidatesResponseSchema,
+      },
+    },
+  },
+  organonIngestionSends: {
+    v1: {
+      pathSegment: "/organon-ingestion/sends",
+      post: {
+        body: postOrganonIngestionSendsBodySchema,
+        response: postOrganonIngestionSendsResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/organon-ingestion/sends",
+      post: {
+        body: postOrganonIngestionSendsBodySchema,
+        response: postOrganonIngestionSendsResponseSchema,
+      },
+    },
+  },
+  organonIngestionRetries: {
+    v1: {
+      pathSegment: "/organon-ingestion/retries",
+      post: {
+        body: postOrganonIngestionRetriesBodySchema,
+        response: postOrganonIngestionRetriesResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/organon-ingestion/retries",
+      post: {
+        body: postOrganonIngestionRetriesBodySchema,
+        response: postOrganonIngestionRetriesResponseSchema,
       },
     },
   },

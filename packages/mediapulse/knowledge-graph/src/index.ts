@@ -4,6 +4,18 @@ export {
   type ListedCompany,
 } from "./listed-companies";
 export {
+  ARTICLE_CLASS_IRIS,
+  buildIngestionRequest,
+  createOrganonIngestionClient,
+  isRegistrableDomain,
+  type FailedIngestionJob,
+  type FailedIngestionJobsPage,
+  type IngestionArticle,
+  type IngestionRequest,
+  type OrganonIngestionClient,
+  type OrganonIngestionClientOptions,
+} from "./organon-ingestion-client";
+export {
   MAX_SPARQL_QUERY_LENGTH,
   createOrganonSparqlClient,
   type OrganonSparqlClientOptions,

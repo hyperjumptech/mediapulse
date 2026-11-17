@@ -48,6 +48,9 @@ Agents should not call these HTTP paths directly. In agent code, use `@workspace
 | POST   | `/api/v1/day1-welcome`                           | Record that the welcome was sent (with the Resend id)                      |
 | POST   | `/api/v1/day1-welcome-claim`                     | Claim a welcome dispatch before sending (returns `claimed`)                |
 | POST   | `/api/v1/day1-welcome-claim-release`             | Release a welcome claim after a failed send (returns `released`)           |
+| GET    | `/api/v1/organon-ingestion/candidates`           | Placed articles to send to the knowledge graph, one per canonical URL      |
+| POST   | `/api/v1/organon-ingestion/sends`                | Record which tickers an article was sent for, and its job                  |
+| POST   | `/api/v1/organon-ingestion/retries`              | Claim failed jobs for a single retry (returns `claimedJobIds`)             |
 | GET    | `/api/v1/delivery-run`                           | List delivery diagnostic runs (filters optional)                           |
 | POST   | `/api/v1/delivery-run`                           | Persist one delivery run + recipient outcomes                              |
 | GET    | `/api/v1/content-generation-runs`                | List content-generation diagnostic runs (filters optional)                 |
@@ -470,6 +473,14 @@ await dataApiClient.tickerDiscoveryRecord.create({
   ttlSeconds: 86_400,
 });
 ```
+
+### Knowledge graph ingestion (`/api/v1/organon-ingestion/*`)
+
+What the ingestion agent sends to the knowledge graph in Organon, and what it already sent. Only analyzed articles go: an article is a candidate once article-analysis placed it in a section for at least one ticker.
+
+- `GET /api/v1/organon-ingestion/candidates?sendFrom=&lookbackDays=&take=` returns placed articles collected since `sendFrom`, the cutover, whose first placement falls within the last `lookbackDays` (default 7). One article is often several `data_source` rows, one per ticker plus a curated row, so candidates are grouped by canonical URL. Each candidate names every ticker its rows are placed for, carries the body of the row that has one, and lists the tickers it was already sent for in `sentTickerSymbols`. An article already sent for every ticker it is placed for is left out, so a new placement makes it a candidate again. At most `take` (default 200) are returned, oldest placement first.
+- `POST /api/v1/organon-ingestion/sends` records, per canonical URL, the tickers an article was sent for, its Organon job id and when. Sending again replaces the row and clears an earlier retry.
+- `POST /api/v1/organon-ingestion/retries` claims failed jobs for a retry. A job is claimed only when it is still an article's latest job and was never retried, so each failure is retried at most once. The answer lists the claimed ids in `claimedJobIds`.
 
 ### Knowledge extraction (`/api/v1/knowledge/*`)
 
