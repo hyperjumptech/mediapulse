@@ -97,6 +97,21 @@ export {
 } from "./host-error-tracker";
 
 export { resolveDeadUrls, type LookupDeadUrls } from "./resolve-dead-urls";
+
+export {
+  fetchSourceBodies,
+  type FetchSourceBodiesConfig,
+  type FetchSourceBodiesDeps,
+  type FetchSourceBodiesResult,
+  type RequestedFetchSource,
+} from "./fetch-source-bodies";
+
+export {
+  newsletterExclusionOf,
+  withoutNewsletterExclusions,
+} from "./newsletter-excluded-url";
+
+export { compareSourcesForRanking } from "./rank-sources";
 export {
   publisherAuthoritySchema,
   type PublisherAuthorityConfig,

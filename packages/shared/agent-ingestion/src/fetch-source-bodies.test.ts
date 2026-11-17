@@ -1,24 +1,27 @@
 /** @vitest-environment node */
 import { describe, expect, it, vi } from "vitest";
 
-import type {
-  WebFetchOutcome,
-  WebSearchResult,
-} from "@workspace/agent-ingestion";
-
-import { ContentGenerationConfigSchema } from "./config-schema.js";
+import { fetchProviderEntrySchema } from "./fetch-providers/schemas";
 import {
   acceptablePublishedDate,
   MAX_BACKFILL_AGE_DAYS,
   fetchSourceBodies,
+  type FetchSourceBodiesConfig,
   type RequestedFetchSource,
-} from "./fetch-source-bodies.js";
+} from "./fetch-source-bodies";
+import type { WebFetchOutcome, WebSearchResult } from "./web-fetch";
 
-const makeConfig = (overrides?: Record<string, unknown>) =>
-  ContentGenerationConfigSchema.parse({
-    model: { apiKey: "sk-test", model: "gpt-4o" },
-    ...overrides,
-  });
+const makeConfig = (
+  overrides?: Partial<FetchSourceBodiesConfig>,
+): FetchSourceBodiesConfig => ({
+  maxFetches: 18,
+  providers: [
+    fetchProviderEntrySchema.parse({ provider: "serper", apiKey: "test-key" }),
+  ],
+  deadUrlCache: { enabled: true, skipLookupBatchSize: 50 },
+  hostErrorBreaker: { enabled: true, minAttempts: 5, errorRateThreshold: 0.5 },
+  ...overrides,
+});
 
 const successOutcome = (
   url: string,
@@ -69,7 +72,7 @@ describe("fetchSourceBodies", () => {
     expect(persistFetchedContent).not.toHaveBeenCalled();
   });
 
-  it("caps requests at maxFetchesPerRun, keeping the highest sectionScore", async () => {
+  it("caps requests at maxFetches, keeping the highest sectionScore", async () => {
     const requested: RequestedFetchSource[] = [
       {
         dataSourceId: "ds-low",
@@ -103,7 +106,7 @@ describe("fetchSourceBodies", () => {
 
     const result = await fetchSourceBodies(
       requested,
-      makeConfig({ maxFetchesPerRun: 2 }),
+      makeConfig({ maxFetches: 2 }),
       { tickerId: "ticker-1" },
       {
         persistFetchedContent,
@@ -148,7 +151,7 @@ describe("fetchSourceBodies", () => {
 
     await fetchSourceBodies(
       requested,
-      makeConfig({ maxFetchesPerRun: 1 }),
+      makeConfig({ maxFetches: 1 }),
       { tickerId: "ticker-1" },
       {
         persistFetchedContent: vi.fn().mockResolvedValue({ updatedCount: 1 }),

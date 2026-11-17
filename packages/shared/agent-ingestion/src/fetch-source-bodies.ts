@@ -1,19 +1,3 @@
-import {
-  buildDeadUrlRecords,
-  expandFetchProviderEntries,
-  extractPublishedDate,
-  HostErrorTracker,
-  hostFromUrl,
-  isFutureDated,
-  performWebFetch,
-  resolveDeadUrls,
-  runQualityGate,
-  type LookupDeadUrls,
-  type QualityDropForDeadUrl,
-  type WebFetchFailure,
-  type WebFetchLogger,
-  type WebSearchResult,
-} from "@workspace/agent-ingestion";
 import type {
   FetchEventStatus,
   PostContentGenerationFetchedContentBody,
@@ -21,9 +5,39 @@ import type {
 } from "@workspace/agent-data-api-contract";
 import { publisherNameFromSiteMetadata } from "@workspace/utils";
 
-import type { ResolvedContentGenerationConfig } from "./config-schema.js";
-import { fetchUrlFor } from "./lib/fetch-url-rewrites.js";
-import { compareSourcesForRanking } from "./lib/rank-sources.js";
+import { runQualityGate } from "./content-quality-gate";
+import { extractPublishedDate } from "./date-extractor";
+import {
+  expandFetchProviderEntries,
+  type FetchProviderEntry,
+} from "./fetch-providers/schemas";
+import { fetchUrlFor } from "./fetch-url-rewrites";
+import { isFutureDated } from "./freshness-gate";
+import {
+  buildDeadUrlRecords,
+  HostErrorTracker,
+  hostFromUrl,
+  type QualityDropForDeadUrl,
+} from "./host-error-tracker";
+import { compareSourcesForRanking } from "./rank-sources";
+import { resolveDeadUrls, type LookupDeadUrls } from "./resolve-dead-urls";
+import {
+  performWebFetch,
+  type WebFetchFailure,
+  type WebFetchLogger,
+  type WebSearchResult,
+} from "./web-fetch";
+
+export type FetchSourceBodiesConfig = {
+  maxFetches: number;
+  providers: readonly FetchProviderEntry[];
+  deadUrlCache: { enabled: boolean; skipLookupBatchSize: number };
+  hostErrorBreaker: {
+    enabled: boolean;
+    minAttempts: number;
+    errorRateThreshold: number;
+  };
+};
 
 /**
  * Longest a backfilled publication date may precede the run before it is read as prose rather than
@@ -170,7 +184,7 @@ const applyFetchCap = (
 
 export async function fetchSourceBodies(
   requested: readonly RequestedFetchSource[],
-  config: ResolvedContentGenerationConfig,
+  config: FetchSourceBodiesConfig,
   context: { tickerId: string; logger?: WebFetchLogger },
   deps: FetchSourceBodiesDeps,
 ): Promise<FetchSourceBodiesResult> {
@@ -187,7 +201,7 @@ export async function fetchSourceBodies(
   const performFetch = deps.performWebFetchFn ?? performWebFetch;
   const gate = deps.runQualityGateFn ?? runQualityGate;
 
-  const capped = applyFetchCap(requested, config.maxFetchesPerRun);
+  const capped = applyFetchCap(requested, config.maxFetches);
   counters.droppedByCap = requested.length - capped.length;
 
   const byUrl = new Map<string, RequestedFetchSource>();
@@ -199,7 +213,7 @@ export async function fetchSourceBodies(
 
   let candidates = [...byUrl.values()];
 
-  const deadUrlCache = config.resilience.deadUrlCache;
+  const deadUrlCache = config.deadUrlCache;
   if (deadUrlCache.enabled && deps.lookupDeadUrls) {
     const deadUrls = await resolveDeadUrls(
       context.tickerId,
@@ -214,9 +228,7 @@ export async function fetchSourceBodies(
     }
   }
 
-  const hostErrorTracker = new HostErrorTracker(
-    config.resilience.hostErrorBreaker,
-  );
+  const hostErrorTracker = new HostErrorTracker(config.hostErrorBreaker);
   candidates = candidates.filter(
     (source) => !hostErrorTracker.isSkipped(hostFromUrl(source.url)),
   );
@@ -237,7 +249,7 @@ export async function fetchSourceBodies(
   }));
 
   const fetchDeps = {
-    config: { providers: expandFetchProviderEntries(config.fetch.providers) },
+    config: { providers: expandFetchProviderEntries(config.providers) },
     ...(log ? { logger: log } : {}),
     hostErrorTracker,
   };
