@@ -65,6 +65,10 @@ const TARGET_SPECS: Readonly<
     input: "env.agents.knowledge-ingestion.example",
     output: "src/agents-knowledge-ingestion.ts",
   },
+  "agents.organon-ingestion": {
+    input: "env.agents.organon-ingestion.example",
+    output: "src/agents-organon-ingestion.ts",
+  },
 };
 
 /**

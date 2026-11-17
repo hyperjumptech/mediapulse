@@ -37,7 +37,8 @@
     "eval:section-placement": "tsx scripts/eval-section-placement.mjs",
     "eval:summarizer": "tsx scripts/eval-summarizer.mjs",
     "spike:fore-kb": "tsx scripts/kb-extract-entities.mjs",
-    "bench:kb-extraction": "tsx scripts/bench-kb-extraction.mjs"
+    "bench:kb-extraction": "tsx scripts/bench-kb-extraction.mjs",
+    "dev:agent-organon-ingestion": "turbo dev --filter=@mediapulse/organon-ingestion"
   },
   "devDependencies": {
     "@opentelemetry/api": "^1.9.0",

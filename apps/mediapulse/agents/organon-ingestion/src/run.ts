@@ -1,0 +1,198 @@
+import { env } from "@mediapulse/env/agents-organon-ingestion";
+import {
+  buildIngestionRequest,
+  createOrganonIngestionClient,
+} from "@mediapulse/knowledge-graph";
+import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
+import type { OrganonIngestionCandidate } from "@workspace/agent-data-api-contract";
+import { fetchSourceBodies, pMap } from "@workspace/agent-ingestion";
+import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
+import { logger } from "@workspace/logger";
+
+import type { OrganonIngestionConfig } from "./config-schema.js";
+import { fetchMissingBodies } from "./lib/fetch-missing-bodies.js";
+import { createPublisherResolver } from "./lib/publisher-resolver.js";
+import { sweepFailedJobs, type SweepResult } from "./lib/sweep-failed-jobs.js";
+
+export type Input = { limit?: number };
+export type Config = OrganonIngestionConfig;
+
+export type RunDependencies = {
+  createDataApi?: typeof createAgentDataApiClient;
+  createIngestionClient?: typeof createOrganonIngestionClient;
+  fetchBodies?: typeof fetchSourceBodies;
+  now?: () => Date;
+};
+
+export const MAX_REPORTED_FAILURES = 10;
+
+type SendFailure = { canonicalUrl: string; message: string };
+
+const describeError = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+const publisherDomainOf = (candidate: OrganonIngestionCandidate): string =>
+  candidate.registrableDomain ??
+  new URL(candidate.canonicalUrl).hostname.replace(/^www\./, "");
+
+const tickerSymbolsOf = (candidate: OrganonIngestionCandidate): string[] =>
+  candidate.tickers.map((ticker) => ticker.symbol);
+
+export const createRunHandler =
+  ({
+    createDataApi = createAgentDataApiClient,
+    createIngestionClient = createOrganonIngestionClient,
+    fetchBodies = fetchSourceBodies,
+    now = () => new Date(),
+  }: RunDependencies = {}) =>
+  async ({
+    input,
+    config,
+    token,
+  }: AgentRunContext<Input, Config>): Promise<AgentRunResult> => {
+    const dataApi = createDataApi({
+      baseUrl: env.AGENT_DATA_API_URL,
+      version: "v1",
+      token,
+    });
+    const take = Math.min(
+      input.limit ?? config.maxSendsPerRun,
+      config.maxSendsPerRun,
+    );
+    const { candidates } = await dataApi.organonIngestionCandidates.get({
+      sendFrom: new Date(config.sendFrom).toISOString(),
+      lookbackDays: config.lookbackDays,
+      take,
+    });
+
+    if (config.dryRun) {
+      return {
+        success: true,
+        message: `Dry run: ${candidates.length} articles would be sent`,
+        details: {
+          dryRun: true,
+          candidates: candidates.map((candidate) => ({
+            canonicalUrl: candidate.canonicalUrl,
+            tickers: tickerSymbolsOf(candidate),
+            sentTickerSymbols: candidate.sentTickerSymbols,
+            hasBody: candidate.content !== null,
+          })),
+        },
+      };
+    }
+
+    const organon = createIngestionClient({
+      baseUrl: config.organonUrl,
+      apiKey: config.organonApiKey,
+      timeoutMs: config.requestTimeoutMs,
+    });
+
+    const bodies = await fetchMissingBodies({
+      candidates,
+      config: {
+        maxFetches: config.maxFetchesPerRun,
+        providers: config.fetch.providers,
+        deadUrlCache: config.resilience.deadUrlCache,
+        hostErrorBreaker: config.resilience.hostErrorBreaker,
+      },
+      dataApi,
+      fetchBodies,
+      logger,
+    });
+
+    const resolvePublisher = createPublisherResolver(organon);
+    const sendable = candidates.filter((candidate) =>
+      bodies.bodies.has(candidate.canonicalUrl),
+    );
+    const failures: SendFailure[] = [];
+    let sent = 0;
+    const createdPublisherDomains = new Set<string>();
+    const failedPublisherDomains = new Set<string>();
+
+    await pMap(
+      sendable,
+      async (candidate) => {
+        try {
+          const registrableDomain = publisherDomainOf(candidate);
+          const publisher = await resolvePublisher(registrableDomain);
+          if (publisher.created) {
+            createdPublisherDomains.add(registrableDomain);
+          }
+          if (
+            publisher.error &&
+            !failedPublisherDomains.has(registrableDomain)
+          ) {
+            failedPublisherDomains.add(registrableDomain);
+            logger.warn(
+              { registrableDomain, err: publisher.error },
+              "Sending without a publisher",
+            );
+          }
+          const request = buildIngestionRequest({
+            canonicalUrl: candidate.canonicalUrl,
+            url: candidate.url,
+            title: candidate.title,
+            description: candidate.description,
+            content: bodies.bodies.get(candidate.canonicalUrl) ?? "",
+            publishedAt: candidate.publishedAt,
+            registrableDomain,
+            publisherIri: publisher.iri,
+            tickers: candidate.tickers,
+          });
+          const { jobId } = await organon.startIngestion(request);
+          await dataApi.organonIngestionSends.create([
+            {
+              canonicalUrl: candidate.canonicalUrl,
+              tickerSymbols: tickerSymbolsOf(candidate),
+              organonJobId: jobId,
+              sentAt: now().toISOString(),
+            },
+          ]);
+          sent += 1;
+        } catch (error) {
+          failures.push({
+            canonicalUrl: candidate.canonicalUrl,
+            message: describeError(error),
+          });
+        }
+      },
+      { concurrency: config.concurrency },
+    );
+
+    let sweep: SweepResult | { error: string };
+    try {
+      sweep = await sweepFailedJobs({ organon, dataApi });
+    } catch (error) {
+      logger.error({ err: error }, "Failed-job sweep failed");
+      sweep = { error: describeError(error) };
+    }
+
+    const noBody =
+      candidates.length - sendable.length - bodies.excludedUrls.length;
+    const details = {
+      candidates: candidates.length,
+      fetchAttempted: bodies.fetchAttempted,
+      fetched: bodies.fetched,
+      excludedHost: bodies.excludedUrls.length,
+      noBody,
+      sent,
+      failed: failures.length,
+      publishersCreated: createdPublisherDomains.size,
+      publisherFailures: failedPublisherDomains.size,
+      sweep,
+      failures: failures.slice(0, MAX_REPORTED_FAILURES),
+    };
+    const message = `Sent ${sent} of ${candidates.length} articles to Organon`;
+
+    if (sendable.length > 0 && sent === 0) {
+      return {
+        success: false,
+        message: `${message}: every send failed`,
+        details,
+      };
+    }
+
+    return { success: true, message, details };
+  };
+
+export const run = createRunHandler();

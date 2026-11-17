@@ -18,7 +18,8 @@
     "build:agents.article-analysis": "MEDIAPULSE_ENV_BUILD_TARGETS=agents.article-analysis tsx scripts/execute-mediapulse-env-build.ts",
     "build:agents.page-collection": "MEDIAPULSE_ENV_BUILD_TARGETS=agents.page-collection tsx scripts/execute-mediapulse-env-build.ts",
     "build:agents.newsletter-feedback": "MEDIAPULSE_ENV_BUILD_TARGETS=agents.newsletter-feedback tsx scripts/execute-mediapulse-env-build.ts",
-    "build:agents.knowledge-ingestion": "MEDIAPULSE_ENV_BUILD_TARGETS=agents.knowledge-ingestion tsx scripts/execute-mediapulse-env-build.ts"
+    "build:agents.knowledge-ingestion": "MEDIAPULSE_ENV_BUILD_TARGETS=agents.knowledge-ingestion tsx scripts/execute-mediapulse-env-build.ts",
+    "build:agents.organon-ingestion": "MEDIAPULSE_ENV_BUILD_TARGETS=agents.organon-ingestion tsx scripts/execute-mediapulse-env-build.ts"
   },
   "exports": {
     "./agents-content-generation": {
@@ -68,6 +69,10 @@
     "./agents-newsletter-feedback": {
       "types": "./src/agents-newsletter-feedback.ts",
       "default": "./src/agents-newsletter-feedback.ts"
+    },
+    "./agents-organon-ingestion": {
+      "types": "./src/agents-organon-ingestion.ts",
+      "default": "./src/agents-organon-ingestion.ts"
     }
   },
   "dependencies": {

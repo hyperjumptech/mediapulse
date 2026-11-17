@@ -129,6 +129,19 @@ services:
       - agent-data-api
     restart: unless-stopped
 
+  agent-organon-ingestion:
+    build:
+      context: .
+      dockerfile: apps/mediapulse/agents/organon-ingestion/Dockerfile
+    ports:
+      - 4014:4014
+    env_file:
+      - packages/mediapulse/env/.env
+    depends_on:
+      - agent-auth-api
+      - agent-data-api
+    restart: unless-stopped
+
   agent-content-generation:
     build:
       context: .

@@ -36,6 +36,7 @@ export const ALL_DOCKER_SERVICES = [
   "agent-newsletter-feedback",
   "page-collection",
   "knowledge-ingestion",
+  "organon-ingestion",
 ];
 
 /** App deploy workflow services. */
@@ -61,6 +62,7 @@ export const AGENT_DEPLOY_SERVICES = [
   "agent-newsletter-feedback",
   "page-collection",
   "knowledge-ingestion",
+  "organon-ingestion",
 ];
 
 /** @type {Record<string, ServiceDeployConfig>} */
@@ -161,6 +163,12 @@ export const SERVICE_DEPLOY_CONFIG = {
     image: "agent-knowledge-ingestion",
     webhook_env: "DEPLOY_WEBHOOK_AGENT_KNOWLEDGE_INGESTION",
   },
+  "organon-ingestion": {
+    service: "organon-ingestion",
+    dockerfile: "apps/mediapulse/agents/organon-ingestion/Dockerfile",
+    image: "agent-organon-ingestion",
+    webhook_env: "DEPLOY_WEBHOOK_AGENT_ORGANON_INGESTION",
+  },
   "page-collection": {
     service: "page-collection",
     dockerfile: "apps/mediapulse/agents/page-collection/Dockerfile",
@@ -254,6 +262,7 @@ export const mapFilePathToDockerService = (filePath) => {
     ],
     ["apps/mediapulse/agents/page-collection/", "page-collection"],
     ["apps/mediapulse/agents/knowledge-ingestion/", "knowledge-ingestion"],
+    ["apps/mediapulse/agents/organon-ingestion/", "organon-ingestion"],
   ];
 
   for (const [prefix, service] of rules) {

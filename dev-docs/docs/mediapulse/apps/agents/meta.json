@@ -12,6 +12,7 @@
     "data-collection",
     "delivery",
     "newsletter-feedback",
+    "organon-ingestion",
     "generate-agent"
   ],
   "defaultOpen": true
