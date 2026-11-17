@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { agentDataApiPathname } from "./agent-data-api-manifest.js";
 import {
   getOrganonIngestionCandidatesQuerySchema,
+  getOrganonIngestionSendsQuerySchema,
   ORGANON_INGESTION_RETRIES_MAX,
   ORGANON_INGESTION_SENDS_MAX,
   postOrganonIngestionRetriesBodySchema,
@@ -27,6 +28,26 @@ describe("organon ingestion contract", () => {
     expect(agentDataApiPathname("v2", "organonIngestionRetries")).toBe(
       "/api/v2/organon-ingestion/retries",
     );
+  });
+
+  it("reads the sent-articles window and take from query strings", () => {
+    expect(
+      getOrganonIngestionSendsQuerySchema.parse({
+        sentAfter: "2026-11-16T03:00:00.000Z",
+        sentBefore: "2026-11-17T03:00:00.000Z",
+      }),
+    ).toEqual({
+      sentAfter: "2026-11-16T03:00:00.000Z",
+      sentBefore: "2026-11-17T03:00:00.000Z",
+      take: 200,
+    });
+    expect(
+      getOrganonIngestionSendsQuerySchema.safeParse({
+        sentAfter: "2026-11-16T03:00:00.000Z",
+        sentBefore: "2026-11-17T03:00:00.000Z",
+        take: "501",
+      }).success,
+    ).toBe(false);
   });
 
   it("reads the lookback and take from query strings, with their defaults", () => {

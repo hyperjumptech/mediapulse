@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("@mediapulse/database", () => ({ prisma: {} }));
 vi.mock("../services/organon-ingestion.js", () => ({
   listOrganonIngestionCandidates: vi.fn(),
+  listOrganonIngestionSends: vi.fn(),
   recordOrganonIngestionSends: vi.fn(),
   claimOrganonIngestionRetries: vi.fn(),
 }));
@@ -12,10 +13,12 @@ vi.mock("../services/organon-ingestion.js", () => ({
 import {
   claimOrganonIngestionRetries,
   listOrganonIngestionCandidates,
+  listOrganonIngestionSends,
   recordOrganonIngestionSends,
 } from "../services/organon-ingestion.js";
 import {
   getOrganonIngestionCandidatesHandler,
+  getOrganonIngestionSendsHandler,
   postOrganonIngestionRetriesHandler,
   postOrganonIngestionSendsHandler,
 } from "./organon-ingestion.js";
@@ -23,6 +26,7 @@ import {
 const createApp = () => {
   const app = new Hono();
   app.get("/candidates", getOrganonIngestionCandidatesHandler);
+  app.get("/sends", getOrganonIngestionSendsHandler);
   app.post("/sends", postOrganonIngestionSendsHandler);
   app.post("/retries", postOrganonIngestionRetriesHandler);
 
@@ -63,6 +67,31 @@ describe("organon ingestion routes", () => {
 
     expect(response.status).toBe(400);
     expect(listOrganonIngestionCandidates).not.toHaveBeenCalled();
+  });
+
+  it("lists the sends in a window with the default take", async () => {
+    vi.mocked(listOrganonIngestionSends).mockResolvedValue({ sends: [] });
+
+    const response = await createApp().request(
+      "http://localhost/sends?sentAfter=2026-11-16T03:00:00.000Z&sentBefore=2026-11-17T03:00:00.000Z",
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ sends: [] });
+    expect(listOrganonIngestionSends).toHaveBeenCalledWith(expect.anything(), {
+      sentAfter: "2026-11-16T03:00:00.000Z",
+      sentBefore: "2026-11-17T03:00:00.000Z",
+      take: 200,
+    });
+  });
+
+  it("rejects a sends request without its window", async () => {
+    const response = await createApp().request(
+      "http://localhost/sends?sentAfter=2026-11-16T03:00:00.000Z",
+    );
+
+    expect(response.status).toBe(400);
+    expect(listOrganonIngestionSends).not.toHaveBeenCalled();
   });
 
   it("records sends", async () => {

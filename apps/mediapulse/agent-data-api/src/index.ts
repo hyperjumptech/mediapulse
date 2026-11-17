@@ -91,6 +91,7 @@ import {
 } from "./routes/day1-welcome.js";
 import {
   getOrganonIngestionCandidatesHandler,
+  getOrganonIngestionSendsHandler,
   postOrganonIngestionRetriesHandler,
   postOrganonIngestionSendsHandler,
 } from "./routes/organon-ingestion.js";
@@ -286,6 +287,7 @@ const routeHandlers = {
     get: getOrganonIngestionCandidatesHandler,
   },
   organonIngestionSends: {
+    get: getOrganonIngestionSendsHandler,
     post: postOrganonIngestionSendsHandler,
   },
   organonIngestionRetries: {

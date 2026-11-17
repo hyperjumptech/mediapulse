@@ -785,12 +785,12 @@ importers:
 
   apps/mediapulse/agents/knowledge-ingestion:
     dependencies:
-      '@ai-sdk/openai':
-        specifier: ^3.0.49
-        version: 3.0.49(zod@4.6.5)
       '@mediapulse/env':
         specifier: workspace:*
         version: link:../../../../packages/mediapulse/env
+      '@mediapulse/knowledge-graph':
+        specifier: workspace:*
+        version: link:../../../../packages/mediapulse/knowledge-graph
       '@workspace/agent-auth-client':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-auth-client
@@ -800,6 +800,9 @@ importers:
       '@workspace/agent-data-api-contract':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-data-api-contract
+      '@workspace/agent-ingestion':
+        specifier: workspace:*
+        version: link:../../../../packages/shared/agent-ingestion
       '@workspace/agent-runtime':
         specifier: workspace:*
         version: link:../../../../packages/shared/agent-runtime
@@ -809,12 +812,6 @@ importers:
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../../../packages/shared/logger
-      '@workspace/utils':
-        specifier: workspace:*
-        version: link:../../../../packages/shared/utils
-      ai:
-        specifier: ^6.0.142
-        version: 6.0.142(zod@4.6.5)
       hono:
         specifier: 'catalog:'
         version: 4.11.9

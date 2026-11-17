@@ -1,252 +1,225 @@
-import { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
-import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
-import { logger } from "@workspace/logger";
 import { env } from "@mediapulse/env/agents-knowledge-ingestion";
+import {
+  buildIngestionRequest,
+  createOrganonIngestionClient,
+} from "@mediapulse/knowledge-graph";
+import { createAgentDataApiClient } from "@workspace/agent-data-api-client";
+import type { OrganonIngestionCandidate } from "@workspace/agent-data-api-contract";
+import { fetchSourceBodies, pMap } from "@workspace/agent-ingestion";
+import type { AgentRunContext, AgentRunResult } from "@workspace/agent-runtime";
+import { logger } from "@workspace/logger";
 
-import { Input, Config } from "./index.js";
-import { AGENT_VERSION } from "./agent-version.js";
-import { chunked } from "./lib/chunked.js";
-import { extractEntityRelations } from "./lib/extract-entity-relations.js";
-import { createKnowledgeStore } from "./lib/store.js";
+import type { OrganonIngestionConfig } from "./config-schema.js";
+import {
+  checkEvidence,
+  type EvidenceCheckResult,
+} from "./lib/check-evidence.js";
+import { fetchMissingBodies } from "./lib/fetch-missing-bodies.js";
+import { createPublisherResolver } from "./lib/publisher-resolver.js";
+import { sweepFailedJobs, type SweepResult } from "./lib/sweep-failed-jobs.js";
 
-const FAILURE_SAMPLE_LIMIT = 3;
+export type Input = { limit?: number };
+export type Config = OrganonIngestionConfig;
 
-export const run = async ({
-  input,
-  config,
-  token,
-  hermesCorrelation,
-}: AgentRunContext<Input, Config>): Promise<AgentRunResult> => {
-  const startedAt = new Date();
-  const client = createAgentDataApiClient({
-    baseUrl: env.AGENT_DATA_API_URL,
-    version: "v1",
+export type RunDependencies = {
+  createDataApi?: typeof createAgentDataApiClient;
+  createIngestionClient?: typeof createOrganonIngestionClient;
+  fetchBodies?: typeof fetchSourceBodies;
+  now?: () => Date;
+};
+
+export const MAX_REPORTED_FAILURES = 10;
+
+const HOUR_MS = 3_600_000;
+
+type SendFailure = { canonicalUrl: string; message: string };
+
+const describeError = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+const publisherDomainOf = (candidate: OrganonIngestionCandidate): string =>
+  candidate.registrableDomain ??
+  new URL(candidate.canonicalUrl).hostname.replace(/^www\./, "");
+
+const tickerSymbolsOf = (candidate: OrganonIngestionCandidate): string[] =>
+  candidate.tickers.map((ticker) => ticker.symbol);
+
+export const createRunHandler =
+  ({
+    createDataApi = createAgentDataApiClient,
+    createIngestionClient = createOrganonIngestionClient,
+    fetchBodies = fetchSourceBodies,
+    now = () => new Date(),
+  }: RunDependencies = {}) =>
+  async ({
+    input,
+    config,
     token,
-  });
-  const store = createKnowledgeStore(client);
+  }: AgentRunContext<Input, Config>): Promise<AgentRunResult> => {
+    const startedAt = now();
+    const dataApi = createDataApi({
+      baseUrl: env.AGENT_DATA_API_URL,
+      version: "v1",
+      token,
+    });
+    const take = Math.min(
+      input.limit ?? config.maxSendsPerRun,
+      config.maxSendsPerRun,
+    );
+    const { candidates } = await dataApi.organonIngestionCandidates.get({
+      sendFrom: new Date(config.sendFrom).toISOString(),
+      lookbackDays: config.lookbackDays,
+      take,
+    });
 
-  const candidates = await store.candidates({
-    tickerId: input.tickerId,
-    since: input.since,
-    fromStart: input.fromStart ?? false,
-    take: input.limit,
-  });
-
-  const dryRun = config.dryRun ?? false;
-  const { extractionRunId } = dryRun
-    ? { extractionRunId: null }
-    : await client.knowledgeExtractionRuns.create({
-        tickerId: input.tickerId,
-        scheduleExecutionId: hermesCorrelation?.scheduleExecutionId ?? null,
-        agentVersion: AGENT_VERSION,
-        startedAt: startedAt.toISOString(),
-      });
-
-  const tally = {
-    considered: 0,
-    skippedNoCandidates: 0,
-    entitiesCreated: 0,
-    relationsOpened: 0,
-    relationsConfirmed: 0,
-    mentionsWritten: 0,
-    kindsCreated: 0,
-    rejectedSpanNotInText: 0,
-    rejectedNameNotInText: 0,
-    rejectedPerson: 0,
-  };
-  const failures: { dataSourceId: string; message: string }[] = [];
-
-  try {
-    if (!dryRun) {
-      const seeded = await store.seedFromProfile({
-        tickerId: input.tickerId,
-        extractionRunId,
-      });
-      tally.entitiesCreated += seeded.entitiesCreated;
-      tally.relationsOpened += seeded.relationsOpened;
-      tally.relationsConfirmed += seeded.relationsConfirmed;
+    if (config.dryRun) {
+      return {
+        success: true,
+        message: `Dry run: ${candidates.length} articles would be sent`,
+        details: {
+          dryRun: true,
+          candidates: candidates.map((candidate) => ({
+            canonicalUrl: candidate.canonicalUrl,
+            tickers: tickerSymbolsOf(candidate),
+            sentTickerSymbols: candidate.sentTickerSymbols,
+            hasBody: candidate.content !== null,
+          })),
+        },
+      };
     }
 
-    // Articles are read in parallel and applied in order, a chunk at a time.
-    //
-    // Reading is the slow half: a production article takes around 34 seconds, so 100 read one at a
-    // time outlive the invoke-agent job timeout. Applying stays sequential, because resolving an
-    // entity is find-then-create and two articles naming the same new party at once would race for
-    // its unique key. Chunking keeps writes landing as the run proceeds, so a run cut short still
-    // keeps what it had read.
-    for (const chunk of chunked(candidates.articles, config.readConcurrency)) {
-      const readings = await Promise.all(
-        chunk.map(async (article) => {
-          try {
-            const outcome = await extractEntityRelations({
-              article: {
-                title: article.title,
-                description: article.description,
-                content: article.content,
-              },
-              issuer: {
-                symbol: candidates.issuer.symbol,
-                name: candidates.issuer.name,
-                aliases: candidates.issuer.aliases,
-                companyOverview: candidates.issuer.companyOverview,
-              },
-              candidates: candidates.parties.map((party) => ({
-                name: party.name,
-                aliases: party.aliases,
-                kind: party.kind === "regulator" ? "regulator" : "company",
-              })),
-              relationKindLabels: candidates.relationKindLabels,
-              llm: {
-                model: config.model,
-                apiKey: config.apiKey,
-                baseUrl: config.baseUrl,
-              },
-            });
+    const organon = createIngestionClient({
+      baseUrl: config.organonUrl,
+      apiKey: config.organonApiKey,
+      timeoutMs: config.requestTimeoutMs,
+    });
 
-            return { article, outcome, message: null as string | null };
-          } catch (error) {
-            return {
-              article,
-              outcome: null,
-              message: error instanceof Error ? error.message : String(error),
-            };
-          }
-        }),
-      );
+    const bodies = await fetchMissingBodies({
+      candidates,
+      config: {
+        maxFetches: config.maxFetchesPerRun,
+        providers: config.fetch.providers,
+        deadUrlCache: config.resilience.deadUrlCache,
+        hostErrorBreaker: config.resilience.hostErrorBreaker,
+      },
+      dataApi,
+      fetchBodies,
+      logger,
+    });
 
-      for (const reading of readings) {
-        tally.considered += 1;
+    const resolvePublisher = createPublisherResolver(organon);
+    const sendable = candidates.filter((candidate) =>
+      bodies.bodies.has(candidate.canonicalUrl),
+    );
+    const failures: SendFailure[] = [];
+    let sent = 0;
+    const createdPublisherDomains = new Set<string>();
+    const failedPublisherDomains = new Set<string>();
 
-        if (reading.message !== null) {
-          failures.push({
-            dataSourceId: reading.article.dataSourceId,
-            message: reading.message,
-          });
-
-          continue;
-        }
-        const outcome = reading.outcome;
-        if (outcome === null) {
-          continue;
-        }
-        if (!outcome.modelCalled) {
-          tally.skippedNoCandidates += 1;
-
-          continue;
-        }
-        for (const rejection of outcome.rejections) {
-          if (rejection.reason === "span-not-in-text") {
-            tally.rejectedSpanNotInText += 1;
-          }
-          if (rejection.reason === "name-not-in-text") {
-            tally.rejectedNameNotInText += 1;
-          }
-          if (rejection.reason === "person") {
-            tally.rejectedPerson += 1;
-          }
-        }
-        if (dryRun) {
-          continue;
-        }
-
+    await pMap(
+      sendable,
+      async (candidate) => {
         try {
-          const written = await store.apply({
-            tickerId: input.tickerId,
-            dataSourceId: reading.article.dataSourceId,
-            extractionRunId,
-            entities: outcome.entities,
-            relations: outcome.relations.map((relation) => ({
-              subject: relation.subject,
-              kind: relation.kind,
-              object: relation.object,
-              evidenceSpan: relation.evidenceSpan,
-            })),
-          });
-          tally.entitiesCreated += written.entitiesCreated;
-          tally.mentionsWritten += written.mentionsWritten;
-          tally.relationsOpened += written.relationsOpened;
-          tally.relationsConfirmed += written.relationsConfirmed;
-          tally.kindsCreated += written.kindsCreated;
-          // The server re-runs every guard, so a claim it refused is counted here too.
-          for (const rejection of written.rejected) {
-            if (rejection.reason === "span-not-in-text") {
-              tally.rejectedSpanNotInText += 1;
-            }
-            if (rejection.reason === "name-not-in-text") {
-              tally.rejectedNameNotInText += 1;
-            }
-            if (rejection.reason === "person") {
-              tally.rejectedPerson += 1;
-            }
+          const registrableDomain = publisherDomainOf(candidate);
+          const publisher = await resolvePublisher(registrableDomain);
+          if (publisher.created) {
+            createdPublisherDomains.add(registrableDomain);
           }
+          if (
+            publisher.error &&
+            !failedPublisherDomains.has(registrableDomain)
+          ) {
+            failedPublisherDomains.add(registrableDomain);
+            logger.warn(
+              { registrableDomain, err: publisher.error },
+              "Sending without a publisher",
+            );
+          }
+          const request = buildIngestionRequest({
+            canonicalUrl: candidate.canonicalUrl,
+            url: candidate.url,
+            title: candidate.title,
+            description: candidate.description,
+            content: bodies.bodies.get(candidate.canonicalUrl) ?? "",
+            publishedAt: candidate.publishedAt,
+            registrableDomain,
+            publisherIri: publisher.iri,
+            tickers: candidate.tickers,
+          });
+          const { jobId } = await organon.startIngestion(request);
+          await dataApi.organonIngestionSends.create([
+            {
+              canonicalUrl: candidate.canonicalUrl,
+              tickerSymbols: tickerSymbolsOf(candidate),
+              organonJobId: jobId,
+              sentAt: now().toISOString(),
+            },
+          ]);
+          sent += 1;
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
           failures.push({
-            dataSourceId: reading.article.dataSourceId,
-            message,
+            canonicalUrl: candidate.canonicalUrl,
+            message: describeError(error),
           });
         }
+      },
+      { concurrency: config.concurrency },
+    );
+
+    let sweep: SweepResult | { error: string };
+    try {
+      sweep = await sweepFailedJobs({ organon, dataApi });
+    } catch (error) {
+      logger.error({ err: error }, "Failed-job sweep failed");
+      sweep = { error: describeError(error) };
+    }
+
+    let evidence: EvidenceCheckResult | { error: string } | null = null;
+    if (config.evidenceCheck.enabled) {
+      try {
+        evidence = await checkEvidence({
+          organon,
+          dataApi,
+          sentAfter: new Date(
+            startedAt.getTime() - config.evidenceCheck.lookbackHours * HOUR_MS,
+          ),
+          sentBefore: startedAt,
+          take: config.evidenceCheck.maxArticles,
+          concurrency: config.concurrency,
+        });
+      } catch (error) {
+        logger.error({ err: error }, "Evidence check failed");
+        evidence = { error: describeError(error) };
       }
     }
 
-    const completedAt = new Date();
-    const stopReason =
-      failures.length === 0
-        ? null
-        : `${failures.length} of ${tally.considered} articles failed: ${failures
-            .slice(0, FAILURE_SAMPLE_LIMIT)
-            .map((failure) => `${failure.dataSourceId}: ${failure.message}`)
-            .join("; ")}`;
-
-    if (extractionRunId !== null) {
-      await client.knowledgeExtractionRunsFinish.create({
-        extractionRunId,
-        status: failures.length === 0 ? "success" : "partial_success",
-        completedAt: completedAt.toISOString(),
-        watermarkAt: candidates.watermark,
-        ...tally,
-        stopReason,
-        durationMs: completedAt.getTime() - startedAt.getTime(),
-      });
-    }
-
-    if (failures.length > 0) {
-      logger.warn(
-        { failures, tickerId: input.tickerId },
-        "--> knowledge-ingestion skipped articles that failed",
-      );
-    }
-
-    logger.info(
-      { ...tally, failed: failures.length, watermark: candidates.watermark },
-      "--> knowledge-ingestion complete",
-    );
-
-    return {
-      success: true,
-      message: `Read ${String(tally.considered)} articles for ${candidates.issuer.symbol}`,
-      details: {
-        ...tally,
-        failed: failures.length,
-        watermark: candidates.watermark,
-        resumedFrom: candidates.resumedFrom,
-      },
+    const noBody =
+      candidates.length - sendable.length - bodies.excludedUrls.length;
+    const details = {
+      candidates: candidates.length,
+      fetchAttempted: bodies.fetchAttempted,
+      fetched: bodies.fetched,
+      excludedHost: bodies.excludedUrls.length,
+      noBody,
+      sent,
+      failed: failures.length,
+      publishersCreated: createdPublisherDomains.size,
+      publisherFailures: failedPublisherDomains.size,
+      sweep,
+      evidence,
+      failures: failures.slice(0, MAX_REPORTED_FAILURES),
     };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (extractionRunId !== null) {
-      await client.knowledgeExtractionRunsFinish.create({
-        extractionRunId,
-        status: "failed",
-        completedAt: new Date().toISOString(),
-        watermarkAt: null,
-        ...tally,
-        stopReason: message,
-        durationMs: Date.now() - startedAt.getTime(),
-      });
+    const message = `Sent ${sent} of ${candidates.length} articles to the knowledge graph`;
+
+    if (sendable.length > 0 && sent === 0) {
+      return {
+        success: false,
+        message: `${message}: every send failed`,
+        details,
+      };
     }
 
-    throw error;
-  }
-};
+    return { success: true, message, details };
+  };
+
+export const run = createRunHandler();

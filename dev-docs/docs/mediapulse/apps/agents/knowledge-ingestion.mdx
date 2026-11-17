@@ -1,0 +1,91 @@
+---
+title: Knowledge Ingestion Agent
+description: Agent that sends each analyzed article to the knowledge graph in Organon as one ingestion job
+icon: Network
+---
+
+## Purpose
+
+The knowledge-ingestion agent sends each analyzed article to the MediaPulse knowledge graph in Organon. Organon's Ingestion model reads the article against the Concepts and adds what it states: the parties and how they relate, events, corporate actions, figures and regulations, each tied by an annotation to the sentence it came from and the tickers the article was placed for.
+
+Only analyzed data goes. An article is sent once article-analysis has placed it in a section for at least one ticker. Articles that were never analyzed, and articles analysis rejected, are never sent.
+
+The contract it follows is the Organon developer page **How to ingest an article** (`how-to-ingest-articles`) in the MediaPulse project.
+
+Before 2.0.0 the agent read each issuer's articles with its own model and wrote the per-issuer knowledge base in the `knowledge_*` tables. It no longer writes them. The tables, their endpoints and the dashboard pages stay readable until they are removed. See [Knowledge Base](/mediapulse/knowledge-base/knowledge-base).
+
+## How it works
+
+1. **Reads candidates** from agent-data-api `GET /organon-ingestion/candidates`: placed articles collected since `sendFrom`, first placed within `lookbackDays`, one per canonical URL with every ticker it is placed for. An article already sent for all of its tickers is left out, so a placement for a new ticker brings it back.
+2. **Fetches missing bodies** with the shared fetch (`fetchSourceBodies` in `@workspace/agent-ingestion`), the same provider chain, quality gate, dead-URL cache and host breaker content generation uses. Fetched bodies are saved back to the article and each attempt is recorded as a fetch event with reason `knowledge_ingestion`. An article on an excluded host, or whose body still can't be fetched, is not sent. It stays a candidate until its first placement is older than `lookbackDays`.
+3. **Sends each article** as one Organon ingestion job (`POST /api/v1/ingestion`), built by `buildIngestionRequest` in `@mediapulse/knowledge-graph`. Its publisher is found by registrable domain, or created, once per run. When that lookup fails, the article is sent without a publisher. Each send is recorded with `POST /organon-ingestion/sends`: the tickers it was sent for, the job id and the time.
+4. **Sweeps failed jobs.** It lists the key's failed jobs (up to three pages), claims them with `POST /organon-ingestion/retries`, and retries the claimed ones. A job is claimed only while it is the article's latest job and was never retried, so each failure is retried once.
+5. **Checks the evidence** of the articles sent in the `evidenceCheck.lookbackHours` before the run started, read with `GET /organon-ingestion/sends`. With a nightly run, each article is checked once, the night after it was sent. The check only reports. It never changes Organon or Mediapulse.
+
+It never waits for a job. Organon queues it, retries temporary errors and replaces older jobs when the same article is sent again.
+
+## Evidence check
+
+For each article sent in the window, the agent reads the job. A job still queued or running is skipped as `unfinished`, a failed or cancelled job as `failed`, and a job Organon no longer has (finished jobs are deleted after 30 days) as `jobNotFound`. For a completed job it runs two SPARQL queries on the article's Data source, found by canonical URL:
+
+- its annotations, each with the tickers it is filed under and its quotes (inferred answers, like `article-evidence.rq` on the developer page)
+- the figures the article added that no annotation names, found through the article's versions in the history graph (`?provenance=true`)
+
+It counts four problems:
+
+| Problem | What it means |
+| --- | --- |
+| `quotesNotInText` | A quote isn't in the title, snippet and body Mediapulse sent, after whitespace and case are folded (`spanIsInText` in the agent). The model paraphrased instead of copying. |
+| `annotationsMissingTicker` | An annotation is filed under fewer tickers than the article was sent for. |
+| `figuresWithoutAnnotation` | A figure the article added has no annotation tying it to a sentence. |
+| `withoutAnnotations` | A completed job left the article with no annotations at all. |
+
+When Mediapulse no longer has the article's body, its quotes aren't checked and it is counted under `quotesUnchecked`. An error on one article is counted under `errors` and the check moves on.
+
+## Hermes config (`config` JSON)
+
+Only `sendFrom` is required. The rest have defaults, and secrets come from Hermes variables.
+
+```json
+{
+  "config": {
+    "sendFrom": "2026-11-20T00:00:00+07:00",
+    "organonUrl": "{{ORGANON_API_URL}}",
+    "organonApiKey": "{{ORGANON_INGESTION_API_KEY}}"
+  }
+}
+```
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `sendFrom` | required | The cutover. Only articles collected at or after it are sent. |
+| `organonUrl` | `{{ORGANON_API_URL}}` | Organon's base URL. |
+| `organonApiKey` | `{{ORGANON_INGESTION_API_KEY}}` | A write key used only for ingestion. Jobs are visible only to the key that started them, so the sweep needs the same key. |
+| `lookbackDays` | 7 | How far back a first placement may be. |
+| `maxSendsPerRun` | 200 | Most articles sent in a run. Each send costs a model call. |
+| `maxFetchesPerRun` | 200 | Most missing bodies fetched in a run. |
+| `concurrency` | 2 | Articles sent at the same time. |
+| `requestTimeoutMs` | 30000 | Timeout for each Organon call. |
+| `fetch.providers` | Serper, then Diffbot | Fetch chain for missing bodies, from `{{SERPER_API_KEY}}` and `{{DIFFBOT_API_KEY}}`. |
+| `evidenceCheck.enabled` | true | Run the evidence check after sending. |
+| `evidenceCheck.lookbackHours` | 24 | How far back before the run a send may be for its article to be checked. |
+| `evidenceCheck.maxArticles` | 200 | Most articles checked in a run. Each one is a job read and two SPARQL queries. |
+| `dryRun` | false | Read the candidates and report them, without fetching, sending or recording anything. |
+
+The input is `{}`, or `{ "limit": n }` to send fewer than `maxSendsPerRun` in one run.
+
+## Run result
+
+`details` reports `candidates`, `fetchAttempted`, `fetched`, `excludedHost`, `noBody`, `sent`, `failed`, `publishersCreated`, `publisherFailures`, the `sweep` counts (`failedJobs`, `claimed`, `retried`, `notRetryable`, or `error`), `evidence`, and up to ten `failures` with the canonical URL and the error.
+
+`evidence` is `null` when the check is turned off, `{ "error": "..." }` when it couldn't run, and otherwise has `sends`, `checked`, the `skipped` counts, `quotesUnchecked`, and each problem as a `count` with up to five `examples`.
+
+The run fails only when there were articles to send and every send failed. Problems the evidence check finds never fail it.
+
+## Cost and capacity
+
+A read costs about $0.009 with the Ingestion model Organon uses today, plus a fetch for a missing body. Organon reads two jobs at a time across the whole server, so keep `maxSendsPerRun` near its default until the real nightly counts are known.
+
+## Hermes setup
+
+See [Hermes setup](/mediapulse/hermes-setup#knowledge-graph-ingestion).

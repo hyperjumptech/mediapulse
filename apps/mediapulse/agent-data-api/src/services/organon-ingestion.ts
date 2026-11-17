@@ -2,6 +2,8 @@ import type { Prisma, PrismaClient } from "@mediapulse/database";
 import type {
   GetOrganonIngestionCandidatesQuery,
   GetOrganonIngestionCandidatesResponse,
+  GetOrganonIngestionSendsQuery,
+  GetOrganonIngestionSendsResponse,
   OrganonIngestionCandidate,
   OrganonIngestionTicker,
   PostOrganonIngestionRetriesBody,
@@ -40,6 +42,21 @@ const placementSelect = {
 type Placement = Prisma.DataSourceTickerSectionGetPayload<{
   select: typeof placementSelect;
 }>;
+
+const sentArticleSelect = {
+  dataSource: {
+    select: {
+      canonicalUrl: true,
+      title: true,
+      description: true,
+      content: true,
+    },
+  },
+} satisfies Prisma.DataSourceTickerSectionSelect;
+
+type SentArticleSource = Prisma.DataSourceTickerSectionGetPayload<{
+  select: typeof sentArticleSelect;
+}>["dataSource"];
 
 const uniqueInOrder = <Value>(values: readonly Value[]): Value[] => [
   ...new Set(values),
@@ -198,6 +215,81 @@ export const recordOrganonIngestionSends = async (
   }
 
   return { recordedCount: sends.length };
+};
+
+const groupByCanonicalUrl = <Row extends { canonicalUrl: string }>(
+  rows: readonly Row[],
+): Map<string, Row[]> => {
+  const byUrl = new Map<string, Row[]>();
+  for (const row of rows) {
+    byUrl.set(row.canonicalUrl, [...(byUrl.get(row.canonicalUrl) ?? []), row]);
+  }
+
+  return byUrl;
+};
+
+const sentArticleText = (sources: readonly SentArticleSource[]) => {
+  const article =
+    sources.find((source) => source.content !== null) ?? sources[0];
+
+  return {
+    title: article?.title ?? null,
+    description:
+      article?.description ??
+      firstPresent(sources.map((source) => source.description)),
+    content: article?.content ?? null,
+  };
+};
+
+export const listOrganonIngestionSends = async (
+  db: OrganonIngestionDb,
+  query: GetOrganonIngestionSendsQuery,
+): Promise<GetOrganonIngestionSendsResponse> => {
+  const sends = await db.organonArticleSend.findMany({
+    where: {
+      sentAt: {
+        gte: new Date(query.sentAfter),
+        lt: new Date(query.sentBefore),
+      },
+    },
+    select: {
+      canonicalUrl: true,
+      tickerSymbols: true,
+      organonJobId: true,
+      sentAt: true,
+    },
+    orderBy: { sentAt: "asc" },
+    take: query.take,
+  });
+  if (sends.length === 0) {
+    return { sends: [] };
+  }
+
+  const placements = await db.dataSourceTickerSection.findMany({
+    where: {
+      section: placedSection,
+      dataSource: {
+        canonicalUrl: {
+          in: uniqueInOrder(sends.map((send) => send.canonicalUrl)),
+        },
+      },
+    },
+    select: sentArticleSelect,
+    orderBy: { createdAt: "asc" },
+  });
+  const sourcesByUrl = groupByCanonicalUrl(
+    placements.map((placement) => placement.dataSource),
+  );
+
+  return {
+    sends: sends.map((send) => ({
+      canonicalUrl: send.canonicalUrl,
+      tickerSymbols: send.tickerSymbols,
+      organonJobId: send.organonJobId,
+      sentAt: send.sentAt.toISOString(),
+      ...sentArticleText(sourcesByUrl.get(send.canonicalUrl) ?? []),
+    })),
+  };
 };
 
 export const claimOrganonIngestionRetries = async (

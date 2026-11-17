@@ -12,16 +12,15 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^3.0.49",
     "@mediapulse/env": "workspace:*",
+    "@mediapulse/knowledge-graph": "workspace:*",
     "@workspace/agent-auth-client": "workspace:*",
     "@workspace/agent-data-api-client": "workspace:*",
     "@workspace/agent-data-api-contract": "workspace:*",
+    "@workspace/agent-ingestion": "workspace:*",
     "@workspace/agent-runtime": "workspace:*",
     "@workspace/agent-types": "workspace:*",
     "@workspace/logger": "workspace:*",
-    "@workspace/utils": "workspace:*",
-    "ai": "^6.0.142",
     "hono": "catalog:",
     "hono-pino": "catalog:",
     "zod": "catalog:"

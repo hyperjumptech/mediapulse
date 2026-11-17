@@ -126,6 +126,8 @@ import {
 import {
   getOrganonIngestionCandidatesQuerySchema,
   getOrganonIngestionCandidatesResponseSchema,
+  getOrganonIngestionSendsQuerySchema,
+  getOrganonIngestionSendsResponseSchema,
   postOrganonIngestionRetriesBodySchema,
   postOrganonIngestionRetriesResponseSchema,
   postOrganonIngestionSendsBodySchema,
@@ -914,6 +916,10 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
   organonIngestionSends: {
     v1: {
       pathSegment: "/organon-ingestion/sends",
+      get: {
+        query: getOrganonIngestionSendsQuerySchema,
+        response: getOrganonIngestionSendsResponseSchema,
+      },
       post: {
         body: postOrganonIngestionSendsBodySchema,
         response: postOrganonIngestionSendsResponseSchema,
@@ -921,6 +927,10 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
     },
     v2: {
       pathSegment: "/organon-ingestion/sends",
+      get: {
+        query: getOrganonIngestionSendsQuerySchema,
+        response: getOrganonIngestionSendsResponseSchema,
+      },
       post: {
         body: postOrganonIngestionSendsBodySchema,
         response: postOrganonIngestionSendsResponseSchema,
