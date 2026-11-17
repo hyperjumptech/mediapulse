@@ -44,17 +44,25 @@ When Mediapulse no longer has the article's body, its quotes aren't checked and 
 
 ## Hermes config (`config` JSON)
 
-Only `sendFrom` is required. The rest have defaults, and secrets come from Hermes variables.
+`sendFrom` is the only field the schema requires, but the stored config must also spell out every field whose default is a Hermes variable. Hermes fills `{{…}}` placeholders only in the config it stores. A default the agent applies itself reaches it as the literal text, so a config without `organonUrl` calls a URL that isn't one and every send fails.
 
 ```json
 {
   "config": {
-    "sendFrom": "2026-11-20T00:00:00+07:00",
     "organonUrl": "{{ORGANON_API_URL}}",
-    "organonApiKey": "{{ORGANON_INGESTION_API_KEY}}"
+    "organonApiKey": "{{ORGANON_INGESTION_API_KEY}}",
+    "sendFrom": "2026-11-16T00:00:00+07:00",
+    "fetch": {
+      "providers": [
+        { "provider": "serper", "apiKey": "{{SERPER_API_KEY}}" },
+        { "provider": "diffbot", "apiKey": "{{DIFFBOT_API_KEY}}" }
+      ]
+    }
   }
 }
 ```
+
+The other fields can be left out, because their defaults are plain values.
 
 | Field | Default | Meaning |
 | --- | --- | --- |
