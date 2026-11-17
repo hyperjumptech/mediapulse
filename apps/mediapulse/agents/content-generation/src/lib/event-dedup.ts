@@ -1,7 +1,7 @@
 import { NEWSLETTER_SECTION_IDS } from "@workspace/agent-data-api-contract";
+import { compareSourcesForRanking } from "@workspace/agent-ingestion";
 
 import type { SourceForGeneration } from "../types.js";
-import { compareSourcesForRanking } from "./rank-sources.js";
 import { sharesDistinctiveAnchor, stemIndonesian } from "./indonesian-stem.js";
 import { tokenize } from "./phrase-link-injector.js";
 import {

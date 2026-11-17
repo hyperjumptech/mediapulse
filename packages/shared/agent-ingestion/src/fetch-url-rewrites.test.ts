@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fetchUrlFor } from "./fetch-url-rewrites.js";
+import { fetchUrlFor } from "./fetch-url-rewrites";
 
 describe("fetchUrlFor", () => {
   it("fetches a TIMES Indonesia article through its AMP page", () => {

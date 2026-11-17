@@ -1,11 +1,13 @@
 import {
+  compareSourcesForRanking,
+  newsletterExclusionOf,
+} from "@workspace/agent-ingestion";
+import {
   MAX_ARTICLES_PER_SECTION,
   NEWSLETTER_SECTION_KEYS,
   type NewsletterSectionKey,
 } from "@workspace/email-templates/newsletter-document";
 
-import { newsletterExclusionOf } from "./lib/newsletter-excluded-url.js";
-import { compareSourcesForRanking } from "./lib/rank-sources.js";
 import type { SourceForGeneration } from "./types.js";
 
 /** Maps the camelCase section ids used upstream to the document's kebab-case keys. */

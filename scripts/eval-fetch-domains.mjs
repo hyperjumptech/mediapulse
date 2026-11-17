@@ -8,11 +8,11 @@ import {
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { newsletterExclusionOf } from "../apps/mediapulse/agents/content-generation/src/lib/newsletter-excluded-url.js";
 import { expandSourceUrl } from "../apps/mediapulse/agents/page-collection/src/utilities/expand-source-urls.js";
 import {
   RateLimiter,
   expandFetchProviderEntries,
+  newsletterExclusionOf,
   performWebFetch,
   runQualityGate,
 } from "../packages/shared/agent-ingestion/src/index.js";

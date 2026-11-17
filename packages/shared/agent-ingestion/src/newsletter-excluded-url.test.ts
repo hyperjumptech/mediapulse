@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   newsletterExclusionOf,
   withoutNewsletterExclusions,
-} from "./newsletter-excluded-url.js";
+} from "./newsletter-excluded-url";
 
 const GOOGLE_NEWS_LINK =
   "https://news.google.com/rss/articles/CBMirAFBVV95cUxPM294bDFIdHl6YUsxTVlWT21BQWRHN21ZTk9uZGlKMWhDamtwTXJf?oc=5";

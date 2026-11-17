@@ -33,14 +33,12 @@ import {
 } from "./triage-fetch-requests.js";
 import {
   fetchSourceBodies,
-  type FetchSourceBodiesResult,
-  type RequestedFetchSource,
-} from "./fetch-source-bodies.js";
-import { citedFigures } from "./lib/figures-grounded.js";
-import {
   newsletterExclusionOf,
   withoutNewsletterExclusions,
-} from "./lib/newsletter-excluded-url.js";
+  type FetchSourceBodiesResult,
+  type RequestedFetchSource,
+} from "@workspace/agent-ingestion";
+import { citedFigures } from "./lib/figures-grounded.js";
 import { selectSectionCoverageSeeds } from "./lib/section-coverage-seeds.js";
 import { pickPublisherName } from "./pick-publisher-name.js";
 import { resolvePublisherNames } from "./resolve-publisher-names.js";
@@ -589,7 +587,12 @@ export async function run({
     try {
       fetchResult = await fetchSourceBodies(
         requestedFetchSources,
-        resolvedConfig,
+        {
+          maxFetches: resolvedConfig.maxFetchesPerRun,
+          providers: resolvedConfig.fetch.providers,
+          deadUrlCache: resolvedConfig.resilience.deadUrlCache,
+          hostErrorBreaker: resolvedConfig.resilience.hostErrorBreaker,
+        },
         { tickerId: input.tickerId, logger },
         {
           persistFetchedContent: (body) =>
