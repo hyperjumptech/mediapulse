@@ -6,7 +6,7 @@ icon: Network
 
 ## Purpose
 
-The knowledge-ingestion agent sends each analyzed article to the MediaPulse knowledge graph in Organon. Organon's Ingestion model reads the article against the Concepts and adds what it states: the parties and how they relate, events, corporate actions, figures and regulations, each tied by an annotation to the sentence it came from and the tickers the article was placed for.
+The knowledge-ingestion agent sends each analyzed article to the MediaPulse knowledge graph in Organon. Organon's Ingestion model reads the article against the Concepts and adds what it states: the parties and how they relate, events, corporate actions, figures and regulations, each tied by an article point to the sentence it came from and the tickers the article was placed for. A point (`mp:ArticlePoint`) holds the quote, the article it is from (`mp:inArticle`), the item it supports (`mp:about`) and the tickers (`mp:forTicker`).
 
 Only analyzed data goes, and only for tickers someone reads. An article is sent once article-analysis has placed it in a section for at least one ticker with an active subscription: an enabled subscription from an enabled user, the rule delivery uses. Its header names only those tickers. Articles that were never analyzed, articles analysis rejected, and placements for tickers without subscribers are never sent.
 
@@ -28,17 +28,17 @@ It never waits for a job. Organon queues it, retries temporary errors and replac
 
 For each article sent in the window, the agent reads the job. A job still queued or running is skipped as `unfinished`, a failed or cancelled job as `failed`, and a job Organon no longer has (finished jobs are deleted after 30 days) as `jobNotFound`. For a completed job it runs two SPARQL queries on the article's Data source, found by canonical URL:
 
-- its annotations, each with the tickers it is filed under and its quotes (inferred answers, like `article-evidence.rq` on the developer page)
-- the figures the article added that no annotation names, found through the article's versions in the history graph (`?provenance=true`)
+- its points, each with the tickers it is filed under and its quote (inferred answers, like `article-evidence.rq` on the developer page)
+- the figures the article added that no point is about, found through the article's versions in the history graph (`?provenance=true`)
 
 It counts four problems:
 
 | Problem | What it means |
 | --- | --- |
 | `quotesNotInText` | A quote isn't in the title, snippet and body Mediapulse sent, after whitespace and case are folded (`spanIsInText` in the agent). The model paraphrased instead of copying. |
-| `annotationsMissingTicker` | An annotation is filed under fewer tickers than the article was sent for. |
-| `figuresWithoutAnnotation` | A figure the article added has no annotation tying it to a sentence. |
-| `withoutAnnotations` | A completed job left the article with no annotations at all. |
+| `pointsMissingTicker` | A point is filed under fewer tickers than the article was sent for. |
+| `figuresWithoutPoint` | A figure the article added has no point tying it to a sentence. |
+| `withoutPoints` | A completed job left the article with no points at all. |
 
 When Mediapulse no longer has the article's body, its quotes aren't checked and it is counted under `quotesUnchecked`. An error on one article is counted under `errors` and the check moves on.
 

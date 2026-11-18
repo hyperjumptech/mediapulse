@@ -124,8 +124,8 @@ const setup = ({
     retryJob: vi.fn().mockResolvedValue("retried"),
     getJobStatus: vi.fn().mockResolvedValue("completed"),
     articleEvidence: vi.fn().mockResolvedValue({
-      annotations: [],
-      figuresWithoutAnnotation: [],
+      points: [],
+      figuresWithoutPoint: [],
     }),
   };
   const fetchBodies = vi.fn().mockResolvedValue(fetchResult);
@@ -435,7 +435,7 @@ describe("knowledge-ingestion run", () => {
     expect(result).toMatchObject({
       success: true,
       details: {
-        evidence: { sends: 1, checked: 1, withoutAnnotations: { count: 1 } },
+        evidence: { sends: 1, checked: 1, withoutPoints: { count: 1 } },
       },
     });
   });

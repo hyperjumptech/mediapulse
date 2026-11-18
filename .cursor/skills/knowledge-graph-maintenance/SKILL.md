@@ -36,9 +36,9 @@ Jobs are visible only to the key that started them. The MCP key is not the inges
 - `sweep`: failed jobs that were retried. `notRetryable` jobs need a look in the Organon dashboard.
 - `evidence`: the check on the articles sent in the day before the run.
   - `quotesNotInText`: the model paraphrased instead of copying.
-  - `annotationsMissingTicker`: an annotation isn't filed under every ticker the article was sent for.
-  - `figuresWithoutAnnotation`: a figure no sentence supports.
-  - `withoutAnnotations`: a completed job left the article with nothing. An article deleted by hand shows up here the next night. That's expected.
+  - `pointsMissingTicker`: a point isn't filed under every ticker the article was sent for.
+  - `figuresWithoutPoint`: a figure no sentence supports.
+  - `withoutPoints`: a completed job left the article with nothing. An article deleted by hand shows up here the next night. That's expected.
   - `skipped.unfinished`: jobs still queued or running when the check ran. The next night's window has moved past them, so they are never checked. Look at them by hand when the count is large.
 
 The evidence check can't see a fact tied to the wrong company when the quote and tickers are right. Always look at the articles in step 2 that the report doesn't flag, as well as the ones it does.
@@ -72,7 +72,20 @@ SELECT DISTINCT ?thing ?label ?class WHERE {
 }
 ```
 
-Annotations, targets, quotes and figures belong to the article and go when it goes. Everything else is shared: companies, people, places, periods, events, corporate actions and regulations. For each shared item, check with `get_instance` (stated values only) which values the article added.
+Its points, the sentences it was read from, are found through `mp:inArticle`, never only through the history. The points converted from the old annotations on 2026-11-18 were written by hand, so they aren't in the article's history.
+
+```sparql
+PREFIX mp: <https://mediapulse.hyperjump.tech/ontology#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?point ?label ?about ?quote WHERE {
+  ?point a mp:ArticlePoint ; mp:inArticle <source iri> .
+  OPTIONAL { ?point rdfs:label ?label }
+  OPTIONAL { ?point mp:about ?about }
+  OPTIONAL { ?point mp:quote ?quote }
+}
+```
+
+Points and figures belong to the article. Everything else is shared: companies, people, places, periods, events, corporate actions and regulations. For each shared item, check with `get_instance` (stated values only) which values the article added.
 
 To see whether another article also touched a shared item, count the sources behind its revisions. Run it with `includeProvenance: true` and `includeInferred: false`.
 
@@ -93,16 +106,16 @@ SELECT ?thing (COUNT(DISTINCT ?source) AS ?sources) (SAMPLE(?ref) AS ?referenced
 
 Name the cause first, then pick the fix. Get approval, apply it, and check with the queries from step 2.
 
-| Cause                                                                        | Sign                                                                                                                             | Fix                                                                                                                                                                                  |
-| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Wrong placement: the article is about another company with a similar name    | Figures in a currency the company doesn't report in, a foreign headquarters, an industry that doesn't match the ticker's profile | Delete the Data source. Then delete the shared items only this article created (one source, referenced only by each other), and clear the values it added to shared items that stay. |
-| Wrong link: the article is right but a party is linked to the wrong instance | A real company's facts on a different company                                                                                    | Remove the wrong values with `update_instance`. If the right instance is missing, create it, or leave it for the next read.                                                          |
-| Junk article: a price page, an outage report or a listing                    | Few or no annotations, quotes about something else                                                                               | Delete the Data source and the shared items only it created.                                                                                                                         |
-| Paraphrased quote                                                            | `quotesNotInText`                                                                                                                | Nothing to fix by hand. Sending the article again replaces its annotations. Record it for the eval.                                                                                  |
-| Missing ticker on an annotation                                              | `annotationsMissingTicker`                                                                                                       | Record it for the eval. It points at the Concepts or at the content header.                                                                                                          |
-| Duplicate party                                                              | Two instances for one company                                                                                                    | Ask the user. Link them with `link_instances` and `relation: "sameAs"`: both stay and reasoning shares their facts. Undo with `unlink_instances`.                                    |
+| Cause                                                                        | Sign                                                                                                                             | Fix                                                                                                                                                                                                             |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Wrong placement: the article is about another company with a similar name    | Figures in a currency the company doesn't report in, a foreign headquarters, an industry that doesn't match the ticker's profile | Delete the article's points, then the Data source. Then delete the shared items only this article created (one source, referenced only by each other), and clear the values it added to shared items that stay. |
+| Wrong link: the article is right but a party is linked to the wrong instance | A real company's facts on a different company                                                                                    | Remove the wrong values with `update_instance`. If the right instance is missing, create it, or leave it for the next read.                                                                                     |
+| Junk article: a price page, an outage report or a listing                    | Few or no points, quotes about something else                                                                                    | Delete the article's points, the Data source and the shared items only it created.                                                                                                                              |
+| Paraphrased quote                                                            | `quotesNotInText`                                                                                                                | Nothing to fix by hand. Sending the article again replaces the points it owns. Record it for the eval.                                                                                                          |
+| Missing ticker on a point                                                    | `pointsMissingTicker`                                                                                                            | Record it for the eval. It points at the Concepts or at the content header.                                                                                                                                     |
+| Duplicate party                                                              | Two instances for one company                                                                                                    | Ask the user. Link them with `link_instances` and `relation: "sameAs"`: both stay and reasoning shares their facts. Undo with `unlink_instances`.                                                               |
 
-Deleting a Data source answers with `removedCount`, the article's own items that went with it. Shared items stay until you delete them one by one.
+Delete an article's points before its Data source. Deleting an instance removes every link to it, so once the Data source is gone, a point it doesn't own loses its `mp:inArticle` and can't be found that way. Deleting a Data source answers with `removedCount`, the article's own items that went with it. Shared items stay until you delete them one by one.
 
 A deleted article stays recorded as sent in Mediapulse (`organon_article_send`), so it won't be sent again unless it's placed for a new ticker.
 
@@ -132,7 +145,7 @@ The eval is done by the agent running this skill, not by a script that sends art
    ```
 
 2. **Pick two sent articles per ticker** from `mediapulse.organon_article_send` whose `ticker_symbols` include the symbol. Take one with figures and one with relations or events, where the ticker has both. Prefer articles not used in an earlier pass.
-3. **Read both sides.** The article: title, description and content of the placed row with a body (`data_source` joined through `data_source_ticker_section`, `section IS NOT NULL`). The graph: the step 2 queries, plus each annotation's body, relation, other party and figure values.
+3. **Read both sides.** The article: title, description and content of the placed row with a body (`data_source` joined through `data_source_ticker_section`, `section IS NOT NULL`). The graph: the step 2 queries, plus each point's about item, relation, other party and figure values.
 4. **Judge every item** against the text:
    - `correct`
    - `wrong-company`: the fact is true, but of another party

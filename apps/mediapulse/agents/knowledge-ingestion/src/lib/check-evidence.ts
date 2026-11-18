@@ -18,15 +18,15 @@ export type EvidenceCheckResult = {
   checked: number;
   skipped: { unfinished: number; failed: number; jobNotFound: number };
   quotesUnchecked: number;
-  withoutAnnotations: Tally<{ canonicalUrl: string }>;
+  withoutPoints: Tally<{ canonicalUrl: string }>;
   quotesNotInText: Tally<{ canonicalUrl: string; quote: string }>;
-  figuresWithoutAnnotation: Tally<{
+  figuresWithoutPoint: Tally<{
     canonicalUrl: string;
     figure: string;
   }>;
-  annotationsMissingTicker: Tally<{
+  pointsMissingTicker: Tally<{
     canonicalUrl: string;
-    annotation: string;
+    point: string;
     missingTickerSymbols: string[];
   }>;
   errors: Tally<{ canonicalUrl: string; message: string }>;
@@ -57,37 +57,37 @@ const recordProblems = (
   evidence: ArticleEvidence,
 ): void => {
   const { canonicalUrl } = send;
-  if (evidence.annotations.length === 0) {
-    note(result.withoutAnnotations, { canonicalUrl });
+  if (evidence.points.length === 0) {
+    note(result.withoutPoints, { canonicalUrl });
   }
 
   const text = sentText(send);
   if (text === null) {
     result.quotesUnchecked += 1;
   }
-  for (const annotation of evidence.annotations) {
-    if (text !== null) {
-      for (const quote of annotation.quotes) {
-        if (!spanIsInText(text, quote)) {
-          note(result.quotesNotInText, { canonicalUrl, quote });
-        }
-      }
+  for (const point of evidence.points) {
+    if (
+      text !== null &&
+      point.quote !== null &&
+      !spanIsInText(text, point.quote)
+    ) {
+      note(result.quotesNotInText, { canonicalUrl, quote: point.quote });
     }
-    const filedUnder = new Set(annotation.tickerSymbols);
+    const filedUnder = new Set(point.tickerSymbols);
     const missingTickerSymbols = send.tickerSymbols.filter(
       (symbol) => !filedUnder.has(symbol),
     );
     if (missingTickerSymbols.length > 0) {
-      note(result.annotationsMissingTicker, {
+      note(result.pointsMissingTicker, {
         canonicalUrl,
-        annotation: annotation.iri,
+        point: point.iri,
         missingTickerSymbols,
       });
     }
   }
 
-  for (const figure of evidence.figuresWithoutAnnotation) {
-    note(result.figuresWithoutAnnotation, {
+  for (const figure of evidence.figuresWithoutPoint) {
+    note(result.figuresWithoutPoint, {
       canonicalUrl,
       figure: figure.label ?? figure.iri,
     });
@@ -119,10 +119,10 @@ export const checkEvidence = async ({
     checked: 0,
     skipped: { unfinished: 0, failed: 0, jobNotFound: 0 },
     quotesUnchecked: 0,
-    withoutAnnotations: emptyTally(),
+    withoutPoints: emptyTally(),
     quotesNotInText: emptyTally(),
-    figuresWithoutAnnotation: emptyTally(),
-    annotationsMissingTicker: emptyTally(),
+    figuresWithoutPoint: emptyTally(),
+    pointsMissingTicker: emptyTally(),
     errors: emptyTally(),
   };
 

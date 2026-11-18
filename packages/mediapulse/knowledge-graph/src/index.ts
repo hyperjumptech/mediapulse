@@ -8,7 +8,7 @@ export {
   buildIngestionRequest,
   createOrganonIngestionClient,
   isRegistrableDomain,
-  type ArticleAnnotation,
+  type ArticlePoint,
   type ArticleEvidence,
   type ArticleFigure,
   type FailedIngestionJob,
