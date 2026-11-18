@@ -7,7 +7,6 @@ import {
 
 const MP = "https://mediapulse.hyperjump.tech/ontology#";
 const DCTERMS = "http://purl.org/dc/terms/";
-const OA = "http://www.w3.org/ns/oa#";
 const ORG = "http://www.w3.org/ns/org#";
 const PROV = "http://www.w3.org/ns/prov#";
 const RDFS = "http://www.w3.org/2000/01/rdf-schema#";
@@ -21,9 +20,7 @@ const MAX_ERROR_BODY_LENGTH = 300;
 const REGISTRABLE_DOMAIN_PATTERN = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/;
 
 export const ARTICLE_CLASS_IRIS = [
-  `${OA}Annotation`,
-  `${OA}SpecificResource`,
-  `${OA}TextQuoteSelector`,
+  `${MP}ArticlePoint`,
   `${MP}ListedCompany`,
   `${MP}Company`,
   `${MP}Organization`,
@@ -86,17 +83,17 @@ export type IngestionJobStatus =
   | "failed"
   | "cancelled";
 
-export type ArticleAnnotation = {
+export type ArticlePoint = {
   iri: string;
   tickerSymbols: string[];
-  quotes: string[];
+  quote: string | null;
 };
 
 export type ArticleFigure = { iri: string; label: string | null };
 
 export type ArticleEvidence = {
-  annotations: ArticleAnnotation[];
-  figuresWithoutAnnotation: ArticleFigure[];
+  points: ArticlePoint[];
+  figuresWithoutPoint: ArticleFigure[];
 };
 
 export type OrganonIngestionClient = {
@@ -217,24 +214,21 @@ const articleSourcePattern = (canonicalUrl: string): string[] => [
   `  FILTER(STR(?url) = ${sparqlString(canonicalUrl)})`,
 ];
 
-export const articleAnnotationsQuery = (canonicalUrl: string): string =>
+export const articlePointsQuery = (canonicalUrl: string): string =>
   [
     `PREFIX mp: <${MP}>`,
-    `PREFIX oa: <${OA}>`,
-    "SELECT ?annotation ?ticker ?quote WHERE {",
+    "SELECT ?point ?ticker ?quote WHERE {",
     ...articleSourcePattern(canonicalUrl),
-    "  ?target oa:hasSource ?source .",
-    "  ?annotation oa:hasTarget ?target .",
-    "  OPTIONAL { ?annotation mp:forTicker/mp:ticker ?ticker }",
-    "  OPTIONAL { ?target oa:hasSelector/oa:exact ?quote }",
+    "  ?point a mp:ArticlePoint ; mp:inArticle ?source .",
+    "  OPTIONAL { ?point mp:forTicker/mp:ticker ?ticker }",
+    "  OPTIONAL { ?point mp:quote ?quote }",
     "}",
   ].join("\n");
 
-export const figuresWithoutAnnotationQuery = (canonicalUrl: string): string =>
+export const figuresWithoutPointQuery = (canonicalUrl: string): string =>
   [
     `PREFIX dcterms: <${DCTERMS}>`,
     `PREFIX mp: <${MP}>`,
-    `PREFIX oa: <${OA}>`,
     `PREFIX prov: <${PROV}>`,
     `PREFIX rdfs: <${RDFS}>`,
     "SELECT DISTINCT ?figure ?label WHERE {",
@@ -245,41 +239,38 @@ export const figuresWithoutAnnotationQuery = (canonicalUrl: string): string =>
     "  ?figure a mp:Measurement .",
     "  OPTIONAL { ?figure rdfs:label ?label }",
     "  FILTER NOT EXISTS {",
-    "    ?annotation oa:hasBody ?figure ;",
-    "      oa:hasTarget/oa:hasSource ?source .",
+    "    ?point a mp:ArticlePoint ; mp:about ?figure ; mp:inArticle ?source .",
     "  }",
     "}",
   ].join("\n");
 
-const toAnnotations = (
-  bindings: readonly SparqlBinding[],
-): ArticleAnnotation[] => {
+const toPoints = (bindings: readonly SparqlBinding[]): ArticlePoint[] => {
   const byIri = new Map<
     string,
-    { tickerSymbols: Set<string>; quotes: Set<string> }
+    { tickerSymbols: Set<string>; quote: string | null }
   >();
   for (const binding of bindings) {
-    const iri = binding.annotation?.value;
+    const iri = binding.point?.value;
     if (!iri) {
       continue;
     }
-    const annotation = byIri.get(iri) ?? {
+    const point = byIri.get(iri) ?? {
       tickerSymbols: new Set<string>(),
-      quotes: new Set<string>(),
+      quote: null,
     };
     if (binding.ticker) {
-      annotation.tickerSymbols.add(binding.ticker.value);
+      point.tickerSymbols.add(binding.ticker.value);
     }
     if (binding.quote) {
-      annotation.quotes.add(binding.quote.value);
+      point.quote = binding.quote.value;
     }
-    byIri.set(iri, annotation);
+    byIri.set(iri, point);
   }
 
-  return [...byIri].map(([iri, { tickerSymbols, quotes }]) => ({
+  return [...byIri].map(([iri, { tickerSymbols, quote }]) => ({
     iri,
     tickerSymbols: [...tickerSymbols],
-    quotes: [...quotes],
+    quote,
   }));
 };
 
@@ -441,14 +432,14 @@ export const createOrganonIngestionClient = ({
     },
 
     articleEvidence: async (canonicalUrl) => {
-      const [annotationBindings, figureBindings] = await Promise.all([
-        runSparql(articleAnnotationsQuery(canonicalUrl)),
-        runHistorySparql(figuresWithoutAnnotationQuery(canonicalUrl)),
+      const [pointBindings, figureBindings] = await Promise.all([
+        runSparql(articlePointsQuery(canonicalUrl)),
+        runHistorySparql(figuresWithoutPointQuery(canonicalUrl)),
       ]);
 
       return {
-        annotations: toAnnotations(annotationBindings),
-        figuresWithoutAnnotation: figureBindings.flatMap((binding) =>
+        points: toPoints(pointBindings),
+        figuresWithoutPoint: figureBindings.flatMap((binding) =>
           binding.figure
             ? [
                 {

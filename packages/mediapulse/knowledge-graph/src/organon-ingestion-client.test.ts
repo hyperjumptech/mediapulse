@@ -4,10 +4,10 @@ import {
   ARTICLE_CLASS_IRIS,
   MAX_INGESTION_CONTENT_LENGTH,
   MAX_INGESTION_FACT_LENGTH,
-  articleAnnotationsQuery,
+  articlePointsQuery,
   buildIngestionRequest,
   createOrganonIngestionClient,
-  figuresWithoutAnnotationQuery,
+  figuresWithoutPointQuery,
   type IngestionArticle,
 } from "./organon-ingestion-client";
 
@@ -75,7 +75,13 @@ describe("buildIngestionRequest", () => {
     );
     expect(request.sourceClassIri).toBe(`${MP}DataSource`);
     expect(request.classIris).toEqual(ARTICLE_CLASS_IRIS);
-    expect(request.classIris).toHaveLength(19);
+    expect(request.classIris).toHaveLength(17);
+    expect(request.classIris).toContain(`${MP}ArticlePoint`);
+    expect(
+      request.classIris.filter((iri) =>
+        iri.startsWith("http://www.w3.org/ns/oa#"),
+      ),
+    ).toEqual([]);
   });
 
   it("sends the article's facts for its Data source, with no byline", () => {
@@ -312,7 +318,7 @@ describe("createOrganonIngestionClient", () => {
     );
   });
 
-  it("groups an article's annotations with their tickers and quotes, and reads its unannotated figures from the history", async () => {
+  it("groups an article's points with their tickers and quote, and reads its figures no point is about from the history", async () => {
     const fetchImpl = vi.fn<typeof fetch>(async (input) =>
       String(input).includes("provenance=true")
         ? sparqlResponse([
@@ -323,16 +329,16 @@ describe("createOrganonIngestionClient", () => {
           ])
         : sparqlResponse([
             {
-              annotation: uri("https://mediapulse.hyperjump.tech/id/a-1"),
+              point: uri("https://mediapulse.hyperjump.tech/id/p-1"),
               ticker: literal("MAPB"),
               quote: literal("MAPB merupakan anak usaha MAPI"),
             },
             {
-              annotation: uri("https://mediapulse.hyperjump.tech/id/a-1"),
+              point: uri("https://mediapulse.hyperjump.tech/id/p-1"),
               ticker: literal("MAPI"),
               quote: literal("MAPB merupakan anak usaha MAPI"),
             },
-            { annotation: uri("https://mediapulse.hyperjump.tech/id/a-2") },
+            { point: uri("https://mediapulse.hyperjump.tech/id/p-2") },
           ]),
     );
     const client = createClient(fetchImpl);
@@ -340,19 +346,19 @@ describe("createOrganonIngestionClient", () => {
     const evidence = await client.articleEvidence(article().canonicalUrl);
 
     expect(evidence).toEqual({
-      annotations: [
+      points: [
         {
-          iri: "https://mediapulse.hyperjump.tech/id/a-1",
+          iri: "https://mediapulse.hyperjump.tech/id/p-1",
           tickerSymbols: ["MAPB", "MAPI"],
-          quotes: ["MAPB merupakan anak usaha MAPI"],
+          quote: "MAPB merupakan anak usaha MAPI",
         },
         {
-          iri: "https://mediapulse.hyperjump.tech/id/a-2",
+          iri: "https://mediapulse.hyperjump.tech/id/p-2",
           tickerSymbols: [],
-          quotes: [],
+          quote: null,
         },
       ],
-      figuresWithoutAnnotation: [
+      figuresWithoutPoint: [
         {
           iri: "https://mediapulse.hyperjump.tech/id/figure-1",
           label: "MAPB revenue 9M 2026",
@@ -371,19 +377,30 @@ describe("article evidence queries", () => {
   it("compare the canonical URL as a string, escaped so a URL can't break the query", () => {
     const url = 'https://example.com/a"b\\c';
 
-    expect(articleAnnotationsQuery(url)).toContain(
+    expect(articlePointsQuery(url)).toContain(
       'FILTER(STR(?url) = "https://example.com/a\\"b\\\\c")',
     );
-    expect(figuresWithoutAnnotationQuery(url)).toContain(
+    expect(figuresWithoutPointQuery(url)).toContain(
       'FILTER(STR(?url) = "https://example.com/a\\"b\\\\c")',
     );
   });
 
-  it("find figures through the article's versions and skip the ones an annotation names", () => {
-    const query = figuresWithoutAnnotationQuery(article().canonicalUrl);
+  it("find an article's points through the article they name", () => {
+    const query = articlePointsQuery(article().canonicalUrl);
+
+    expect(query).toContain(
+      "?point a mp:ArticlePoint ; mp:inArticle ?source .",
+    );
+    expect(query).toContain("OPTIONAL { ?point mp:quote ?quote }");
+  });
+
+  it("find figures through the article's versions and skip the ones a point is about", () => {
+    const query = figuresWithoutPointQuery(article().canonicalUrl);
 
     expect(query).toContain("?version dcterms:isVersionOf ?source .");
     expect(query).toContain("prov:specializationOf ?figure .");
-    expect(query).toContain("FILTER NOT EXISTS {");
+    expect(query).toContain(
+      "?point a mp:ArticlePoint ; mp:about ?figure ; mp:inArticle ?source .",
+    );
   });
 });

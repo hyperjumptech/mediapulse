@@ -26,19 +26,17 @@ const sent = (
   ...overrides,
 });
 
-const annotation = (
-  overrides: Partial<ArticleEvidence["annotations"][number]> = {},
-) => ({
-  iri: "https://mediapulse.hyperjump.tech/id/a-1",
+const point = (overrides: Partial<ArticleEvidence["points"][number]> = {}) => ({
+  iri: "https://mediapulse.hyperjump.tech/id/p-1",
   tickerSymbols: ["MAPB", "MAPI"],
-  quotes: ["MAPB merupakan anak usaha PT Mitra Adiperkasa Tbk (MAPI)"],
+  quote: "MAPB merupakan anak usaha PT Mitra Adiperkasa Tbk (MAPI)",
   ...overrides,
 });
 
 const setup = ({
   sends,
   status = "completed",
-  evidence = { annotations: [annotation()], figuresWithoutAnnotation: [] },
+  evidence = { points: [point()], figuresWithoutPoint: [] },
 }: {
   sends: OrganonIngestionSentArticle[];
   status?: IngestionJobStatus | null;
@@ -82,10 +80,10 @@ describe("checkEvidence", () => {
     expect(result).toMatchObject({
       sends: 1,
       checked: 1,
-      withoutAnnotations: { count: 0 },
+      withoutPoints: { count: 0 },
       quotesNotInText: { count: 0 },
-      figuresWithoutAnnotation: { count: 0 },
-      annotationsMissingTicker: { count: 0 },
+      figuresWithoutPoint: { count: 0 },
+      pointsMissingTicker: { count: 0 },
       errors: { count: 0 },
     });
   });
@@ -94,14 +92,14 @@ describe("checkEvidence", () => {
     const { run } = setup({
       sends: [sent()],
       evidence: {
-        annotations: [
-          annotation({ quotes: ["MAPB is a subsidiary of MAPI"] }),
-          annotation({
-            iri: "https://mediapulse.hyperjump.tech/id/a-2",
-            quotes: ["Rugi MAP Boga membengkak"],
+        points: [
+          point({ quote: "MAPB is a subsidiary of MAPI" }),
+          point({
+            iri: "https://mediapulse.hyperjump.tech/id/p-2",
+            quote: "Rugi MAP Boga membengkak",
           }),
         ],
-        figuresWithoutAnnotation: [],
+        figuresWithoutPoint: [],
       },
     });
 
@@ -115,35 +113,35 @@ describe("checkEvidence", () => {
     });
   });
 
-  it("flags an annotation filed under fewer tickers than the article was sent for", async () => {
+  it("flags a point filed under fewer tickers than the article was sent for", async () => {
     const { run } = setup({
       sends: [sent()],
       evidence: {
-        annotations: [annotation({ tickerSymbols: ["MAPB"] })],
-        figuresWithoutAnnotation: [],
+        points: [point({ tickerSymbols: ["MAPB"] })],
+        figuresWithoutPoint: [],
       },
     });
 
     const result = await run();
 
-    expect(result.annotationsMissingTicker).toEqual({
+    expect(result.pointsMissingTicker).toEqual({
       count: 1,
       examples: [
         {
           canonicalUrl: ARTICLE_URL,
-          annotation: "https://mediapulse.hyperjump.tech/id/a-1",
+          point: "https://mediapulse.hyperjump.tech/id/p-1",
           missingTickerSymbols: ["MAPI"],
         },
       ],
     });
   });
 
-  it("flags figures no annotation names, and articles with no annotations at all", async () => {
+  it("flags figures no point is about, and articles with no points at all", async () => {
     const { run } = setup({
       sends: [sent()],
       evidence: {
-        annotations: [],
-        figuresWithoutAnnotation: [
+        points: [],
+        figuresWithoutPoint: [
           {
             iri: "https://mediapulse.hyperjump.tech/id/f-1",
             label: "MAPB net loss 9M 2026",
@@ -155,11 +153,11 @@ describe("checkEvidence", () => {
 
     const result = await run();
 
-    expect(result.withoutAnnotations).toEqual({
+    expect(result.withoutPoints).toEqual({
       count: 1,
       examples: [{ canonicalUrl: ARTICLE_URL }],
     });
-    expect(result.figuresWithoutAnnotation.examples).toEqual([
+    expect(result.figuresWithoutPoint.examples).toEqual([
       { canonicalUrl: ARTICLE_URL, figure: "MAPB net loss 9M 2026" },
       {
         canonicalUrl: ARTICLE_URL,
@@ -172,8 +170,8 @@ describe("checkEvidence", () => {
     const { run } = setup({
       sends: [sent({ content: null })],
       evidence: {
-        annotations: [annotation({ quotes: ["anything"] })],
-        figuresWithoutAnnotation: [],
+        points: [point({ quote: "anything" })],
+        figuresWithoutPoint: [],
       },
     });
 
@@ -213,8 +211,8 @@ describe("checkEvidence", () => {
       new Error("SPARQL timed out"),
     );
     organon.articleEvidence.mockResolvedValue({
-      annotations: [],
-      figuresWithoutAnnotation: [],
+      points: [],
+      figuresWithoutPoint: [],
     });
 
     const result = await run();
@@ -222,9 +220,7 @@ describe("checkEvidence", () => {
     expect(result.errors.count).toBe(1);
     expect(result.errors.examples[0]?.message).toBe("SPARQL timed out");
     expect(result.checked).toBe(sends.length - 1);
-    expect(result.withoutAnnotations.count).toBe(sends.length - 1);
-    expect(result.withoutAnnotations.examples).toHaveLength(
-      MAX_EVIDENCE_EXAMPLES,
-    );
+    expect(result.withoutPoints.count).toBe(sends.length - 1);
+    expect(result.withoutPoints.examples).toHaveLength(MAX_EVIDENCE_EXAMPLES);
   });
 });
