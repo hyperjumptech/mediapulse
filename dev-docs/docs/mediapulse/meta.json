@@ -1,5 +1,12 @@
 {
   "title": "Mediapulse",
   "root": true,
-  "pages": ["index", "hermes-setup", "apps", "knowledge-base", "packages"]
+  "pages": [
+    "index",
+    "hermes-setup",
+    "knowledge-graph-rollout",
+    "apps",
+    "knowledge-base",
+    "packages"
+  ]
 }

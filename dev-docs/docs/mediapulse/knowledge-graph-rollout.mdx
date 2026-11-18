@@ -1,0 +1,84 @@
+---
+title: Knowledge graph rollout
+description: Where moving article knowledge into the knowledge graph stands, what is left, and who does each step
+icon: CalendarClock
+---
+
+Article knowledge is moving out of Mediapulse's own `knowledge_*` tables into the MediaPulse knowledge graph in Organon. This page tracks that work. When a step is done, move it to [Done](#done) with its date and pull request.
+
+## Where it stands
+
+Last updated 2026-11-18.
+
+| Part               | State                                                                                                                                                                                                                                                                                   |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sending            | [knowledge-ingestion](/mediapulse/apps/agents/knowledge-ingestion) 2.0.0 runs nightly at 03:00 WIB. It sends up to 20 articles a night that article analysis placed for tickers with active subscribers, and checks the evidence of the night before.                                  |
+| Reading            | Organon reads each article with Haiku 5.5, an output limit of 32,000 tokens and reasoning set to Low. A read costs about $0.005.                                                                                                                                                        |
+| Concepts           | Production is on version 8. Every fact is tied to its sentence by one article point (`mp:ArticlePoint`), which holds the quote, the article, the item it supports and the tickers.                                                                                                     |
+| Checking           | A report-only routine writes `reports/knowledge-graph/<date>.md` every morning at 08:00. The `knowledge-graph-maintenance` skill turns the report into fixes, and the `knowledge-graph-duplicates` skill audits the whole graph with `pnpm knowledge-graph:duplicates`.               |
+| Old knowledge base | Still in the code and the database. It goes once the new path has run cleanly for a week.                                                                                                                                                                                              |
+
+## Decisions
+
+| Date       | Decision                                                                                                                                                                                                                                                       |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-17 | Organon does the reading. Mediapulse adds the content header, the evidence check and the eval, and writes its own extraction only if the eval shows Organon's reads aren't good enough.                                                                       |
+| 2026-11-17 | Only articles placed for tickers with active subscribers are sent, the rule delivery uses.                                                                                                                                                                    |
+| 2026-11-17 | The eval is done by an agent judging what the nightly runs stored, 2 articles per subscribed ticker, not by paying to read the cases again.                                                                                                                   |
+| 2026-11-18 | One article point replaces the W3C annotation, target and quote selector. The model kept breaking the name links between those three, and they were about 40% of what each read stored.                                                                      |
+| 2026-11-18 | The stored annotations were converted into points by hand instead of read again. Converted points aren't tied to their article in Organon's history, so an article's points are deleted before its Data source.                                              |
+| 2026-11-18 | Fixes go into the Concepts or Mediapulse, never Organon's code, because Organon serves other projects too.                                                                                                                                                    |
+
+## Next
+
+**Owner** says who does the step. A person does what needs the Organon dashboard or a curated field: publishing Concepts and editing a listed company's profile. An agent does the rest, and asks first before any write to production.
+
+### Now
+
+| Step                                                                                                                                                                                                                                                                          | Owner  |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Add "ADES" to Akasha Wira International's ambiguous names and "DOOH" to Era Media Sejahtera's, so a namesake such as the Saudi ADES Holding or digital out-of-home news no longer passes the keyword gate. Add "Nexora Energy Infrastructure" to Era Media Sejahtera's alternative titles once the rename is approved. | Person |
+| Concepts 9: an article about a competitor or the market is still read, a sector figure measures the country, a foreign company gets no ticker, places keep their English name, firms that sell services are companies, a description says what a party is, and more ministries map to existing regulator labels. Drafted on local. | Person publishes, agent tests |
+| Test Concepts 9 on local with `extract`, which reads without saving, on the articles that failed: TanCorp, the Kemenperin estate figures, PZ Cussons, the Kemendag festival, Central Java, Systemiq and the Shopee description. About $0.04. Then sync the draft to production. | Agent |
+
+### Tomorrow, after the 03:00 run
+
+| Step                                                                                                                                                                                 | Owner |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- |
+| Check the first nightly run that writes article points: points created, no lost evidence, no cut-off reads. Run the duplicate audit.                                               | Agent |
+| If the run is clean, raise the agent's caps from 20 to 200 sends and fetches a night, about $1 a night.                                                                             | Agent |
+
+### This week
+
+| Step                                                                                                                                                                                                         | Owner |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- |
+| Evidence check: also flag values an article adds to a listed company with no point behind them, and figures in a currency other than IDR or USD.                                                           | Agent |
+| First eval pass: 2 articles for each subscribed ticker, judged against the article text, saved in `scripts/lib/knowledge-graph.cases.json` with the summary in `scripts/lib/knowledge-graph-eval.md`. Needs read-only access to the Mediapulse database. | Agent |
+| Maintenance skill: add the causes the reports keep calling missing, such as a cut-off read, a dropped link, a figure measuring something made up, and an article placed for the wrong ticker.            | Agent |
+
+### After a clean week, from about 2026-11-24
+
+| Step                                                                                                                                                                                                   | Owner |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- |
+| Remove the old knowledge base from the code: the knowledge-extraction endpoints and contract, the Knowledge Base and Extraction Runs dashboard pages, the database scripts and the knowledge-base docs. | Agent |
+| Drop the `knowledge_*` and storyline tables in one migration. It can't be undone, so back up production first.                                                                                        | Agent |
+
+## Watch list
+
+- **Articles placed for the wrong ticker.** Codes that are also acronyms or foreign company names, like ADES and DOOH, let in articles about something else. Ambiguous names stop them at the keyword gate.
+- **General news on narrow tickers.** On 2026-11-18, 9 of 17 articles were ministry or industrial-estate news placed for AMAN. They cost a read each and add mostly officials' quotes.
+- **Duplicates.** Organon matches a new item by exact label within one class family, so the same body or deal keeps coming back under another name. Run the duplicate audit about once a week.
+- **Read again on old jobs.** A job from before Concepts 8 still lists the old classes, so Read again in the dashboard adds no points. Send a fresh ingestion instead.
+
+## Done
+
+| Date       | What                                                                                                                                                                                            |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-17 | knowledge-ingestion 2.0.0 sends analyzed articles and checks their evidence (#1445). Hermes config placeholders written out in the docs (#1447).                                              |
+| 2026-11-17 | Only tickers with active subscribers are sent (#1449). The knowledge-graph maintenance skill (#1451).                                                                                         |
+| 2026-11-17 | Production cutover: the old extraction schedule removed and the nightly Knowledge Graph Ingestion schedule turned on. Concepts 7 published.                                                   |
+| 2026-11-18 | Three wrongly placed articles removed with everything only they created: an ADES Holding article, Ströer and Eskimi.                                                                          |
+| 2026-11-18 | Concepts 8 published: the article point replaces annotations. 60 annotations converted and 199 old items deleted. The agent asks for points (#1453).                                         |
+| 2026-11-18 | The 11 fixes from the morning report applied: leftover places and a failed read deleted, a wrong owner cleared, two cut-off articles read again.                                             |
+| 2026-11-18 | Duplicate audit over 6,675 instances: 46 pairs linked as the same thing and 17 marked as different. The audit is repeatable with `pnpm knowledge-graph:duplicates` (#1455).                  |
+| 2026-11-18 | The ADES ticker name corrected to "PT Akasha Wira International Tbk", which every content header for ADES uses.                                                                               |
