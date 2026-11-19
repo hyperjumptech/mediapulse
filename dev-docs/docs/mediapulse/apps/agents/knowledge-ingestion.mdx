@@ -26,12 +26,14 @@ It never waits for a job. Organon queues it, retries temporary errors and replac
 
 ## Evidence check
 
-For each article sent in the window, the agent reads the job. A job still queued or running is skipped as `unfinished`, a failed or cancelled job as `failed`, and a job Organon no longer has (finished jobs are deleted after 30 days) as `jobNotFound`. For a completed job it runs two SPARQL queries on the article's Data source, found by canonical URL:
+Before the first article, the agent reads the market relations from the Concepts once: every property under `mp:relatedTo`, with its inverse. For each article sent in the window, it reads the job, its status and the links the job wrote. A job still queued or running is skipped as `unfinished`, a failed or cancelled job as `failed`, and a job Organon no longer has (finished jobs are deleted after 30 days) as `jobNotFound`. For a completed job it runs two SPARQL queries on the article's Data source, found by canonical URL:
 
-- its points, each with the tickers it is filed under and its quote (inferred answers, like `article-evidence.rq` on the developer page)
-- the figures the article added that no point is about, found through the article's versions in the history graph (`?provenance=true`)
+- its points, each with the tickers it is filed under, its quote, its about item, and the relation and other party it states (inferred answers, like `article-evidence.rq` on the developer page)
+- the figures the article added, each with its currency and whether a point is about it, found through the article's versions in the history graph (`?provenance=true`)
 
-It counts four problems:
+When the job wrote a market relation, a third query asks which of its parties are listed companies.
+
+It counts six problems:
 
 | Problem | What it means |
 | --- | --- |
@@ -39,8 +41,10 @@ It counts four problems:
 | `pointsMissingTicker` | A point is filed under fewer tickers than the article was sent for. |
 | `figuresWithoutPoint` | A figure the article added has no point tying it to a sentence. |
 | `withoutPoints` | A completed job left the article with no points at all. |
+| `listedCompanyValuesWithoutPoint` | The job wrote a market relation to or from a listed company, such as an owner or a competitor, and no point in the article states that relation, or its inverse, between the same two parties. Each example has the `company`, the `relation` and the other party as `value`, all as IRIs. Values Organon rejected, such as curated profile fields, aren't counted. |
+| `figuresInOtherCurrency` | A figure the article added is in a currency other than IDR or USD. That is often a sign the article is about a company abroad with a similar name or code. Each example has the figure's label and the currency code. |
 
-When Mediapulse no longer has the article's body, its quotes aren't checked and it is counted under `quotesUnchecked`. An error on one article is counted under `errors` and the check moves on.
+When Mediapulse no longer has the article's body, its quotes aren't checked and it is counted under `quotesUnchecked`. When the job's result can't be read, its listed-company values aren't checked and it is counted under `valuesUnchecked`; the other checks still run. An error on one article is counted under `errors` and the check moves on.
 
 ## Hermes config (`config` JSON)
 
@@ -77,7 +81,7 @@ The other fields can be left out, because their defaults are plain values.
 | `fetch.providers` | Serper, then Diffbot | Fetch chain for missing bodies, from `{{SERPER_API_KEY}}` and `{{DIFFBOT_API_KEY}}`. |
 | `evidenceCheck.enabled` | true | Run the evidence check after sending. |
 | `evidenceCheck.lookbackHours` | 24 | How far back before the run a send may be for its article to be checked. |
-| `evidenceCheck.maxArticles` | 200 | Most articles checked in a run. Each one is a job read and two SPARQL queries. |
+| `evidenceCheck.maxArticles` | 200 | Most articles checked in a run. Each one is a job read and two SPARQL queries, plus one when the job wrote a market relation. |
 | `dryRun` | false | Read the candidates and report them, without fetching, sending or recording anything. |
 
 The input is `{}`, or `{ "limit": n }` to send fewer than `maxSendsPerRun` in one run.
@@ -86,7 +90,7 @@ The input is `{}`, or `{ "limit": n }` to send fewer than `maxSendsPerRun` in on
 
 `details` reports `candidates`, `fetchAttempted`, `fetched`, `excludedHost`, `noBody`, `sent`, `failed`, `publishersCreated`, `publisherFailures`, the `sweep` counts (`failedJobs`, `claimed`, `retried`, `notRetryable`, or `error`), `evidence`, and up to ten `failures` with the canonical URL and the error.
 
-`evidence` is `null` when the check is turned off, `{ "error": "..." }` when it couldn't run, and otherwise has `sends`, `checked`, the `skipped` counts, `quotesUnchecked`, and each problem as a `count` with up to five `examples`.
+`evidence` is `null` when the check is turned off, `{ "error": "..." }` when it couldn't run, and otherwise has `sends`, `checked`, the `skipped` counts, `quotesUnchecked`, `valuesUnchecked`, and each problem as a `count` with up to five `examples`.
 
 The run fails only when there were articles to send and every send failed. Problems the evidence check finds never fail it.
 

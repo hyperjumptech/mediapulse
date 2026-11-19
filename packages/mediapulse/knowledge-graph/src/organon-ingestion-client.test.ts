@@ -4,10 +4,13 @@ import {
   ARTICLE_CLASS_IRIS,
   MAX_INGESTION_CONTENT_LENGTH,
   MAX_INGESTION_FACT_LENGTH,
+  MAX_IRIS_PER_QUERY,
+  articleFiguresQuery,
   articlePointsQuery,
   buildIngestionRequest,
   createOrganonIngestionClient,
-  figuresWithoutPointQuery,
+  linksWrittenBy,
+  listedCompaniesAmongQuery,
   type IngestionArticle,
 } from "./organon-ingestion-client";
 
@@ -41,6 +44,16 @@ const sparqlResponse = (bindings: unknown[]) =>
 
 const literal = (value: string) => ({ type: "literal", value });
 const uri = (value: string) => ({ type: "uri", value });
+const boolean = (value: boolean) => ({
+  type: "literal",
+  datatype: "http://www.w3.org/2001/XMLSchema#boolean",
+  value: String(value),
+});
+
+const ID = "https://mediapulse.hyperjump.tech/id/";
+const MAPB = `${ID}mapb`;
+const MAPI = `${ID}mapi`;
+const SHOPEE = `${ID}shopee`;
 
 const jsonResponse = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
@@ -298,33 +311,119 @@ describe("createOrganonIngestionClient", () => {
     );
   });
 
-  it("reads a job's status, and returns null for a job this key never started", async () => {
+  it("reads a job's status and the links it wrote, and returns null for a job this key never started", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
-        jsonResponse({ job: { id: "job-1", status: "completed" } }, 200),
+        jsonResponse(
+          {
+            job: {
+              id: "job-1",
+              status: "completed",
+              result: {
+                instances: [
+                  {
+                    ref: "mapb",
+                    existingIri: MAPB,
+                    classIri: `${MP}ListedCompany`,
+                    label: "Map Boga Adiperkasa",
+                    values: [
+                      { predicate: `${MP}partnersWith`, ref: "shopee" },
+                      { predicate: `${MP}ticker`, value: "MAPB" },
+                    ],
+                    matches: [],
+                    issues: null,
+                  },
+                  {
+                    ref: "shopee",
+                    classIri: `${MP}Company`,
+                    label: "Shopee",
+                    values: [],
+                    matches: [],
+                    issues: null,
+                  },
+                ],
+                added: {
+                  created: [
+                    { ref: "shopee", id: "s", iri: SHOPEE, label: "Shopee" },
+                  ],
+                  updated: [],
+                  linked: [],
+                  conflicts: [],
+                  skipped: [],
+                  warnings: [],
+                  message: null,
+                },
+              },
+            },
+          },
+          200,
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ job: { id: "job-2", status: "running" } }, 200),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            job: {
+              id: "job-5",
+              status: "completed",
+              result: { instances: "?" },
+            },
+          },
+          200,
+        ),
       )
       .mockResolvedValueOnce(jsonResponse({ error: "Job not found." }, 404))
       .mockResolvedValueOnce(jsonResponse({ error: "boom" }, 500));
     const client = createClient(fetchImpl);
 
-    await expect(client.getJobStatus("job-1")).resolves.toBe("completed");
-    await expect(client.getJobStatus("job-2")).resolves.toBeNull();
-    await expect(client.getJobStatus("job-3")).rejects.toThrow(
-      "Organon answered 500 to a read of job job-3",
+    await expect(client.getJob("job-1")).resolves.toEqual({
+      status: "completed",
+      writtenLinks: [
+        { subject: MAPB, predicate: `${MP}partnersWith`, object: SHOPEE },
+      ],
+    });
+    await expect(client.getJob("job-2")).resolves.toEqual({
+      status: "running",
+      writtenLinks: [],
+    });
+    await expect(client.getJob("job-5")).resolves.toEqual({
+      status: "completed",
+      writtenLinks: null,
+    });
+    await expect(client.getJob("job-3")).resolves.toBeNull();
+    await expect(client.getJob("job-4")).rejects.toThrow(
+      "Organon answered 500 to a read of job job-4",
     );
     expect(fetchImpl.mock.calls[0]?.[0]).toBe(
       "https://organon.example/api/v1/ingestion/jobs/job-1",
     );
   });
 
-  it("groups an article's points with their tickers and quote, and reads its figures no point is about from the history", async () => {
+  it("groups an article's points with their tickers, quote and relation, and reads its figures from the history", async () => {
     const fetchImpl = vi.fn<typeof fetch>(async (input) =>
       String(input).includes("provenance=true")
         ? sparqlResponse([
             {
               figure: uri("https://mediapulse.hyperjump.tech/id/figure-1"),
               label: literal("MAPB revenue 9M 2026"),
+              currency: uri(`${MP}CurrencyIDR`),
+              currencyCode: literal("IDR"),
+              hasPoint: boolean(false),
+            },
+            {
+              figure: uri("https://mediapulse.hyperjump.tech/id/figure-2"),
+              label: literal("ADES Holding revenue 1H 2026"),
+              currency: uri(`${MP}CurrencySAR`),
+              hasPoint: boolean(true),
+            },
+            {
+              figure: uri("https://mediapulse.hyperjump.tech/id/figure-3"),
+              currency: uri(`${MP}CurrencySGD`),
+              currencyCode: literal("SGD"),
+              hasPoint: boolean(true),
             },
           ])
         : sparqlResponse([
@@ -332,11 +431,17 @@ describe("createOrganonIngestionClient", () => {
               point: uri("https://mediapulse.hyperjump.tech/id/p-1"),
               ticker: literal("MAPB"),
               quote: literal("MAPB merupakan anak usaha MAPI"),
+              about: uri(MAPB),
+              relationObject: uri(MAPI),
+              statesRelation: literal(`${MP}subsidiaryOf`),
             },
             {
               point: uri("https://mediapulse.hyperjump.tech/id/p-1"),
               ticker: literal("MAPI"),
               quote: literal("MAPB merupakan anak usaha MAPI"),
+              about: uri(MAPB),
+              relationObject: uri(MAPI),
+              statesRelation: literal(`${MP}subsidiaryOf`),
             },
             { point: uri("https://mediapulse.hyperjump.tech/id/p-2") },
           ]),
@@ -351,17 +456,35 @@ describe("createOrganonIngestionClient", () => {
           iri: "https://mediapulse.hyperjump.tech/id/p-1",
           tickerSymbols: ["MAPB", "MAPI"],
           quote: "MAPB merupakan anak usaha MAPI",
+          about: [MAPB],
+          relationObjects: [MAPI],
+          statesRelation: `${MP}subsidiaryOf`,
         },
         {
           iri: "https://mediapulse.hyperjump.tech/id/p-2",
           tickerSymbols: [],
           quote: null,
+          about: [],
+          relationObjects: [],
+          statesRelation: null,
         },
       ],
       figuresWithoutPoint: [
         {
           iri: "https://mediapulse.hyperjump.tech/id/figure-1",
           label: "MAPB revenue 9M 2026",
+        },
+      ],
+      figuresInCurrency: [
+        {
+          iri: "https://mediapulse.hyperjump.tech/id/figure-2",
+          label: "ADES Holding revenue 1H 2026",
+          currency: "CurrencySAR",
+        },
+        {
+          iri: "https://mediapulse.hyperjump.tech/id/figure-3",
+          label: null,
+          currency: "SGD",
         },
       ],
     });
@@ -380,7 +503,7 @@ describe("article evidence queries", () => {
     expect(articlePointsQuery(url)).toContain(
       'FILTER(STR(?url) = "https://example.com/a\\"b\\\\c")',
     );
-    expect(figuresWithoutPointQuery(url)).toContain(
+    expect(articleFiguresQuery(url)).toContain(
       'FILTER(STR(?url) = "https://example.com/a\\"b\\\\c")',
     );
   });
@@ -394,13 +517,150 @@ describe("article evidence queries", () => {
     expect(query).toContain("OPTIONAL { ?point mp:quote ?quote }");
   });
 
-  it("find figures through the article's versions and skip the ones a point is about", () => {
-    const query = figuresWithoutPointQuery(article().canonicalUrl);
+  it("find figures through the article's versions, with their currency and whether a point is about them", () => {
+    const query = articleFiguresQuery(article().canonicalUrl);
 
     expect(query).toContain("?version dcterms:isVersionOf ?source .");
     expect(query).toContain("prov:specializationOf ?figure .");
     expect(query).toContain(
+      "OPTIONAL { ?currency skos:notation ?currencyCode }",
+    );
+    expect(query).toContain(
       "?point a mp:ArticlePoint ; mp:about ?figure ; mp:inArticle ?source .",
+    );
+  });
+});
+
+describe("linksWrittenBy", () => {
+  const item = (
+    ref: string,
+    values: { predicate: string; value?: string; ref?: string }[],
+    existingIri?: string,
+  ) => ({ ref, existingIri, values });
+  const added = (overrides: Record<string, unknown> = {}) => ({
+    created: [],
+    updated: [],
+    linked: [],
+    skipped: [],
+    rejected: [],
+    ...overrides,
+  });
+
+  it("resolves refs to the instances the job created, updated or matched, and keeps IRI values", () => {
+    const links = linksWrittenBy({
+      instances: [
+        item("mapb", [
+          { predicate: `${MP}partnersWith`, ref: "shopee" },
+          { predicate: `${MP}subsidiaryOf`, value: MAPI },
+          { predicate: `${MP}ticker`, value: "MAPB" },
+        ]),
+        item("shopee", [{ predicate: `${MP}competesWith`, ref: "lazada" }]),
+      ],
+      added: added({
+        updated: [{ ref: "mapb", iri: MAPB }],
+        linked: [{ ref: "shopee", iri: SHOPEE }],
+      }),
+    });
+
+    expect(links).toEqual([
+      { subject: MAPB, predicate: `${MP}partnersWith`, object: SHOPEE },
+      { subject: MAPB, predicate: `${MP}subsidiaryOf`, object: MAPI },
+    ]);
+  });
+
+  it("leaves out skipped items, rejected values and values that aren't IRIs", () => {
+    const links = linksWrittenBy({
+      instances: [
+        item(
+          "mapb",
+          [
+            { predicate: `${MP}primaryCompetitor`, value: SHOPEE },
+            { predicate: `${MP}partnersWith`, value: "<bad> iri" },
+          ],
+          MAPB,
+        ),
+        item(
+          "shopee",
+          [{ predicate: `${MP}partnersWith`, value: MAPB }],
+          SHOPEE,
+        ),
+      ],
+      added: added({
+        skipped: [{ ref: "shopee" }],
+        rejected: [
+          {
+            ref: "mapb",
+            fieldErrors: { [`${MP}primaryCompetitor`]: ["curated"] },
+          },
+        ],
+      }),
+    });
+
+    expect(links).toEqual([]);
+  });
+
+  it("returns nothing for an extract job or a job with no result", () => {
+    expect(linksWrittenBy(null)).toEqual([]);
+    expect(
+      linksWrittenBy({
+        instances: [
+          item(
+            "mapb",
+            [{ predicate: `${MP}partnersWith`, value: SHOPEE }],
+            MAPB,
+          ),
+        ],
+        added: null,
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("market relations and listed companies", () => {
+  it("maps each market relation to itself and its inverses", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      sparqlResponse([
+        { relation: uri(`${MP}competesWith`) },
+        { relation: uri(`${MP}parentOf`), inverse: uri(`${MP}subsidiaryOf`) },
+        { relation: uri(`${MP}subsidiaryOf`), inverse: uri(`${MP}parentOf`) },
+      ]),
+    );
+    const client = createClient(fetchImpl);
+
+    const relations = await client.marketRelations();
+
+    expect(relations).toEqual(
+      new Map([
+        [`${MP}competesWith`, new Set([`${MP}competesWith`])],
+        [`${MP}parentOf`, new Set([`${MP}parentOf`, `${MP}subsidiaryOf`])],
+        [`${MP}subsidiaryOf`, new Set([`${MP}subsidiaryOf`, `${MP}parentOf`])],
+      ]),
+    );
+  });
+
+  it("asks which IRIs are listed companies in batches, once per IRI, skipping values that aren't IRIs", async () => {
+    const iris = Array.from(
+      { length: MAX_IRIS_PER_QUERY + 1 },
+      (_, index) => `${ID}company-${index}`,
+    );
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      sparqlResponse([{ company: uri(`${ID}company-0`) }]),
+    );
+    const client = createClient(fetchImpl);
+
+    const listed = await client.listedCompaniesAmong([
+      ...iris,
+      iris[0] ?? "",
+      "not an iri",
+    ]);
+
+    expect(listed).toEqual(new Set([`${ID}company-0`]));
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("puts each IRI in the VALUES list", () => {
+    expect(listedCompaniesAmongQuery([MAPB, MAPI])).toContain(
+      `VALUES ?company { <${MAPB}> <${MAPI}> }`,
     );
   });
 });

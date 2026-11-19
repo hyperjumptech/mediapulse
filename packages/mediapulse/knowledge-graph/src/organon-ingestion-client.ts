@@ -8,8 +8,10 @@ import {
 const MP = "https://mediapulse.hyperjump.tech/ontology#";
 const DCTERMS = "http://purl.org/dc/terms/";
 const ORG = "http://www.w3.org/ns/org#";
+const OWL = "http://www.w3.org/2002/07/owl#";
 const PROV = "http://www.w3.org/ns/prov#";
 const RDFS = "http://www.w3.org/2000/01/rdf-schema#";
+const SKOS = "http://www.w3.org/2004/02/skos/core#";
 
 export const MAX_INGESTION_CONTENT_LENGTH = 200_000;
 export const MAX_INGESTION_TITLE_LENGTH = 255;
@@ -87,14 +89,33 @@ export type ArticlePoint = {
   iri: string;
   tickerSymbols: string[];
   quote: string | null;
+  about: string[];
+  relationObjects: string[];
+  statesRelation: string | null;
 };
 
 export type ArticleFigure = { iri: string; label: string | null };
 
+export type ArticleFigureInCurrency = ArticleFigure & { currency: string };
+
 export type ArticleEvidence = {
   points: ArticlePoint[];
   figuresWithoutPoint: ArticleFigure[];
+  figuresInCurrency: ArticleFigureInCurrency[];
 };
+
+export type WrittenLink = {
+  subject: string;
+  predicate: string;
+  object: string;
+};
+
+export type IngestionJob = {
+  status: IngestionJobStatus;
+  writtenLinks: WrittenLink[] | null;
+};
+
+export type MarketRelations = ReadonlyMap<string, ReadonlySet<string>>;
 
 export type OrganonIngestionClient = {
   findPublisherIri: (registrableDomain: string) => Promise<string | null>;
@@ -107,8 +128,12 @@ export type OrganonIngestionClient = {
     cursor?: string;
   }) => Promise<FailedIngestionJobsPage>;
   retryJob: (jobId: string) => Promise<"retried" | "not-retryable">;
-  getJobStatus: (jobId: string) => Promise<IngestionJobStatus | null>;
+  getJob: (jobId: string) => Promise<IngestionJob | null>;
   articleEvidence: (canonicalUrl: string) => Promise<ArticleEvidence>;
+  marketRelations: () => Promise<MarketRelations>;
+  listedCompaniesAmong: (
+    iris: readonly string[],
+  ) => Promise<ReadonlySet<string>>;
 };
 
 export type OrganonIngestionClientOptions = {
@@ -142,6 +167,44 @@ const jobListSchema = z.object({
   nextCursor: z.string().nullable(),
 });
 
+const refIriSchema = z.object({ ref: z.string(), iri: z.string() });
+
+const jobResultSchema = z.object({
+  instances: z
+    .array(
+      z.object({
+        ref: z.string(),
+        existingIri: z.string().nullish(),
+        values: z.array(
+          z.object({
+            predicate: z.string(),
+            value: z.string().optional(),
+            ref: z.string().optional(),
+          }),
+        ),
+      }),
+    )
+    .default([]),
+  added: z
+    .object({
+      created: z.array(refIriSchema).default([]),
+      updated: z.array(refIriSchema).default([]),
+      linked: z.array(refIriSchema).default([]),
+      skipped: z.array(z.object({ ref: z.string() })).default([]),
+      rejected: z
+        .array(
+          z.object({
+            ref: z.string(),
+            fieldErrors: z.record(z.string(), z.unknown()).optional(),
+          }),
+        )
+        .default([]),
+    })
+    .nullish(),
+});
+
+type JobResult = z.infer<typeof jobResultSchema>;
+
 const jobSchema = z.object({
   job: z.object({
     status: z.enum([
@@ -152,8 +215,62 @@ const jobSchema = z.object({
       "failed",
       "cancelled",
     ]),
+    result: z.unknown().optional(),
   }),
 });
+
+const IRI_PATTERN = /^https?:\/\/[^\s<>"{}|\\^`]+$/;
+
+export const linksWrittenBy = (result: JobResult | null | undefined) => {
+  const added = result?.added;
+  if (!result || !added) {
+    return [];
+  }
+  const iriByRef = new Map<string, string>();
+  for (const item of result.instances) {
+    if (item.existingIri) {
+      iriByRef.set(item.ref, item.existingIri);
+    }
+  }
+  for (const { ref, iri } of [
+    ...added.created,
+    ...added.updated,
+    ...added.linked,
+  ]) {
+    iriByRef.set(ref, iri);
+  }
+  const skippedRefs = new Set(added.skipped.map((item) => item.ref));
+  const rejectedPredicatesByRef = new Map(
+    added.rejected.map((item) => [
+      item.ref,
+      new Set(Object.keys(item.fieldErrors ?? {})),
+    ]),
+  );
+  const links: WrittenLink[] = [];
+  for (const item of result.instances) {
+    const subject = iriByRef.get(item.ref);
+    if (subject === undefined || skippedRefs.has(item.ref)) {
+      continue;
+    }
+    const rejectedPredicates = rejectedPredicatesByRef.get(item.ref);
+    for (const value of item.values) {
+      if (rejectedPredicates?.has(value.predicate)) {
+        continue;
+      }
+      const object =
+        value.ref === undefined
+          ? value.value !== undefined && IRI_PATTERN.test(value.value)
+            ? value.value
+            : undefined
+          : iriByRef.get(value.ref);
+      if (object !== undefined) {
+        links.push({ subject, predicate: value.predicate, object });
+      }
+    }
+  }
+
+  return links;
+};
 
 const cut = (text: string, maxLength: number): string =>
   text.length > maxLength ? text.slice(0, maxLength) : text;
@@ -217,38 +334,74 @@ const articleSourcePattern = (canonicalUrl: string): string[] => [
 export const articlePointsQuery = (canonicalUrl: string): string =>
   [
     `PREFIX mp: <${MP}>`,
-    "SELECT ?point ?ticker ?quote WHERE {",
+    "SELECT ?point ?ticker ?quote ?about ?relationObject ?statesRelation WHERE {",
     ...articleSourcePattern(canonicalUrl),
     "  ?point a mp:ArticlePoint ; mp:inArticle ?source .",
     "  OPTIONAL { ?point mp:forTicker/mp:ticker ?ticker }",
     "  OPTIONAL { ?point mp:quote ?quote }",
+    "  OPTIONAL { ?point mp:about ?about }",
+    "  OPTIONAL { ?point mp:relationObject ?relationObject }",
+    "  OPTIONAL { ?point mp:statesRelation ?statesRelation }",
     "}",
   ].join("\n");
 
-export const figuresWithoutPointQuery = (canonicalUrl: string): string =>
+export const articleFiguresQuery = (canonicalUrl: string): string =>
   [
     `PREFIX dcterms: <${DCTERMS}>`,
     `PREFIX mp: <${MP}>`,
     `PREFIX prov: <${PROV}>`,
     `PREFIX rdfs: <${RDFS}>`,
-    "SELECT DISTINCT ?figure ?label WHERE {",
+    `PREFIX skos: <${SKOS}>`,
+    "SELECT DISTINCT ?figure ?label ?currency ?currencyCode ?hasPoint WHERE {",
     ...articleSourcePattern(canonicalUrl),
     "  ?version dcterms:isVersionOf ?source .",
     "  ?revision prov:wasDerivedFrom ?version ;",
     "    prov:specializationOf ?figure .",
     "  ?figure a mp:Measurement .",
     "  OPTIONAL { ?figure rdfs:label ?label }",
-    "  FILTER NOT EXISTS {",
-    "    ?point a mp:ArticlePoint ; mp:about ?figure ; mp:inArticle ?source .",
+    "  OPTIONAL {",
+    "    ?figure mp:currency ?currency .",
+    "    OPTIONAL { ?currency skos:notation ?currencyCode }",
     "  }",
+    "  BIND(EXISTS {",
+    "    ?point a mp:ArticlePoint ; mp:about ?figure ; mp:inArticle ?source .",
+    "  } AS ?hasPoint)",
     "}",
   ].join("\n");
 
+export const MARKET_RELATIONS_QUERY = [
+  `PREFIX mp: <${MP}>`,
+  `PREFIX owl: <${OWL}>`,
+  `PREFIX rdfs: <${RDFS}>`,
+  "SELECT ?relation ?inverse WHERE {",
+  "  ?relation rdfs:subPropertyOf+ mp:relatedTo .",
+  "  OPTIONAL {",
+  "    { ?relation owl:inverseOf ?inverse } UNION { ?inverse owl:inverseOf ?relation }",
+  "  }",
+  "}",
+].join("\n");
+
+export const MAX_IRIS_PER_QUERY = 100;
+
+export const listedCompaniesAmongQuery = (iris: readonly string[]): string =>
+  [
+    `PREFIX mp: <${MP}>`,
+    "SELECT DISTINCT ?company WHERE {",
+    `  VALUES ?company { ${iris.map((iri) => `<${iri}>`).join(" ")} }`,
+    "  ?company a mp:ListedCompany .",
+    "}",
+  ].join("\n");
+
+type PointDraft = {
+  tickerSymbols: Set<string>;
+  quote: string | null;
+  about: Set<string>;
+  relationObjects: Set<string>;
+  statesRelation: string | null;
+};
+
 const toPoints = (bindings: readonly SparqlBinding[]): ArticlePoint[] => {
-  const byIri = new Map<
-    string,
-    { tickerSymbols: Set<string>; quote: string | null }
-  >();
+  const byIri = new Map<string, PointDraft>();
   for (const binding of bindings) {
     const iri = binding.point?.value;
     if (!iri) {
@@ -257,6 +410,9 @@ const toPoints = (bindings: readonly SparqlBinding[]): ArticlePoint[] => {
     const point = byIri.get(iri) ?? {
       tickerSymbols: new Set<string>(),
       quote: null,
+      about: new Set<string>(),
+      relationObjects: new Set<string>(),
+      statesRelation: null,
     };
     if (binding.ticker) {
       point.tickerSymbols.add(binding.ticker.value);
@@ -264,14 +420,82 @@ const toPoints = (bindings: readonly SparqlBinding[]): ArticlePoint[] => {
     if (binding.quote) {
       point.quote = binding.quote.value;
     }
+    if (binding.about) {
+      point.about.add(binding.about.value);
+    }
+    if (binding.relationObject) {
+      point.relationObjects.add(binding.relationObject.value);
+    }
+    if (binding.statesRelation) {
+      point.statesRelation = binding.statesRelation.value;
+    }
     byIri.set(iri, point);
   }
 
-  return [...byIri].map(([iri, { tickerSymbols, quote }]) => ({
+  return [...byIri].map(([iri, point]) => ({
     iri,
-    tickerSymbols: [...tickerSymbols],
-    quote,
+    tickerSymbols: [...point.tickerSymbols],
+    quote: point.quote,
+    about: [...point.about],
+    relationObjects: [...point.relationObjects],
+    statesRelation: point.statesRelation,
   }));
+};
+
+const OWN_CURRENCIES = new Set(["IDR", "USD"]);
+
+const currencyCodeOf = (binding: SparqlBinding): string | null => {
+  const code = binding.currencyCode?.value;
+  if (code) {
+    return code;
+  }
+  const iri = binding.currency?.value;
+
+  return iri ? iri.slice(iri.lastIndexOf("#") + 1) : null;
+};
+
+const toFigures = (
+  bindings: readonly SparqlBinding[],
+): Pick<ArticleEvidence, "figuresWithoutPoint" | "figuresInCurrency"> => {
+  const figuresWithoutPoint: ArticleFigure[] = [];
+  const figuresInCurrency: ArticleFigureInCurrency[] = [];
+  const seen = new Set<string>();
+  for (const binding of bindings) {
+    const iri = binding.figure?.value;
+    if (!iri || seen.has(iri)) {
+      continue;
+    }
+    seen.add(iri);
+    const figure = { iri, label: binding.label?.value ?? null };
+    if (binding.hasPoint?.value !== "true") {
+      figuresWithoutPoint.push(figure);
+    }
+    const currency = currencyCodeOf(binding);
+    if (currency !== null && !OWN_CURRENCIES.has(currency)) {
+      figuresInCurrency.push({ ...figure, currency });
+    }
+  }
+
+  return { figuresWithoutPoint, figuresInCurrency };
+};
+
+const toMarketRelations = (
+  bindings: readonly SparqlBinding[],
+): MarketRelations => {
+  const equivalents = new Map<string, Set<string>>();
+  for (const binding of bindings) {
+    const relation = binding.relation?.value;
+    if (!relation) {
+      continue;
+    }
+    const same = equivalents.get(relation) ?? new Set([relation]);
+    if (binding.inverse) {
+      same.add(binding.inverse.value);
+    }
+    equivalents.set(relation, same);
+  }
+
+  return equivalents;
 };
 
 export const instanceIriFromId = (id: string): string =>
@@ -417,7 +641,7 @@ export const createOrganonIngestionClient = ({
       throw await failure(response, `a retry of job ${jobId}`);
     },
 
-    getJobStatus: async (jobId) => {
+    getJob: async (jobId) => {
       const response = await request(
         `/api/v1/ingestion/jobs/${encodeURIComponent(jobId)}`,
       );
@@ -427,29 +651,45 @@ export const createOrganonIngestionClient = ({
       if (!response.ok) {
         throw await failure(response, `a read of job ${jobId}`);
       }
+      const { job } = jobSchema.parse(await response.json());
 
-      return jobSchema.parse(await response.json()).job.status;
+      const result = jobResultSchema.nullish().safeParse(job.result);
+
+      return {
+        status: job.status,
+        writtenLinks: result.success ? linksWrittenBy(result.data) : null,
+      };
     },
 
     articleEvidence: async (canonicalUrl) => {
       const [pointBindings, figureBindings] = await Promise.all([
         runSparql(articlePointsQuery(canonicalUrl)),
-        runHistorySparql(figuresWithoutPointQuery(canonicalUrl)),
+        runHistorySparql(articleFiguresQuery(canonicalUrl)),
       ]);
 
-      return {
-        points: toPoints(pointBindings),
-        figuresWithoutPoint: figureBindings.flatMap((binding) =>
-          binding.figure
-            ? [
-                {
-                  iri: binding.figure.value,
-                  label: binding.label?.value ?? null,
-                },
-              ]
-            : [],
-        ),
-      };
+      return { points: toPoints(pointBindings), ...toFigures(figureBindings) };
+    },
+
+    marketRelations: async () =>
+      toMarketRelations(await runSparql(MARKET_RELATIONS_QUERY)),
+
+    listedCompaniesAmong: async (iris) => {
+      const unique = [...new Set(iris)].filter((iri) => IRI_PATTERN.test(iri));
+      const listed = new Set<string>();
+      for (let start = 0; start < unique.length; start += MAX_IRIS_PER_QUERY) {
+        const bindings = await runSparql(
+          listedCompaniesAmongQuery(
+            unique.slice(start, start + MAX_IRIS_PER_QUERY),
+          ),
+        );
+        for (const binding of bindings) {
+          if (binding.company) {
+            listed.add(binding.company.value);
+          }
+        }
+      }
+
+      return listed;
     },
   };
 };

@@ -11,13 +11,17 @@ export {
   type ArticlePoint,
   type ArticleEvidence,
   type ArticleFigure,
+  type ArticleFigureInCurrency,
   type FailedIngestionJob,
   type FailedIngestionJobsPage,
   type IngestionArticle,
+  type IngestionJob,
   type IngestionJobStatus,
   type IngestionRequest,
+  type MarketRelations,
   type OrganonIngestionClient,
   type OrganonIngestionClientOptions,
+  type WrittenLink,
 } from "./organon-ingestion-client";
 export {
   MAX_SPARQL_QUERY_LENGTH,

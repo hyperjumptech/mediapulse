@@ -1,10 +1,17 @@
 import type {
   ArticleEvidence,
+  MarketRelations,
   OrganonIngestionClient,
+  WrittenLink,
 } from "@mediapulse/knowledge-graph";
 import type { AgentDataApiClient } from "@workspace/agent-data-api-client";
 import type { OrganonIngestionSentArticle } from "@workspace/agent-data-api-contract";
 import { pMap } from "@workspace/agent-ingestion";
+import {
+  type ListedCompanyValueWithoutPoint,
+  listedCompanyValuesWithoutPoint,
+  marketLinksOf,
+} from "./listed-company-values-without-point.js";
 import { spanIsInText } from "./span-is-in-text.js";
 
 export const MAX_EVIDENCE_EXAMPLES = 5;
@@ -18,6 +25,7 @@ export type EvidenceCheckResult = {
   checked: number;
   skipped: { unfinished: number; failed: number; jobNotFound: number };
   quotesUnchecked: number;
+  valuesUnchecked: number;
   withoutPoints: Tally<{ canonicalUrl: string }>;
   quotesNotInText: Tally<{ canonicalUrl: string; quote: string }>;
   figuresWithoutPoint: Tally<{
@@ -28,6 +36,14 @@ export type EvidenceCheckResult = {
     canonicalUrl: string;
     point: string;
     missingTickerSymbols: string[];
+  }>;
+  listedCompanyValuesWithoutPoint: Tally<
+    { canonicalUrl: string } & ListedCompanyValueWithoutPoint
+  >;
+  figuresInOtherCurrency: Tally<{
+    canonicalUrl: string;
+    figure: string;
+    currency: string;
   }>;
   errors: Tally<{ canonicalUrl: string; message: string }>;
 };
@@ -55,6 +71,7 @@ const recordProblems = (
   result: EvidenceCheckResult,
   send: OrganonIngestionSentArticle,
   evidence: ArticleEvidence,
+  unsupportedValues: readonly ListedCompanyValueWithoutPoint[],
 ): void => {
   const { canonicalUrl } = send;
   if (evidence.points.length === 0) {
@@ -92,6 +109,45 @@ const recordProblems = (
       figure: figure.label ?? figure.iri,
     });
   }
+
+  for (const figure of evidence.figuresInCurrency) {
+    note(result.figuresInOtherCurrency, {
+      canonicalUrl,
+      figure: figure.label ?? figure.iri,
+      currency: figure.currency,
+    });
+  }
+
+  for (const value of unsupportedValues) {
+    note(result.listedCompanyValuesWithoutPoint, { canonicalUrl, ...value });
+  }
+};
+
+const unsupportedValuesOf = async ({
+  organon,
+  relations,
+  writtenLinks,
+  evidence,
+}: {
+  organon: Pick<OrganonIngestionClient, "listedCompaniesAmong">;
+  relations: MarketRelations;
+  writtenLinks: readonly WrittenLink[];
+  evidence: ArticleEvidence;
+}): Promise<ListedCompanyValueWithoutPoint[]> => {
+  const links = marketLinksOf(writtenLinks, relations);
+  if (links.length === 0) {
+    return [];
+  }
+  const listedCompanies = await organon.listedCompaniesAmong(
+    links.flatMap((link) => [link.subject, link.object]),
+  );
+
+  return listedCompanyValuesWithoutPoint({
+    links,
+    points: evidence.points,
+    relations,
+    listedCompanies,
+  });
 };
 
 export const checkEvidence = async ({
@@ -102,7 +158,10 @@ export const checkEvidence = async ({
   take,
   concurrency,
 }: {
-  organon: Pick<OrganonIngestionClient, "getJobStatus" | "articleEvidence">;
+  organon: Pick<
+    OrganonIngestionClient,
+    "getJob" | "articleEvidence" | "marketRelations" | "listedCompaniesAmong"
+  >;
   dataApi: Pick<AgentDataApiClient, "organonIngestionSends">;
   sentAfter: Date;
   sentBefore: Date;
@@ -119,33 +178,49 @@ export const checkEvidence = async ({
     checked: 0,
     skipped: { unfinished: 0, failed: 0, jobNotFound: 0 },
     quotesUnchecked: 0,
+    valuesUnchecked: 0,
     withoutPoints: emptyTally(),
     quotesNotInText: emptyTally(),
     figuresWithoutPoint: emptyTally(),
     pointsMissingTicker: emptyTally(),
+    listedCompanyValuesWithoutPoint: emptyTally(),
+    figuresInOtherCurrency: emptyTally(),
     errors: emptyTally(),
   };
+  if (sends.length === 0) {
+    return result;
+  }
+  const relations = await organon.marketRelations();
 
   await pMap(
     sends,
     async (send) => {
       try {
-        const status = await organon.getJobStatus(send.organonJobId);
-        if (status === null) {
+        const job = await organon.getJob(send.organonJobId);
+        if (job === null) {
           result.skipped.jobNotFound += 1;
           return;
         }
-        if (UNFINISHED_JOB_STATUSES.has(status)) {
+        if (UNFINISHED_JOB_STATUSES.has(job.status)) {
           result.skipped.unfinished += 1;
           return;
         }
-        if (status !== "completed") {
+        if (job.status !== "completed") {
           result.skipped.failed += 1;
           return;
         }
         const evidence = await organon.articleEvidence(send.canonicalUrl);
+        if (job.writtenLinks === null) {
+          result.valuesUnchecked += 1;
+        }
+        const unsupportedValues = await unsupportedValuesOf({
+          organon,
+          relations,
+          writtenLinks: job.writtenLinks ?? [],
+          evidence,
+        });
         result.checked += 1;
-        recordProblems(result, send, evidence);
+        recordProblems(result, send, evidence, unsupportedValues);
       } catch (error) {
         note(result.errors, {
           canonicalUrl: send.canonicalUrl,
