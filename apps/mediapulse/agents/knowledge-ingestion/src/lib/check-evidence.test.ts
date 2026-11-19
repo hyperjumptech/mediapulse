@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import type {
   ArticleEvidence,
+  ArticlePoint,
   IngestionJobStatus,
+  MarketRelations,
+  WrittenLink,
 } from "@mediapulse/knowledge-graph";
 import type { OrganonIngestionSentArticle } from "@workspace/agent-data-api-contract";
 
@@ -12,6 +15,17 @@ import { MAX_EVIDENCE_EXAMPLES, checkEvidence } from "./check-evidence.js";
 const ARTICLE_URL = "https://www.kontan.co.id/news/map-boga";
 const SENT_AFTER = new Date("2026-11-16T03:00:00.000Z");
 const SENT_BEFORE = new Date("2026-11-17T03:00:00.000Z");
+const MP = "https://mediapulse.hyperjump.tech/ontology#";
+const ID = "https://mediapulse.hyperjump.tech/id/";
+const MAPI = `${ID}mapi`;
+const MAPB = `${ID}mapb`;
+const STARBUCKS = `${ID}starbucks`;
+const SHOPEE = `${ID}shopee`;
+const RELATIONS: MarketRelations = new Map([
+  [`${MP}partnersWith`, new Set([`${MP}partnersWith`])],
+  [`${MP}parentOf`, new Set([`${MP}parentOf`, `${MP}subsidiaryOf`])],
+  [`${MP}subsidiaryOf`, new Set([`${MP}subsidiaryOf`, `${MP}parentOf`])],
+]);
 
 const sent = (
   overrides: Partial<OrganonIngestionSentArticle> = {},
@@ -26,28 +40,48 @@ const sent = (
   ...overrides,
 });
 
-const point = (overrides: Partial<ArticleEvidence["points"][number]> = {}) => ({
+const point = (overrides: Partial<ArticlePoint> = {}): ArticlePoint => ({
   iri: "https://mediapulse.hyperjump.tech/id/p-1",
   tickerSymbols: ["MAPB", "MAPI"],
   quote: "MAPB merupakan anak usaha PT Mitra Adiperkasa Tbk (MAPI)",
+  about: [],
+  relationObjects: [],
+  statesRelation: null,
+  ...overrides,
+});
+
+const evidenceOf = (
+  overrides: Partial<ArticleEvidence> = {},
+): ArticleEvidence => ({
+  points: [point()],
+  figuresWithoutPoint: [],
+  figuresInCurrency: [],
   ...overrides,
 });
 
 const setup = ({
   sends,
   status = "completed",
-  evidence = { points: [point()], figuresWithoutPoint: [] },
+  evidence = evidenceOf(),
+  writtenLinks = [],
+  listedCompanies = new Set(),
 }: {
   sends: OrganonIngestionSentArticle[];
   status?: IngestionJobStatus | null;
   evidence?: ArticleEvidence;
+  writtenLinks?: WrittenLink[] | null;
+  listedCompanies?: ReadonlySet<string>;
 }) => {
   const dataApi = {
     organonIngestionSends: { get: vi.fn().mockResolvedValue({ sends }) },
   };
   const organon = {
-    getJobStatus: vi.fn().mockResolvedValue(status),
+    getJob: vi
+      .fn()
+      .mockResolvedValue(status === null ? null : { status, writtenLinks }),
     articleEvidence: vi.fn().mockResolvedValue(evidence),
+    marketRelations: vi.fn().mockResolvedValue(RELATIONS),
+    listedCompaniesAmong: vi.fn().mockResolvedValue(listedCompanies),
   };
   const run = () =>
     checkEvidence({
@@ -75,7 +109,7 @@ describe("checkEvidence", () => {
       sentBefore: SENT_BEFORE.toISOString(),
       take: 200,
     });
-    expect(organon.getJobStatus).toHaveBeenCalledWith("job-1");
+    expect(organon.getJob).toHaveBeenCalledWith("job-1");
     expect(organon.articleEvidence).toHaveBeenCalledWith(ARTICLE_URL);
     expect(result).toMatchObject({
       sends: 1,
@@ -84,14 +118,17 @@ describe("checkEvidence", () => {
       quotesNotInText: { count: 0 },
       figuresWithoutPoint: { count: 0 },
       pointsMissingTicker: { count: 0 },
+      listedCompanyValuesWithoutPoint: { count: 0 },
+      figuresInOtherCurrency: { count: 0 },
       errors: { count: 0 },
     });
+    expect(organon.listedCompaniesAmong).not.toHaveBeenCalled();
   });
 
   it("flags a quote that isn't in the text Mediapulse sent", async () => {
     const { run } = setup({
       sends: [sent()],
-      evidence: {
+      evidence: evidenceOf({
         points: [
           point({ quote: "MAPB is a subsidiary of MAPI" }),
           point({
@@ -99,8 +136,7 @@ describe("checkEvidence", () => {
             quote: "Rugi MAP Boga membengkak",
           }),
         ],
-        figuresWithoutPoint: [],
-      },
+      }),
     });
 
     const result = await run();
@@ -116,10 +152,7 @@ describe("checkEvidence", () => {
   it("flags a point filed under fewer tickers than the article was sent for", async () => {
     const { run } = setup({
       sends: [sent()],
-      evidence: {
-        points: [point({ tickerSymbols: ["MAPB"] })],
-        figuresWithoutPoint: [],
-      },
+      evidence: evidenceOf({ points: [point({ tickerSymbols: ["MAPB"] })] }),
     });
 
     const result = await run();
@@ -139,7 +172,7 @@ describe("checkEvidence", () => {
   it("flags figures no point is about, and articles with no points at all", async () => {
     const { run } = setup({
       sends: [sent()],
-      evidence: {
+      evidence: evidenceOf({
         points: [],
         figuresWithoutPoint: [
           {
@@ -148,7 +181,7 @@ describe("checkEvidence", () => {
           },
           { iri: "https://mediapulse.hyperjump.tech/id/f-2", label: null },
         ],
-      },
+      }),
     });
 
     const result = await run();
@@ -169,10 +202,7 @@ describe("checkEvidence", () => {
   it("leaves quotes unchecked when Mediapulse no longer has the article's body", async () => {
     const { run } = setup({
       sends: [sent({ content: null })],
-      evidence: {
-        points: [point({ quote: "anything" })],
-        figuresWithoutPoint: [],
-      },
+      evidence: evidenceOf({ points: [point({ quote: "anything" })] }),
     });
 
     const result = await run();
@@ -210,10 +240,7 @@ describe("checkEvidence", () => {
     organon.articleEvidence.mockRejectedValueOnce(
       new Error("SPARQL timed out"),
     );
-    organon.articleEvidence.mockResolvedValue({
-      points: [],
-      figuresWithoutPoint: [],
-    });
+    organon.articleEvidence.mockResolvedValue(evidenceOf({ points: [] }));
 
     const result = await run();
 
@@ -222,5 +249,117 @@ describe("checkEvidence", () => {
     expect(result.checked).toBe(sends.length - 1);
     expect(result.withoutPoints.count).toBe(sends.length - 1);
     expect(result.withoutPoints.examples).toHaveLength(MAX_EVIDENCE_EXAMPLES);
+  });
+  it("flags a market relation an article added to a listed company with no point stating it", async () => {
+    const unsupported = {
+      subject: MAPB,
+      predicate: `${MP}partnersWith`,
+      object: SHOPEE,
+    };
+    const { organon, run } = setup({
+      sends: [sent()],
+      writtenLinks: [
+        unsupported,
+        { subject: MAPI, predicate: `${MP}parentOf`, object: MAPB },
+        { subject: STARBUCKS, predicate: `${MP}partnersWith`, object: SHOPEE },
+        { subject: `${ID}p-1`, predicate: `${MP}forTicker`, object: MAPI },
+      ],
+      listedCompanies: new Set([MAPI, MAPB]),
+      evidence: evidenceOf({
+        points: [
+          point({
+            about: [MAPB],
+            relationObjects: [MAPI],
+            statesRelation: `${MP}subsidiaryOf`,
+          }),
+        ],
+      }),
+    });
+
+    const result = await run();
+
+    expect(organon.marketRelations).toHaveBeenCalledTimes(1);
+    expect(organon.listedCompaniesAmong).toHaveBeenCalledWith([
+      MAPB,
+      SHOPEE,
+      MAPI,
+      MAPB,
+      STARBUCKS,
+      SHOPEE,
+    ]);
+    expect(result.listedCompanyValuesWithoutPoint).toEqual({
+      count: 1,
+      examples: [
+        {
+          canonicalUrl: ARTICLE_URL,
+          company: MAPB,
+          relation: `${MP}partnersWith`,
+          value: SHOPEE,
+        },
+      ],
+    });
+  });
+
+  it("flags figures in a currency other than IDR or USD", async () => {
+    const { run } = setup({
+      sends: [sent()],
+      evidence: evidenceOf({
+        figuresInCurrency: [
+          {
+            iri: "https://mediapulse.hyperjump.tech/id/f-1",
+            label: "ADES Holding revenue 1H 2026 SAR 2.5 billion",
+            currency: "SAR",
+          },
+          {
+            iri: "https://mediapulse.hyperjump.tech/id/f-2",
+            label: null,
+            currency: "SGD",
+          },
+        ],
+      }),
+    });
+
+    const result = await run();
+
+    expect(result.figuresInOtherCurrency).toEqual({
+      count: 2,
+      examples: [
+        {
+          canonicalUrl: ARTICLE_URL,
+          figure: "ADES Holding revenue 1H 2026 SAR 2.5 billion",
+          currency: "SAR",
+        },
+        {
+          canonicalUrl: ARTICLE_URL,
+          figure: "https://mediapulse.hyperjump.tech/id/f-2",
+          currency: "SGD",
+        },
+      ],
+    });
+  });
+
+  it("still checks an article whose job result it can't read, and counts its values as unchecked", async () => {
+    const { run } = setup({
+      sends: [sent()],
+      writtenLinks: null,
+      evidence: evidenceOf({ points: [] }),
+    });
+
+    const result = await run();
+
+    expect(result.checked).toBe(1);
+    expect(result.valuesUnchecked).toBe(1);
+    expect(result.withoutPoints.count).toBe(1);
+    expect(result.listedCompanyValuesWithoutPoint.count).toBe(0);
+  });
+
+  it("reads nothing from the graph when no article was sent in the window", async () => {
+    const { organon, run } = setup({ sends: [] });
+
+    const result = await run();
+
+    expect(result.sends).toBe(0);
+    expect(organon.marketRelations).not.toHaveBeenCalled();
+    expect(organon.getJob).not.toHaveBeenCalled();
   });
 });

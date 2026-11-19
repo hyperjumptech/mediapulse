@@ -39,6 +39,8 @@ Jobs are visible only to the key that started them. The MCP key is not the inges
   - `pointsMissingTicker`: a point isn't filed under every ticker the article was sent for.
   - `figuresWithoutPoint`: a figure no sentence supports.
   - `withoutPoints`: a completed job left the article with nothing. An article deleted by hand shows up here the next night. That's expected.
+  - `listedCompanyValuesWithoutPoint`: the job added a market relation to or from a listed company, such as an owner or a competitor, that no point in the article states. Check the quote with step 2. If the article never says it, it is a wrong link: remove the value as in step 3.
+  - `figuresInOtherCurrency`: a figure in a currency other than IDR or USD. Often the article is about a company abroad with a similar name or code, a wrong placement in step 3.
   - `skipped.unfinished`: jobs still queued or running when the check ran. The next night's window has moved past them, so they are never checked. Look at them by hand when the count is large.
 
 The evidence check can't see a fact tied to the wrong company when the quote and tickers are right. Always look at the articles in step 2 that the report doesn't flag, as well as the ones it does.

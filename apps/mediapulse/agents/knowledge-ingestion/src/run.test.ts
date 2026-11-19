@@ -122,11 +122,16 @@ const setup = ({
       nextCursor: null,
     }),
     retryJob: vi.fn().mockResolvedValue("retried"),
-    getJobStatus: vi.fn().mockResolvedValue("completed"),
+    getJob: vi
+      .fn()
+      .mockResolvedValue({ status: "completed", writtenLinks: [] }),
     articleEvidence: vi.fn().mockResolvedValue({
       points: [],
       figuresWithoutPoint: [],
+      figuresInCurrency: [],
     }),
+    marketRelations: vi.fn().mockResolvedValue(new Map()),
+    listedCompaniesAmong: vi.fn().mockResolvedValue(new Set()),
   };
   const fetchBodies = vi.fn().mockResolvedValue(fetchResult);
   const createIngestionClient = vi.fn().mockReturnValue(organon);
@@ -431,7 +436,7 @@ describe("knowledge-ingestion run", () => {
       sentBefore: NOW.toISOString(),
       take: 200,
     });
-    expect(organon.getJobStatus).toHaveBeenCalledWith("job-earlier");
+    expect(organon.getJob).toHaveBeenCalledWith("job-earlier");
     expect(result).toMatchObject({
       success: true,
       details: {
