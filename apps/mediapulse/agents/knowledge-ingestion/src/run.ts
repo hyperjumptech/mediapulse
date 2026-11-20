@@ -44,6 +44,16 @@ const publisherDomainOf = (candidate: OrganonIngestionCandidate): string =>
 const tickerSymbolsOf = (candidate: OrganonIngestionCandidate): string[] =>
   candidate.tickers.map((ticker) => ticker.symbol);
 
+const placedForIrisOf = (
+  candidate: OrganonIngestionCandidate,
+  listedCompanyBySymbol: ReadonlyMap<string, string>,
+): string[] =>
+  tickerSymbolsOf(candidate).flatMap((symbol) => {
+    const iri = listedCompanyBySymbol.get(symbol);
+
+    return iri === undefined ? [] : [iri];
+  });
+
 export const createRunHandler =
   ({
     createDataApi = createAgentDataApiClient,
@@ -93,6 +103,31 @@ export const createRunHandler =
       apiKey: config.organonApiKey,
       timeoutMs: config.requestTimeoutMs,
     });
+
+    const placedSymbols = [...new Set(candidates.flatMap(tickerSymbolsOf))];
+    let listedCompanyBySymbol: ReadonlyMap<string, string>;
+    try {
+      listedCompanyBySymbol =
+        await organon.listedCompanyIrisByTicker(placedSymbols);
+    } catch (error) {
+      logger.error({ err: error }, "Listed company lookup failed");
+
+      return {
+        success: false,
+        message: `Sent none of ${candidates.length} articles to the knowledge graph: the listed company lookup failed`,
+        details: {
+          candidates: candidates.length,
+          sent: 0,
+          tickerLookupError: describeError(error),
+        },
+      };
+    }
+    const unknownTickers = placedSymbols.filter(
+      (symbol) => !listedCompanyBySymbol.has(symbol),
+    );
+    if (unknownTickers.length > 0) {
+      logger.warn({ unknownTickers }, "Placed tickers with no listed company");
+    }
 
     const bodies = await fetchMissingBodies({
       candidates,
@@ -145,6 +180,7 @@ export const createRunHandler =
             registrableDomain,
             publisherIri: publisher.iri,
             tickers: candidate.tickers,
+            placedForIris: placedForIrisOf(candidate, listedCompanyBySymbol),
           });
           const { jobId } = await organon.startIngestion(request);
           await dataApi.organonIngestionSends.create([
@@ -205,6 +241,7 @@ export const createRunHandler =
       failed: failures.length,
       publishersCreated: createdPublisherDomains.size,
       publisherFailures: failedPublisherDomains.size,
+      unknownTickers,
       sweep,
       evidence,
       failures: failures.slice(0, MAX_REPORTED_FAILURES),

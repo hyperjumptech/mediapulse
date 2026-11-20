@@ -22,6 +22,9 @@ import { createRunHandler, type RunDependencies } from "./run.js";
 
 const NOW = new Date("2026-11-17T03:00:00.000Z");
 const PUBLISHER_IRI = "https://mediapulse.hyperjump.tech/id/publisher-kontan";
+const PLACED_FOR = "https://mediapulse.hyperjump.tech/ontology#placedFor";
+const MAPB_IRI = "https://mediapulse.hyperjump.tech/id/mapb";
+const MAPI_IRI = "https://mediapulse.hyperjump.tech/id/mapi";
 const MAPB = {
   id: "ticker-mapb",
   symbol: "MAPB",
@@ -132,6 +135,12 @@ const setup = ({
     }),
     marketRelations: vi.fn().mockResolvedValue(new Map()),
     listedCompaniesAmong: vi.fn().mockResolvedValue(new Set()),
+    listedCompanyIrisByTicker: vi.fn().mockResolvedValue(
+      new Map([
+        ["MAPB", MAPB_IRI],
+        ["MAPI", MAPI_IRI],
+      ]),
+    ),
   };
   const fetchBodies = vi.fn().mockResolvedValue(fetchResult);
   const createIngestionClient = vi.fn().mockReturnValue(organon);
@@ -191,6 +200,14 @@ describe("knowledge-ingestion run", () => {
       predicate: "http://purl.org/dc/terms/publisher",
       iri: PUBLISHER_IRI,
     });
+    expect(
+      request.metadata.filter(
+        (fact: { predicate: string }) => fact.predicate === PLACED_FOR,
+      ),
+    ).toEqual([
+      { predicate: PLACED_FOR, iri: MAPB_IRI },
+      { predicate: PLACED_FOR, iri: MAPI_IRI },
+    ]);
     expect(dataApi.organonIngestionSends.create).toHaveBeenCalledWith([
       {
         canonicalUrl: "https://www.kontan.co.id/news/map-boga",
@@ -199,6 +216,76 @@ describe("knowledge-ingestion run", () => {
         sentAt: NOW.toISOString(),
       },
     ]);
+  });
+
+  it("looks up the listed companies once for every ticker the run's articles are placed for", async () => {
+    const { deps, organon } = setup({
+      candidates: [
+        candidate({ tickers: [MAPB, MAPI] }),
+        candidate({
+          canonicalUrl: "https://www.kontan.co.id/news/mitra-adiperkasa",
+          tickers: [MAPI],
+        }),
+      ],
+    });
+
+    await runWith(deps);
+
+    expect(organon.listedCompanyIrisByTicker).toHaveBeenCalledTimes(1);
+    expect(organon.listedCompanyIrisByTicker).toHaveBeenCalledWith([
+      "MAPB",
+      "MAPI",
+    ]);
+  });
+
+  it("sends an article without a placed ticker the graph has no listed company for, and reports that ticker", async () => {
+    const { deps, organon } = setup({
+      candidates: [candidate({ tickers: [MAPB, MAPI] })],
+    });
+    organon.listedCompanyIrisByTicker.mockResolvedValue(
+      new Map([["MAPB", MAPB_IRI]]),
+    );
+
+    const result = await runWith(deps);
+
+    expect(result).toMatchObject({
+      success: true,
+      details: { sent: 1, unknownTickers: ["MAPI"] },
+    });
+    const request = organon.startIngestion.mock.calls[0]?.[0];
+    expect(
+      request.metadata.filter(
+        (fact: { predicate: string }) => fact.predicate === PLACED_FOR,
+      ),
+    ).toEqual([{ predicate: PLACED_FOR, iri: MAPB_IRI }]);
+    expect(request.content).toContain(
+      "- Placed for: MAPB (PT Map Boga Adiperkasa Tbk), MAPI (PT Mitra Adiperkasa Tbk)",
+    );
+  });
+
+  it("fetches and sends nothing when the listed company lookup fails, so no point is read without its tickers", async () => {
+    const { deps, organon, fetchBodies, dataApi } = setup({
+      candidates: [candidate({ content: null })],
+    });
+    organon.listedCompanyIrisByTicker.mockRejectedValue(
+      new Error("Organon answered 503 to a SPARQL query"),
+    );
+
+    const result = await runWith(deps);
+
+    expect(result).toEqual({
+      success: false,
+      message:
+        "Sent none of 1 articles to the knowledge graph: the listed company lookup failed",
+      details: {
+        candidates: 1,
+        sent: 0,
+        tickerLookupError: "Organon answered 503 to a SPARQL query",
+      },
+    });
+    expect(fetchBodies).not.toHaveBeenCalled();
+    expect(organon.startIngestion).not.toHaveBeenCalled();
+    expect(dataApi.organonIngestionSends.create).not.toHaveBeenCalled();
   });
 
   it("asks for candidates since the cutover, in UTC, no more than the run allows", async () => {

@@ -11,12 +11,15 @@ import {
   createOrganonIngestionClient,
   linksWrittenBy,
   listedCompaniesAmongQuery,
+  listedCompaniesByTickerQuery,
   type IngestionArticle,
 } from "./organon-ingestion-client";
 
 const MP = "https://mediapulse.hyperjump.tech/ontology#";
 const DCTERMS = "http://purl.org/dc/terms/";
 const PUBLISHER_IRI = "https://mediapulse.hyperjump.tech/id/publisher-kontan";
+const MAPB_IRI = "https://mediapulse.hyperjump.tech/id/mapb";
+const MAPI_IRI = "https://mediapulse.hyperjump.tech/id/mapi";
 
 const article = (
   overrides: Partial<IngestionArticle> = {},
@@ -33,6 +36,7 @@ const article = (
     { symbol: "MAPB", name: "PT Map Boga Adiperkasa Tbk" },
     { symbol: "MAPI", name: "PT Mitra Adiperkasa Tbk" },
   ],
+  placedForIris: [MAPB_IRI, MAPI_IRI],
   ...overrides,
 });
 
@@ -88,8 +92,10 @@ describe("buildIngestionRequest", () => {
     );
     expect(request.sourceClassIri).toBe(`${MP}DataSource`);
     expect(request.classIris).toEqual(ARTICLE_CLASS_IRIS);
-    expect(request.classIris).toHaveLength(17);
+    expect(request.classIris).toHaveLength(16);
     expect(request.classIris).toContain(`${MP}ArticlePoint`);
+    expect(request.classIris).toContain(`${MP}Regulator`);
+    expect(request.classIris).not.toContain(`${MP}GovernmentBody`);
     expect(
       request.classIris.filter((iri) =>
         iri.startsWith("http://www.w3.org/ns/oa#"),
@@ -97,7 +103,7 @@ describe("buildIngestionRequest", () => {
     ).toEqual([]);
   });
 
-  it("sends the article's facts for its Data source, with no byline", () => {
+  it("sends the article's facts for its Data source, with the listed company of each placed ticker and no byline", () => {
     const request = buildIngestionRequest(article());
 
     expect(request.metadata).toEqual([
@@ -121,12 +127,29 @@ describe("buildIngestionRequest", () => {
       { predicate: `${MP}publishedAt`, value: "2026-11-14T01:30:00.000Z" },
       { predicate: `${MP}sourceKind`, iri: `${MP}SourceNews` },
       { predicate: `${DCTERMS}publisher`, iri: PUBLISHER_IRI },
+      { predicate: `${MP}placedFor`, iri: MAPB_IRI },
+      { predicate: `${MP}placedFor`, iri: MAPI_IRI },
     ]);
+  });
+
+  it("sends each placed-for company once", () => {
+    const request = buildIngestionRequest(
+      article({ placedForIris: [MAPB_IRI, MAPB_IRI] }),
+    );
+
+    expect(
+      request.metadata.filter((fact) => fact.predicate === `${MP}placedFor`),
+    ).toEqual([{ predicate: `${MP}placedFor`, iri: MAPB_IRI }]);
   });
 
   it("leaves out the facts and header lines Mediapulse has no value for", () => {
     const request = buildIngestionRequest(
-      article({ description: null, publishedAt: null, publisherIri: null }),
+      article({
+        description: null,
+        publishedAt: null,
+        publisherIri: null,
+        placedForIris: [],
+      }),
     );
 
     expect(request.content).not.toContain("- Published:");
@@ -661,6 +684,67 @@ describe("market relations and listed companies", () => {
   it("puts each IRI in the VALUES list", () => {
     expect(listedCompaniesAmongQuery([MAPB, MAPI])).toContain(
       `VALUES ?company { <${MAPB}> <${MAPI}> }`,
+    );
+  });
+
+  it("finds the listed company for each ticker in batches, once per symbol", async () => {
+    const symbols = Array.from(
+      { length: MAX_IRIS_PER_QUERY + 1 },
+      (_, index) => `T${index}`,
+    );
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      sparqlResponse([
+        { ticker: literal("MAPB"), company: uri(MAPB) },
+        { ticker: literal("MAPI"), company: uri(MAPI) },
+      ]),
+    );
+    const client = createClient(fetchImpl);
+
+    const companies = await client.listedCompanyIrisByTicker([
+      ...symbols,
+      "T0",
+    ]);
+
+    expect(companies).toEqual(
+      new Map([
+        ["MAPB", MAPB],
+        ["MAPI", MAPI],
+      ]),
+    );
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("never puts a value that isn't a ticker symbol into the ticker query", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => sparqlResponse([]));
+    const client = createClient(fetchImpl);
+
+    const companies = await client.listedCompanyIrisByTicker([
+      'MAPB" } ?x ?y ?z . {',
+      "mapb",
+      "",
+    ]);
+
+    expect(companies).toEqual(new Map());
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("keeps one company per ticker, the same one every run", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      sparqlResponse([
+        { ticker: literal("MAPB"), company: uri(`${ID}mapb-2`) },
+        { ticker: literal("MAPB"), company: uri(`${ID}mapb-1`) },
+      ]),
+    );
+    const client = createClient(fetchImpl);
+
+    const companies = await client.listedCompanyIrisByTicker(["MAPB"]);
+
+    expect(companies).toEqual(new Map([["MAPB", `${ID}mapb-1`]]));
+  });
+
+  it("puts each symbol in the VALUES list as a quoted string", () => {
+    expect(listedCompaniesByTickerQuery(["MAPB", "MAPI"])).toContain(
+      'VALUES ?ticker { "MAPB" "MAPI" }',
     );
   });
 });

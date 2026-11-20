@@ -1,2 +1,2 @@
 export const AGENT_ID = "knowledge-ingestion";
-export const AGENT_VERSION = "2.0.0";
+export const AGENT_VERSION = "2.1.0";

@@ -20,6 +20,7 @@ export const MAX_FAILED_JOBS_PAGE_SIZE = 100;
 
 const MAX_ERROR_BODY_LENGTH = 300;
 const REGISTRABLE_DOMAIN_PATTERN = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/;
+const TICKER_SYMBOL_PATTERN = /^[A-Z0-9]{1,12}$/;
 
 export const ARTICLE_CLASS_IRIS = [
   `${MP}ArticlePoint`,
@@ -27,7 +28,6 @@ export const ARTICLE_CLASS_IRIS = [
   `${MP}Company`,
   `${MP}Organization`,
   `${MP}BusinessGroup`,
-  `${MP}GovernmentBody`,
   `${MP}Regulator`,
   `${MP}Brand`,
   `${MP}Product`,
@@ -51,6 +51,7 @@ export type IngestionArticle = {
   registrableDomain: string;
   publisherIri: string | null;
   tickers: readonly { symbol: string; name: string }[];
+  placedForIris: readonly string[];
 };
 
 export type IngestionMetadataFact =
@@ -134,6 +135,9 @@ export type OrganonIngestionClient = {
   listedCompaniesAmong: (
     iris: readonly string[],
   ) => Promise<ReadonlySet<string>>;
+  listedCompanyIrisByTicker: (
+    symbols: readonly string[],
+  ) => Promise<ReadonlyMap<string, string>>;
 };
 
 export type OrganonIngestionClientOptions = {
@@ -321,6 +325,10 @@ export const buildIngestionRequest = (
     ...(article.publisherIri
       ? [{ predicate: `${DCTERMS}publisher`, iri: article.publisherIri }]
       : []),
+    ...[...new Set(article.placedForIris)].map((iri) => ({
+      predicate: `${MP}placedFor`,
+      iri,
+    })),
   ],
 });
 
@@ -389,6 +397,20 @@ export const listedCompaniesAmongQuery = (iris: readonly string[]): string =>
     "SELECT DISTINCT ?company WHERE {",
     `  VALUES ?company { ${iris.map((iri) => `<${iri}>`).join(" ")} }`,
     "  ?company a mp:ListedCompany .",
+    "}",
+  ].join("\n");
+
+export const isTickerSymbol = (symbol: string): boolean =>
+  TICKER_SYMBOL_PATTERN.test(symbol);
+
+export const listedCompaniesByTickerQuery = (
+  symbols: readonly string[],
+): string =>
+  [
+    `PREFIX mp: <${MP}>`,
+    "SELECT ?ticker ?company WHERE {",
+    `  VALUES ?ticker { ${symbols.map(sparqlString).join(" ")} }`,
+    "  ?company a mp:ListedCompany ; mp:ticker ?ticker .",
     "}",
   ].join("\n");
 
@@ -690,6 +712,31 @@ export const createOrganonIngestionClient = ({
       }
 
       return listed;
+    },
+
+    listedCompanyIrisByTicker: async (symbols) => {
+      const unique = [...new Set(symbols)].filter(isTickerSymbol);
+      const companyBySymbol = new Map<string, string>();
+      for (let start = 0; start < unique.length; start += MAX_IRIS_PER_QUERY) {
+        const bindings = await runSparql(
+          listedCompaniesByTickerQuery(
+            unique.slice(start, start + MAX_IRIS_PER_QUERY),
+          ),
+        );
+        for (const binding of bindings) {
+          const symbol = binding.ticker?.value;
+          const company = binding.company?.value;
+          if (!symbol || !company || !IRI_PATTERN.test(company)) {
+            continue;
+          }
+          const current = companyBySymbol.get(symbol);
+          if (current === undefined || company < current) {
+            companyBySymbol.set(symbol, company);
+          }
+        }
+      }
+
+      return companyBySymbol;
     },
   };
 };
