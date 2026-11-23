@@ -231,7 +231,7 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
       },
       {
         id: "in-material-development",
-        text: "Include if it reports a material development at that issuer other than a published operating or financial result: a move in its share price, its trading volume, or its inclusion in or removal from an index; regulatory, supervisory, or legal action naming it; an executive of the issuer speaking on its strategy, capacity, capital spending, or outlook; or a launch, campaign, partnership, contract, licence, or expansion it announces. An article whose subject is the issuer's own reported figures belongs to issuerPerformance, so answer false here for revenue, profit, margin, volume, guidance, or a payout decision.",
+        text: "Include if it reports a material development at that issuer other than a published operating or financial result: regulatory, supervisory, or legal action naming it; an executive of the issuer speaking on its strategy, capacity, capital spending, or outlook; or a launch, campaign, partnership, contract, licence, or expansion it announces. A move in its share price, its trading volume, its index membership, foreign buying or selling of its shares, or an analyst's call on its stock is not a development: this newsletter never carries stock-market stories. An article whose subject is the issuer's own reported figures belongs to issuerPerformance, so answer false here for revenue, profit, margin, volume, guidance, or a payout decision.",
         qualifying: true,
       },
       {
@@ -240,7 +240,7 @@ const DEFAULT_ACCEPTANCE_CRITERIA: readonly {
       },
       {
         id: "in-consequence-stated",
-        text: "Include if it states what the development means for the issuer: a cost, a constraint, an opportunity, an effect on its shares, or a response it has made or plans.",
+        text: "Include if it states what the development means for the issuer: a cost, a constraint, an opportunity, or a response it has made or plans.",
       },
     ],
   },

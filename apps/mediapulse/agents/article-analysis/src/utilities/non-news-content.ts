@@ -9,7 +9,68 @@
 export type NonNewsClass =
   | "recruitment"
   | "competition_call"
-  | "community_activity";
+  | "community_activity"
+  | "stock_market";
+
+const PRICE_MOVE_VERBS = [
+  "naik",
+  "turun",
+  "menguat",
+  "melemah",
+  "melonjak",
+  "melesat",
+  "meroket",
+  "terbang",
+  "anjlok",
+  "ambles",
+  "ambruk",
+  "merosot",
+  "longsor",
+  "rontok",
+  "terkoreksi",
+  "menanjak",
+  "menghijau",
+  "memerah",
+  "tertekan",
+  "terjun",
+].join("|");
+
+const STOCK_MARKET_TITLE = new RegExp(
+  [
+    String.raw`\bIHSG\b`,
+    String.raw`\bindeks\s+harga\s+saham\b`,
+    String.raw`\b(?:LQ45|IDX30|IDX80|MSCI)\b`,
+    String.raw`\b(?:jakarta|IDX)\s+composite\b`,
+    String.raw`\bbursa\s+saham\b`,
+    String.raw`\bbursa\s+(?:AS|Asia|Eropa|global|regional)\b`,
+    String.raw`\bwall\s+street\b`,
+    String.raw`\bstock\s+markets?\b`,
+    String.raw`\bnet\s+(?:buy|sell)\b`,
+    String.raw`\b(?:jual|beli)\s+bersih\b`,
+    String.raw`\b(?:diborong|dilepas|diobral)\s+asing\b`,
+    String.raw`\basing\s+(?:borong|lepas|obral|buang|jual)\b`,
+    String.raw`\brekomendasi\s+saham\b`,
+    String.raw`\bsaham\s+(?:pilihan|unggulan|jagoan|apa)\b`,
+    String.raw`\bsaham\s+(?:yang\s+)?(?:layak|patut|perlu|wajib|bisa)\s+(?:dicermati|dikoleksi|dilirik|diburu|dibeli|dipantau|diperhatikan)\b`,
+    String.raw`\bsaham\s+(?:paling\s+)?(?:teraktif|terlaris)\b`,
+    String.raw`\bprospek\s+saham(?:nya)?\b`,
+    String.raw`\b(?:dampak|efek|imbas|pengaruh)(?:nya)?\s+(?:ke|pada|bagi|terhadap)\s+saham\b`,
+    String.raw`\btarget\s+harga\s+saham\b`,
+    String.raw`\bharga\s+saham\b(?!\s+(?:IPO|perdana)\b)`,
+    String.raw`(?<!\bper\s)\bsaham\s+(?:[\p{L}\p{N}]+\s+)?(?:${PRICE_MOVE_VERBS})\b`,
+    String.raw`\b(?:analisis|analisa)\s+teknikal\b`,
+    String.raw`\btechnical\s+analysis\b`,
+    String.raw`\b(?:trading|speculative)\s+buy\b`,
+    String.raw`\bbuy\s+on\s+weakness\b`,
+    String.raw`\btop\s+(?:gainers?|losers?)\b`,
+    String.raw`\bauto\s+reject\b`,
+    String.raw`\bstocks?\s+(?:picks?|recommendations?)\b`,
+    String.raw`\bstocks?\s+to\s+(?:buy|watch)\b`,
+    String.raw`\b(?:share|stock)\s+prices?\b`,
+    String.raw`\bshares\s+(?:rise|rose|fall|fell|jump|jumped|slump|slumped|surge|surged|drop|dropped|climb|climbed|tumble|tumbled|plunge|plunged|rally|rallied|sink|sank|soar|soared|gain|gained)\b`,
+  ].join("|"),
+  "iu",
+);
 
 const PATTERNS: { kind: NonNewsClass; pattern: RegExp }[] = [
   {
@@ -51,6 +112,9 @@ export const nonNewsContentClass = (
   title: string,
   content: string,
 ): NonNewsClass | null => {
+  if (STOCK_MARKET_TITLE.test(title)) {
+    return "stock_market";
+  }
   const match = PATTERNS.find((entry) => entry.pattern.test(title));
   if (match === undefined) {
     return null;

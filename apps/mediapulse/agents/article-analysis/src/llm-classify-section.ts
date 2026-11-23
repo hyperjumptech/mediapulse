@@ -35,11 +35,17 @@ import {
   type MarketPartyMatch,
 } from "@workspace/utils";
 
-/** Reader-facing names for the non-news classes, used in the rejection reason. */
-const NON_NEWS_LABELS: Record<NonNewsClass, string> = {
-  recruitment: "recruitment notice",
-  competition_call: "competition or award call for entries",
-  community_activity: "community or CSR activity report",
+const carriesNoNewsReason = (label: string): string =>
+  `Rejected — carries no news: the article is a ${label} naming the issuer or its market, with no financial, operational, or regulatory fact.`;
+
+const NON_NEWS_REJECTION_REASONS: Record<NonNewsClass, string> = {
+  recruitment: carriesNoNewsReason("recruitment notice"),
+  competition_call: carriesNoNewsReason(
+    "competition or award call for entries",
+  ),
+  community_activity: carriesNoNewsReason("community or CSR activity report"),
+  stock_market:
+    "Rejected — stock-market story: the headline reports share prices, an index, fund flows, or stock picks, which newsletters never carry.",
 };
 
 /** Article content past this many characters is truncated before classification. */
@@ -620,7 +626,7 @@ export const scoreFromEvaluations = (
       score: 0,
       reason:
         nonNewsClass !== null
-          ? `Rejected — carries no news: the article is a ${NON_NEWS_LABELS[nonNewsClass]} naming the issuer or its market, with no financial, operational, or regulatory fact.`
+          ? NON_NEWS_REJECTION_REASONS[nonNewsClass]
           : foreignSymbolHomonym
             ? "Rejected — ticker symbol collision: the article binds this symbol to a company listed on another exchange, not to the issuer."
             : noRuleJudged
