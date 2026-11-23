@@ -113,8 +113,8 @@
     "industry": "Aplikasi & Jasa Internet",
     "competitors": "Grab Holdings, Sea Group, TikTok Shop, Maxim, inDrive, Dunia Virtual Online, Era Digital Media, Global Digital Niaga",
     "aliases": "GOTO, GoPay, Tokopedia, Gojek, GoTo, GoTo Gojek Tokopedia, PT GoTo Gojek Tokopedia Tbk",
-    "expectedSection": "issuerPerformance",
-    "note": "issuer's own response to its index removal"
+    "expectedSection": null,
+    "note": "index membership is stock-market content, rejected by title since #1471"
   },
   {
     "id": "5e58e3d9-d158-4598-8e89-7d37d64f46d2",
@@ -126,8 +126,8 @@
     "industry": "Aplikasi & Jasa Internet",
     "competitors": "Grab Holdings, Sea Group, TikTok Shop, Maxim, inDrive, Dunia Virtual Online, Era Digital Media, Global Digital Niaga",
     "aliases": "GOTO, GoPay, Tokopedia, Gojek, GoTo, GoTo Gojek Tokopedia, PT GoTo Gojek Tokopedia Tbk",
-    "expectedSection": "quickHits",
-    "note": "major shareholder reacting to the removal"
+    "expectedSection": null,
+    "note": "index membership is stock-market content, rejected by title since #1471"
   },
   {
     "id": "6e17bfb6-b6be-45c2-93f7-2eeb702ddf92",
@@ -256,7 +256,7 @@
     "industry": "Aplikasi & Jasa Internet",
     "competitors": "Grab Holdings, Sea Group, TikTok Shop, Maxim, inDrive, Dunia Virtual Online, Era Digital Media, Global Digital Niaga",
     "aliases": "GOTO, GoPay, Tokopedia, Gojek, GoTo, GoTo Gojek Tokopedia, PT GoTo Gojek Tokopedia Tbk",
-    "expectedSection": "issuerPerformance",
-    "note": "issuer index status"
+    "expectedSection": null,
+    "note": "index membership is stock-market content, rejected by title since #1471"
   }
 ]

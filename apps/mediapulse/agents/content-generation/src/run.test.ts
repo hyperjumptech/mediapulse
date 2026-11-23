@@ -401,6 +401,80 @@ describe("run", () => {
     expect(result.message).toContain("No data sources found");
   });
 
+  describe("stock-market stories classified before the stock filter", () => {
+    const stockSources = [
+      {
+        dataSourceId: "10000000-0000-4000-8000-000000000003",
+        url: "https://example.com/net-sell",
+        title:
+          "Asing Net Sell Rp 947 M di Akhir Pekan, MBMA, EXCL dan MYOR Topang IHSG",
+        description: "IHSG ditutup melemah 0,92%.",
+        content: "IHSG ditutup melemah 47,81 poin.",
+        tickerId: TEST_TICKER_ID,
+        section: "quickHits",
+        sectionScore: 0.7,
+      },
+      {
+        dataSourceId: "10000000-0000-4000-8000-000000000004",
+        url: "https://example.com/rekomendasi",
+        title:
+          "Rekomendasi Saham 20 November 2026: ICBP, INET, ASII, TLKM, BULL, CMRY",
+        description: "BNI Sekuritas merekomendasikan enam saham.",
+        content: "BNI Sekuritas merekomendasikan enam saham.",
+        tickerId: TEST_TICKER_ID,
+        section: "issuerNews",
+        sectionScore: 0.6,
+      },
+    ];
+
+    it("never hands a stock-market story to generation", async () => {
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue(
+        makeGetResponse({ dataSources: [...testSources, ...stockSources] }),
+      );
+      contentGenerationCreate.mockResolvedValue({ message: "ok", id: "nl-1" });
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-stock" });
+      const generateSpy = vi
+        .spyOn(LlmGenerate, "generateNewsletterWithLlm")
+        .mockResolvedValue(generatedNewsletter);
+
+      const result = await run(makeContext());
+
+      expect(result.success).toBe(true);
+      const handedToGeneration = JSON.stringify(generateSpy.mock.calls[0]![0]);
+      expect(handedToGeneration).toContain("Story A");
+      expect(handedToGeneration).not.toContain("Net Sell");
+      expect(handedToGeneration).not.toContain("Rekomendasi Saham");
+      expect(
+        contentGenerationRunsCreate.mock.calls[0]![0].details,
+      ).toMatchObject({ stockMarketDropped: 2 });
+    });
+
+    it("skips an issue made only of stock-market stories", async () => {
+      contentGenerationNewslettersLatestGet.mockResolvedValue({
+        hasNewsletter: false,
+        newsletterId: null,
+      });
+      contentGenerationGet.mockResolvedValue(
+        makeGetResponse({ dataSources: stockSources }),
+      );
+      contentGenerationRunsCreate.mockResolvedValue({ id: "run-id-stock" });
+
+      const result = await run(makeContext());
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain("No data sources found");
+      expect(LlmGenerate.generateNewsletterWithLlm).not.toHaveBeenCalled();
+      expect(contentGenerationCreate).not.toHaveBeenCalled();
+      const callArg = contentGenerationRunsCreate.mock.calls[0]![0];
+      expect(callArg.errorCode).toBe("no_sources");
+      expect(callArg.details).toMatchObject({ stockMarketDropped: 2 });
+    });
+  });
+
   // -------------------------------------------------------------------------
   // Skip-if-duplicate: newsletter exists in window → skipped
   // -------------------------------------------------------------------------
