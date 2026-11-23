@@ -31,23 +31,25 @@ It never waits for a job. Organon queues it, retries temporary errors and replac
 
 ## Evidence check
 
-Before the first article, the agent reads the market relations from the Concepts once: every property under `mp:relatedTo`, with its inverse. For each article sent in the window, it reads the job, its status and the links the job wrote. A job still queued or running is skipped as `unfinished`, a failed or cancelled job as `failed`, and a job Organon no longer has (finished jobs are deleted after 30 days) as `jobNotFound`. For a completed job it runs two SPARQL queries on the article's Data source, found by canonical URL:
+Before the first article, the agent reads the market relations from the Concepts once: every property under `mp:relatedTo`, with its inverse. For each article sent in the window, it reads the job: its status, the links it wrote and whether the model's answer was cut off. A job still queued or running is skipped as `unfinished`, a failed or cancelled job as `failed`, and a job Organon no longer has (finished jobs are deleted after 30 days) as `jobNotFound`. For a completed job it runs two SPARQL queries on the article's Data source, found by canonical URL:
 
 - its points, each with the tickers it is filed under, its quote, its about item, and the relation and other party it states (inferred answers, like `article-evidence.rq` on the developer page)
 - the figures the article added, each with its currency and whether a point is about it, found through the article's versions in the history graph (`?provenance=true`)
 
 When the job wrote a market relation, a third query asks which of its parties are listed companies.
 
-It counts six problems:
+It counts eight problems:
 
 | Problem | What it means |
 | --- | --- |
-| `quotesNotInText` | A quote isn't in the title, snippet and body Mediapulse sent, after whitespace and case are folded (`spanIsInText` in the agent). The model paraphrased instead of copying. |
+| `quotesNotInText` | A quote isn't in the title, snippet and body Mediapulse sent, after whitespace and case are folded and closing punctuation and quote marks at the end of the quote are ignored (`spanIsInText` in the agent). The model paraphrased instead of copying. |
 | `pointsMissingTicker` | A point is filed under fewer tickers than the article was sent for. Since 2.1.0 the tickers are derived from the article, so this points at a ticker the graph has no listed company for, or at a point read before 2.1.0. |
+| `pointsUnderUnplacedTicker` | A point is filed under a ticker the article wasn't sent for. Each example names the point and the extra ticker symbols. Since 2.1.0 the model doesn't choose a point's ticker, so this should be 0, and a count points at a point read before 2.1.0 or a hand edit. |
 | `figuresWithoutPoint` | A figure the article added has no point tying it to a sentence. |
 | `withoutPoints` | A completed job left the article with no points at all. |
 | `listedCompanyValuesWithoutPoint` | The job wrote a market relation to or from a listed company, such as an owner or a competitor, and no point in the article states that relation, or its inverse, between the same two parties. Each example has the `company`, the `relation` and the other party as `value`, all as IRIs. Values Organon rejected, such as curated profile fields, aren't counted. |
 | `figuresInOtherCurrency` | A figure the article added is in a currency other than IDR or USD. That is often a sign the article is about a company abroad with a similar name or code. Each example has the figure's label and the currency code. |
+| `partialJobs` | The model's answer was cut off at the output limit (`isPartial` on the job's result), so some items may be missing. The article is still checked. |
 
 When Mediapulse no longer has the article's body, its quotes aren't checked and it is counted under `quotesUnchecked`. When the job's result can't be read, its listed-company values aren't checked and it is counted under `valuesUnchecked`; the other checks still run. An error on one article is counted under `errors` and the check moves on.
 

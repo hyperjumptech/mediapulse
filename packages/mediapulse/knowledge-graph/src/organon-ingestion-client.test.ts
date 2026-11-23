@@ -334,7 +334,7 @@ describe("createOrganonIngestionClient", () => {
     );
   });
 
-  it("reads a job's status and the links it wrote, and returns null for a job this key never started", async () => {
+  it("reads a job's status, the links it wrote and whether it was cut off, and returns null for a job this key never started", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
@@ -392,7 +392,7 @@ describe("createOrganonIngestionClient", () => {
             job: {
               id: "job-5",
               status: "completed",
-              result: { instances: "?" },
+              result: { instances: "?", isPartial: true },
             },
           },
           200,
@@ -407,14 +407,17 @@ describe("createOrganonIngestionClient", () => {
       writtenLinks: [
         { subject: MAPB, predicate: `${MP}partnersWith`, object: SHOPEE },
       ],
+      isPartial: false,
     });
     await expect(client.getJob("job-2")).resolves.toEqual({
       status: "running",
       writtenLinks: [],
+      isPartial: false,
     });
     await expect(client.getJob("job-5")).resolves.toEqual({
       status: "completed",
       writtenLinks: null,
+      isPartial: true,
     });
     await expect(client.getJob("job-3")).resolves.toBeNull();
     await expect(client.getJob("job-4")).rejects.toThrow(

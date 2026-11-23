@@ -37,6 +37,11 @@ export type EvidenceCheckResult = {
     point: string;
     missingTickerSymbols: string[];
   }>;
+  pointsUnderUnplacedTicker: Tally<{
+    canonicalUrl: string;
+    point: string;
+    extraTickerSymbols: string[];
+  }>;
   listedCompanyValuesWithoutPoint: Tally<
     { canonicalUrl: string } & ListedCompanyValueWithoutPoint
   >;
@@ -45,6 +50,7 @@ export type EvidenceCheckResult = {
     figure: string;
     currency: string;
   }>;
+  partialJobs: Tally<{ canonicalUrl: string }>;
   errors: Tally<{ canonicalUrl: string; message: string }>;
 };
 
@@ -82,6 +88,7 @@ const recordProblems = (
   if (text === null) {
     result.quotesUnchecked += 1;
   }
+  const placedTickerSymbols = new Set(send.tickerSymbols);
   for (const point of evidence.points) {
     if (
       text !== null &&
@@ -99,6 +106,16 @@ const recordProblems = (
         canonicalUrl,
         point: point.iri,
         missingTickerSymbols,
+      });
+    }
+    const extraTickerSymbols = point.tickerSymbols.filter(
+      (symbol) => !placedTickerSymbols.has(symbol),
+    );
+    if (extraTickerSymbols.length > 0) {
+      note(result.pointsUnderUnplacedTicker, {
+        canonicalUrl,
+        point: point.iri,
+        extraTickerSymbols,
       });
     }
   }
@@ -183,8 +200,10 @@ export const checkEvidence = async ({
     quotesNotInText: emptyTally(),
     figuresWithoutPoint: emptyTally(),
     pointsMissingTicker: emptyTally(),
+    pointsUnderUnplacedTicker: emptyTally(),
     listedCompanyValuesWithoutPoint: emptyTally(),
     figuresInOtherCurrency: emptyTally(),
+    partialJobs: emptyTally(),
     errors: emptyTally(),
   };
   if (sends.length === 0) {
@@ -212,6 +231,9 @@ export const checkEvidence = async ({
         const evidence = await organon.articleEvidence(send.canonicalUrl);
         if (job.writtenLinks === null) {
           result.valuesUnchecked += 1;
+        }
+        if (job.isPartial) {
+          note(result.partialJobs, { canonicalUrl: send.canonicalUrl });
         }
         const unsupportedValues = await unsupportedValuesOf({
           organon,

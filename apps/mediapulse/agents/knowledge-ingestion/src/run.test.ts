@@ -125,9 +125,11 @@ const setup = ({
       nextCursor: null,
     }),
     retryJob: vi.fn().mockResolvedValue("retried"),
-    getJob: vi
-      .fn()
-      .mockResolvedValue({ status: "completed", writtenLinks: [] }),
+    getJob: vi.fn().mockResolvedValue({
+      status: "completed",
+      writtenLinks: [],
+      isPartial: false,
+    }),
     articleEvidence: vi.fn().mockResolvedValue({
       points: [],
       figuresWithoutPoint: [],
