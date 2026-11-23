@@ -262,7 +262,7 @@ describe("resolveSubject", () => {
     );
 
     expect(result.rejection).toBe("issuer-not-in-issue");
-    expect(result.subject).toBe("Operating Profit Increased 111.3%, KAEF");
+    expect(result.subject).toBe("Operating Profit Increased 111.3%");
     expect(result.subject).not.toContain("SOHO");
   });
 
@@ -341,12 +341,12 @@ describe("trimSubjectToBudget cuts left by the 2026-08-31 batch", () => {
     );
   });
 
-  it("keeps a lone word after a comma that opens a real second half", () => {
+  it("drops the clause the budget cut after a comma", () => {
     expect(
       trimSubjectToBudget(
         "Operating Profit Increased 111.3%, KAEF Accelerates National Health",
       ),
-    ).toBe("Operating Profit Increased 111.3%, KAEF");
+    ).toBe("Operating Profit Increased 111.3%");
   });
 
   it("keeps a deliberate two-part subject that fits the budget", () => {
@@ -420,5 +420,37 @@ describe("buildSubjectPrompt competitor-only issues", () => {
     const prompt = buildSubjectPrompt([{ title: "Some headline" }], {});
 
     expect(prompt).not.toContain(COMPETITOR_ONLY_ISSUE_DIRECTIVE);
+  });
+});
+
+describe("trimSubjectToBudget never leaves half a clause after a comma", () => {
+  it("does not leave a ticker reading as the object of the first clause", () => {
+    expect(
+      trimSubjectToBudget(
+        "Foreign investors net sell Rp 947 M, EXCL supports IHSG",
+      ),
+    ).toBe("Foreign investors net sell Rp 947 M");
+  });
+
+  it("keeps the word cut when too little would stand before the comma", () => {
+    expect(
+      trimSubjectToBudget(
+        "Telkom, XL merge fiber units in Rp 10 trillion deal",
+      ),
+    ).toBe("Telkom, XL merge fiber units in Rp 10 trillion");
+  });
+
+  it("ignores a thousands separator when looking for a clause comma", () => {
+    expect(
+      trimSubjectToBudget(
+        "Antam ships 1,250 tons of nickel ore to smelters in Sulawesi",
+      ),
+    ).toBe("Antam ships 1,250 tons of nickel ore");
+  });
+
+  it("leaves a two-part subject that fits the budget whole", () => {
+    expect(
+      trimSubjectToBudget("Indosat profit rises 12%, ARPU holds steady"),
+    ).toBe("Indosat profit rises 12%, ARPU holds steady");
   });
 });

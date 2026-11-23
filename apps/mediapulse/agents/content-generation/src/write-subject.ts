@@ -277,8 +277,7 @@ const stripDanglingWord = (text: string): string => {
  *
  * Cutting to the budget mid-clause leaves text like "Linknet expands fiber network, boosting",
  * where the comma promises a clause the subject no longer carries. Restricted to a single word
- * ending in `-ing`, which is how a cut participial clause reads: any other lone word after a comma
- * is usually the start of a real second half, as in "Operating Profit Increased 111.3%, KAEF".
+ * ending in `-ing`, which is how a cut participial clause reads.
  */
 const TRAILING_PARTICIPLE = /,\s*\p{L}*ing$/u;
 
@@ -297,12 +296,30 @@ const stripTrailingCommaFragment = (text: string): string => {
  * @param text - Candidate subject.
  * @returns The subject trimmed to {@link MAX_SUBJECT_LENGTH}.
  */
-export const trimSubjectToBudget = (text: string): string =>
-  stripDanglingWord(
-    stripTrailingCommaFragment(
-      stripDanglingWord(truncateOnWordBoundary(text, MAX_SUBJECT_LENGTH)),
-    ),
+const MIN_WORDS_BEFORE_CUT_CLAUSE = 3;
+
+const dropCutClause = (text: string): string => {
+  const lastClauseComma = text.lastIndexOf(", ");
+  if (lastClauseComma < 0) {
+    return text;
+  }
+  const head = text
+    .slice(0, lastClauseComma)
+    .replace(DANGLING_TRAILING_PUNCTUATION, "");
+  const headWords = head.split(" ").filter((word) => word.length > 0);
+
+  return headWords.length >= MIN_WORDS_BEFORE_CUT_CLAUSE ? head : text;
+};
+
+export const trimSubjectToBudget = (text: string): string => {
+  const cut = stripDanglingWord(
+    truncateOnWordBoundary(text, MAX_SUBJECT_LENGTH),
   );
+  const wasCut = text.trim().length > MAX_SUBJECT_LENGTH;
+  const clauseSafe = wasCut ? stripDanglingWord(dropCutClause(cut)) : cut;
+
+  return stripDanglingWord(stripTrailingCommaFragment(clauseSafe));
+};
 
 /** Why a model-written subject cannot be sent as-is. */
 export type SubjectRejection =
