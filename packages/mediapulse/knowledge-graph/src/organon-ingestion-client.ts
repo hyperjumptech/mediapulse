@@ -114,6 +114,7 @@ export type WrittenLink = {
 export type IngestionJob = {
   status: IngestionJobStatus;
   writtenLinks: WrittenLink[] | null;
+  isPartial: boolean;
 };
 
 export type MarketRelations = ReadonlyMap<string, ReadonlySet<string>>;
@@ -208,6 +209,8 @@ const jobResultSchema = z.object({
 });
 
 type JobResult = z.infer<typeof jobResultSchema>;
+
+const partialJobResultSchema = z.object({ isPartial: z.literal(true) });
 
 const jobSchema = z.object({
   job: z.object({
@@ -680,6 +683,7 @@ export const createOrganonIngestionClient = ({
       return {
         status: job.status,
         writtenLinks: result.success ? linksWrittenBy(result.data) : null,
+        isPartial: partialJobResultSchema.safeParse(job.result).success,
       };
     },
 

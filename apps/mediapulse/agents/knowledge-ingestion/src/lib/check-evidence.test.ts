@@ -64,12 +64,14 @@ const setup = ({
   status = "completed",
   evidence = evidenceOf(),
   writtenLinks = [],
+  isPartial = false,
   listedCompanies = new Set(),
 }: {
   sends: OrganonIngestionSentArticle[];
   status?: IngestionJobStatus | null;
   evidence?: ArticleEvidence;
   writtenLinks?: WrittenLink[] | null;
+  isPartial?: boolean;
   listedCompanies?: ReadonlySet<string>;
 }) => {
   const dataApi = {
@@ -78,7 +80,9 @@ const setup = ({
   const organon = {
     getJob: vi
       .fn()
-      .mockResolvedValue(status === null ? null : { status, writtenLinks }),
+      .mockResolvedValue(
+        status === null ? null : { status, writtenLinks, isPartial },
+      ),
     articleEvidence: vi.fn().mockResolvedValue(evidence),
     marketRelations: vi.fn().mockResolvedValue(RELATIONS),
     listedCompaniesAmong: vi.fn().mockResolvedValue(listedCompanies),
@@ -118,8 +122,10 @@ describe("checkEvidence", () => {
       quotesNotInText: { count: 0 },
       figuresWithoutPoint: { count: 0 },
       pointsMissingTicker: { count: 0 },
+      pointsUnderUnplacedTicker: { count: 0 },
       listedCompanyValuesWithoutPoint: { count: 0 },
       figuresInOtherCurrency: { count: 0 },
+      partialJobs: { count: 0 },
       errors: { count: 0 },
     });
     expect(organon.listedCompaniesAmong).not.toHaveBeenCalled();
@@ -167,6 +173,46 @@ describe("checkEvidence", () => {
         },
       ],
     });
+  });
+
+  it("flags a point filed under a ticker the article wasn't sent for", async () => {
+    const { run } = setup({
+      sends: [sent()],
+      evidence: evidenceOf({
+        points: [point({ tickerSymbols: ["MAPB", "MAPI", "MAPA"] })],
+      }),
+    });
+
+    const result = await run();
+
+    expect(result.pointsUnderUnplacedTicker).toEqual({
+      count: 1,
+      examples: [
+        {
+          canonicalUrl: ARTICLE_URL,
+          point: "https://mediapulse.hyperjump.tech/id/p-1",
+          extraTickerSymbols: ["MAPA"],
+        },
+      ],
+    });
+    expect(result.pointsMissingTicker.count).toBe(0);
+  });
+
+  it("doesn't flag a quote that differs from the text only in its closing punctuation", async () => {
+    const { run } = setup({
+      sends: [sent()],
+      evidence: evidenceOf({
+        points: [
+          point({
+            quote: "MAPB merupakan anak usaha PT Mitra Adiperkasa Tbk (MAPI).”",
+          }),
+        ],
+      }),
+    });
+
+    const result = await run();
+
+    expect(result.quotesNotInText.count).toBe(0);
   });
 
   it("flags figures no point is about, and articles with no points at all", async () => {
@@ -351,6 +397,23 @@ describe("checkEvidence", () => {
     expect(result.valuesUnchecked).toBe(1);
     expect(result.withoutPoints.count).toBe(1);
     expect(result.listedCompanyValuesWithoutPoint.count).toBe(0);
+  });
+
+  it("counts a job whose answer was cut off and still checks its article", async () => {
+    const { run } = setup({
+      sends: [sent()],
+      isPartial: true,
+      evidence: evidenceOf({ points: [] }),
+    });
+
+    const result = await run();
+
+    expect(result.partialJobs).toEqual({
+      count: 1,
+      examples: [{ canonicalUrl: ARTICLE_URL }],
+    });
+    expect(result.checked).toBe(1);
+    expect(result.withoutPoints.count).toBe(1);
   });
 
   it("reads nothing from the graph when no article was sent in the window", async () => {
