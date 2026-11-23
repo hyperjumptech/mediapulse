@@ -8,7 +8,7 @@ description: Find and fix duplicate instances in the MediaPulse knowledge graph 
 Ingestion matches a new item to an existing one only by its exact label, and only within the same class or a narrower one. So duplicates keep appearing:
 
 - **Another form of the name.** Alternative titles aren't compared, so "Central Java" doesn't find "Jawa Tengah" and "Otoritas Jasa Keuangan" doesn't find "OJK".
-- **A sibling class.** A Regulator "Kemenperin" doesn't match a Government body "Kemenperin".
+- **A sibling class.** A Regulator "Kemenperin" doesn't match a Government body "Kemenperin". Since knowledge-ingestion 2.1.0 every state body is read as a Regulator, so new pairs of this kind should stop. The Government body records from before then stay, linked to their Regulator as the same.
 - **A new label form.** A Concepts change or a second article gives the same deal or event a different label, such as "Era Media Sejahtera rights issue, 2026" and "Era Media Sejahtera rights issue PMHMETD I, 2026".
 
 This skill finds them across the whole graph and links them. The `knowledge-graph-maintenance` skill covers the nightly report and single articles. The safety rules there apply here too.
