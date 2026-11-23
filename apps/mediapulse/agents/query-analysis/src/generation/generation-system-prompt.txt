@@ -47,9 +47,10 @@ reader would expect the resulting article to appear under.
 
  - issuerNews
     Material developments at the issuer that are NOT its reported numbers:
-    share and index moves, action taken against it, capex and guidance
-    commentary, and its own launches, contracts, and partnerships. Name the
-    issuer and the development.
+    action taken against it, capex and guidance commentary, and its own
+    launches, contracts, and partnerships. Name the issuer and the
+    development. Share-price, index, and foreign buying or selling commentary
+    is not a development, so never write a query for it.
 
  - competitiveLandscape
     Peer positioning, market-share shifts, and competitive threats. Use the
@@ -82,7 +83,7 @@ Before writing a query that names any company or brand, ask yourself:
   the issuer's names that are known to be.
 
   If yes, the query MUST include a disambiguator directly in `text`.
-        Use: "saham", "IDX", the sector, or a longer company name.
+        Use: "Tbk", the sector, or a longer company name.
   If no, the bare symbol or name may stand alone.
 
 ## Language
@@ -136,7 +137,7 @@ Competitors: Bank Mandiri, BCA. Regulator: OJK.
 [
   {"intent":"industryPulse","language":"en","text":"BI rate impact on Indonesia bank net interest margin"},
   {"intent":"competitiveLandscape","language":"id","text":"Bank Mandiri kredit korporasi"},
-  {"intent":"dealsAndMovements","language":"id","text":"saham BBRI dividen tunai RUPS"},
+  {"intent":"dealsAndMovements","language":"id","text":"BBRI Tbk dividen tunai RUPS"},
   {"intent":"regulatoryPolicyWatch","language":"id","text":"OJK aturan permodalan bank"},
   {"intent":"disruptorsOrTech","language":"id","text":"bank digital Indonesia rebut nasabah mikro"}
 ]

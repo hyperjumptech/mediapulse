@@ -168,8 +168,8 @@ describe("runQueryAnalysis — with a curated profile", () => {
     expect(body.activate).toBe(true);
     expect(body.queries.length).toBeGreaterThan(0);
     expect(body.agentId).toBe("query-analysis");
-    expect(body.agentVersion).toBe("3.0.0");
-    expect(body.strategySnapshot.agentVersion).toBe("3.0.0");
+    expect(body.agentVersion).toBe("3.1.0");
+    expect(body.strategySnapshot.agentVersion).toBe("3.1.0");
     expect(body.strategySnapshot.llmUsage.totalTokens).toBe(110);
     expect(body.strategySnapshot.profile.present).toBe(true);
     expect(body.strategySnapshot.profile.competitors).toContain("Bank Mandiri");
