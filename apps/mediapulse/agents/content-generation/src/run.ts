@@ -33,6 +33,7 @@ import {
 } from "./triage-fetch-requests.js";
 import {
   fetchSourceBodies,
+  isStockMarketTitle,
   newsletterExclusionOf,
   withoutNewsletterExclusions,
   type FetchSourceBodiesResult,
@@ -371,7 +372,7 @@ export async function run({
   // Fetch data sources
   // -------------------------------------------------------------------------
   const {
-    dataSources: sources,
+    dataSources: loadedSources,
     tickerName,
     tickerSymbol,
     competitors,
@@ -380,6 +381,24 @@ export async function run({
   } = await dataApiClient.contentGeneration.get({
     tickerId: input.tickerId,
   });
+
+  const stockMarketTitles = (loadedSources ?? [])
+    .filter((source) => isStockMarketTitle(source.title))
+    .map((source) => source.title);
+  const sources = loadedSources?.filter(
+    (source) => !isStockMarketTitle(source.title),
+  );
+  if (stockMarketTitles.length > 0) {
+    logger.info(
+      {
+        tickerId: input.tickerId,
+        stockMarketDropped: stockMarketTitles.length,
+        titles: stockMarketTitles,
+        event: "stock_market_dropped",
+      },
+      "Dropped stock-market stories before building the issue",
+    );
+  }
 
   subject = { symbol: tickerSymbol, name: tickerName };
   report(...narrativeSourcesLoaded(subject, sources?.length ?? 0));
@@ -415,6 +434,9 @@ export async function run({
       durationMs: Date.now() - runStart,
       pipelineRunId,
       executionId,
+      ...(stockMarketTitles.length > 0
+        ? { details: { stockMarketDropped: stockMarketTitles.length } }
+        : {}),
     });
     return {
       success: true,
@@ -465,6 +487,9 @@ export async function run({
         candidateArticleCount: shippableShape.articleCount,
         candidateSectionCount: shippableShape.sectionCount,
         sourceCount: sources.length,
+        ...(stockMarketTitles.length > 0
+          ? { stockMarketDropped: stockMarketTitles.length }
+          : {}),
       },
     });
 
@@ -1065,6 +1090,9 @@ export async function run({
   );
   const successDetails: Record<string, unknown> = {
     fetch: fetchResult.counters,
+    ...(stockMarketTitles.length > 0
+      ? { stockMarketDropped: stockMarketTitles.length }
+      : {}),
     ...(generated.sectionFillSnapshot !== undefined
       ? {
           sectionFill: {

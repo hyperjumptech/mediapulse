@@ -111,6 +111,8 @@ export {
   withoutNewsletterExclusions,
 } from "./newsletter-excluded-url";
 
+export { isStockMarketTitle } from "./stock-market-title";
+
 export { compareSourcesForRanking } from "./rank-sources";
 export {
   publisherAuthoritySchema,

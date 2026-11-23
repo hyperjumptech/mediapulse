@@ -86,6 +86,15 @@ describe("buildSubjectFallback", () => {
     expect(buildSubjectFallback([])).toBe(SUBJECT_FALLBACK_TEXT);
   });
 
+  it("skips a stock-market headline", () => {
+    expect(
+      buildSubjectFallback([
+        "Stock Recommendations for 20 November 2026: ICBP, INET, ASII, TLKM",
+        "XLSmart expands fiber network across Java",
+      ]),
+    ).toBe("XLSmart expands fiber network across Java");
+  });
+
   it("never exceeds the subject budget", () => {
     const result = buildSubjectFallback([
       "Ministry of Energy and Mineral Resources Accommodates 2026 RKAB Revision in a Measured Way",
@@ -206,6 +215,18 @@ describe("subjectRejection", () => {
     ).toBeNull();
   });
 
+  it("rejects a subject about foreign selling across the index", () => {
+    expect(
+      subjectRejection(
+        "Foreign investors net sell Rp 947 M, EXCL supports IHSG",
+        [
+          "Foreign Investors Net Sell Rp 947 M at Weekend, MBMA, EXCL and MYOR Support IHSG",
+        ],
+        { symbol: "EXCL" },
+      ),
+    ).toBe("stock-market");
+  });
+
   it("accepts a subject about a competitor that never names the issuer", () => {
     expect(
       subjectRejection(
@@ -258,6 +279,20 @@ describe("resolveSubject", () => {
     );
   });
 
+  it("falls back past a stock-market headline to the issuer's own news", () => {
+    const result = resolveSubject(
+      "Foreign investors net sell Rp 947 M, EXCL supports IHSG",
+      [
+        "Foreign Investors Net Sell Rp 947 M at Weekend, MBMA, EXCL and MYOR Support IHSG",
+        "XLSmart expands fiber network across Java",
+      ],
+      { symbol: "EXCL" },
+    );
+
+    expect(result.rejection).toBe("stock-market");
+    expect(result.subject).toBe("XLSmart expands fiber network across Java");
+  });
+
   it("returns the generic subject when the issue has no usable headline", () => {
     const result = resolveSubject("安全生产月", ["四半期決算"], {
       symbol: "TLKM",
@@ -280,6 +315,14 @@ describe("WRITE_SUBJECT_SYSTEM_PROMPT", () => {
 
   it("requires naming a tension rather than hedging to a neutral verb", () => {
     expect(WRITE_SUBJECT_SYSTEM_PROMPT).toContain("name the specific tension");
+  });
+});
+
+describe("WRITE_SUBJECT_SYSTEM_PROMPT on stock-market stories", () => {
+  it("never lets a share-price, index, fund-flow or stock-pick story lead", () => {
+    expect(WRITE_SUBJECT_SYSTEM_PROMPT).toContain(
+      "A story about share prices, an index, foreign buying or selling, or analysts' stock picks is not news about the issuer and must never lead",
+    );
   });
 });
 

@@ -1,3 +1,4 @@
+import { isStockMarketTitle } from "@workspace/agent-ingestion";
 import { z } from "zod";
 
 import { containsNonLatinScript } from "./lib/sanitize-summary-points.js";
@@ -36,7 +37,7 @@ Return one subject of at most ${String(MAX_SUBJECT_LENGTH)} characters.
 
 Name the most significant story in the list. Do not summarize the whole issue, and do not write a label like "Weekly roundup" or "Industry update".
 
-Significance is judged from the reader's seat. The reader runs the issuer named in the context line, so prefer, in this order: the issuer's own results or actions; a rule or ruling that binds the issuer; a direct competitor's move in a market the issuer serves; a development across the issuer's industry. A story about a company in a different line of business from the issuer must never lead, however dramatic it is.
+Significance is judged from the reader's seat. The reader runs the issuer named in the context line, so prefer, in this order: the issuer's own results or actions; a rule or ruling that binds the issuer; a direct competitor's move in a market the issuer serves; a development across the issuer's industry. A story about a company in a different line of business from the issuer must never lead, however dramatic it is. A story about share prices, an index, foreign buying or selling, or analysts' stock picks is not news about the issuer and must never lead, even when it names the issuer.
 
 Do not add a ticker prefix; the system adds one.
 
@@ -196,7 +197,7 @@ export const truncateOnWordBoundary = (text: string, limit: number): string => {
  */
 export const buildSubjectFallback = (titles: readonly string[]): string => {
   for (const title of titles) {
-    if (containsNonLatinScript(title)) {
+    if (containsNonLatinScript(title) || isStockMarketTitle(title)) {
       continue;
     }
 
@@ -307,7 +308,8 @@ export const trimSubjectToBudget = (text: string): string =>
 export type SubjectRejection =
   | "non-latin-script"
   | "empty"
-  | "issuer-not-in-issue";
+  | "issuer-not-in-issue"
+  | "stock-market";
 
 const namesSymbol = (text: string, symbol: string): boolean => {
   const trimmed = symbol.trim();
@@ -344,6 +346,10 @@ export const subjectRejection = (
 
   if (trimSubjectToBudget(candidate).length === 0) {
     return "empty";
+  }
+
+  if (isStockMarketTitle(candidate)) {
+    return "stock-market";
   }
 
   const symbol = issuer.symbol?.trim();
