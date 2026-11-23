@@ -133,6 +133,25 @@ describe("articleAnalysisConfigSchema", () => {
     expect(materialDevelopment?.text).toContain("belongs to issuerPerformance");
   });
 
+  it("never counts a stock-market move as issuer news", () => {
+    const config = articleAnalysisConfigSchema.parse({});
+    const issuerNews = config.acceptanceCriteria.find(
+      (rule) => rule.section === "issuerNews",
+    );
+    const materialDevelopment = issuerNews?.criteria.find(
+      (criterion) => criterion.id === "in-material-development",
+    );
+    const consequence = issuerNews?.criteria.find(
+      (criterion) => criterion.id === "in-consequence-stated",
+    );
+
+    expect(materialDevelopment?.text).toContain(
+      "A move in its share price, its trading volume, its index membership",
+    );
+    expect(materialDevelopment?.text).toContain("is not a development");
+    expect(consequence?.text).not.toContain("an effect on its shares");
+  });
+
   it("does not let a regulator's identity alone place a rule in the issuer's market", () => {
     const config = articleAnalysisConfigSchema.parse({});
     const marketScope = config.acceptanceCriteria

@@ -1192,6 +1192,50 @@ describe("scoreFromEvaluations — foreign symbol homonym", () => {
   });
 });
 
+describe("scoreFromEvaluations — stock-market story", () => {
+  it("rejects even when the headline names the issuer and every rule matched", () => {
+    const evaluations: CriterionEvaluation[] = [
+      ...evaluate(allIds),
+      {
+        id: ISSUER_RELEVANCE_CRITERION_ID,
+        matched: true,
+        note: "names the issuer",
+      },
+    ];
+
+    const result = scoreFromEvaluations(
+      evaluations,
+      criteria,
+      true,
+      true,
+      false,
+      new Set(),
+      "stock_market",
+    );
+
+    expect(result.section).toBeNull();
+    expect(result.score).toBe(0);
+    expect(result.reason).toContain("stock-market story");
+    expect(result.reason).toContain("newsletters never carry");
+  });
+
+  it("keeps the carries-no-news reason for the other non-news classes", () => {
+    const result = scoreFromEvaluations(
+      [],
+      criteria,
+      true,
+      false,
+      false,
+      new Set(),
+      "recruitment",
+    );
+
+    expect(result.reason).toContain(
+      "carries no news: the article is a recruitment notice",
+    );
+  });
+});
+
 describe("scoreFromEvaluations — excluded sections", () => {
   it("never returns a section the source is closed to", () => {
     const result = scoreFromEvaluations(
