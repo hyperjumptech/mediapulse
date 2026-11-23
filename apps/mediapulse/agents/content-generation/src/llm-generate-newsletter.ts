@@ -1707,6 +1707,16 @@ export async function generateNewsletterWithLlm(
         },
         "Generated subject was unusable; fell back to a shipped headline",
       );
+    } else if (resolved.subject !== candidate) {
+      logger.info(
+        {
+          tickerId: context.tickerId,
+          candidate,
+          subject: resolved.subject,
+          event: "subject_trimmed",
+        },
+        "Generated subject was trimmed to the length budget",
+      );
     }
     subjectTitle = resolved.subject;
     addUsage(tokenTotals, subjectResult.usage);
