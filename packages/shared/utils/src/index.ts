@@ -57,7 +57,6 @@ export {
 } from "./assert-resend-send-succeeded.js";
 export {
   normalizeEntityName,
-  textNamesEntity,
   textNamesMarketParties,
   textNamesMarketParty,
   type MarketParty,

@@ -268,15 +268,3 @@ export const normalizeEntityName = (name: string): string =>
     .split(/[^\p{L}\p{N}]+/u)
     .filter((token) => token.length > 0 && !LEGAL_FORM_TOKENS.has(token))
     .join(" ");
-
-/**
- * Whether a name appears in a text as a whole word.
- *
- * - Important: this is the guard that keeps an extracted entity honest. A model may return a party
- *   the article only implies, and a name absent from the text is exactly that.
- *
- * @param text - The text to search.
- * @param name - The name to look for.
- */
-export const textNamesEntity = (text: string, name: string): boolean =>
-  matches(text, name.trim());
