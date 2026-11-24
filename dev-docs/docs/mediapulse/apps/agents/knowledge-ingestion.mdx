@@ -20,14 +20,14 @@ Before 2.0.0 the agent read each issuer's articles with its own model and wrote 
 
 ## How it works
 
-1. **Reads candidates** from agent-data-api `GET /organon-ingestion/candidates`: placed articles collected since `sendFrom`, first placed within `lookbackDays`, one per canonical URL with every ticker it is placed for. An article already sent for all of its tickers is left out, so a placement for a new ticker brings it back.
+1. **Reads candidates** from agent-data-api `GET /organon-ingestion/candidates`: placed articles collected since `sendFrom`, first placed within `lookbackDays`, one per canonical URL with every ticker it is placed for. An article already sent for all of its tickers is left out, so a placement for a new ticker brings it back. So is a stock-market story (`isStockMarketTitle` in `@workspace/agent-ingestion`), which article-analysis rejects today but placed before it did. A stored body that is a Cloudflare origin error page (`isOriginErrorPage`) counts as missing, so the agent fetches the article again.
 2. **Fetches missing bodies** with the shared fetch (`fetchSourceBodies` in `@workspace/agent-ingestion`), the same provider chain, quality gate, dead-URL cache and host breaker content generation uses. Fetched bodies are saved back to the article and each attempt is recorded as a fetch event with reason `knowledge_ingestion`. An article on an excluded host, or whose body still can't be fetched, is not sent. It stays a candidate until its first placement is older than `lookbackDays`.
 3. **Looks up the listed companies** of every ticker the candidates are placed for, by code, in one SPARQL query per 100 tickers. A ticker the graph has no listed company for is left out of the articles' `mp:placedFor` and listed under `unknownTickers`. When the lookup itself fails, the run fetches and sends nothing and fails, so no article is read without its tickers.
 4. **Sends each article** as one Organon ingestion job (`POST /api/v1/ingestion`), built by `buildIngestionRequest` in `@mediapulse/knowledge-graph`. Its publisher is found by registrable domain, or created, once per run. When that lookup fails, the article is sent without a publisher. Each send is recorded with `POST /organon-ingestion/sends`: the tickers it was sent for, the job id and the time.
-5. **Sweeps failed jobs.** It lists the key's failed jobs (up to three pages), claims them with `POST /organon-ingestion/retries`, and retries the claimed ones. A job is claimed only while it is the article's latest job and was never retried, so each failure is retried once.
+5. **Sweeps failed jobs.** It lists the key's failed jobs (up to three pages), claims the ones that failed before the run started with `POST /organon-ingestion/retries`, and retries the claimed ones. A job is claimed only while it is the article's latest job and was never retried, so each failure is retried once. Since 2.2.0 a job that failed during the run waits for the next night's sweep, so a provider problem that failed every job has a day to clear before the one retry is spent.
 6. **Checks the evidence** of the articles sent in the `evidenceCheck.lookbackHours` before the run started, read with `GET /organon-ingestion/sends`. With a nightly run, each article is checked once, the night after it was sent. The check only reports. It never changes Organon or Mediapulse.
 
-It never waits for a job. Organon queues it, retries temporary errors and replaces older jobs when the same article is sent again.
+It never waits for a job. Organon queues it, retries temporary errors and replaces older jobs when the same article is sent again. A job can still fail seconds after it was accepted, so the run reports the jobs it started that had already failed when the sweep listed failed jobs (`jobsFailed`).
 
 ## Evidence check
 
@@ -95,7 +95,7 @@ The input is `{}`, or `{ "limit": n }` to send fewer than `maxSendsPerRun` in on
 
 ## Run result
 
-`details` reports `candidates`, `fetchAttempted`, `fetched`, `excludedHost`, `noBody`, `sent`, `failed`, `publishersCreated`, `publisherFailures`, `unknownTickers` (the placed tickers the graph has no listed company for), the `sweep` counts (`failedJobs`, `claimed`, `retried`, `notRetryable`, or `error`), `evidence`, and up to ten `failures` with the canonical URL and the error.
+`details` reports `candidates`, `fetchAttempted`, `fetched`, `excludedHost`, `noBody`, `sent`, `failed` (sends Organon refused), `jobsFailed` (this run's jobs that had already failed by the sweep, or `null` when the sweep couldn't run), `publishersCreated`, `publisherFailures`, `unknownTickers` (the placed tickers the graph has no listed company for), the `sweep` counts (`failedJobs`, `failedSinceRunStarted`, `claimed`, `retried`, `notRetryable`, or `error`), `evidence`, up to ten `failures` with the canonical URL and the error, and up to ten `jobFailures` with the canonical URL and the job's error. A job that fails after the sweep isn't in `jobsFailed`; the next night's evidence check counts it under `skipped.failed`.
 
 `evidence` is `null` when the check is turned off, `{ "error": "..." }` when it couldn't run, and otherwise has `sends`, `checked`, the `skipped` counts, `quotesUnchecked`, `valuesUnchecked`, and each problem as a `count` with up to five `examples`.
 

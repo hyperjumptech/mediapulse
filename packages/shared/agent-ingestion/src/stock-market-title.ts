@@ -1,3 +1,5 @@
+import { FOREIGN_EXCHANGE_CODES } from "./foreign-exchange-codes";
+
 const PRICE_MOVE_VERBS = [
   "naik",
   "turun",
@@ -39,6 +41,9 @@ const STOCK_MARKET_TITLE = new RegExp(
     String.raw`\bsaham\s+(?:pilihan|unggulan|jagoan|apa)\b`,
     String.raw`\bsaham\s+(?:yang\s+)?(?:layak|patut|perlu|wajib|bisa)\s+(?:dicermati|dikoleksi|dilirik|diburu|dibeli|dipantau|diperhatikan)\b`,
     String.raw`\bsaham\s+(?:paling\s+)?(?:teraktif|terlaris)\b`,
+    String.raw`\b(?:deretan|sederet|daftar)\s+saham\b`,
+    String.raw`\bsaham\b.*\bharga(?:nya)?\s+masih\s+(?:diskon|terdiskon|murah)\b`,
+    String.raw`\bsaham\b.*\bundervalued\b`,
     String.raw`\bprospek\s+saham(?:nya)?\b`,
     String.raw`\b(?:dampak|efek|imbas|pengaruh)(?:nya)?\s+(?:ke|pada|bagi|terhadap)\s+saham\b`,
     String.raw`\btarget\s+harga\s+saham\b`,
@@ -58,5 +63,10 @@ const STOCK_MARKET_TITLE = new RegExp(
   "iu",
 );
 
+const FOREIGN_EXCHANGE_TICKER = new RegExp(
+  String.raw`\b(?:${FOREIGN_EXCHANGE_CODES.join("|")})\s*:\s*[A-Z0-9][A-Z0-9.]{0,9}\b`,
+  "u",
+);
+
 export const isStockMarketTitle = (title: string): boolean =>
-  STOCK_MARKET_TITLE.test(title);
+  STOCK_MARKET_TITLE.test(title) || FOREIGN_EXCHANGE_TICKER.test(title);

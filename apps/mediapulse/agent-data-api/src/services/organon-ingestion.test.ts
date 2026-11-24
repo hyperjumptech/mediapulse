@@ -28,6 +28,7 @@ const placement = (overrides: {
   dataSourceId: string;
   ticker: typeof MAPB;
   canonicalUrl?: string;
+  title?: string;
   content?: string | null;
   sectionScore?: number | null;
   publishedAt?: Date | null;
@@ -38,7 +39,7 @@ const placement = (overrides: {
     id: overrides.dataSourceId,
     canonicalUrl: overrides.canonicalUrl ?? ARTICLE_URL,
     url: `${overrides.canonicalUrl ?? ARTICLE_URL}?utm_source=google`,
-    title: "Map Boga Adiperkasa buka gerai baru",
+    title: overrides.title ?? "Map Boga Adiperkasa buka gerai baru",
     description: "MAPB membuka gerai baru.",
     content: overrides.content ?? null,
     publishedAt:
@@ -235,6 +236,91 @@ describe("listOrganonIngestionCandidates", () => {
       "MAPI",
     ]);
     expect(candidates[0]?.sentTickerSymbols).toEqual(["MAPB"]);
+  });
+
+  it("leaves out a stock-market story placed before article analysis rejected them", async () => {
+    const stockUrl = "https://bataviapos.id/saham-tambang-tertekan";
+    const { db } = createDb({
+      recentUrls: [stockUrl, ARTICLE_URL],
+      placements: [
+        placement({
+          dataSourceId: "ds-stock",
+          ticker: MAPB,
+          canonicalUrl: stockUrl,
+          title:
+            "Saham Tambang Tertekan Usai Instruksi Prabowo soal Keuntungan 70% untuk Negara",
+          content: "Isi artikel saham.",
+        }),
+        placement({ dataSourceId: "ds-news", ticker: MAPB, content: "Isi." }),
+      ],
+    });
+
+    const { candidates } = await listOrganonIngestionCandidates(
+      db,
+      { sendFrom: SEND_FROM, lookbackDays: 7, take: 200 },
+      NOW,
+    );
+
+    expect(candidates.map((candidate) => candidate.canonicalUrl)).toEqual([
+      ARTICLE_URL,
+    ]);
+  });
+
+  it("treats a stored Cloudflare error page as a missing body, so the agent fetches the article", async () => {
+    const errorPage =
+      "Web server is returning an unknown error Error code 520 Visit cloudflare.com for more information. There is an unknown connection issue between Cloudflare and the origin web server.";
+    const { db } = createDb({
+      recentUrls: [ARTICLE_URL],
+      placements: [
+        placement({
+          dataSourceId: "ds-error",
+          ticker: MAPB,
+          content: errorPage,
+        }),
+      ],
+    });
+
+    const { candidates } = await listOrganonIngestionCandidates(
+      db,
+      { sendFrom: SEND_FROM, lookbackDays: 7, take: 200 },
+      NOW,
+    );
+
+    expect(candidates[0]).toMatchObject({
+      dataSourceId: "ds-error",
+      content: null,
+    });
+  });
+
+  it("prefers a row with a real body over one holding an error page", async () => {
+    const errorPage =
+      "Invalid SSL certificate Error code 526 Visit cloudflare.com for more information. Cloudflare cannot validate the SSL certificate on the origin web server.";
+    const { db } = createDb({
+      recentUrls: [ARTICLE_URL, ARTICLE_URL],
+      placements: [
+        placement({
+          dataSourceId: "ds-error",
+          ticker: MAPB,
+          content: errorPage,
+        }),
+        placement({
+          dataSourceId: "ds-body",
+          ticker: MAPI,
+          content: "Body as fetched.",
+        }),
+      ],
+    });
+
+    const { candidates } = await listOrganonIngestionCandidates(
+      db,
+      { sendFrom: SEND_FROM, lookbackDays: 7, take: 200 },
+      NOW,
+    );
+
+    expect(candidates[0]).toMatchObject({
+      dataSourceId: "ds-body",
+      content: "Body as fetched.",
+    });
   });
 
   it("returns at most take candidates, oldest placement first", async () => {

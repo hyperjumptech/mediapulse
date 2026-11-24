@@ -26,6 +26,10 @@ describe("isStockMarketTitle", () => {
     "Harga Saham SMAR Naik 5% Usai Rilis Kinerja",
     "Wilmar shares fell 3% after weak palm oil margins",
     "Top Gainers Pekan Ini: Saham Perkebunan Memimpin",
+    "Deretan Saham dengan Laba Tumbuh tapi Harga Masih Diskon, Ada AMMN hingga ANTM",
+    "Sederet Saham Tambang yang Masih Undervalued Jelang Akhir Tahun",
+    "Is Freeport-McMoRan (NYSE:FCX) Grasberg Recovery Setting Up a Rebound?",
+    "Consensus Cloud Solutions (NASDAQ: CCSI) Beats Earnings Estimates",
   ])("matches %s", (title) => {
     expect(isStockMarketTitle(title)).toBe(true);
   });
@@ -43,6 +47,11 @@ describe("isStockMarketTitle", () => {
     "Penjualan PT Timah Melonjak 72% Selama 9 Bulan di 2026",
     "Harga Emas Antam Lesu, Buyback Anjlok Rp 203 Ribu dalam Sepekan",
     "GAPKI Genjot Percepatan Peremajaan Sawit Rakyat, Ini Respons Pemerintah",
+    "Ramayana Gelar Diskon Akhir Tahun hingga 70 Persen",
+    "Rights Issue Saham BBRI Dipatok Diskon 20% dari Harga Pasar",
+    "Daftar Pemegang Saham ERAA Berubah Usai Private Placement",
+    "Vale Indonesia Sets Out Plan for HPAL Plant in Pomalaa",
+    "Kebijakan Set: Pemerintah Atur Ulang Tata Niaga Nikel",
   ])("leaves a corporate or business story alone: %s", (title) => {
     expect(isStockMarketTitle(title)).toBe(false);
   });

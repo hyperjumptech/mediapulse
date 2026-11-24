@@ -54,6 +54,10 @@ const candidate = (
   ...overrides,
 });
 
+type FailedJobFixture =
+  | string
+  | { id: string; error: string; finishedAt: string };
+
 const emptyFetchResult = (): FetchSourceBodiesResult => ({
   fetchedContentById: new Map(),
   droppedByGateIds: new Set(),
@@ -75,13 +79,13 @@ const setup = ({
   candidates,
   fetchResult = emptyFetchResult(),
   publisherIri = PUBLISHER_IRI as string | null,
-  failedJobs = [] as string[],
+  failedJobs = [] as FailedJobFixture[],
   claimedJobIds = [] as string[],
 }: {
   candidates: OrganonIngestionCandidate[];
   fetchResult?: FetchSourceBodiesResult;
   publisherIri?: string | null;
-  failedJobs?: string[];
+  failedJobs?: FailedJobFixture[];
   claimedJobIds?: string[];
 }) => {
   const dataApi = {
@@ -116,12 +120,16 @@ const setup = ({
       return { jobId: `job-${jobNumber}` };
     }),
     listFailedJobs: vi.fn().mockResolvedValue({
-      jobs: failedJobs.map((id) => ({
-        id,
-        error: "Provider timed out",
-        canonicalUrl: null,
-        finishedAt: null,
-      })),
+      jobs: failedJobs.map((job) =>
+        typeof job === "string"
+          ? {
+              id: job,
+              error: "Provider timed out",
+              canonicalUrl: null,
+              finishedAt: null,
+            }
+          : { canonicalUrl: null, ...job },
+      ),
       nextCursor: null,
     }),
     retryJob: vi.fn().mockResolvedValue("retried"),
@@ -459,7 +467,58 @@ describe("knowledge-ingestion run", () => {
     expect(organon.retryJob).toHaveBeenCalledTimes(1);
     expect(organon.retryJob).toHaveBeenCalledWith("job-old-1");
     expect(result.details).toMatchObject({
-      sweep: { failedJobs: 2, claimed: 1, retried: 1, notRetryable: 0 },
+      sweep: {
+        failedJobs: 2,
+        failedSinceRunStarted: 0,
+        claimed: 1,
+        retried: 1,
+        notRetryable: 0,
+      },
+    });
+  });
+
+  it("reports this run's own failed jobs and leaves them for the next night's sweep", async () => {
+    const creditsError =
+      "The provider refused the request: This request would exceed your available credits.";
+    const { deps, organon, dataApi } = setup({
+      candidates: [candidate()],
+      failedJobs: [
+        {
+          id: "job-1",
+          error: creditsError,
+          finishedAt: "2026-11-17T03:00:05.000Z",
+        },
+        {
+          id: "job-hand-retry",
+          error: creditsError,
+          finishedAt: "2026-11-17T03:00:06.000Z",
+        },
+        {
+          id: "job-last-night",
+          error: "Provider timed out",
+          finishedAt: "2026-11-16T03:00:40.000Z",
+        },
+      ],
+      claimedJobIds: ["job-last-night"],
+    });
+
+    const result = await runWith(deps);
+
+    expect(dataApi.organonIngestionRetries.create).toHaveBeenCalledWith({
+      organonJobIds: ["job-last-night"],
+    });
+    expect(organon.retryJob).toHaveBeenCalledTimes(1);
+    expect(result.details).toMatchObject({
+      sent: 1,
+      failed: 0,
+      jobsFailed: 1,
+      jobFailures: [
+        {
+          canonicalUrl: "https://www.kontan.co.id/news/map-boga",
+          error: creditsError,
+        },
+      ],
+      sweep: { failedJobs: 3, failedSinceRunStarted: 2, claimed: 1 },
     });
   });
 
@@ -471,7 +530,12 @@ describe("knowledge-ingestion run", () => {
 
     expect(result).toMatchObject({
       success: true,
-      details: { sent: 1, sweep: { error: "Organon answered 500" } },
+      details: {
+        sent: 1,
+        jobsFailed: null,
+        jobFailures: [],
+        sweep: { error: "Organon answered 500" },
+      },
     });
   });
 
