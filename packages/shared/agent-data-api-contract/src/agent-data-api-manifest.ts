@@ -56,18 +56,6 @@ import {
   postDataCollectionDeadUrlsRecordResponseSchema,
 } from "./data-collection-dead-url.js";
 import {
-  getKnowledgeExtractionCandidatesQuerySchema,
-  getKnowledgeExtractionCandidatesResponseSchema,
-  postKnowledgeExtractionRunsBodySchema,
-  postKnowledgeExtractionRunsFinishBodySchema,
-  postKnowledgeExtractionRunsFinishResponseSchema,
-  postKnowledgeExtractionRunsResponseSchema,
-  postKnowledgeExtractionSeedBodySchema,
-  postKnowledgeExtractionSeedResponseSchema,
-  postKnowledgeExtractionsBodySchema,
-  postKnowledgeExtractionsResponseSchema,
-} from "./knowledge-extraction.js";
-import {
   postPublisherAuthorityBodySchema,
   postPublisherAuthorityResponseSchema,
   postPublisherAuthorityStaleBodySchema,
@@ -508,86 +496,6 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postDataCollectionDeadUrlsRecordBodySchema,
         response: postDataCollectionDeadUrlsRecordResponseSchema,
-      },
-    },
-  },
-  knowledgeExtractionCandidates: {
-    v1: {
-      pathSegment: "/knowledge/extraction-candidates",
-      get: {
-        query: getKnowledgeExtractionCandidatesQuerySchema,
-        response: getKnowledgeExtractionCandidatesResponseSchema,
-      },
-    },
-    v2: {
-      pathSegment: "/knowledge/extraction-candidates",
-      get: {
-        query: getKnowledgeExtractionCandidatesQuerySchema,
-        response: getKnowledgeExtractionCandidatesResponseSchema,
-      },
-    },
-  },
-  knowledgeExtractionSeed: {
-    v1: {
-      pathSegment: "/knowledge/extraction-seed",
-      post: {
-        body: postKnowledgeExtractionSeedBodySchema,
-        response: postKnowledgeExtractionSeedResponseSchema,
-      },
-    },
-    v2: {
-      pathSegment: "/knowledge/extraction-seed",
-      post: {
-        body: postKnowledgeExtractionSeedBodySchema,
-        response: postKnowledgeExtractionSeedResponseSchema,
-      },
-    },
-  },
-  knowledgeExtractions: {
-    v1: {
-      pathSegment: "/knowledge/extractions",
-      post: {
-        body: postKnowledgeExtractionsBodySchema,
-        response: postKnowledgeExtractionsResponseSchema,
-      },
-    },
-    v2: {
-      pathSegment: "/knowledge/extractions",
-      post: {
-        body: postKnowledgeExtractionsBodySchema,
-        response: postKnowledgeExtractionsResponseSchema,
-      },
-    },
-  },
-  knowledgeExtractionRuns: {
-    v1: {
-      pathSegment: "/knowledge/extraction-runs",
-      post: {
-        body: postKnowledgeExtractionRunsBodySchema,
-        response: postKnowledgeExtractionRunsResponseSchema,
-      },
-    },
-    v2: {
-      pathSegment: "/knowledge/extraction-runs",
-      post: {
-        body: postKnowledgeExtractionRunsBodySchema,
-        response: postKnowledgeExtractionRunsResponseSchema,
-      },
-    },
-  },
-  knowledgeExtractionRunsFinish: {
-    v1: {
-      pathSegment: "/knowledge/extraction-runs/finish",
-      post: {
-        body: postKnowledgeExtractionRunsFinishBodySchema,
-        response: postKnowledgeExtractionRunsFinishResponseSchema,
-      },
-    },
-    v2: {
-      pathSegment: "/knowledge/extraction-runs/finish",
-      post: {
-        body: postKnowledgeExtractionRunsFinishBodySchema,
-        response: postKnowledgeExtractionRunsFinishResponseSchema,
       },
     },
   },

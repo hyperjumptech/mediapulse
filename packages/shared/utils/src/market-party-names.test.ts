@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   normalizeEntityName,
-  textNamesEntity,
   textNamesMarketParties,
   textNamesMarketParty,
   type MarketPartyMatch,
@@ -172,21 +171,5 @@ describe("normalizeEntityName", () => {
 
   it("returns an empty string for a name carrying nothing distinctive", () => {
     expect(normalizeEntityName("PT Tbk")).toBe("");
-  });
-});
-
-describe("textNamesEntity", () => {
-  it("matches a name as a whole word", () => {
-    expect(textNamesEntity("Gerai Starbucks di Jakarta", "Starbucks")).toBe(
-      true,
-    );
-  });
-
-  it("does not match a name the text only contains as a fragment", () => {
-    expect(textNamesEntity("Kopi Kenangan buka gerai", "Kopi Ken")).toBe(false);
-  });
-
-  it("does not match a name the text never carries", () => {
-    expect(textNamesEntity("Fore Coffee buka gerai", "Tomoro")).toBe(false);
   });
 });

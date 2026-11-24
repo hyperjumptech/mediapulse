@@ -484,19 +484,6 @@ What the ingestion agent sends to the knowledge graph in Organon, and what it al
 - `POST /api/v1/organon-ingestion/sends` records, per canonical URL, the tickers an article was sent for, its Organon job id and when. Sending again replaces the row and clears an earlier retry.
 - `POST /api/v1/organon-ingestion/retries` claims failed jobs for a retry. A job is claimed only when it is still an article's latest job and was never retried, so each failure is retried at most once. The answer lists the claimed ids in `claimedJobIds`.
 
-### Knowledge extraction (`/api/v1/knowledge/*`)
-
-Storage for the per-issuer knowledge base. The `knowledge-ingestion` agent read and wrote it until 2.0.0. Nothing calls these endpoints now, and they are removed with the tables.
-
-- `GET /api/v1/knowledge/extraction-candidates` — one issuer's profile parties, the relation-kind registry's vocabulary, and the articles no extraction has read yet, with a `watermark` for the next run. With no `since`, the batch resumes from the newest watermark left by a run that finished successfully, and failed runs are ignored, otherwise the articles a half-finished batch never reached would be skipped for good. `fromStart=true` ignores the watermark for a deliberate rebuild. Only articles carrying a Placement for that issuer are returned: an article the issuer's own pipeline rejected says nothing about its market.
-- `POST /api/v1/knowledge/extraction-seed` — creates the relation-kind registry and the entities the issuer's Ticker Profile names, with their `competes_with` and `regulates` relations. Idempotent, and marked `profile` so curated input is never mistaken for an article's claim.
-- `POST /api/v1/knowledge/extractions` — applies one article's entities and relations.
-- `POST /api/v1/knowledge/extraction-runs` and `POST /api/v1/knowledge/extraction-runs/finish` — the run chronicle. Finishing a run also relabels the issuer's entities to the spelling its own corpus uses most.
-
-Every write re-runs the extraction guards against the stored article: an evidence span must appear in it verbatim, an entity must be named in it as a whole word, both endpoints of a relation must resolve to an entity that survived, and no relation may join a party to itself. The agent applies the same checks before posting, but the server is what enforces them, because the agent is an untrusted caller. Each refusal comes back in `rejected` and is counted on the run rather than discarded silently.
-
-A mention is unique per `(ticker, entity, article)` and a relation per `(subject, kind, object)`, so re-reading an article confirms what is already held instead of duplicating it: `observations` and `lastObservedAt` move, and nothing else does.
-
 ## Ticker profile source
 
 Ticker profiles (overview, business operation, the four classification levels, aliases, competitors and regulators) come from the Organon knowledge graph over `POST /api/v1/sparql?inferred=true`. `ORGANON_API_URL` and `ORGANON_API_KEY` are required, and the server does not start without them. A read key for the MediaPulse project is enough. Locally, point them at a local Organon (`http://localhost:3000`) or at production with a read key.
@@ -557,5 +544,4 @@ This skill keeps the implementation order correct and prevents API route drift f
 
 - [agent-auth-api](/hermes/apps/agent-auth-api) — Token verification.
 - [Agents overview](/mediapulse/apps/agents/content-generation) — Existing consumer agents.
-- [Knowledge Base](/mediapulse/knowledge-base/knowledge-base) — the per-issuer entity and relation model.
 - [Packages: agent-runtime](/hermes/packages/agent-runtime), [agent-data-api-client](/hermes/packages/agent-data-api-client).

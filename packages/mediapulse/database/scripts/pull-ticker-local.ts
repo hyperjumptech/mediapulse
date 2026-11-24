@@ -1,7 +1,7 @@
 /**
  * Copy one issuer's articles from a remote Mediapulse database into the local one.
  *
- * The knowledge-base work needs a real corpus to extract from, and a fresh local database has
+ * Local testing needs a real corpus of articles, and a fresh local database has
  * issuers (imported on the Tickers page) but no articles. This reads a remote database directly and
  * writes through the local Prisma client, so the remote is never migrated and never written.
  *
@@ -57,7 +57,7 @@ export type PullTickerLocalResult = {
 };
 
 /**
- * Builds the query for the articles one issuer's knowledge base is built from.
+ * Builds the query for the articles placed for one issuer.
  *
  * Both clauses are needed. The first alone misses curated and globally collected articles, whose
  * `ticker_id` is null or another issuer's but which carry a Placement for this issuer, and a
@@ -147,7 +147,7 @@ const asNumber = (value: unknown): number | null =>
  *
  * `searchQueryId`, `curatedSourceId` and `collectionGate*` provenance that points at tables this
  * script does not copy are dropped, because a dangling foreign key would fail the write and none of
- * it feeds the knowledge base.
+ * it is needed locally.
  *
  * @param row - The source row.
  * @param localTickerId - The pulled issuer's local id.
