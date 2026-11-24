@@ -48,6 +48,7 @@ export {
 
 export {
   runQualityGate,
+  isOriginErrorPage,
   classifyNonArticleContent,
   createEmptyQualityCounters,
   maxShingleFraction,
@@ -111,6 +112,7 @@ export {
   withoutNewsletterExclusions,
 } from "./newsletter-excluded-url";
 
+export { FOREIGN_EXCHANGE_CODES } from "./foreign-exchange-codes";
 export { isStockMarketTitle } from "./stock-market-title";
 
 export { compareSourcesForRanking } from "./rank-sources";

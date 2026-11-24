@@ -34,6 +34,9 @@ const ACCESS_GATED_PHRASES = [
   "enable javascript",
 ] as const;
 
+const CLOUDFLARE_NAME = /\bcloudflare\b/iu;
+const ORIGIN_ERROR_CODE = /\berror\s+code:?\s*5\d\d\b/iu;
+
 const MIN_CONTENT_LENGTH = 180;
 const MAX_LINK_DENSITY = 0.08;
 const MIN_TITLE_LENGTH = 12;
@@ -182,6 +185,21 @@ const softNotFound = (_title: string, content: string): QualityDecision => {
   return { blocked: false };
 };
 
+export const isOriginErrorPage = (content: string): boolean => {
+  const normalized = content.trim();
+
+  return (
+    normalized.length < SOFT_404_MAX_LENGTH &&
+    CLOUDFLARE_NAME.test(normalized) &&
+    ORIGIN_ERROR_CODE.test(normalized)
+  );
+};
+
+const originErrorPage = (_title: string, content: string): QualityDecision =>
+  isOriginErrorPage(content)
+    ? { blocked: true, reason: "content_soft_404" }
+    : { blocked: false };
+
 /**
  * Blocks paywall, login, and cookie-wall stubs with thin prose density.
  *
@@ -279,6 +297,7 @@ const indexLike = (title: string, content: string): QualityDecision => {
 const qualityRules: QualityRule[] = [
   (title) => titleEmptyOrTooShort(title),
   softNotFound,
+  originErrorPage,
   accessGated,
   minProse,
   repetitiveBoilerplate,

@@ -34,6 +34,8 @@ const HOUR_MS = 3_600_000;
 
 type SendFailure = { canonicalUrl: string; message: string };
 
+type JobFailure = { canonicalUrl: string; error: string | null };
+
 const describeError = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
@@ -147,6 +149,7 @@ export const createRunHandler =
       bodies.bodies.has(candidate.canonicalUrl),
     );
     const failures: SendFailure[] = [];
+    const canonicalUrlByJobId = new Map<string, string>();
     let sent = 0;
     const createdPublisherDomains = new Set<string>();
     const failedPublisherDomains = new Set<string>();
@@ -183,6 +186,7 @@ export const createRunHandler =
             placedForIris: placedForIrisOf(candidate, listedCompanyBySymbol),
           });
           const { jobId } = await organon.startIngestion(request);
+          canonicalUrlByJobId.set(jobId, candidate.canonicalUrl);
           await dataApi.organonIngestionSends.create([
             {
               canonicalUrl: candidate.canonicalUrl,
@@ -203,11 +207,30 @@ export const createRunHandler =
     );
 
     let sweep: SweepResult | { error: string };
+    let jobFailures: JobFailure[] | null = null;
     try {
-      sweep = await sweepFailedJobs({ organon, dataApi });
+      const outcome = await sweepFailedJobs({
+        organon,
+        dataApi,
+        failedBefore: startedAt,
+      });
+      sweep = outcome.result;
+      jobFailures = outcome.failedSinceRunStarted.flatMap((job) => {
+        const canonicalUrl = canonicalUrlByJobId.get(job.id);
+
+        return canonicalUrl === undefined
+          ? []
+          : [{ canonicalUrl, error: job.error }];
+      });
     } catch (error) {
       logger.error({ err: error }, "Failed-job sweep failed");
       sweep = { error: describeError(error) };
+    }
+    if (jobFailures !== null && jobFailures.length > 0) {
+      logger.warn(
+        { jobsFailed: jobFailures.length, firstError: jobFailures[0]?.error },
+        "Jobs from this run already failed",
+      );
     }
 
     let evidence: EvidenceCheckResult | { error: string } | null = null;
@@ -239,12 +262,14 @@ export const createRunHandler =
       noBody,
       sent,
       failed: failures.length,
+      jobsFailed: jobFailures?.length ?? null,
       publishersCreated: createdPublisherDomains.size,
       publisherFailures: failedPublisherDomains.size,
       unknownTickers,
       sweep,
       evidence,
       failures: failures.slice(0, MAX_REPORTED_FAILURES),
+      jobFailures: (jobFailures ?? []).slice(0, MAX_REPORTED_FAILURES),
     };
     const message = `Sent ${sent} of ${candidates.length} articles to the knowledge graph`;
 

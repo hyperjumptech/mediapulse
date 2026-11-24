@@ -11,6 +11,10 @@ import type {
   PostOrganonIngestionSendsBody,
   PostOrganonIngestionSendsResponse,
 } from "@workspace/agent-data-api-contract";
+import {
+  isOriginErrorPage,
+  isStockMarketTitle,
+} from "@workspace/agent-ingestion";
 
 export type OrganonIngestionDb = Pick<
   PrismaClient,
@@ -91,6 +95,9 @@ const placedTickers = (
   return [...bySymbol.values()];
 };
 
+const usableBody = (content: string | null): string | null =>
+  content === null || isOriginErrorPage(content) ? null : content;
+
 const toCandidate = (
   canonicalUrl: string,
   placements: readonly Placement[],
@@ -103,8 +110,11 @@ const toCandidate = (
   }
 
   const sources = placements.map((placement) => placement.dataSource);
+  if (sources.some((source) => isStockMarketTitle(source.title))) {
+    return undefined;
+  }
   const article =
-    sources.find((source) => source.content !== null) ?? sources[0];
+    sources.find((source) => usableBody(source.content) !== null) ?? sources[0];
   if (!article) {
     return undefined;
   }
@@ -119,7 +129,7 @@ const toCandidate = (
     description:
       article.description ??
       firstPresent(sources.map((source) => source.description)),
-    content: article.content,
+    content: usableBody(article.content),
     dataSourceId: article.id,
     dataSourceIds: uniqueInOrder(sources.map((source) => source.id)),
     publishedAt: publishedAt?.toISOString() ?? null,

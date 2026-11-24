@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyNonArticleContent,
   createEmptyQualityCounters,
+  isOriginErrorPage,
   maxShingleFraction,
   runQualityGate,
 } from "./content-quality-gate";
@@ -240,5 +241,48 @@ describe("classifyNonArticleContent alias", () => {
 
     // Assert
     expect(decision).toEqual({ blocked: false });
+  });
+});
+
+const cloudflareOriginErrorBody = (code: number): string =>
+  [
+    "Web server is returning an unknown error",
+    `Error code ${code}`,
+    "Visit cloudflare.com for more information.",
+    "What happened? There is an unknown connection issue between Cloudflare and the origin web server.",
+    "As a result, the web page can not be displayed.",
+    "What can I do? If you are a visitor of this website: Please try again in a few minutes.",
+    "If you are the owner of this website: There is an issue between Cloudflare's cache and your origin web server.",
+    "Cloudflare monitors for these errors and automatically investigates the cause.",
+    "To help support the investigation, you can pull the corresponding error log from your web server and submit it our support team.",
+    "Please include the Ray ID and timestamp.",
+  ].join(" ");
+
+describe("isOriginErrorPage", () => {
+  it.each([520, 526])("finds a Cloudflare %s error page", (code) => {
+    expect(isOriginErrorPage(cloudflareOriginErrorBody(code))).toBe(true);
+  });
+
+  it("leaves a long article that mentions Cloudflare and an error code alone", () => {
+    const article = `${cloudflareOriginErrorBody(520)} ${cleanArticleBody()}`;
+
+    expect(isOriginErrorPage(article)).toBe(false);
+  });
+
+  it("leaves a short note about Cloudflare with no error code alone", () => {
+    expect(
+      isOriginErrorPage("Cloudflare opens a new data center in Jakarta."),
+    ).toBe(false);
+  });
+});
+
+describe("runQualityGate on origin error pages", () => {
+  it("drops a Cloudflare origin error page as a soft 404", () => {
+    const decision = runQualityGate(
+      "Ekonomi Rendah Karbon Industri Tambang: Menuju Babak Baru",
+      cloudflareOriginErrorBody(526),
+    );
+
+    expect(decision).toEqual({ blocked: true, reason: "content_soft_404" });
   });
 });

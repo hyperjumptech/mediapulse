@@ -1,60 +1,9 @@
 import type { AnalysisTickerContext } from "@workspace/agent-data-api-contract";
+import { FOREIGN_EXCHANGE_CODES } from "@workspace/agent-ingestion";
 
 const MIN_SYMBOL_CHARS = 3;
 
 const MAX_SYMBOL_CHARS = 6;
-
-/**
- * Exchange codes that are not the issuer's. IDX, JK, JKSE and BEI are deliberately absent: a
- * headline writing `IDX: CCSI` is the issuer, not a homonym.
- */
-const FOREIGN_EXCHANGES = [
-  "NASDAQ",
-  "NYSE",
-  "NYSEAMERICAN",
-  "AMEX",
-  "OTC",
-  "OTCMKTS",
-  "OTCQB",
-  "OTCQX",
-  "LSE",
-  "LON",
-  "TSX",
-  "TSXV",
-  "ASX",
-  "SGX",
-  "HKEX",
-  "SEHK",
-  "KLSE",
-  "BURSA",
-  "SET",
-  "PSE",
-  "BSE",
-  "NSE",
-  "TYO",
-  "KRX",
-  "SHE",
-  "SSE",
-  "FRA",
-  "ETR",
-  "EPA",
-  "BIT",
-  "BME",
-  "SWX",
-  "STO",
-  "CPH",
-  "OSL",
-  "TASE",
-  "TADAWUL",
-  "ADX",
-  "DFM",
-  "QSE",
-  "EGX",
-  "JSE",
-  "NZX",
-  "BMV",
-  "B3",
-];
 
 /**
  * Corporate designators that no IDX issuer carries. An Indonesian issuer is `PT … Tbk`, so a
@@ -92,7 +41,7 @@ const isIdxSymbol = (symbol: string): boolean =>
 
 const exchangeQualified = (text: string, symbol: string): boolean =>
   new RegExp(
-    `\\b(?:${FOREIGN_EXCHANGES.join("|")})\\s*[:.]\\s*${escapeRegExp(symbol)}\\b`,
+    `\\b(?:${FOREIGN_EXCHANGE_CODES.join("|")})\\s*[:.]\\s*${escapeRegExp(symbol)}\\b`,
     "i",
   ).test(text);
 

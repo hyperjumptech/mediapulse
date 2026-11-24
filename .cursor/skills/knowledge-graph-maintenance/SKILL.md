@@ -34,7 +34,8 @@ Jobs are visible only to the key that started them. The `organon-mediapulse-prod
 `details` on the invocation holds:
 
 - `sent`, `failed` and `failures`: sends Organon refused. Several with the same error usually mean a config problem, not an article problem.
-- `sweep`: failed jobs that were retried. `notRetryable` jobs need a look in the Organon dashboard.
+- `jobsFailed` and `jobFailures`: jobs Organon accepted that had already failed by the end of the run, with each error. Several with the same provider error, such as one about credits, mean the Ingestion model's provider account needs attention, not the articles. Jobs that fail later aren't counted here, so also list the night's jobs on the ingestion key.
+- `sweep`: failed jobs that were retried. Since knowledge-ingestion 2.2.0 only jobs that failed before the run started are retried; `failedSinceRunStarted` counts the ones left for the next night. `notRetryable` jobs need a look in the Organon dashboard.
 - `evidence`: the check on the articles sent in the day before the run.
   - `quotesNotInText`: the model paraphrased instead of copying. Closing punctuation and quote marks at the end of a quote are ignored, so a count here is a real rewording.
   - `pointsMissingTicker`: a point isn't filed under every ticker the article was sent for. Since knowledge-ingestion 2.1.0 the tickers are derived from the article, so a count here means a ticker the graph has no listed company for (the run's `unknownTickers` names it) or a point read before 2.1.0.
