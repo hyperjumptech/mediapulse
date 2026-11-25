@@ -8,17 +8,20 @@ vi.mock("../services/organon-ingestion.js", () => ({
   listOrganonIngestionSends: vi.fn(),
   recordOrganonIngestionSends: vi.fn(),
   claimOrganonIngestionRetries: vi.fn(),
+  markOrganonIngestionEvidenceChecked: vi.fn(),
 }));
 
 import {
   claimOrganonIngestionRetries,
   listOrganonIngestionCandidates,
   listOrganonIngestionSends,
+  markOrganonIngestionEvidenceChecked,
   recordOrganonIngestionSends,
 } from "../services/organon-ingestion.js";
 import {
   getOrganonIngestionCandidatesHandler,
   getOrganonIngestionSendsHandler,
+  postOrganonIngestionEvidenceChecksHandler,
   postOrganonIngestionRetriesHandler,
   postOrganonIngestionSendsHandler,
 } from "./organon-ingestion.js";
@@ -29,6 +32,7 @@ const createApp = () => {
   app.get("/sends", getOrganonIngestionSendsHandler);
   app.post("/sends", postOrganonIngestionSendsHandler);
   app.post("/retries", postOrganonIngestionRetriesHandler);
+  app.post("/evidence-checks", postOrganonIngestionEvidenceChecksHandler);
 
   return app;
 };
@@ -82,6 +86,23 @@ describe("organon ingestion routes", () => {
       sentAfter: "2026-11-16T03:00:00.000Z",
       sentBefore: "2026-11-17T03:00:00.000Z",
       take: 200,
+      unchecked: false,
+    });
+  });
+
+  it("lists only the unchecked sends when asked", async () => {
+    vi.mocked(listOrganonIngestionSends).mockResolvedValue({ sends: [] });
+
+    const response = await createApp().request(
+      "http://localhost/sends?sentAfter=2026-11-16T03:00:00.000Z&sentBefore=2026-11-17T03:00:00.000Z&unchecked=true",
+    );
+
+    expect(response.status).toBe(200);
+    expect(listOrganonIngestionSends).toHaveBeenCalledWith(expect.anything(), {
+      sentAfter: "2026-11-16T03:00:00.000Z",
+      sentBefore: "2026-11-17T03:00:00.000Z",
+      take: 200,
+      unchecked: true,
     });
   });
 
@@ -140,5 +161,31 @@ describe("organon ingestion routes", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ claimedJobIds: ["job-1"] });
+  });
+
+  it("returns the sends it marked as checked", async () => {
+    vi.mocked(markOrganonIngestionEvidenceChecked).mockResolvedValue({
+      checkedJobIds: ["job-1"],
+    });
+
+    const response = await postJson(createApp(), "/evidence-checks", {
+      organonJobIds: ["job-1", "job-2"],
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ checkedJobIds: ["job-1"] });
+    expect(markOrganonIngestionEvidenceChecked).toHaveBeenCalledWith(
+      expect.anything(),
+      { organonJobIds: ["job-1", "job-2"] },
+    );
+  });
+
+  it("rejects an evidence check with no jobs", async () => {
+    const response = await postJson(createApp(), "/evidence-checks", {
+      organonJobIds: [],
+    });
+
+    expect(response.status).toBe(400);
+    expect(markOrganonIngestionEvidenceChecked).not.toHaveBeenCalled();
   });
 });

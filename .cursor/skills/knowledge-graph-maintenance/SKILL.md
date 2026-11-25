@@ -36,7 +36,7 @@ Jobs are visible only to the key that started them. The `organon-mediapulse-prod
 - `sent`, `failed` and `failures`: sends Organon refused. Several with the same error usually mean a config problem, not an article problem.
 - `jobsFailed` and `jobFailures`: jobs Organon accepted that had already failed by the end of the run, with each error. Several with the same provider error, such as one about credits, mean the Ingestion model's provider account needs attention, not the articles. Jobs that fail later aren't counted here, so also list the night's jobs on the ingestion key.
 - `sweep`: failed jobs that were retried. Since knowledge-ingestion 2.2.0 only jobs that failed before the run started are retried; `failedSinceRunStarted` counts the ones left for the next night. `notRetryable` jobs need a look in the Organon dashboard.
-- `evidence`: the check on the articles sent in the day before the run.
+- `evidence`: the check on every earlier send whose job has finished and hasn't been checked yet. Since knowledge-ingestion 2.3.0 each send carries a checked mark, so a job that ran late or was retried by the sweep is checked on the first night after it finishes. `sends` counts the unchecked sends read and `marked` the ones marked as checked. Before 2.3.0 the check covered only the sends from the 24 hours before the run.
   - `quotesNotInText`: the model paraphrased instead of copying. Closing punctuation and quote marks at the end of a quote are ignored, so a count here is a real rewording.
   - `pointsMissingTicker`: a point isn't filed under every ticker the article was sent for. Since knowledge-ingestion 2.1.0 the tickers are derived from the article, so a count here means a ticker the graph has no listed company for (the run's `unknownTickers` names it) or a point read before 2.1.0.
   - `pointsUnderUnplacedTicker`: a point is filed under a ticker the article wasn't sent for, such as a namesake company. Since 2.1.0 the model doesn't choose a point's ticker, so this should read 0. A count means a point read before 2.1.0 or a hand edit.
@@ -45,7 +45,7 @@ Jobs are visible only to the key that started them. The `organon-mediapulse-prod
   - `listedCompanyValuesWithoutPoint`: the job added a market relation to or from a listed company, such as an owner or a competitor, that no point in the article states. Check the quote with step 2. If the article never says it, it is a wrong link: remove the value as in step 3.
   - `figuresInOtherCurrency`: a figure in a currency other than IDR or USD. Often the article is about a company abroad with a similar name or code, a wrong placement in step 3.
   - `partialJobs`: jobs whose answer was cut off at the output limit, so some items may be missing. Their articles are still checked. See Cut-off read under Recurring causes in step 3.
-  - `skipped.unfinished`: jobs still queued or running when the check ran. The next night's window has moved past them, so they are never checked. Look at them by hand when the count is large.
+  - `skipped.unfinished`: jobs still queued or running when the check ran. They stay unmarked, and a later night checks them once they finish, up to `evidenceCheck.lookbackHours` (72) after the send. A count that stays high night after night means jobs are stuck in the queue: look in the Organon dashboard.
 
 The evidence check can't see a fact tied to the wrong company when the quote and tickers are right. Always look at the articles in step 2 that the report doesn't flag, as well as the ones it does.
 

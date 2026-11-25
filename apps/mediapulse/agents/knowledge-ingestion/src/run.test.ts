@@ -99,6 +99,13 @@ const setup = ({
     organonIngestionRetries: {
       create: vi.fn().mockResolvedValue({ claimedJobIds }),
     },
+    organonIngestionEvidenceChecks: {
+      create: vi
+        .fn()
+        .mockImplementation(({ organonJobIds }: { organonJobIds: string[] }) =>
+          Promise.resolve({ checkedJobIds: organonJobIds }),
+        ),
+    },
     contentGenerationFetchedContent: {
       create: vi.fn().mockResolvedValue({ updatedCount: 1 }),
     },
@@ -566,7 +573,7 @@ describe("knowledge-ingestion run", () => {
     expect(dataApi.organonIngestionSends.create).not.toHaveBeenCalled();
   });
 
-  it("checks what Organon added for the articles sent in the day before this run", async () => {
+  it("checks what Organon added for the unchecked articles sent in the three days before this run", async () => {
     const { deps, dataApi, organon } = setup({ candidates: [] });
     dataApi.organonIngestionSends.get.mockResolvedValue({
       sends: [
@@ -585,15 +592,24 @@ describe("knowledge-ingestion run", () => {
     const result = await runWith(deps);
 
     expect(dataApi.organonIngestionSends.get).toHaveBeenCalledWith({
-      sentAfter: "2026-11-16T03:00:00.000Z",
+      sentAfter: "2026-11-14T03:00:00.000Z",
       sentBefore: NOW.toISOString(),
       take: 200,
+      unchecked: true,
     });
     expect(organon.getJob).toHaveBeenCalledWith("job-earlier");
+    expect(dataApi.organonIngestionEvidenceChecks.create).toHaveBeenCalledWith({
+      organonJobIds: ["job-earlier"],
+    });
     expect(result).toMatchObject({
       success: true,
       details: {
-        evidence: { sends: 1, checked: 1, withoutPoints: { count: 1 } },
+        evidence: {
+          sends: 1,
+          checked: 1,
+          marked: 1,
+          withoutPoints: { count: 1 },
+        },
       },
     });
   });

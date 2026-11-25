@@ -37,7 +37,7 @@ describe("ConfigSchema", () => {
           errorRateThreshold: 0.5,
         },
       },
-      evidenceCheck: { enabled: true, lookbackHours: 24, maxArticles: 200 },
+      evidenceCheck: { enabled: true, lookbackHours: 72, maxArticles: 200 },
       dryRun: false,
     });
   });

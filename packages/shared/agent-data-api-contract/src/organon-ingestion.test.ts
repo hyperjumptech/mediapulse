@@ -4,8 +4,10 @@ import { agentDataApiPathname } from "./agent-data-api-manifest.js";
 import {
   getOrganonIngestionCandidatesQuerySchema,
   getOrganonIngestionSendsQuerySchema,
+  ORGANON_INGESTION_EVIDENCE_CHECKS_MAX,
   ORGANON_INGESTION_RETRIES_MAX,
   ORGANON_INGESTION_SENDS_MAX,
+  postOrganonIngestionEvidenceChecksBodySchema,
   postOrganonIngestionRetriesBodySchema,
   postOrganonIngestionSendsBodySchema,
 } from "./organon-ingestion.js";
@@ -18,7 +20,7 @@ const send = {
 };
 
 describe("organon ingestion contract", () => {
-  it("serves the candidates, sends and retries under one path", () => {
+  it("serves the candidates, sends, retries and evidence checks under one path", () => {
     expect(agentDataApiPathname("v1", "organonIngestionCandidates")).toBe(
       "/api/v1/organon-ingestion/candidates",
     );
@@ -28,9 +30,12 @@ describe("organon ingestion contract", () => {
     expect(agentDataApiPathname("v2", "organonIngestionRetries")).toBe(
       "/api/v2/organon-ingestion/retries",
     );
+    expect(agentDataApiPathname("v1", "organonIngestionEvidenceChecks")).toBe(
+      "/api/v1/organon-ingestion/evidence-checks",
+    );
   });
 
-  it("reads the sent-articles window and take from query strings", () => {
+  it("reads the sent-articles window, take and unchecked flag from query strings", () => {
     expect(
       getOrganonIngestionSendsQuerySchema.parse({
         sentAfter: "2026-11-16T03:00:00.000Z",
@@ -40,7 +45,15 @@ describe("organon ingestion contract", () => {
       sentAfter: "2026-11-16T03:00:00.000Z",
       sentBefore: "2026-11-17T03:00:00.000Z",
       take: 200,
+      unchecked: false,
     });
+    expect(
+      getOrganonIngestionSendsQuerySchema.parse({
+        sentAfter: "2026-11-16T03:00:00.000Z",
+        sentBefore: "2026-11-17T03:00:00.000Z",
+        unchecked: "true",
+      }).unchecked,
+    ).toBe(true);
     expect(
       getOrganonIngestionSendsQuerySchema.safeParse({
         sentAfter: "2026-11-16T03:00:00.000Z",
@@ -110,5 +123,26 @@ describe("organon ingestion contract", () => {
         ),
       }).success,
     ).toBe(false);
+  });
+
+  it("marks between one and the most evidence checks one call carries", () => {
+    expect(
+      postOrganonIngestionEvidenceChecksBodySchema.safeParse({
+        organonJobIds: [],
+      }).success,
+    ).toBe(false);
+    expect(
+      postOrganonIngestionEvidenceChecksBodySchema.safeParse({
+        organonJobIds: Array.from(
+          { length: ORGANON_INGESTION_EVIDENCE_CHECKS_MAX + 1 },
+          (_, index) => `job-${index}`,
+        ),
+      }).success,
+    ).toBe(false);
+    expect(
+      postOrganonIngestionEvidenceChecksBodySchema.safeParse({
+        organonJobIds: ["job-1"],
+      }).success,
+    ).toBe(true);
   });
 });
