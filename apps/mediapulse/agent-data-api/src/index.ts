@@ -85,6 +85,7 @@ import {
 import {
   getOrganonIngestionCandidatesHandler,
   getOrganonIngestionSendsHandler,
+  postOrganonIngestionEvidenceChecksHandler,
   postOrganonIngestionRetriesHandler,
   postOrganonIngestionSendsHandler,
 } from "./routes/organon-ingestion.js";
@@ -270,6 +271,9 @@ const routeHandlers = {
   },
   organonIngestionRetries: {
     post: postOrganonIngestionRetriesHandler,
+  },
+  organonIngestionEvidenceChecks: {
+    post: postOrganonIngestionEvidenceChecksHandler,
   },
   queryAnalysis: {
     get: getQueryAnalysis,

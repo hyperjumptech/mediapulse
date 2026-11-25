@@ -3,6 +3,7 @@ import { z } from "zod";
 export const ORGANON_INGESTION_CANDIDATES_MAX_TAKE = 500;
 export const ORGANON_INGESTION_SENDS_MAX = 100;
 export const ORGANON_INGESTION_RETRIES_MAX = 100;
+export const ORGANON_INGESTION_EVIDENCE_CHECKS_MAX = 500;
 export const ORGANON_INGESTION_SENT_ARTICLES_MAX_TAKE = 500;
 
 export const getOrganonIngestionCandidatesQuerySchema = z.object({
@@ -66,6 +67,10 @@ export const getOrganonIngestionSendsQuerySchema = z.object({
     .positive()
     .max(ORGANON_INGESTION_SENT_ARTICLES_MAX_TAKE)
     .default(200),
+  unchecked: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((value) => value === "true"),
 });
 
 export const organonIngestionSentArticleSchema = z.object({
@@ -91,6 +96,17 @@ export const postOrganonIngestionRetriesBodySchema = z.object({
 
 export const postOrganonIngestionRetriesResponseSchema = z.object({
   claimedJobIds: z.array(z.string()),
+});
+
+export const postOrganonIngestionEvidenceChecksBodySchema = z.object({
+  organonJobIds: z
+    .array(z.string().min(1))
+    .min(1)
+    .max(ORGANON_INGESTION_EVIDENCE_CHECKS_MAX),
+});
+
+export const postOrganonIngestionEvidenceChecksResponseSchema = z.object({
+  checkedJobIds: z.array(z.string()),
 });
 
 export type GetOrganonIngestionCandidatesQuery = z.infer<
@@ -126,4 +142,10 @@ export type PostOrganonIngestionRetriesBody = z.infer<
 >;
 export type PostOrganonIngestionRetriesResponse = z.infer<
   typeof postOrganonIngestionRetriesResponseSchema
+>;
+export type PostOrganonIngestionEvidenceChecksBody = z.infer<
+  typeof postOrganonIngestionEvidenceChecksBodySchema
+>;
+export type PostOrganonIngestionEvidenceChecksResponse = z.infer<
+  typeof postOrganonIngestionEvidenceChecksResponseSchema
 >;

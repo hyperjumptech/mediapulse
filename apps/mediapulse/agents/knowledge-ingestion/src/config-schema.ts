@@ -92,16 +92,16 @@ export const ConfigSchema = z.object({
         .boolean()
         .default(true)
         .describe(
-          "After sending, check what Organon added for the articles sent before this run. It only reports and never changes Organon.",
+          "After sending, check what Organon added for each article sent before this run whose job has finished and hasn't been checked yet. It only reports and never changes Organon.",
         ),
       lookbackHours: z
         .number()
         .int()
         .positive()
         .max(168)
-        .default(24)
+        .default(72)
         .describe(
-          "How far back before this run a send may be for its article to be checked. With a nightly run, 24 checks each article once, the night after it was sent.",
+          "Oldest a send or retry may be for its article to be checked. Each finished job is checked once. A job still running is checked on a later run, while it is within this age.",
         ),
       maxArticles: z
         .number()

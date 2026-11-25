@@ -5,6 +5,7 @@ import {
   claimOrganonIngestionRetries,
   listOrganonIngestionCandidates,
   listOrganonIngestionSends,
+  markOrganonIngestionEvidenceChecked,
   recordOrganonIngestionSends,
   type OrganonIngestionDb,
 } from "./organon-ingestion.js";
@@ -354,6 +355,7 @@ describe("listOrganonIngestionSends", () => {
     sentAfter: "2026-11-16T03:00:00.000Z",
     sentBefore: "2026-11-17T03:00:00.000Z",
     take: 200,
+    unchecked: false,
   };
 
   const createSendsDb = ({
@@ -439,6 +441,27 @@ describe("listOrganonIngestionSends", () => {
     );
   });
 
+  it("reads only the unchecked sends whose send or retry falls in the window", async () => {
+    const { db, sendFindMany } = createSendsDb({ sends: [], placements: [] });
+
+    await listOrganonIngestionSends(db, { ...window, unchecked: true });
+
+    const inWindow = {
+      gte: new Date(window.sentAfter),
+      lt: new Date(window.sentBefore),
+    };
+    expect(sendFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          evidenceCheckedAt: null,
+          OR: [{ sentAt: inWindow }, { failureRetriedAt: inWindow }],
+        },
+        orderBy: { sentAt: "asc" },
+        take: 200,
+      }),
+    );
+  });
+
   it("returns a send with no text when its article is no longer placed", async () => {
     const { db } = createSendsDb({
       sends: [
@@ -479,7 +502,7 @@ describe("recordOrganonIngestionSends", () => {
     vi.restoreAllMocks();
   });
 
-  it("records the tickers and job of each send, and clears an earlier retry", async () => {
+  it("records the tickers and job of each send, and clears an earlier retry and check", async () => {
     const { db, upsert } = createDb({ recentUrls: [], placements: [] });
 
     const result = await recordOrganonIngestionSends(db, [
@@ -505,6 +528,7 @@ describe("recordOrganonIngestionSends", () => {
         organonJobId: "job-1",
         sentAt: NOW,
         failureRetriedAt: null,
+        evidenceCheckedAt: null,
       },
     });
   });
@@ -532,6 +556,36 @@ describe("claimOrganonIngestionRetries", () => {
     expect(updateMany).toHaveBeenNthCalledWith(1, {
       where: { organonJobId: "job-1", failureRetriedAt: null },
       data: { failureRetriedAt: NOW },
+    });
+  });
+});
+
+describe("markOrganonIngestionEvidenceChecked", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("marks each job's send once, only while it was never checked", async () => {
+    const { db, updateMany } = createDb({ recentUrls: [], placements: [] });
+    updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+
+    const result = await markOrganonIngestionEvidenceChecked(
+      db,
+      { organonJobIds: ["job-1", "job-2", "job-1"] },
+      NOW,
+    );
+
+    expect(result).toEqual({ checkedJobIds: ["job-1"] });
+    expect(updateMany).toHaveBeenCalledTimes(2);
+    expect(updateMany).toHaveBeenNthCalledWith(1, {
+      where: { organonJobId: "job-1", evidenceCheckedAt: null },
+      data: { evidenceCheckedAt: NOW },
+    });
+    expect(updateMany).toHaveBeenNthCalledWith(2, {
+      where: { organonJobId: "job-2", evidenceCheckedAt: null },
+      data: { evidenceCheckedAt: NOW },
     });
   });
 });

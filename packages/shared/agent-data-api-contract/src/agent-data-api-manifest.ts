@@ -116,6 +116,8 @@ import {
   getOrganonIngestionCandidatesResponseSchema,
   getOrganonIngestionSendsQuerySchema,
   getOrganonIngestionSendsResponseSchema,
+  postOrganonIngestionEvidenceChecksBodySchema,
+  postOrganonIngestionEvidenceChecksResponseSchema,
   postOrganonIngestionRetriesBodySchema,
   postOrganonIngestionRetriesResponseSchema,
   postOrganonIngestionSendsBodySchema,
@@ -858,6 +860,22 @@ export const agentDataApiManifest = defineAgentDataApiManifest({
       post: {
         body: postOrganonIngestionRetriesBodySchema,
         response: postOrganonIngestionRetriesResponseSchema,
+      },
+    },
+  },
+  organonIngestionEvidenceChecks: {
+    v1: {
+      pathSegment: "/organon-ingestion/evidence-checks",
+      post: {
+        body: postOrganonIngestionEvidenceChecksBodySchema,
+        response: postOrganonIngestionEvidenceChecksResponseSchema,
+      },
+    },
+    v2: {
+      pathSegment: "/organon-ingestion/evidence-checks",
+      post: {
+        body: postOrganonIngestionEvidenceChecksBodySchema,
+        response: postOrganonIngestionEvidenceChecksResponseSchema,
       },
     },
   },

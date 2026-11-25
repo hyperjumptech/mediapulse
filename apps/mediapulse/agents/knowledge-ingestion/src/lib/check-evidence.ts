@@ -5,13 +5,17 @@ import type {
   WrittenLink,
 } from "@mediapulse/knowledge-graph";
 import type { AgentDataApiClient } from "@workspace/agent-data-api-client";
-import type { OrganonIngestionSentArticle } from "@workspace/agent-data-api-contract";
+import {
+  ORGANON_INGESTION_EVIDENCE_CHECKS_MAX,
+  type OrganonIngestionSentArticle,
+} from "@workspace/agent-data-api-contract";
 import { pMap } from "@workspace/agent-ingestion";
 import {
   type ListedCompanyValueWithoutPoint,
   listedCompanyValuesWithoutPoint,
   marketLinksOf,
 } from "./listed-company-values-without-point.js";
+import { chunked } from "./chunked.js";
 import { spanIsInText } from "./span-is-in-text.js";
 
 export const MAX_EVIDENCE_EXAMPLES = 5;
@@ -23,6 +27,7 @@ type Tally<Example> = { count: number; examples: Example[] };
 export type EvidenceCheckResult = {
   sends: number;
   checked: number;
+  marked: number;
   skipped: { unfinished: number; failed: number; jobNotFound: number };
   quotesUnchecked: number;
   valuesUnchecked: number;
@@ -179,7 +184,10 @@ export const checkEvidence = async ({
     OrganonIngestionClient,
     "getJob" | "articleEvidence" | "marketRelations" | "listedCompaniesAmong"
   >;
-  dataApi: Pick<AgentDataApiClient, "organonIngestionSends">;
+  dataApi: Pick<
+    AgentDataApiClient,
+    "organonIngestionSends" | "organonIngestionEvidenceChecks"
+  >;
   sentAfter: Date;
   sentBefore: Date;
   take: number;
@@ -189,10 +197,12 @@ export const checkEvidence = async ({
     sentAfter: sentAfter.toISOString(),
     sentBefore: sentBefore.toISOString(),
     take,
+    unchecked: true,
   });
   const result: EvidenceCheckResult = {
     sends: sends.length,
     checked: 0,
+    marked: 0,
     skipped: { unfinished: 0, failed: 0, jobNotFound: 0 },
     quotesUnchecked: 0,
     valuesUnchecked: 0,
@@ -210,6 +220,7 @@ export const checkEvidence = async ({
     return result;
   }
   const relations = await organon.marketRelations();
+  const finishedJobIds: string[] = [];
 
   await pMap(
     sends,
@@ -218,6 +229,7 @@ export const checkEvidence = async ({
         const job = await organon.getJob(send.organonJobId);
         if (job === null) {
           result.skipped.jobNotFound += 1;
+          finishedJobIds.push(send.organonJobId);
           return;
         }
         if (UNFINISHED_JOB_STATUSES.has(job.status)) {
@@ -226,6 +238,7 @@ export const checkEvidence = async ({
         }
         if (job.status !== "completed") {
           result.skipped.failed += 1;
+          finishedJobIds.push(send.organonJobId);
           return;
         }
         const evidence = await organon.articleEvidence(send.canonicalUrl);
@@ -243,6 +256,7 @@ export const checkEvidence = async ({
         });
         result.checked += 1;
         recordProblems(result, send, evidence, unsupportedValues);
+        finishedJobIds.push(send.organonJobId);
       } catch (error) {
         note(result.errors, {
           canonicalUrl: send.canonicalUrl,
@@ -252,6 +266,15 @@ export const checkEvidence = async ({
     },
     { concurrency },
   );
+
+  for (const organonJobIds of chunked(
+    finishedJobIds,
+    ORGANON_INGESTION_EVIDENCE_CHECKS_MAX,
+  )) {
+    const { checkedJobIds } =
+      await dataApi.organonIngestionEvidenceChecks.create({ organonJobIds });
+    result.marked += checkedJobIds.length;
+  }
 
   return result;
 };

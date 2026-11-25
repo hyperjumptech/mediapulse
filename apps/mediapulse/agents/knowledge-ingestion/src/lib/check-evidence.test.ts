@@ -76,6 +76,13 @@ const setup = ({
 }) => {
   const dataApi = {
     organonIngestionSends: { get: vi.fn().mockResolvedValue({ sends }) },
+    organonIngestionEvidenceChecks: {
+      create: vi
+        .fn()
+        .mockImplementation(({ organonJobIds }: { organonJobIds: string[] }) =>
+          Promise.resolve({ checkedJobIds: organonJobIds }),
+        ),
+    },
   };
   const organon = {
     getJob: vi
@@ -103,7 +110,7 @@ const setup = ({
 };
 
 describe("checkEvidence", () => {
-  it("reads the sends in the window and finds nothing wrong with a clean article", async () => {
+  it("reads the unchecked sends in the window, finds nothing wrong with a clean article, and marks it checked", async () => {
     const { dataApi, organon, run } = setup({ sends: [sent()] });
 
     const result = await run();
@@ -112,12 +119,17 @@ describe("checkEvidence", () => {
       sentAfter: SENT_AFTER.toISOString(),
       sentBefore: SENT_BEFORE.toISOString(),
       take: 200,
+      unchecked: true,
+    });
+    expect(dataApi.organonIngestionEvidenceChecks.create).toHaveBeenCalledWith({
+      organonJobIds: ["job-1"],
     });
     expect(organon.getJob).toHaveBeenCalledWith("job-1");
     expect(organon.articleEvidence).toHaveBeenCalledWith(ARTICLE_URL);
     expect(result).toMatchObject({
       sends: 1,
       checked: 1,
+      marked: 1,
       withoutPoints: { count: 0 },
       quotesNotInText: { count: 0 },
       figuresWithoutPoint: { count: 0 },
@@ -258,20 +270,28 @@ describe("checkEvidence", () => {
   });
 
   it.each([
-    ["queued", "unfinished"],
-    ["running", "unfinished"],
-    ["failed", "failed"],
-    ["cancelled", "failed"],
-    [null, "jobNotFound"],
-  ] as const)("skips an article whose job is %s", async (status, skippedAs) => {
-    const { organon, run } = setup({ sends: [sent()], status });
+    ["queued", "unfinished", 0],
+    ["running", "unfinished", 0],
+    ["ready", "unfinished", 0],
+    ["failed", "failed", 1],
+    ["cancelled", "failed", 1],
+    [null, "jobNotFound", 1],
+  ] as const)(
+    "skips an article whose job is %s, and marks it checked only once the job can't change",
+    async (status, skippedAs, marked) => {
+      const { dataApi, organon, run } = setup({ sends: [sent()], status });
 
-    const result = await run();
+      const result = await run();
 
-    expect(result.checked).toBe(0);
-    expect(result.skipped[skippedAs]).toBe(1);
-    expect(organon.articleEvidence).not.toHaveBeenCalled();
-  });
+      expect(result.checked).toBe(0);
+      expect(result.skipped[skippedAs]).toBe(1);
+      expect(result.marked).toBe(marked);
+      expect(organon.articleEvidence).not.toHaveBeenCalled();
+      expect(
+        dataApi.organonIngestionEvidenceChecks.create,
+      ).toHaveBeenCalledTimes(marked);
+    },
+  );
 
   it("keeps checking after one article fails, and caps the examples it reports", async () => {
     const sends = Array.from(
@@ -282,7 +302,7 @@ describe("checkEvidence", () => {
           organonJobId: `job-${index}`,
         }),
     );
-    const { organon, run } = setup({ sends });
+    const { dataApi, organon, run } = setup({ sends });
     organon.articleEvidence.mockRejectedValueOnce(
       new Error("SPARQL timed out"),
     );
@@ -290,6 +310,11 @@ describe("checkEvidence", () => {
 
     const result = await run();
 
+    const markedJobIds =
+      dataApi.organonIngestionEvidenceChecks.create.mock.calls[0]?.[0]
+        ?.organonJobIds;
+    expect(markedJobIds).toHaveLength(sends.length - 1);
+    expect(result.marked).toBe(sends.length - 1);
     expect(result.errors.count).toBe(1);
     expect(result.errors.examples[0]?.message).toBe("SPARQL timed out");
     expect(result.checked).toBe(sends.length - 1);
@@ -424,5 +449,22 @@ describe("checkEvidence", () => {
     expect(result.sends).toBe(0);
     expect(organon.marketRelations).not.toHaveBeenCalled();
     expect(organon.getJob).not.toHaveBeenCalled();
+  });
+
+  it("marks only what the data API reports as newly checked", async () => {
+    const { dataApi, run } = setup({
+      sends: [
+        sent(),
+        sent({ canonicalUrl: `${ARTICLE_URL}-2`, organonJobId: "job-2" }),
+      ],
+    });
+    dataApi.organonIngestionEvidenceChecks.create.mockResolvedValue({
+      checkedJobIds: ["job-2"],
+    });
+
+    const result = await run();
+
+    expect(result.checked).toBe(2);
+    expect(result.marked).toBe(1);
   });
 });

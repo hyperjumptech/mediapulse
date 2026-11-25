@@ -6,6 +6,8 @@ import type {
   GetOrganonIngestionSendsResponse,
   OrganonIngestionCandidate,
   OrganonIngestionTicker,
+  PostOrganonIngestionEvidenceChecksBody,
+  PostOrganonIngestionEvidenceChecksResponse,
   PostOrganonIngestionRetriesBody,
   PostOrganonIngestionRetriesResponse,
   PostOrganonIngestionSendsBody,
@@ -225,7 +227,7 @@ export const recordOrganonIngestionSends = async (
     await db.organonArticleSend.upsert({
       where: { canonicalUrl: send.canonicalUrl },
       create: { canonicalUrl: send.canonicalUrl, ...values },
-      update: { ...values, failureRetriedAt: null },
+      update: { ...values, failureRetriedAt: null, evidenceCheckedAt: null },
     });
   }
 
@@ -260,13 +262,17 @@ export const listOrganonIngestionSends = async (
   db: OrganonIngestionDb,
   query: GetOrganonIngestionSendsQuery,
 ): Promise<GetOrganonIngestionSendsResponse> => {
+  const inWindow = {
+    gte: new Date(query.sentAfter),
+    lt: new Date(query.sentBefore),
+  };
   const sends = await db.organonArticleSend.findMany({
-    where: {
-      sentAt: {
-        gte: new Date(query.sentAfter),
-        lt: new Date(query.sentBefore),
-      },
-    },
+    where: query.unchecked
+      ? {
+          evidenceCheckedAt: null,
+          OR: [{ sentAt: inWindow }, { failureRetriedAt: inWindow }],
+        }
+      : { sentAt: inWindow },
     select: {
       canonicalUrl: true,
       tickerSymbols: true,
@@ -324,4 +330,23 @@ export const claimOrganonIngestionRetries = async (
   }
 
   return { claimedJobIds };
+};
+
+export const markOrganonIngestionEvidenceChecked = async (
+  db: OrganonIngestionDb,
+  { organonJobIds }: PostOrganonIngestionEvidenceChecksBody,
+  now: Date = new Date(),
+): Promise<PostOrganonIngestionEvidenceChecksResponse> => {
+  const checkedJobIds: string[] = [];
+  for (const organonJobId of uniqueInOrder(organonJobIds)) {
+    const result = await db.organonArticleSend.updateMany({
+      where: { organonJobId, evidenceCheckedAt: null },
+      data: { evidenceCheckedAt: now },
+    });
+    if (result.count > 0) {
+      checkedJobIds.push(organonJobId);
+    }
+  }
+
+  return { checkedJobIds };
 };
