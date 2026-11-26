@@ -182,7 +182,6 @@ export const createRunHandler =
             publishedAt: candidate.publishedAt,
             registrableDomain,
             publisherIri: publisher.iri,
-            tickers: candidate.tickers,
             placedForIris: placedForIrisOf(candidate, listedCompanyBySymbol),
           });
           const { jobId } = await organon.startIngestion(request);

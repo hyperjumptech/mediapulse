@@ -50,7 +50,6 @@ export type IngestionArticle = {
   publishedAt: string | null;
   registrableDomain: string;
   publisherIri: string | null;
-  tickers: readonly { symbol: string; name: string }[];
   placedForIris: readonly string[];
 };
 
@@ -294,13 +293,9 @@ export const isRegistrableDomain = (domain: string): boolean =>
   REGISTRABLE_DOMAIN_PATTERN.test(domain);
 
 export const buildArticleContent = (article: IngestionArticle): string => {
-  const placedFor = article.tickers
-    .map((ticker) => `${ticker.symbol} (${ticker.name})`)
-    .join(", ");
   const headerLines = [
     `# ${article.title}`,
     "",
-    `- Placed for: ${placedFor}`,
     ...(article.publishedAt ? [`- Published: ${article.publishedAt}`] : []),
     `- Publisher: ${article.registrableDomain}`,
     "",

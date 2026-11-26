@@ -197,7 +197,7 @@ describe("knowledge-ingestion run", () => {
     vi.restoreAllMocks();
   });
 
-  it("sends each article as one job for every ticker it is placed for, and records the send", async () => {
+  it("sends each article as one job for every ticker it is placed for, with the tickers as facts and not in the text the model reads, and records the send", async () => {
     const { deps, dataApi, organon } = setup({
       candidates: [candidate({ tickers: [MAPB, MAPI] })],
     });
@@ -210,9 +210,7 @@ describe("knowledge-ingestion run", () => {
       details: { candidates: 1, sent: 1, failed: 0 },
     });
     const request = organon.startIngestion.mock.calls[0]?.[0];
-    expect(request.content).toContain(
-      "- Placed for: MAPB (PT Map Boga Adiperkasa Tbk), MAPI (PT Mitra Adiperkasa Tbk)",
-    );
+    expect(request.content).not.toContain("Placed for");
     expect(request.metadata).toContainEqual({
       predicate: "http://purl.org/dc/terms/publisher",
       iri: PUBLISHER_IRI,
@@ -275,9 +273,7 @@ describe("knowledge-ingestion run", () => {
         (fact: { predicate: string }) => fact.predicate === PLACED_FOR,
       ),
     ).toEqual([{ predicate: PLACED_FOR, iri: MAPB_IRI }]);
-    expect(request.content).toContain(
-      "- Placed for: MAPB (PT Map Boga Adiperkasa Tbk), MAPI (PT Mitra Adiperkasa Tbk)",
-    );
+    expect(request.content).not.toContain("Placed for");
   });
 
   it("fetches and sends nothing when the listed company lookup fails, so no point is read without its tickers", async () => {
