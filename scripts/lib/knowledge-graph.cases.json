@@ -1,0 +1,2429 @@
+{
+  "passes": [
+    {
+      "pass": 1,
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "nights": ["2026-11-24", "2026-11-25", "2026-11-26"],
+      "note": "Two articles per subscribed ticker from the first three nights on Concepts 11. Items fixed by a morning report before judging keep their verdict and say which report fixed them."
+    }
+  ],
+  "cases": [
+    {
+      "pass": 1,
+      "canonicalUrl": "https://bloombergtechnoz.com/detail-news/127887/ekspor-ilegal-21-kg-emas-digagalkan-potensi-bea-keluar-rp5-2-m",
+      "title": "Ekspor Ilegal 21 Kg Emas Digagalkan, Potensi Bea Keluar Rp5,2 M",
+      "tickers": ["AMMN", "ANTM", "INDY"],
+      "night": "2026-11-24",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "Djaka Budhi Utama: 'Direktur Jenderal Bea dan Cukai Djaka Budhi Utama menuturkan bahwa...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "DJBC: 'Bea Cukai Gagalkan Ekspor Ilegal 21,8 Kg Emas...'",
+          "verdict": "correct",
+          "note": "About Bea Cukai. The label quotes the description while the quote is the body's first sentence."
+        },
+        {
+          "kind": "point",
+          "label": "DJBC investigation Banjarmasin: 'Berdasarakan hasil pemerikasaan petugas Bea Cukai...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "event",
+          "label": "DJBC investigation Banjarmasin, 2026-11",
+          "verdict": "correct",
+          "note": "Date 2026-11-05 is the first seizure; Rp5.2 billion is the potential export duty of both; main party Bea Cukai, involves Kemenkeu, happens in Banjarmasin. Label uses 'DJBC' instead of the item label 'Bea Cukai'."
+        },
+        {
+          "kind": "membership",
+          "label": "Djaka Budhi Utama, Head of agency at DJBC",
+          "verdict": "wrong-value",
+          "cause": "role",
+          "note": "Label names 'DJBC', not the organization's label 'Bea Cukai'. Organization and role are right: he leads Bea Cukai. The companion article 'Cerita di Balik Emas Tanpa Dokumen…' made a second membership for the same post (Kemenkeu, Director). Both are still in the graph, left for Monday's audit (25 Nov report fix 8)."
+        },
+        {
+          "kind": "relation",
+          "label": "Banjarmasin within South Kalimantan",
+          "verdict": "correct"
+        }
+      ],
+      "missed": [
+        {
+          "kind": "figure",
+          "fact": "21.8 kg of gold seized in two actions within a week. No metric fits, so leaving it out matches the 24 Nov fix that deleted the same figure stored as Sales volume from the companion article."
+        },
+        {
+          "kind": "event",
+          "fact": "First seizure on 5 November 2026 from four Indonesian women flying to Kuala Lumpur, Malaysia, 4.2 kg gross, at Syamsudin Noor International Airport."
+        }
+      ],
+      "notes": "Body is cut off at 'Baca Juga', so the second seizure isn't in the text. Gold-sector enforcement news: fair for AMMN and ANTM, weak for INDY. No figures stored."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://cnbcindonesia.com/tech/20261116163341-37-785680/gandeng-kpk-telkom-siapkan-49-penggerak-perkuat-budaya-antikorupsi",
+      "title": "Gandeng KPK, Telkom Siapkan 49 Penggerak Perkuat Budaya Antikorupsi",
+      "tickers": ["WIFI", "DATA", "DCII", "TLKM", "MORA", "EXCL"],
+      "night": "2026-11-24",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "Telkom Indonesia: 'Telkom Indonesia bekerja sama dengan KPK untuk memperkuat integritas melalui...'",
+          "verdict": "correct",
+          "note": "Quote is the article's description."
+        },
+        {
+          "kind": "point",
+          "label": "Telkom Indonesia: 'Program tersebut merupakan hasil kolaborasi Telkom dengan Komisi...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Telkom Indonesia launches PELOPOR: 'Upaya ini diwujudkan melalui penyelenggaraan Pelatihan...'",
+          "verdict": "correct",
+          "note": "About Telkom Indonesia rather than the PELOPOR event its label names; acceptable."
+        },
+        {
+          "kind": "point",
+          "label": "Nanang Hendarno: 'Hadir mewakili TelkomGroup, Direktur Utama Telkom Nanang...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Johanis Tanak: 'Wakil Ketua KPK RI, Johanis Tanak mengapresiasi inisiatif...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Regulation PELOPOR SKKNI: 'Pelatihan PELOPOR mengacu pada Standar Kompetensi Kerja...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "event",
+          "label": "Telkom Indonesia launches PELOPOR, 2026-11",
+          "verdict": "correct",
+          "note": "Main party Telkom Indonesia, counterparty KPK, 2026-11-09 ('pada Senin (9/11)'), completed."
+        },
+        {
+          "kind": "regulation",
+          "label": "Keputusan Menteri Ketenagakerjaan Nomor 442 Tahun 2025",
+          "verdict": "correct",
+          "note": "Ministerial, issued by Kemenaker. Its description ends with an article-specific clause ('which the PELOPOR training follows')."
+        },
+        {
+          "kind": "membership",
+          "label": "Nanang Hendarno membership at Telkom Indonesia",
+          "verdict": "wrong-value",
+          "cause": "duplicate",
+          "note": "Repeated the existing 'Nanang Hendarno, President director at Telkom' (same person, organization and role) under a broken label form. Deleted, and the old one renamed '... at Telkom Indonesia'.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "membership",
+          "label": "Willy Saelan membership at Telkom Indonesia",
+          "verdict": "wrong-value",
+          "cause": "role",
+          "note": "Role Director and title 'Direktur Human Capital Management' are right, but the label broke the '<person>, <role> at <organization>' form. Renamed 'Willy Saelan, Director at Telkom Indonesia'.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "relation",
+          "label": "Telkom Indonesia partnersWith KPK",
+          "verdict": "correct",
+          "note": "'hasil kolaborasi Telkom dengan Komisi Pemberantasan Korupsi'."
+        },
+        {
+          "kind": "relation",
+          "label": "Willy Saelan memberOf Telkom Indonesia",
+          "verdict": "correct"
+        },
+        {
+          "kind": "relation",
+          "label": "Johanis Tanak memberOf KPK",
+          "verdict": "correct"
+        },
+        {
+          "kind": "relation",
+          "label": "Yonathan Demme Tangdilintin memberOf KPK",
+          "verdict": "correct"
+        },
+        {
+          "kind": "party",
+          "label": "Kemenaker description 'Ministry of Manpower, which issued the SKKNI competency standard.'",
+          "verdict": "wrong-value",
+          "cause": "description-about-article",
+          "note": "Half the description is this article's detail rather than what the ministry is. Still in the graph; no morning report raised it."
+        }
+      ],
+      "missed": [
+        {
+          "kind": "figure",
+          "fact": "49 participants (culture boosters and appointed staff) took the PELOPOR training."
+        },
+        {
+          "kind": "point",
+          "fact": "13 of them are being prepared for the API (Ahli Pembangun Integritas) certification; all are expected to continue to PAKSI."
+        },
+        {
+          "kind": "membership",
+          "fact": "Johanis Tanak, Deputy chair at KPK, and Yonathan Demme Tangdilintin, Director of anti-corruption education and training at KPK: people were created but no memberships."
+        },
+        {
+          "kind": "point",
+          "fact": "Blended learning: online self-study on 5-6 November 2026, classroom training from 9 November 2026 at Telkom CorpU."
+        }
+      ],
+      "notes": "Relevant for TLKM. The placements for WIFI, DATA, DCII, MORA and EXCL (a peer's anti-corruption training) are weak. The job also proposed MORA's old legal name from the header as a conflict; nothing was stored."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://indotelko.com/read/1794609059/infranexia-tambah-1408-km-fiber-optik-perkuat-infrastruktur-ai",
+      "title": "InfraNexia tambah 1.408 km fiber optik, perkuat infrastruktur AI",
+      "tickers": ["WIFI"],
+      "night": "2026-11-24",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "InfraNexia: 'PT Telkom Infrastruktur Indonesia (InfraNexia) menambah jaringan...'",
+          "verdict": "correct",
+          "note": "Quote word for word; about Telkom Infrastruktur Indonesia."
+        },
+        {
+          "kind": "point",
+          "label": "InfraNexia: 'Direktur Utama InfraNexia, Lukman Hakim Abd. Rauf, mengatakan...'",
+          "verdict": "correct",
+          "note": "Quote word for word; about Lukman Hakim Abd. Rauf, though the label names InfraNexia."
+        },
+        {
+          "kind": "point",
+          "label": "InfraNexia: 'Setelah penandatanganan akta pemisahan Spin-Off InfraCo...'",
+          "verdict": "correct",
+          "note": "Quote word for word; about Telkom Infrastruktur Indonesia. It records the relation to Telkom Indonesia as partOfGroup rather than subsidiaryOf, which is why the evidence check flagged it."
+        },
+        {
+          "kind": "figure",
+          "label": "InfraNexia fiber optic network added 2026 1,408 km",
+          "verdict": "wrong-value",
+          "cause": "wrong-metric",
+          "note": "Value, unit and period match \"1.408 kilometer selama 2026\", but the metric is Investment. No metric fits a network length. Deleted with its \"2026\" period.",
+          "fixed": "2026-11-24 report"
+        },
+        {
+          "kind": "corporate-action",
+          "label": "InfraNexia spin-off InfraCo Tahap 2, 2026-09",
+          "verdict": "correct",
+          "note": "Divestment, main party Telkom Indonesia, target InfraNexia, as the text says. No day is given, so no event date is right. It has no status though the deed was signed and assets consolidated (Completed), and the label doesn't open with the main party."
+        },
+        {
+          "kind": "membership",
+          "label": "Lukman Hakim Abd. Rauf, President director at InfraNexia",
+          "verdict": "correct",
+          "note": "Matched the existing membership with no changes; \"Direktur Utama InfraNexia\". Its label uses InfraNexia rather than the organization's label, from an earlier read."
+        },
+        {
+          "kind": "relation",
+          "label": "Telkom Infrastruktur Indonesia subsidiaryOf Telkom Indonesia",
+          "verdict": "correct",
+          "note": "Proposed again; already stated. Supported by \"PT Telkom Infrastruktur Indonesia (InfraNexia)\" and the spin-off sentence."
+        }
+      ],
+      "missed": [
+        {
+          "kind": "event",
+          "fact": "InfraNexia added internet gateways in Jakarta and Surabaya, beside its gateways in Batam and Manado."
+        },
+        {
+          "kind": "event",
+          "fact": "Planned submarine cable (SKKL) route linking Java, Sulawesi and Kalimantan, and a data centre interconnect (DCI) network."
+        },
+        {
+          "kind": "point",
+          "fact": "InfraNexia opens its network capacity carrier-neutral and open-access to operators, ISPs, digital firms and data centre operators, which bears on WIFI's market."
+        },
+        {
+          "kind": "corporate-action",
+          "fact": "The InfraCo Tahap 2 spin-off's status Completed."
+        }
+      ],
+      "notes": "Read on 24 Nov by hand after the provider credit failure. It also created a Place \"Manado\" that nothing references. Jakarta, Surabaya and Batam matched existing places but no value links them either."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://industri.kontan.co.id/news/moodys-beri-rating-baa3-obligasi-freeport-indonesia-likuiditas-tembus-us-4-miliar",
+      "title": "Moody’s Beri Rating Baa3 Obligasi Freeport Indonesia, Likuiditas Tembus US$ 4 Miliar",
+      "tickers": ["AMMN"],
+      "night": "2026-11-24",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "Moody's Ratings: 'Moody’s Ratings memberikan peringkat Baa3 dengan prospek stabil (Stable)...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Freeport Indonesia: 'Moody’s Ratings memberikan peringkat Baa3 dengan prospek stabil (Stable)...'",
+          "verdict": "correct",
+          "note": "Same sentence as the Moody's and bond points; three points on one quote."
+        },
+        {
+          "kind": "point",
+          "label": "Freeport Indonesia bond, 2026: 'Moody’s Ratings memberikan peringkat Baa3 dengan prospek stabil (Stable)...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Freeport-McMoRan: 'Dari sisi kepemilikan, Freeport-McMoRan Inc. memiliki 48,76% saham PTFI.'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "MIND ID: 'Sementara itu, 51,24% sisanya dimiliki secara kolektif oleh perusahaan negara...'",
+          "verdict": "correct",
+          "note": "About the third MIND ID this article created; it is now linked as the same as the other two, so the about resolves to Mineral Industri Indonesia. The duplicate is counted on the party item."
+        },
+        {
+          "kind": "point",
+          "label": "Indonesia Papua Metal dan Mineral: 'Sementara itu, 51,24% sisanya dimiliki secara kolektif oleh perusahaan negara...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Freeport Indonesia incident Grasberg Block Cave, 2025-09: 'Peringkat ini mencerminkan ketahanan kinerja keuangan perusahaan...'",
+          "verdict": "correct",
+          "note": "Quote is word for word. Its about first named the duplicate 2026-11 incident; on 24 Nov it was moved to the existing September 2025 event. The error is counted on the event item."
+        },
+        {
+          "kind": "point",
+          "label": "Freeport Indonesia policy decision Grasberg, 2026-06: 'Pada Juni 2026, PTFI telah mengajukan permohonan...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "relation",
+          "label": "Freeport-McMoRan ownsStakeIn Freeport Indonesia",
+          "verdict": "correct",
+          "note": "\"Freeport-McMoRan Inc. memiliki 48,76% saham PTFI\"."
+        },
+        {
+          "kind": "relation",
+          "label": "MIND ID ownsStakeIn Freeport Indonesia",
+          "verdict": "correct"
+        },
+        {
+          "kind": "relation",
+          "label": "Indonesia Papua Metal dan Mineral ownsStakeIn Freeport Indonesia",
+          "verdict": "correct"
+        },
+        {
+          "kind": "relation",
+          "label": "Freeport Indonesia operatesIn Indonesia",
+          "verdict": "correct",
+          "note": "Implied by the IUPK the government granted; true."
+        },
+        {
+          "kind": "event",
+          "label": "Freeport Indonesia incident Grasberg, 2026-11",
+          "verdict": "wrong-value",
+          "cause": "duplicate",
+          "note": "Re-created the September 2025 Grasberg disruption as a new event dated to the article's month. The text only says production is still recovering.",
+          "fixed": "2026-11-24 report"
+        },
+        {
+          "kind": "event",
+          "label": "Freeport Indonesia policy decision Grasberg, 2026-06",
+          "verdict": "wrong-value",
+          "cause": "other",
+          "note": "Kind is Policy decision, which is a government or regulator decision. This is the company's June 2026 application to extend its IUPK operating rights. Date, status Planned and main party are right; no event kind fits an application."
+        },
+        {
+          "kind": "corporate-action",
+          "label": "Freeport Indonesia bond, 2026",
+          "verdict": "correct",
+          "note": "Matched the existing bond by label and added nothing. Its proposed Moody's Baa3 description stayed an unapplied conflict next to Fitch's BBB one."
+        },
+        {
+          "kind": "party",
+          "label": "MIND ID",
+          "verdict": "wrong-value",
+          "cause": "duplicate",
+          "note": "Two existing MIND ID items matched by label, so the job created a third.",
+          "fixed": "2026-11-24 report"
+        }
+      ],
+      "missed": [
+        {
+          "kind": "corporate-action",
+          "fact": "The new bond's proceeds refinance the US$750 million notes due April 2027 (amount and use not on the bond item)."
+        },
+        {
+          "kind": "figure",
+          "fact": "Liquidity: cash US$240 million at 30 September 2026, undrawn committed facility US$4 billion, operating cash flow about US$5.9 billion to December 2027. No metric fits these, so their absence is consistent with Concepts 11."
+        },
+        {
+          "kind": "relation",
+          "fact": "Stake sizes: Freeport-McMoRan 48.76%, MIND ID and Indonesia Papua Metal dan Mineral 51.24% together."
+        },
+        {
+          "kind": "event",
+          "fact": "IUPK granted in 2018 and due to expire in 2031; production expected to recover in 2027."
+        }
+      ],
+      "notes": "Peer story for AMMN (Competitive Landscape); the body never names AMMN and the job added nothing to it from the header. No figures stored. Job was the 24 Nov hand rerun (10,071 output tokens, not cut off)."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://satujuang.com/tata-kelola-tambang-nasional-berubah-70-persen-hasil-wajib-kembali-ke-negara",
+      "title": "Tata Kelola Tambang Nasional Berubah, 70 Persen Hasil Wajib Kembali ke Negara",
+      "tickers": ["AMMN", "ANTM"],
+      "night": "2026-11-24",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "Prabowo Subianto: 'Saya kasih instruksi ke menteri-menteri'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "ESDM: 'Instruksi Presiden Prabowo mengenai target 70 persen'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "KPK: 'catatan panjang Komisi Pemberantasan Korupsi (KPK)'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "regulation",
+          "label": "UU Nomor 3 Tahun 2020",
+          "verdict": "correct",
+          "note": "Title, kind Law and status match the text. Label form differs from the graph's 'UU 2/2025 (UU Minerba)' style, and the 'juncto UU 2/2025' link to the existing UU 2/2025 wasn't made. No point refers to it."
+        },
+        {
+          "kind": "regulation",
+          "label": "PP Nomor 96 Tahun 2021",
+          "verdict": "correct",
+          "note": "No existing item for PP 96/2021 (only its amendment PP 39/2025). Same label-form remark; no point refers to it."
+        },
+        {
+          "kind": "regulation",
+          "label": "PP Nomor 8 Tahun 2025",
+          "verdict": "wrong-value",
+          "cause": "legal-name",
+          "note": "Duplicates the curated 'PP 8/2025 (DHE SDA)', which has the same identifier 'Peraturan Pemerintah Nomor 8 Tahun 2025'. The model used the long label form, so matching missed it; the copy also says Issued where the curated one says In force. Not in any morning report."
+        },
+        {
+          "kind": "party",
+          "label": "Papua New Guinea",
+          "verdict": "wrong-value",
+          "cause": "other",
+          "note": "New Place (kind Country) with country Indonesia. Papua New Guinea is its own country; the country list probably has no code for it, as with Timor-Leste on 26 Nov. Nothing references it. Not in any morning report."
+        },
+        {
+          "kind": "party",
+          "label": "Sunar Susanto",
+          "verdict": "wrong-value",
+          "cause": "other",
+          "note": "Alternative name equals the label. Nothing references the person."
+        }
+      ],
+      "missed": [
+        {
+          "kind": "event",
+          "fact": "Prabowo's instruction in Palu on 14 November 2026 that at least 70% of the benefit of every IUP goes to the state, by share control if needed (policy decision)."
+        },
+        {
+          "kind": "event",
+          "fact": "All exports must now go through a single gate (ekspor satu pintu)."
+        },
+        {
+          "kind": "relation",
+          "fact": "UU 3/2020 is amended by the existing UU 2/2025 (UU Minerba); with PP 96/2021 they cap foreign miners' divestment at 51%."
+        },
+        {
+          "kind": "point",
+          "fact": "Export tonnage under-reporting: 100 tons shipped reported as 30 to 50 tons."
+        },
+        {
+          "kind": "point",
+          "fact": "Sunar Susanto's comparison with Porgera in Papua New Guinea: 53% state benefit despite 51% state ownership."
+        }
+      ],
+      "notes": "Sector policy news for both miners; neither is named. Legal-name conflict on Aneka Tambang ('PT Aneka Tambang Tbk') stayed unapplied. Job was the 24 Nov hand rerun."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://liputan6.com/news/read/8337235/bantu-warga-terdampak-karhutla-le-minerale-salurkan-air-mineral-hingga-layanan-kesehatan",
+      "title": "Bantu Warga Terdampak Karhutla, Le Minerale Salurkan Air Mineral hingga Layanan Kesehatan",
+      "tickers": ["ADES"],
+      "night": "2026-11-25",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "Le Minerale partners with Benihbaik",
+          "verdict": "correct",
+          "note": "Quote is word for word from the description; about the Le Minerale brand."
+        },
+        {
+          "kind": "point",
+          "label": "Le Minerale launches Palangka Raya, 2026-11",
+          "verdict": "correct",
+          "note": "Quote word for word; about the event."
+        },
+        {
+          "kind": "point",
+          "label": "Yuna Eka Kristina: 'Head of Public Relations & Digital Le Minerale'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Andy F. Noya: 'Melalui dukungan Le Minerale yang berkolaborasi'",
+          "verdict": "correct",
+          "note": "Quote word for word (\"Founder & CEO Benihbaik, Andy F. Noya, mengapresiasi...\"), though the label quotes a different sentence."
+        },
+        {
+          "kind": "relation",
+          "label": "Le Minerale partnersWith Benihbaik",
+          "verdict": "correct",
+          "note": "\"Le Minerale berkolaborasi dengan Benihbaik\"; stated on both."
+        },
+        {
+          "kind": "relation",
+          "label": "Yuna Eka Kristina memberOf Tirta Fresindo Jaya",
+          "verdict": "correct",
+          "note": "The text says \"Head of Public Relations & Digital Le Minerale\"; Tirta Fresindo Jaya carries the alternative title Le Minerale. No membership item was made."
+        },
+        {
+          "kind": "relation",
+          "label": "Palangka Raya within Central Kalimantan",
+          "verdict": "correct",
+          "note": "\"Kota Palangka Raya, Kalimantan Tengah\"; both places are new and have no duplicate."
+        },
+        {
+          "kind": "membership",
+          "label": "Andy F. Noya, Founder at Benihbaik",
+          "verdict": "correct",
+          "note": "\"Founder & CEO Benihbaik\"; role Founder."
+        },
+        {
+          "kind": "event",
+          "label": "Le Minerale launches Palangka Raya, 2026-11",
+          "verdict": "wrong-value",
+          "cause": "other",
+          "note": "The label says Le Minerale launched a city. The values are right: emergency post with Benihbaik in Palangka Raya, status Completed, no date given. It should name the emergency post."
+        }
+      ],
+      "missed": [],
+      "notes": "Fair placement: Tirta Fresindo Jaya (Le Minerale) is a curated primary competitor of ADES. But the read made a separate Brand \"Le Minerale\", with no link to Tirta Fresindo Jaya, and hung the event and the Benihbaik partnership on that Brand, so ADES's competitor item gets none of it. Only Yuna was linked to Tirta Fresindo Jaya. The text never names the company, so the missing brandOperatedBy isn't counted as missed."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://liputan6.com/tekno/read/8336731/danantara-dan-telkom-kembangkan-padisera-untuk-perluas-pasar-umkm",
+      "title": "Danantara dan Telkom Kembangkan Padisera untuk Perluas Pasar UMKM",
+      "tickers": ["MORA"],
+      "night": "2026-11-25",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "Telkom: 'Direktur Utama Telkom Nanang Hendarno, menyampaikan'",
+          "verdict": "correct",
+          "note": "Word for word; about Telkom Indonesia."
+        },
+        {
+          "kind": "point",
+          "label": "Danantara: 'Danantara Indonesia dan Telkom mengembangkan Padisera'",
+          "verdict": "correct",
+          "note": "The quote is the article's description, not a body sentence; the body supports it ('kolaborasi Danantara Indonesia dan Telkom')."
+        },
+        {
+          "kind": "point",
+          "label": "Telkom: 'Danantara Indonesia dan Telkom mengembangkan Padisera'",
+          "verdict": "correct",
+          "note": "Same description quote as the Danantara point, filed about Telkom."
+        },
+        {
+          "kind": "relation",
+          "label": "Danantara Indonesia partnersWith Telkom Indonesia",
+          "verdict": "correct",
+          "note": "'Melalui kolaborasi Danantara Indonesia dan Telkom'."
+        },
+        {
+          "kind": "relation",
+          "label": "Danantara Indonesia operatesBrand Padisera",
+          "verdict": "correct",
+          "note": "Kept by the 25 Nov reruns. The text says Danantara and Telkom develop it together, so Telkom's side is missing."
+        },
+        {
+          "kind": "relation",
+          "label": "Danantara Indonesia operatesBrand PaDi UMKM",
+          "verdict": "not-in-text",
+          "cause": "other",
+          "note": "The text never says Danantara runs PaDi UMKM. Removed (the reruns list named the Padisera IRI by mistake, but the PaDi UMKM brand was the one removed).",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "figure",
+          "label": "PaDi UMKM sellers 2026 more than 180 thousand",
+          "verdict": "wrong-value",
+          "cause": "wrong-metric",
+          "note": "180,000 matches 'lebih dari 180 ribu penjual', but sellers on a B2B platform are not customers (Customer count), and '2026' in the label is not in the text. Left for the eval by the 25 Nov reruns; still in the graph."
+        },
+        {
+          "kind": "figure",
+          "label": "PaDi UMKM buyers 115 thousand",
+          "verdict": "correct",
+          "note": "115,000 buyers as Customer count of PaDi UMKM."
+        },
+        {
+          "kind": "figure",
+          "label": "PaDi UMKM GMV more than Rp27 trillion",
+          "verdict": "wrong-value",
+          "cause": "wrong-metric",
+          "note": "Rp27 trillion is right, but GMV isn't Revenue. Deleted.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "event",
+          "label": "Danantara partnership Padisera development, 2026-11",
+          "verdict": "correct",
+          "note": "Partnership, Planned, main parties Danantara Indonesia and Telkom Indonesia, involves Padisera and PaDi UMKM. The label doesn't follow the usual '<party> <verb> <object>' form, and there's no date."
+        },
+        {
+          "kind": "membership",
+          "label": "Nanang Hendarno, President director at Telkom Indonesia",
+          "verdict": "correct",
+          "note": "Matched the existing membership ('Direktur Utama Telkom'); nothing added."
+        },
+        {
+          "kind": "party",
+          "label": "Danantara Indonesia",
+          "verdict": "wrong-value",
+          "cause": "other",
+          "note": "Added the alternative name 'Danantara Indonesia', equal to its label. Removed. A proposed description rewrite stayed unapplied.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "party",
+          "label": "2027 trial",
+          "verdict": "wrong-value",
+          "cause": "other",
+          "note": "A Period whose label isn't a period ('Tahap uji coba ... pada 2027'). Deleted.",
+          "fixed": "2026-11-25 report"
+        }
+      ],
+      "missed": [
+        {
+          "kind": "point",
+          "fact": "Padisera's B2C service trial is planned for 2027. No point holds it now that the period is gone."
+        },
+        {
+          "kind": "point",
+          "fact": "PaDi UMKM has over 180 thousand sellers, 115 thousand buyers and GMV over Rp27 trillion. No point supports the figures."
+        },
+        {
+          "kind": "point",
+          "fact": "Padisera is a national B2C marketplace, unlike PaDi UMKM's focus on state-owned enterprise procurement."
+        }
+      ],
+      "notes": "Read by hand on 25 Nov (reruns). MORA is placed for a competitor-landscape story about Telkom, but Padisera is an MSME marketplace, so it is weakly relevant to MORA's telecom business. Reads still proposed MORA's old legal name from the header as a conflict (not applied); the ticker name has since been fixed."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://insight.kontan.co.id/news/ekosistem-digital-jadi-mesin-utama-pengerek-dana-murah",
+      "title": "Ekosistem Digital Jadi Mesin Utama Pengerek Dana Murah",
+      "tickers": ["GOTO", "SMMA", "NOBU", "AGRO"],
+      "night": "2026-11-25",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "junk",
+      "items": [
+        {
+          "kind": "point",
+          "label": "BI: 'Bank Indonesia (BI) mencatat, volume transaksi pembayaran digital nasional mencapai 48,98...'",
+          "verdict": "correct"
+        }
+      ],
+      "missed": [
+        {
+          "kind": "fact",
+          "fact": "Digital payment volume grew 38.28% yoy to 48.98 billion transactions in 9M 2026; the growth rate isn't in the stored quote."
+        },
+        {
+          "kind": "fact",
+          "fact": "Banks increasingly rely on digital ecosystems to grow low-cost CASA funds."
+        }
+      ],
+      "notes": "Paywall stub: two paragraphs, then the Kontan subscription prompt and other headlines, and the description carries HTML debris. Nothing in it concerns any placed ticker by name. The one stored point is right; no figure was stored, which suits a transaction count no metric fits."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://cnbcindonesia.com/market/20261117133202-17-785947/grup-djarum-rombak-bisnis-menara-2-perusahaan-dilebur",
+      "title": "Grup Djarum Rombak Bisnis Menara, 2 Perusahaan Dilebur",
+      "tickers": ["EXCL"],
+      "night": "2026-11-25",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "wrong-placement",
+      "items": [
+        {
+          "kind": "point",
+          "label": "Protelindo: 'Grup Djarum merencanakan merger PT Komet Infra Nusantara dan PT Darmanusa Tritunggal ke dalam Protelindo, efektif 1 Januari 2027, untuk efisiensi dan sinergi.'",
+          "verdict": "correct",
+          "note": "Quote is the article's description. Tagged partnersWith Komet Infra Nusantara for a merger; no partnersWith value was stored."
+        },
+        {
+          "kind": "point",
+          "label": "Protelindo merger Komet Infra Nusantara: 'Grup Djarum berencana melebur alias merger.'",
+          "verdict": "correct",
+          "note": "The stored quote ('Kedua entitas itu adalah PT Komet Infra Nusantara (KIN) ...') is word for word, but the label quotes a different sentence. Tagged subsidiaryOf Protelindo."
+        },
+        {
+          "kind": "point",
+          "label": "Darmanusa Tritunggal: 'Kedua entitas itu adalah PT Komet Infra Nusantara (KIN) dan PT Darmanusa Tritunggal (DNT)'",
+          "verdict": "correct",
+          "note": "Tagged subsidiaryOf Protelindo, which the sentence doesn't say."
+        },
+        {
+          "kind": "point",
+          "label": "Sarana Menara Nusantara: 'Penggabungan ini merupakan bagian dari strategi restrukturisasi dan penyederhanaan struktur korporasi dalam grup PT Sarana Menara Nusantara Tbk. (TOWR).'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Sarana Menara Nusantara: 'setelah penggabungan efektif, PT Sarana Menara Nusantara Tbk. tercatat sebagai pemegang 58.322.620.186 saham Protelindo'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Grup Djarum: 'Entitas-entitas usaha bidang menara telekomunikasi Grup Djarum berencana melebur alias merger.'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "corporate-action",
+          "label": "Protelindo merges with Komet Infra Nusantara and Darmanusa Tritunggal, 2027",
+          "verdict": "correct",
+          "note": "Merger, main party Protelindo (surviving entity), targets KIN and DNT, 2027-01-01, planned. Main party is the second Protelindo item, joined to the others by inference."
+        },
+        {
+          "kind": "figure",
+          "label": "Protelindo total assets proforma 2027-01-01 IDR 49.01 trillion",
+          "verdict": "wrong-value",
+          "cause": "wrong-metric",
+          "note": "Total assets stored under the metric Equity; value right. Deleted.",
+          "fixed": "2026-11-25 reruns report"
+        },
+        {
+          "kind": "figure",
+          "label": "Protelindo proforma revenue IDR 2.81 trillion",
+          "verdict": "correct",
+          "note": "Pro forma, marked as guidance, no period printed. No point refers to it."
+        },
+        {
+          "kind": "figure",
+          "label": "Protelindo proforma operating profit IDR 2.03 trillion",
+          "verdict": "correct",
+          "note": "No point refers to it."
+        },
+        {
+          "kind": "figure",
+          "label": "Protelindo proforma net profit IDR 801.39 billion",
+          "verdict": "correct",
+          "note": "'laba bersih sekitar Rp801,39 miliar'. No point refers to it."
+        },
+        {
+          "kind": "relation",
+          "label": "Komet Infra Nusantara subsidiaryOf Protelindo",
+          "verdict": "not-in-text",
+          "cause": "other",
+          "note": "The text says only that KIN will merge into Protelindo within the TOWR group; it never says KIN is Protelindo's subsidiary. The inverse parentOf is stated on the second Protelindo item. Not raised by any report."
+        },
+        {
+          "kind": "relation",
+          "label": "Darmanusa Tritunggal subsidiaryOf Protelindo",
+          "verdict": "not-in-text",
+          "cause": "other",
+          "note": "As for KIN; the inverse parentOf is on the second Protelindo item. Not raised by any report."
+        },
+        {
+          "kind": "relation",
+          "label": "Komet Infra Nusantara partOfGroup Grup Djarum",
+          "verdict": "correct"
+        },
+        {
+          "kind": "relation",
+          "label": "Darmanusa Tritunggal partOfGroup Grup Djarum",
+          "verdict": "correct"
+        },
+        {
+          "kind": "relation",
+          "label": "Protelindo partOfGroup Grup Djarum",
+          "verdict": "correct",
+          "note": "Implied: Djarum's tower business absorbs the two into Protelindo."
+        },
+        {
+          "kind": "relation",
+          "label": "Sarana Menara Nusantara parentOf Protelindo",
+          "verdict": "correct",
+          "note": "99.99% after the merger."
+        },
+        {
+          "kind": "relation",
+          "label": "Sarana Menara Nusantara ownsStakeIn Protelindo",
+          "verdict": "correct",
+          "note": "58,322,620,186 shares, 99.99%; the inverse partOwnedBy is on Protelindo."
+        },
+        {
+          "kind": "relation",
+          "label": "Komet Infra Nusantara country Indonesia",
+          "verdict": "correct"
+        },
+        {
+          "kind": "party",
+          "label": "Grup Djarum",
+          "verdict": "wrong-value",
+          "cause": "legal-name",
+          "note": "A new Business group under the 'Grup' form next to the existing Djarum. Linked sameAs with Djarum.",
+          "fixed": "2026-11-25 reruns report"
+        },
+        {
+          "kind": "party",
+          "label": "Grup Djarum description 'Business group with telecom tower entities.'",
+          "verdict": "wrong-value",
+          "cause": "description-about-article",
+          "note": "Described from this article's angle. Cleared.",
+          "fixed": "2026-11-25 reruns report"
+        },
+        {
+          "kind": "party",
+          "label": "Protelindo (second item)",
+          "verdict": "wrong-value",
+          "cause": "duplicate",
+          "note": "The job matched both existing Protelindo items by key, couldn't choose and created a new one. Reasoning joins it to Profesional Telekomunikasi Indonesia by inference, but no stated sameAs; the 2026-11-26 report proposes one (not applied)."
+        }
+      ],
+      "missed": [
+        {
+          "kind": "event",
+          "fact": "The Boards of Commissioners approved the merger plan on 13 November 2026."
+        },
+        {
+          "kind": "event",
+          "fact": "Shareholder approval by circular resolutions is planned for 28 December 2026."
+        },
+        {
+          "kind": "point",
+          "fact": "KIN and DNT end by law without liquidation; the merger doesn't change Protelindo's articles of association."
+        },
+        {
+          "kind": "point",
+          "fact": "Completion depends on third-party, regulatory and shareholder approvals and the signing of the merger deed."
+        }
+      ],
+      "notes": "Wrong placement for EXCL: a TOWR/Protelindo tower restructuring that never names XL or any operator. The placement reason itself says the article is about tower companies and doesn't affect MNO capacity. Items were judged against the text as usual."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://cnbcindonesia.com/market/20261117125727-17-785920/ifg-life-merger-dengan-inhealth-begini-nasib-pegawai",
+      "title": "IFG Life Merger dengan Inhealth, Begini Nasib Pegawai",
+      "tickers": ["SMMA"],
+      "night": "2026-11-25",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "IFG Life merges with Inhealth, 2027 article point",
+          "verdict": "correct",
+          "note": "Quote is the article's description, word for word; about the merger."
+        },
+        {
+          "kind": "point",
+          "label": "IFG Life receiving company article point",
+          "verdict": "correct",
+          "note": "Quote word for word, about IFG Life. The point tags statesRelation partnersWith Inhealth for a merger, but no partnersWith value was stored."
+        },
+        {
+          "kind": "point",
+          "label": "IFG Life employee guarantee article point",
+          "verdict": "correct"
+        },
+        {
+          "kind": "corporate-action",
+          "label": "IFG Life merges with Inhealth, 2027",
+          "verdict": "correct",
+          "note": "Merger, main party IFG Life (receiving company), target and counterparty Inhealth, date 2027-01-01 as the targeted effective date, status planned. All match the text."
+        }
+      ],
+      "missed": [
+        {
+          "kind": "corporate-action",
+          "fact": "After the merger IFG Life focuses on life, health and personal accident insurance and annuities, and also runs PAYDI and DPLK."
+        },
+        {
+          "kind": "point",
+          "fact": "All Inhealth employees become IFG Life employees, with their service periods continued."
+        },
+        {
+          "kind": "event",
+          "fact": "The merger plan summary (ringkasan rancangan penggabungan) was published on Tuesday 17 November 2026."
+        }
+      ],
+      "notes": "SMMA is never named. It is a merger of two competing life insurers, placed under Deals & Movements with the market-link rule unmatched (fit capped at 0.40); judged relevant as competitor news, but borderline. No figures in the text."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://katadata.co.id/digital/startup/6afc37e968e61/indonesia-teken-kesepakatan-ekonomi-digital-asean-apa-untung-dan-risikonya",
+      "title": "Indonesia Teken Kesepakatan Ekonomi Digital ASEAN, Apa Untung dan Risikonya?",
+      "tickers": ["GOTO"],
+      "night": "2026-11-25",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "ASEAN Digital Economy Framework Agreement: 'Indonesia bersama 10 negara anggota ASEAN lainnya resmi menandatangani...'",
+          "verdict": "wrong-value",
+          "cause": "header-link",
+          "note": "Quote and about (the DEFA regulation) are right, but the label began 'GoTo Gojek Tokopedia:', a company the article never names.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "point",
+          "label": "Airlangga Hartarto: 'Menteri Koordinator Bidang Perekonomian Airlangga Hartarto mengatakan kesepakatan...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "INFID: 'International NGO Forum on Indonesian Development (INFID) bersama sejumlah...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Nailul Huda: 'Direktur Ekonomi Digital Center of Economic and Law Studies (CELIOS) Nailul Huda...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Nailul Huda: 'Masih banyak negara di ASEAN yang masih ketinggalan secara infrastruktur digital.'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Indonesia economic growth target 2028/2029: 'Pemerintah Indonesia mengoptimalkan implementasi DEFA sebagai...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "figure",
+          "label": "Indonesia economic growth target 2028/2029 8%",
+          "verdict": "correct",
+          "note": "8 percent, period 2028/2029, Economic growth, measures Indonesia, guidance true: matches 'target pertumbuhan 8% pada 2028/2029'."
+        },
+        {
+          "kind": "regulation",
+          "label": "ASEAN Digital Economy Framework Agreement",
+          "verdict": "correct",
+          "note": "Issued by ASEAN, status Issued, description says it awaits ratification, as the text does. No signing date is stored."
+        },
+        {
+          "kind": "relation",
+          "label": "ASEAN Digital Economy Framework Agreement issuedBy ASEAN",
+          "verdict": "correct"
+        },
+        {
+          "kind": "relation",
+          "label": "Nailul Huda memberOf CELIOS",
+          "verdict": "correct"
+        },
+        {
+          "kind": "relation",
+          "label": "Airlangga Hartarto memberOf Kemenko Perekonomian",
+          "verdict": "correct",
+          "note": "Right fact; it pointed at the duplicate Regulator until the 25 Nov fix moved it to the existing Kemenko Perekonomian. The error is counted under the party item."
+        },
+        {
+          "kind": "membership",
+          "label": "Nailul Huda, Director at CELIOS",
+          "verdict": "wrong-value",
+          "cause": "role",
+          "note": "Role Director is a company-board role; he is Direktur Ekonomi Digital at a think tank. Role cleared, label kept.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "party",
+          "label": "Kemenko Perekonomian",
+          "verdict": "wrong-value",
+          "cause": "duplicate",
+          "note": "A second Kemenko Perekonomian was created as a Regulator next to the existing one, and Airlangga's memberOf pointed at it. The existing membership 'Airlangga Hartarto, Minister at Kemenko Perekonomian' was matched, and its organization change stayed an unapplied conflict.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "party",
+          "label": "Manila",
+          "verdict": "wrong-value",
+          "cause": "other",
+          "note": "Alternative name 'Manila, Filipina' isn't a name.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "party",
+          "label": "ASEAN",
+          "verdict": "wrong-value",
+          "cause": "other",
+          "note": "New item described as 'Regional association of ten Southeast Asian states'; the text says Indonesia signed with 10 other members, so eleven. Not in any report."
+        }
+      ],
+      "missed": [
+        {
+          "kind": "event",
+          "fact": "Indonesia and 10 other ASEAN members signed DEFA in Manila on 14 Nov 2026. The event 'Indonesia signs ASEAN DEFA, 2026-11' was skipped because its main party 'Indonesia' is a Place, not a party."
+        },
+        {
+          "kind": "figure",
+          "fact": "DEFA is projected to unlock a US$2 trillion ASEAN digital economy by 2030 (Prabowo)."
+        },
+        {
+          "kind": "fact",
+          "fact": "Airlangga says DEFA opens cross-border digital payment links, including wider QRIS use across ASEAN."
+        },
+        {
+          "kind": "fact",
+          "fact": "INFID and civil society groups ask the government to delay DEFA's entry into force and the DPR to review it before ratification; ASEAN agreements usually allow at least 180 days."
+        },
+        {
+          "kind": "fact",
+          "fact": "Indonesia's digital economy GMV is projected at US$446 billion by 2035 (e-Conomy SEA 2026)."
+        }
+      ],
+      "notes": "Read by hand on 25 Nov after the provider failure. GoTo isn't named in the body; the article is regulatory context for GoTo's market. The GoTo Gojek Tokopedia listed company was linked but nothing was added to it."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://inet.detik.com/telecommunication/d-8756797/internet-hp-lebih-kencang-dari-wifi-rumah-di-indonesia-ini-datanya",
+      "title": "Internet HP Lebih Kencang dari WiFi Rumah di Indonesia, Ini Datanya",
+      "tickers": ["GOTO", "DATA"],
+      "night": "2026-11-25",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "DataReportal: 'Berdasarkan laporan terbaru DataReportal bertajuk Digital 2027: Indonesia...'",
+          "verdict": "correct",
+          "note": "Word for word, but it only names the report and carries no finding."
+        },
+        {
+          "kind": "point",
+          "label": "Ookla: 'Ookla mencatat kecepatan unduh median internet seluler Indonesia...'",
+          "verdict": "correct",
+          "note": "Word for word; about Ookla, the measurer."
+        }
+      ],
+      "missed": [
+        {
+          "kind": "point",
+          "fact": "The headline finding: median mobile download speed is 66.34 Mbps against 51.40 Mbps for fixed broadband."
+        },
+        {
+          "kind": "point",
+          "fact": "Mobile is about 14.94 Mbps faster than fixed broadband."
+        },
+        {
+          "kind": "point",
+          "fact": "Fixed broadband median speed rose 11.41 Mbps (28.5%) in the 12 months to August 2026, about half the mobile growth rate."
+        }
+      ],
+      "notes": "Read by hand on 25 Nov (reruns). No figures were stored, which is right: no Concepts metric fits a download speed. But the points miss the article's main numbers. Relevant to DATA (connectivity); weak for GOTO, a digital platform that only shares the industry. No relations, and Ookla was created cleanly. A conflicting DataReportal description stayed unapplied."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://antaranews.com/video/5861151/kemenkes-dorong-kesadaran-masyarakat-terapkan-perilaku-sanitasi-layak",
+      "title": "Kemenkes dorong kesadaran masyarakat terapkan perilaku sanitasi layak",
+      "tickers": ["SOHO"],
+      "night": "2026-11-25",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "junk",
+      "items": [
+        {
+          "kind": "point",
+          "label": "Kemenkes: 'ANTARA - Kementerian Kesehatan (Kemenkes) mendorong peningkatan kesadaran masyarakat dalam...'",
+          "verdict": "correct",
+          "note": "True to the text and about Kemenkes, but it is a public sanitation campaign with nothing for SOHO."
+        },
+        {
+          "kind": "point",
+          "label": "Then Suyanti: 'Direktur Kesehatan Lingkungan, Kementerian Kesehatan Then Suyanti, Selasa (17/11)...'",
+          "verdict": "correct",
+          "note": "Quote word for word; about Then Suyanti."
+        },
+        {
+          "kind": "membership",
+          "label": "Then Suyanti, Director at Kemenkes",
+          "verdict": "wrong-value",
+          "cause": "role",
+          "note": "Role Director, which is for a company board. She heads a ministry directorate (\"Direktur Kesehatan Lingkungan\"), so the role should be empty."
+        }
+      ],
+      "missed": [],
+      "notes": "A 1,117-character video page read by the 26 Nov sweep retry. The 26 Nov report proposes deleting its points, its Data source, Then Suyanti and this membership (fix 12, not applied). Its role error is counted here in case the article stays."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://cnnindonesia.com/ekonomi/20261117224552-92-1428318/kementerian-esdm-taman-nasional-ujung-kulon-bukan-daerah-pertambangan",
+      "title": "Kementerian ESDM: Taman Nasional Ujung Kulon Bukan Daerah Pertambangan",
+      "tickers": ["INDY", "AADI", "ANTM", "DSSA", "AMMN"],
+      "night": "2026-11-25",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "wrong-placement",
+      "items": [
+        {
+          "kind": "point",
+          "label": "ESDM: Taman Nasional Ujung Kulon tidak termasuk wilayah pertambangan",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Kepmen ESDM 65.K Tahun 2026: penetapan wilayah pertambangan Banten",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Ujung Kulon National Park: potensi mineral pembawa di perairan",
+          "verdict": "correct"
+        },
+        {
+          "kind": "regulation",
+          "label": "Kepmen ESDM 65.K Tahun 2026",
+          "verdict": "correct",
+          "note": "Title 'Penetapan Wilayah Pertambangan Provinsi Banten', issued by ESDM, kind Ministerial, status Issued. No issue date in the text, and none invented."
+        },
+        {
+          "kind": "relation",
+          "label": "Ujung Kulon National Park within Banten",
+          "verdict": "correct"
+        },
+        {
+          "kind": "relation",
+          "label": "Alas Purwo within East Java",
+          "verdict": "correct",
+          "note": "\"Alas Purwo, Jawa Timur\"."
+        }
+      ],
+      "missed": [
+        {
+          "kind": "point",
+          "fact": "No mining permit of any kind has been issued in Ujung Kulon National Park or the waters around it (spokesperson Dwi Anggia)."
+        },
+        {
+          "kind": "point",
+          "fact": "Designating a mining business area is planning, not a permit, and doesn't change the park's conservation status."
+        }
+      ],
+      "notes": "Every stored item matches the text. The placement is the problem: a national-park and Banten mining-area story placed for five miners, none named and none with Banten operations; the placement reasons themselves miss market scope for most. Proposed legal names from the header ('Indika Energy Tbk', 'Aneka Tambang Tbk', 'Dian Swastatika Sentosa Tbk') stayed unapplied conflicts. Read by hand on 25 Nov after the night's provider failure."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://cnbcindonesia.com/tech/20261117113500-37-785897/megaspeed-ekspor-gpu-nvidia-ke-ri-disorot-ini-penjelasan-indosat",
+      "title": "Megaspeed Ekspor GPU Nvidia ke RI Disorot, Ini Penjelasan Indosat",
+      "tickers": ["EXCL", "TLKM", "DATA"],
+      "night": "2026-11-25",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "Indosat: 'Indosat Ooredoo Hutchison (Indosat atau IOH) menegaskan tidak memiliki hubungan...'",
+          "verdict": "correct",
+          "note": "The quote is the article's description ('Indosat menegaskan tidak ada hubungan dengan Megaspeed...'), not a body sentence, and the label quotes a different body sentence. The body says the same thing."
+        },
+        {
+          "kind": "point",
+          "label": "Indosat: 'PT Indosat Ooredoo Hutchison Tbk. (ISAT) memastikan perusahaan...'",
+          "verdict": "correct",
+          "note": "Word for word; about Indosat."
+        },
+        {
+          "kind": "point",
+          "label": "Indosat: 'Lewat kemitraan strategis dengan Nvidia, Indosat diketahui...'",
+          "verdict": "correct",
+          "note": "Word for word; partnersWith Nvidia is stated."
+        },
+        {
+          "kind": "point",
+          "label": "Indosat: 'Indosat, melalui anak usahanya Lintasarta, merupakan mitra...'",
+          "verdict": "correct",
+          "note": "Word for word. Tagged partnersWith Nvidia, though it also states the Lintasarta subsidiary."
+        },
+        {
+          "kind": "point",
+          "label": "Megaspeed: 'Megaspeed Ekspor GPU Nvidia ke RI Disorot, Ini Penjelasan Indosat'",
+          "verdict": "correct",
+          "note": "The quote is the body's first sentence, word for word; the label repeats the headline instead."
+        },
+        {
+          "kind": "point",
+          "label": "Megaspeed: 'Megaspeed yang bermarkas di Singapura adalah pembeli terbesar...'",
+          "verdict": "correct",
+          "note": "Word for word."
+        },
+        {
+          "kind": "point",
+          "label": "Megaspeed: 'Perusahaan ini diduga menjadi jalur pengalihan chip...'",
+          "verdict": "correct",
+          "note": "Word for word."
+        },
+        {
+          "kind": "point",
+          "label": "NexAI: 'Nama Megaspeed juga muncul dalam keterbukaan informasi dari emiten...'",
+          "verdict": "correct",
+          "note": "Word for word; about Panca Anugrah Wisesa, the MGLV listed company."
+        },
+        {
+          "kind": "point",
+          "label": "RAIA GRID: 'Perusahaan patungan Indosatdan Arsari Group, RAIA GRID...'",
+          "verdict": "correct",
+          "note": "Word for word, including the source's 'Indosatdan' typo."
+        },
+        {
+          "kind": "point",
+          "label": "RAIA GRID: 'RAIA GRID menegaskan bahwa rencana perusahaan merakit GPU...'",
+          "verdict": "correct",
+          "note": "Word for word."
+        },
+        {
+          "kind": "point",
+          "label": "Megaspeed: 'Skandal perselingkuhan Jensen Huang dengan Alice Huang...'",
+          "verdict": "correct",
+          "note": "Quote 'Alice Huang yang dicurigai adalah mata-mata China, sempat menjadi petinggi di Megaspeed.' is word for word, but it is a personal allegation, and the label quotes a different sentence. Deleted by policy.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "relation",
+          "label": "XLSMART Telecom Sejahtera competesWith Indosat",
+          "verdict": "not-in-text",
+          "cause": "header-link",
+          "note": "XL is named only in the 'Placed for' line; the body never states competition.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "relation",
+          "label": "Indosat competesWith Telkom Indonesia",
+          "verdict": "not-in-text",
+          "cause": "header-link",
+          "note": "Telkom is named only in the 'Placed for' line.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "relation",
+          "label": "Indosat parentOf Lintasarta",
+          "verdict": "correct",
+          "note": "'Indosat, melalui anak usahanya Lintasarta'."
+        },
+        {
+          "kind": "relation",
+          "label": "Indosat partnersWith Nvidia",
+          "verdict": "correct",
+          "note": "'Lewat kemitraan strategis dengan Nvidia'."
+        },
+        {
+          "kind": "relation",
+          "label": "Raia Grid partnersWith Indosat",
+          "verdict": "correct",
+          "note": "Stated JV ('perusahaan patungan Indosat dan Arsari Group'); partnersWith covers JVs. Ownership (partOwnedBy) and Arsari Group's role were left to a later article."
+        },
+        {
+          "kind": "relation",
+          "label": "Zankore offeredBy Indosat",
+          "verdict": "correct",
+          "note": "Indosat plans to launch the Zankore neocloud with Nvidia, Nokia and Ooredoo Group."
+        },
+        {
+          "kind": "relation",
+          "label": "Megaspeed headquarteredIn Singapore",
+          "verdict": "correct",
+          "note": "'Megaspeed yang bermarkas di Singapura'; country Singapore too."
+        },
+        {
+          "kind": "relation",
+          "label": "Megaspeed operatesIn Indonesia",
+          "verdict": "correct",
+          "note": "Polri searched Megaspeed's office in Indonesia."
+        },
+        {
+          "kind": "relation",
+          "label": "Panca Anugrah Wisesa operatesIn Indonesia",
+          "verdict": "correct",
+          "note": "NexAI builds data centres in Cikarang and Batang."
+        },
+        {
+          "kind": "relation",
+          "label": "Ovidia Nomia memberOf Indosat",
+          "verdict": "correct",
+          "note": "SVP Head of Corporate Communications Indosat."
+        },
+        {
+          "kind": "relation",
+          "label": "Lisa Qonita memberOf Raia Grid",
+          "verdict": "correct",
+          "note": "Head of HR & Corporate Affairs Raia Grid."
+        },
+        {
+          "kind": "relation",
+          "label": "Jensen Huang memberOf Nvidia",
+          "verdict": "not-in-text",
+          "cause": "other",
+          "note": "True from world knowledge, but the article never says Jensen Huang works at Nvidia. No report flagged it."
+        },
+        {
+          "kind": "relation",
+          "label": "Alice Huang memberOf Megaspeed",
+          "verdict": "correct",
+          "note": "'sempat menjadi petinggi di Megaspeed', but it is part of the personal-allegation passage. The person was deleted.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "figure",
+          "label": "Megaspeed Nvidia chip purchases since June 2024 US$ 4.8 billion",
+          "verdict": "wrong-value",
+          "cause": "wrong-metric",
+          "note": "Value matches 'lebih dari US$ 4,8 miliar sejak Juni 2024', but a buyer's purchases are not Sales volume. Deleted.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "party",
+          "label": "Nvidia",
+          "verdict": "wrong-value",
+          "cause": "duplicate",
+          "note": "Created next to the existing 'Nvidia Corp' (matched as similar). Resolved by deleting 'Nvidia Corp' with the copper article's items.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "party",
+          "label": "Arsari Group",
+          "verdict": "wrong-value",
+          "cause": "other",
+          "note": "Created as a Company, not a Business group. The next night's 'Indosat Buka Suara soal Megaspeed…' article then created a second 'Arsari Group' as a Business group, a duplicate no report has flagged."
+        }
+      ],
+      "missed": [
+        {
+          "kind": "relation",
+          "fact": "The MGLV disclosure names PT Megaspeed International Indonesia and Indosat as tenants of NexAI's two planned data centres, MettaDC (36 MW, Cikarang) and a 60 MW centre in Batang."
+        },
+        {
+          "kind": "point",
+          "fact": "Polri searched Megaspeed's office in Indonesia over suspected Nvidia GPU smuggling (Straits Times)."
+        },
+        {
+          "kind": "relation",
+          "fact": "Indosat partnersWith Nokia and Ooredoo Group on Zankore. It is only in Zankore's description here, and was added by a later article."
+        },
+        {
+          "kind": "relation",
+          "fact": "Raia Grid partOwnedBy Indosat and Arsari Group (JV ownership), added only by a later article."
+        },
+        {
+          "kind": "point",
+          "fact": "US Treasury Secretary Scott Bessent questioned Singapore's role as the main smuggling route and Nvidia's rising Singapore revenue. Scott Bessent was created with no values."
+        }
+      ],
+      "notes": "Read by hand on 25 Nov (reruns) after the provider failure. A competitor story for EXCL, TLKM and DATA, about Indosat. The job's match changes show that Indosat competesWith XLSMART and Telkom Indonesia competesWith Indosat already existed before this read. This article added only XLSMART→Indosat and Indosat→Telkom, and both were removed on 25 Nov. So the 26 Nov report's fix #13, which drops Indosat→XLSMART and Telkom→Indosat, targets older values this article never added. Proposed conflicts (Indosat's legal name, Lintasarta's and Nvidia's descriptions) stayed unapplied."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://cnbcindonesia.com/market/20261117192613-17-786096/ojk-integrasikan-data-asuransi-lps-lindungi-pemegang-polis-mulai-2028",
+      "title": "OJK Integrasikan Data Asuransi, LPS Lindungi Pemegang Polis Mulai 2028",
+      "tickers": ["SMMA"],
+      "night": "2026-11-25",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "OJK: 'Ogi Prastomiyono menyampaikan, kesepakatan ini...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Program Penjaminan Polis: 'Adapun Program Penjaminan Polis akan diselenggarakan oleh LPS paling lambat Januari 2028.'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "OJK: 'OJK dan LPS tandatangani Juklak untuk Program Penjaminan Polis...'",
+          "verdict": "correct",
+          "note": "Quote is the article's description; tagged partnersWith LPS, which the Juklak signing supports."
+        },
+        {
+          "kind": "event",
+          "label": "OJK launches Program Penjaminan Polis data exchange, 2026-11",
+          "verdict": "correct",
+          "note": "Main party OJK, counterparty LPS, partnership agreement, completed, 2026-11-17 (the date of Ogi's statement; the signing date isn't printed). 'Launches' is loose for a Juklak signing."
+        },
+        {
+          "kind": "relation",
+          "label": "OJK launches Program Penjaminan Polis data exchange, 2026-11 involves UU P2SK",
+          "verdict": "wrong-value",
+          "cause": "legal-name",
+          "note": "The link was dropped because the model named the law 'Undang-Undang P2SK' while the item is labelled 'UU P2SK'. The text supports it: 'PPP yang merupakan amanat Undang-Undang ... (UU P2SK)'. Added by hand.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "membership",
+          "label": "Ogi Prastomiyono, Head of agency at OJK",
+          "verdict": "wrong-value",
+          "cause": "role",
+          "note": "He is 'Kepala Eksekutif Pengawas Perasuransian, Penjaminan, dan Dana Pensiun OJK', not head of OJK. Now 'Ogi Prastomiyono, Chief executive at OJK' with no role.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "relation",
+          "label": "Ogi Prastomiyono memberOf OJK",
+          "verdict": "correct"
+        },
+        {
+          "kind": "relation",
+          "label": "Program Penjaminan Polis offeredBy LPS",
+          "verdict": "correct",
+          "note": "'Program Penjaminan Polis akan diselenggarakan oleh LPS'."
+        },
+        {
+          "kind": "relation",
+          "label": "OJK headquarteredIn Indonesia",
+          "verdict": "correct",
+          "note": "Implied by the national scope rather than stated; true."
+        },
+        {
+          "kind": "relation",
+          "label": "LPS headquarteredIn Indonesia",
+          "verdict": "correct",
+          "note": "Implied rather than stated; true."
+        }
+      ],
+      "missed": [
+        {
+          "kind": "point",
+          "fact": "LPS needs OJK's supervisory data to assess each insurer's participation in the programme and to monitor risk; OJK gets LPS's surveillance and compliance results in return."
+        },
+        {
+          "kind": "point",
+          "fact": "The data exchange covers every stage of the programme, from registration and changes in supervisory status through rehabilitation, resolution, licence revocation and liquidation."
+        },
+        {
+          "kind": "point",
+          "fact": "The exchange is meant not to add reporting burden for insurers."
+        },
+        {
+          "kind": "point",
+          "fact": "OJK prepares the programme with LPS and the Ministry of Finance (Kementerian Keuangan), including socialisation to the industry."
+        }
+      ],
+      "notes": "Insurance-industry regulation placed for SMMA's insurance business; SMMA is never named. The job's description rewrites for OJK and UU P2SK stayed as unapplied conflicts."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://cnbcindonesia.com/market/20261117133407-17-785951/ojk-terbitkan-panduan-baru-ajak-bank-biayai-gedung-hijau",
+      "title": "OJK Terbitkan Panduan Baru, Ajak Bank Biayai Gedung Hijau",
+      "tickers": ["SMMA", "NOBU", "AGRO", "BBCA"],
+      "night": "2026-11-25",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "OJK: 'Otoritas Jasa Keuangan (OJK) mendorong perbankan...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Dian Ediana Rae: 'Panduan tersebut diluncurkan oleh Kepala Eksekutif...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Diana Kusumastuti: 'Wakil Menteri Pekerjaan Umum Diana Kusumastuti mengatakan...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "event",
+          "label": "OJK launches Practical Guidance Transformasi, 2026-11",
+          "verdict": "wrong-value",
+          "cause": "legal-name",
+          "note": "Date 2026-11-16, status Completed and main party OJK are right, but the label used 'Otoritas Jasa Keuangan' instead of the item's label OJK. Its involves link to the guidance was dropped (see missed).",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "regulation",
+          "label": "RP3I 2026-2030",
+          "verdict": "correct",
+          "note": "Title, Priority 4 on sustainable finance and status In force match the text; no issuer stored, which the text doesn't name."
+        },
+        {
+          "kind": "membership",
+          "label": "Dian Ediana Rae, Chief executive at OJK",
+          "verdict": "wrong-value",
+          "cause": "role",
+          "note": "Read as 'Dian Ediana Rae, Head of banking supervision at Otoritas Jasa Keuangan' with role Head of agency; he is Kepala Eksekutif Pengawas Perbankan, below the head of OJK. Label fixed and role cleared.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "membership",
+          "label": "Diana Kusumastuti, Deputy minister at Kementerian PU",
+          "verdict": "wrong-value",
+          "cause": "role",
+          "note": "Read with role Minister for a Wakil Menteri, and the organization was the new duplicate ministry. Label, organization and role fixed.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "relation",
+          "label": "Dian Ediana Rae memberOf OJK",
+          "verdict": "correct"
+        },
+        {
+          "kind": "relation",
+          "label": "Diana Kusumastuti memberOf Kementerian Pekerjaan Umum",
+          "verdict": "correct",
+          "note": "Right fact; the object is the duplicate ministry, now linked sameAs with Kementerian PU. The error is counted under the party item."
+        },
+        {
+          "kind": "party",
+          "label": "Kementerian Pekerjaan Umum",
+          "verdict": "wrong-value",
+          "cause": "legal-name",
+          "note": "New Regulator under the full name, next to the existing Kementerian PU. Linked as sameAs, not deleted.",
+          "fixed": "2026-11-25 report"
+        }
+      ],
+      "missed": [
+        {
+          "kind": "regulation",
+          "fact": "OJK's Practical Guidance on the transformation to green buildings through Sustainability-Linked Loans, launched 16 Nov 2026. The event's involves link was dropped because no item had that name, and none was created."
+        },
+        {
+          "kind": "event",
+          "fact": "The guidance was launched together with Deputy Public Works Minister Diana Kusumastuti, bank leaders, real estate associations and Kadin; the event involves none of them."
+        },
+        {
+          "kind": "fact",
+          "fact": "SLL ties a loan's financial terms to agreed KPIs and SPTs, unlike green loans that restrict use of funds; banks must still apply prudence and credit checks."
+        },
+        {
+          "kind": "relation",
+          "fact": "The guidance implements RP3I 2026-2030 Strategic Priority 4; nothing links the event or guidance to RP3I."
+        }
+      ],
+      "notes": "Read by hand on 25 Nov. Banking regulation news, relevant to the four placed banks although none is named. BMRI was also placed in Mediapulse but isn't among the sent tickers. A later article (the Kumparan BI cyber story, 26 Nov night) created a second membership 'Dian Ediana Rae, Chief executive banking supervision at OJK' next to the one fixed here; the 26 Nov report doesn't mention it."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://cnbcindonesia.com/market/20261117162919-17-786038/ramai-ekonom-sarankan-bi-tahan-suku-bunga-acuan-di-november-2026",
+      "title": "Ramai Ekonom Sarankan BI Tahan Suku Bunga Acuan di November 2026",
+      "tickers": ["SMMA", "NOBU", "AGRO", "BBCA"],
+      "night": "2026-11-25",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "Dipo Satria Ramli: 'Bank Indonesia mencoba agar tetap ada ruang spread'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Irman Faiz: 'Dengan rupiah yang telah melemah sekitar 9%'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Rupiah: 'Sepanjang 2026, rupiah tercatat telah melemah sebesar 9,35%'",
+          "verdict": "wrong-company",
+          "cause": "invented-subject",
+          "note": "Quote is right, but about is the code-list term Indonesian rupiah, not an item. It should be about the figure 'Rupiah year-to-date 2026 down 9.35%', which has no point of its own."
+        },
+        {
+          "kind": "figure",
+          "label": "Indonesia inflation Oktober 2026 3.23%",
+          "verdict": "correct",
+          "note": "Inflation 3.23% yoy in October 2026, measures Indonesia. October is stored as as-of date 2026-10-01 rather than a measured period."
+        },
+        {
+          "kind": "figure",
+          "label": "Indonesia food beverage tobacco inflation Oktober 2026 4.82%",
+          "verdict": "correct",
+          "note": "Segment 'Food, beverage and tobacco' as printed."
+        },
+        {
+          "kind": "figure",
+          "label": "Rupiah exchange rate 13 November 2026 Rp18,241 per US dollar",
+          "verdict": "correct"
+        },
+        {
+          "kind": "figure",
+          "label": "Rupiah year-to-date 2026 down 9.35%",
+          "verdict": "correct"
+        },
+        {
+          "kind": "figure",
+          "label": "Net foreign outflow Indonesia 15 Oktober to 10 November 2026 US$740 million",
+          "verdict": "wrong-value",
+          "cause": "wrong-metric",
+          "note": "A capital outflow stored under Investment; also stock-market fund-flow content.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "figure",
+          "label": "Indonesia 10-year government bond yield 7.69% on 10 November 2026",
+          "verdict": "wrong-value",
+          "cause": "wrong-metric",
+          "note": "A bond yield stored under Economic growth.",
+          "fixed": "2026-11-25 report"
+        }
+      ],
+      "missed": [
+        {
+          "kind": "point",
+          "fact": "LPEM FEB UI recommends holding the BI Rate at 5.75%. The point was skipped because its about 'LPEM FEB UI' was never created as an item."
+        },
+        {
+          "kind": "fact",
+          "fact": "Economists expect Bank Indonesia to hold the BI Rate at 5.75% in November 2026, the article's main fact; no point is about BI."
+        },
+        {
+          "kind": "fact",
+          "fact": "Bank Danamon's Irman Faiz forecasts a 25 bp hike to 6.00% now and to 6.25% by end-2026."
+        },
+        {
+          "kind": "membership",
+          "fact": "Dipo Satria Ramli, economist at CORE Indonesia, and Irman Faiz, chief economist at Bank Danamon; both people were created with no organization."
+        },
+        {
+          "kind": "figure",
+          "fact": "Headline inflation 3.23% sits inside BI's 1.5%-3.5% target range; the target band isn't stored."
+        }
+      ],
+      "notes": "Read by hand on 25 Nov. Macro and rate-outlook news, placed for four banks without naming them. None of the four stored figures has a point about it, against the rule that every measurement gets its own point. BMRI was also placed in Mediapulse but isn't among the sent tickers. A new 'United States' Place was created and nothing references it."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://cnnindonesia.com/ekonomi/20261116184116-625-1427840/tempo-scan-tuntaskan-rangkaian-bantuan-kemanusiaan-bersama-baznas-ri",
+      "title": "Tempo Scan Tuntaskan Rangkaian Bantuan Kemanusiaan Bersama BAZNAS RI",
+      "tickers": ["SOHO"],
+      "night": "2026-11-25",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "Tempo Scan: 'PT Tempo Scan Pacific Tbk meluncurkan program'",
+          "verdict": "correct",
+          "note": "Quote is word for word from the description, not the body."
+        },
+        {
+          "kind": "point",
+          "label": "Tempo Scan: 'Tempo Scan Pacific Tbk (Tempo Scan) menuntaskan rangkaian'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "BAZNAS: 'Tempo Scan Pacific Tbk (Tempo Scan) menuntaskan rangkaian'",
+          "verdict": "correct",
+          "note": "Same sentence; about BAZNAS."
+        },
+        {
+          "kind": "point",
+          "label": "Tempo Scan: 'Penyerahan donasi sebesar Rp10 miliar dari Tempo Scan'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Nasaruddin Umar: 'Penyerahan bantuan tersebut turut disaksikan langsung'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Handojo S. Muljadi: 'Executive Chairman dan Co-Founder Tempo Scan Group, Handojo'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Tempo Scan: 'Sejumlah bantuan yang diberikan antara lain paket makanan'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Tempo Scan: 'Pada 3 Maret 2026, lima unit ambulans klinik bantuan Tempo Scan'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Tempo Scan: 'Sebagai tahap terakhir dari rangkaian bantuan, satu unit ambulans'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Handojo S. Muljadi: 'Executive Chairman dan Co-Founder Tempo Scan Group Handojo S. Muljadi, menyampaikan'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Tempo Scan: 'Rangkaian layanan tersebut tercatat memberikan manfaat'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "figure",
+          "label": "Tempo Scan donation 2024 Rp10 billion",
+          "verdict": "wrong-value",
+          "cause": "wrong-metric",
+          "note": "A CSR donation stored as Investment, with an as-of date of 2024-12-31 made from \"akhir 2024\". No metric fits a donation. Deleted.",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "event",
+          "label": "Tempo Scan launches Kembalikan Senyum Bayi dan Anak-Anak, 2024",
+          "verdict": "correct",
+          "note": "Main party Tempo Scan Pacific, counterparty BAZNAS, status Completed; the programme began with the late-2024 donation."
+        },
+        {
+          "kind": "membership",
+          "label": "Handojo S. Muljadi, Executive Chairman at Tempo Scan",
+          "verdict": "wrong-value",
+          "cause": "role",
+          "note": "Role Chair is right for \"Executive Chairman dan Co-Founder\", but the label used the printed title and \"Tempo Scan\" instead of the role word and the organization's label. Renamed \"Handojo S. Muljadi, Chair at Tempo Scan Pacific\".",
+          "fixed": "2026-11-25 report"
+        },
+        {
+          "kind": "party",
+          "label": "BAZNAS (second item, as a Regulator)",
+          "verdict": "wrong-value",
+          "cause": "duplicate",
+          "note": "One answer made BAZNAS twice, as an Organization and as a Regulator. The Regulator was deleted; the Organization stays.",
+          "fixed": "2026-11-25 report"
+        }
+      ],
+      "missed": [
+        {
+          "kind": "relation",
+          "fact": "Tempo Scan Pacific partnersWith BAZNAS: two points state it, but no value was stored on either party."
+        }
+      ],
+      "notes": "Tempo Scan Pacific is a curated primary competitor of SOHO, so the placement is fair, but a CSR story says little about competition. The curated alternative title \"Tempo Scan Group\" was refused, as expected."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://insight.kontan.co.id/news/cakrawala-nexus-investama-akuisisi-2987-saham-inet",
+      "title": "Cakrawala Nexus Investama Akuisisi 29,87% Saham INET",
+      "tickers": ["DOOH", "MORA", "EXCL", "TLKM", "DATA"],
+      "night": "2026-11-26",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "Cakrawala Nexus Investama: 'PT Cakrawala Nexus Investama resmi mengambilalih alias...'",
+          "verdict": "correct",
+          "note": "Word for word; states ownsStakeIn Sinergi Inti Andalan Prima, which already existed."
+        },
+        {
+          "kind": "point",
+          "label": "Cakrawala Nexus Investama: 'Cakrawala Nexus Investama merupakan entitas yang terafiliasi...'",
+          "verdict": "correct",
+          "note": "Word for word; relation object Era Media Sejahtera (DOOH)."
+        },
+        {
+          "kind": "corporate-action",
+          "label": "Cakrawala Nexus Investama acquires Sinergi Inti Andalan Prima, 2026",
+          "verdict": "wrong-value",
+          "cause": "duplicate",
+          "note": "Its own values are right: acquisition, target INET, 16 November 2026, Completed, 29.87%. But it duplicates 'Era Media Sejahtera acquires Sinergi Inti Andalan Prima, 2026' (since 18 Nov) because the buyer was named as the subsidiary, not the listed parent. The 26 Nov fix to delete it is not applied yet."
+        }
+      ],
+      "missed": [
+        {
+          "kind": "corporate-action",
+          "fact": "The kept deal 'Era Media Sejahtera acquires Sinergi Inti Andalan Prima, 2026' still says Approved and 29.88%. This article says the 29.87% purchase (6.68 billion shares) was completed on 16 November 2026."
+        },
+        {
+          "kind": "party",
+          "fact": "DOOH is now called PT Nexora Energy Infrastructure Tbk. This is a curated name on the listed company, for the user to update."
+        }
+      ],
+      "notes": "A short paywalled Kontan piece followed by unrelated 'Berita Terbaru' headlines; the model rightly ignored the headlines. Relevant to DOOH, whose affiliate is the buyer, and as a competitor deal for MORA, EXCL, TLKM and DATA, since INET is an ISP peer. Nothing was added to shared parties."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://liputan6.com/saham/read/8337425/laba-bersih-xlsmart-melonjak-94-tembus-rp-359-triliun",
+      "title": "Laba Bersih XLSmart Melonjak 94%, Tembus Rp 3,59 Triliun",
+      "tickers": ["MORA", "EXCL", "TLKM", "DATA"],
+      "night": "2026-11-26",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "XLSmart: 'XLSmart membukukan pendapatan Rp 35,77 triliun hingga...'",
+          "verdict": "correct",
+          "note": "Quote is the article's description."
+        },
+        {
+          "kind": "point",
+          "label": "XLSmart synergy: 'Sinergi merger mencapai US$ 294 juta.'",
+          "verdict": "correct",
+          "note": "Quote is the article's description. About XLSmart, so the synergy figure has no point of its own."
+        },
+        {
+          "kind": "point",
+          "label": "XLSmart revenue: 'XLSmart membukukan pendapatan Rp 35,77 triliun hingga...'",
+          "verdict": "correct",
+          "note": "About the revenue figure; repeats the quote of the first point."
+        },
+        {
+          "kind": "point",
+          "label": "XLSmart target: 'XLSmart menaikkan target sinergi bruto sepanjang 2026...'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "XLSmart ARPU: 'Dari sisi pelanggan, rata-rata pendapatan per pelanggan...'",
+          "verdict": "correct",
+          "note": "About XLSmart rather than the ARPU figure."
+        },
+        {
+          "kind": "figure",
+          "label": "XLSmart revenue 9M 2026 Rp 35,77 triliun",
+          "verdict": "correct",
+          "note": "IDR 35.77 trillion, Revenue, 9M 2026, measures XLSMART Telecom Sejahtera. The label keeps 'Rp 35,77 triliun' instead of the 'IDR 35.77 trillion' form."
+        },
+        {
+          "kind": "figure",
+          "label": "XLSmart synergy 9M 2026 US$ 294 juta",
+          "verdict": "wrong-value",
+          "cause": "wrong-metric",
+          "note": "Value USD 294 million and period 9M 2026 are right, but a merger synergy is stored under the metric Investment; no metric fits. It also lacks the printed +80% change (vs USD 166 million). The 2026-11-26 report proposes deleting it; not applied."
+        },
+        {
+          "kind": "figure",
+          "label": "XLSmart ARPU Q3 2026 Rp 47.500",
+          "verdict": "correct",
+          "note": "IDR 47,500 per subscriber, Q3 2026, segment Blended ARPU. Concepts 11 has no ARPU metric; Revenue with a per-subscriber unit is a defensible encoding, but a Revenue query would pick it up."
+        },
+        {
+          "kind": "relation",
+          "label": "XLSMART Telecom Sejahtera competesWith Telkom Indonesia",
+          "verdict": "not-in-text",
+          "cause": "header-link",
+          "note": "Telkom appears only in the 'Placed for' header line; the body and description never name it. Still in the graph (2026-11-26 report fix 9, not applied).",
+          "fixed": "2026-11-26 report"
+        }
+      ],
+      "missed": [
+        {
+          "kind": "figure",
+          "fact": "Net profit 9M 2026 Rp 3.59 trillion, up 94% (title only; the stored body starts after that paragraph)."
+        },
+        {
+          "kind": "figure",
+          "fact": "Gross synergy target for 2026 raised to more than US$300 million (guidance)."
+        },
+        {
+          "kind": "figure",
+          "fact": "Blended ARPU for January-September 2026 of Rp 47,300."
+        },
+        {
+          "kind": "point",
+          "fact": "96% of the planned network sites were integrated by the end of September 2026, and new sites were built on plan."
+        },
+        {
+          "kind": "figure",
+          "fact": "Q3 2026 ARPU compared with Rp 38,900 a year earlier, and the synergy compared with US$166 million (+80%)."
+        }
+      ],
+      "notes": "The stored body begins mid-article, so the net profit paragraph is missing; only the title and description carry the headline numbers. For MORA, TLKM and DATA this is a competitor's result."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://insight.kontan.co.id/news/menakar-cuan-ekspansi-data-center-adu-kuat-ekosistem-dssa-isat-coin-dan-inet",
+      "title": "Menakar Cuan Ekspansi Data Center: Adu Kuat Ekosistem DSSA, ISAT, COIN, dan INET",
+      "tickers": ["MORA", "EXCL", "INDY", "DCII", "TLKM", "DATA", "DSSA"],
+      "night": "2026-11-26",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "Indokripto Koin Semesta: 'Terbaru, PT Indokripto Koin Semesta Tbk (COIN) menginvestasikan dana sebesar Rp 200 miliar'",
+          "verdict": "correct",
+          "note": "Quote word for word; about Indokripto Koin Semesta. It states ownsStakeIn Mitra Informatika Gemilang, but no such value was stored."
+        },
+        {
+          "kind": "point",
+          "label": "Mitra Informatika Gemilang: 'Terbaru, PT Indokripto Koin Semesta Tbk (COIN) menginvestasikan dana sebesar Rp 200 miliar'",
+          "verdict": "correct",
+          "note": "Same sentence; about the new Mitra Informatika Gemilang company."
+        },
+        {
+          "kind": "corporate-action",
+          "label": "Indokripto Koin Semesta acquires Mitra Informatika Gemilang, 2026-11",
+          "verdict": "correct",
+          "note": "Rp 200 billion, 10% stake, 16 November 2026, main party COIN, target MIG all match. Status Completed is a fair read of \"menginvestasikan\". The label carries 2026-11 where the label form asks for the year only."
+        }
+      ],
+      "missed": [
+        {
+          "kind": "relation",
+          "fact": "Indokripto Koin Semesta ownsStakeIn Mitra Informatika Gemilang (10%): both points state it, but neither company got the value."
+        },
+        {
+          "kind": "relation",
+          "fact": "Mitra Informatika Gemilang operatesBrand Bitera Data Center: dropped with a warning because no Bitera Data Center brand was created."
+        },
+        {
+          "kind": "point",
+          "fact": "The investment is COIN's diversification from crypto assets into digital infrastructure (\"langkah diversifikasi strategis COIN dari bisnis aset kripto menuju sektor infrastruktur digital\")."
+        }
+      ],
+      "notes": "Paywalled stub: only the intro and the COIN paragraph. DSSA, ISAT and INET appear only in the title, so DSSA's issuerNews placement rests on the title. INDY isn't mentioned anywhere. The Jakarta colocation vacancy rate (20.4%) in the description has no fitting metric, so leaving it out is right."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://inet.detik.com/telecommunication/d-8758497/nomor-hp-di-indonesia-menguap-38-juta-dalam-dua-tahun-ini-datanya",
+      "title": "Nomor HP di Indonesia 'Menguap' 38 Juta dalam Dua Tahun, Ini Datanya",
+      "tickers": ["EXCL", "TLKM"],
+      "night": "2026-11-26",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "Komdigi: 'Sementara itu, Kementerian Komunikasi dan Digital (Komdigi) tak menepis...'",
+          "verdict": "correct",
+          "note": "Word for word; about Komdigi."
+        },
+        {
+          "kind": "point",
+          "label": "Komdigi: 'Komdigi mengaitkan perubahan tersebut dengan proses...'",
+          "verdict": "correct",
+          "note": "Word for word; about Komdigi."
+        },
+        {
+          "kind": "point",
+          "label": "DataReportal: 'Dalam laporan Digital 2027, DataReportal mencatat...'",
+          "verdict": "correct",
+          "note": "Word for word; about DataReportal, the report's publisher."
+        },
+        {
+          "kind": "figure",
+          "label": "Indonesia mobile subscriptions Oct 2026 311 million",
+          "verdict": "wrong-value",
+          "cause": "wrong-metric",
+          "note": "Value, unit, date and subject (Indonesia) match the text, but the metric is Company count, whose definition says never a customer count. Should be Customer count."
+        },
+        {
+          "kind": "figure",
+          "label": "Indonesia mobile subscriptions Oct 2026 change -10.9% over two years",
+          "verdict": "wrong-value",
+          "cause": "wrong-metric",
+          "note": "-10.9% matches 'menyusut sekitar 10,9% dalam kurun waktu dua tahun'; metric Company count instead of Customer count."
+        },
+        {
+          "kind": "figure",
+          "label": "Indonesia mobile subscriptions Oct 2026 change -5.8% year on year",
+          "verdict": "wrong-value",
+          "cause": "wrong-metric",
+          "note": "-5.8% matches 'turun 19 juta atau 5,8%'; metric Company count instead of Customer count. The 'compared with Oct 2025' link was dropped (job warning)."
+        },
+        {
+          "kind": "figure",
+          "label": "Indonesia active mobile subscribers Q1 2025 318 million",
+          "verdict": "wrong-value",
+          "cause": "wrong-metric",
+          "note": "Value and period match Dany Suwardany's statement; metric Company count instead of Customer count."
+        },
+        {
+          "kind": "figure",
+          "label": "Indonesia active mobile subscribers Q3 2026 291 million",
+          "verdict": "wrong-value",
+          "cause": "wrong-metric",
+          "note": "Value and period match; metric Company count instead of Customer count."
+        },
+        {
+          "kind": "figure",
+          "label": "Indonesia mobile churn rate 2.8%",
+          "verdict": "wrong-value",
+          "cause": "wrong-metric",
+          "note": "2.8% matches the quote, but no metric fits a churn rate, so per the Measurement rule it should be left out. Stored as Company count."
+        },
+        {
+          "kind": "membership",
+          "label": "Dany Suwardany, Director at Komdigi",
+          "verdict": "wrong-value",
+          "cause": "role",
+          "note": "Title 'Direktur Pengendalian Ekosistem Digital' is right and the label fits Concepts 11, but org:role is Director, which the 25 Nov reruns treat as a company-board role only (as for Nailul Huda at CELIOS). The 26 Nov report didn't flag it."
+        }
+      ],
+      "missed": [
+        {
+          "kind": "figure",
+          "fact": "349 million mobile connections in October 2024, the base for the 38 million (10.9%) fall."
+        },
+        {
+          "kind": "figure",
+          "fact": "Mobile connections equal 108% of a population of about 288 million."
+        },
+        {
+          "kind": "figure",
+          "fact": "97.8% of mobile connections are broadband (3G, 4G or 5G)."
+        },
+        {
+          "kind": "point",
+          "fact": "The headline sentence: 311 million subscribers in October 2026, down about 38 million from October 2024. No point supports the 311 million figure."
+        },
+        {
+          "kind": "point",
+          "fact": "Dany Suwardany's quote that churn fell from over 20% in early 2025 to 2.8%. No point supports the churn figure."
+        }
+      ],
+      "notes": "Industry-wide subscriber data relevant to EXCL and TLKM. All points are word for word and every point carries EXCL and TLKM. Every figure has the right value and subject; all six carry Company count, five of which should be Customer count and one (churn) should be left out. The 26 Nov report's figure fixes are not applied yet. Conflicting descriptions proposed for We Are Social and Komdigi stayed unapplied."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://katadata.co.id/berita/energi/6afda4ccd42c9/setelah-kuasai-spbu-bp-akra-caplok-ritel-bbm-vivo",
+      "title": "Setelah Kuasai SPBU BP, AKRA Caplok Ritel BBM Vivo",
+      "tickers": ["INDY", "DSSA"],
+      "night": "2026-11-26",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "wrong-placement",
+      "items": [
+        {
+          "kind": "point",
+          "label": "AKRA: 'PT AKR Corporindo Tbk (AKRA) melalui anak usahanya'",
+          "verdict": "correct",
+          "note": "Quote is the description word for word; the body's version of the sentence ends differently. About AKR Corporindo, tag parentOf Aneka Petroindo Raya is supported."
+        },
+        {
+          "kind": "point",
+          "label": "Aneka Petroindo Raya: 'APR menandatangani perjanjian pembelian saham bersyarat'",
+          "verdict": "correct",
+          "note": "Its ownsStakeIn tag is premature (conditional agreement) but wasn't stored as a value."
+        },
+        {
+          "kind": "point",
+          "label": "Vivo Energy Indonesia: 'VEI dan NKO saat ini dimiliki sejumlah entitas'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Vitol Group: 'VEI dan NKO saat ini dimiliki sejumlah entitas'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "BP: 'BP menyepakati penjualan 49,9% saham APR'",
+          "verdict": "wrong-company",
+          "cause": "other",
+          "note": "About is the BP Brand item; the seller is BP the company, which the graph doesn't have. The same Brand item is the BP-stake deal's counterparty. Its ownsStakeIn tag is also stale after the sale."
+        },
+        {
+          "kind": "point",
+          "label": "Transaksi APR: 'Transaksi senilai US$14,22 juta meningkatkan kepemilikan AKRA'",
+          "verdict": "quote-paraphrased",
+          "cause": "other",
+          "note": "Quote drops 'tersebut' after 'US$14,22 juta'. The label also doesn't name its about item (AKR Corporindo). Not yet in any evidence check; it should show in the next night's quotesNotInText."
+        },
+        {
+          "kind": "point",
+          "label": "Petro Palma Persada: 'AKRA melalui APR bersama PT Petro Palma Persada'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "BP-AKR: 'APR saat ini mengoperasikan lebih dari 75 SPBU BP-AKR'",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Vivo: 'mengintegrasikan 47 SPBU Vivo yang tersebar di Jabodetabek'",
+          "verdict": "correct",
+          "note": "Its partnersWith BP-AKR tag is wrong (the stations are absorbed through the acquisition) but wasn't stored as a value."
+        },
+        {
+          "kind": "relation",
+          "label": "AKR Corporindo operatesBrand BP-AKR",
+          "verdict": "correct",
+          "note": "Through APR, now 100% AKRA-owned."
+        },
+        {
+          "kind": "relation",
+          "label": "BP brandOperatedBy Aneka Petroindo Raya",
+          "verdict": "correct",
+          "note": "APR runs the BP-branded stations and markets BP fuels."
+        },
+        {
+          "kind": "relation",
+          "label": "Vivo brandOperatedBy Vivo Energy Indonesia",
+          "verdict": "correct",
+          "note": "\"SPBU Vivo yang dikelola VEI\"."
+        },
+        {
+          "kind": "relation",
+          "label": "Vivo Energy Indonesia subsidiaryOf Vitol Group",
+          "verdict": "correct",
+          "note": "Owned by entities affiliated with Vitol Group."
+        },
+        {
+          "kind": "relation",
+          "label": "Aneka Petroindo Raya operatesIn Indonesia",
+          "verdict": "correct"
+        },
+        {
+          "kind": "relation",
+          "label": "Vivo Energy Indonesia operatesIn Indonesia",
+          "verdict": "correct"
+        },
+        {
+          "kind": "relation",
+          "label": "BP 92, BP Ultimate and BP Ultimate Diesel offeredBy Aneka Petroindo Raya",
+          "verdict": "correct",
+          "note": "Three new products; the text says APR plans to market them."
+        },
+        {
+          "kind": "relation",
+          "label": "Petro Palma Persada ownsStakeIn Vivo Energy Indonesia",
+          "verdict": "wrong-value",
+          "cause": "other",
+          "note": "Stated as current, but PPP 'akan memegang 10%' only after the conditional deal completes."
+        },
+        {
+          "kind": "relation",
+          "label": "Nusantara Karya Oranye partOwnedBy Vivo Energy Indonesia",
+          "verdict": "not-in-text",
+          "cause": "other",
+          "note": "The text says VEI and NKO are both owned by Vitol-affiliated entities; nothing says VEI owns NKO. Not in the 26 Nov report."
+        },
+        {
+          "kind": "relation",
+          "label": "Anugerah Krida Retailindo parentOf Aneka Petroindo Raya",
+          "verdict": "wrong-value",
+          "cause": "other",
+          "note": "AKRIDA and ADH together bought BP's 49.9% of APR; AKRA is APR's parent. A part stake is ownsStakeIn. Not in the 26 Nov report."
+        },
+        {
+          "kind": "relation",
+          "label": "Andahanesa Abadi parentOf Aneka Petroindo Raya",
+          "verdict": "wrong-value",
+          "cause": "other",
+          "note": "As above."
+        },
+        {
+          "kind": "corporate-action",
+          "label": "AKR Corporindo acquires Vivo Energy Indonesia, 2026",
+          "verdict": "correct",
+          "note": "Created here; the deal the 26 Nov report keeps. Main party AKRA, target VEI, US$15.5 million, 18 November, Planned, involves APR, PPP and NKO. The amount is for 100% of VEI and NKO while the 90% stake is APR's share."
+        },
+        {
+          "kind": "corporate-action",
+          "label": "AKR Corporindo acquires BP stake in Aneka Petroindo Raya, 2026",
+          "verdict": "correct",
+          "note": "US$14.22 million, 49.9%, 6 November, involves AKRIDA and ADH. Counterparty is the BP Brand item (counted on the BP point). No duplicate."
+        },
+        {
+          "kind": "membership",
+          "label": "Arum P Handayani, Corporate secretary at AKR Corporindo",
+          "verdict": "correct"
+        },
+        {
+          "kind": "party",
+          "label": "BEI",
+          "verdict": "wrong-value",
+          "cause": "duplicate",
+          "note": "New Regulator next to IDX and Bursa Efek Indonesia; both matched by name, so the job made a third. 26 Nov fix 8, not applied."
+        },
+        {
+          "kind": "party",
+          "label": "Swiss",
+          "verdict": "wrong-value",
+          "cause": "other",
+          "note": "Place labelled with the Indonesian word, no country (Switzerland isn't in the list), and nothing references it. 26 Nov fix 8 (delete), not applied."
+        }
+      ],
+      "missed": [
+        {
+          "kind": "figure",
+          "fact": "47 Vivo stations in Jabodetabek and Bandung (Outlet count on Vivo Energy Indonesia). Skipped with empty metric and measures."
+        },
+        {
+          "kind": "figure",
+          "fact": "More than 75 BP-AKR stations run by APR in Jabodetabek, West Java and East Java (Outlet count). Skipped the same way."
+        },
+        {
+          "kind": "relation",
+          "fact": "Anugerah Krida Retailindo and Andahanesa Abadi subsidiaryOf AKR Corporindo ('dua anak usaha AKRA')."
+        },
+        {
+          "kind": "relation",
+          "fact": "Vitol Group headquarteredIn Switzerland ('berkantor pusat di Swiss')."
+        },
+        {
+          "kind": "event",
+          "fact": "The Vivo stations join BP-AKR in stages from 2027."
+        }
+      ],
+      "notes": "The article is about AKRA (not a subscribed ticker), BP and Vivo, and never names Indika or DSSA. Its Deals & Movements placement for INDY and DSSA is wrong. No relation came from the header. Four figures were skipped for empty metric and measures. Three description rewrites stayed unapplied conflicts."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://cnbcindonesia.com/tech/20261118162000-37-786382/tokopedia-tiktok-shop-beberkan-penyelesaian-isu-saldo-seller-ditahan",
+      "title": "Tokopedia-TikTok Shop Beberkan Penyelesaian Isu Saldo Seller Ditahan",
+      "tickers": ["GOTO"],
+      "night": "2026-11-26",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "Tokopedia and TikTok Shop explain seller account blocks",
+          "verdict": "correct",
+          "note": "Quote is word for word from the description, not the body; about Tokopedia is right."
+        },
+        {
+          "kind": "point",
+          "label": "Hilmi Adrianto explains the case to BAM DPR",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Appeal mechanism opened for sellers",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Subsidy withdrawal for violating sellers",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Peradi Bekasi Raya estimate of frozen balance",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Platform figures differ from Peradi claim",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Refund of all withheld funds with Kementerian UMKM",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "GoTo seller balance case placement",
+          "verdict": "wrong-company",
+          "cause": "header-link",
+          "note": "The quote is only the headline and the body never names GoTo; the point is about the placement, filed under GoTo Gojek Tokopedia. 26 Nov report fix 1 proposes deleting it (not applied).",
+          "fixed": "2026-11-26 report"
+        },
+        {
+          "kind": "relation",
+          "label": "GoTo Gojek Tokopedia parentOf Tokopedia",
+          "verdict": "not-in-text",
+          "cause": "header-link",
+          "note": "Stated both ways (Tokopedia subsidiaryOf GoTo Gojek Tokopedia), counted once. Only the Placed for line names GoTo. 26 Nov report fix 1, not applied.",
+          "fixed": "2026-11-26 report"
+        },
+        {
+          "kind": "relation",
+          "label": "TikTok Shop partnersWith Tokopedia",
+          "verdict": "correct",
+          "note": "The text presents them as one joint operator ('Tokopedia-TikTok Shop', a shared head of public policy); it never says partner, but nothing contradicts it."
+        },
+        {
+          "kind": "relation",
+          "label": "Tokopedia partnersWith TikTok Shop",
+          "verdict": "wrong-company",
+          "cause": "other",
+          "note": "The object is the TikTok Shop Brand, not the TikTok Shop company that holds the other partnersWith link."
+        },
+        {
+          "kind": "relation",
+          "label": "Tokopedia operatesIn Indonesia",
+          "verdict": "correct"
+        },
+        {
+          "kind": "relation",
+          "label": "TikTok Shop operatesIn Indonesia",
+          "verdict": "correct"
+        },
+        {
+          "kind": "relation",
+          "label": "Hilmi Adrianto memberOf Tokopedia",
+          "verdict": "correct",
+          "note": "Kepala Kebijakan Publik dan Hubungan Pemerintah Tokopedia dan TikTok Shop."
+        },
+        {
+          "kind": "event",
+          "label": "Tokopedia reputation issue seller balance freeze, 2026-11",
+          "verdict": "correct",
+          "note": "Date 2026-11-18 matches the RDPU on Rabu (18/11/2026); main party Tokopedia; involves Peradi Bekasi Raya and the TikTok Shop brand. BAM DPR isn't linked."
+        },
+        {
+          "kind": "party",
+          "label": "Peradi Bekasi Raya",
+          "verdict": "wrong-value",
+          "cause": "description-about-article",
+          "note": "Description 'Advocate association in the Bekasi area that reported affected sellers.' describes this article. 26 Nov report fix 10, not applied."
+        },
+        {
+          "kind": "party",
+          "label": "Kementerian UMKM",
+          "verdict": "wrong-value",
+          "cause": "duplicate",
+          "note": "Created a new Regulator 'Kementerian UMKM' although a Government body with exactly that label exists since 17 Nov; the refund point's relation object is the new one. Not in the 26 Nov report."
+        }
+      ],
+      "missed": [
+        {
+          "kind": "fact",
+          "fact": "The platforms' own data showed 217 affected sellers with Rp 24 billion held, against Peradi's claim of 500 sellers and Rp 3 trillion."
+        },
+        {
+          "kind": "fact",
+          "fact": "Of 208 cases checked, 193 sellers had platform subsidies clawed back, totalling Rp 16.7 billion; 15 had no freeze."
+        },
+        {
+          "kind": "event",
+          "fact": "Tokopedia and TikTok Shop explained the case at a hearing (RDPU) with BAM DPR on 18 Nov 2026; BAM DPR isn't a party to the stored event."
+        },
+        {
+          "kind": "membership",
+          "fact": "Hilmi Adrianto, Head of public policy and government relations at Tokopedia and TikTok Shop (no membership item, only memberOf)."
+        }
+      ],
+      "notes": "No figures were stored; the Rp amounts are frozen balances and clawed-back subsidies, which no metric fits. GoTo appears only in the Placed for header, which caused both header-link errors. The Kementerian UMKM duplicate is a mistake the 26 Nov report missed."
+    },
+    {
+      "pass": 1,
+      "canonicalUrl": "https://insight.kontan.co.id/news/towr-merger-protelindo-dengan-dua-anak-usaha",
+      "title": "TOWR Merger Protelindo dengan Dua Anak Usaha",
+      "tickers": ["MORA", "EXCL", "DCII", "DATA", "WIFI"],
+      "night": "2026-11-26",
+      "judgedOn": "2026-11-26",
+      "conceptsVersion": 11,
+      "articleVerdict": "relevant",
+      "items": [
+        {
+          "kind": "point",
+          "label": "Sarana Menara Nusantara article point",
+          "verdict": "correct",
+          "note": "Quote is word for word from the lead paragraph; about Sarana Menara Nusantara."
+        },
+        {
+          "kind": "point",
+          "label": "Protelindo surviving company article point",
+          "verdict": "correct",
+          "note": "Quote word for word. Its about is the third Protelindo this read created; reasoning joins it to the other two. The quote doesn't itself state the subsidiaryOf the point records."
+        },
+        {
+          "kind": "point",
+          "label": "Darmanusa Tritunggal subsidiary article point",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Komet Infra Nusantara subsidiary article point",
+          "verdict": "correct"
+        },
+        {
+          "kind": "point",
+          "label": "Merger plan article point",
+          "verdict": "correct",
+          "note": "About the new merger corporate action."
+        },
+        {
+          "kind": "relation",
+          "label": "Sarana Menara Nusantara parentOf Protelindo",
+          "verdict": "correct",
+          "note": "\"tiga entitas anak usahanya, yakni PT Profesional Telekomunikasi Indonesia (Protelindo)\". Also stored as ownsStakeIn and as Protelindo subsidiaryOf Sarana Menara Nusantara, on the new duplicate Protelindo."
+        },
+        {
+          "kind": "relation",
+          "label": "Sarana Menara Nusantara parentOf Darmanusa Tritunggal",
+          "verdict": "correct",
+          "note": "Also ownsStakeIn and the inverse subsidiaryOf."
+        },
+        {
+          "kind": "relation",
+          "label": "Sarana Menara Nusantara parentOf Komet Infra Nusantara",
+          "verdict": "correct",
+          "note": "Also ownsStakeIn. The text calls all three its subsidiaries."
+        },
+        {
+          "kind": "relation",
+          "label": "Sarana Menara Nusantara partOfGroup Grup Djarum",
+          "verdict": "correct",
+          "note": "\"Emiten menara telekomunikasi Grup Djarum\". Grup Djarum also got hasGroupMember, country Indonesia and the description \"Indonesian family business group.\"."
+        },
+        {
+          "kind": "relation",
+          "label": "Sarana Menara Nusantara, Protelindo, Darmanusa Tritunggal and Komet Infra Nusantara operatesIn Indonesia",
+          "verdict": "correct",
+          "note": "Implied by an IDX issuer and its local subsidiaries; four values counted as one item."
+        },
+        {
+          "kind": "corporate-action",
+          "label": "Sarana Menara Nusantara merges with Protelindo, 2026",
+          "verdict": "wrong-value",
+          "cause": "duplicate",
+          "note": "Second item for the deal already stored as \"Protelindo merges with Komet Infra Nusantara and Darmanusa Tritunggal, 2027\" from 25 Nov. Date 2026-11-17 and status Planned match the text, but Protelindo, the surviving company, is listed as a deal target, and the label reads as if the parent merges with its own subsidiary.",
+          "fixed": "2026-11-26 report"
+        },
+        {
+          "kind": "party",
+          "label": "Protelindo (third item)",
+          "verdict": "wrong-value",
+          "cause": "duplicate",
+          "note": "Both Protelindo and Profesional Telekomunikasi Indonesia matched by key, the job couldn't pick one and created a third Protelindo. Reasoning already joins all three. The 26 Nov report's sameAs fix isn't applied yet."
+        }
+      ],
+      "missed": [],
+      "notes": "Paywalled stub: two paragraphs. None of the five placed tickers appears in the text; it is TOWR's internal restructuring. A possible sector deal for MORA, EXCL and WIFI, but off-topic for DCII and DATA. Komet's and Darmanusa's proposed descriptions were refused as conflicts; the curated TOWR description and alternative title were refused."
+    }
+  ]
+}
