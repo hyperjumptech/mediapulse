@@ -183,4 +183,4 @@ The eval is done by the agent running this skill, not by a script that sends art
 
 Run a pass after a Concepts publish, judging the next night's articles, and whenever the user asks. Fix wrong items only as in step 3, with approval.
 
-Re-reading articles is worth the cost only to test a Concepts draft before it's published. Then send only the cases that failed through the `extract` tool, which reads without saving, with the same content header and `sourceClassIri` the agent sends. Say what it will cost first.
+Re-reading articles is worth the cost only to test a Concepts draft before it's published. Then send only the cases that failed through the `extract` tool, which reads without saving, with the same content header and `sourceClassIri` the agent sends. Since knowledge-ingestion 2.4.0 the header has the title, the publish date, the publisher and the snippet, and no "Placed for" line. Say what it will cost first.

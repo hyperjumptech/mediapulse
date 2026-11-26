@@ -32,10 +32,6 @@ const article = (
   publishedAt: "2026-11-14T01:30:00.000Z",
   registrableDomain: "kontan.co.id",
   publisherIri: PUBLISHER_IRI,
-  tickers: [
-    { symbol: "MAPB", name: "PT Map Boga Adiperkasa Tbk" },
-    { symbol: "MAPI", name: "PT Mitra Adiperkasa Tbk" },
-  ],
   placedForIris: [MAPB_IRI, MAPI_IRI],
   ...overrides,
 });
@@ -74,14 +70,13 @@ const createClient = (fetchImpl: typeof fetch) =>
   });
 
 describe("buildIngestionRequest", () => {
-  it("puts the tickers, date and publisher in a header the model reads, ahead of the snippet and body", () => {
+  it("puts the date and publisher in a header the model reads, ahead of the snippet and body, and leaves the placed tickers out of it", () => {
     const request = buildIngestionRequest(article());
 
     expect(request.content).toBe(
       [
         "# Map Boga Adiperkasa buka 50 gerai Starbucks baru",
         "",
-        "- Placed for: MAPB (PT Map Boga Adiperkasa Tbk), MAPI (PT Mitra Adiperkasa Tbk)",
         "- Published: 2026-11-14T01:30:00.000Z",
         "- Publisher: kontan.co.id",
         "",
